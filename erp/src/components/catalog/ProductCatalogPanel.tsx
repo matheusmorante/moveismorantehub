@@ -28,7 +28,8 @@ import { ProductCatalogPreview, type ProductCatalogPreviewTab } from './ProductC
 import { ProductCatalogCategorySidebar } from './ProductCatalogCategorySidebar';
 import { ProductCatalogFilterToolbar } from './ProductCatalogFilterToolbar';
 import { createProductCatalogSelectionActions } from './productCatalogSelection';
-import { getProductCatalogPresentation, type CatalogPresentation } from './productCatalogPresentationMode';
+import type { CatalogPresentation } from './productCatalogPresentationMode';
+import { useProductCatalogPresentationObserver } from './useProductCatalogPresentationObserver';
 import {
   itemKey,
   makeCatalogItem,
@@ -96,30 +97,7 @@ export const ProductCatalogPanel: React.FC<ProductCatalogPanelProps> = ({
 
   useEffect(() => setMounted(true), []);
 
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const availableSpace = availableSpaceRef?.current || null;
-    const measurePresentation = () => {
-      const viewportWidth = window.visualViewport?.width || window.innerWidth;
-      const contentWidth = availableSpace?.getBoundingClientRect().width || viewportWidth;
-      setPresentation(getProductCatalogPresentation(viewportWidth, contentWidth));
-    };
-
-    measurePresentation();
-    window.addEventListener('resize', measurePresentation);
-    window.visualViewport?.addEventListener('resize', measurePresentation);
-    const observer = availableSpace && typeof ResizeObserver !== 'undefined'
-      ? new ResizeObserver(measurePresentation)
-      : null;
-    if (observer && availableSpace) observer.observe(availableSpace);
-
-    return () => {
-      window.removeEventListener('resize', measurePresentation);
-      window.visualViewport?.removeEventListener('resize', measurePresentation);
-      observer?.disconnect();
-    };
-  }, [availableSpaceRef, isOpen]);
+  useProductCatalogPresentationObserver({ isOpen, availableSpaceRef, setPresentation });
 
   useEffect(() => {
     if (!isOpen) return;

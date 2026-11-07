@@ -111,7 +111,6 @@ export const useProductSearch_new = (
               promotionDiscountPercent: row.promotion_discount_percent == null
                 ? undefined
                 : Number(row.promotion_discount_percent),
-              promotionFinalPrice: row.promotion_id ? Number(row.final_unit_price || 0) : undefined,
               isComposition: isProductComposition,
               isCombo,
               itemType: isProductComposition ? 'composition' : productItemType || 'product',
@@ -131,7 +130,6 @@ export const useProductSearch_new = (
                 promotionDiscountPercent: row.promotion_discount_percent == null
                   ? undefined
                   : Number(row.promotion_discount_percent),
-                promotionFinalPrice: row.promotion_id ? Number(row.final_unit_price || 0) : undefined,
                 attributes: isComp
                   ? []
                   : parseVariationAttributes(attributesByVariationId.get(row.variation_id)),

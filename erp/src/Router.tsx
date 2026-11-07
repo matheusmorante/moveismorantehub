@@ -46,6 +46,8 @@ import FinanceSettings from './pages/App/Finance/Settings';
 import SystemDocs from './pages/App/SystemDocs/Index';
 import ChannelCatalog from './pages/App/Marketing/ChannelCatalog';
 import MarketingPosts from './pages/App/Marketing/Posts';
+const SiteElementsPage = lazy(() => import('./pages/App/Marketing/SiteElements'));
+const ImageTemplatesPage = lazy(() => import('./pages/App/Marketing/ImageTemplates'));
 import AssemblyListPage from './pages/App/Logistics/AssemblyListPage';
 import AssemblyPrintPage from './pages/App/Logistics/AssemblyPrintPage';
 import MobileAppLanding from './pages/App/MobileAppLanding';
@@ -299,6 +301,10 @@ function Router() {
               }
             />
             <Route element={<PermissionRoute action="managePromotions" />}>
+              <Route path="/products/campaigns" element={<PromotionsPage />} />
+              <Route path="/products/campaigns/new" element={<PromotionsPage />} />
+              <Route path="/products/campaigns/:id/edit" element={<PromotionsPage />} />
+              {/* Keep old product-promotion links working for existing bookmarks. */}
               <Route path="/products/promotions" element={<PromotionsPage />} />
               <Route path="/products/promotions/new" element={<PromotionsPage />} />
               <Route path="/products/promotions/:id/edit" element={<PromotionsPage />} />
@@ -348,6 +354,12 @@ function Router() {
             </Route>
             <Route element={<PermissionRoute action="viewChannelCatalog" />}>
               <Route path="/marketing/channel-catalog" element={<ChannelCatalog />} />
+            </Route>
+            <Route element={<PermissionRoute action="manageSiteElements" />}>
+              <Route path="/marketing/site-elements" element={<SiteElementsPage />} />
+            </Route>
+            <Route element={<PermissionRoute action="manageCatalogImageTemplates" />}>
+              <Route path="/marketing/image-templates" element={<Suspense fallback={<LoadingFallback />}><ImageTemplatesPage /></Suspense>} />
             </Route>
             {/* Estoque */}
             <Route element={<PermissionRoute action="viewStock" />}>

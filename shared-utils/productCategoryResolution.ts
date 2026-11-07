@@ -112,6 +112,16 @@ const CATEGORY_ALIAS_RULES: readonly CategoryAliasRule[] = [
   { category: 'Tampos', aliases: ['tampo para balcao', 'tampo de balcao'] },
 ];
 
+export const isDiningSetCategoryName = (name: string): boolean => {
+  const normalizedName = normalize(name);
+  const rule = CATEGORY_ALIAS_RULES.find(
+    ({ category }) => category === 'Conjunto Mesa e Cadeiras'
+  );
+  return Boolean(
+    rule && [rule.category, ...rule.aliases].some((candidate) => normalize(candidate) === normalizedName)
+  );
+};
+
 const IGNORE_TOKENS = new Set(['de', 'da', 'do', 'das', 'dos', 'para', 'com', 'em', 'por']);
 const BATHROOM_CONTEXT = ['banheiro', 'banho'];
 const KITCHEN_CATEGORIES = new Set([

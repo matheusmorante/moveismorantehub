@@ -30,6 +30,7 @@ import { isSameFiscalModelDecision } from '../../shared-utils/fiscalDocumentMode
 import { deriveNfeRandomCode, type ApprovedFiscalRuleSet } from './fiscalCore';
 import type { Database, Result } from './hml-technical/types';
 import { failure, saoPauloTimestamp } from './hml-technical/constants';
+import { buildHmlSnapshotReservationRequest } from './hml-technical/snapshotReservationRequest';
 import {
   snapshotReasonOf,
   classifySnapshotReservationError,
@@ -231,41 +232,13 @@ export async function emitHmlTechnical(
       `A numeração manual precisa ser igual ou superior ao início configurado (${sequence.minimumNumber}).`,
       { numberReserved: false, sefazContacted: false }
     );
-  const snapshotRpcName =
-    command.requestedNumber === undefined
-      ? technicalFixture
-        ? 'prepare_nfe_fiscal_snapshot'
-        : 'prepare_nfe_fiscal_snapshot_with_context'
-      : technicalFixture
-        ? 'prepare_numbered_nfe_fiscal_snapshot'
-        : 'prepare_numbered_nfe_fiscal_snapshot_with_context';
-  const snapshotArgs = {
-    p_order_id: command.orderId,
-    p_emission_request_id: command.emissionRequestId,
-    p_modelo: preflight.document.model,
-    p_ambiente: 2,
-    p_serie: sequence.series,
-    p_numero_minimo: sequence.minimumNumber,
-    p_item_csosn_overrides: command.itemCsosnOverrides || {},
-    p_item_fiscal_selections: command.itemFiscalSelections || {},
-    ...(technicalFixture
-      ? {}
-      : { p_recipient_tax_id: normalizeRecipientTaxId(effectiveRecipientTaxId) }),
-    ...(technicalFixture
-      ? {}
-      : {
-          p_final_consumer:
-            command.finalConsumer ??
-            (preflight.document.modelDecision?.status === 'ready' &&
-              preflight.document.modelDecision.finalConsumer),
-          p_delivery_by_issuer: command.deliveryByIssuer ?? false,
-          p_card_not_integrated: command.cardNotIntegrated ?? false,
-          p_model_decision: preflight.document.modelDecision,
-        }),
-    ...(command.requestedNumber === undefined
-      ? {}
-      : { p_requested_number: command.requestedNumber }),
-  };
+  const { snapshotRpcName, snapshotArgs } = buildHmlSnapshotReservationRequest(
+    command,
+    preflight.document,
+    technicalFixture,
+    sequence,
+    effectiveRecipientTaxId
+  );
   const { data: reservationValue, error: reservationError } = await db.rpc(
     snapshotRpcName,
     snapshotArgs

@@ -18,7 +18,7 @@ import { ReceiptTotalSummary } from './ReceiptTotalSummary';
 import { ReceiptSubmissionFooter } from './ReceiptSubmissionFooter';
 import { styles } from './newGoodsReceiptModal.styles';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ArrowLeft, CalendarDays, Check, LockKeyhole, X } from 'lucide-react-native';
+import { ArrowLeft, CalendarDays, X } from 'lucide-react-native';
 import {
   mobileReceiptFormSchema,
   receiptDraftFormSchema,
@@ -51,6 +51,7 @@ import {
 import { connectivityService } from '../../../../services/offline/connectivityService';
 import { fetchInboundInvoiceForMappings } from '../../../../services/stock/invoices/inboundInvoiceMappingsService';
 import { ReceiptSourceOptions, ReceiptSourcePicker } from './ReceiptSourcePicker';
+import { ReceiptSupplierField } from './ReceiptSupplierField';
 import {
   calculateMobileReceiptItems,
   inboundReceiptOrigin,
@@ -941,87 +942,32 @@ export const NewGoodsReceiptModal: React.FC<Props> = ({
                   },
                 ]}
               >
-                <Text style={[styles.label, { color: colors.text }]}>
-                  Fornecedor{isInvoiceLinkedReceipt ? '' : ' *'}
-                </Text>
-                <View style={styles.supplierFieldContainer}>
-                  {isInvoiceLinkedReceipt ? (
-                    <View
-                      style={[styles.informationalField, { backgroundColor: colors.bg }]}
-                      accessibilityRole="text"
-                      accessibilityLabel={`Fornecedor: ${selectedSupplier?.name || origin.supplierName || 'Fornecedor'}`}
-                    >
-                      <Text style={{ color: colors.text, flex: 1 }}>
-                        {selectedSupplier?.name || origin.supplierName || 'Fornecedor'}
-                      </Text>
-                    </View>
-                  ) : (
-                    <TouchableOpacity
-                      onPress={() => {
-                        if (supplierLocked) {
-                          setShowSupplierLockTooltip((visible) => !visible);
-                        } else if (isEditingReceipt && !origin.fiscalKey) {
-                          void openSupplierPicker();
-                        } else if (!isEditingReceipt && origin.kind === 'manual') {
-                          void openSupplierPicker();
-                        }
-                      }}
-                      disabled={
-                        loadingSuppliers ||
-                        (isEditingReceipt ? Boolean(origin.fiscalKey) : origin.kind !== 'manual')
-                      }
-                      style={[
-                        styles.selectButton,
-                        {
-                          backgroundColor: colors.bg,
-                          borderBottomColor: supplierSelected ? '#059669' : colors.border,
-                        },
-                      ]}
-                      accessibilityRole="button"
-                      accessibilityLabel={supplierLocked
-                        ? 'Fornecedor selecionado e bloqueado. Toque para ver como liberar o campo.'
-                        : selectedSupplier?.name || origin.supplierName || 'Selecionar fornecedor'}
-                      accessibilityState={{ expanded: supplierLocked && showSupplierLockTooltip }}
-                      accessibilityHint={supplierLocked
-                        ? 'Remova todos os itens do recebimento para trocar o fornecedor.'
-                        : undefined}
-                    >
-                      <Text
-                        style={{
-                          color: supplierId ? colors.text : colors.muted,
-                          flex: 1,
-                        }}
-                      >
-                        {selectedSupplier?.name || origin.supplierName || 'Selecionar fornecedor'}
-                      </Text>
-                      {supplierSelected ? (
-                        <View style={styles.supplierIcons}>
-                          <Check size={18} color="#059669" />
-                          {supplierLocked || (isEditingReceipt && Boolean(origin.fiscalKey))
-                            ? <LockKeyhole size={18} color="#d97706" />
-                            : null}
-                        </View>
-                      ) : origin.kind === 'manual' && items.length === 0 && loadingSuppliers ? (
-                        <ActivityIndicator size="small" color="#059669" />
-                      ) : origin.kind === 'manual' && items.length === 0 ? (
-                        <Text style={{ color: '#059669', fontWeight: '900' }}>Escolher</Text>
-                      ) : null}
-                    </TouchableOpacity>
-                  )}
-                  {!isInvoiceLinkedReceipt && supplierLocked && showSupplierLockTooltip ? (
-                    <View
-                      style={[styles.lockedTooltip, { backgroundColor: colors.surface, borderColor: colors.border }]}
-                      accessibilityRole="text"
-                    >
-                      <Text style={[styles.lockedTooltipText, { color: colors.text }]}>
-                        Para alterar o fornecedor, remova todos os itens deste recebimento.
-                      </Text>
-                    </View>
-                  ) : null}
-                </View>
-                {supplierLoadError && origin.kind !== 'invoice' ? (
-                  <Text style={styles.errorText}>{supplierLoadError}</Text>
-                ) : null}
+                <ReceiptSupplierField
+                  colors={colors}
+                  isInvoiceLinkedReceipt={isInvoiceLinkedReceipt}
+                  selectedSupplierName={selectedSupplier?.name}
+                  originSupplierName={origin.supplierName}
+                  supplierSelected={supplierSelected}
+                  supplierLocked={supplierLocked}
+                  showSupplierLockTooltip={showSupplierLockTooltip}
+                  supplierLoadError={origin.kind !== 'invoice' ? supplierLoadError : ''}
+                  buttonDisabled={
+                    loadingSuppliers ||
+                    (isEditingReceipt ? Boolean(origin.fiscalKey) : origin.kind !== 'manual')
+                  }
+                  showLockIcon={supplierLocked || (isEditingReceipt && Boolean(origin.fiscalKey))}
+                  showManualLoading={origin.kind === 'manual' && items.length === 0 && loadingSuppliers}
+                  showManualChoose={origin.kind === 'manual' && items.length === 0}
+                  onSupplierPress={() => {
+                    if (supplierLocked) {
+                      setShowSupplierLockTooltip((visible) => !visible);
+                    } else if (isEditingReceipt && !origin.fiscalKey) {
+                      void openSupplierPicker();
+                    } else if (!isEditingReceipt && origin.kind === 'manual') {
+                      void openSupplierPicker();
+                    }
+                  }}
+                />
 
                 <Text style={[styles.label, { color: colors.text }]}>
                   Data de recebimento *

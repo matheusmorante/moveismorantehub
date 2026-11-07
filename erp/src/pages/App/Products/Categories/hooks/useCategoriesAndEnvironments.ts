@@ -6,13 +6,14 @@ import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { catalogNameFormSchema } from '../../../../../../../shared-utils/catalogFormSchemas';
 import { categoryAttributeSelectionsSchema } from '../../../../../../../shared-utils/categoryAttributeSelection';
 import { isCatalogNeverRequiredCharacteristicName } from '../../../../../../../shared-utils/catalogPublication/requiredCharacteristicPolicy';
+import { isDiningSetCategoryName } from '../../../../../../../shared-utils/productCategoryResolution';
+import { isDedicatedChairCountCharacteristic } from '../../../../../../../shared-utils/productTechnicalFieldRules';
 import {
   characteristicCategoryApplicationsSchema,
   type CharacteristicCategoryApplication,
 } from '../../../../../../../shared-utils/categoryCharacteristicApplication';
 import {
-  fetchEnvironments,
-  fetchCategories,
+  fetchCategoryEnvironmentData,
   fetchCategoryProductCounts,
   createEnvironment,
   updateEnvironment,
@@ -87,7 +88,7 @@ export function useCategoriesAndEnvironments() {
     characteristicApplications: selectedCharacteristicApplications.map((application) => ({ ...application })),
   });
 
-  const loadCharacteristicApplications = useCallback(async (categoryId?: string) => {
+  const loadCharacteristicApplications = useCallback(async (categoryId?: string, categoryName = '') => {
     setIsLoadingCharacteristicApplications(true);
     setCharacteristicApplicationsLoadFailed(false);
     setActiveCharacteristics([]);
@@ -104,9 +105,15 @@ export function useCategoriesAndEnvironments() {
       setSelectedCharacteristicApplications(characteristics.map((attribute) => ({
         attributeId: attribute.id,
         name: attribute.name,
-        application: isCatalogNeverRequiredCharacteristicName(attribute.name)
-          ? 'optional'
-          : applicationsByAttributeId.get(attribute.id) ?? 'optional',
+        application: isDedicatedChairCountCharacteristic(attribute.name)
+          ? isDiningSetCategoryName(categoryName)
+            ? applicationsByAttributeId.get(attribute.id) === 'unavailable'
+              ? 'optional'
+              : applicationsByAttributeId.get(attribute.id) ?? 'optional'
+            : 'unavailable'
+          : isCatalogNeverRequiredCharacteristicName(attribute.name)
+            ? 'optional'
+            : applicationsByAttributeId.get(attribute.id) ?? 'optional',
       })));
     } catch (error) {
       console.error('[useCategoriesAndEnvironments] Erro ao carregar aplicações das características:', error);
@@ -121,11 +128,11 @@ export function useCategoriesAndEnvironments() {
     if (!silent) setLoading(true);
     else setRefreshing(true);
     try {
-      const [envs, cats, prodCounts] = await Promise.all([
-        fetchEnvironments(),
-        fetchCategories(),
+      const [catalog, prodCounts] = await Promise.all([
+        fetchCategoryEnvironmentData('summary'),
         fetchCategoryProductCounts(),
       ]);
+      const { environments: envs, categories: cats } = catalog;
 
       const categoriesWithCounts: CategoryNode[] = (cats || []).map((c) => ({
         ...c,
@@ -177,11 +184,16 @@ export function useCategoriesAndEnvironments() {
         characteristicApplications: selectedCharacteristicApplications.map((application) => ({ ...application })),
       }, async (values) => {
       const name = values.name;
+      const isDiningSetCategory = isDiningSetCategoryName(name);
       const characteristicApplications = values.characteristicApplications.map((application) => ({
         ...application,
-        application: isCatalogNeverRequiredCharacteristicName(application.name)
-          ? 'optional' as const
-          : application.application,
+        application: isDedicatedChairCountCharacteristic(application.name)
+          ? isDiningSetCategory
+            ? application.application === 'unavailable' ? 'optional' as const : application.application
+            : 'unavailable' as const
+          : isCatalogNeverRequiredCharacteristicName(application.name)
+            ? 'optional' as const
+            : application.application,
       }));
       if (!name) {
         toast.error('O nome não pode estar vazio.');
@@ -321,7 +333,7 @@ export function useCategoriesAndEnvironments() {
     setAttributeLoadFailed(false);
     setIsLoadingAttributes(true);
     setShowModal('categoria');
-    void loadCharacteristicApplications(cat.id);
+    void loadCharacteristicApplications(cat.id, cat.name);
 
     try {
       const attrs = await fetchCategoryAttributes(cat.id);

@@ -1,5 +1,9 @@
 # Fonte do guia prático do estoque
 
+## Atualização de 06/11/2026 - consulta de pedidos de compra
+
+A página 20 explica que o filtro de fornecedor do ERP consulta o histórico completo, com 15 pedidos por página. Compras sem número salvo usam um código curto no ERP e no app; a orientação é conferir fornecedor, data e valor para reconhecer o pedido. A alteração mantém os passos e as regras de confirmação, recebimento e cancelamento.
+
 ## Atualização de 04/11/2026 — roteiros práticos revisados
 
 O guia tem 44 páginas: consulta rápida (29 a 35) e exemplos ilustrados (36 a 44) de recebimento, inventário, etiquetas, compras e avarias. A revisão cortou repetições e manteve os alertas operacionais.
@@ -211,6 +215,6 @@ A página 21 agora explica que Cancelar inventário está disponível em todos o
 
 A página 21 orienta que, no ERP e no app, o operador abra o menu de três pontinhos no cabeçalho de Inventário e escolha “Novo inventário”. O filtro de período fica separado, abaixo do cabeçalho.
 
-A página 24 esclarece que Movimentações é uma lista de consulta, sem ações de editar ou estornar. A lista identifica cada movimento como Efetivada ou Estornada; a observação mostra sua operação de origem e, no estorno, o motivo informado. Para corrigir uma mudança, use o pedido de compra, pedido de venda, recebimento ou devolução que a originou.
+A página 24 esclarece que Movimentações é uma lista de consulta, sem ações de editar ou estornar. Produto e período são consultados no histórico disponível, em páginas de 15 registros; o quadro de saldo usa o saldo cadastrado do produto ou da variação e não muda ao trocar a página ou período. A lista identifica cada movimento como Efetivada ou Estornada; a observação mostra sua operação de origem e, no estorno, o motivo informado. Para corrigir uma mudança, use o pedido de compra, pedido de venda, recebimento ou devolução que a originou.
 
 A página 22 informa que o botão de diminuir a contagem fica desativado quando o campo Contado está em zero, tanto no ERP quanto no app.

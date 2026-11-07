@@ -139,6 +139,386 @@ async function handleFinalizeAction({
   return res.status(200).json({ success: true, order: { ...finalized.order_data, id: orderId } });
 }
 
+// shared-utils/fiscalIdentifiers.ts
+function normalizeFiscalIdentifier(value) {
+  return String(value ?? "").trim().toUpperCase().replace(/[.\-/\s]/g, "");
+}
+
+// api/nfe/fiscalXmlAuditHelpers.ts
+var FiscalXmlAuditError = class extends Error {
+  mismatches;
+  constructor(mismatches) {
+    const detail = mismatches.map(({ field, expected, actual }) => `${field}: esperado ${expected}; encontrado ${actual}`).join("\n");
+    super(`O XML assinado diverge do snapshot fiscal confirmado:
+${detail}`);
+    this.name = "FiscalXmlAuditError";
+    this.mismatches = mismatches;
+  }
+};
+function normalizeTaxId(value) {
+  return normalizeFiscalIdentifier(value);
+}
+function addTextMismatch(mismatches, field, expected, actual, normalize3) {
+  if (expected === void 0) return;
+  const wanted = normalize3 ? normalize3(expected) : expected;
+  const found = normalize3 ? normalize3(actual) : actual;
+  if (wanted !== found)
+    mismatches.push({ field, expected: wanted, actual: found || "(ausente)" });
+}
+function addOptionalTextMismatch(mismatches, field, expected, actual) {
+  if (expected === void 0 || expected === "") {
+    if (actual !== "") mismatches.push({ field, expected: "(ausente)", actual });
+    return;
+  }
+  addTextMismatch(mismatches, field, expected, actual);
+}
+function addNumberMismatch(mismatches, field, expected, actualText, tolerance = 5e-3) {
+  const actual = actualText ? Number(actualText.replace(",", ".")) : NaN;
+  if (!Number.isFinite(actual) || Math.abs(actual - expected) > tolerance)
+    mismatches.push({
+      field,
+      expected,
+      actual: Number.isFinite(actual) ? actual : actualText || "(ausente)"
+    });
+}
+
+// erp/src/pages/utils/nfe/serviceFiscalComposition.ts
+var toCents = (value) => Math.round((Number(value) || 0) * 100);
+var normalizeLabel = (value) => String(value || "").replace(/\s+/g, " ").trim();
+var formatBrl = (cents) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(cents / 100).replace(/\u00a0/g, " ");
+var normalizeInfCplText = (value) => value.replace(/[“”]/g, '"').replace(/[‘’]/g, "'").replace(/[–—]/g, "-").replace(/…/g, "...").replace(/[^\u0009\u000a\u000d\u0020-\u00ff]/g, "");
+var getItemNetCents = (item) => {
+  const unitPrice = Number(item.unitPrice) || 0;
+  const quantity = Number(item.quantity) || 1;
+  const unitDiscount = Number(item.unitDiscount) || 0;
+  const fixedDiscount = item.discountType === "fixed" ? unitDiscount : unitPrice * unitDiscount / 100;
+  return toCents(Math.max(0, unitPrice - fixedDiscount) * quantity);
+};
+function allocateCentsByQuantity(amountCents, targets) {
+  const totalQuantity = targets.reduce((sum, target) => sum + target.quantity, 0);
+  const exactShares = targets.map((target) => amountCents * target.quantity / totalQuantity);
+  const shares = exactShares.map(Math.floor);
+  let remainingCents = amountCents - shares.reduce((sum, share) => sum + share, 0);
+  const byLargestRemainder = exactShares.map((exact, index) => ({ index, remainder: exact - shares[index] })).sort((left, right) => right.remainder - left.remainder || left.index - right.index);
+  for (let index = 0; index < remainingCents; index += 1) {
+    shares[byLargestRemainder[index % byLargestRemainder.length].index] += 1;
+  }
+  return shares;
+}
+function linkedProductIds(service) {
+  const configuredIds = Array.isArray(service.linkedProductOrderItemIds) && service.linkedProductOrderItemIds.length ? service.linkedProductOrderItemIds : service.linkedProductOrderItemId ? [service.linkedProductOrderItemId] : [];
+  const ids = configuredIds.filter((id) => typeof id === "string" && Boolean(id.trim())).map((id) => id.trim());
+  return { ids: [...new Set(ids)], malformed: ids.length !== configuredIds.length };
+}
+function composeServiceFiscalValues(items = [], mode = "55") {
+  const products = items.map((item, itemIndex) => ({ item, itemIndex })).filter(({ item }) => item.itemType !== "service");
+  const services = items.filter((item) => item.itemType === "service");
+  const linkedServiceCents = /* @__PURE__ */ new Map();
+  const linkedServiceLines = /* @__PURE__ */ new Map();
+  const pendingServices = [];
+  let incorporatedServiceCents = 0;
+  for (const service of services) {
+    const netCents = getItemNetCents(service);
+    if (netCents <= 0) continue;
+    const { ids, malformed } = linkedProductIds(service);
+    const targets = ids.map((id) => products.find(({ item }) => item.orderItemId === id)?.item).filter((item) => Boolean(item)).sort(
+      (left, right) => products.findIndex(({ item }) => item === left) - products.findIndex(({ item }) => item === right)
+    );
+    if (!ids.length || malformed || targets.length !== ids.length) {
+      pendingServices.push({ item: service, amountCents: netCents, reason: "missing_product_link" });
+      continue;
+    }
+    const targetsWithQuantity = targets.map((item) => ({ item, quantity: Number(item.quantity) }));
+    if (targetsWithQuantity.some(
+      ({ quantity }) => !Number.isFinite(quantity) || quantity <= 0
+    )) {
+      pendingServices.push({ item: service, amountCents: netCents, reason: "invalid_product_quantity" });
+      continue;
+    }
+    const allocations = allocateCentsByQuantity(netCents, targetsWithQuantity);
+    targetsWithQuantity.forEach(({ item }, index) => {
+      const productId = item.orderItemId;
+      const allocatedCents = allocations[index];
+      if (allocatedCents <= 0) return;
+      linkedServiceCents.set(
+        productId,
+        (linkedServiceCents.get(productId) || 0) + allocatedCents
+      );
+      const lines = linkedServiceLines.get(productId) || [];
+      lines.push({
+        description: normalizeLabel(service.description),
+        allocatedCents,
+        totalServiceCents: netCents
+      });
+      linkedServiceLines.set(productId, lines);
+    });
+    incorporatedServiceCents += netCents;
+  }
+  const fiscalProducts = products.map(({ item, itemIndex }) => {
+    const quantity = Number(item.quantity) || 1;
+    const grossCents = toCents((Number(item.unitPrice) || 0) * quantity);
+    const netCents = getItemNetCents(item);
+    const incorporatedServices = item.orderItemId ? linkedServiceLines.get(item.orderItemId) || [] : [];
+    return {
+      item,
+      itemIndex,
+      vProdCents: grossCents + (item.orderItemId ? linkedServiceCents.get(item.orderItemId) || 0 : 0),
+      vDescCents: Math.max(0, grossCents - netCents),
+      incorporatedServices
+    };
+  });
+  const invoiceModel = mode === "65" ? "NFC-e" : "NF-e";
+  const additionalInformation = fiscalProducts.flatMap(
+    ({ item, incorporatedServices }) => incorporatedServices.map(
+      ({ description, allocatedCents, totalServiceCents }) => normalizeInfCplText(
+        `O valor fiscal do item "${normalizeLabel(item.description)}" inclui ${formatBrl(allocatedCents)} do rateio do servi\xE7o "${description || "Servi\xE7o sem descri\xE7\xE3o"}" (valor total do servi\xE7o no pedido: ${formatBrl(totalServiceCents)}). O rateio considera as quantidades dos produtos vinculados e \xE9 matem\xE1tico; n\xE3o afirma que o servi\xE7o foi executado em cada unidade. O servi\xE7o n\xE3o \xE9 cobrado novamente em separado na ${invoiceModel}.`
+      )
+    )
+  ).join("; ");
+  if (additionalInformation.length > 5e3)
+    throw new Error("O detalhamento dos servi\xE7os incorporados excede o limite de informa\xE7\xF5es adicionais da nota fiscal.");
+  return {
+    products: fiscalProducts,
+    vOutroCents: 0,
+    pendingServices,
+    ...additionalInformation ? { additionalInformation } : {},
+    incorporatedServiceCents
+  };
+}
+
+// api/nfe/normal-sale/values.ts
+var obj = (value) => {
+  if (!value || typeof value !== "object" || Array.isArray(value))
+    throw new Error("Fatos fiscais obrigat\xF3rios ausentes.");
+  return value;
+};
+var normalize = (value) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase();
+var money = (value, field, positive = false) => {
+  if (typeof value !== "number" || !Number.isFinite(value) || value < (positive ? 0.01 : 0) || Math.abs(value * 100 - Math.round(value * 100)) > 1e-6)
+    throw new Error(`${field} inv\xE1lido ou fora da precis\xE3o de centavos.`);
+  return Math.round(value * 100);
+};
+
+// api/nfe/normal-sale/paymentFeeVoutro.ts
+function record(value) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+}
+function exactFeeCents(payment, index) {
+  const fee = payment.fee ?? 0;
+  if (typeof fee !== "number" || !Number.isFinite(fee) || fee < 0)
+    throw new Error(`Taxa do pagamento ${index + 1} inv\xE1lida.`);
+  if (fee === 0) return 0;
+  const amount = payment.amount;
+  if (typeof amount !== "number" || !Number.isFinite(amount) || amount <= 0)
+    throw new Error(`Taxa do pagamento ${index + 1} n\xE3o tem valor-base v\xE1lido.`);
+  const amountCents = Math.round(amount * 100);
+  if (!Number.isSafeInteger(amountCents) || Math.abs(amount * 100 - amountCents) > 1e-6)
+    throw new Error(`Valor do pagamento ${index + 1} est\xE1 fora da precis\xE3o de centavos.`);
+  const feeType = payment.feeType ?? "fixed";
+  if (feeType === "fixed") {
+    const feeCents = Math.round(fee * 100);
+    if (Math.abs(fee * 100 - feeCents) > 1e-6)
+      throw new Error(`Taxa fixa do pagamento ${index + 1} est\xE1 fora da precis\xE3o de centavos.`);
+    return feeCents;
+  }
+  if (feeType !== "percentage")
+    throw new Error(`Tipo da taxa do pagamento ${index + 1} inv\xE1lido.`);
+  const exactCents = amountCents * fee / 100;
+  if (!Number.isFinite(exactCents) || exactCents > Number.MAX_SAFE_INTEGER)
+    throw new Error(`Taxa percentual do pagamento ${index + 1} inv\xE1lida.`);
+  return exactCents;
+}
+function allocateRoundedRows(exactCents, targetCents) {
+  if (targetCents <= 0) return exactCents.map(() => 0);
+  const rows = exactCents.map((exact, index) => ({
+    index,
+    cents: Math.floor(exact),
+    remainder: exact - Math.floor(exact)
+  }));
+  const remaining = targetCents - rows.reduce((sum, row) => sum + row.cents, 0);
+  const order = [...rows].sort(
+    (left, right) => right.remainder - left.remainder || left.index - right.index
+  );
+  for (let index = 0; index < remaining; index += 1) order[index].cents += 1;
+  return rows.sort((left, right) => left.index - right.index).map((row) => row.cents);
+}
+function resolvePaymentFeeRows(data) {
+  const payments = Array.isArray(data.payments) ? data.payments.map(record) : [];
+  const exactCents = payments.map(exactFeeCents);
+  const exactTotalCents = exactCents.reduce((sum, value) => sum + value, 0);
+  const rawSummary = record(data.paymentsSummary).totalPaymentsFee;
+  if (exactTotalCents === 0 && (rawSummary === void 0 || rawSummary === null))
+    return { feeCentsByPayment: exactCents.map(() => 0), totalFeeCents: 0 };
+  if (typeof rawSummary !== "number" || !Number.isFinite(rawSummary) || rawSummary < 0)
+    throw new Error("O resumo consolidado das taxas de pagamento est\xE1 ausente ou inv\xE1lido.");
+  const totalFeeCents = Math.round(rawSummary * 100);
+  if (Math.abs(rawSummary * 100 - exactTotalCents) > 1e-4 || totalFeeCents !== Math.round(exactTotalCents))
+    throw new Error(
+      "As taxas dos pagamentos n\xE3o reconciliam com o total consolidado do pedido; revise o resumo antes de emitir."
+    );
+  return {
+    feeCentsByPayment: allocateRoundedRows(exactCents, totalFeeCents),
+    totalFeeCents
+  };
+}
+function fiscalPaymentMethodCode(method) {
+  if (typeof method !== "string") return void 0;
+  const normalized = normalize(method);
+  if (normalized.includes("CREDITO") || normalized.includes("CREDIT")) return "03";
+  if (normalized.includes("DEBITO") || normalized.includes("DEBIT")) return "04";
+  return void 0;
+}
+function paymentInstallments(payment) {
+  if (payment.installments !== void 0 && payment.installments !== null)
+    return Number(payment.installments);
+  const label = typeof payment.method === "string" ? payment.method : "";
+  const fromLabel = label.match(/\b(\d{1,3})\s*x\b/i);
+  return fromLabel ? Number(fromLabel[1]) : 1;
+}
+function formatBrl2(cents) {
+  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(cents / 100).replace(/\u00a0/g, " ");
+}
+function paymentFeeInformation(data, feeCentsByPayment, totalFeeCents, model) {
+  const payments = Array.isArray(data.payments) ? data.payments.map(record) : [];
+  const groups = /* @__PURE__ */ new Map();
+  payments.forEach((payment, index) => {
+    const cents = feeCentsByPayment[index] || 0;
+    if (!cents) return;
+    const method = fiscalPaymentMethodCode(payment.method);
+    if (!method) throw new Error(`Origem da taxa do pagamento ${index + 1} n\xE3o est\xE1 classificada.`);
+    const installments = paymentInstallments(payment);
+    const key = method === "03" && installments > 1 ? "credit_installments" : method;
+    const description = key === "credit_installments" ? "processamento do cart\xE3o de cr\xE9dito e \xE0s condi\xE7\xF5es de parcelamento escolhidas" : method === "03" ? "processamento do cart\xE3o de cr\xE9dito" : "processamento do cart\xE3o de d\xE9bito";
+    const current = groups.get(key) || { cents: 0, description };
+    current.cents += cents;
+    groups.set(key, current);
+  });
+  const origins = [...groups.values()].map(({ cents, description }) => `${formatBrl2(cents)} referentes aos custos de ${description}`).join("; ");
+  return `O valor total desta ${model === "65" ? "NFC-e" : "NF-e"} inclui ${formatBrl2(totalFeeCents)} em acr\xE9scimos da modalidade de pagamento, j\xE1 considerados no total do pedido e repassados ao comprador: ${origins}. As taxas de maquininha foram rateadas proporcionalmente ao valor l\xEDquido dos produtos, compondo as outras despesas acess\xF3rias de cada item.`;
+}
+function allocateAcrossItems(totalCents, weights) {
+  if (!totalCents) return weights.map(() => 0);
+  const eligibleWeights = weights.map((weight) => Math.max(0, Math.round(weight)));
+  const weightTotal = eligibleWeights.reduce((sum, weight) => sum + weight, 0);
+  if (!eligibleWeights.length || weightTotal <= 0)
+    throw new Error("N\xE3o h\xE1 itens fiscais com valor l\xEDquido para ratear as taxas de pagamento.");
+  const exact = eligibleWeights.map((weight) => totalCents * weight / weightTotal);
+  const roundedDown = exact.map(Math.floor);
+  let remaining = totalCents - roundedDown.reduce((sum, cents) => sum + cents, 0);
+  const order = exact.map((share, index) => ({ index, remainder: share - roundedDown[index] })).sort((left, right) => right.remainder - left.remainder || left.index - right.index);
+  for (let index = 0; index < remaining; index += 1) roundedDown[order[index].index] += 1;
+  return roundedDown;
+}
+function composePaymentFeeVoutro(params) {
+  const { snapshot, model, itemNetCents } = params;
+  const paymentFees = params.paymentFees || resolvePaymentFeeRows(snapshot.order.data);
+  const itemFeeCents = itemNetCents.map(() => 0);
+  if (!paymentFees.totalFeeCents)
+    return { ...paymentFees, itemFeeCents };
+  const payments = Array.isArray(snapshot.order.data.payments) ? snapshot.order.data.payments.map(record) : [];
+  payments.forEach((payment, index) => {
+    if (!(paymentFees.feeCentsByPayment[index] > 0)) return;
+    const method = fiscalPaymentMethodCode(payment.method);
+    if (!method)
+      throw new Error(
+        `A taxa do pagamento ${index + 1} n\xE3o est\xE1 vinculada a uma modalidade de cart\xE3o aprovada para classifica\xE7\xE3o fiscal.`
+      );
+    const installments = paymentInstallments(payment);
+    if (!Number.isInteger(installments) || installments < 1 || method === "04" && installments > 1)
+      throw new Error(`Parcelamento do pagamento ${index + 1} n\xE3o suportado para esta decis\xE3o fiscal.`);
+  });
+  const allocations = allocateAcrossItems(paymentFees.totalFeeCents, itemNetCents);
+  const additionalInformation = paymentFeeInformation(
+    snapshot.order.data,
+    paymentFees.feeCentsByPayment,
+    paymentFees.totalFeeCents,
+    model
+  );
+  if (additionalInformation.length > 5e3)
+    throw new Error("A explica\xE7\xE3o das taxas excede o limite de informa\xE7\xF5es adicionais da NF-e.");
+  return {
+    ...paymentFees,
+    itemFeeCents: allocations,
+    additionalInformation
+  };
+}
+function joinFiscalAdditionalInformation(...sections) {
+  const value = sections.filter((section) => Boolean(section?.trim())).join("; ");
+  if (value.length > 5e3)
+    throw new Error("As informa\xE7\xF5es adicionais excedem o limite fiscal da NF-e.");
+  return value || void 0;
+}
+
+// shared-utils/orderPaymentState.ts
+var normalize2 = (value) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
+function classifyOrderPaymentSettlement(status) {
+  if (status === void 0 || status === null) return "paid";
+  const normalized = normalize2(String(status));
+  if (normalized.startsWith("pago")) return "paid";
+  if (normalized.startsWith("pendente")) return "pending";
+  return "unconfirmed";
+}
+function isPromissoryPaymentMethod(method) {
+  return typeof method === "string" && normalize2(method).includes("promissoria");
+}
+function getOrderFulfillmentPaymentCondition(deliveryMethod) {
+  if (deliveryMethod === "pickup") return "Pagamento na retirada";
+  if (deliveryMethod === "delivery") return "Pagamento na entrega";
+  return void 0;
+}
+function parseDateOnly(value) {
+  if (typeof value !== "string") return void 0;
+  const match = value.trim().match(/^(\d{4}-\d{2}-\d{2})(?:$|T|\s)/);
+  if (!match) return void 0;
+  const date = /* @__PURE__ */ new Date(`${match[1]}T00:00:00.000Z`);
+  return Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== match[1] ? void 0 : match[1];
+}
+function getOrderPaymentDueDate(payment, shipping) {
+  const explicitDate = parseDateOnly(payment.dueDate);
+  if (explicitDate) return explicitDate;
+  if (isPromissoryPaymentMethod(payment.method)) return void 0;
+  const scheduling = shipping?.scheduling;
+  if (!getOrderFulfillmentPaymentCondition(shipping?.deliveryMethod) || scheduling?.pendingScheduling === true || scheduling?.dateType === "range" || scheduling?.type === "range")
+    return void 0;
+  return parseDateOnly(scheduling?.date);
+}
+function getOrderPaymentActualDate(payment) {
+  return parseDateOnly(payment.paymentDate);
+}
+
+// api/nfe/normal-sale/attemptPolicy.ts
+function saoPauloEmissionTimestamp(iso) {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) throw new Error("Data fiscal inv\xE1lida.");
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat("en-US", {
+      timeZone: "America/Sao_Paulo",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hourCycle: "h23",
+      timeZoneName: "longOffset"
+    }).formatToParts(date).map(({ type, value }) => [type, value])
+  );
+  const offset = parts.timeZoneName.replace("GMT", "") || "+00:00";
+  return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}:${parts.second}${offset}`;
+}
+
+// shared-utils/fiscalIcmsGroups.ts
+var ZERO_OWN_ICMS_CSOSNS = ["102", "103", "300", "400"];
+var CSOSN_CODES = ["101", "102", "103", "201", "202", "203", "300", "400", "500", "900"];
+function zeroOwnIcmsGroup(csosn) {
+  if (!ZERO_OWN_ICMS_CSOSNS.includes(csosn))
+    throw new Error(`CSOSN ${csosn || "n\xE3o informado"} exige determina\xE7\xE3o e grupo tribut\xE1rio espec\xEDficos.`);
+  return "ICMSSN102";
+}
+
+// shared-utils/fiscalItemSelections.ts
+var csosns = new Set(CSOSN_CODES);
+
 // shared-utils/fiscal-cfop-model/data/cfopBaseCatalog.ts
 var CFOP_CATALOG_BASE = [
   // --- SAÍDAS INTERNAS (5.xxx) ---
@@ -636,348 +1016,6 @@ function getHomologationRecipientName(input) {
   return input.environment === 2 ? HOMOLOGATION_NFE_RECIPIENT_NAME : input.recipientName;
 }
 
-// shared-utils/fiscalIcmsGroups.ts
-var ZERO_OWN_ICMS_CSOSNS = ["102", "103", "300", "400"];
-var CSOSN_CODES = ["101", "102", "103", "201", "202", "203", "300", "400", "500", "900"];
-function zeroOwnIcmsGroup(csosn) {
-  if (!ZERO_OWN_ICMS_CSOSNS.includes(csosn))
-    throw new Error(`CSOSN ${csosn || "n\xE3o informado"} exige determina\xE7\xE3o e grupo tribut\xE1rio espec\xEDficos.`);
-  return "ICMSSN102";
-}
-
-// erp/src/pages/utils/nfe/serviceFiscalComposition.ts
-var toCents = (value) => Math.round((Number(value) || 0) * 100);
-var normalizeLabel = (value) => String(value || "").replace(/\s+/g, " ").trim();
-var formatBrl = (cents) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(cents / 100).replace(/\u00a0/g, " ");
-var normalizeInfCplText = (value) => value.replace(/[“”]/g, '"').replace(/[‘’]/g, "'").replace(/[–—]/g, "-").replace(/…/g, "...").replace(/[^\u0009\u000a\u000d\u0020-\u00ff]/g, "");
-var getItemNetCents = (item) => {
-  const unitPrice = Number(item.unitPrice) || 0;
-  const quantity = Number(item.quantity) || 1;
-  const unitDiscount = Number(item.unitDiscount) || 0;
-  const fixedDiscount = item.discountType === "fixed" ? unitDiscount : unitPrice * unitDiscount / 100;
-  return toCents(Math.max(0, unitPrice - fixedDiscount) * quantity);
-};
-function allocateCentsByQuantity(amountCents, targets) {
-  const totalQuantity = targets.reduce((sum, target) => sum + target.quantity, 0);
-  const exactShares = targets.map((target) => amountCents * target.quantity / totalQuantity);
-  const shares = exactShares.map(Math.floor);
-  let remainingCents = amountCents - shares.reduce((sum, share) => sum + share, 0);
-  const byLargestRemainder = exactShares.map((exact, index) => ({ index, remainder: exact - shares[index] })).sort((left, right) => right.remainder - left.remainder || left.index - right.index);
-  for (let index = 0; index < remainingCents; index += 1) {
-    shares[byLargestRemainder[index % byLargestRemainder.length].index] += 1;
-  }
-  return shares;
-}
-function linkedProductIds(service) {
-  const configuredIds = Array.isArray(service.linkedProductOrderItemIds) && service.linkedProductOrderItemIds.length ? service.linkedProductOrderItemIds : service.linkedProductOrderItemId ? [service.linkedProductOrderItemId] : [];
-  const ids = configuredIds.filter((id) => typeof id === "string" && Boolean(id.trim())).map((id) => id.trim());
-  return { ids: [...new Set(ids)], malformed: ids.length !== configuredIds.length };
-}
-function composeServiceFiscalValues(items = [], mode = "55") {
-  const products = items.map((item, itemIndex) => ({ item, itemIndex })).filter(({ item }) => item.itemType !== "service");
-  const services = items.filter((item) => item.itemType === "service");
-  const linkedServiceCents = /* @__PURE__ */ new Map();
-  const linkedServiceLines = /* @__PURE__ */ new Map();
-  const pendingServices = [];
-  let incorporatedServiceCents = 0;
-  for (const service of services) {
-    const netCents = getItemNetCents(service);
-    if (netCents <= 0) continue;
-    const { ids, malformed } = linkedProductIds(service);
-    const targets = ids.map((id) => products.find(({ item }) => item.orderItemId === id)?.item).filter((item) => Boolean(item)).sort(
-      (left, right) => products.findIndex(({ item }) => item === left) - products.findIndex(({ item }) => item === right)
-    );
-    if (!ids.length || malformed || targets.length !== ids.length) {
-      pendingServices.push({ item: service, amountCents: netCents, reason: "missing_product_link" });
-      continue;
-    }
-    const targetsWithQuantity = targets.map((item) => ({ item, quantity: Number(item.quantity) }));
-    if (targetsWithQuantity.some(
-      ({ quantity }) => !Number.isFinite(quantity) || quantity <= 0
-    )) {
-      pendingServices.push({ item: service, amountCents: netCents, reason: "invalid_product_quantity" });
-      continue;
-    }
-    const allocations = allocateCentsByQuantity(netCents, targetsWithQuantity);
-    targetsWithQuantity.forEach(({ item }, index) => {
-      const productId = item.orderItemId;
-      const allocatedCents = allocations[index];
-      if (allocatedCents <= 0) return;
-      linkedServiceCents.set(
-        productId,
-        (linkedServiceCents.get(productId) || 0) + allocatedCents
-      );
-      const lines = linkedServiceLines.get(productId) || [];
-      lines.push({
-        description: normalizeLabel(service.description),
-        allocatedCents,
-        totalServiceCents: netCents
-      });
-      linkedServiceLines.set(productId, lines);
-    });
-    incorporatedServiceCents += netCents;
-  }
-  const fiscalProducts = products.map(({ item, itemIndex }) => {
-    const quantity = Number(item.quantity) || 1;
-    const grossCents = toCents((Number(item.unitPrice) || 0) * quantity);
-    const netCents = getItemNetCents(item);
-    const incorporatedServices = item.orderItemId ? linkedServiceLines.get(item.orderItemId) || [] : [];
-    return {
-      item,
-      itemIndex,
-      vProdCents: grossCents + (item.orderItemId ? linkedServiceCents.get(item.orderItemId) || 0 : 0),
-      vDescCents: Math.max(0, grossCents - netCents),
-      incorporatedServices
-    };
-  });
-  const invoiceModel = mode === "65" ? "NFC-e" : "NF-e";
-  const additionalInformation = fiscalProducts.flatMap(
-    ({ item, incorporatedServices }) => incorporatedServices.map(
-      ({ description, allocatedCents, totalServiceCents }) => normalizeInfCplText(
-        `O valor fiscal do item "${normalizeLabel(item.description)}" inclui ${formatBrl(allocatedCents)} do rateio do servi\xE7o "${description || "Servi\xE7o sem descri\xE7\xE3o"}" (valor total do servi\xE7o no pedido: ${formatBrl(totalServiceCents)}). O rateio considera as quantidades dos produtos vinculados e \xE9 matem\xE1tico; n\xE3o afirma que o servi\xE7o foi executado em cada unidade. O servi\xE7o n\xE3o \xE9 cobrado novamente em separado na ${invoiceModel}.`
-      )
-    )
-  ).join("; ");
-  if (additionalInformation.length > 5e3)
-    throw new Error("O detalhamento dos servi\xE7os incorporados excede o limite de informa\xE7\xF5es adicionais da nota fiscal.");
-  return {
-    products: fiscalProducts,
-    vOutroCents: 0,
-    pendingServices,
-    ...additionalInformation ? { additionalInformation } : {},
-    incorporatedServiceCents
-  };
-}
-
-// api/nfe/normal-sale/values.ts
-var obj = (value) => {
-  if (!value || typeof value !== "object" || Array.isArray(value))
-    throw new Error("Fatos fiscais obrigat\xF3rios ausentes.");
-  return value;
-};
-var normalize = (value) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase();
-var money = (value, field, positive = false) => {
-  if (typeof value !== "number" || !Number.isFinite(value) || value < (positive ? 0.01 : 0) || Math.abs(value * 100 - Math.round(value * 100)) > 1e-6)
-    throw new Error(`${field} inv\xE1lido ou fora da precis\xE3o de centavos.`);
-  return Math.round(value * 100);
-};
-
-// api/nfe/normal-sale/paymentFeeVoutro.ts
-function record(value) {
-  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
-}
-function exactFeeCents(payment, index) {
-  const fee = payment.fee ?? 0;
-  if (typeof fee !== "number" || !Number.isFinite(fee) || fee < 0)
-    throw new Error(`Taxa do pagamento ${index + 1} inv\xE1lida.`);
-  if (fee === 0) return 0;
-  const amount = payment.amount;
-  if (typeof amount !== "number" || !Number.isFinite(amount) || amount <= 0)
-    throw new Error(`Taxa do pagamento ${index + 1} n\xE3o tem valor-base v\xE1lido.`);
-  const amountCents = Math.round(amount * 100);
-  if (!Number.isSafeInteger(amountCents) || Math.abs(amount * 100 - amountCents) > 1e-6)
-    throw new Error(`Valor do pagamento ${index + 1} est\xE1 fora da precis\xE3o de centavos.`);
-  const feeType = payment.feeType ?? "fixed";
-  if (feeType === "fixed") {
-    const feeCents = Math.round(fee * 100);
-    if (Math.abs(fee * 100 - feeCents) > 1e-6)
-      throw new Error(`Taxa fixa do pagamento ${index + 1} est\xE1 fora da precis\xE3o de centavos.`);
-    return feeCents;
-  }
-  if (feeType !== "percentage")
-    throw new Error(`Tipo da taxa do pagamento ${index + 1} inv\xE1lido.`);
-  const exactCents = amountCents * fee / 100;
-  if (!Number.isFinite(exactCents) || exactCents > Number.MAX_SAFE_INTEGER)
-    throw new Error(`Taxa percentual do pagamento ${index + 1} inv\xE1lida.`);
-  return exactCents;
-}
-function allocateRoundedRows(exactCents, targetCents) {
-  if (targetCents <= 0) return exactCents.map(() => 0);
-  const rows = exactCents.map((exact, index) => ({
-    index,
-    cents: Math.floor(exact),
-    remainder: exact - Math.floor(exact)
-  }));
-  const remaining = targetCents - rows.reduce((sum, row) => sum + row.cents, 0);
-  const order = [...rows].sort(
-    (left, right) => right.remainder - left.remainder || left.index - right.index
-  );
-  for (let index = 0; index < remaining; index += 1) order[index].cents += 1;
-  return rows.sort((left, right) => left.index - right.index).map((row) => row.cents);
-}
-function resolvePaymentFeeRows(data) {
-  const payments = Array.isArray(data.payments) ? data.payments.map(record) : [];
-  const exactCents = payments.map(exactFeeCents);
-  const exactTotalCents = exactCents.reduce((sum, value) => sum + value, 0);
-  const rawSummary = record(data.paymentsSummary).totalPaymentsFee;
-  if (exactTotalCents === 0 && (rawSummary === void 0 || rawSummary === null))
-    return { feeCentsByPayment: exactCents.map(() => 0), totalFeeCents: 0 };
-  if (typeof rawSummary !== "number" || !Number.isFinite(rawSummary) || rawSummary < 0)
-    throw new Error("O resumo consolidado das taxas de pagamento est\xE1 ausente ou inv\xE1lido.");
-  const totalFeeCents = Math.round(rawSummary * 100);
-  if (Math.abs(rawSummary * 100 - exactTotalCents) > 1e-4 || totalFeeCents !== Math.round(exactTotalCents))
-    throw new Error(
-      "As taxas dos pagamentos n\xE3o reconciliam com o total consolidado do pedido; revise o resumo antes de emitir."
-    );
-  return {
-    feeCentsByPayment: allocateRoundedRows(exactCents, totalFeeCents),
-    totalFeeCents
-  };
-}
-function fiscalPaymentMethodCode(method) {
-  if (typeof method !== "string") return void 0;
-  const normalized = normalize(method);
-  if (normalized.includes("CREDITO") || normalized.includes("CREDIT")) return "03";
-  if (normalized.includes("DEBITO") || normalized.includes("DEBIT")) return "04";
-  return void 0;
-}
-function paymentInstallments(payment) {
-  if (payment.installments !== void 0 && payment.installments !== null)
-    return Number(payment.installments);
-  const label = typeof payment.method === "string" ? payment.method : "";
-  const fromLabel = label.match(/\b(\d{1,3})\s*x\b/i);
-  return fromLabel ? Number(fromLabel[1]) : 1;
-}
-function formatBrl2(cents) {
-  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(cents / 100).replace(/\u00a0/g, " ");
-}
-function paymentFeeInformation(data, feeCentsByPayment, totalFeeCents, model) {
-  const payments = Array.isArray(data.payments) ? data.payments.map(record) : [];
-  const groups = /* @__PURE__ */ new Map();
-  payments.forEach((payment, index) => {
-    const cents = feeCentsByPayment[index] || 0;
-    if (!cents) return;
-    const method = fiscalPaymentMethodCode(payment.method);
-    if (!method) throw new Error(`Origem da taxa do pagamento ${index + 1} n\xE3o est\xE1 classificada.`);
-    const installments = paymentInstallments(payment);
-    const key = method === "03" && installments > 1 ? "credit_installments" : method;
-    const description = key === "credit_installments" ? "processamento do cart\xE3o de cr\xE9dito e \xE0s condi\xE7\xF5es de parcelamento escolhidas" : method === "03" ? "processamento do cart\xE3o de cr\xE9dito" : "processamento do cart\xE3o de d\xE9bito";
-    const current = groups.get(key) || { cents: 0, description };
-    current.cents += cents;
-    groups.set(key, current);
-  });
-  const origins = [...groups.values()].map(({ cents, description }) => `${formatBrl2(cents)} referentes aos custos de ${description}`).join("; ");
-  return `O valor total desta ${model === "65" ? "NFC-e" : "NF-e"} inclui ${formatBrl2(totalFeeCents)} em acr\xE9scimos da modalidade de pagamento, j\xE1 considerados no total do pedido e repassados ao comprador: ${origins}. As taxas de maquininha foram rateadas proporcionalmente ao valor l\xEDquido dos produtos, compondo as outras despesas acess\xF3rias de cada item.`;
-}
-function allocateAcrossItems(totalCents, weights) {
-  if (!totalCents) return weights.map(() => 0);
-  const eligibleWeights = weights.map((weight) => Math.max(0, Math.round(weight)));
-  const weightTotal = eligibleWeights.reduce((sum, weight) => sum + weight, 0);
-  if (!eligibleWeights.length || weightTotal <= 0)
-    throw new Error("N\xE3o h\xE1 itens fiscais com valor l\xEDquido para ratear as taxas de pagamento.");
-  const exact = eligibleWeights.map((weight) => totalCents * weight / weightTotal);
-  const roundedDown = exact.map(Math.floor);
-  let remaining = totalCents - roundedDown.reduce((sum, cents) => sum + cents, 0);
-  const order = exact.map((share, index) => ({ index, remainder: share - roundedDown[index] })).sort((left, right) => right.remainder - left.remainder || left.index - right.index);
-  for (let index = 0; index < remaining; index += 1) roundedDown[order[index].index] += 1;
-  return roundedDown;
-}
-function composePaymentFeeVoutro(params) {
-  const { snapshot, model, itemNetCents } = params;
-  const paymentFees = params.paymentFees || resolvePaymentFeeRows(snapshot.order.data);
-  const itemFeeCents = itemNetCents.map(() => 0);
-  if (!paymentFees.totalFeeCents)
-    return { ...paymentFees, itemFeeCents };
-  const payments = Array.isArray(snapshot.order.data.payments) ? snapshot.order.data.payments.map(record) : [];
-  payments.forEach((payment, index) => {
-    if (!(paymentFees.feeCentsByPayment[index] > 0)) return;
-    const method = fiscalPaymentMethodCode(payment.method);
-    if (!method)
-      throw new Error(
-        `A taxa do pagamento ${index + 1} n\xE3o est\xE1 vinculada a uma modalidade de cart\xE3o aprovada para classifica\xE7\xE3o fiscal.`
-      );
-    const installments = paymentInstallments(payment);
-    if (!Number.isInteger(installments) || installments < 1 || method === "04" && installments > 1)
-      throw new Error(`Parcelamento do pagamento ${index + 1} n\xE3o suportado para esta decis\xE3o fiscal.`);
-  });
-  const allocations = allocateAcrossItems(paymentFees.totalFeeCents, itemNetCents);
-  const additionalInformation = paymentFeeInformation(
-    snapshot.order.data,
-    paymentFees.feeCentsByPayment,
-    paymentFees.totalFeeCents,
-    model
-  );
-  if (additionalInformation.length > 5e3)
-    throw new Error("A explica\xE7\xE3o das taxas excede o limite de informa\xE7\xF5es adicionais da NF-e.");
-  return {
-    ...paymentFees,
-    itemFeeCents: allocations,
-    additionalInformation
-  };
-}
-function joinFiscalAdditionalInformation(...sections) {
-  const value = sections.filter((section) => Boolean(section?.trim())).join("; ");
-  if (value.length > 5e3)
-    throw new Error("As informa\xE7\xF5es adicionais excedem o limite fiscal da NF-e.");
-  return value || void 0;
-}
-
-// shared-utils/orderPaymentState.ts
-var normalize2 = (value) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
-function classifyOrderPaymentSettlement(status) {
-  if (status === void 0 || status === null) return "paid";
-  const normalized = normalize2(String(status));
-  if (normalized.startsWith("pago")) return "paid";
-  if (normalized.startsWith("pendente")) return "pending";
-  return "unconfirmed";
-}
-function isPromissoryPaymentMethod(method) {
-  return typeof method === "string" && normalize2(method).includes("promissoria");
-}
-function getOrderFulfillmentPaymentCondition(deliveryMethod) {
-  if (deliveryMethod === "pickup") return "Pagamento na retirada";
-  if (deliveryMethod === "delivery") return "Pagamento na entrega";
-  return void 0;
-}
-function parseDateOnly(value) {
-  if (typeof value !== "string") return void 0;
-  const match = value.trim().match(/^(\d{4}-\d{2}-\d{2})(?:$|T|\s)/);
-  if (!match) return void 0;
-  const date = /* @__PURE__ */ new Date(`${match[1]}T00:00:00.000Z`);
-  return Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== match[1] ? void 0 : match[1];
-}
-function getOrderPaymentDueDate(payment, shipping) {
-  const explicitDate = parseDateOnly(payment.dueDate);
-  if (explicitDate) return explicitDate;
-  if (isPromissoryPaymentMethod(payment.method)) return void 0;
-  const scheduling = shipping?.scheduling;
-  if (!getOrderFulfillmentPaymentCondition(shipping?.deliveryMethod) || scheduling?.pendingScheduling === true || scheduling?.dateType === "range" || scheduling?.type === "range")
-    return void 0;
-  return parseDateOnly(scheduling?.date);
-}
-function getOrderPaymentActualDate(payment) {
-  return parseDateOnly(payment.paymentDate);
-}
-
-// api/nfe/normal-sale/attemptPolicy.ts
-function saoPauloEmissionTimestamp(iso) {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) throw new Error("Data fiscal inv\xE1lida.");
-  const parts = Object.fromEntries(
-    new Intl.DateTimeFormat("en-US", {
-      timeZone: "America/Sao_Paulo",
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-      hourCycle: "h23",
-      timeZoneName: "longOffset"
-    }).formatToParts(date).map(({ type, value }) => [type, value])
-  );
-  const offset = parts.timeZoneName.replace("GMT", "") || "+00:00";
-  return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}:${parts.second}${offset}`;
-}
-
-// shared-utils/fiscalItemSelections.ts
-var csosns = new Set(CSOSN_CODES);
-
-// shared-utils/fiscalIdentifiers.ts
-function normalizeFiscalIdentifier(value) {
-  return String(value ?? "").trim().toUpperCase().replace(/[.\-/\s]/g, "");
-}
-
 // api/nfe/fiscalSnapshot.ts
 var NF_PAYMENT_SETTLEMENT_POLICY = "NF_HANDED_OVER_AFTER_PAYMENT";
 
@@ -1126,6 +1164,137 @@ function resolveNormalSalePayments(params) {
   return { payments, payment, billingInstallments };
 }
 
+// api/nfe/fiscalCommercialSnapshotAudit.ts
+function objectValue(value) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+}
+function assertFiscalDocumentMatchesCommercialSnapshot(snapshot, document) {
+  const orderItems = snapshot.order.data.items;
+  if (!Array.isArray(orderItems)) throw new Error("Snapshot comercial sem itens do pedido.");
+  const composition = composeServiceFiscalValues(orderItems, document.model);
+  const paymentFeeComposition = composePaymentFeeVoutro({
+    snapshot,
+    model: document.model,
+    itemNetCents: composition.products.map((item) => item.vProdCents - item.vDescCents)
+  });
+  const mismatches = [];
+  if (composition.products.length !== document.items.length)
+    mismatches.push({ field: "itens.count", expected: composition.products.length, actual: document.items.length });
+  composition.products.forEach(({ item, vProdCents, vDescCents }, index) => {
+    const fiscalItem = document.items[index];
+    if (!fiscalItem) return;
+    const n = index + 1;
+    const code = String(item.code || item.sku || `ITEM-${n}`).slice(0, 60);
+    const description = String(item.description || "").trim();
+    const quantity = Number(item.quantity) || 1;
+    const gross = vProdCents / 100;
+    const freight2 = index === 0 ? Number(snapshot.order.data.shipping?.value || 0) : 0;
+    const otherExpenses = ((index === 0 ? composition.vOutroCents : 0) + (paymentFeeComposition.itemFeeCents[index] || 0)) / 100;
+    const fields = [
+      [`itens[${n}].codigo`, code, fiscalItem.product.code],
+      [`itens[${n}].descricao`, description, fiscalItem.product.description],
+      [`itens[${n}].quantidade`, quantity, fiscalItem.product.quantity, 1e-6],
+      [`itens[${n}].valorBruto`, gross, fiscalItem.product.gross],
+      [`itens[${n}].desconto`, vDescCents / 100, fiscalItem.product.discount],
+      [`itens[${n}].valorUnitario`, gross / quantity, fiscalItem.product.unitValue, 1e-6],
+      [`itens[${n}].frete`, freight2, fiscalItem.product.freight],
+      [`itens[${n}].outrasDespesas`, otherExpenses, fiscalItem.product.otherExpenses]
+    ];
+    for (const [field, expected, actual, tolerance = 5e-3] of fields) {
+      const matches = typeof expected === "string" ? expected === actual : typeof actual === "number" && Math.abs(expected - actual) <= tolerance;
+      if (!matches) mismatches.push({ field, expected, actual });
+    }
+  });
+  const shipping = objectValue(snapshot.order.data.shipping);
+  const freight = Number(shipping.value || 0);
+  const expectedCommercialTotal = (composition.products.reduce((sum, item) => sum + item.vProdCents - item.vDescCents, 0) + composition.vOutroCents + paymentFeeComposition.totalFeeCents) / 100 + freight;
+  if (Math.abs(expectedCommercialTotal - document.totals.invoice) > 5e-3)
+    mismatches.push({
+      field: "total.valorPedidoCalculado",
+      expected: expectedCommercialTotal,
+      actual: document.totals.invoice
+    });
+  const expectedAdditionalInformation = joinFiscalAdditionalInformation(
+    composition.additionalInformation,
+    paymentFeeComposition.additionalInformation
+  ) || "";
+  if ((document.additionalInformation || "") !== expectedAdditionalInformation)
+    mismatches.push({
+      field: "informacoesAdicionais.infCpl",
+      expected: expectedAdditionalInformation || "(ausente)",
+      actual: document.additionalInformation || "(ausente)"
+    });
+  if (document.modelDecision?.status === "ready") {
+    const expectedPayments = resolveNormalSalePayments({
+      snapshot,
+      data: snapshot.order.data,
+      shipping: objectValue(snapshot.order.data.shipping),
+      modelDecision: document.modelDecision,
+      traces: [...document.decisions],
+      invoice: Math.round(document.totals.invoice * 100),
+      feeCentsByPayment: resolvePaymentFeeRows(snapshot.order.data).feeCentsByPayment
+    }).payments;
+    const paymentCount = Math.max(expectedPayments.length, document.payments.length);
+    for (let index = 0; index < paymentCount; index += 1) {
+      const expected = expectedPayments[index];
+      const actual = document.payments[index];
+      if (!expected || !actual) {
+        mismatches.push({
+          field: `pagamentos[${index + 1}]`,
+          expected: expected ? "presente" : "(ausente)",
+          actual: actual ? "presente" : "(ausente)"
+        });
+        continue;
+      }
+      if (expected.methodCode !== actual.methodCode)
+        mismatches.push({ field: `pagamentos[${index + 1}].meio`, expected: expected.methodCode, actual: actual.methodCode });
+      if (Math.abs(expected.amount - actual.amount) > 5e-3)
+        mismatches.push({ field: `pagamentos[${index + 1}].valor`, expected: expected.amount, actual: actual.amount });
+      if (expected.paymentIndicator !== actual.paymentIndicator)
+        mismatches.push({ field: `pagamentos[${index + 1}].indicador`, expected: expected.paymentIndicator || "", actual: actual.paymentIndicator || "" });
+      if ((expected.description || "") !== (actual.description || ""))
+        mismatches.push({ field: `pagamentos[${index + 1}].descri\xE7\xE3o`, expected: expected.description || "", actual: actual.description || "" });
+      if ((expected.paymentDate || "") !== (actual.paymentDate || ""))
+        mismatches.push({ field: `pagamentos[${index + 1}].data`, expected: expected.paymentDate || "", actual: actual.paymentDate || "" });
+      if (JSON.stringify(expected.card || null) !== JSON.stringify(actual.card || null))
+        mismatches.push({ field: `pagamentos[${index + 1}].cart\xE3o`, expected: "dados do pedido", actual: "dados divergentes" });
+    }
+  }
+  const orderCustomer = objectValue(snapshot.order.data.customerData);
+  const fiscalCustomer = objectValue(snapshot.fiscalInputs?.customer);
+  const selectedTaxId = normalizeTaxId(
+    String(
+      snapshot.emissionRequest.recipientTaxId ?? orderCustomer.cpfCnpj ?? fiscalCustomer.cpfCnpj ?? ""
+    )
+  );
+  const resolvedTaxId = normalizeTaxId(document.recipient.cpfCnpj);
+  if (selectedTaxId && selectedTaxId !== resolvedTaxId)
+    mismatches.push({ field: "cliente.CPF_CNPJ", expected: selectedTaxId, actual: resolvedTaxId || "(ausente)" });
+  const orderCustomerName = String(orderCustomer.fullName || orderCustomer.name || "").trim();
+  if (orderCustomerName && orderCustomerName !== document.recipient.name)
+    mismatches.push({ field: "cliente.nome", expected: orderCustomerName, actual: document.recipient.name });
+  const orderCustomerId = String(snapshot.order.data.customerId || orderCustomer.id || "");
+  const fiscalCustomerId = String(fiscalCustomer.id || "");
+  if (orderCustomerId && fiscalCustomerId && orderCustomerId !== fiscalCustomerId)
+    mismatches.push({ field: "cliente.id", expected: orderCustomerId, actual: fiscalCustomerId });
+  if (snapshot.emissionRequest.finalConsumer !== void 0 && document.operation.finalConsumer !== (snapshot.emissionRequest.finalConsumer ? "1" : "0"))
+    mismatches.push({
+      field: "operacao.consumidorFinal",
+      expected: snapshot.emissionRequest.finalConsumer ? "1" : "0",
+      actual: document.operation.finalConsumer
+    });
+  if (snapshot.emissionRequest.freightMode !== void 0 && document.operation.freightMode !== snapshot.emissionRequest.freightMode)
+    mismatches.push({
+      field: "transporte.modalidadeFrete",
+      expected: snapshot.emissionRequest.freightMode,
+      actual: document.operation.freightMode
+    });
+  const sourceTotal = Number(objectValue(snapshot.order.data.paymentsSummary).totalOrderValue);
+  if (Number.isFinite(sourceTotal) && Math.abs(sourceTotal - document.totals.invoice) > 5e-3)
+    mismatches.push({ field: "total.valorPedido", expected: sourceTotal, actual: document.totals.invoice });
+  if (mismatches.length) throw new FiscalXmlAuditError(mismatches);
+}
+
 // api/nfe/fiscalXmlAuditDom.ts
 var import_xmldom = require("@xmldom/xmldom");
 function createStrictXmlParser(parseErrors) {
@@ -1181,45 +1350,6 @@ function assertNfeSignature(xml, expectedCertificatePem) {
 }
 
 // api/nfe/fiscalXmlAudit.ts
-var FiscalXmlAuditError = class extends Error {
-  mismatches;
-  constructor(mismatches) {
-    const detail = mismatches.map(({ field, expected, actual }) => `${field}: esperado ${expected}; encontrado ${actual}`).join("\n");
-    super(`O XML assinado diverge do snapshot fiscal confirmado:
-${detail}`);
-    this.name = "FiscalXmlAuditError";
-    this.mismatches = mismatches;
-  }
-};
-function normalizeTaxId(value) {
-  return normalizeFiscalIdentifier(value);
-}
-function objectValue(value) {
-  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
-}
-function addTextMismatch(mismatches, field, expected, actual, normalize3) {
-  if (expected === void 0) return;
-  const wanted = normalize3 ? normalize3(expected) : expected;
-  const found = normalize3 ? normalize3(actual) : actual;
-  if (wanted !== found)
-    mismatches.push({ field, expected: wanted, actual: found || "(ausente)" });
-}
-function addOptionalTextMismatch(mismatches, field, expected, actual) {
-  if (expected === void 0 || expected === "") {
-    if (actual !== "") mismatches.push({ field, expected: "(ausente)", actual });
-    return;
-  }
-  addTextMismatch(mismatches, field, expected, actual);
-}
-function addNumberMismatch(mismatches, field, expected, actualText, tolerance = 5e-3) {
-  const actual = actualText ? Number(actualText.replace(",", ".")) : NaN;
-  if (!Number.isFinite(actual) || Math.abs(actual - expected) > tolerance)
-    mismatches.push({
-      field,
-      expected,
-      actual: Number.isFinite(actual) ? actual : actualText || "(ausente)"
-    });
-}
 function compareAddress(mismatches, field, actual, expected) {
   if (!expected) {
     if (actual)
@@ -1396,132 +1526,6 @@ function compareItem(mismatches, item, actual, environment, model) {
         actual: "(presente)"
       });
   }
-}
-function assertFiscalDocumentMatchesCommercialSnapshot(snapshot, document) {
-  const orderItems = snapshot.order.data.items;
-  if (!Array.isArray(orderItems)) throw new Error("Snapshot comercial sem itens do pedido.");
-  const composition = composeServiceFiscalValues(orderItems, document.model);
-  const paymentFeeComposition = composePaymentFeeVoutro({
-    snapshot,
-    model: document.model,
-    itemNetCents: composition.products.map((item) => item.vProdCents - item.vDescCents)
-  });
-  const mismatches = [];
-  if (composition.products.length !== document.items.length)
-    mismatches.push({ field: "itens.count", expected: composition.products.length, actual: document.items.length });
-  composition.products.forEach(({ item, vProdCents, vDescCents }, index) => {
-    const fiscalItem = document.items[index];
-    if (!fiscalItem) return;
-    const n = index + 1;
-    const code = String(item.code || item.sku || `ITEM-${n}`).slice(0, 60);
-    const description = String(item.description || "").trim();
-    const quantity = Number(item.quantity) || 1;
-    const gross = vProdCents / 100;
-    const freight2 = index === 0 ? Number(snapshot.order.data.shipping?.value || 0) : 0;
-    const otherExpenses = ((index === 0 ? composition.vOutroCents : 0) + (paymentFeeComposition.itemFeeCents[index] || 0)) / 100;
-    const fields = [
-      [`itens[${n}].codigo`, code, fiscalItem.product.code],
-      [`itens[${n}].descricao`, description, fiscalItem.product.description],
-      [`itens[${n}].quantidade`, quantity, fiscalItem.product.quantity, 1e-6],
-      [`itens[${n}].valorBruto`, gross, fiscalItem.product.gross],
-      [`itens[${n}].desconto`, vDescCents / 100, fiscalItem.product.discount],
-      [`itens[${n}].valorUnitario`, gross / quantity, fiscalItem.product.unitValue, 1e-6],
-      [`itens[${n}].frete`, freight2, fiscalItem.product.freight],
-      [`itens[${n}].outrasDespesas`, otherExpenses, fiscalItem.product.otherExpenses]
-    ];
-    for (const [field, expected, actual, tolerance = 5e-3] of fields) {
-      const matches = typeof expected === "string" ? expected === actual : typeof actual === "number" && Math.abs(expected - actual) <= tolerance;
-      if (!matches) mismatches.push({ field, expected, actual });
-    }
-  });
-  const shipping = objectValue(snapshot.order.data.shipping);
-  const freight = Number(shipping.value || 0);
-  const expectedCommercialTotal = (composition.products.reduce((sum, item) => sum + item.vProdCents - item.vDescCents, 0) + composition.vOutroCents + paymentFeeComposition.totalFeeCents) / 100 + freight;
-  if (Math.abs(expectedCommercialTotal - document.totals.invoice) > 5e-3)
-    mismatches.push({
-      field: "total.valorPedidoCalculado",
-      expected: expectedCommercialTotal,
-      actual: document.totals.invoice
-    });
-  const expectedAdditionalInformation = joinFiscalAdditionalInformation(
-    composition.additionalInformation,
-    paymentFeeComposition.additionalInformation
-  ) || "";
-  if ((document.additionalInformation || "") !== expectedAdditionalInformation)
-    mismatches.push({
-      field: "informacoesAdicionais.infCpl",
-      expected: expectedAdditionalInformation || "(ausente)",
-      actual: document.additionalInformation || "(ausente)"
-    });
-  if (document.modelDecision?.status === "ready") {
-    const expectedPayments = resolveNormalSalePayments({
-      snapshot,
-      data: snapshot.order.data,
-      shipping: objectValue(snapshot.order.data.shipping),
-      modelDecision: document.modelDecision,
-      traces: [...document.decisions],
-      invoice: Math.round(document.totals.invoice * 100),
-      feeCentsByPayment: resolvePaymentFeeRows(snapshot.order.data).feeCentsByPayment
-    }).payments;
-    const paymentCount = Math.max(expectedPayments.length, document.payments.length);
-    for (let index = 0; index < paymentCount; index += 1) {
-      const expected = expectedPayments[index];
-      const actual = document.payments[index];
-      if (!expected || !actual) {
-        mismatches.push({
-          field: `pagamentos[${index + 1}]`,
-          expected: expected ? "presente" : "(ausente)",
-          actual: actual ? "presente" : "(ausente)"
-        });
-        continue;
-      }
-      if (expected.methodCode !== actual.methodCode)
-        mismatches.push({ field: `pagamentos[${index + 1}].meio`, expected: expected.methodCode, actual: actual.methodCode });
-      if (Math.abs(expected.amount - actual.amount) > 5e-3)
-        mismatches.push({ field: `pagamentos[${index + 1}].valor`, expected: expected.amount, actual: actual.amount });
-      if (expected.paymentIndicator !== actual.paymentIndicator)
-        mismatches.push({ field: `pagamentos[${index + 1}].indicador`, expected: expected.paymentIndicator || "", actual: actual.paymentIndicator || "" });
-      if ((expected.description || "") !== (actual.description || ""))
-        mismatches.push({ field: `pagamentos[${index + 1}].descri\xE7\xE3o`, expected: expected.description || "", actual: actual.description || "" });
-      if ((expected.paymentDate || "") !== (actual.paymentDate || ""))
-        mismatches.push({ field: `pagamentos[${index + 1}].data`, expected: expected.paymentDate || "", actual: actual.paymentDate || "" });
-      if (JSON.stringify(expected.card || null) !== JSON.stringify(actual.card || null))
-        mismatches.push({ field: `pagamentos[${index + 1}].cart\xE3o`, expected: "dados do pedido", actual: "dados divergentes" });
-    }
-  }
-  const orderCustomer = objectValue(snapshot.order.data.customerData);
-  const fiscalCustomer = objectValue(snapshot.fiscalInputs?.customer);
-  const selectedTaxId = normalizeTaxId(
-    String(
-      snapshot.emissionRequest.recipientTaxId ?? orderCustomer.cpfCnpj ?? fiscalCustomer.cpfCnpj ?? ""
-    )
-  );
-  const resolvedTaxId = normalizeTaxId(document.recipient.cpfCnpj);
-  if (selectedTaxId && selectedTaxId !== resolvedTaxId)
-    mismatches.push({ field: "cliente.CPF_CNPJ", expected: selectedTaxId, actual: resolvedTaxId || "(ausente)" });
-  const orderCustomerName = String(orderCustomer.fullName || orderCustomer.name || "").trim();
-  if (orderCustomerName && orderCustomerName !== document.recipient.name)
-    mismatches.push({ field: "cliente.nome", expected: orderCustomerName, actual: document.recipient.name });
-  const orderCustomerId = String(snapshot.order.data.customerId || orderCustomer.id || "");
-  const fiscalCustomerId = String(fiscalCustomer.id || "");
-  if (orderCustomerId && fiscalCustomerId && orderCustomerId !== fiscalCustomerId)
-    mismatches.push({ field: "cliente.id", expected: orderCustomerId, actual: fiscalCustomerId });
-  if (snapshot.emissionRequest.finalConsumer !== void 0 && document.operation.finalConsumer !== (snapshot.emissionRequest.finalConsumer ? "1" : "0"))
-    mismatches.push({
-      field: "operacao.consumidorFinal",
-      expected: snapshot.emissionRequest.finalConsumer ? "1" : "0",
-      actual: document.operation.finalConsumer
-    });
-  if (snapshot.emissionRequest.freightMode !== void 0 && document.operation.freightMode !== snapshot.emissionRequest.freightMode)
-    mismatches.push({
-      field: "transporte.modalidadeFrete",
-      expected: snapshot.emissionRequest.freightMode,
-      actual: document.operation.freightMode
-    });
-  const sourceTotal = Number(objectValue(snapshot.order.data.paymentsSummary).totalOrderValue);
-  if (Number.isFinite(sourceTotal) && Math.abs(sourceTotal - document.totals.invoice) > 5e-3)
-    mismatches.push({ field: "total.valorPedido", expected: sourceTotal, actual: document.totals.invoice });
-  if (mismatches.length) throw new FiscalXmlAuditError(mismatches);
 }
 function assertSignedFiscalXmlMatchesSnapshot(snapshot, document, xml, identity, expectedCertificatePem) {
   assertFiscalDocumentMatchesCommercialSnapshot(snapshot, document);

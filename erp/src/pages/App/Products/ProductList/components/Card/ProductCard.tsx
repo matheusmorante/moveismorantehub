@@ -101,16 +101,9 @@ const ProductCard: React.FC<ProductCardProps> = ({
   const cardImages = singleVariation ? singleVariation.images || [] : product.images;
 
   const hasPromo = Boolean(
-    cardPromotion?.promotionId ||
       (cardPromoPrice && Number(cardPromoPrice) > 0 && Number(cardPromoPrice) < Number(cardUnitPrice))
   );
-  const currentPrice = Number(
-    cardPromotion?.promotionId
-      ? cardPromotion.promotionFinalPrice
-      : hasPromo
-        ? cardPromoPrice
-        : cardUnitPrice
-  );
+  const currentPrice = Number(hasPromo ? cardPromoPrice : cardUnitPrice);
   const isLowStock = Number(cardStock) <= Number(cardMinStock);
 
   return (
@@ -261,6 +254,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
           stock={cardStock}
           unit={singleVariation?.unit || product.unit}
           promotionName={cardPromotion?.promotionName}
+          campaignDiscountPercent={cardPromotion?.promotionDiscountPercent}
         />
       )}
 

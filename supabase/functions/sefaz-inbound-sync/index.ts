@@ -5,6 +5,7 @@ import { buildSoapEnvelope } from "./utils/soap.ts";
 import { extractXmlTag, extractAllXmlTags, extractDocZipEntries, parseNfeXml } from "./utils/xmlParser.ts";
 import { findMissingNsuRanges } from "./utils/nsuRecoveryRanges.ts";
 import { persistParsedInvoice, processNextNsuRecovery } from "./utils/nsuRecovery.ts";
+import { buildSyncStatusData } from "./utils/syncStatusPayload.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -40,32 +41,12 @@ serve(async (req) => {
         .eq("id", "default")
         .maybeSingle();
 
-      const now = Date.now();
-      const lastSyncMs = nsuRecord?.last_sync_at ? new Date(nsuRecord.last_sync_at).getTime() : 0;
-      const storedNextAllowed = nsuRecord?.next_allowed_sync_at ? new Date(nsuRecord.next_allowed_sync_at).getTime() : 0;
-      const nextAllowed = Math.max(
-        storedNextAllowed,
-        lastSyncMs ? lastSyncMs + DIST_NSU_INTERVAL_MS : 0,
-      );
-      const isSyncing = nsuRecord?.status === "syncing" && (now - lastSyncMs < 180000);
-      const isRateLimited = nsuRecord?.status === "rate_limited" && (now < nextAllowed);
-      const canSyncNow = !isSyncing && (now >= nextAllowed);
+      const statusData = buildSyncStatusData(nsuRecord, Date.now(), DIST_NSU_INTERVAL_MS);
 
       return new Response(
         JSON.stringify({
           success: true,
-          data: {
-            status: isSyncing ? "syncing" : isRateLimited ? "rate_limited" : (nsuRecord?.status || "idle"),
-            lastSyncAt: nsuRecord?.last_sync_at || null,
-            nextAllowedSyncAt: nextAllowed ? new Date(nextAllowed).toISOString() : null,
-            lastNsu: nsuRecord?.last_nsu || "0",
-            maxNsu: nsuRecord?.max_nsu || "0",
-            lastCstat: nsuRecord?.last_cstat || null,
-            lastXmotivo: nsuRecord?.last_xmotivo || null,
-            lastDocsCount: nsuRecord?.last_docs_count || 0,
-            environment: nsuRecord?.environment || "production",
-            canSyncNow,
-          },
+          data: statusData,
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
       );

@@ -59,6 +59,10 @@ export const PurchaseFormModalContent: React.FC<Props> = ({
     setSupplierSearch,
     supplierOpen,
     setSupplierOpen,
+    supplierLoading,
+    supplierErrorMessage,
+    supplierResultsOffline,
+    retrySupplierLoad,
     setSupplierId,
     supplierName,
     setSupplierName,
@@ -298,6 +302,10 @@ export const PurchaseFormModalContent: React.FC<Props> = ({
         supplierSearch={supplierSearch}
         setSupplierSearch={setSupplierSearch}
         filteredSuppliers={filteredSuppliers}
+        loading={supplierLoading}
+        errorMessage={supplierErrorMessage}
+        offlineResults={supplierResultsOffline}
+        onRetry={retrySupplierLoad}
         onSelectSupplier={(supplier) => {
           setSupplierId(supplier.id);
           setSupplierName(supplier.name);

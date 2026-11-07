@@ -33,10 +33,10 @@ describe('technical field overrides from ERP', () => {
     }
   );
 
-  it('uses numeric input and the ERP placeholder for seat and door counts', () => {
-    expect(resolveTechnicalFieldDataType('Quantidade de lugares', 'radio')).toBe('integer');
-    expect(getTechnicalFieldIntegerPlaceholder('Quantidade de lugares')).toBe(
-      'Digite o número de quantidades'
+  it('uses numeric input and the ERP placeholder for chair and door counts', () => {
+    expect(resolveTechnicalFieldDataType('Quantidade de cadeiras', 'radio')).toBe('integer');
+    expect(getTechnicalFieldIntegerPlaceholder('Quantidade de cadeiras')).toBe(
+      'Insira a quantidade de cadeiras'
     );
     expect(resolveTechnicalFieldDataType('Quantidade de portas', 'list')).toBe('integer');
     expect(getTechnicalFieldIntegerPlaceholder('Quantidade de gavetas')).toBe(

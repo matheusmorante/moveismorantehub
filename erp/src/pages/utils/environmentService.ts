@@ -2,6 +2,9 @@ import { ecommerceSupabase as supabase } from '@/pages/utils/supabaseConfig';
 import { toTitleCase } from './textUtils';
 import { normalizeSlug, resolveUniqueSlug } from './uniqueSlug';
 
+type CategoryListProjection = 'full' | 'summary';
+const ENVIRONMENT_SUMMARY_FIELDS = 'id, name, slug, type';
+
 export type Environment = {
   id: string;
   name: string;
@@ -11,26 +14,58 @@ export type Environment = {
   categories?: string[]; // IDs das categorias vinculadas
 };
 
+export type CategoryEnvironmentRelationship = {
+  parent_id: string;
+  child_id: string;
+};
+
+export type CategoryEnvironmentRelationshipsResult = {
+  data: CategoryEnvironmentRelationship[] | null;
+  error: unknown | null;
+};
+
+export const fetchCategoryEnvironmentRelationships = async (): Promise<CategoryEnvironmentRelationshipsResult> => {
+  try {
+    const { data, error } = await supabase
+      .from('category_relationships')
+      .select('parent_id, child_id');
+    return { data, error };
+  } catch (error) {
+    return { data: null, error };
+  }
+};
+
 /**
  * Busca todos os ambientes cadastrados na tabela categories (type = 'environment')
  * e popula suas categorias filhas a partir de category_relationships.
  */
-export const fetchEnvironments = async (): Promise<Environment[]> => {
+export const fetchEnvironments = async (
+  sharedRelationships?: Promise<CategoryEnvironmentRelationshipsResult>,
+  projection: CategoryListProjection = 'full'
+): Promise<Environment[]> => {
   try {
-    const { data: envsData, error: envsErr } = await supabase
-      .from('categories')
-      .select('*')
-      .eq('type', 'environment')
-      .order('name');
+    const environmentsRequest =
+      projection === 'summary'
+        ? supabase
+            .from('categories')
+            .select(ENVIRONMENT_SUMMARY_FIELDS)
+            .eq('type', 'environment')
+            .order('name')
+        : supabase
+            .from('categories')
+            .select('*')
+            .eq('type', 'environment')
+            .order('name');
+    const { data: envsData, error: envsErr } = await environmentsRequest;
 
     if (envsErr) {
       console.error('[CategoryService] Erro ao buscar environments:', envsErr);
       return [];
     }
 
-    const { data: rels, error: relErr } = await supabase
-      .from('category_relationships')
-      .select('parent_id, child_id');
+    const { data: rels, error: relErr } = sharedRelationships
+      ? await sharedRelationships
+      : await fetchCategoryEnvironmentRelationships();
 
     if (relErr) {
       console.error(

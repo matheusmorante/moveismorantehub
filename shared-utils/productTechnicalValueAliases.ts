@@ -146,8 +146,35 @@ export const getProductTechnicalValueCandidateKeys = (key: string): string[] => 
     .replace(/[?¿!.,:;]/g, '')
     .replace(/\s+/g, ' ')
     .trim();
-  if (questionName === 'espessura do tampo' || questionName === 'espessura') {
-    const tabletopThicknessAliases = ['Espessura do tampo', 'Espessura'];
+  if (
+    ['quantidade de cadeiras', 'quantidade de cadeira', 'quantidade de lugares', 'quantidade de lugar'].includes(
+      questionName
+    )
+  ) {
+    return [
+      key,
+      ...['Quantidade de cadeiras', 'Quantidade de lugares'].filter(
+        (candidate) => normalizeTechnicalValueFieldName(candidate) !== questionName
+      ),
+    ];
+  }
+  if (questionName === 'largura do tampo da mesa') {
+    return [key, 'Largura da mesa'];
+  }
+  if (questionName === 'profundidade do tampo da mesa') {
+    return [key, 'Profundidade da mesa'];
+  }
+  if (
+    questionName === 'espessura do tampo da mesa' ||
+    questionName === 'espessura do tampo' ||
+    questionName === 'espessura'
+  ) {
+    const tabletopThicknessAliases = [
+      'Espessura do tampo da mesa',
+      'Espessura do Tampo (mm)',
+      'Espessura do tampo',
+      'Espessura',
+    ];
     return [key, ...tabletopThicknessAliases.filter((candidate) =>
       normalizeTechnicalValueFieldName(candidate) !== questionName
     )];

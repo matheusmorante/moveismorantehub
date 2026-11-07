@@ -13,6 +13,7 @@ describe('useDesktopNavPermissions', () => {
     expect(result.current.canViewStock).toBe(false);
     expect(result.current.canViewFiscal).toBe(false);
     expect(result.current.canViewPeople).toBe(false);
+    expect(result.current.canManageSiteElements).toBe(false);
     expect(result.current.canUseFinance).toBe(false);
   });
 
@@ -30,5 +31,6 @@ describe('useDesktopNavPermissions', () => {
     expect(result.current.canViewOrders).toBe(true);
     expect(result.current.canViewFiscalOutbound).toBe(true);
     expect(result.current.canViewFiscal).toBe(true);
+    expect(result.current.canManageSiteElements).toBe(true);
   });
 });

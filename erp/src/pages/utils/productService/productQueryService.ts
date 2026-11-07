@@ -218,7 +218,7 @@ export const fetchProductsPage = async (
         withAbortTimeout(
           supabase
             .from('active_campaign_prices')
-            .select('product_id, variation_id, promotion_id, promotion_name, promotion_discount_percent, final_price')
+            .select('product_id, variation_id, promotion_id, promotion_name, promotion_discount_percent')
             .in('product_id', productUuids),
           'products:active-campaign-prices',
         ),
@@ -258,7 +258,6 @@ export const fetchProductsPage = async (
             promotionId: String(productCampaign.promotion_id),
             promotionName: String(productCampaign.promotion_name || ''),
             promotionDiscountPercent: Number(productCampaign.promotion_discount_percent || 0),
-            promotionFinalPrice: Number(productCampaign.final_price || 0),
           }
         : product;
       currentProduct.variations = currentProduct.variations?.map((variation) => {
@@ -269,7 +268,6 @@ export const fetchProductsPage = async (
               promotionId: String(campaign.promotion_id),
               promotionName: String(campaign.promotion_name || ''),
               promotionDiscountPercent: Number(campaign.promotion_discount_percent || 0),
-              promotionFinalPrice: Number(campaign.final_price || 0),
             }
           : variation;
       });
@@ -329,6 +327,61 @@ export const getFullProduct = async (id: string): Promise<Product | null> => {
   return product
     ? (await applyCompositionAvailability([product]))[0]
     : null;
+};
+
+export const getFullProductsByIds = async (ids: string[]): Promise<Map<string, Product>> => {
+  const uniqueIds = Array.from(new Set(ids.map((id) => String(id || '').trim()).filter(Boolean)));
+  const result = new Map<string, Product>();
+  if (!uniqueIds.length) return result;
+
+  const uuidIds = uniqueIds.filter((id) =>
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
+  );
+
+  if (uuidIds.length) {
+    try {
+      const { data, error } = await withAbortTimeout(
+        supabase
+          .from(TABLE_NAME)
+          .select('*, product_variations(*), product_categories(*, categories(*)), product_images(*)')
+          .in('id', uuidIds),
+        'products:full-by-ids',
+      );
+      if (error) throw error;
+
+      const mapped = await applyCompositionAvailability((data || []).map((row) => mapFromDB(row)));
+      const localProducts = getLocalProducts();
+      for (const product of mapped) {
+        const id = String(product.id);
+        result.set(id, product);
+        const index = localProducts.findIndex((cached) => String(cached.id) === id);
+        if (index === -1) localProducts.push(product);
+        else localProducts[index] = product;
+      }
+      if (mapped.length) saveLocalProducts(localProducts);
+    } catch (error) {
+      console.error('[ProductService] Erro ao buscar produtos detalhados em lote:', error);
+      const fallbackProducts = await Promise.all(uniqueIds.map((id) => getFullProduct(id)));
+      for (const product of fallbackProducts) {
+        if (product?.id) result.set(String(product.id), product);
+      }
+      return result;
+    }
+  }
+
+  const missingIds = uniqueIds.filter((id) => !result.has(id));
+  if (missingIds.length) {
+    const localProducts = getLocalProducts();
+    const cachedProducts = missingIds
+      .map((id) => localProducts.find((product) => String(product.id) === id))
+      .filter((product): product is Product => Boolean(product));
+    const availableCachedProducts = await applyCompositionAvailability(cachedProducts);
+    for (const product of availableCachedProducts) {
+      if (product.id) result.set(String(product.id), product);
+    }
+  }
+
+  return result;
 };
 
 export const getProductsByIds = async (ids: string[]): Promise<Product[]> => {

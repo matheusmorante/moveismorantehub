@@ -5,6 +5,24 @@ import { mapInventoryMoveFromDB } from './inventoryMapper';
 
 let currentMoves: InventoryMove[] = [];
 let listeners: Array<(moves: InventoryMove[]) => void> = [];
+let mutationListeners: Array<() => void> = [];
+
+export const notifyInventoryMoveMutation = (): void => {
+  mutationListeners.forEach((listener) => {
+    try {
+      listener();
+    } catch (e) {
+      console.error('Erro ao notificar alteração de movimentação:', e);
+    }
+  });
+};
+
+export const subscribeToInventoryMoveMutations = (callback: () => void) => {
+  mutationListeners.push(callback);
+  return () => {
+    mutationListeners = mutationListeners.filter((listener) => listener !== callback);
+  };
+};
 
 export const notifyListeners = (): void => {
   listeners.forEach((listener) => {
@@ -26,16 +44,19 @@ export const setCurrentMoves = (moves: InventoryMove[]): void => {
 export const prependMoveToState = (move: InventoryMove): void => {
   currentMoves = [move, ...currentMoves];
   notifyListeners();
+  notifyInventoryMoveMutation();
 };
 
 export const removeMoveFromState = (id: string): void => {
   currentMoves = currentMoves.filter((m) => m.id !== id);
   notifyListeners();
+  notifyInventoryMoveMutation();
 };
 
 export const updateMoveInState = (id: string, updates: Partial<InventoryMove>): void => {
   currentMoves = currentMoves.map((m) => (m.id === id ? { ...m, ...updates } : m));
   notifyListeners();
+  notifyInventoryMoveMutation();
 };
 
 export const subscribeToInventoryMoves = (callback: (moves: InventoryMove[]) => void) => {

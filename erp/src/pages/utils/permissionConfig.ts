@@ -173,6 +173,8 @@ export const PERMISSION_AREAS: PermissionAreaDef[] = [
     actions: [
       action('viewMarketing', 'Acesso ao módulo', 'view', 'Acessar módulo', 'Abrir a área de marketing.', 'bi-instagram', managers),
       action('viewMarketingPosts', 'Publicações', 'view', 'Acessar publicações', 'Consultar publicações e gerador de conteúdo.', 'bi-card-text', managers),
+      action('manageSiteElements', 'Elementos do site', 'edit', 'Gerenciar modelos', 'Cadastrar, editar e excluir modelos do carrossel e da barra de destaque do catálogo digital.', 'bi-images', managers),
+      action('manageCatalogImageTemplates', 'Modelos de imagem', 'edit', 'Gerenciar modelos', 'Criar e editar modelos de imagem para produtos do ERP e exportar posts.', 'bi-image', managers),
       action('viewChannelCatalog', 'Catálogo de canais', 'view', 'Acessar', 'Consultar catálogos conectados aos canais de venda.', 'bi-grid-3x3-gap', managers),
       action('viewMetaCatalog', 'Catálogo Meta', 'view', 'Acessar', 'Consultar o catálogo de produtos para a Meta.', 'bi-meta', managers),
       action('viewWhatsAppMarketplace', 'Marketplace WhatsApp', 'view', 'Acessar', 'Consultar catálogo e integração do WhatsApp.', 'bi-whatsapp', managers),

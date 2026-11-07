@@ -1,5 +1,13 @@
 # Migração de todos os formulários — 14/10/2026
 
+## Complemento de 06/11 — Modelos de imagem (Marketing)
+
+A rota `/marketing/image-templates` usa React Hook Form com `zodResolver` na criação, renomeação, cópia, exclusão e no editor de camadas. O serviço recebe os valores parseados. O editor valida o desenho, as regras, as proporções e os limites de imagens. A exclusão valida a identidade e a versão da linha antes da operação. A seleção de catálogo, conjunto e produto atualiza a prévia e não grava um modelo. [Operação e validação](../marketing/modelos-de-imagem-catalogo-2026-11-06.md).
+
+## Complemento de 06/11 — Elementos do site (Marketing)
+
+O novo CRUD `/marketing/site-elements` possui dois proprietários de formulário: `SiteElementFormModal` usa React Hook Form com `zodResolver(siteElementModelFormSchema)` antes do serviço de criação/edição; `SiteElementDeleteDialog` usa `useZodForm(siteElementDeleteFormSchema)` antes da exclusão. Nome parseado, arquivo PNG/JPG/WebP até 5 MB e dimensões padronizadas são validados; erro impede o efeito e aparece na interface. Edição sem arquivo preserva a imagem atual. Componentes filhos pertencem ao respectivo proprietário; abas, navegação e paginação não fazem submissão de dados. **Prova:** 24 testes em 6 arquivos, incluindo schemas/serviço/RTL e permissões de navegação. Persistência gravável e Playwright completo permanecem pendentes pelos limites descritos no [registro de implementação](../marketing/elementos-do-site-2026-11-06.md). Não altera contagens anteriores nem declara conclusão global deste inventário.
+
 ## Complemento de 04/11 — seleção e edição do modelo de etiqueta
 
 `LabelModelManagerModal` executa `useZodForm(labelModelSelectionFormSchema)` antes de selecionar um modelo ou abrir sua edição. O contrato valida a identidade e a ação; os valores parseados localizam o modelo vigente e só então carregam a arte completa. Erros impedem a abertura/seleção e aparecem no modal. Os 19 testes de página dos modelos/comandos passaram, e Playwright confirmou a seleção pela interface com leitura leve da lista. Isto registra somente este caminho; o inventário global mantém as demais pendências. [Implementação e limites](../auditorias/egress-cargas-compactas-2026-11-04.md).

@@ -25,7 +25,7 @@ async function buildCustomerSupportApi() {
   });
   const secureApiOutput = resolve(root, 'erp/server/secure-api');
   await mkdir(secureApiOutput, { recursive: true });
-  await build({ ...options,
+  await build({ ...options, external: ['zod'],
     entryPoints: [resolve(root, 'erp/api/secure-integrations.ts')],
     outfile: resolve(secureApiOutput, 'secure-integrations.cjs'),
   });

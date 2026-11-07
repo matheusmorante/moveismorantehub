@@ -6,7 +6,7 @@ import InventoryMoveEditModal from '../modals/InventoryMoveEditModal';
 import { InventoryMoveCard } from './InventoryMoveCard';
 import { InventoryMovesTable } from './InventoryMovesTable';
 import { ReceiptPeriodSelector } from '../../Receipts/components/ReceiptPeriodSelector';
-import { ReceiptsPagination } from '../../Receipts/components/ReceiptsPagination';
+import { ERPListPagination } from '@/components/shared/ERPListPagination';
 import { useAuth } from '@/context/AuthContext';
 import { canPerform } from '@/pages/utils/permissionService';
 import { useInventoryMovesHistory } from '../hooks/useInventoryMovesHistory';
@@ -31,7 +31,10 @@ export const InventoryMovesHistory = ({
     selectedVariation,
     searchQuery,
     currentStock,
-    filtered,
+    stockLoading,
+    stockError,
+    error,
+    retry,
     expandedMoveIds,
     moveToDelete,
     editingMove,
@@ -56,27 +59,13 @@ export const InventoryMovesHistory = ({
     setCustomEndDate,
     page,
     setPage,
-    totalPages,
     paginatedFiltered,
-    itemsPerPage,
-    setItemsPerPage,
     totalItems,
   } = useInventoryMovesHistory({
     externalSelectedProduct,
     externalSelectedVariation,
     externalOnSelectProduct,
   });
-
-  if (loading) {
-    return (
-      <div className="p-20 flex flex-col items-center justify-center">
-        <div className="w-12 h-12 border-4 border-blue-600/30 border-t-blue-600 rounded-full animate-spin mb-4" />
-        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-          Carregando Histórico...
-        </p>
-      </div>
-    );
-  }
 
   return (
     <div className="flex flex-col w-full min-w-0">
@@ -135,15 +124,38 @@ export const InventoryMovesHistory = ({
               <i className="bi bi-stack text-emerald-200 text-sm" aria-hidden="true" />
               <span>
                 Saldo em Estoque:{' '}
-                <strong className="font-black text-sm text-white">{currentStock} un</strong>
+                <strong className="font-black text-sm text-white">
+                  {stockLoading ? 'Atualizando…' : currentStock === null ? '—' : currentStock} un
+                </strong>
               </span>
             </div>
           )}
         </div>
+        {selectedProduct && stockError && (
+          <p className="text-xs text-amber-700 dark:text-amber-300" role="status">
+            {stockError}
+          </p>
+        )}
       </div>
 
       {/* Listagem de Movimentações: Cards em < XL e Tabela em >= XL */}
-      {paginatedFiltered.length > 0 ? (
+      {loading ? (
+        <div className="p-10 flex flex-col items-center justify-center" role="status" aria-live="polite">
+          <div className="w-9 h-9 border-4 border-blue-600/30 border-t-blue-600 rounded-full animate-spin mb-3" />
+          <p className="text-xs font-semibold text-slate-500">Atualizando histórico…</p>
+        </div>
+      ) : error ? (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-8 text-center dark:border-amber-900 dark:bg-amber-950/30" role="alert">
+          <p className="text-sm font-semibold text-amber-900 dark:text-amber-100">{error}</p>
+          <button
+            type="button"
+            onClick={retry}
+            className="mt-3 rounded-lg bg-amber-700 px-3 py-2 text-xs font-bold text-white hover:bg-amber-800"
+          >
+            Tentar novamente
+          </button>
+        </div>
+      ) : paginatedFiltered.length > 0 ? (
         <div className="w-full min-w-0">
           {/* Visualização em Cards para Telas menores que XL (< 1280px) */}
           <div className="block xl:hidden space-y-3 w-full min-w-0">
@@ -192,18 +204,16 @@ export const InventoryMovesHistory = ({
             />
           </div>
 
-          <ReceiptsPagination
-            currentPage={page}
-            totalPages={totalPages}
+          <ERPListPagination
+            ariaLabel="Paginação do histórico de movimentações"
+            page={page}
+            pageSize={15}
+            fixedPageSize={15}
             totalItems={totalItems}
-            itemsPerPage={itemsPerPage}
             onPageChange={setPage}
-            onPageSizeChange={(size) => {
-              setPage(1);
-              setItemsPerPage(size);
-            }}
-            preferenceKey="stock-movements"
-            itemName="movimentações"
+            itemLabel="movimentações"
+            loading={loading}
+            className="my-4"
           />
         </div>
       ) : (
@@ -218,6 +228,19 @@ export const InventoryMovesHistory = ({
             Não foram localizadas movimentações para os filtros selecionados.
           </p>
         </div>
+      )}
+
+      {!loading && !error && paginatedFiltered.length === 0 && totalItems > 0 && (
+        <ERPListPagination
+          ariaLabel="Paginação do histórico de movimentações"
+          page={page}
+          pageSize={15}
+          fixedPageSize={15}
+          totalItems={totalItems}
+          onPageChange={setPage}
+          itemLabel="movimentações"
+          className="my-4"
+        />
       )}
 
       <InventoryMoveDeleteModal

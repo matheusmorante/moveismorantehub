@@ -4,14 +4,18 @@ import { toast } from 'react-toastify';
 import { requestConfirmation } from '@/components/shared/confirmationService';
 import type { default as VariationType, CharacteristicGroup } from '../../types/variation.type';
 import { normalizeSearchTerm } from '../../utils/textUtils';
-import { getVariationErrorMessage, saveCharacteristicOptions } from '../../utils/variationService';
+import {
+  fetchVariationOptionsByAttributeId,
+  getVariationErrorMessage,
+  saveCharacteristicOptions,
+} from '../../utils/variationService';
 import {
   CHARACTERISTIC_GROUPS_QUERY_KEY,
   deleteCharacteristicGroup,
   fetchCharacteristicGroups,
 } from '../../utils/characteristicGroupService';
 import { AttributeCard } from './components/AttributeCard';
-import { useVariations } from './hooks/useVariations';
+import { useVariationSummaries } from './hooks/useVariations';
 import { VariationFormModal } from './modals/VariationFormModal';
 import { CharacteristicGroupFormPanel } from './modals/CharacteristicGroupFormPanel';
 import { CharacteristicOptionsModal } from './modals/CharacteristicOptionsModal';
@@ -35,7 +39,7 @@ interface VariationsProps {
 }
 
 const Variations = ({ focusAttributeName, autoOpenAttributeName, onClose }: VariationsProps) => {
-  const { variations, loading: attributesLoading, error: attributesError, refresh, handleDelete } = useVariations();
+  const { variations, loading: attributesLoading, error: attributesError, refresh, handleDelete } = useVariationSummaries();
   const {
     data: groupData,
     isLoading: groupsLoading,
@@ -50,10 +54,14 @@ const Variations = ({ focusAttributeName, autoOpenAttributeName, onClose }: Vari
   const [searchTerm, setSearchTerm] = useState('');
   const [editor, setEditor] = useState<EditorState | null>(null);
   const [optionsEditor, setOptionsEditor] = useState<VariationType | null>(null);
+  const [openingCharacteristicId, setOpeningCharacteristicId] = useState<string | null>(null);
+  const [openingOptions, setOpeningOptions] = useState<{ id: string; name: string } | null>(null);
   const [newMenuOpen, setNewMenuOpen] = useState(false);
   const [openActionsFor, setOpenActionsFor] = useState<string | null>(null);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => new Set());
   const initialFocusHandled = useRef(false);
+  const characteristicOpenRequest = useRef(0);
+  const optionsOpenRequest = useRef(0);
 
   const search = normalizeSearchTerm(searchTerm);
   const visibleGroups = useMemo(() => groups
@@ -80,6 +88,8 @@ const Variations = ({ focusAttributeName, autoOpenAttributeName, onClose }: Vari
   [expandedGroups, groups, search, variations]);
 
   const startGroupEditor = (group?: CharacteristicGroup | null) => {
+    characteristicOpenRequest.current += 1;
+    setOpeningCharacteristicId(null);
     setNewMenuOpen(false);
     setOpenActionsFor(null);
     setEditor({ type: 'group', groupId: group?.id });
@@ -88,15 +98,65 @@ const Variations = ({ focusAttributeName, autoOpenAttributeName, onClose }: Vari
   const startCharacteristicEditor = (
     characteristic?: VariationType | null,
     defaultGroupId?: string,
-    returnToGroupId?: string
+    returnToGroupId?: string,
+    backgroundGroupId?: string,
   ) => {
+    const requestId = ++characteristicOpenRequest.current;
     setNewMenuOpen(false);
     setOpenActionsFor(null);
-    setEditor({ type: 'characteristic', characteristic, defaultGroupId, returnToGroupId });
+    const openEditor = (resolvedCharacteristic?: VariationType | null) => {
+      if (requestId !== characteristicOpenRequest.current) return;
+      setOpeningCharacteristicId(null);
+      setEditor({
+        type: 'characteristic',
+        characteristic: resolvedCharacteristic,
+        defaultGroupId,
+        returnToGroupId,
+        backgroundGroupId,
+      });
+    };
+
+    const hasStoredOptions = (characteristic?.optionCount ?? characteristic?.options.length ?? 0) > 0;
+    if (!characteristic?.id || !hasStoredOptions) {
+      openEditor(characteristic);
+      return;
+    }
+
+    setOpeningCharacteristicId(characteristic.id);
+    void fetchVariationOptionsByAttributeId(characteristic.id)
+      .then((options) => openEditor({ ...characteristic, options }))
+      .catch((error: unknown) => {
+        if (requestId === characteristicOpenRequest.current) {
+          toast.error(getVariationErrorMessage(error, 'Não foi possível carregar as opções da característica.'));
+          setOpeningCharacteristicId(null);
+        }
+      });
   };
 
   const closeCharacteristicEditor = (returnToGroupId?: string) => {
+    characteristicOpenRequest.current += 1;
+    setOpeningCharacteristicId(null);
     setEditor(returnToGroupId ? { type: 'group', groupId: returnToGroupId } : null);
+  };
+
+  const openOptionsEditor = (attribute: VariationType) => {
+    if (!attribute.id) return;
+    const requestId = ++optionsOpenRequest.current;
+    setOpeningOptions({ id: attribute.id, name: attribute.name });
+    void fetchVariationOptionsByAttributeId(attribute.id)
+      .then((options) => {
+        if (requestId === optionsOpenRequest.current) {
+          setOptionsEditor({ ...attribute, options });
+        }
+      })
+      .catch((error: unknown) => {
+        if (requestId === optionsOpenRequest.current) {
+          toast.error(getVariationErrorMessage(error, 'Não foi possível carregar as opções da característica.'));
+        }
+      })
+      .finally(() => {
+        if (requestId === optionsOpenRequest.current) setOpeningOptions(null);
+      });
   };
 
   const handleDeleteGroup = async (group: CharacteristicGroup) => {
@@ -143,15 +203,14 @@ const Variations = ({ focusAttributeName, autoOpenAttributeName, onClose }: Vari
 
     if (characteristicToEdit) {
       const returnToGroupId = groupExists ? groupId : undefined;
-      setEditor({
-        type: 'characteristic',
-        characteristic: characteristicToEdit,
-        defaultGroupId: returnToGroupId,
+      void startCharacteristicEditor(
+        characteristicToEdit,
         returnToGroupId,
-        backgroundGroupId: returnToGroupId,
-      });
+        returnToGroupId,
+        returnToGroupId,
+      );
     }
-  }, [attributesLoading, autoOpenAttributeName, focusAttributeName, groups, groupsLoading, variations]);
+  }, [attributesLoading, autoOpenAttributeName, focusAttributeName, groups, groupsLoading, startCharacteristicEditor, variations]);
 
   const groupPanelOpen = editor?.type === 'group' ||
     (editor?.type === 'characteristic' && Boolean(editor.backgroundGroupId));
@@ -196,6 +255,11 @@ const Variations = ({ focusAttributeName, autoOpenAttributeName, onClose }: Vari
       <div className="flex min-h-0 flex-1 overflow-hidden">
         <main className="min-h-0 min-w-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6">
           <div className="mx-auto max-w-7xl">
+            {(openingCharacteristicId || openingOptions) && (
+              <p role="status" aria-live="polite" className="mb-3 text-sm text-slate-500">
+                Carregando opções de {openingOptions?.name ?? 'característica'}…
+              </p>
+            )}
             {attributesLoading || groupsLoading ? (
               <div className="py-12 text-center text-sm text-slate-500"><i className="bi bi-arrow-clockwise mr-2 animate-spin" aria-hidden="true" />Carregando grupos e características…</div>
             ) : attributesError || groupsError ? (
@@ -257,7 +321,8 @@ const Variations = ({ focusAttributeName, autoOpenAttributeName, onClose }: Vari
                               key={attribute.id}
                               attribute={attribute}
                               onEdit={(item) => startCharacteristicEditor(item, undefined, group.id)}
-                              onManageOptions={(item) => setOptionsEditor(item)}
+                              onManageOptions={openOptionsEditor}
+                              optionsLoading={openingOptions?.id === attribute.id}
                               onDelete={(item) => { if (item.id) void handleDelete(item.id); }}
                             />
                           ))}
@@ -296,6 +361,7 @@ const Variations = ({ focusAttributeName, autoOpenAttributeName, onClose }: Vari
           <VariationFormModal
             key={`characteristic-${editor.characteristic?.id ?? 'new'}`}
             onClose={() => closeCharacteristicEditor(editor.returnToGroupId)}
+            onSuccessRefreshesVariations
             onSuccess={async (savedId, values, wasNew) => {
               await refresh();
               if (wasNew) {
@@ -333,10 +399,13 @@ const Variations = ({ focusAttributeName, autoOpenAttributeName, onClose }: Vari
         <CharacteristicOptionsModal
           characteristicName={optionsEditor.name}
           options={optionsEditor.options}
-          onClose={() => setOptionsEditor(null)}
+          onClose={() => {
+            optionsOpenRequest.current += 1;
+            setOptionsEditor(null);
+          }}
           onSave={async (options) => {
             if (!optionsEditor.id) throw new Error('Não foi possível identificar a característica.');
-            await saveCharacteristicOptions(optionsEditor.id, options);
+            await saveCharacteristicOptions(optionsEditor.id, options, { invalidateVariationQueries: false });
             await refresh();
           }}
         />

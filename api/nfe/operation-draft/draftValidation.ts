@@ -6,17 +6,22 @@ import {
   getEstornoCfopOptions,
   originalItemCfop,
 } from '../../../erp/src/pages/utils/nfe/fiscalCfopResolution';
-import { buildReturnProductXml } from '../../../erp/src/pages/utils/nfe/fiscalOperationReview';
+import {
+  buildProportionalReturnTaxesXml,
+  buildReturnProductXml,
+} from '../../../erp/src/pages/utils/nfe/fiscalOperationReview';
 import { normalizeReviewedFiscalBlock } from '../../../erp/src/pages/utils/nfe/fiscalOperationXml';
 import { getAuthorizedAt } from '../../../erp/src/pages/utils/nfe/nfeEventRules';
 import {
   ESTORNO_NATURE_OF_OPERATION,
+  getReturnCfopOptionsForSourceItem,
   getFiscalFormRules,
+  type FiscalFormXmlDefaults,
 } from '../../../shared-utils/fiscalOperationContext';
 import type { FiscalDatabase } from '../fiscalDatabaseTypes';
 import { hasPendingOrderEditEstorno } from '../orderEditReplacement';
 import { validateAuthorizedOutboundNfe } from '../returnFiscalRules';
-import type { Environment } from './draftXmlAudit';
+import { extractXmlBlock, type Environment } from './draftXmlAudit';
 
 export type DraftRecord = FiscalDatabase['public']['Tables']['nfe_operation_drafts']['Row'];
 export type SourceDocumentRecord = {
@@ -33,6 +38,22 @@ export type SourceDocumentRecord = {
   numero_nfe: number;
   serie: string;
 };
+
+type ReturnReviewDraftLine = Pick<
+  FiscalDatabase['public']['Tables']['nfe_operation_draft_lines']['Row'],
+  | 'original_document_item_id'
+  | 'quantity'
+  | 'gross_value'
+  | 'discount_value'
+  | 'reviewed_cfop'
+  | 'reviewed_product_xml'
+  | 'reviewed_taxes_xml'
+>;
+
+type ReturnReviewOriginalLine = Pick<
+  FiscalDatabase['public']['Tables']['nfe_document_items']['Row'],
+  'product_xml' | 'taxes_xml' | 'billed_quantity'
+>;
 
 export function validateDraftPreconditions(
   draft: DraftRecord,
@@ -329,6 +350,72 @@ export function validateEstornoDraftReviewItems(params: {
       normalizeReviewedFiscalBlock(expectedProduct, 'prod')
     ) {
       return 'O item do estorno precisa preservar os dados fiscais e valores originais.';
+    }
+  }
+
+  return null;
+}
+
+export function validateReturnDraftReview(params: {
+  sourceXml: string;
+  review: Record<string, unknown>;
+  returnXmlDefaults: FiscalFormXmlDefaults;
+  lines: ReturnReviewDraftLine[];
+  originalById: ReadonlyMap<string, ReturnReviewOriginalLine>;
+}): string | null {
+  const { sourceXml, review, returnXmlDefaults, lines, originalById } = params;
+  const fixedRecipient = normalizeReviewedFiscalBlock(extractXmlBlock(sourceXml, 'dest'), 'dest');
+  const submittedRecipient = normalizeReviewedFiscalBlock(
+    String(review.recipient_xml || ''),
+    'dest'
+  );
+  const fixedPayment = normalizeReviewedFiscalBlock(returnXmlDefaults.paymentXml, 'pag');
+  const submittedPayment = normalizeReviewedFiscalBlock(String(review.payment_xml || ''), 'pag');
+  const fixedTransport = normalizeReviewedFiscalBlock(returnXmlDefaults.transportXml, 'transp');
+  const submittedTransport = normalizeReviewedFiscalBlock(
+    String(review.transport_xml || ''),
+    'transp'
+  );
+  if (
+    fixedRecipient !== submittedRecipient ||
+    fixedPayment !== submittedPayment ||
+    fixedTransport !== submittedTransport ||
+    String(review.nature_of_operation || '').trim() !== returnXmlDefaults.natureOfOperation
+  ) {
+    return 'Os campos estruturais da NF-e de devolução divergem do cenário fiscal permitido.';
+  }
+
+  for (const line of lines) {
+    const original = originalById.get(line.original_document_item_id);
+    if (!original) return 'Item original ausente.';
+    const originalCfop = originalItemCfop(original.product_xml);
+    const allowedCfops = getReturnCfopOptionsForSourceItem(
+      originalCfop || '',
+      original.taxes_xml
+    );
+    if (!allowedCfops.some((option) => option.value === line.reviewed_cfop)) {
+      return `CFOP ${line.reviewed_cfop} não é permitido para o item original e o cenário de devolução.`;
+    }
+    const expectedProduct = buildReturnProductXml({
+      originalProductXml: original.product_xml,
+      quantity: Number(line.quantity),
+      originalQuantity: Number(original.billed_quantity),
+      grossValue: Number(line.gross_value),
+      discountValue: Number(line.discount_value),
+      cfop: String(line.reviewed_cfop),
+    });
+    const expectedTaxes = buildProportionalReturnTaxesXml(
+      original.taxes_xml,
+      Number(line.quantity),
+      Number(original.billed_quantity)
+    );
+    if (
+      normalizeReviewedFiscalBlock(String(line.reviewed_product_xml), 'prod') !==
+        normalizeReviewedFiscalBlock(expectedProduct, 'prod') ||
+      normalizeReviewedFiscalBlock(String(line.reviewed_taxes_xml), 'imposto') !==
+        normalizeReviewedFiscalBlock(expectedTaxes, 'imposto')
+    ) {
+      return 'Item ou tributação fiscal diverge da quantidade e referência originais da devolução.';
     }
   }
 

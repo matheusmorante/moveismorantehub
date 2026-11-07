@@ -178,13 +178,13 @@ export const fetchMobilePurchases = async (page: number, filters: PurchaseFilter
   if (filters.supplierId) query = query.eq('supplier_id', filters.supplierId);
   if (filters.search?.trim()) {
     const term = filters.search.trim().replace(/[%(),]/g, ' ');
-    query = query.or(`supplier_name.imatch.${buildPostgrestAccentInsensitiveWordsPattern(term)},purchase_number.eq.${Number(term) || 0}`);
+    query = query.or(`supplier_name.imatch.${buildPostgrestAccentInsensitiveWordsPattern(term)}`);
   }
 
   const { data, error, count } = await query;
   if (error) throw error;
   return {
-    data: (data || []).map((row, index) => mapPurchaseFromDb(row, from + index + 1)),
+    data: (data || []).map((row) => mapPurchaseFromDb(row)),
     count: count || 0,
   };
 };
@@ -300,7 +300,7 @@ export const cancelMobilePurchase = async (purchase: MobilePurchase) => {
   // compatibilidade com registros normalizados e com os lançamentos antigos
   // que gravavam o pedido no order_id/observação.
   if (purchase.stockProcessed) {
-    const reason = `Cancelamento do pedido de compra #${formatPurchaseNumber(purchase.purchaseNumber) || ''}`.trim();
+    const reason = `Cancelamento do pedido de compra #${formatPurchaseNumber(purchase.purchaseNumber) || purchase.id.slice(0, 8).toUpperCase()}`;
     const searchPattern = `%${purchase.id}%`;
     const { data: moves, error: movesError } = await supabase
       .from('inventory_moves')

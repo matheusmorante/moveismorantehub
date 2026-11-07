@@ -68,7 +68,7 @@ export const UnavailabilityProductPicker: React.FC<UnavailabilityProductPickerPr
         visible={isSearchOpen}
         activeOnly
         subtitle="Selecione a variação para registrar a indisponibilidade"
-        searchProvider={searchProducts}
+        searchProvider={(query) => searchProducts(query, { includeTrashEligibility: false })}
         onClose={() => setIsSearchOpen(false)}
         onSelect={(product) => {
           if (!product.variation_id) return;

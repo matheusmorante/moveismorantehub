@@ -164,14 +164,14 @@ export function createWhatsAppSupportSendHandler(dependencies: { fetchMeta?: typ
       let replyToMessageId: string | null = null;
       if (payload.replyToWamid) {
         const replyTargetResult = await withTimeout<any>(context.userDb.from('whatsapp_messages')
-          .select('id,message_type,text_content,raw_payload')
+          .select('id,message_type,text_content,provider_message_type:raw_payload->>provider_message_type')
           .eq('conversation_id', payload.conversationId)
           .eq('api_message_id', payload.replyToWamid)
           .maybeSingle(), 12_000);
         if (replyTargetResult.error) return responseJson(res, 503, { error: 'Não foi possível validar a mensagem citada.' });
         const isLegacyRevocation = typeof replyTargetResult.data?.text_content === 'string'
           && /a central ainda não consegue exibir este tipo de mensagem\s*\(\s*revoke\s*\)\./i.test(replyTargetResult.data.text_content);
-        const providerMessageType = replyTargetResult.data?.raw_payload?.provider_message_type;
+        const providerMessageType = replyTargetResult.data?.provider_message_type;
         const isNonReplyableProviderEvent = ['reaction', 'system', 'request_welcome'].includes(providerMessageType);
         if (!replyTargetResult.data || ['internal_note', 'system_event', 'deleted'].includes(replyTargetResult.data.message_type)
           || isLegacyRevocation || isNonReplyableProviderEvent) {

@@ -8,10 +8,11 @@ export interface AttributeCardProps {
   readonly attribute: VariationType;
   readonly onEdit: (attribute: VariationType) => void;
   readonly onManageOptions: (attribute: VariationType) => void;
+  readonly optionsLoading?: boolean;
   readonly onDelete: (attribute: VariationType) => void;
 }
 
-export function AttributeCard({ attribute, onEdit, onManageOptions, onDelete }: AttributeCardProps) {
+export function AttributeCard({ attribute, onEdit, onManageOptions, optionsLoading = false, onDelete }: AttributeCardProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [deleteTooltipOpen, setDeleteTooltipOpen] = useState(false);
   const isFactoryDefault = isFactoryDefaultCharacteristicName(attribute.name);
@@ -49,8 +50,8 @@ export function AttributeCard({ attribute, onEdit, onManageOptions, onDelete }: 
         {menuOpen && (
           <div className="absolute right-0 top-full z-30 w-48 bg-white p-1 shadow-xl dark:bg-slate-900">
             {hasChoiceOptions && (
-              <button type="button" onClick={() => { setMenuOpen(false); onManageOptions(attribute); }} className="w-full px-3 py-2 text-left text-xs text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800">
-                Gerenciar opções
+              <button type="button" disabled={optionsLoading} onClick={() => { setMenuOpen(false); onManageOptions(attribute); }} className="w-full px-3 py-2 text-left text-xs text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:text-slate-200 dark:hover:bg-slate-800">
+                {optionsLoading ? 'Carregando opções…' : 'Gerenciar opções'}
               </button>
             )}
             <button type="button" onClick={() => { setMenuOpen(false); onEdit(attribute); }} className="w-full px-3 py-2 text-left text-xs text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800">

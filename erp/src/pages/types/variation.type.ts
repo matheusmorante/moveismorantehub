@@ -82,6 +82,8 @@ export type VariationType = {
   id?: string;
   name: string; // Ex: "Cor"
   options: VariationOption[];
+  optionCount?: number;
+  activeOptionCount?: number;
   active: boolean;
   dataType?: AttributeDataType;
   unit?: string;

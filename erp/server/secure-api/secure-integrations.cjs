@@ -8,9 +8,9 @@ var __hasOwnProp = Object.prototype.hasOwnProperty;
 var __commonJS = (cb, mod) => function __require() {
   return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
 };
-var __export = (target, all) => {
+var __export = (target2, all) => {
   for (var name in all)
-    __defProp(target, name, { get: all[name], enumerable: true });
+    __defProp(target2, name, { get: all[name], enumerable: true });
 };
 var __copyProps = (to, from, except, desc) => {
   if (from && typeof from === "object" || typeof from === "function") {
@@ -20,12 +20,12 @@ var __copyProps = (to, from, except, desc) => {
   }
   return to;
 };
-var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(
+var __toESM = (mod, isNodeMode, target2) => (target2 = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(
   // If the importer is in node compatibility mode or this is not an ESM
   // file that has been converted to a CommonJS file using a Babel-
   // compatible transform (i.e. "__esModule" has not been set), then set
   // "default" to the CommonJS "module.exports" for node compatibility.
-  isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
+  isNodeMode || !mod || !mod.__esModule ? __defProp(target2, "default", { value: mod, enumerable: true }) : target2,
   mod
 ));
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
@@ -121,23 +121,23 @@ var require_dist = __commonJS({
       } catch (error) {
         return false;
       }
-      for (const target of targets) try {
-        if (typeof target === "string") {
-          if (matchStringTarget(url.hostname, target)) return true;
-        } else if (target instanceof RegExp) {
-          if (target.test(url.hostname)) return true;
-        } else if (typeof target === "function") {
-          if (target(url)) return true;
+      for (const target2 of targets) try {
+        if (typeof target2 === "string") {
+          if (matchStringTarget(url.hostname, target2)) return true;
+        } else if (target2 instanceof RegExp) {
+          if (target2.test(url.hostname)) return true;
+        } else if (typeof target2 === "function") {
+          if (target2(url)) return true;
         }
       } catch (error) {
         continue;
       }
       return false;
     }
-    function matchStringTarget(hostname, target) {
-      if (target === hostname) return true;
-      if (target.startsWith("*.")) {
-        const domain = target.slice(2);
+    function matchStringTarget(hostname, target2) {
+      if (target2 === hostname) return true;
+      if (target2.startsWith("*.")) {
+        const domain = target2.slice(2);
         if (hostname.endsWith(domain)) {
           if (hostname === domain || hostname.endsWith("." + domain)) return true;
         }
@@ -882,6 +882,7 @@ var DEFAULT_PERMISSION_ROLES = {
   viewOrders: ["manager"],
   viewChannelCatalog: ["manager"],
   viewMarketing: ["manager"],
+  manageCatalogImageTemplates: ["manager"],
   viewDeliverySchedule: ["manager", "seller", "deliverer"],
   sendCustomerSupportMessages: ["manager", "seller"]
 };
@@ -941,6 +942,112 @@ function hasErpPermission(context, permission) {
   const configured = context.rolePermissions[permission];
   const allowedRoles = Array.isArray(configured) ? configured.filter((role) => typeof role === "string") : DEFAULT_PERMISSION_ROLES[permission] || [];
   return context.roles.some((role) => allowedRoles.includes(role));
+}
+
+// erp/api/_lib/metaImageTemplatePreview.ts
+var import_zod = require("zod");
+
+// shared-utils/metaCatalogIds.ts
+var META_ADS_CREATIVE_CATALOG_ID = "3884846918337684";
+
+// erp/api/_lib/metaImageTemplatePreview.ts
+var OPERATIONS = ["list_image_template_sets", "list_image_template_products", "read_image_template_product"];
+var PAGE_SIZE = 15;
+var metaId = import_zod.z.string().regex(/^\d{1,32}$/);
+var cursor = import_zod.z.string().regex(/^[A-Za-z0-9_.=+\/-]{1,2048}$/);
+var target = import_zod.z.enum(["ads", "whatsapp"]).default("ads");
+var inputSchema = import_zod.z.discriminatedUnion("operation", [
+  import_zod.z.object({ operation: import_zod.z.literal(OPERATIONS[0]), target, after: cursor.optional() }),
+  import_zod.z.object({ operation: import_zod.z.literal(OPERATIONS[1]), target, after: cursor.optional(), setId: metaId.optional() }),
+  import_zod.z.object({ operation: import_zod.z.literal(OPERATIONS[2]), target, productId: metaId })
+]);
+var entrySchema = import_zod.z.object({ id: metaId, name: import_zod.z.string(), retailer_id: import_zod.z.string().optional() });
+var pageSchema = import_zod.z.object({
+  data: import_zod.z.array(entrySchema).max(PAGE_SIZE),
+  paging: import_zod.z.object({ next: import_zod.z.string().optional(), cursors: import_zod.z.object({ after: cursor.optional() }).optional() }).optional()
+});
+var ownerSchema = import_zod.z.object({ product_catalog: import_zod.z.object({ id: metaId }) });
+var productSchema = entrySchema.extend({
+  ...ownerSchema.shape,
+  image_url: import_zod.z.string().nullish(),
+  additional_image_urls: import_zod.z.array(import_zod.z.string().nullable()).nullish(),
+  brand: import_zod.z.string().nullish(),
+  description: import_zod.z.string().nullish(),
+  product_type: import_zod.z.string().nullish(),
+  currency: import_zod.z.string().nullish(),
+  availability: import_zod.z.string().nullish(),
+  price: import_zod.z.union([import_zod.z.string(), import_zod.z.number()]).nullish(),
+  sale_price: import_zod.z.union([import_zod.z.string(), import_zod.z.number()]).nullish(),
+  sale_price_start_date: import_zod.z.string().nullish(),
+  sale_price_end_date: import_zod.z.string().nullish(),
+  custom_label_0: import_zod.z.string().nullish(),
+  custom_label_1: import_zod.z.string().nullish(),
+  custom_label_2: import_zod.z.string().nullish(),
+  custom_label_3: import_zod.z.string().nullish(),
+  custom_label_4: import_zod.z.string().nullish()
+});
+var productFields = Object.keys(productSchema.shape).map((key) => key === "product_catalog" ? "product_catalog{id}" : key).join(",");
+function isImageTemplatePreviewOperation(operation) {
+  return OPERATIONS.some((value) => value === operation);
+}
+var CatalogReadError = class extends Error {
+  constructor(status, message) {
+    super(message);
+    this.status = status;
+  }
+};
+async function handleMetaImageTemplatePreview(body, context, res, token, graphVersion) {
+  if (!hasErpPermission(context, "manageCatalogImageTemplates")) {
+    return res.status(403).json({ error: "Sem permiss\xE3o para consultar a pr\xE9via de modelos." });
+  }
+  const parsed = inputSchema.safeParse(body);
+  if (!parsed.success) return res.status(400).json({ error: "Sele\xE7\xE3o de pr\xE9via inv\xE1lida." });
+  const input = parsed.data;
+  const configured = context.whatsappConfig;
+  const catalog = metaId.safeParse(input.target === "ads" ? META_ADS_CREATIVE_CATALOG_ID : configured?.catalogId);
+  if (!catalog.success) return res.status(400).json({ error: "Este cat\xE1logo n\xE3o est\xE1 configurado no ERP." });
+  const catalogId = catalog.data;
+  const signal = AbortSignal.timeout(17e3);
+  const read = async (path, params) => {
+    const response = await fetch(`https://graph.facebook.com/${graphVersion}/${path}?${new URLSearchParams(params)}`, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${token}` },
+      signal
+    });
+    const data = await response.json();
+    if (!response.ok || data?.error) {
+      const denied = [10, 190, 200].includes(Number(data?.error?.code)) || response.status === 403;
+      throw new CatalogReadError(denied ? 403 : 502, denied ? "A integra\xE7\xE3o da Meta n\xE3o tem acesso ao cat\xE1logo selecionado." : "A Meta n\xE3o conseguiu consultar o cat\xE1logo selecionado.");
+    }
+    return data;
+  };
+  try {
+    if (input.operation === "read_image_template_product") {
+      const data = productSchema.parse(await read(input.productId, { fields: productFields, catalog_id: catalogId }));
+      if (data.product_catalog.id !== catalogId || data.id !== input.productId) {
+        throw new CatalogReadError(404, "Produto fora do cat\xE1logo selecionado.");
+      }
+      const { product_catalog: _owner, additional_image_urls: additionalImages, ...product } = data;
+      return res.status(200).json({ ...product, additional_image_urls: additionalImages?.slice(0, 3) });
+    }
+    const isSets = input.operation === "list_image_template_sets";
+    const setId = !isSets ? input.setId : void 0;
+    if (setId) {
+      const owner = ownerSchema.safeParse(await read(setId, { fields: "product_catalog{id}" }));
+      if (!owner.success || owner.data.product_catalog.id !== catalogId) {
+        throw new CatalogReadError(404, "Conjunto fora do cat\xE1logo selecionado.");
+      }
+    }
+    const page = pageSchema.parse(await read(`${setId ?? catalogId}/${isSets ? "product_sets" : "products"}`, {
+      fields: isSets ? "id,name" : "id,name,retailer_id",
+      limit: String(PAGE_SIZE),
+      ...input.after ? { after: input.after } : {}
+    }));
+    return res.status(200).json({ rows: page.data, nextCursor: page.paging?.next ? page.paging.cursors?.after ?? null : null });
+  } catch (error) {
+    if (error instanceof CatalogReadError) return res.status(error.status).json({ error: error.message });
+    return res.status(signal.aborted ? 504 : 502).json({ error: signal.aborted ? "A consulta \xE0 Meta demorou demais." : "N\xE3o foi poss\xEDvel ler a resposta do cat\xE1logo selecionado." });
+  }
 }
 
 // erp/server/secure-api/verifyMetaAppCredentials.ts
@@ -1210,9 +1317,6 @@ async function ensureWhatsAppEchoWebhookSubscription({
   return { valid: true, changed: true, fields: verifiedFields };
 }
 
-// shared-utils/metaCatalogIds.ts
-var META_ADS_CREATIVE_CATALOG_ID = "3884846918337684";
-
 // erp/src/pages/utils/metaService/metaGraphProxyPolicy.ts
 var numericId = (value) => {
   const normalized = typeof value === "string" ? value.trim() : "";
@@ -1236,8 +1340,8 @@ function getCatalogTarget(value) {
   if (value === "whatsapp" || value === "ads") return value;
   throw new Error("Destino do cat\xE1logo Meta inv\xE1lido.");
 }
-function getCatalogId(target, settings) {
-  return target === "ads" ? configuredId(META_ADS_CREATIVE_CATALOG_ID) : configuredId(settings.catalogId);
+function getCatalogId(target2, settings) {
+  return target2 === "ads" ? configuredId(META_ADS_CREATIVE_CATALOG_ID) : configuredId(settings.catalogId);
 }
 function getBatchHandle(value) {
   const handle = typeof value === "string" ? value.trim() : "";
@@ -1380,14 +1484,14 @@ function planMetaGraphRequest(input, settings) {
     case "check_catalog_batch": {
       const requestedTarget = input.catalogTarget === void 0 ? void 0 : getCatalogTarget(input.catalogTarget);
       const batch = parseMetaCatalogBatchHandle(input.handle, requestedTarget);
-      const target = requestedTarget ?? batch.catalogTargets[0];
-      const targetIndex = batch.catalogTargets.indexOf(target);
+      const target2 = requestedTarget ?? batch.catalogTargets[0];
+      const targetIndex = batch.catalogTargets.indexOf(target2);
       if (targetIndex < 0) throw new Error("Destino do lote Meta n\xE3o corresponde ao identificador.");
       const handle = batch.handles[targetIndex];
       return {
         permission: "productConfig",
         method: "GET",
-        path: `${getCatalogId(target, settings)}/check_batch_request_status?handle=${encodeURIComponent(handle)}`
+        path: `${getCatalogId(target2, settings)}/check_batch_request_status?handle=${encodeURIComponent(handle)}`
       };
     }
     case "list_product_sets":
@@ -1443,14 +1547,16 @@ async function handleMetaGraph(req, res) {
   if (bodySize(req.body) > MAX_META_REQUEST_BYTES) {
     return res.status(413).json({ error: "Solicita\xE7\xE3o excede o tamanho permitido." });
   }
+  const imageTemplatePreview = isImageTemplatePreviewOperation(req.body?.operation);
   const context = await authenticateErpRequest(req, res, {
-    includeWhatsAppConfig: req.body?.operation !== "verify_app_credentials" && req.body?.operation !== "ensure_smb_message_echoes_subscription"
+    includeWhatsAppConfig: imageTemplatePreview ? req.body?.target === "whatsapp" : req.body?.operation !== "verify_app_credentials" && req.body?.operation !== "ensure_smb_message_echoes_subscription"
   });
   if (!context) return;
   const body = req.body;
   if (!body || typeof body !== "object" || Array.isArray(body)) {
     return res.status(400).json({ error: "Solicita\xE7\xE3o inv\xE1lida." });
   }
+  if (imageTemplatePreview) return handleMetaImageTemplatePreview(body, context, res, metaToken, GRAPH_VERSION);
   if (body.operation === "verify_app_credentials") {
     if (!hasErpPermission(context, "manageSettings")) {
       return res.status(403).json({ error: "Sem permiss\xE3o para verificar a configura\xE7\xE3o Meta." });
@@ -1547,18 +1653,18 @@ async function handleMetaGraph(req, res) {
   try {
     const metaSettings = getMetaGraphSettings(context.whatsappConfig);
     if (body.operation === "sync_catalog_batch") {
-      planEntries = ["whatsapp", "ads"].map((target) => ({
-        target,
-        plan: planMetaGraphRequest({ ...body, catalogTarget: target }, metaSettings)
+      planEntries = ["whatsapp", "ads"].map((target2) => ({
+        target: target2,
+        plan: planMetaGraphRequest({ ...body, catalogTarget: target2 }, metaSettings)
       }));
     } else if (body.operation === "check_catalog_batch") {
       const batch = parseMetaCatalogBatchHandle(body.handle);
-      planEntries = batch.catalogTargets.map((target, index) => ({
-        target,
+      planEntries = batch.catalogTargets.map((target2, index) => ({
+        target: target2,
         plan: planMetaGraphRequest({
           ...body,
           handle: batch.handles[index],
-          catalogTarget: target
+          catalogTarget: target2
         }, metaSettings)
       }));
     } else {
@@ -1581,7 +1687,7 @@ async function handleMetaGraph(req, res) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 2e4);
   try {
-    const outcomes = await Promise.allSettled(planEntries.map(async ({ plan: requestPlan, target }) => {
+    const outcomes = await Promise.allSettled(planEntries.map(async ({ plan: requestPlan, target: target2 }) => {
       const response = await fetch(`https://graph.facebook.com/${GRAPH_VERSION}/${requestPlan.path}`, {
         method: requestPlan.method,
         headers: {
@@ -1592,7 +1698,7 @@ async function handleMetaGraph(req, res) {
         signal: controller.signal
       });
       const data = await response.json().catch(() => ({}));
-      return { target, response, data };
+      return { target: target2, response, data };
     }));
     const isCatalogWrite = body.operation === "sync_catalog_batch";
     const isCatalogStatusCheck = body.operation === "check_catalog_batch";

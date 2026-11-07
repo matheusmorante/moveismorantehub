@@ -2,6 +2,7 @@ import Product from '../../types/product.type';
 import { removeInitialStockFields } from './productDraftSnapshot';
 import { normalizeSlug } from '../uniqueSlug';
 import { getProductKind, isNonConventionalProduct } from '../productKindRules';
+import { findProductTechnicalValueEntry } from '../../../../../shared-utils/productTechnicalValueAliases';
 
 /**
  * Converte um objeto Product (domínio) para os campos da tabela 'products' do Supabase
@@ -141,11 +142,25 @@ export const mapToDB = (product: Partial<Product>) => {
         : 'Profundidade total';
     measureParts.push(`${label}: ${product.depth}cm`);
   }
-  const tabletopThickness =
-    product.technicalValues?.['Espessura do tampo'] ||
-    product.technicalValues?.['Espessura'];
-  if (tabletopThickness) {
-    measureParts.push(`Espessura do tampo: ${String(tabletopThickness).replace(/\s*mm$/i, '')}mm`);
+  const tabletopWidth = product.technicalValues
+    ? findProductTechnicalValueEntry(product.technicalValues, 'Largura do tampo da mesa')?.value
+    : undefined;
+  if (tabletopWidth !== undefined && tabletopWidth !== null && String(tabletopWidth).trim()) {
+    measureParts.push(`Largura do tampo da mesa: ${String(tabletopWidth).replace(/\s*cm$/i, '')}cm`);
+  }
+  const tabletopDepth = product.technicalValues
+    ? findProductTechnicalValueEntry(product.technicalValues, 'Profundidade do tampo da mesa')?.value
+    : undefined;
+  if (tabletopDepth !== undefined && tabletopDepth !== null && String(tabletopDepth).trim()) {
+    measureParts.push(`Profundidade do tampo da mesa: ${String(tabletopDepth).replace(/\s*cm$/i, '')}cm`);
+  }
+  const tabletopThickness = product.technicalValues
+    ? findProductTechnicalValueEntry(product.technicalValues, 'Espessura do tampo da mesa')?.value
+    : undefined;
+  if (tabletopThickness !== undefined && tabletopThickness !== null && String(tabletopThickness).trim()) {
+    measureParts.push(
+      `Espessura do tampo da mesa: ${String(tabletopThickness).replace(/\s*mm$/i, '')}mm`
+    );
   }
   const thickness =
     product.technicalValues?.['Espessura do colchão'] ||

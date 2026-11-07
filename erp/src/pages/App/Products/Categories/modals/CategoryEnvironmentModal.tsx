@@ -11,6 +11,8 @@ import {
 import { SecureDeleteButton } from '../components/SecureDeleteButton';
 import type { CharacteristicCategoryApplication } from '@/pages/utils/categoryService';
 import { isCatalogNeverRequiredCharacteristicName } from '../../../../../../../shared-utils/catalogPublication/requiredCharacteristicPolicy';
+import { isDiningSetCategoryName } from '../../../../../../../shared-utils/productCategoryResolution';
+import { isDedicatedChairCountCharacteristic } from '../../../../../../../shared-utils/productTechnicalFieldRules';
 import { matchesSearchText } from '@/pages/utils/textUtils';
 
 interface CategoryEnvironmentModalProps {
@@ -65,6 +67,7 @@ export const CategoryEnvironmentModal: React.FC<CategoryEnvironmentModalProps> =
   if (!showModal) return null;
 
   const isEnv = showModal === 'ambiente';
+  const isDiningSetCategory = isDiningSetCategoryName(nameInput);
   const title = editingNode
     ? `Editar ${isEnv ? 'Ambiente' : 'Categoria'}`
     : `Novo ${isEnv ? 'Ambiente' : 'Categoria'}`;
@@ -210,33 +213,42 @@ export const CategoryEnvironmentModal: React.FC<CategoryEnvironmentModalProps> =
                     <div className="max-h-64 divide-y divide-slate-100 overflow-y-auto overscroll-contain border-y border-slate-100 dark:divide-slate-800 dark:border-slate-800">
                       {visibleCharacteristicApplications.length === 0 ? (
                         <p className="py-3 text-xs text-slate-500">Nenhuma característica encontrada.</p>
-                      ) : visibleCharacteristicApplications.map((item) => (
-                        <label key={item.attributeId} className="flex items-center justify-between gap-3 py-2">
-                          <span className="min-w-0 truncate text-xs font-medium text-slate-700 dark:text-slate-200">
-                            {item.name}
-                          </span>
-                          <select
-                            value={item.application}
-                            onChange={(event) => setSelectedCharacteristicApplications((previous) =>
-                              previous.map((application) => application.attributeId === item.attributeId
-                                ? { ...application, application: event.target.value as typeof item.application }
-                                : application)
-                            )}
-                            disabled={isSubmitting}
-                            aria-label={`Aplicação de ${item.name} nesta categoria`}
-                            className="w-36 shrink-0 bg-transparent border-0 border-b border-slate-300 px-1 py-1.5 text-xs outline-none focus:border-blue-600 focus:ring-0 dark:border-slate-700 dark:text-slate-100"
-                          >
-                            <option value="unavailable">N/A</option>
-                            <option value="optional">Opcional</option>
-                            <option
-                              value="required"
-                              disabled={isCatalogNeverRequiredCharacteristicName(item.name)}
+                      ) : visibleCharacteristicApplications.map((item) => {
+                        const isChairCount = isDedicatedChairCountCharacteristic(item.name);
+                        const chairCountNotApplicable = isChairCount && !isDiningSetCategory;
+                        const application = chairCountNotApplicable
+                          ? 'unavailable'
+                          : isChairCount && item.application === 'unavailable'
+                            ? 'optional'
+                            : item.application;
+                        return (
+                          <label key={item.attributeId} className="flex items-center justify-between gap-3 py-2">
+                            <span className="min-w-0 truncate text-xs font-medium text-slate-700 dark:text-slate-200">
+                              {item.name}
+                            </span>
+                            <select
+                              value={application}
+                              onChange={(event) => setSelectedCharacteristicApplications((previous) =>
+                                previous.map((application) => application.attributeId === item.attributeId
+                                  ? { ...application, application: event.target.value as typeof item.application }
+                                  : application)
+                              )}
+                              disabled={isSubmitting || chairCountNotApplicable}
+                              aria-label={`Aplicação de ${item.name} nesta categoria`}
+                              className="w-36 shrink-0 bg-transparent border-0 border-b border-slate-300 px-1 py-1.5 text-xs outline-none focus:border-blue-600 focus:ring-0 dark:border-slate-700 dark:text-slate-100"
                             >
-                              Obrigatório
-                            </option>
-                          </select>
-                        </label>
-                      ))}
+                              <option value="unavailable">N/A</option>
+                              <option value="optional">Opcional</option>
+                              <option
+                                value="required"
+                                disabled={isCatalogNeverRequiredCharacteristicName(item.name)}
+                              >
+                                Obrigatório
+                              </option>
+                            </select>
+                          </label>
+                        );
+                      })}
                     </div>
                   )}
                 </>

@@ -16,6 +16,7 @@ export function useAssemblyListQuery(filters: Record<string, unknown> = {}) {
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   const sequence = useRef(0);
   const controller = useRef<AbortController | null>(null);
+  const lastLoadedFiltersKey = useRef<string | null>(null);
   const filtersKey = JSON.stringify(filters);
   const settingsRef = useRef(settings);
 
@@ -63,9 +64,13 @@ export function useAssemblyListQuery(filters: Record<string, unknown> = {}) {
       });
 
       setAssemblies(unified);
+      lastLoadedFiltersKey.current = filtersKey;
     } catch (error) {
       if (current === sequence.current && !request.signal.aborted) {
-        setAssemblies([]);
+        if (lastLoadedFiltersKey.current !== filtersKey) {
+          lastLoadedFiltersKey.current = null;
+          setAssemblies([]);
+        }
         console.error('Erro ao buscar montagens:', error);
         toast.error('Erro ao carregar lista de montagens.');
       }

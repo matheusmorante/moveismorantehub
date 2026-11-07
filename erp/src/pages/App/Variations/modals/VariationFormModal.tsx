@@ -23,6 +23,7 @@ export interface VariationFormModalProps {
     values: CharacteristicFormData,
     wasNew: boolean,
   ) => void | Promise<void>;
+  readonly onSuccessRefreshesVariations?: boolean;
   readonly variation?: VariationType | null;
   readonly allVariations?: readonly VariationType[];
   readonly groups: readonly CharacteristicGroup[];
@@ -37,6 +38,7 @@ const numberValue = (value: string): number | undefined => value.trim() === '' ?
 export const VariationFormModal = ({
   onClose,
   onSuccess,
+  onSuccessRefreshesVariations = false,
   variation,
   allVariations = [],
   groups,
@@ -58,6 +60,7 @@ export const VariationFormModal = ({
     isOpen: true,
     onClose,
     onSuccess,
+    onSuccessRefreshesVariations,
     variation,
     allVariations,
     groups,

@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   ScrollView,
   StyleSheet,
+  ActivityIndicator,
 } from 'react-native';
 import { X } from 'lucide-react-native';
 import type { Supplier } from '../../hooks/usePurchaseForm';
@@ -25,6 +26,10 @@ interface PurchaseSupplierPickerModalProps {
   supplierSearch: string;
   setSupplierSearch: (search: string) => void;
   filteredSuppliers: Supplier[];
+  loading: boolean;
+  errorMessage: string;
+  offlineResults: boolean;
+  onRetry: () => void;
   onSelectSupplier: (supplier: Supplier) => void;
   colors: ThemeColors;
 }
@@ -38,6 +43,10 @@ export const PurchaseSupplierPickerModal: React.FC<PurchaseSupplierPickerModalPr
   supplierSearch,
   setSupplierSearch,
   filteredSuppliers,
+  loading,
+  errorMessage,
+  offlineResults,
+  onRetry,
   onSelectSupplier,
   colors,
 }) => {
@@ -67,18 +76,39 @@ export const PurchaseSupplierPickerModal: React.FC<PurchaseSupplierPickerModalPr
           ]}
         />
         <ScrollView contentContainerStyle={{ padding: 16, gap: 8 }}>
-          {filteredSuppliers.map((item) => (
-            <TouchableOpacity
-              key={item.id}
-              onPress={() => onSelectSupplier(item)}
-              style={[
-                styles.supplierRow,
-                { backgroundColor: colors.surface, borderColor: colors.border },
-              ]}
-            >
-              <Text style={{ color: colors.text, fontWeight: '700' }}>{item.name}</Text>
-            </TouchableOpacity>
-          ))}
+          {offlineResults ? (
+            <Text style={[styles.offlineNotice, { color: colors.muted }]}>
+              Resultados salvos neste aparelho. Podem estar desatualizados; serão conferidos ao reconectar.
+            </Text>
+          ) : null}
+          {loading ? (
+            <View style={styles.statusContainer}>
+              <ActivityIndicator color={colors.muted} />
+              <Text style={{ color: colors.muted }}>Carregando fornecedores...</Text>
+            </View>
+          ) : errorMessage ? (
+            <View style={styles.statusContainer}>
+              <Text style={{ color: colors.muted, textAlign: 'center' }}>{errorMessage}</Text>
+              <TouchableOpacity accessibilityRole="button" onPress={onRetry}>
+                <Text style={{ color: colors.text, fontWeight: '800' }}>Tentar novamente</Text>
+              </TouchableOpacity>
+            </View>
+          ) : filteredSuppliers.length ? (
+            filteredSuppliers.map((item) => (
+              <TouchableOpacity
+                key={item.id}
+                onPress={() => onSelectSupplier(item)}
+                style={[
+                  styles.supplierRow,
+                  { backgroundColor: colors.surface, borderColor: colors.border },
+                ]}
+              >
+                <Text style={{ color: colors.text, fontWeight: '700' }}>{item.name}</Text>
+              </TouchableOpacity>
+            ))
+          ) : (
+            <Text style={[styles.statusText, { color: colors.muted }]}>Nenhum fornecedor encontrado.</Text>
+          )}
         </ScrollView>
       </View>
     </Modal>
@@ -87,6 +117,9 @@ export const PurchaseSupplierPickerModal: React.FC<PurchaseSupplierPickerModalPr
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
+  offlineNotice: { padding: 10, textAlign: 'center' },
+  statusContainer: { minHeight: 96, gap: 12, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 },
+  statusText: { paddingVertical: 28, textAlign: 'center' },
   pickerHeader: {
     padding: 18,
     paddingTop: 52,

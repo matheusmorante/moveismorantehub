@@ -18,7 +18,8 @@ import {
   addMobileAttributeValue,
   deleteMobileAttribute,
   deleteMobileAttributeValue,
-  fetchMobileAttributes,
+  fetchMobileAttributeOptions,
+  fetchMobileAttributeSummaries,
   type MobileAttribute,
   saveMobileAttributeDefinition,
 } from '../services/mobileAttributeService';
@@ -67,9 +68,13 @@ export const AttributesManagerModal: React.FC<Props> = ({ visible, dark, onClose
     newDefinition,
   } = useNewAttributeDefinitionDraft();
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [optionsLoadingId, setOptionsLoadingId] = useState<string | null>(null);
+  const [optionsLoadErrorId, setOptionsLoadErrorId] = useState<string | null>(null);
   const [newValText, setNewValText] = useState('');
   const [savingValueId, setSavingValueId] = useState<string | null>(null);
   const optionsUpdateAttributeId = useRef<string | undefined>(undefined);
+  const optionLoadRequest = useRef(0);
+  const expandedIdRef = useRef<string | null>(null);
   const allCharacteristics = attributes.map((attribute) => ({ ...attribute, active: attribute.active !== false }));
   const { validateAndRun: validateNewDefinition } = useZodForm(createCharacteristicFormSchema(allCharacteristics), newDefinition);
   const { validateAndRun: validateOptionsUpdate } = useZodForm(
@@ -81,12 +86,56 @@ export const AttributesManagerModal: React.FC<Props> = ({ visible, dark, onClose
     Alert.alert('Atenção', Object.values(flattenFormErrors(errors))[0] || 'Revise os campos informados.');
   };
 
-  const load = async () => {
+  const loadOptionsForAttribute = async (attributeId: string) => {
+    const requestId = ++optionLoadRequest.current;
+    setOptionsLoadingId(attributeId);
+    setOptionsLoadErrorId(null);
+    try {
+      const options = await fetchMobileAttributeOptions(attributeId);
+      if (requestId === optionLoadRequest.current) {
+        setAttributes((current) => current.map((attribute) =>
+          attribute.id === attributeId
+            ? {
+                ...attribute,
+                options,
+                optionCount: options.length,
+                activeOptionCount: options.filter((option) => option.active !== false).length,
+                optionsLoaded: true,
+              }
+            : attribute
+        ));
+      }
+    } catch (_) {
+      if (requestId === optionLoadRequest.current) setOptionsLoadErrorId(attributeId);
+    } finally {
+      if (requestId === optionLoadRequest.current) setOptionsLoadingId(null);
+    }
+  };
+
+  const load = async (optionsAttributeId?: string) => {
+    if (optionsAttributeId) {
+      optionLoadRequest.current += 1;
+      setOptionsLoadingId(null);
+      setOptionsLoadErrorId(null);
+    }
     setLoading(true);
     setLoadError(null);
     try {
-      const data = await fetchMobileAttributes();
-      setAttributes(data);
+      const data = await fetchMobileAttributeSummaries();
+      if (optionsAttributeId) {
+        const options = await fetchMobileAttributeOptions(optionsAttributeId);
+        setAttributes(data.map((attribute) => attribute.id === optionsAttributeId
+          ? {
+              ...attribute,
+              options,
+              optionCount: options.length,
+              activeOptionCount: options.filter((option) => option.active !== false).length,
+              optionsLoaded: true,
+            }
+          : attribute));
+      } else {
+        setAttributes(data);
+      }
     } catch (_) {
       setLoadError('Não foi possível carregar as características. Tente novamente.');
     } finally {
@@ -95,9 +144,27 @@ export const AttributesManagerModal: React.FC<Props> = ({ visible, dark, onClose
   };
 
   useEffect(() => {
-    if (visible) load();
-    else setShowTypeOptions(false);
+    if (visible) void load(expandedIdRef.current ?? undefined);
+    else {
+      optionLoadRequest.current += 1;
+      setOptionsLoadingId(null);
+      setShowTypeOptions(false);
+    }
   }, [visible]);
+
+  const toggleExpandedAttribute = (attributeId: string) => {
+    if (expandedId === attributeId) {
+      optionLoadRequest.current += 1;
+      expandedIdRef.current = null;
+      setExpandedId(null);
+      setOptionsLoadingId(null);
+      return;
+    }
+    expandedIdRef.current = attributeId;
+    setExpandedId(attributeId);
+    const attribute = attributes.find((item) => item.id === attributeId);
+    if (!attribute?.optionsLoaded) void loadOptionsForAttribute(attributeId);
+  };
 
   const handleAddAttr = async () => {
     if (isSavingNew) return;
@@ -188,7 +255,7 @@ export const AttributesManagerModal: React.FC<Props> = ({ visible, dark, onClose
         try {
           await addMobileAttributeValue(values.attributeId!, values.value);
           setNewValText('');
-          await load();
+          await load(attrId);
         } catch (error) {
           Alert.alert(
             'Não foi possível adicionar',
@@ -221,7 +288,7 @@ export const AttributesManagerModal: React.FC<Props> = ({ visible, dark, onClose
           }, async () => {
             try {
               await deleteMobileAttributeValue(valId);
-              await load();
+              await load(attribute.id);
               return true;
             } catch (error) {
               Alert.alert(
@@ -466,16 +533,19 @@ export const AttributesManagerModal: React.FC<Props> = ({ visible, dark, onClose
               attributes={attributes}
               dark={dark}
               expandedId={expandedId}
+              onToggleExpanded={toggleExpandedAttribute}
               handleAddValue={handleAddValue}
               handleDeleteAttr={handleDeleteAttr}
               handleDeleteValue={handleDeleteValue}
               load={load}
               loadError={loadError}
               loading={loading}
+              optionsLoadingId={optionsLoadingId}
+              optionsLoadErrorId={optionsLoadErrorId}
+              loadOptions={loadOptionsForAttribute}
               newValText={newValText}
               savingValueId={savingValueId}
               searchTerm={searchTerm}
-              setExpandedId={setExpandedId}
               setNewValText={setNewValText}
             />
           </ScrollView>

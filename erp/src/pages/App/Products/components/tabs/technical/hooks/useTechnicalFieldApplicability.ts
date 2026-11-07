@@ -16,6 +16,7 @@ import {
 } from '../../../../../../../../../shared-utils/characteristicDependencyRules';
 import { isCatalogNeverRequiredCharacteristicName } from '../../../../../../../../../shared-utils/catalogPublication/requiredCharacteristicPolicy';
 import {
+  isDresserOrWardrobeRequiredCharacteristic,
   areTechnicalCharacteristicNamesEquivalent,
   isSofaRequiredCharacteristic,
 } from '../../../../../../../../../shared-utils/productTechnicalFieldScope';
@@ -68,6 +69,7 @@ export const useTechnicalFieldApplicability = ({
 }: UseTechnicalFieldApplicabilityParams) => {
   const {
     isSofaCategorySelected,
+    isDresserOrWardrobeCategorySelected,
     sofaTechnicalFields,
     hasSelectedCategoryApplication,
     isCatalogRequiredForSelectedCategory,
@@ -166,7 +168,10 @@ export const useTechnicalFieldApplicability = ({
   const dependencyReferenceIds = new Set<string>();
 
   const isFieldRequired = (field: TechnicalFieldDefinition) => {
-    if (isCatalogNeverRequiredCharacteristicName(field.name)) return false;
+    if (
+      isCatalogNeverRequiredCharacteristicName(field.name) &&
+      !(isDresserOrWardrobeCategorySelected && isDresserOrWardrobeRequiredCharacteristic(field.name))
+    ) return false;
     const categoryField = applicableFieldsByName.get(normalizeSearchTerm(field.name));
     return Boolean(
       field.isRequired ||
@@ -243,7 +248,9 @@ export const useTechnicalFieldApplicability = ({
       return {
         ...field,
         isRequired: required,
-        isRequiredForProductEntry: isSofaCategorySelected && isSofaRequiredCharacteristic(field.name),
+        isRequiredForProductEntry:
+          (isSofaCategorySelected && isSofaRequiredCharacteristic(field.name)) ||
+          (isDresserOrWardrobeCategorySelected && isDresserOrWardrobeRequiredCharacteristic(field.name)),
         characteristicActive: active,
         characteristicToggleDisabled: required,
       };
@@ -293,7 +300,9 @@ export const useTechnicalFieldApplicability = ({
           ...field,
           isRequired: required,
           isRequiredForCatalog: Boolean(field.isRequiredForCatalog),
-          isRequiredForProductEntry: isSofaCategorySelected && isSofaRequiredCharacteristic(field.name),
+          isRequiredForProductEntry:
+            (isSofaCategorySelected && isSofaRequiredCharacteristic(field.name)) ||
+            (isDresserOrWardrobeCategorySelected && isDresserOrWardrobeRequiredCharacteristic(field.name)),
           characteristicActive: active,
           characteristicToggleDisabled: required,
           dependencySatisfied: dependency.satisfied,
@@ -425,7 +434,9 @@ export const useTechnicalFieldApplicability = ({
               field: {
                 ...field,
                 isRequired: required,
-                isRequiredForProductEntry: isSofaCategorySelected && isSofaRequiredCharacteristic(field.name),
+                isRequiredForProductEntry:
+                  (isSofaCategorySelected && isSofaRequiredCharacteristic(field.name)) ||
+                  (isDresserOrWardrobeCategorySelected && isDresserOrWardrobeRequiredCharacteristic(field.name)),
                 characteristicActive: active,
                 characteristicToggleDisabled: required,
               },

@@ -19,7 +19,9 @@ export const fetchFromERP = async (options: { isCurrent?: () => boolean } = {}):
                 unit_price,
                 cost_price,
                 variation_id,
-                item_snapshot,
+                snapshot_description:item_snapshot->>description,
+                snapshot_supplier:item_snapshot->>mainSupplierName,
+                snapshot_variation_id:item_snapshot->>variationId,
                 orders!inner (
                     id,
                     status,
@@ -53,13 +55,13 @@ export const fetchFromERP = async (options: { isCurrent?: () => boolean } = {}):
 
         return {
           date,
-          product: row.description || snapshot.description || 'Sem Descrição',
-          supplier: snapshot.mainSupplierName || 'Sem Fornecedor',
+          product: row.description || row.snapshot_description || snapshot.description || 'Sem Descrição',
+          supplier: row.snapshot_supplier || snapshot.mainSupplierName || 'Sem Fornecedor',
           quantity: qty,
           cost: cost,
           salesValue: salesVal,
           profit: profit,
-          variationId: row.variation_id || snapshot.variationId || undefined,
+          variationId: row.variation_id || row.snapshot_variation_id || snapshot.variationId || undefined,
         };
       });
 

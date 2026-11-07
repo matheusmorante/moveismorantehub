@@ -11,6 +11,7 @@ const DeliverySchedule = () => {
   const {
     schedule,
     loading,
+    ordersError,
     setFilter,
     selectedOrder,
     openOrderDetails,
@@ -114,6 +115,11 @@ const DeliverySchedule = () => {
       {renderHeader()}
 
       <div className="relative">
+        {ordersError && (
+          <div role="alert" className="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800">
+            {ordersError}
+          </div>
+        )}
         {renderContent()}
       </div>
 

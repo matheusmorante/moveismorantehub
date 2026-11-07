@@ -6,6 +6,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { z } from 'zod';
 import { toast } from 'react-toastify';
 import { getSettings } from '@/pages/utils/settingsService';
+import { requestConfirmation } from '@/components/shared/confirmationService';
 import {
   PAGE_SIZE,
   fetchPromotion,
@@ -15,6 +16,7 @@ import {
   searchPromotionParticipants,
   type PromotionParticipant,
 } from './promotionsService';
+import { shouldConfirmImmediateActivation } from './promotionSchedule';
 
 const participantSchema = z.object({
   productId: z.string().uuid(),
@@ -31,7 +33,7 @@ const participantSchema = z.object({
 });
 
 const promotionFormSchema = z.object({
-  name: z.string().trim().min(1, 'Informe o nome da promoção.').max(120),
+  name: z.string().trim().min(1, 'Informe o nome da campanha.').max(120),
   description: z.string().max(3000),
   conditions: z.string().max(2000),
   discountMode: z.enum(['general', 'per_variation']),
@@ -98,6 +100,9 @@ export default function PromotionEditor({ promotionId, readOnly }: { promotionId
   }), [storeTimezone]);
   const form = useForm<PromotionFormValues>({ resolver: zodResolver(promotionFormSchema), defaultValues: defaults, mode: 'onSubmit' });
   const { fields, append, remove } = useFieldArray({ control: form.control, name: 'items' });
+  const selectedItemKeys = [...new Set(fields.map((item) => `${item.productId}:${item.variationId || ''}`))].sort();
+  const selectedKeys = new Set(selectedItemKeys);
+  const [hydratedPromotionId, setHydratedPromotionId] = useState<string | null>(null);
   const { watch, register, reset, setValue, handleSubmit, formState: { errors } } = form;
   const discountMode = watch('discountMode');
   const generalPercent = Number(watch('generalDiscountPercent')) || 0;
@@ -126,6 +131,7 @@ export default function PromotionEditor({ promotionId, readOnly }: { promotionId
       status: currentPromotion.status === 'scheduled' ? 'scheduled' : 'draft',
       items: currentPromotion.items,
     });
+    setHydratedPromotionId(currentPromotion.id);
   }, [currentPromotion, reset, storeTimezone]);
 
   const [pickerSearch, setPickerSearch] = useState('');
@@ -134,8 +140,9 @@ export default function PromotionEditor({ promotionId, readOnly }: { promotionId
   const [pickerPage, setPickerPage] = useState(1);
   const debouncedPickerSearch = useDebouncedValue(pickerSearch);
   const { data: pickerRows, isLoading: isLoadingPicker, isError: isPickerError, refetch: refetchPicker } = useQuery({
-    queryKey: ['promotion-participants', debouncedPickerSearch, categoryId, supplierId, pickerPage],
-    queryFn: () => searchPromotionParticipants({ search: debouncedPickerSearch, categoryId, supplierId, page: pickerPage }),
+    queryKey: ['promotion-participants', debouncedPickerSearch, categoryId, supplierId, selectedItemKeys, pickerPage],
+    queryFn: () => searchPromotionParticipants({ search: debouncedPickerSearch, categoryId, supplierId, selectedKeys: selectedItemKeys, page: pickerPage }),
+    enabled: !promotionId || hydratedPromotionId === promotionId,
   });
 
   const saveMutation = useMutation({
@@ -161,38 +168,22 @@ export default function PromotionEditor({ promotionId, readOnly }: { promotionId
     onSuccess: async ({ id, status }) => {
       await queryClient.invalidateQueries({ queryKey: ['promotions'] });
       await queryClient.invalidateQueries({ queryKey: ['promotion', id] });
-      toast.success(status === 'scheduled' ? 'Promoção programada.' : 'Rascunho salvo.');
-      navigate(`/products/promotions/${id}/edit`);
+      toast.success(status === 'scheduled' ? 'Campanha programada.' : 'Rascunho salvo.');
+      navigate(`/products/campaigns/${id}/edit`);
     },
     onError: (error) => toast.error(getPromotionErrorMessage(error)),
   });
 
-  const selectedKeys = new Set(fields.map((item) => `${item.productId}:${item.variationId || ''}`));
   const addParticipant = (participant: PromotionParticipant) => {
     const key = `${participant.productId}:${participant.variationId || ''}`;
     if (selectedKeys.has(key)) return;
     append({ ...participant, discountPercent: '' });
   };
-  const toggleCurrentPage = () => {
-    const rows = pickerRows || [];
-    const allSelected = rows.length > 0 && rows.every((item) => selectedKeys.has(`${item.productId}:${item.variationId || ''}`));
-    if (allSelected) {
-      const visible = new Set(rows.map((item) => `${item.productId}:${item.variationId || ''}`));
-      fields
-        .map((item, index) => visible.has(`${item.productId}:${item.variationId || ''}`) ? index : -1)
-        .filter((index) => index >= 0)
-        .reverse()
-        .forEach((index) => remove(index));
-    } else {
-      rows.forEach(addParticipant);
-    }
-  };
-
-  const addOrRemove = (participant: PromotionParticipant, checked: boolean) => {
-    const key = `${participant.productId}:${participant.variationId || ''}`;
-    const index = fields.findIndex((item) => `${item.productId}:${item.variationId || ''}` === key);
-    if (checked && index < 0) addParticipant(participant);
-    if (!checked && index >= 0) remove(index);
+  const addCurrentPage = () => {
+    const additions = (pickerRows || [])
+      .filter((item) => !selectedKeys.has(`${item.productId}:${item.variationId || ''}`))
+      .map((item) => ({ ...item, discountPercent: '' }));
+    if (additions.length) append(additions);
   };
 
   const updateFilter = (update: () => void) => {
@@ -200,21 +191,34 @@ export default function PromotionEditor({ promotionId, readOnly }: { promotionId
     update();
   };
 
-  const onSubmit = handleSubmit((values) => saveMutation.mutate(values));
+  const onSubmit = handleSubmit(async (values) => {
+    if (shouldConfirmImmediateActivation(values)) {
+      const confirmed = await requestConfirmation({
+        title: 'A campanha será ativada agora',
+        message: 'O período de vigência já começou. Se confirmar, a campanha ficará ativa imediatamente. Deseja continuar?',
+        confirmLabel: 'Confirmar',
+        cancelLabel: 'Cancelar',
+        type: 'warning',
+      });
+      if (!confirmed) return;
+    }
 
-  if (promotionId && isLoadingPromotion) return <div className="p-10 text-center text-sm text-slate-500">Carregando promoção…</div>;
-  if (promotionLoadError) return <div className="p-8 text-center text-sm text-red-700">Não foi possível carregar esta promoção. <Link to="/products/promotions" className="font-bold underline">Voltar à lista</Link></div>;
+    saveMutation.mutate(values);
+  });
+
+  if (promotionId && isLoadingPromotion) return <div className="p-10 text-center text-sm text-slate-500">Carregando campanha…</div>;
+  if (promotionLoadError) return <div className="p-8 text-center text-sm text-red-700">Não foi possível carregar esta campanha. <Link to="/products/campaigns" className="font-bold underline">Voltar à lista</Link></div>;
 
   return (
     <main className="min-h-full bg-slate-50 p-4 dark:bg-slate-950 sm:p-6">
       <form onSubmit={onSubmit} className="mx-auto max-w-6xl space-y-5">
         <header className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <Link to="/products/promotions" className="text-xs font-semibold text-blue-600 hover:underline">← Promoções</Link>
-            <h1 className="mt-2 text-2xl font-black text-slate-900 dark:text-white">{readOnly ? 'Visualizar promoção' : promotionId ? 'Editar promoção' : 'Nova promoção'}</h1>
+            <Link to="/products/campaigns" className="text-xs font-semibold text-blue-600 hover:underline">← Campanhas</Link>
+            <h1 className="mt-2 text-2xl font-black text-slate-900 dark:text-white">{readOnly ? 'Visualizar campanha' : promotionId ? 'Editar campanha' : 'Nova campanha'}</h1>
             <p className="mt-1 text-sm text-slate-500">Defina a campanha, o período e os produtos participantes.</p>
           </div>
-          {readOnly ? <button type="button" onClick={() => navigate('/products/promotions')} className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-white">Voltar</button> : null}
+          {readOnly ? <button type="button" onClick={() => navigate('/products/campaigns')} className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-white">Voltar</button> : null}
         </header>
 
         <section className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(340px,0.9fr)]">
@@ -222,14 +226,14 @@ export default function PromotionEditor({ promotionId, readOnly }: { promotionId
             <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
               <h2 className="font-black text-slate-900 dark:text-white">Informações gerais</h2>
               <div className="mt-4 space-y-4">
-                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-200">Nome da promoção
+                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-200">Nome da campanha
                   <input {...register('name')} disabled={readOnly} maxLength={120} className="mt-1.5 h-11 w-full rounded-xl border border-slate-200 px-3 font-normal outline-none focus:border-blue-500 disabled:bg-slate-50 dark:border-slate-700 dark:bg-slate-950" placeholder="Ex.: Black Friday 2026" />
                   {errors.name ? <span className="mt-1 block text-xs text-red-600">{errors.name.message}</span> : null}
                 </label>
                 <label className="block text-sm font-semibold text-slate-700 dark:text-slate-200">Descrição
                   <textarea {...register('description')} disabled={readOnly} maxLength={3000} rows={2} className="mt-1.5 w-full rounded-xl border border-slate-200 p-3 font-normal outline-none focus:border-blue-500 disabled:bg-slate-50 dark:border-slate-700 dark:bg-slate-950" placeholder="Resumo da campanha" />
                 </label>
-                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-200">Condições e informações da promoção
+                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-200">Condições e informações da campanha
                   <textarea {...register('conditions')} disabled={readOnly} maxLength={2000} rows={3} className="mt-1.5 w-full rounded-xl border border-slate-200 p-3 font-normal outline-none focus:border-blue-500 disabled:bg-slate-50 dark:border-slate-700 dark:bg-slate-950" placeholder="Texto informativo para consulta. Não altera as regras de pagamento." />
                   <span className="mt-1 block text-xs font-normal text-slate-400">Este texto é informativo; não restringe automaticamente meios de pagamento.</span>
                 </label>
@@ -238,7 +242,7 @@ export default function PromotionEditor({ promotionId, readOnly }: { promotionId
 
             <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
               <h2 className="font-black text-slate-900 dark:text-white">Período de vigência</h2>
-              <p className="mt-1 text-xs text-slate-500">A promoção começa às 00:00 e termina às 23:59:59 no fuso da loja ({watch('timezoneName')}).</p>
+              <p className="mt-1 text-xs text-slate-500">A campanha começa às 00:00 e termina às 23:59:59 no fuso da loja ({watch('timezoneName')}).</p>
               <div className="mt-4 grid gap-3 sm:grid-cols-2">
                 <label className="text-sm font-semibold text-slate-700 dark:text-slate-200">Data de início
                   <input type="date" {...register('startsOn')} disabled={readOnly} className="mt-1.5 h-11 w-full rounded-xl border border-slate-200 px-3 font-normal dark:border-slate-700 dark:bg-slate-950" />
@@ -260,10 +264,10 @@ export default function PromotionEditor({ promotionId, readOnly }: { promotionId
                 </label>
                 <label className={`flex cursor-pointer gap-3 rounded-xl border p-4 ${discountMode === 'per_variation' ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/30' : 'border-slate-200 dark:border-slate-700'}`}>
                   <input type="radio" value="per_variation" {...register('discountMode')} disabled={readOnly} className="mt-1 accent-blue-600" />
-                  <span><strong className="block text-sm">Desconto por variação</strong><small className="text-xs text-slate-500">Informe o percentual em cada item selecionado.</small></span>
+                  <span><strong className="block text-sm">Desconto por item</strong><small className="text-xs text-slate-500">Informe o percentual em cada item selecionado.</small></span>
                 </label>
               </div>
-              {discountMode === 'general' ? <label className="mt-4 block max-w-xs text-sm font-semibold text-slate-700 dark:text-slate-200">Desconto adicional (%)
+              {discountMode === 'general' ? <label className="mt-4 block max-w-xs text-sm font-semibold text-slate-700 dark:text-slate-200">Desconto da campanha (%)
                 <div className="mt-1.5 flex h-11 items-center rounded-xl border border-slate-200 pr-3 dark:border-slate-700"><input type="number" min="0.01" max="100" step="0.01" {...register('generalDiscountPercent')} disabled={readOnly} className="w-full bg-transparent px-3 font-normal outline-none" placeholder="Ex.: 20" /><span className="text-slate-400">%</span></div>
                 {errors.generalDiscountPercent ? <span className="mt-1 block text-xs text-red-600">{errors.generalDiscountPercent.message}</span> : null}
               </label> : null}
@@ -273,46 +277,45 @@ export default function PromotionEditor({ promotionId, readOnly }: { promotionId
           <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
             <div className="flex items-start justify-between gap-3">
               <div><h2 className="font-black text-slate-900 dark:text-white">Produtos participantes</h2><p className="mt-1 text-xs text-slate-500">A seleção e os filtros são aplicados no servidor.</p></div>
-              <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700 dark:bg-blue-950/40 dark:text-blue-300">{fields.length} selecionados</span>
+              <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700 dark:bg-blue-950/40 dark:text-blue-300">{fields.length} adicionados</span>
             </div>
 
             {!readOnly ? <div className="mt-4 space-y-3">
-              <label className="flex h-10 items-center gap-2 rounded-xl border border-slate-200 px-3 dark:border-slate-700"><i className="bi bi-search text-slate-400" aria-hidden="true" /><input value={pickerSearch} onKeyDown={(event) => { if (event.key === 'Enter') event.preventDefault(); }} onChange={(event) => updateFilter(() => setPickerSearch(event.target.value))} placeholder="Buscar produto, variação ou SKU" className="min-w-0 flex-1 bg-transparent text-sm outline-none" /></label>
+              <label className="flex h-10 items-center gap-2 rounded-xl border border-slate-200 px-3 dark:border-slate-700"><i className="bi bi-search text-slate-400" aria-hidden="true" /><input value={pickerSearch} onKeyDown={(event) => { if (event.key === 'Enter') event.preventDefault(); }} onChange={(event) => updateFilter(() => setPickerSearch(event.target.value))} placeholder="Buscar produtos para adicionar" className="min-w-0 flex-1 bg-transparent text-sm outline-none" /></label>
               <div className="grid gap-2 sm:grid-cols-2">
                 <select value={categoryId} onChange={(event) => updateFilter(() => setCategoryId(event.target.value))} className="h-10 min-w-0 rounded-xl border border-slate-200 bg-white px-2 text-xs dark:border-slate-700 dark:bg-slate-950"><option value="">Todas as categorias</option>{filterOptions?.categories.map((category: any) => <option key={category.id} value={category.id}>{category.name}</option>)}</select>
                 <select value={supplierId} onChange={(event) => updateFilter(() => setSupplierId(event.target.value))} className="h-10 min-w-0 rounded-xl border border-slate-200 bg-white px-2 text-xs dark:border-slate-700 dark:bg-slate-950"><option value="">Todos os fornecedores</option>{filterOptions?.suppliers.map((supplier: any) => <option key={supplier.id} value={supplier.id}>{supplier.social_name || supplier.full_name}</option>)}</select>
               </div>
               <div className="flex items-center justify-between border-b border-slate-100 pb-2 text-xs dark:border-slate-800">
-                <span className="text-slate-500">{isLoadingPicker ? 'Buscando…' : `${pickerRows?.length || 0} resultados nesta página`}</span>
-                <button type="button" disabled={!pickerRows?.length || isLoadingPicker} onClick={toggleCurrentPage} className="font-bold text-blue-600 disabled:opacity-40">Selecionar página</button>
+                <span className="text-slate-500">{isLoadingPicker ? 'Buscando…' : `${pickerRows?.length || 0} disponíveis nesta página`}</span>
+                <button type="button" disabled={!pickerRows?.length || isLoadingPicker} onClick={addCurrentPage} className="font-bold text-blue-600 disabled:opacity-40">Adicionar página</button>
               </div>
               {isPickerError ? <p className="rounded-lg bg-red-50 p-3 text-xs text-red-700">Falha ao buscar produtos. <button type="button" onClick={() => void refetchPicker()} className="font-bold underline">Tentar novamente</button></p> : null}
               <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
                 {(pickerRows || []).map((item) => {
                   const key = `${item.productId}:${item.variationId || ''}`;
-                  const checked = selectedKeys.has(key);
-                  return <label key={key} className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 ${checked ? 'border-blue-300 bg-blue-50/70 dark:bg-blue-950/20' : 'border-slate-200 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800'}`}>
-                    <input type="checkbox" checked={checked} onChange={(event) => addOrRemove(item, event.target.checked)} className="mt-1 accent-blue-600" />
+                  return <div key={key} className="flex items-start gap-3 rounded-xl border border-slate-200 p-3 dark:border-slate-700">
                     <span className="min-w-0 flex-1"><strong className="block truncate text-xs text-slate-800 dark:text-slate-100">{item.productName}{item.variationName ? ` · ${item.variationName}` : ''}</strong><small className="block truncate text-[10px] text-slate-500">{item.categoryName || 'Sem categoria'}{item.sku ? ` · SKU ${item.sku}` : item.code ? ` · ${item.code}` : ''}</small></span>
                     <span className="whitespace-nowrap text-[11px] font-bold text-slate-600">{money(item.currentPrice)}</span>
-                  </label>;
+                    <button type="button" onClick={() => addParticipant(item)} className="shrink-0 text-xs font-bold text-blue-600 hover:text-blue-800">Adicionar</button>
+                  </div>;
                 })}
-                {!isLoadingPicker && !pickerRows?.length ? <p className="py-5 text-center text-xs text-slate-400">Nenhum produto encontrado com esses filtros.</p> : null}
+                {!isLoadingPicker && !pickerRows?.length ? <p className="py-5 text-center text-xs text-slate-400">Nenhum produto disponível com esses filtros.</p> : null}
               </div>
               <div className="flex items-center justify-between text-xs text-slate-500"><button type="button" disabled={pickerPage <= 1} onClick={() => setPickerPage((page) => page - 1)} className="font-semibold disabled:opacity-40">← Anterior</button><span>Página {pickerPage}</span><button type="button" disabled={!pickerRows || pickerRows.length < PAGE_SIZE} onClick={() => setPickerPage((page) => page + 1)} className="font-semibold disabled:opacity-40">Próxima →</button></div>
             </div> : null}
 
             <div className="mt-5 space-y-3 border-t border-slate-100 pt-4 dark:border-slate-800">
-              {!fields.length ? <p className="rounded-xl border border-dashed border-slate-300 p-5 text-center text-xs text-slate-500 dark:border-slate-700">Nenhum produto selecionado.</p> : null}
+              <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100">Produtos adicionados</h3>
+              {!fields.length ? <p className="rounded-xl border border-dashed border-slate-300 p-5 text-center text-xs text-slate-500 dark:border-slate-700">Nenhum produto adicionado.</p> : null}
               {fields.map((item, index) => {
                 const percent = discountMode === 'general' ? generalPercent : Number(watch(`items.${index}.discountPercent`)) || 0;
-                const finalPrice = cents((item.currentPrice || 0) * (1 - percent / 100));
                 return <div key={item.id} className="rounded-xl border border-slate-200 p-3 dark:border-slate-700">
                   <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0"><strong className="block truncate text-xs text-slate-900 dark:text-white">{item.productName}{item.variationName ? ` · ${item.variationName}` : ''}</strong><span className="text-[10px] text-slate-500">{item.sku || item.code || 'Sem SKU'} · De {money(item.currentPrice)} por {money(finalPrice)}</span></div>
+                    <div className="min-w-0"><strong className="block truncate text-xs text-slate-900 dark:text-white">{item.productName}{item.variationName ? ` · ${item.variationName}` : ''}</strong><span className="text-[10px] text-slate-500">{item.sku || item.code || 'Sem SKU'} · Preço cadastrado: {money(item.currentPrice)} · Desconto da campanha: {percent}%</span></div>
                     {!readOnly ? <button type="button" onClick={() => remove(index)} aria-label={`Remover ${item.productName}`} className="text-red-600 hover:text-red-800"><i className="bi bi-trash3" aria-hidden="true" /></button> : null}
                   </div>
-                  {discountMode === 'per_variation' && !readOnly ? <label className="mt-3 block text-xs font-semibold text-slate-600 dark:text-slate-300">Desconto adicional (%)<div className="mt-1 flex h-9 items-center rounded-lg border border-slate-200 px-2 dark:border-slate-700"><input type="number" min="0.01" max="100" step="0.01" {...register(`items.${index}.discountPercent`)} className="w-full bg-transparent outline-none" placeholder="Informe o percentual" /><span className="text-slate-400">%</span></div>{errors.items?.[index]?.discountPercent ? <span className="mt-1 block text-[10px] text-red-600">{errors.items[index]?.discountPercent?.message}</span> : null}</label> : null}
+                  {discountMode === 'per_variation' && !readOnly ? <label className="mt-3 block text-xs font-semibold text-slate-600 dark:text-slate-300">Desconto da campanha (%)<div className="mt-1 flex h-9 items-center rounded-lg border border-slate-200 px-2 dark:border-slate-700"><input type="number" min="0.01" max="100" step="0.01" {...register(`items.${index}.discountPercent`)} className="w-full bg-transparent outline-none" placeholder="Informe o percentual" /><span className="text-slate-400">%</span></div>{errors.items?.[index]?.discountPercent ? <span className="mt-1 block text-[10px] text-red-600">{errors.items[index]?.discountPercent?.message}</span> : null}</label> : null}
                 </div>;
               })}
               {errors.items?.message ? <p className="text-xs text-red-600">{errors.items.message}</p> : null}
@@ -321,10 +324,9 @@ export default function PromotionEditor({ promotionId, readOnly }: { promotionId
         </section>
 
         {!readOnly ? <footer className="sticky bottom-2 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white/95 p-3 shadow-lg backdrop-blur dark:border-slate-800 dark:bg-slate-900/95">
-          <p className="min-w-0 flex-1 text-xs text-slate-500">O desconto da campanha é aplicado depois do preço promocional já cadastrado.</p>
-          <div className="flex gap-2"><Link to="/products/promotions" className="rounded-xl border border-slate-200 px-4 py-3 text-sm font-bold text-slate-600 dark:border-slate-700 dark:text-slate-300">Cancelar</Link>
+          <div className="flex gap-2"><Link to="/products/campaigns" className="rounded-xl border border-slate-200 px-4 py-3 text-sm font-bold text-slate-600 dark:border-slate-700 dark:text-slate-300">Cancelar</Link>
             <button type="submit" disabled={saveMutation.isPending} onClick={() => setValue('status', 'draft', { shouldValidate: true })} className="rounded-xl border border-blue-200 px-4 py-3 text-sm font-bold text-blue-700 disabled:opacity-50">Salvar rascunho</button>
-            <button type="submit" disabled={saveMutation.isPending} onClick={() => setValue('status', 'scheduled', { shouldValidate: true })} className="rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white hover:bg-blue-700 disabled:opacity-50">{saveMutation.isPending ? 'Salvando…' : 'Programar promoção'}</button>
+            <button type="submit" disabled={saveMutation.isPending} onClick={() => setValue('status', 'scheduled', { shouldValidate: true })} className="rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white hover:bg-blue-700 disabled:opacity-50">{saveMutation.isPending ? 'Salvando…' : 'Programar campanha'}</button>
           </div>
         </footer> : null}
       </form>

@@ -9,6 +9,7 @@ import {
   prependMoveToState,
   removeMoveFromState,
   updateMoveInState,
+  notifyInventoryMoveMutation,
 } from './inventorySubscriptionState';
 import {
   recalculateProductStockOnMove,
@@ -76,8 +77,12 @@ export const saveInventoryMove = async (
     if (!Array.isArray(data) || data.length !== 1) throw new InventoryMoveUnconfirmedError();
     persisted = confirmedMove(data[0], payload);
     prependMoveToState(persisted);
-    if (await recalculateInventoryAuditBalance(move.productId)) return persisted;
+    if (await recalculateInventoryAuditBalance(move.productId)) {
+      notifyInventoryMoveMutation();
+      return persisted;
+    }
     await recalculateProductStockOnMove({ ...move, unitCost: persisted.unitCost, unitPrice: persisted.unitPrice });
+    notifyInventoryMoveMutation();
     return persisted;
   } catch (cause) {
     // The ledger insert cannot be undone by a later client-side balance failure.
@@ -125,10 +130,14 @@ export const deleteInventoryMove = async (
     // Atualizar estado em memória
     removeMoveFromState(id);
 
-    if (await recalculateInventoryAuditBalance(move.productId)) return;
+    if (await recalculateInventoryAuditBalance(move.productId)) {
+      notifyInventoryMoveMutation();
+      return;
+    }
 
     // Reverter saldo do estoque do produto
     await revertProductStockFromMove(move);
+    notifyInventoryMoveMutation();
   } catch (error) {
     console.error('Erro ao excluir/estornar lançamento de estoque: ', error);
     throw error;
@@ -187,6 +196,7 @@ export const updateInventoryMove = async (
   };
   const persisted = confirmedMove(data.move, payload);
   updateMoveInState(command.id, persisted);
+  notifyInventoryMoveMutation();
   invalidateProductCatalogStatsCache();
   void queryClient.invalidateQueries({ queryKey: ['products'] });
   return persisted;

@@ -1,5 +1,5 @@
 # 📋 Planos Pendentes e Roadmap — Móveis Morante Hub
-> **Última atualização:** 3 de novembro de 2026
+> **Última atualização:** 6 de novembro de 2026
 >
 > **Status:** Documento vivo de planejamento operacional e técnico.
 
@@ -25,9 +25,9 @@
 - [x] **Modularização e Clean Code (Mobile)**: Refatoração estrutural dos módulos de Ambientes/Categorias e Movimentações com base nas skills `principios-de-programacao` e `organizacao-arquivos-diretorios`. Redução drástica de complexidade (`MobileCategoryEnvironmentModal` de ~520 para ~200 linhas; `StockMovesScreen` de ~480 para ~190 linhas), extração de componentes coesos (`CategoryAttributesPicker`, `CategoryLinksPicker`, `StockPeriodModal`, `StockProductSearchFilter`, `StockBalanceBadge`, `StockMoveTypeSelector`), separação do hook de formulário `useCategoryFormModal` e 100% de testes automatizados aprovados.
 - [x] **Bloqueio Visual e Operacional do Canal ERP para Salvados e Usados**: Produtos cuja origem do estoque é "Salvados" ou "Usados" têm o canal do ERP desativado permanentemente nos cards/listagens do ERP e do app mobile; no mobile, Usados ficam com 50% de opacidade, não interativos, com dica acessível e sem ação Ativar/Desativar no menu. Salvados permanecem sem selo ERP. A sincronização Meta após alternar o status continua pendente no inventário `docs/produtos/paridade-erp-app.md`.
 - [x] **Sincronização Meta após ativação/desativação no app**: ERP e mobile agora usam os construtores compartilhados de itens e lotes; as mudanças de ativação e de publicação/ocultação no mobile disparam o proxy autenticado `/api/meta-graph` após persistência, com debounce de 400 ms e permissão `productConfig` mantida no servidor. O lote foi alinhado ao limite de 50 do proxy. Testes usam HTTP mockado; confirmação de resultado no catálogo Meta de produção não foi executada.
-- [x] **Padronização de Especificações Técnicas (Marca, Modelo, Lugares, Reclinável)**:
+- [x] **Padronização de Especificações Técnicas (Marca, Modelo, Quantidade de Cadeiras, Reclinável)**:
   - Marca e Modelo convertidos em campos de texto digitáveis (`text_short`) sem menus de seleção/combobox, permitindo digitação livre e mantendo sincronia com os metadados do produto.
-  - "Quantidade de lugares" definida como número inteiro (`integer`), com `type="number"`, `step="1"`, `min="0"` e placeholder `'Digite o número de quantidades'`.
+  - "Quantidade de cadeiras" definida como número inteiro (`integer`), com `type="number"`, `step="1"`, `min="0"` e placeholder `'Insira a quantidade de cadeiras'`. A categoria Conjunto Mesa e Cadeiras exige o valor para publicação no Catálogo Digital; em outras categorias o atributo novo fica N/A. O nome legado continua reconhecido para valores já salvos.
   - O alias isolado “Reclinável” não deve ser oferecido como campo independente; essa decisão foi supersedida pelo Ciclo 639: para Sofás, o formulário exibe as perguntas booleanas separadas “É retrátil?” e “É reclinável?”, ambas obrigatórias no cadastro final. Os aliases antigos são lidos nos campos canônicos.
 - [x] **Origem Comercial do Produto no Cadastro (Produção Própria vs Adquirido de Terceiros)**:
   - Implementado botão superior de alternância (switch toggle e botões segmentados) no topo da aba Estoque e Precificação do ERP (`ProductManufacturingTypeToggle.tsx`).

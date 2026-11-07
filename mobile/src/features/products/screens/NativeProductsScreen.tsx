@@ -35,16 +35,14 @@ import {
 import { NativeMetaCatalogScreen } from './NativeMetaCatalogScreen';
 import { ProductModulesMenu } from './ProductModulesMenu';
 import { ProductScreenOverlays } from './ProductScreenOverlays';
-import { copyMobileProductImages } from '../services/mobileProductPhotoService';
 import {
   canShowMobileLinkedProductOrders,
   canShowMobileProductDeletionActions,
   runMobileProductDeleteAction,
   runMobileProductRestoreAction,
 } from '../domain/mobileProductCardRules';
-import { buildMobileProductDuplicationDraft } from '../domain/mobileProductDuplication';
-import { getNextSequentialProductCode } from '../services/mobileProductCodeService';
 import { loadFullProductForForm } from './loadFullProductForForm';
+import { prepareMobileProductDuplicationDraft } from './prepareMobileProductDuplicationDraft';
 import { styles } from './nativeProductsScreen.styles';
 
 interface Props {
@@ -283,24 +281,15 @@ export const NativeProductsScreen: React.FC<Props> = ({
     if (!canEditProducts) return;
     setLoadingProductForEdit(true);
     try {
-      const source = await loadFullProductForForm(
+      const duplicateDraft = await prepareMobileProductDuplicationDraft(
         String(prod.id),
         productsHook.showTestProducts,
-        'duplicacao'
-      );
-
-      const code = await getNextSequentialProductCode();
-      const sourceImages = Array.isArray(source.images) ? source.images : [];
-      let images = sourceImages;
-      if (sourceImages.length > 0) {
-        try {
-          images = await copyMobileProductImages(sourceImages);
-        } catch (error) {
+        (error) => {
           console.warn('[NativeProductsScreen] Não foi possível criar cópias independentes das fotos:', error);
           Alert.alert('Fotos mantidas', 'Não foi possível copiar as fotos; as originais foram mantidas.');
         }
-      }
-      setEditingProduct(buildMobileProductDuplicationDraft(source, code, images));
+      );
+      setEditingProduct(duplicateDraft);
       setNewProductInitialData(undefined);
       setShowFormModal(true);
     } catch (error: any) {

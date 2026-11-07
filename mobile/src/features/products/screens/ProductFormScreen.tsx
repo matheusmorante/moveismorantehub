@@ -76,10 +76,8 @@ import { ProductFormPhotosTab } from '../modals/tabs/ProductFormPhotosTab';
 import { ProductFormPricesTab } from '../modals/tabs/ProductFormPricesTab';
 import { ProductFormTechnicalTab } from '../modals/tabs/ProductFormTechnicalTab';
 import { ProductFormVariationsTab } from '../modals/tabs/ProductFormVariationsTab';
-import {
-  ProductFormReadinessChecklist,
-  type ProductFormReadinessItem,
-} from './ProductFormReadinessChecklist';
+import { ProductFormReadinessChecklist } from './ProductFormReadinessChecklist';
+import { buildMobileProductFormReadinessItems } from './productFormReadinessItems';
 import { ProductFormTabNavigation } from './ProductFormTabNavigation';
 import { ProductFormStepFooter } from './ProductFormStepFooter';
 import { useProductFormValidationFeedback } from './useProductFormValidationFeedback';
@@ -977,79 +975,8 @@ export const ProductFormScreen: React.FC<Props> = ({
     formData.merchandiseOrigin === 'own_production' ||
     formData.isOwnProduction === true ||
     formData.fiscal?.merchandiseOrigin === 'own_production';
-  const erpReadinessItems: ProductFormReadinessItem[] = [
-    {
-      id: 'name',
-      label: 'Nome do Produto (Mínimo 2 letras)',
-      ready: readiness.erp.checks.description,
-      tab: 'geral' as TabId,
-    },
-    {
-      id: 'unitPrice',
-      label: 'Preço de Venda > R$ 0 (ou Variações)',
-      ready: readiness.erp.checks.unitPrice,
-      tab: 'estoque' as TabId,
-    },
-    {
-      id: 'categories',
-      label: 'Pelo menos 1 Categoria',
-      ready: readiness.erp.checks.categories,
-      tab: 'geral' as TabId,
-    },
-    {
-      id: 'supplier',
-      label: isOwnProduction ? 'Fabricação Própria (Dispensado)' : 'Pelo menos 1 Fornecedor',
-      ready: readiness.erp.checks.supplier,
-      tab: 'estoque' as TabId,
-    },
-    {
-      id: 'origin',
-      label: 'Origem do Estoque Convencional',
-      ready: readiness.erp.checks.origin,
-      tab: 'geral' as TabId,
-    },
-    {
-      id: 'variationPhotos',
-      label: 'Fotos das Variações (mín. 1 vinculada por variação)',
-      ready: readiness.variationPhotos,
-      tab: 'variacoes' as TabId,
-    },
-  ];
-  const catalogReadinessItems: ProductFormReadinessItem[] = [
-    {
-      id: 'marketplaceTitle',
-      label: 'Nome do Produto',
-      ready: readiness.catalog.checks.marketplaceTitle,
-      tab: 'geral' as TabId,
-    },
-    {
-      id: 'unitPrice',
-      label: 'Preço de Venda > R$ 0',
-      ready: readiness.catalog.checks.unitPrice,
-      tab: 'estoque' as TabId,
-    },
-    {
-      id: 'images',
-      label: 'Pelo menos 1 Foto principal',
-      ready: readiness.catalog.checks.images,
-      tab: 'fotos' as TabId,
-    },
-    {
-      id: 'categories',
-      label: 'Pelo menos 1 Categoria',
-      ready: readiness.catalog.checks.categories,
-      tab: 'geral' as TabId,
-    },
-    ...(!isService
-      ? [
-          {
-            id: 'dimensions',
-            label: 'Ao menos uma dimensão ativa; todas as ativas > 0',
-            ready: readiness.catalog.checks.dimensions,
-          },
-        ]
-      : []),
-  ];
+  const { erpReadinessItems, catalogReadinessItems } =
+    buildMobileProductFormReadinessItems({ readiness, isOwnProduction, isService });
   const activeReadiness =
     openReadiness === 'erp' && !isSalvado
       ? 'erp'

@@ -26,7 +26,6 @@ export interface CardVariationItem {
   promotionId?: string;
   promotionName?: string;
   promotionDiscountPercent?: number;
-  promotionFinalPrice?: number;
 }
 
 export interface ProductCardVariationListProps {

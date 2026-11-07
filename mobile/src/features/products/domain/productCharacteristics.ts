@@ -29,13 +29,20 @@ import {
 } from '../../../../../shared-utils/productTechnicalValueAliases';
 import {
   getTechnicalFieldDisplayName,
+  isDedicatedChairCountCharacteristic,
   isCanonicalSofaRequiredCharacteristic,
+  isDresserDoorQuantityCharacteristic,
+  isDresserDrawerQuantityCharacteristic,
+  isDresserOrWardrobeCategoryName,
+  isDresserOrWardrobeRequiredCharacteristic,
+  DRESSER_OR_WARDROBE_REQUIRED_CHARACTERISTIC_NAMES,
   isSofaCategoryName,
   isSofaRecliningCharacteristic,
   isSofaRequiredCharacteristic,
   isSofaRetractableCharacteristic,
   SOFA_REQUIRED_CHARACTERISTIC_NAMES,
 } from '../../../../../shared-utils/productTechnicalFieldScope';
+import { isDiningSetCategoryName } from '../../../../../shared-utils/productCategoryResolution';
 import {
   isProductTechnicalAttributeRequiredByCategories,
 } from '../../../../../shared-utils/productCategoryRequiredAttributes';
@@ -95,7 +102,11 @@ export { getMobileProductTechnicalSearchMatches } from './productCharacteristicS
 
 export const isDepthCharacteristic = (name: string): boolean => {
   const norm = normalizeName(name);
-  return norm === 'profundidade' || norm === 'profundidade total';
+  return (
+    norm === 'profundidade' ||
+    norm === 'profundidade total' ||
+    norm === 'profundidade do tampo da mesa'
+  );
 };
 
 export const isLengthCharacteristic = (name: string): boolean => {
@@ -110,12 +121,17 @@ export const isHeightCharacteristic = (name: string): boolean => {
 
 export const isWidthCharacteristic = (name: string): boolean => {
   const norm = normalizeName(name);
-  return norm === 'largura' || norm === 'largura total';
+  return norm === 'largura' || norm === 'largura total' || norm === 'largura do tampo da mesa';
 };
 
 export const isThicknessCharacteristic = (name: string): boolean => {
   const norm = normalizeName(name);
-  return norm === 'espessura' || norm === 'espessura do colchão' || norm === 'espessura do tampo';
+  return (
+    norm === 'espessura' ||
+    norm === 'espessura do colchão' ||
+    norm === 'espessura do tampo' ||
+    norm === 'espessura do tampo da mesa'
+  );
 };
 
 export const getProductTechnicalFieldDisplayName = (name: string): string =>
@@ -189,7 +205,9 @@ export const isProductTechnicalFieldRequired = (
   categoryIds: readonly string[] = [],
   categoryName = ''
 ): boolean => {
+  if (isDedicatedChairCountCharacteristic(field.name) && !isDiningSetCategoryName(categoryName)) return false;
   if (isSofaCategoryName(categoryName) && isSofaRequiredCharacteristic(field.name)) return true;
+  if (isDresserOrWardrobeCategoryName(categoryName) && isDresserOrWardrobeRequiredCharacteristic(field.name)) return true;
   if (isCatalogNeverRequiredCharacteristicName(field.name)) return false;
   if (Array.isArray(field.categoryApplications)) {
     return resolveProductCharacteristicApplication(field, categoryIds) === 'required';
@@ -331,8 +349,12 @@ export const getApplicableProductTechnicalFields = <T extends ProductTechnicalFi
   const activeCategories = new Set(categoryIds.map(String));
   const manualNames = new Set(manuallyAddedFieldNames.map(normalizeName));
   const isSink = isSinkCategory(categoryIds, safeFields);
+  const isDresserOrWardrobeCategorySelected = isDresserOrWardrobeCategoryName(categoryName);
+  const isDiningSetCategorySelected = isDiningSetCategoryName(categoryName);
 
   let applicable = safeFields.filter((field) => {
+    if (isDedicatedChairCountCharacteristic(field.name) && !isDiningSetCategorySelected) return false;
+    if (isDresserOrWardrobeCategorySelected && isDresserOrWardrobeRequiredCharacteristic(field.name)) return false;
     if (isSofaCategoryName(categoryName) && isSofaRequiredCharacteristic(field.name)) return false;
     const hasCatalogCategoryRequirement =
       !isCatalogNeverRequiredCharacteristicName(field.name) &&
@@ -394,6 +416,29 @@ export const getApplicableProductTechnicalFields = <T extends ProductTechnicalFi
       } as T;
     });
     applicable = [...applicable, ...sofaRequiredFields];
+  }
+
+  if (isDresserOrWardrobeCategorySelected) {
+    const dresserRequiredFields = DRESSER_OR_WARDROBE_REQUIRED_CHARACTERISTIC_NAMES.map((name) => {
+      const matches = isDresserDoorQuantityCharacteristic(name)
+        ? isDresserDoorQuantityCharacteristic
+        : isDresserDrawerQuantityCharacteristic;
+      const existing = safeFields.find((field) => matches(field.name));
+      return {
+        ...existing,
+        id: existing?.id || `dresser-required:${normalizeName(name)}`,
+        name: existing?.name || name,
+        data_type: 'integer',
+        options: existing?.options || [],
+        active: true,
+        isRequired: true,
+        isRequiredForProduct: true,
+        isRequiredForCatalog: false,
+        categoryApplications: undefined,
+        categoryIds: existing?.categoryIds || [...categoryIds],
+      } as T;
+    });
+    applicable = [...applicable, ...dresserRequiredFields];
   }
 
   const depthField = applicable.find((field) => isDepthCharacteristic(field.name));

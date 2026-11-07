@@ -1,3 +1,5 @@
+import { isDiningSetCategoryName } from './productCategoryResolution';
+
 /** Regras de categoria e rótulos para características técnicas com escopo específico. */
 const normalizeTechnicalRuleName = (value: string): string =>
   String(value || '')
@@ -9,6 +11,28 @@ const normalizeTechnicalRuleName = (value: string): string =>
 
 export const isSofaCategoryName = (name: string): boolean =>
   /(?:^|[^a-z0-9])sofas?(?=$|[^a-z0-9])/.test(normalizeTechnicalRuleName(name));
+
+export const isDresserOrWardrobeCategoryName = (name: string): boolean =>
+  /(?:^|[^a-z0-9])(?:comodas?|guarda[\s-]?roupas?)(?=$|[^a-z0-9])/.test(
+    normalizeTechnicalRuleName(name)
+  );
+
+export const isDresserDoorQuantityCharacteristic = (name: string): boolean =>
+  /^quantidade de portas?$/.test(normalizeTechnicalRuleName(name));
+
+export const isDresserDrawerQuantityCharacteristic = (name: string): boolean =>
+  /^quantidade de gavetas?$/.test(normalizeTechnicalRuleName(name));
+
+export const DRESSER_OR_WARDROBE_REQUIRED_CHARACTERISTIC_NAMES = [
+  'Quantidade de portas',
+  'Quantidade de gavetas',
+] as const;
+
+export const isDresserOrWardrobeRequiredCharacteristic = (name: string): boolean =>
+  isDresserDoorQuantityCharacteristic(name) || isDresserDrawerQuantityCharacteristic(name);
+
+export const isDedicatedChairCountCharacteristic = (name: string): boolean =>
+  normalizeTechnicalRuleName(name) === 'quantidade de cadeiras';
 
 export const isSofaRetractableCharacteristic = (name: string): boolean =>
   /^(?:(?:e|possui)\s+)?retratil$/.test(normalizeTechnicalRuleName(name));
@@ -62,6 +86,18 @@ export const isTechnicalFieldAllowedForCategories = (
   categoryIds: readonly string[] = []
 ): boolean => {
   const selectedIds = new Set(categoryIds.map(String));
+  if (
+    isDedicatedChairCountCharacteristic(fieldName) &&
+    !categoryNames.some(isDiningSetCategoryName)
+  ) {
+    return false;
+  }
+  if (
+    isDresserOrWardrobeRequiredCharacteristic(fieldName) &&
+    categoryNames.some(isDresserOrWardrobeCategoryName)
+  ) {
+    return true;
+  }
   if (isSofaRequiredCharacteristic(fieldName) && categoryNames.some(isSofaCategoryName)) {
     return true;
   }

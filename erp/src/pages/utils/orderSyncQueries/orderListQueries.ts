@@ -12,7 +12,12 @@ export const fetchOrdersPage = async (
   page: number = 1,
   pageSize: number = 15,
   filters?: any,
-  options: { throwOnError?: boolean; signal?: AbortSignal } = {}
+  options: {
+    throwOnError?: boolean;
+    signal?: AbortSignal;
+    skipLinkedReturnMovementEnrichment?: boolean;
+    skipPeopleOriginEnrichment?: boolean;
+  } = {}
 ): Promise<{ orders: Order[]; total: number; totalAmount: number }> => {
   try {
     const selected = await fetchServerOrderPage(supabase, {
@@ -30,9 +35,14 @@ export const fetchOrdersPage = async (
       const row = byId.get(id);
       return row ? [mapOrderFromDatabase(row)] : [];
     });
-    await enrichLinkedReturnMovements(rawOrders);
+    if (!options.skipLinkedReturnMovementEnrichment) {
+      await enrichLinkedReturnMovements(rawOrders);
+    }
     await enrichAssistanceLinkedOrders(rawOrders);
-    return { orders: await enrichOrdersWithPeopleOrigins(rawOrders), total: selected.total, totalAmount: selected.totalAmount };
+    const orders = options.skipPeopleOriginEnrichment
+      ? rawOrders
+      : await enrichOrdersWithPeopleOrigins(rawOrders);
+    return { orders, total: selected.total, totalAmount: selected.totalAmount };
   } catch (error) {
     if (options.throwOnError) throw error;
     console.error('[OrdersService] Erro ao buscar página de pedidos:', error);

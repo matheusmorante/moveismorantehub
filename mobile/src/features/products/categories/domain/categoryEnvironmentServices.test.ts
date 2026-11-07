@@ -11,6 +11,7 @@ vi.mock('../../../../services/supabaseClient', () => {
   return {
     supabase: {
       from: vi.fn(),
+      rpc: vi.fn(),
     },
   };
 });
@@ -297,33 +298,13 @@ describe('Roteiro 1 & 2: Serviços de Persistência e Integridade — Ambientes,
       expect(supabase.from).not.toHaveBeenCalled();
     });
 
-    it('AC-02: Consolida contagem de produtos por categoria unificando direct e product_categories', async () => {
-      (supabase.from as any).mockImplementation((table: string) => {
-        if (table === 'product_categories') {
-          return {
-            select: vi.fn().mockResolvedValue({
-              data: [
-                { category_id: 'c1', product_id: 'p1' },
-                { category_id: 'c1', product_id: 'p2' },
-              ],
-              error: null,
-            }),
-          };
-        }
-        if (table === 'products') {
-          return {
-            select: vi.fn().mockReturnValue({
-              not: vi.fn().mockResolvedValue({
-                data: [
-                  { id: 'p2', category_id: 'c1' }, // Produto repetido no vínculo direto -> Set deve contar 1 vez
-                  { id: 'p3', category_id: 'c2' },
-                ],
-                error: null,
-              }),
-            }),
-          };
-        }
-        return {};
+    it('AC-02: Mapeia a contagem agregada de produtos por categoria', async () => {
+      (supabase.rpc as any).mockResolvedValue({
+        data: [
+          { category_id: 'c1', product_count: 2 },
+          { category_id: 'c2', product_count: 1 },
+        ],
+        error: null,
       });
 
       const counts = await fetchMobileCategoryProductCounts();
@@ -332,18 +313,9 @@ describe('Roteiro 1 & 2: Serviços de Persistência e Integridade — Ambientes,
     });
 
     it('propaga falha de consulta da contagem em vez de apresentar total zero', async () => {
-      const queryError = new Error('Falha ao consultar product_categories');
+      const queryError = new Error('Falha ao buscar contagem agregada por categoria');
       vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-      (supabase.from as any).mockImplementation((table: string) => {
-        if (table === 'product_categories') {
-          return { select: vi.fn().mockResolvedValue({ data: null, error: queryError }) };
-        }
-        return {
-          select: vi.fn().mockReturnValue({
-            not: vi.fn().mockResolvedValue({ data: [], error: null }),
-          }),
-        };
-      });
+      (supabase.rpc as any).mockResolvedValue({ data: null, error: queryError });
 
       await expect(fetchMobileCategoryProductCounts()).rejects.toBe(queryError);
     });

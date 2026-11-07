@@ -195,7 +195,7 @@ export default function ProductPageContent({
                 originalPrice={displayPromoPrice != null ? displayPrice : undefined}
               />
               {displayPromotion ? <div className="rounded-xl border border-blue-200 bg-blue-50 p-3 text-blue-900">
-                <p className="text-xs font-extrabold">Promoção: {displayPromotion.name} · {displayPromotion.discount_percent}% adicional</p>
+                <p className="text-xs font-extrabold">Campanha: {displayPromotion.name} · desconto informativo de {displayPromotion.discount_percent}%</p>
                 {displayPromotion.conditions ? <p className="mt-1 whitespace-pre-line text-[11px]">{displayPromotion.conditions}</p> : null}
               </div> : null}
 

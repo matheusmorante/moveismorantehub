@@ -29,6 +29,24 @@ export const MarketingNavMenu: React.FC<Required<NavMenuProps>> = ({
           onClick={close}
         />
       )}
+      {permissions.canManageSiteElements && (
+        <DropdownItem
+          to="/marketing/site-elements"
+          icon="bi-images"
+          title="Elementos do site"
+          description="Carrossel e barra de destaque"
+          onClick={close}
+        />
+      )}
+      {permissions.canManageCatalogImageTemplates && (
+        <DropdownItem
+          to="/marketing/image-templates"
+          icon="bi-image"
+          title="Modelos de imagem"
+          description="Posts com produtos do ERP"
+          onClick={close}
+        />
+      )}
       {permissions.canViewMetaCatalog && (
         <DropdownItem
           to="/products/meta-catalog"

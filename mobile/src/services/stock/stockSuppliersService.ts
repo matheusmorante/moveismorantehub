@@ -194,7 +194,8 @@ export const deleteSupplierIfUnlinked = async (supplierId: string) => {
 
 export const fetchSupplierPurchaseHistory = async (
   supplier: { name: string; phone?: string; email?: string },
-  page = 0
+  page = 0,
+  signal?: AbortSignal,
 ) => {
   const name = supplier.name.trim();
   if (!name) return { data: [], count: 0 };
@@ -202,14 +203,14 @@ export const fetchSupplierPurchaseHistory = async (
     customerPhone: supplier.phone || '', customerEmail: supplier.email || '',
     multiSort: [{ key: 'createdAt', order: 'desc' }] };
   const request = (customerContactMode: string) => fetchServerOrderPage(supabase, {
-    filters: { ...filters, customerContactMode }, page: page + 1, pageSize: ITEMS_PER_PAGE, mode: 'erp',
+    filters: { ...filters, customerContactMode }, page: page + 1, pageSize: ITEMS_PER_PAGE, mode: 'erp', signal,
   });
   let selected = await request('strict');
   if (!selected.total) selected = await request('any');
   if (!selected.ids.length) return { data: [], count: selected.total, totalSpent: selected.totalAmount };
   const { data, error } = await withAbortTimeout(supabase.from('orders')
     .select('id,created_at,customer_name,status,order_type,delivery_method,total_amount,payments_total:order_data->paymentsSummary->>totalOrderValue,order_items(description)')
-    .in('id', selected.ids), 'app:historico-do-fornecedor', 15_000);
+    .in('id', selected.ids), 'app:historico-do-fornecedor', 15_000, signal);
   if (error) throw error;
   const byId = new Map((data || []).map((row: any) => [String(row.id), row]));
   return { data: selected.ids.flatMap((id) => byId.has(id) ? [byId.get(id)] : []), count: selected.total, totalSpent: selected.totalAmount };

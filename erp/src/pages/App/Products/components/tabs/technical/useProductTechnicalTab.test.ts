@@ -101,12 +101,6 @@ describe('useProductTechnicalTab', () => {
     expect(result.current.manualFieldNames).toContain('Material da estrutura');
     expect(currentProduct.technicalValues?.['Material da estrutura']).toBeUndefined();
 
-    act(() => {
-      result.current.handleRemoveManualField('Material da estrutura');
-    });
-
-    expect(result.current.manualFieldNames).not.toContain('Material da estrutura');
-    expect(currentProduct.technicalValues?.['Material da estrutura']).toBeUndefined();
   });
 
   it('alterna a característica do pai entre fixa e variável sem alterar os valores legados', () => {

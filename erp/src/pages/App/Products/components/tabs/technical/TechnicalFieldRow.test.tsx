@@ -26,7 +26,6 @@ describe('TechnicalFieldRow', () => {
         manualFieldNames={[]}
         onValueChange={vi.fn()}
         onOpenAttributeModal={vi.fn()}
-        onRemoveManualField={vi.fn()}
       />
     );
 
@@ -51,7 +50,6 @@ describe('TechnicalFieldRow', () => {
         manualFieldNames={[]}
         onValueChange={vi.fn()}
         onOpenAttributeModal={onOpenModal}
-        onRemoveManualField={vi.fn()}
       />
     );
 
@@ -79,7 +77,6 @@ describe('TechnicalFieldRow', () => {
         manualFieldNames={[]}
         onValueChange={onValueChange}
         onOpenAttributeModal={vi.fn()}
-        onRemoveManualField={vi.fn()}
       />
     );
 
@@ -104,7 +101,6 @@ describe('TechnicalFieldRow', () => {
         manualFieldNames={[]}
         onValueChange={vi.fn()}
         onOpenAttributeModal={vi.fn()}
-        onRemoveManualField={vi.fn()}
         onToggleVariable={onToggleVariable}
       />
     );
@@ -127,7 +123,6 @@ describe('TechnicalFieldRow', () => {
         manualFieldNames={[]}
         onValueChange={vi.fn()}
         onOpenAttributeModal={vi.fn()}
-        onRemoveManualField={vi.fn()}
         isVariable
         onToggleVariable={onToggleVariable}
       />
@@ -162,7 +157,6 @@ describe('TechnicalFieldRow', () => {
         onToggleVariable={onToggleVariable}
         onValueChange={vi.fn()}
         onOpenAttributeModal={vi.fn()}
-        onRemoveManualField={vi.fn()}
       />
     );
 
@@ -189,7 +183,6 @@ describe('TechnicalFieldRow', () => {
         manualFieldNames={[]}
         onValueChange={vi.fn()}
         onOpenAttributeModal={vi.fn()}
-        onRemoveManualField={vi.fn()}
         onToggleVariable={vi.fn()}
       />
     );
@@ -203,7 +196,6 @@ describe('TechnicalFieldRow', () => {
         manualFieldNames={[]}
         onValueChange={vi.fn()}
         onOpenAttributeModal={vi.fn()}
-        onRemoveManualField={vi.fn()}
         isVariable
         onToggleVariable={vi.fn()}
       />
@@ -236,7 +228,6 @@ describe('TechnicalFieldRow', () => {
         onToggleCharacteristic={onToggleCharacteristic}
         onValueChange={vi.fn()}
         onOpenAttributeModal={vi.fn()}
-        onRemoveManualField={vi.fn()}
       />
     );
 
@@ -254,7 +245,6 @@ describe('TechnicalFieldRow', () => {
         onToggleCharacteristic={onToggleCharacteristic}
         onValueChange={vi.fn()}
         onOpenAttributeModal={vi.fn()}
-        onRemoveManualField={vi.fn()}
       />
     );
 
@@ -285,7 +275,6 @@ describe('TechnicalFieldRow', () => {
       onToggleVariable,
       onValueChange: vi.fn(),
       onOpenAttributeModal: vi.fn(),
-      onRemoveManualField: vi.fn(),
     };
 
     const { rerender } = render(<TechnicalFieldRow {...props} isSimpleProduct />);
@@ -301,32 +290,6 @@ describe('TechnicalFieldRow', () => {
     expect(screen.getAllByRole('menuitemradio')).toHaveLength(2);
     expect(screen.queryByRole('menuitemradio', { name: /não informar/i })).toBeNull();
     expect(screen.getByPlaceholderText('Defina na variação...')).toBeDefined();
-  });
-
-  it('exibe botão de exclusão para campos manuais e aciona remoção', () => {
-    const field: TechnicalFieldDefinition = {
-      id: 'f4',
-      name: 'Garantia',
-      dataType: 'text',
-      options: [],
-      isRequired: false,
-    };
-    const onRemoveManualField = vi.fn();
-
-    render(
-      <TechnicalFieldRow
-        field={field}
-        formData={{ technicalValues: { Garantia: '1 ano' } }}
-        manualFieldNames={['Garantia']}
-        onValueChange={vi.fn()}
-        onOpenAttributeModal={vi.fn()}
-        onRemoveManualField={onRemoveManualField}
-      />
-    );
-
-    const deleteBtn = screen.getByRole('button', { name: /remover campo garantia/i });
-    fireEvent.click(deleteBtn);
-    expect(onRemoveManualField).toHaveBeenCalledWith('Garantia');
   });
 
   it('desativa campo dependente de portas quando a quantidade de portas for 0 ou vazia, ocultando asterisco e exibindo tooltip explicativo', () => {
@@ -345,7 +308,6 @@ describe('TechnicalFieldRow', () => {
         manualFieldNames={[]}
         onValueChange={vi.fn()}
         onOpenAttributeModal={vi.fn()}
-        onRemoveManualField={vi.fn()}
       />
     );
 
@@ -392,7 +354,6 @@ describe('TechnicalFieldRow', () => {
         manualFieldNames={[]}
         onValueChange={vi.fn()}
         onOpenAttributeModal={vi.fn()}
-        onRemoveManualField={vi.fn()}
       />
     );
 
@@ -422,7 +383,6 @@ describe('TechnicalFieldRow', () => {
         manualFieldNames={[]}
         onValueChange={vi.fn()}
         onOpenAttributeModal={vi.fn()}
-        onRemoveManualField={vi.fn()}
       />
     );
 

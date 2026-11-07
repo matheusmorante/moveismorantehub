@@ -6,6 +6,7 @@ vi.mock('../supabaseConfig', () => {
   return {
     ecommerceSupabase: {
       from: vi.fn(),
+      rpc: vi.fn(),
     },
     supabase: {
       from: vi.fn(),
@@ -52,18 +53,9 @@ describe('Regras de Exclusão Segura — Backend / Service (categoryService)', (
   });
 
   it('propaga falha de consulta da contagem em vez de apresentar total zero', async () => {
-    const queryError = new Error('Falha ao consultar product_categories');
+    const queryError = new Error('Falha ao buscar contagem agregada por categoria');
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
-    (supabase.from as any).mockImplementation((table: string) => {
-      if (table === 'product_categories') {
-        return { select: vi.fn().mockResolvedValue({ data: null, error: queryError }) };
-      }
-      return {
-        select: vi.fn().mockReturnValue({
-          not: vi.fn().mockResolvedValue({ data: [], error: null }),
-        }),
-      };
-    });
+    (supabase.rpc as any).mockResolvedValue({ data: null, error: queryError });
 
     await expect(fetchCategoryProductCounts()).rejects.toBe(queryError);
   });

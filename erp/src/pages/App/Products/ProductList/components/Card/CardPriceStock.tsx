@@ -10,6 +10,7 @@ interface CardPriceStockProps {
   readonly stock?: number;
   readonly unit?: string;
   readonly promotionName?: string;
+  readonly campaignDiscountPercent?: number;
 }
 
 export const CardPriceStock: React.FC<CardPriceStockProps> = ({
@@ -21,6 +22,7 @@ export const CardPriceStock: React.FC<CardPriceStockProps> = ({
   stock,
   unit,
   promotionName,
+  campaignDiscountPercent,
 }) => {
   return (
     <div className="flex justify-between items-end border-t border-slate-50 dark:border-slate-800/50 pt-2.5">
@@ -33,7 +35,7 @@ export const CardPriceStock: React.FC<CardPriceStockProps> = ({
         <span className="text-base font-black text-blue-600 dark:text-blue-400">
           {formatCurrency(currentPrice)}
         </span>
-        {promotionName ? <span className="mt-0.5 max-w-40 truncate text-[9px] font-bold text-blue-600 dark:text-blue-400" title={promotionName}>Promoção: {promotionName}</span> : null}
+        {promotionName ? <span className="mt-0.5 max-w-40 truncate text-[9px] font-bold text-blue-600 dark:text-blue-400" title={`Desconto informativo, sujeito às condições da campanha ${promotionName}.`}>Campanha: {promotionName}{campaignDiscountPercent ? ` · ${campaignDiscountPercent}%` : ''}</span> : null}
       </div>
 
       {itemType !== 'service' && (

@@ -84,58 +84,29 @@ interface ActiveCampaignLabelRow {
   promotion_name: string | null;
 }
 
-export interface ActiveCampaignLabelIndex {
-  readonly productNames: ReadonlyMap<string, readonly string[]>;
-  readonly variationNames: ReadonlyMap<string, readonly string[]>;
-}
-
-const addCampaignName = (index: Map<string, string[]>, key: string, name: string | null) => {
-  const normalizedName = String(name || '').trim();
-  if (!key || !normalizedName) return;
-  const names = index.get(key) || [];
-  if (!names.includes(normalizedName)) names.push(normalizedName);
-  index.set(key, names);
-};
-
-/** Lê somente nomes e IDs das campanhas vigentes no banco; aceita filtro por produto para sincronizações pontuais. */
-export const fetchActiveCampaignLabelIndex = async (
-  productIds?: readonly string[]
-): Promise<ActiveCampaignLabelIndex> => {
-  const uniqueProductIds = productIds
-    ? Array.from(new Set(productIds.map((id) => String(id || '').trim()).filter(Boolean)))
-    : null;
-  const emptyIndex = { productNames: new Map(), variationNames: new Map() };
-  if (uniqueProductIds && uniqueProductIds.length === 0) return emptyIndex;
-
-  const campaignRows = await fetchAllPages<ActiveCampaignLabelRow>(
-    (from, to) => {
-      let query = supabase
-        .from('active_campaign_prices')
-        .select('product_id, variation_id, promotion_name')
-        .order('product_id', { ascending: true })
-        .order('variation_id', { ascending: true, nullsFirst: true })
-        .order('promotion_name', { ascending: true });
-      if (uniqueProductIds) query = query.in('product_id', uniqueProductIds);
-      return query.range(from, to);
-    },
-    'campanhas-ativas'
-  );
-
+/** O envio pontual lê apenas as campanhas vigentes dos produtos que está sincronizando. */
+export async function fetchActiveCampaignLabelIndex(productIds: readonly string[]) {
+  const ids = Array.from(new Set(productIds.map((id) => id.trim()).filter(Boolean)));
   const productNames = new Map<string, string[]>();
   const variationNames = new Map<string, string[]>();
-  campaignRows.forEach((campaign) => {
-    if (campaign.variation_id) {
-      addCampaignName(variationNames, campaign.variation_id, campaign.promotion_name);
-    } else {
-      addCampaignName(productNames, campaign.product_id, campaign.promotion_name);
-    }
-  });
+  if (!ids.length) return { productNames, variationNames };
 
+  const rows = await fetchAllPages<ActiveCampaignLabelRow>((from, to) => supabase
+    .from('active_campaign_prices').select('product_id, variation_id, promotion_name').in('product_id', ids)
+    .order('product_id').order('variation_id', { nullsFirst: true }).order('promotion_name').range(from, to), 'campanhas-ativas');
+  for (const row of rows) {
+    const name = row.promotion_name?.trim();
+    if (!name) continue;
+    const index = row.variation_id ? variationNames : productNames;
+    const id = row.variation_id ?? row.product_id;
+    const names = index.get(id) ?? [];
+    if (!names.includes(name)) index.set(id, [...names, name]);
+  }
   return { productNames, variationNames };
-};
+}
 
 export const fetchMetaCatalogSyncSources = async (): Promise<MetaCatalogSyncSources> => {
-  const [products, variations, opportunityResult, activeCampaignLabels] = await Promise.all([
+  const [products, variations, opportunityResult] = await Promise.all([
     fetchAllPages<MetaCatalogProductSource>(
       (from, to) =>
         supabase
@@ -171,18 +142,11 @@ export const fetchMetaCatalogSyncSources = async (): Promise<MetaCatalogSyncSour
       );
       return null;
     }),
-    fetchActiveCampaignLabelIndex(),
   ]);
 
   return {
-    products: products.map((product) => ({
-      ...product,
-      activeCampaignNames: activeCampaignLabels.productNames.get(product.id) || [],
-    })),
-    variations: variations.map((variation) => ({
-      ...variation,
-      activeCampaignNames: activeCampaignLabels.variationNames.get(variation.id) || [],
-    })),
+    products,
+    variations,
     opportunities: (opportunityResult?.data ?? []) as MetaCatalogOpportunitySource[],
   };
 };

@@ -42,7 +42,7 @@ export const useInventoryOrdersLookup = (references: string[] = []): InventoryOr
       const request = new AbortController(); controller = request;
       const keys: string[] = JSON.parse(referenceKey);
       if (!keys.length) { setOrdersMap({}); return; }
-      const columns = 'id,order_number,order_index,customer_name,customer_data:order_data->customerData';
+      const columns = 'id,order_number,order_index,customer_name,customer_data_full_name:order_data->customerData->>fullName';
       const codes = keys.filter((key) => /^\d+$/.test(key));
       const queries = [supabase.from('orders').select(columns).in('id', keys)];
       if (codes.length) queries.push(supabase.from('orders').select(columns).in('order_index', codes.map((value) => value.replace(/^0+/, '') || '0')));
@@ -53,7 +53,7 @@ export const useInventoryOrdersLookup = (references: string[] = []): InventoryOr
         if (outcome.status !== 'fulfilled' || outcome.value.error) return;
         (outcome.value.data || []).forEach((row: any) => {
           const order = { id: String(row.id), orderNumber: row.order_number, orderIndex: row.order_index,
-            customerData: { ...row.customer_data, fullName: row.customer_name || row.customer_data?.fullName || '' } } as Order;
+            customerData: { fullName: row.customer_name || row.customer_data_full_name || row.customer_data?.fullName || '' } } as Order;
           if (order.id) map[String(order.id)] = order;
           const orderCode = formatOrderCode(order);
           if (orderCode) map[orderCode] = order;

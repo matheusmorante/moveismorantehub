@@ -1,7 +1,7 @@
 import React from 'react';
 import {
   getTechnicalFieldIntegerMaxValue,
-  isTechnicalFieldPlacesCount,
+  isTechnicalFieldChairCount,
 } from '../../../../../../../../../shared-utils/productTechnicalFieldRules';
 import {
   isQuantityCharacteristic,
@@ -23,7 +23,7 @@ export const IntegerTechnicalInput: React.FC<IntegerTechnicalInputProps> = ({
   disabled,
   onChange,
 }) => {
-  const isLugares = isTechnicalFieldPlacesCount(field.name);
+  const isChairCount = isTechnicalFieldChairCount(field.name);
   const isQuantity = isQuantityCharacteristic(field.name);
   const isDoorOrDrawerQuantity =
     isDoorQuantityCharacteristic(field.name) || isDrawerQuantityCharacteristic(field.name);
@@ -43,8 +43,8 @@ export const IntegerTechnicalInput: React.FC<IntegerTechnicalInputProps> = ({
     return '';
   })();
 
-  const placeholder = isLugares
-    ? 'Digite o número de quantidades'
+  const placeholder = isChairCount
+    ? 'Insira a quantidade de cadeiras'
     : isQuantity
       ? `Insira a quantidade de ${field.name.replace(/^.*?quantidade\s+de\s+/i, '').trim()}`
       : /p[eé]s?/i.test(field.name)

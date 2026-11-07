@@ -3,7 +3,10 @@ import {
   resolveCategoryAttributeIsRequired,
   type CategoryAttributeSelection,
 } from '../../../../../shared-utils/categoryAttributeSelection';
-import { countDistinctProductsByCategory } from '../../../../../shared-utils/categoryProductCounts';
+import {
+  countDistinctProductsByCategory,
+  mapCategoryProductCountRows,
+} from '../../../../../shared-utils/categoryProductCounts';
 import { isProductCategoryOption } from '../../../../../shared-utils/productCategoryOptions';
 import { withCatalogAttributesLoadTimeout } from '../../../../../shared-utils/catalogAttributesLoadTimeout';
 import { toTitleCase } from '../../../../../shared-utils/productText';
@@ -25,16 +28,46 @@ export interface MobileEnvironment extends MobileCategory {
   categoryIds: string[];
 }
 
-export const fetchMobileEnvironments = async (): Promise<MobileEnvironment[]> => {
-  const { data: envs, error } = await supabase
-    .from('categories')
-    .select('*')
-    .eq('type', 'environment')
-    .order('name');
+type MobileCategoryEnvironmentRelationshipsResult = {
+  data: { parent_id: string; child_id: string }[] | null;
+  error: unknown | null;
+};
+
+type CategoryListProjection = 'full' | 'summary';
+const CATEGORY_ENVIRONMENT_SUMMARY_FIELDS = 'id, name, slug, type';
+
+const fetchMobileCategoryEnvironmentRelationships = async (): Promise<MobileCategoryEnvironmentRelationshipsResult> => {
+  try {
+    const { data, error } = await supabase
+      .from('category_relationships')
+      .select('parent_id, child_id');
+    return { data, error };
+  } catch (error) {
+    return { data: null, error };
+  }
+};
+
+export const fetchMobileEnvironments = async (
+  sharedRelationships?: Promise<MobileCategoryEnvironmentRelationshipsResult>,
+  projection: CategoryListProjection = 'full'
+): Promise<MobileEnvironment[]> => {
+  const environmentsRequest =
+    projection === 'summary'
+      ? supabase
+          .from('categories')
+          .select(CATEGORY_ENVIRONMENT_SUMMARY_FIELDS)
+          .eq('type', 'environment')
+          .order('name')
+      : supabase
+          .from('categories')
+          .select('*')
+          .eq('type', 'environment')
+          .order('name');
+  const { data: envs, error } = await environmentsRequest;
   if (error) throw error;
-  const { data: links, error: linksError } = await supabase
-    .from('category_relationships')
-    .select('parent_id, child_id');
+  const { data: links, error: linksError } = sharedRelationships
+    ? await sharedRelationships
+    : await fetchMobileCategoryEnvironmentRelationships();
   if (linksError) throw linksError;
   return (envs || []).map((env: any) => ({
     ...env,
@@ -98,21 +131,31 @@ export const deleteMobileEnvironment = async (id: string) => {
   if (error) throw error;
 };
 
-export const fetchMobileCategories = async (): Promise<MobileCategory[]> => {
+export const fetchMobileCategories = async (
+  sharedRelationships?: Promise<MobileCategoryEnvironmentRelationshipsResult>,
+  projection: CategoryListProjection = 'full'
+): Promise<MobileCategory[]> => {
   try {
-    const { data: catsData, error: catsErr } = await supabase
-      .from('categories')
-      .select('*')
-      .order('name', { ascending: true });
+    const categoriesRequest =
+      projection === 'summary'
+        ? supabase
+            .from('categories')
+            .select(CATEGORY_ENVIRONMENT_SUMMARY_FIELDS)
+            .order('name', { ascending: true })
+        : supabase
+            .from('categories')
+            .select('*')
+            .order('name', { ascending: true });
+    const { data: catsData, error: catsErr } = await categoriesRequest;
 
     if (catsErr) {
       console.warn('[MobileCategoryService] Erro ao buscar categorias:', catsErr);
       return [];
     }
 
-    const { data: relData, error: relErr } = await supabase
-      .from('category_relationships')
-      .select('parent_id, child_id');
+    const { data: relData, error: relErr } = sharedRelationships
+      ? await sharedRelationships
+      : await fetchMobileCategoryEnvironmentRelationships();
 
     if (relErr) {
       console.warn('[MobileCategoryService] Erro ao buscar relacoes:', relErr);
@@ -133,25 +176,21 @@ export const fetchMobileCategories = async (): Promise<MobileCategory[]> => {
   }
 };
 
+export const fetchMobileCategoryEnvironmentData = async () => {
+  const sharedRelationships = fetchMobileCategoryEnvironmentRelationships();
+  const [environments, categories] = await Promise.all([
+    fetchMobileEnvironments(sharedRelationships, 'summary'),
+    fetchMobileCategories(sharedRelationships, 'summary'),
+  ]);
+  return { environments, categories };
+};
+
 export const fetchMobileCategoryProductCounts = async (): Promise<Record<string, number>> => {
   try {
-    const [pcRes, prodRes] = await Promise.all([
-      supabase.from('product_categories').select('category_id, product_id'),
-      supabase.from('products').select('id, category_id').not('category_id', 'is', null),
-    ]);
-    if (pcRes.error) throw pcRes.error;
-    if (prodRes.error) throw prodRes.error;
+    const { data, error } = await supabase.rpc('get_category_product_counts');
+    if (error) throw error;
 
-    return countDistinctProductsByCategory([
-      ...(pcRes.data || []).map((row: { category_id: string; product_id: string }) => ({
-        categoryId: row.category_id,
-        productId: row.product_id,
-      })),
-      ...(prodRes.data || []).map((row: { id: string; category_id: string }) => ({
-        categoryId: row.category_id,
-        productId: row.id,
-      })),
-    ]);
+    return mapCategoryProductCountRows(data || []);
   } catch (err) {
     console.warn('[MobileCategoryService] Erro ao buscar contagem de produtos:', err);
     throw err;

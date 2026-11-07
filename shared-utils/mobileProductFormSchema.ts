@@ -10,6 +10,7 @@ import {
 import { getProductDiscountValidationIssues } from './productDiscountFields';
 import { productNameInputSchema } from './productNameRequirement';
 import { getSofaCharacteristicRequirementIssues } from './productSofaCharacteristicRequirements';
+import { getDresserOrWardrobeCharacteristicRequirementIssues } from './productDresserCharacteristicRequirements';
 import {
   hasRequiredProductCategory,
   PRODUCT_CATEGORY_REQUIRED_MESSAGE,
@@ -114,6 +115,9 @@ export const createMobileProductFormSchema = (options: {
   if (options.draft) return;
   const issue = (tab: string, message: string) => ctx.addIssue({ code: 'custom', path: [tab], message });
   getSofaCharacteristicRequirementIssues(data as Record<string, any>).forEach(({ path, message }) =>
+    ctx.addIssue({ code: 'custom', path, message })
+  );
+  getDresserOrWardrobeCharacteristicRequirementIssues(data as Record<string, any>).forEach(({ path, message }) =>
     ctx.addIssue({ code: 'custom', path, message })
   );
   const compositionIssue = getActiveCompositionProductRequirementIssue({ ...data, variations });

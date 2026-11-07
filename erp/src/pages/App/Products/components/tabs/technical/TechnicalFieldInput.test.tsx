@@ -5,7 +5,7 @@ import React from 'react';
 import { TechnicalFieldInput } from './TechnicalFieldInput';
 import type { TechnicalFieldDefinition } from '@/pages/utils/technicalValuesService';
 
-describe('TechnicalFieldInput - Marca, Modelo e Quantidade de Lugares', () => {
+describe('TechnicalFieldInput - Marca, Modelo e Quantidade de Cadeiras', () => {
   afterEach(() => {
     cleanup();
   });
@@ -66,10 +66,10 @@ describe('TechnicalFieldInput - Marca, Modelo e Quantidade de Lugares', () => {
     }
   );
 
-  it('renderiza Quantidade de lugares como número inteiro com placeholder "Digite o número de quantidades"', () => {
+  it('renderiza Quantidade de cadeiras como número inteiro', () => {
     const field: TechnicalFieldDefinition = {
-      id: 'attr-lugares',
-      name: 'Quantidade de lugares',
+      id: 'attr-cadeiras',
+      name: 'Quantidade de cadeiras',
       dataType: 'radio',
       options: [{ id: '1', value: '2' }, { id: '2', value: '3' }],
     };
@@ -77,7 +77,7 @@ describe('TechnicalFieldInput - Marca, Modelo e Quantidade de Lugares', () => {
 
     render(<TechnicalFieldInput field={field} value="" onChange={onChange} />);
 
-    const input = screen.getByPlaceholderText('Digite o número de quantidades') as HTMLInputElement;
+    const input = screen.getByPlaceholderText('Insira a quantidade de cadeiras') as HTMLInputElement;
     expect(input).toBeDefined();
     expect(input.type).toBe('number');
     expect(input.step).toBe('1');
@@ -87,10 +87,10 @@ describe('TechnicalFieldInput - Marca, Modelo e Quantidade de Lugares', () => {
     expect(onChange).toHaveBeenCalledWith(4);
   });
 
-  it('impede limpar Quantidade de lugares quando já existe um valor', () => {
+  it('impede limpar Quantidade de cadeiras quando já existe um valor', () => {
     const field: TechnicalFieldDefinition = {
-      id: 'attr-lugares',
-      name: 'Quantidade de lugares',
+      id: 'attr-cadeiras',
+      name: 'Quantidade de cadeiras',
       dataType: 'integer',
       options: [],
     };
@@ -98,7 +98,7 @@ describe('TechnicalFieldInput - Marca, Modelo e Quantidade de Lugares', () => {
 
     render(<TechnicalFieldInput field={field} value={3} onChange={onChange} />);
 
-    const input = screen.getByPlaceholderText('Digite o número de quantidades') as HTMLInputElement;
+    const input = screen.getByPlaceholderText('Insira a quantidade de cadeiras') as HTMLInputElement;
     expect(input.value).toBe('3');
 
     fireEvent.change(input, { target: { value: '' } });

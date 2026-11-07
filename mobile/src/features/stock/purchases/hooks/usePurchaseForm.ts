@@ -5,13 +5,14 @@ import {
   getPurchaseConfirmationBlockReasons,
   mobilePurchaseFormSchema,
 } from '../../../../../../shared-utils/purchaseFormSchemas';
-import { fetchMobileSuppliers } from '../../../products/services/mobileSupplierService';
+import { fetchMobilePurchaseSupplierPicker } from '../../../products/services/mobileSupplierService';
 import {
   MobilePurchase,
   MobilePurchaseItem,
   saveMobilePurchase,
   updateMobilePurchase,
 } from '../mobilePurchaseService';
+import { connectivityService } from '../../../../services/offline/connectivityService';
 import {
   useMobilePurchaseAttachments,
 } from './useMobilePurchaseAttachments';
@@ -23,8 +24,6 @@ import {
 import {
   useMobilePurchaseDraft,
 } from './useMobilePurchaseDraft';
-import { supplierProvidesStockOrigin } from '../../../../../../shared-utils/productSupplierStockOrigin';
-import { matchesSearchText } from '../../../../../../shared-utils/searchText';
 
 export type { Supplier };
 export { parseNumber };
@@ -56,6 +55,13 @@ export function usePurchaseForm({
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [supplierSearch, setSupplierSearch] = useState('');
   const [supplierOpen, setSupplierOpen] = useState(false);
+  const [supplierLoading, setSupplierLoading] = useState(false);
+  const [supplierErrorMessage, setSupplierErrorMessage] = useState('');
+  const [supplierResultsOffline, setSupplierResultsOffline] = useState(false);
+  const [supplierRetry, setSupplierRetry] = useState(0);
+  const supplierSearchRevision = useRef(0);
+  const supplierWasConnected = useRef(connectivityService.connected);
+  const supplierPickerWasOpen = useRef(false);
   const [supplierId, setSupplierIdState] = useState('');
   const [supplierName, setSupplierNameState] = useState('');
 
@@ -72,10 +78,6 @@ export function usePurchaseForm({
   // Inicialização / Reset de dados ao carregar compra ou abrir modal
   useEffect(() => {
     if (!visible) return;
-    let cancelled = false;
-    void fetchMobileSuppliers({ includeStockOrigins: true }).then((data) => {
-      if (!cancelled) setSuppliers(data as Supplier[]);
-    });
     setSupplierIdState(purchase?.supplierId || '');
     setSupplierNameState(purchase?.supplierId ? purchase.supplierName || '' : '');
     setDateState((purchase?.date || new Date().toISOString()).slice(0, 10));
@@ -84,10 +86,65 @@ export function usePurchaseForm({
     setFreightPercentState(String(purchase?.freightPercent || 0));
     attachmentsManager.setAttachments(purchase?.attachments ? [...purchase.attachments] : []);
     itemsManager.setItems(purchase?.items?.map((item) => ({ ...item })) || []);
+  }, [visible, purchase]);
+
+  useEffect(() => {
+    supplierPickerWasOpen.current = visible && supplierOpen;
+  }, [visible, supplierOpen]);
+
+  useEffect(() => connectivityService.subscribe((connected) => {
+    const wasConnected = supplierWasConnected.current;
+    supplierWasConnected.current = connected;
+    if (!wasConnected && connected && supplierPickerWasOpen.current) {
+      setSupplierRetry((revision) => revision + 1);
+    }
+  }), []);
+
+  useEffect(() => {
+    if (visible) return;
+    setSupplierOpen(false);
+    setSupplierLoading(false);
+  }, [visible]);
+
+  useEffect(() => {
+    if (!visible || !supplierOpen) {
+      setSupplierLoading(false);
+      return;
+    }
+    let cancelled = false;
+    const controller = new AbortController();
+    const revision = ++supplierSearchRevision.current;
+    const search = supplierSearch.trim();
+    setSupplierLoading(true);
+    setSupplierErrorMessage('');
+    setSupplierResultsOffline(false);
+    setSuppliers([]);
+
+    const loadSuppliers = async () => {
+      const result = await fetchMobilePurchaseSupplierPicker(search, {
+        signal: controller.signal,
+      });
+      if (cancelled || revision !== supplierSearchRevision.current) return;
+      if (result.ok) {
+        setSuppliers(result.suppliers);
+        setSupplierErrorMessage('');
+        setSupplierResultsOffline(result.source === 'offline');
+      } else {
+        setSuppliers([]);
+        setSupplierErrorMessage(result.errorMessage);
+        setSupplierResultsOffline(false);
+      }
+      setSupplierLoading(false);
+    };
+
+    const debounce = search ? 300 : 0;
+    const timer = setTimeout(() => void loadSuppliers(), debounce);
     return () => {
       cancelled = true;
+      clearTimeout(timer);
+      controller.abort();
     };
-  }, [visible, purchase]);
+  }, [visible, supplierOpen, supplierSearch, supplierRetry]);
 
   // Sub-hook de Anexos
   const attachmentsManager = useMobilePurchaseAttachments({
@@ -337,12 +394,7 @@ export function usePurchaseForm({
     }
   };
 
-  const filteredSuppliers = useMemo(() => {
-    return suppliers
-      .filter((item) => supplierProvidesStockOrigin(item.stock_origins, 'normal'))
-      .filter((item) => matchesSearchText(item.name, supplierSearch))
-      .slice(0, 40);
-  }, [suppliers, supplierSearch]);
+  const filteredSuppliers = suppliers;
 
   return {
     suppliers,
@@ -351,6 +403,10 @@ export function usePurchaseForm({
     setSupplierSearch,
     supplierOpen,
     setSupplierOpen,
+    supplierLoading,
+    supplierErrorMessage,
+    supplierResultsOffline,
+    retrySupplierLoad: () => setSupplierRetry((revision) => revision + 1),
     supplierId,
     setSupplierId,
     supplierName,

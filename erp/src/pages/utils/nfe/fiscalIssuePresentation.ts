@@ -13,6 +13,11 @@ import {
   safeFiscalIssueMessage,
 } from './fiscalIssueMessageSafety';
 import type { FiscalIssueResult } from './fiscalIssueResultDetails';
+import {
+  getFiscalCStat,
+  getFiscalIssueCode,
+  getFiscalTransportCode,
+} from './fiscalIssueSignals';
 
 export { getFiscalIssueTechnicalDetails } from './fiscalIssueResultDetails';
 export type {
@@ -62,21 +67,6 @@ const TLS_CODES = new Set([
   'ERR_TLS_CERT_ALTNAME_INVALID',
 ]);
 
-function getCode(result: FiscalIssueResult): string {
-  return result.technicalDetails?.apiCode || result.apiCode || result.code || '';
-}
-
-function getTransportCode(result: FiscalIssueResult): string {
-  return result.technicalDetails?.transportCode || result.transportDiagnostic?.code || '';
-}
-
-function getCStat(result: FiscalIssueResult): string {
-  const candidate = result.cStat || result.technicalDetails?.sefazCode || '';
-  if (candidate) return candidate;
-  const match = (result.sefazMessage || result.xMotivo || '').match(/^\s*(\d{3})\s*[:–-]/);
-  return match?.[1] || '';
-}
-
 function getSefazReason(result: FiscalIssueResult, cStat: string): string | undefined {
   const mapped = REJECTION_COPY[cStat];
   if (mapped) return mapped;
@@ -91,9 +81,9 @@ function getSefazReason(result: FiscalIssueResult, cStat: string): string | unde
 }
 
 export function getFiscalIssuePresentation(result: FiscalIssueResult): FiscalIssuePresentation {
-  const code = getCode(result);
-  const transportCode = getTransportCode(result);
-  const cStat = getCStat(result);
+  const code = getFiscalIssueCode(result);
+  const transportCode = getFiscalTransportCode(result);
+  const cStat = getFiscalCStat(result);
   if (code === HML_INTERSTATE_MATRIX_NOT_APPROVED) {
     return {
       tone: 'error',

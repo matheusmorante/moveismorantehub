@@ -55,6 +55,8 @@ import {
 } from '../../../../../../shared-utils/productDependentCharacteristicCleanup';
 import { removeProductTechnicalValueAliases } from '../../../../../../shared-utils/productTechnicalValueAliases';
 import {
+  isDresserOrWardrobeCategoryName,
+  isDresserOrWardrobeRequiredCharacteristic,
   isSofaCategoryName,
   isSofaRequiredCharacteristic,
 } from '../../../../../../shared-utils/productTechnicalFieldScope';
@@ -71,6 +73,7 @@ import {
   normalizeSearchTerm,
   resolveVisibleProductTechnicalFields,
 } from './productTechnicalTabFieldVisibility';
+import { resolveConfiguredProductTechnicalDependencyReferenceIds } from './productTechnicalTabDependencyReferences';
 import { useProductTechnicalTabValues } from './useProductTechnicalTabValues';
 import { styles } from './productFormTechnicalTab.styles';
 
@@ -181,39 +184,16 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
   );
 
   const configuredDependencyReferenceIds = useMemo(() => {
-    const referenceIds = new Set<string>();
-    if (!isSimpleProduct) return referenceIds;
-
-    const selectedRoots = visibleTechnicalFields.filter((field) => {
-      if (!field.dependency) return false;
-      const value = getTechnicalValue(ownTechnicalValues, field.name);
-      const hasStoredValue = hasTechnicalValue(ownTechnicalValues, field.name) &&
-        !['nao se aplica', 'nao informar', 'n/a'].includes(
-          normalizeSearchTerm(String(value ?? ''))
-        );
-      const isSelectedManually = manualFieldNames.some(
-        (name) => normalizeName(name) === normalizeName(field.name)
-      );
-      return isFieldRequired(field) ||
-        isProductTechnicalFieldRequiredForCatalog(field, categoryIds, selectedCategoryName) ||
-        isSelectedManually || hasStoredValue;
+    return resolveConfiguredProductTechnicalDependencyReferenceIds({
+      isSimpleProduct,
+      visibleTechnicalFields,
+      ownTechnicalValues,
+      manualFieldNames,
+      isFieldRequired,
+      categoryIds,
+      selectedCategoryName,
+      dependencyValues,
     });
-
-    selectedRoots.forEach((field) => {
-      getProductTechnicalDependencyChain(field, visibleTechnicalFields)
-        .slice(1)
-        .forEach((reference) => {
-          if (
-            reference.id &&
-            isConfiguredProductTechnicalDependencySatisfied(
-              reference,
-              visibleTechnicalFields,
-              dependencyValues
-            )
-          ) referenceIds.add(reference.id);
-        });
-    });
-    return referenceIds;
   }, [
     isSimpleProduct,
     visibleTechnicalFields,
@@ -688,7 +668,10 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
                           >
                             {getProductTechnicalFieldDisplayName(field.name)}
                             {field.unit ? ` (${field.unit})` : ''}
-                            {isSofaCategoryName(selectedCategoryName) && isSofaRequiredCharacteristic(field.name) && (
+                            {((isSofaCategoryName(selectedCategoryName) &&
+                              isSofaRequiredCharacteristic(field.name)) ||
+                              (isDresserOrWardrobeCategoryName(selectedCategoryName) &&
+                                isDresserOrWardrobeRequiredCharacteristic(field.name))) && (
                               <Text style={styles.requiredMark} accessibilityLabel="Obrigatória"> *</Text>
                             )}
                           </Text>

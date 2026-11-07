@@ -41,6 +41,7 @@ interface UseCharacteristicFormParams {
     values: CharacteristicFormData,
     wasNew: boolean,
   ) => void | Promise<void>;
+  readonly onSuccessRefreshesVariations?: boolean;
   readonly variation?: VariationType | null;
   readonly allVariations?: readonly VariationType[];
   readonly groups?: readonly CharacteristicGroup[];
@@ -51,6 +52,7 @@ export const useCharacteristicForm = ({
   isOpen,
   onClose,
   onSuccess,
+  onSuccessRefreshesVariations = false,
   variation,
   allVariations = [],
   groups = [],
@@ -134,7 +136,7 @@ export const useCharacteristicForm = ({
             },
             dependency: null,
             isCustom: variation?.isCustom ?? true,
-          });
+          }, { invalidateVariationQueries: !onSuccessRefreshesVariations });
         },
         (errors) => {
           const firstError = Object.values(flattenFormErrors(errors))[0];

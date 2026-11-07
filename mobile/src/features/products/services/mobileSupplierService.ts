@@ -1,6 +1,149 @@
 import { supabase } from '../../../services/supabaseClient';
+import { connectivityService } from '../../../services/offline/connectivityService';
+import { getOfflineInventoryCatalog } from '../../stock/inventory/services/offlineInventoryCatalog';
 import { isTestPerson } from '../../../../../shared-utils/personTestVisibility';
+import { supplierProvidesStockOrigin } from '../../../../../shared-utils/productSupplierStockOrigin';
+import {
+  buildPostgrestAccentInsensitiveOrFilter,
+  matchesSearchText,
+} from '../../../../../shared-utils/searchText';
 import { withTimeout } from '../../../../../shared-utils/withTimeout';
+
+export interface MobilePurchaseSupplier {
+  id: string;
+  name: string;
+  full_name?: string | null;
+  nickname?: string | null;
+  social_name?: string | null;
+}
+
+export type MobilePurchaseSupplierQueryResult =
+  | { ok: true; suppliers: MobilePurchaseSupplier[]; source: 'server' | 'offline' }
+  | { ok: false; suppliers: MobilePurchaseSupplier[]; errorMessage: string };
+
+const MOBILE_PURCHASE_SUPPLIER_ERROR = 'Não foi possível carregar os fornecedores. Tente novamente.';
+const MOBILE_PURCHASE_SUPPLIER_FIELDS =
+  'id, full_name, nickname, social_name';
+
+const mapMobilePurchaseSuppliers = (rows: readonly any[] | null): MobilePurchaseSupplier[] =>
+  (rows || []).map((supplier) => ({
+    id: String(supplier.id),
+    name: supplier.nickname || supplier.full_name || supplier.social_name || 'Fornecedor',
+    full_name: supplier.full_name ?? null,
+    nickname: supplier.nickname ?? null,
+    social_name: supplier.social_name ?? null,
+  }));
+
+const readMobilePurchaseSuppliers = async (
+  query: any,
+  signal?: AbortSignal,
+): Promise<MobilePurchaseSupplierQueryResult> => {
+  const controller = new AbortController();
+  const abortFromCaller = () => controller.abort();
+  if (signal?.aborted) controller.abort();
+  else signal?.addEventListener('abort', abortFromCaller, { once: true });
+
+  try {
+    const queryPromise = Promise.resolve(query.abortSignal(controller.signal));
+    const response = await withTimeout<Awaited<typeof queryPromise> | null>(
+      queryPromise,
+      10_000,
+      null,
+      'mobile:compras-fornecedores',
+    );
+    if (!response) {
+      controller.abort();
+      return { ok: false, suppliers: [], errorMessage: MOBILE_PURCHASE_SUPPLIER_ERROR };
+    }
+    if (response.error) {
+      return { ok: false, suppliers: [], errorMessage: MOBILE_PURCHASE_SUPPLIER_ERROR };
+    }
+    return { ok: true, suppliers: mapMobilePurchaseSuppliers(response.data), source: 'server' };
+  } catch {
+    return { ok: false, suppliers: [], errorMessage: MOBILE_PURCHASE_SUPPLIER_ERROR };
+  } finally {
+    signal?.removeEventListener('abort', abortFromCaller);
+  }
+};
+
+/** Loads only the first page needed by the purchase form's supplier picker. */
+export const fetchMobilePurchaseSupplierPicker = async (
+  search: string,
+  options: { signal?: AbortSignal } = {},
+): Promise<MobilePurchaseSupplierQueryResult> => {
+  if (!connectivityService.connected) {
+    try {
+      const catalog = await getOfflineInventoryCatalog();
+      const suppliers = Object.values(catalog.suppliers || {})
+        .filter((supplier) => ['supplier', 'suppliers'].includes(String(supplier.person_type || '').toLowerCase()))
+        .filter((supplier) => supplierProvidesStockOrigin(supplier.stock_origins, 'normal'))
+        .filter((supplier) => matchesSearchText(
+          `${supplier.nickname || ''} ${supplier.full_name || ''} ${supplier.social_name || ''}`,
+          search,
+        ))
+        .map((supplier) => mapMobilePurchaseSuppliers([supplier])[0])
+        .sort((left, right) =>
+          (left.full_name || '').localeCompare(right.full_name || '') || left.id.localeCompare(right.id)
+        )
+        .slice(0, 40);
+      return { ok: true, suppliers, source: 'offline' };
+    } catch {
+      return { ok: false, suppliers: [], errorMessage: MOBILE_PURCHASE_SUPPLIER_ERROR };
+    }
+  }
+
+  let query = supabase
+    .from('people')
+    .select(MOBILE_PURCHASE_SUPPLIER_FIELDS)
+    .or('person_type.ilike.suppliers,person_type.ilike.supplier')
+    .or('stock_origins.is.null,stock_origins.cs.{normal}')
+    .order('full_name', { ascending: true })
+    .order('id', { ascending: true });
+
+  const searchFilter = buildPostgrestAccentInsensitiveOrFilter(
+    ['nickname', 'full_name', 'social_name'],
+    search,
+  );
+  if (searchFilter) query = query.or(searchFilter);
+  query = query.limit(40);
+
+  return readMobilePurchaseSuppliers(query, options.signal);
+};
+
+/** Resolves a missing supplier label with one bounded lookup for the selected product. */
+export const fetchMobilePurchaseSuppliersByIds = async (
+  ids: readonly string[],
+): Promise<MobilePurchaseSupplierQueryResult> => {
+  const uniqueIds = [...new Set(ids.map((id) => id.trim()).filter(Boolean))].slice(0, 40);
+  if (!uniqueIds.length) return { ok: true, suppliers: [], source: 'server' };
+
+  if (!connectivityService.connected) {
+    try {
+      const catalog = await getOfflineInventoryCatalog();
+      return {
+        ok: true,
+        suppliers: uniqueIds
+          .map((id) => catalog.suppliers?.[id])
+          .filter((supplier) => supplier && ['supplier', 'suppliers'].includes(String(supplier.person_type || '').toLowerCase()))
+          .map((supplier) => mapMobilePurchaseSuppliers([supplier])[0]),
+        source: 'offline',
+      };
+    } catch {
+      return { ok: false, suppliers: [], errorMessage: MOBILE_PURCHASE_SUPPLIER_ERROR };
+    }
+  }
+
+  const query = supabase
+    .from('people')
+    .select(MOBILE_PURCHASE_SUPPLIER_FIELDS)
+    .in('id', uniqueIds)
+    .or('person_type.ilike.suppliers,person_type.ilike.supplier')
+    .order('full_name', { ascending: true })
+    .order('id', { ascending: true })
+    .limit(uniqueIds.length);
+
+  return readMobilePurchaseSuppliers(query);
+};
 
 export interface MobileProductSupplier {
   id: string;

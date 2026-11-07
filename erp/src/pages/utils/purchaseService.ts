@@ -7,13 +7,26 @@ const TABLE_NAME = 'purchases';
 
 let currentPurchases: Purchase[] = [];
 let listeners: Array<(purchases: Purchase[]) => void> = [];
+const mutationListeners = new Set<() => void>();
 
-const notifyListeners = () => {
+export const subscribeToPurchaseMutations = (callback: () => void) => {
+  mutationListeners.add(callback);
+  return () => { mutationListeners.delete(callback); };
+};
+
+const notifyListeners = (localMutation = true) => {
   listeners.forEach((listener) => {
     try {
       listener([...currentPurchases]);
     } catch (e) {
       console.error('Erro ao notificar listener de compras:', e);
+    }
+  });
+  if (localMutation) mutationListeners.forEach((listener) => {
+    try {
+      listener();
+    } catch (error) {
+      console.error('Erro ao atualizar página de compras:', error);
     }
   });
 };
@@ -82,7 +95,7 @@ export const reverseInventoryMoves = async (
     (purchase as any)?.supplier?.name ||
     (purchase as any)?.supplier?.tradeName ||
     '';
-  const purchaseNum = formatPurchaseNumber(purchase?.purchaseNumber) || '0001';
+  const purchaseNum = formatPurchaseNumber(purchase?.purchaseNumber) || purchaseId?.slice(-4) || '—';
   const reason =
     customReason ||
     (supplierName
@@ -179,7 +192,7 @@ export const subscribeToPurchases = (callback: (purchases: Purchase[]) => void) 
         const { data, error } = response;
         if (data && !error) {
           currentPurchases = assignPurchaseNumbers(data.reverse()); // Reverse back since we ordered DESC to get latest
-          notifyListeners();
+          notifyListeners(false);
         } else if (error) {
           console.error('Erro ao buscar compras iniciais:', error);
           callback([]);
@@ -435,3 +448,5 @@ const mapFromDB = (data: any, sequentialIndex?: number): Purchase => {
     stockProcessed: !!data.stockProcessed,
   };
 };
+
+export { mapFromDB as mapPurchaseFromDB };

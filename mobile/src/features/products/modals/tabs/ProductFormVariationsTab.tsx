@@ -15,7 +15,6 @@ import {
   Unlink,
   Info,
   Network,
-  X,
   Check,
   Sparkles,
 } from 'lucide-react-native';
@@ -57,8 +56,11 @@ import { isSingleProductVariationFormMode } from '../../../../../../shared-utils
 import { FormTextInput } from '../../../../components/shared/FormTextInput';
 import { getMobileProductVariationTabs } from './productVariationTabs';
 import type { VariationTabId } from './productVariationTabs';
-import { ProductVariationTabNavigation } from './ProductVariationTabNavigation';
 import { ProductVariationSummaryCard } from './ProductVariationSummaryCard';
+import {
+  ProductVariationEditorHeader,
+  type VariationReadinessMode,
+} from './ProductVariationEditorHeader';
 
 interface Props {
   formData: any;
@@ -83,7 +85,7 @@ export const ProductFormVariationsTab: React.FC<Props> = ({
 }) => {
   const [expanded, setExpanded] = useState<number | null>(null);
   const [activeVariationTab, setActiveVariationTab] = useState<VariationTabId>('identificacao');
-  const [openReadiness, setOpenReadiness] = useState<'erp' | 'catalog' | null>(null);
+  const [openReadiness, setOpenReadiness] = useState<VariationReadinessMode | null>(null);
   const [isGenerationModalOpen, setIsGenerationModalOpen] = useState(false);
   const insets = useSafeAreaInsets();
   const simpleConversionForm = useZodForm(variationToSimpleConfirmationSchema, {
@@ -627,91 +629,24 @@ export const ProductFormVariationsTab: React.FC<Props> = ({
                         { paddingTop: insets.top, paddingBottom: insets.bottom },
                       ]}
                     >
-                      <View style={styles.varEdit}>
-                        <View style={styles.variationFormHeader}>
-                          <View style={styles.variationHeaderTitle}>
-                            <Text
-                              style={[styles.variationHeaderTitleText, dark && styles.lightText]}
-                              numberOfLines={2}
-                            >
-                              Editar Variação |{' '}
-                              {formData.name || formData.description || 'Produto pai'}
-                            </Text>
-                            <Text style={[styles.helperText, dark && styles.dimText]}>
-                              Configure os dados específicos desta variação.
-                            </Text>
-                          </View>
-                          <TouchableOpacity
-                            onPress={() => setExpanded(null)}
-                            accessibilityRole="button"
-                            accessibilityLabel="Fechar edição da variação"
-                            style={styles.closeVariationButton}
-                          >
-                            <X size={18} color={dark ? '#94a3b8' : '#64748b'} />
-                          </TouchableOpacity>
-                        </View>
-                        <View style={styles.statusPills}>
-                          <TouchableOpacity
-                            hitSlop={8}
-                            onPress={() =>
-                              setOpenReadiness((current) => (current === 'erp' ? null : 'erp'))
-                            }
-                            accessibilityRole="button"
-                            accessibilityLabel={`ERP: ${erpReady ? 'Ativo' : 'Pendente'}, abrir requisitos da variação`}
-                            accessibilityState={{ expanded: openReadiness === 'erp' }}
-                            style={[
-                              styles.statusPill,
-                              erpReady ? styles.erpReadyPill : styles.erpPendingPill,
-                            ]}
-                          >
-                            <Text
-                              style={[
-                                styles.statusPillText,
-                                erpReady ? styles.erpReadyText : styles.erpPendingText,
-                              ]}
-                            >
-                              ERP: {erpReady ? 'Ativo' : 'Pendente'}
-                            </Text>
-                          </TouchableOpacity>
-                          {!isStockistOnly && <TouchableOpacity
-                            hitSlop={8}
-                            onPress={() =>
-                              setOpenReadiness((current) => (current === 'catalog' ? null : 'catalog'))
-                            }
-                            accessibilityRole="button"
-                            accessibilityLabel={`Catálogo: ${catalogPublished ? 'Publicado' : 'Ocultado'}, abrir requisitos da variação`}
-                            accessibilityState={{ expanded: openReadiness === 'catalog' }}
-                            style={[
-                              styles.statusPill,
-                              catalogPublished
-                                ? styles.catalogPublishedPill
-                                : styles.catalogHiddenPill,
-                            ]}
-                          >
-                            <Text
-                              style={[
-                                styles.statusPillText,
-                                catalogPublished
-                                  ? styles.catalogPublishedText
-                                  : styles.catalogHiddenText,
-                              ]}
-                            >
-                              Catálogo: {catalogPublished ? 'Publicado' : 'Ocultado'}
-                            </Text>
-                          </TouchableOpacity>}
-                        </View>
-                        <ProductVariationTabNavigation
-                          tabs={variationTabs}
-                          activeTab={activeVariationTab}
-                          dark={dark}
-                          isInheritedDataTab={(id) =>
-                            isSingleExistingVariation &&
-                            inheritedDataTabs.includes(id) &&
-                            !(isComposition && id === 'compostos')
-                          }
-                          onTabChange={setActiveVariationTab}
-                        />
-                      </View>
+                      <ProductVariationEditorHeader
+                        dark={dark}
+                        parentName={formData.name || formData.description || 'Produto pai'}
+                        onClose={() => setExpanded(null)}
+                        erpReady={erpReady}
+                        catalogPublished={catalogPublished}
+                        isStockistOnly={isStockistOnly}
+                        openReadiness={openReadiness}
+                        setOpenReadiness={setOpenReadiness}
+                        tabs={variationTabs}
+                        activeTab={activeVariationTab}
+                        isInheritedDataTab={(id) =>
+                          isSingleExistingVariation &&
+                          inheritedDataTabs.includes(id) &&
+                          !(isComposition && id === 'compostos')
+                        }
+                        onTabChange={setActiveVariationTab}
+                      />
                       <View style={{ flex: 1, position: 'relative' }}>
                         <ScrollView
                           style={styles.variationModalBody}

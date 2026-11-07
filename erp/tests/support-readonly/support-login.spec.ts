@@ -3,6 +3,7 @@ import { execFileSync } from 'node:child_process';
 import { createHmac } from 'node:crypto';
 import { resolve } from 'node:path';
 import { readSupportReadonlyOptions } from './supportReadonlyOptions';
+import { SUPPORT_READONLY_RPC_ALLOWLIST } from './supportReadonlyRpcAllowlist';
 import { createWaveformWav } from './supportReadonlyWaveformAudio';
 
 test('login autônomo e consulta da Inbox sem gravações de negócio', async () => {
@@ -83,12 +84,7 @@ test('login autônomo e consulta da Inbox sem gravações de negócio', async ()
   page.setDefaultTimeout(10_000);
   page.setDefaultNavigationTimeout(30_000);
   await page.setViewportSize({ width: 1280, height: 800 });
-  const readOnlyRPCs = new Set([
-    'customer_support_list_conversations', 'customer_support_conversation_counts', 'customer_support_list_agents',
-    'customer_support_list_customer_summaries', 'customer_support_count_customer_orders',
-    'customer_support_can_view', 'customer_support_can_view_commercial_info',
-    'customer_support_test_fixture_manifest',
-  ]);
+  const readOnlyRPCs = new Set(SUPPORT_READONLY_RPC_ALLOWLIST);
   const guard = async (route: import('@playwright/test').Route) => {
     const request = route.request();
     const url = new URL(request.url());

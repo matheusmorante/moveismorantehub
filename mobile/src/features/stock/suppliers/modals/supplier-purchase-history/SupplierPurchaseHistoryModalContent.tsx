@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   ActivityIndicator,
@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import { X } from 'lucide-react-native';
+import { useAuth } from '../../../../../contexts/AuthContext';
 import * as stockService from '../../../../../services/stockService';
 
 export interface SupplierPurchaseHistoryModalProps {
@@ -27,6 +28,7 @@ export const SupplierPurchaseHistoryModalContent: React.FC<SupplierPurchaseHisto
   onClose,
 }) => {
   const insets = useSafeAreaInsets();
+  const { userProfile } = useAuth();
   const [items, setItems] = useState<any[]>([]);
   const [page, setPage] = useState(0);
   const [total, setTotal] = useState(0);
@@ -34,14 +36,59 @@ export const SupplierPurchaseHistoryModalContent: React.FC<SupplierPurchaseHisto
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState(false);
+  const requestGenerationRef = useRef(0);
+  const activeRequestsRef = useRef(new Map<string, { controller: AbortController }>());
+  const loadedContextRef = useRef<string | null>(null);
+  const loadedPageRef = useRef(-1);
+  const contextKey = JSON.stringify([
+    userProfile?.id ?? null,
+    supplier?.id ?? null,
+    supplier?.name || supplier?.full_name || '',
+    supplier?.phone || '',
+    supplier?.email || '',
+  ]);
+  const currentContextKeyRef = useRef(contextKey);
+  const previousContextKeyRef = useRef(contextKey);
+  const visibleRef = useRef(visible);
+  currentContextKeyRef.current = contextKey;
+  visibleRef.current = visible;
+
+  const cancelActiveRequests = useCallback(() => {
+    requestGenerationRef.current += 1;
+    activeRequestsRef.current.forEach(({ controller }) => controller.abort());
+    activeRequestsRef.current.clear();
+  }, []);
+
   const colors = isDarkMode
     ? { bg: '#0f172a', surface: '#1e293b', border: '#334155', text: '#f8fafc', muted: '#94a3b8' }
     : { bg: '#f8fafc', surface: '#fff', border: '#e2e8f0', text: '#0f172a', muted: '#64748b' };
 
   const load = useCallback(
     async (nextPage = 0) => {
-      if (nextPage === 0) setLoading(true);
-      else setLoadingMore(true);
+      if (!visible || !supplier?.id) return;
+
+      const requestKey = `${contextKey}:page:${nextPage}`;
+      if (activeRequestsRef.current.has(requestKey)) return;
+      if (nextPage > 0 && (
+        loadedContextRef.current !== contextKey ||
+        loadedPageRef.current !== nextPage - 1 ||
+        activeRequestsRef.current.has(`${contextKey}:page:0`)
+      )) return;
+
+      const generation = requestGenerationRef.current;
+      const controller = new AbortController();
+      activeRequestsRef.current.set(requestKey, { controller });
+      const isCurrent = () => (
+        !controller.signal.aborted &&
+        requestGenerationRef.current === generation &&
+        currentContextKeyRef.current === contextKey &&
+        visibleRef.current
+      );
+
+      if (nextPage === 0) {
+        setLoading(true);
+        setLoadingMore(false);
+      } else setLoadingMore(true);
       setError(false);
       try {
         const result = await stockService.fetchSupplierPurchaseHistory(
@@ -50,26 +97,70 @@ export const SupplierPurchaseHistoryModalContent: React.FC<SupplierPurchaseHisto
             phone: supplier?.phone,
             email: supplier?.email,
           },
-          nextPage
+          nextPage,
+          controller.signal
         );
+        if (!isCurrent()) return;
+        loadedContextRef.current = contextKey;
+        loadedPageRef.current = nextPage;
         setItems((current) => (nextPage === 0 ? result.data : [...current, ...result.data]));
         setTotal(result.count);
         if (nextPage === 0) setTotalSpent(result.totalSpent ?? null);
         setPage(nextPage);
       } catch (e) {
+        if (!isCurrent()) return;
         console.error('Erro ao carregar histórico de compras do fornecedor:', e);
         setError(true);
       } finally {
-        setLoading(false);
-        setLoadingMore(false);
+        if (activeRequestsRef.current.get(requestKey)?.controller === controller) {
+          activeRequestsRef.current.delete(requestKey);
+          if (isCurrent()) {
+            setLoading(false);
+            setLoadingMore(false);
+          }
+        }
       }
     },
-    [supplier?.id, supplier?.name, supplier?.full_name, supplier?.phone, supplier?.email]
+    [
+      visible,
+      supplier?.id,
+      supplier?.name,
+      supplier?.full_name,
+      supplier?.phone,
+      supplier?.email,
+      contextKey,
+    ]
   );
 
+  const refreshHistory = useCallback(() => {
+    cancelActiveRequests();
+    loadedContextRef.current = null;
+    loadedPageRef.current = -1;
+    void load(0);
+  }, [cancelActiveRequests, load]);
+
   useEffect(() => {
+    cancelActiveRequests();
+    const contextChanged = previousContextKeyRef.current !== contextKey;
+    previousContextKeyRef.current = contextKey;
+    if (contextChanged) {
+      loadedContextRef.current = null;
+      loadedPageRef.current = -1;
+      setItems([]);
+      setTotal(0);
+      setTotalSpent(null);
+      setPage(0);
+      setError(false);
+    }
+    setLoading(false);
+    setLoadingMore(false);
+
     if (visible && supplier?.id) void load(0);
-  }, [visible, supplier?.id, load]);
+
+    return () => {
+      cancelActiveRequests();
+    };
+  }, [visible, supplier?.id, contextKey, load, cancelActiveRequests]);
 
   return (
     <Modal
@@ -138,7 +229,7 @@ export const SupplierPurchaseHistoryModalContent: React.FC<SupplierPurchaseHisto
           refreshControl={
             <RefreshControl
               refreshing={loading && items.length > 0}
-              onRefresh={() => void load(0)}
+              onRefresh={refreshHistory}
               tintColor="#2563eb"
             />
           }
@@ -160,7 +251,10 @@ export const SupplierPurchaseHistoryModalContent: React.FC<SupplierPurchaseHisto
                     : 'Nenhum pedido encontrado para este fornecedor.'}
                 </Text>
                 {error ? (
-                  <TouchableOpacity onPress={() => void load(0)} style={styles.retry}>
+                  <TouchableOpacity
+                    onPress={refreshHistory}
+                    style={styles.retry}
+                  >
                     <Text style={styles.retryText}>Tentar novamente</Text>
                   </TouchableOpacity>
                 ) : null}

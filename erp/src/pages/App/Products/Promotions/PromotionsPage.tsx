@@ -13,13 +13,11 @@ import {
   type PromotionStatus,
 } from './promotionsService';
 
-const STATUS_TABS: Array<{ id: 'all' | PromotionStatus; label: string }> = [
+const STATUS_TABS: Array<{ id: 'all' | 'active' | 'scheduled' | 'ended'; label: string }> = [
   { id: 'all', label: 'Todas' },
-  { id: 'draft', label: 'Rascunhos' },
-  { id: 'scheduled', label: 'Programadas' },
-  { id: 'active', label: 'Em andamento' },
-  { id: 'interrupted', label: 'Interrompidas' },
-  { id: 'ended', label: 'Encerradas' },
+  { id: 'active', label: 'Ativo' },
+  { id: 'scheduled', label: 'Agendado' },
+  { id: 'ended', label: 'Expirou' },
 ];
 
 const STATUS_LABEL: Record<PromotionStatus, string> = {
@@ -91,8 +89,8 @@ function PromotionList() {
       mutatePromotion(input.action, input.id),
     onSuccess: async (id, input) => {
       await queryClient.invalidateQueries({ queryKey: ['promotions'] });
-      if (input.action === 'duplicate') navigate(`/products/promotions/${id}/edit`);
-      else toast.success(input.action === 'delete' ? 'Promoção excluída.' : 'Promoção atualizada.');
+      if (input.action === 'duplicate') navigate(`/products/campaigns/${id}/edit`);
+      else toast.success(input.action === 'delete' ? 'Campanha excluída.' : 'Campanha atualizada.');
     },
     onError: (error) => toast.error(getPromotionErrorMessage(error)),
   });
@@ -108,16 +106,16 @@ function PromotionList() {
         <header className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <Link to="/products" className="text-xs font-semibold text-blue-600 hover:underline">← Produtos</Link>
-            <h1 className="mt-2 text-2xl font-black text-slate-900 dark:text-white">Promoções</h1>
+            <h1 className="mt-2 text-2xl font-black text-slate-900 dark:text-white">Campanhas</h1>
             <p className="mt-1 text-sm text-slate-500">Campanhas temporárias sem alterar o preço cadastrado nos produtos.</p>
           </div>
-          <button type="button" onClick={() => navigate('/products/promotions/new')} className="flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white shadow-sm hover:bg-blue-700">
-            <i className="bi bi-plus-lg" aria-hidden="true" /> Nova promoção
+          <button type="button" onClick={() => navigate('/products/campaigns/new')} className="flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white shadow-sm hover:bg-blue-700">
+            <i className="bi bi-plus-lg" aria-hidden="true" /> Nova campanha
           </button>
         </header>
 
         <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          <div className="flex gap-2 overflow-x-auto border-b border-slate-100 pb-3 dark:border-slate-800" role="tablist" aria-label="Filtrar promoções por estado">
+          <div className="flex gap-2 overflow-x-auto border-b border-slate-100 pb-3 dark:border-slate-800" role="tablist" aria-label="Filtrar campanhas por estado">
             {STATUS_TABS.map((tab) => (
               <button key={tab.id} type="button" role="tab" aria-selected={filters.status === tab.id} onClick={() => setFilter('status', tab.id)} className={`shrink-0 rounded-lg px-3 py-2 text-xs font-bold transition ${filters.status === tab.id ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'}`}>
                 {tab.label}
@@ -128,7 +126,7 @@ function PromotionList() {
           <div className="mt-4 grid gap-3 md:grid-cols-2 lg:grid-cols-4">
             <label className="flex h-10 items-center gap-2 rounded-xl border border-slate-200 px-3 dark:border-slate-700">
               <i className="bi bi-search text-slate-400" aria-hidden="true" />
-              <input value={filters.search} onChange={(event) => setFilter('search', event.target.value)} placeholder="Buscar promoção" aria-label="Buscar promoção por nome" className="min-w-0 flex-1 bg-transparent text-sm outline-none" />
+              <input value={filters.search} onChange={(event) => setFilter('search', event.target.value)} placeholder="Buscar campanha" aria-label="Buscar campanha por nome" className="min-w-0 flex-1 bg-transparent text-sm outline-none" />
             </label>
             <label className="flex h-10 items-center gap-2 rounded-xl border border-slate-200 px-3 dark:border-slate-700">
               <i className="bi bi-box-seam text-slate-400" aria-hidden="true" />
@@ -143,10 +141,10 @@ function PromotionList() {
           </div>
         </section>
 
-        <section className="space-y-3" aria-label="Promoções cadastradas">
-          {isLoading ? <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center text-sm text-slate-500">Carregando promoções…</div> : null}
-          {isError ? <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">Não foi possível carregar as promoções. <button type="button" onClick={() => void refetch()} className="ml-1 font-bold underline">Tentar novamente</button></div> : null}
-          {!isLoading && !isError && !data?.rows.length ? <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-12 text-center dark:border-slate-700 dark:bg-slate-900"><i className="bi bi-megaphone text-3xl text-slate-300" aria-hidden="true" /><h2 className="mt-3 font-bold text-slate-800 dark:text-white">Nenhuma promoção encontrada</h2><p className="mt-1 text-sm text-slate-500">Crie uma campanha ou ajuste os filtros.</p></div> : null}
+        <section className="space-y-3" aria-label="Campanhas cadastradas">
+          {isLoading ? <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center text-sm text-slate-500">Carregando campanhas…</div> : null}
+          {isError ? <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">Não foi possível carregar as campanhas. <button type="button" onClick={() => void refetch()} className="ml-1 font-bold underline">Tentar novamente</button></div> : null}
+          {!isLoading && !isError && !data?.rows.length ? <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-12 text-center dark:border-slate-700 dark:bg-slate-900"><i className="bi bi-megaphone text-3xl text-slate-300" aria-hidden="true" /><h2 className="mt-3 font-bold text-slate-800 dark:text-white">Nenhuma campanha encontrada</h2><p className="mt-1 text-sm text-slate-500">Crie uma campanha ou ajuste os filtros.</p></div> : null}
 
           {data?.rows.map((promotion) => {
             const status = promotion.computed_status;
@@ -166,12 +164,12 @@ function PromotionList() {
                     </div>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
-                    <button type="button" onClick={() => navigate(`/products/promotions/${promotion.id}/edit?view=1`)} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300">Visualizar</button>
-                    <button type="button" onClick={() => navigate(`/products/promotions/${promotion.id}/edit`)} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300">Editar</button>
+                    <button type="button" onClick={() => navigate(`/products/campaigns/${promotion.id}/edit?view=1`)} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300">Visualizar</button>
+                    <button type="button" onClick={() => navigate(`/products/campaigns/${promotion.id}/edit`)} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300">Editar</button>
                     <button type="button" disabled={actionMutation.isPending} onClick={() => actionMutation.mutate({ action: 'duplicate', id: promotion.id })} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:text-slate-300">Duplicar</button>
                     {status === 'scheduled' || status === 'active' ? <button type="button" disabled={actionMutation.isPending} onClick={() => actionMutation.mutate({ action: 'interrupt', id: promotion.id })} className="rounded-lg border border-amber-200 px-3 py-2 text-xs font-bold text-amber-800 hover:bg-amber-50 disabled:opacity-50">Interromper</button> : null}
                     {status === 'interrupted' ? <button type="button" disabled={actionMutation.isPending} onClick={() => actionMutation.mutate({ action: 'resume', id: promotion.id })} className="rounded-lg border border-emerald-200 px-3 py-2 text-xs font-bold text-emerald-800 hover:bg-emerald-50 disabled:opacity-50">Retomar</button> : null}
-                    {status === 'draft' || status === 'interrupted' || status === 'ended' ? <button type="button" disabled={actionMutation.isPending} onClick={() => { if (window.confirm(`Excluir a promoção “${promotion.name}”?`)) actionMutation.mutate({ action: 'delete', id: promotion.id }); }} className="rounded-lg border border-red-200 px-3 py-2 text-xs font-bold text-red-700 hover:bg-red-50 disabled:opacity-50">Excluir</button> : null}
+                    {status === 'draft' || status === 'interrupted' || status === 'ended' ? <button type="button" disabled={actionMutation.isPending} onClick={() => { if (window.confirm(`Excluir a campanha “${promotion.name}”?`)) actionMutation.mutate({ action: 'delete', id: promotion.id }); }} className="rounded-lg border border-red-200 px-3 py-2 text-xs font-bold text-red-700 hover:bg-red-50 disabled:opacity-50">Excluir</button> : null}
                   </div>
                 </div>
               </article>
@@ -179,7 +177,7 @@ function PromotionList() {
           })}
         </section>
 
-        {total > PAGE_SIZE ? <nav aria-label="Páginas de promoções" className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm dark:border-slate-800 dark:bg-slate-900"><span className="text-slate-500">{total} promoções · Página {filters.page} de {pages}</span><div className="flex gap-2"><button type="button" disabled={filters.page <= 1} onClick={() => setFilter('page', filters.page - 1)} className="rounded-lg border border-slate-200 px-3 py-2 font-semibold disabled:opacity-40 dark:border-slate-700">Anterior</button><button type="button" disabled={filters.page >= pages} onClick={() => setFilter('page', filters.page + 1)} className="rounded-lg border border-slate-200 px-3 py-2 font-semibold disabled:opacity-40 dark:border-slate-700">Próxima</button></div></nav> : null}
+        {total > PAGE_SIZE ? <nav aria-label="Páginas de campanhas" className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm dark:border-slate-800 dark:bg-slate-900"><span className="text-slate-500">{total} campanhas · Página {filters.page} de {pages}</span><div className="flex gap-2"><button type="button" disabled={filters.page <= 1} onClick={() => setFilter('page', filters.page - 1)} className="rounded-lg border border-slate-200 px-3 py-2 font-semibold disabled:opacity-40 dark:border-slate-700">Anterior</button><button type="button" disabled={filters.page >= pages} onClick={() => setFilter('page', filters.page + 1)} className="rounded-lg border border-slate-200 px-3 py-2 font-semibold disabled:opacity-40 dark:border-slate-700">Próxima</button></div></nav> : null}
       </div>
     </main>
   );

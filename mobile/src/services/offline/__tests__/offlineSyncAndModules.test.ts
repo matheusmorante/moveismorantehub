@@ -319,6 +319,7 @@ import {
   GOODS_RECEIPTS_PENDING_SYNC_KEY,
 } from '../../stock/stockReceiptsService';
 import { resolveMobileUserProfile } from '../../mobileAuthProfile';
+import { registerOfflineProfileCacheCase } from './offlineProfileCacheCase';
 import { deliveryFlowService } from '../../../features/orders/services/deliveryFlowService';
 import { resolveDeliveryStep } from '../../../features/orders/screens/delivery-preparation/deliveryFlowStepRules';
 import { buildDeliveryRouteItems } from '../../../features/logistics/domain/deliveryRouteBuilder';
@@ -773,21 +774,9 @@ describe('Auditoria Offline End-to-End (7 Pontos Críticos: Operação, Sincroni
     expect(await fetchInventorySessions(0, undefined, undefined, 'user-operator-A')).toEqual(cachedSessions);
   });
 
-  it('restaura o perfil aprovado em cache quando o app abre offline sem rebaixar para pending', async () => {
-    const sessionUser = {
-      id: 'user-offline-1',
-      email: 'driver@morantehub.test',
-      user_metadata: { full_name: 'Motorista' },
-    };
-
-    state.connected = true;
-    const onlineProfile = await resolveMobileUserProfile({ user: sessionUser });
-    expect(onlineProfile.role).toBe('driver');
-
-    state.connected = false;
-    const offlineProfile = await resolveMobileUserProfile({ user: sessionUser });
-    expect(offlineProfile.role).toBe('driver');
-    expect(offlineProfile.roles).toContain('driver');
+  registerOfflineProfileCacheCase({
+    state,
+    resolveMobileUserProfile,
   });
 
   it('envia a prova local ao reconectar antes de sincronizar a ocorrência da entrega', async () => {

@@ -582,6 +582,7 @@ y = step(1, 'Escolha fornecedor e itens', 'Selecione o fornecedor antes de adici
 y = step(2, 'Revise e confirme', 'O pedido pode ficar incompleto como rascunho. Para Confirmar Pedido, selecione fornecedor e ao menos um item com produto. O pedido não movimenta estoque.', y)
 y = step(3, 'Retome ou atualize conforme o status', 'Rascunhos podem ser retomados ou descartados. Pedidos Pendentes ou Em Ordem podem ser editados enquanto não houver movimento. Atendido também não registra entrada; use Recebimentos quando a carga chegar.', y)
 y = note('Pedido cancelado', 'Pode ser apagado pelo menu. Recebimentos já feitos são preservados.', y, fill=PALE)
+y = note('Localize e confira o pedido', 'No ERP, selecione o fornecedor e percorra as páginas de 15 pedidos; o filtro alcança o histórico completo. Quando não houver número salvo, a compra aparece com um código curto no ERP e no app. Confira fornecedor, data e valor para reconhecer o pedido.', y, fill=MINT)
 
 # 18 - Inventário inicial
 y = base('07 / Inventário', 'Defina o que será contado', 'ERP e app: Inventário > três pontinhos > Novo inventário.')
@@ -622,15 +623,15 @@ y = table(['Status ou ação', 'O que significa na rotina'], [
 # 21 - Histórico
 y = base('08 / Consulta do saldo', 'Descubra o que mudou no estoque', 'Estoque > Movimentações. Consulte quais operações aumentaram ou diminuíram o estoque.')
 y = shot('13-movimentacoes', y, max_height=200, caption='1 Buscar produto  •  2 Período. As descrições das operações foram ocultadas na imagem.')
-y = step(1, 'Pesquise o produto', 'Use Buscar produto e escolha o item correto. Ajuste o período: uma entrada antiga pode não aparecer no mês atual.', y)
-y = step(2, 'Confira a quantidade e o resultado', 'Efetivada altera o saldo; Estornada não tem efeito. A observação mostra a origem, como o recebimento, e o motivo do estorno. Para corrigir, use o documento de origem. Em pedido de venda já movimentado, mudar só o preço não altera o saldo; aumento gera ajuste, e redução, troca ou remoção estornam a saída anterior e podem gerar outra.', y)
+y = step(1, 'Pesquise o produto', 'Use Buscar produto e escolha o item. Produto e período pesquisam o histórico disponível, não só os lançamentos recentes. Escolha Todos para qualquer data; avance pelos números, 15 registros por página.', y)
+y = step(2, 'Confira a quantidade e o resultado', 'Efetivada altera o saldo; Estornada não. A observação mostra a origem e o motivo do estorno. Para corrigir, use o documento de origem. Em pedidos, o preço não muda o saldo; aumento gera ajuste, e redução, troca ou remoção estornam a saída anterior e podem gerar outra.', y)
 y = table(['Tipo', 'Como interpretar'], [
     ['Entrada', 'Acrescenta unidades ao saldo conforme a operação de origem.'],
     ['Saída', 'Retira unidades do saldo conforme a operação de origem.'],
     ['Ajuste', 'Corrige a quantidade do estoque, por exemplo, após uma contagem.'],
 ], y, widths=[110, TW - 110], size=10.6)
 y = note('Confira onde a mudança começou', 'Abra o recebimento, inventário ou registro de indisponibilidade que originou a mudança. A lista de Produtos não corrige o estoque; em produtos compostos, confira também as peças.', y, fill=MINT)
-y = para('<b>Listas paginadas:</b> no ERP e no app, cada página mostra até 15 registros. Use as setas ou números abaixo da lista para avançar; não há seletor de quantidade. Ao mudar filtros, a lista volta à primeira página.', y, size=9.7, leading=13.5, gap=0)
+y = para('<b>Saldo atual:</b> vem do cadastro do produto ou variação e não muda com período ou página. No ERP e no app, cada página mostra até 15 registros; use as setas ou números. Ao mudar filtros, volte à primeira página.', y, size=9.7, leading=13.5, gap=0)
 
 # 24 - Avarias e indisponibilidades
 y = base('09 / Indisponibilidades', 'Registre só o que sai do estoque', 'Avaria, por si só, não é indisponibilidade. Use o registro quando separar a unidade e ela deixar de estar disponível para venda ou uso.')

@@ -25,7 +25,6 @@ export type Variation = {
   promotionId?: string;
   promotionName?: string;
   promotionDiscountPercent?: number;
-  promotionFinalPrice?: number;
   costPrice?: number;
   active: boolean;
   status?: 'draft' | 'published' | 'hidden';
@@ -134,7 +133,6 @@ export type Product = {
   promotionId?: string;
   promotionName?: string;
   promotionDiscountPercent?: number;
-  promotionFinalPrice?: number;
   costPrice?: number; // Preço de custo base
   freightType?: 'fixed' | 'percentage' | 'none';
   freightCost?: number;

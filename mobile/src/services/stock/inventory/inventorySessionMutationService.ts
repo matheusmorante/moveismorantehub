@@ -39,7 +39,7 @@ export const recalculateInventoryAuditBalance = async (productId: string): Promi
     supabase.from('products').select('*, product_variations(*)').eq('id', productId).single(),
     supabase
       .from('inventory_moves')
-      .select('*')
+      .select('variation_id, type, quantity, date, created_at, status, observation')
       .eq('product_id', productId)
       .order('date', { ascending: true })
       .order('created_at', { ascending: true })

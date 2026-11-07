@@ -29,6 +29,7 @@ import {
 
 import { FormTextInput } from '../../../../components/shared/FormTextInput';
 import { styles } from './productFormFiscalTab.styles';
+import { useProductFiscalPickerState } from './useProductFiscalPickerState';
 
 interface Props {
   formData: any;
@@ -62,33 +63,28 @@ export const ProductFormFiscalTab: React.FC<Props> = ({
   onAcceptNcmSuggestion,
   onRejectNcmSuggestion,
 }) => {
-  const [showCfopPicker, setShowCfopPicker] = useState(false);
-  const [showCestPicker, setShowCestPicker] = useState(false);
-  const [showCsosnPicker, setShowCsosnPicker] = useState(false);
-  const [showOrigemPicker, setShowOrigemPicker] = useState(false);
-  const [showPisPicker, setShowPisPicker] = useState(false);
-  const [showCofinsPicker, setShowCofinsPicker] = useState(false);
+  const {
+    showCfopPicker,
+    setShowCfopPicker,
+    showCestPicker,
+    setShowCestPicker,
+    showCsosnPicker,
+    setShowCsosnPicker,
+    showOrigemPicker,
+    setShowOrigemPicker,
+    showPisPicker,
+    setShowPisPicker,
+    showCofinsPicker,
+    setShowCofinsPicker,
+  } = useProductFiscalPickerState({
+    canConfigureProductTaxes,
+    itemType: formData.itemType,
+  });
   const [ncmSearch, setNcmSearch] = useState(String(formData.fiscal?.ncm || ''));
   const [ncmResults, setNcmResults] = useState<any[]>([]);
   const [ncmLoading, setNcmLoading] = useState(false);
   const [ncmCatalog, setNcmCatalog] = useState<any>(null);
   const pendingManualNcmDescriptionCode = useRef<string | null>(null);
-
-  useEffect(() => {
-    if (!canConfigureProductTaxes) {
-      setShowCfopPicker(false);
-      setShowCestPicker(false);
-      setShowCsosnPicker(false);
-      setShowOrigemPicker(false);
-      setShowPisPicker(false);
-      setShowCofinsPicker(false);
-    }
-    if (formData.itemType !== 'service') setShowCfopPicker(false);
-    if (formData.itemType === 'service') {
-      setShowCestPicker(false);
-      setShowOrigemPicker(false);
-    }
-  }, [canConfigureProductTaxes, formData.itemType]);
 
   useEffect(() => setNcmSearch(String(formData.fiscal?.ncm || '')), [formData.fiscal?.ncm]);
 

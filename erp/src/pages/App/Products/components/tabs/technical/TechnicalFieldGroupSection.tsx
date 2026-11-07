@@ -35,7 +35,6 @@ export interface TechnicalFieldGroupSectionProps {
   readonly onToggleCharacteristic?: (field: TechnicalFieldDefinition) => void;
   readonly onValueChange: (fieldName: string, value: unknown) => void;
   readonly onOpenAttributeModal: () => void;
-  readonly onRemoveManualField: (fieldName: string) => void;
 }
 
 const DEFAULT_POSSUI_PES: TechnicalFieldDefinition = {
@@ -68,7 +67,6 @@ export const TechnicalFieldGroupSection: React.FC<TechnicalFieldGroupSectionProp
   onToggleCharacteristic,
   onValueChange,
   onOpenAttributeModal,
-  onRemoveManualField,
 }) => {
   const isPesGroup = group.title === 'Pés';
   const isDimensionsGroup =
@@ -108,7 +106,6 @@ export const TechnicalFieldGroupSection: React.FC<TechnicalFieldGroupSectionProp
           onToggleCharacteristic={onToggleCharacteristic}
           onValueChange={onValueChange}
           onOpenAttributeModal={onOpenAttributeModal}
-          onRemoveManualField={onRemoveManualField}
         />
       ))}
     </div>

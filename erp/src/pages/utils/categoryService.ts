@@ -6,17 +6,19 @@ import {
   type CategoryAttributeSelection,
 } from '../../../../shared-utils/categoryAttributeSelection';
 import type { CharacteristicCategoryApplication } from '../../../../shared-utils/categoryCharacteristicApplication';
-import { countDistinctProductsByCategory } from '../../../../shared-utils/categoryProductCounts';
+import { mapCategoryProductCountRows } from '../../../../shared-utils/categoryProductCounts';
 import { withCatalogAttributesLoadTimeout } from '../../../../shared-utils/catalogAttributesLoadTimeout';
 import { withTimeout } from '../../../../shared-utils/withTimeout';
 import { invalidateTechnicalFieldDefinitionsCache } from '@/pages/App/Products/services/technicalFieldService';
 import {
   createEnvironment,
   deleteEnvironment,
+  fetchCategoryEnvironmentRelationships,
   fetchEnvironments,
   unlinkCategoryFromEnvironment,
   updateEnvironment,
 } from './environmentService';
+import type { CategoryEnvironmentRelationshipsResult } from './environmentService';
 
 export {
   createEnvironment,
@@ -31,6 +33,9 @@ export type { CategoryAttributeSelection } from '../../../../shared-utils/catego
 export type { CharacteristicCategoryApplication } from '../../../../shared-utils/categoryCharacteristicApplication';
 
 const CHARACTERISTIC_APPLICATION_TIMEOUT_MS = 20_000;
+type CategoryListProjection = 'full' | 'summary';
+
+const CATEGORY_SUMMARY_FIELDS = 'id, name, slug, type';
 
 export type Category = {
   id: string;
@@ -48,22 +53,33 @@ export type Category = {
  * Busca todas as categorias de produtos (type = 'category')
  * e popula seus ambientes associados a partir de category_relationships.
  */
-export const fetchCategories = async (): Promise<Category[]> => {
+export const fetchCategories = async (
+  sharedRelationships?: Promise<CategoryEnvironmentRelationshipsResult>,
+  projection: CategoryListProjection = 'full'
+): Promise<Category[]> => {
   try {
-    const { data: catsData, error: catsErr } = await supabase
-      .from('categories')
-      .select('*')
-      .eq('type', 'category')
-      .order('name');
+    const categoriesRequest =
+      projection === 'summary'
+        ? supabase
+            .from('categories')
+            .select(CATEGORY_SUMMARY_FIELDS)
+            .eq('type', 'category')
+            .order('name')
+        : supabase
+            .from('categories')
+            .select('*')
+            .eq('type', 'category')
+            .order('name');
+    const { data: catsData, error: catsErr } = await categoriesRequest;
 
     if (catsErr) {
       console.error('[CategoryService] Erro ao buscar categories:', catsErr);
       return [];
     }
 
-    const { data: rels, error: relErr } = await supabase
-      .from('category_relationships')
-      .select('parent_id, child_id');
+    const { data: rels, error: relErr } = sharedRelationships
+      ? await sharedRelationships
+      : await fetchCategoryEnvironmentRelationships();
 
     if (relErr) {
       console.error(
@@ -83,11 +99,23 @@ export const fetchCategories = async (): Promise<Category[]> => {
   }
 };
 
+/** Busca ambientes e categorias compartilhando a leitura de seus vínculos nesta carga. */
+export const fetchCategoryEnvironmentData = async (
+  projection: CategoryListProjection = 'full'
+) => {
+  const sharedRelationships = fetchCategoryEnvironmentRelationships();
+  const [environments, categories] = await Promise.all([
+    fetchEnvironments(sharedRelationships, projection),
+    fetchCategories(sharedRelationships, projection),
+  ]);
+  return { environments, categories };
+};
+
 /**
  * Retrocompatibilidade para quem ainda chama fetchGroupsAndCategories (ex: cadastro de produtos).
  */
 export const fetchGroupsAndCategories = async () => {
-  const [envs, cats] = await Promise.all([fetchEnvironments(), fetchCategories()]);
+  const { environments: envs, categories: cats } = await fetchCategoryEnvironmentData('full');
   const combined = [
     ...envs.map((e) => ({ ...e, parents: [] })), // Ambientes não possuem pai
     ...cats,
@@ -331,23 +359,10 @@ export const fetchCategoryAttributes = async (
  */
 export const fetchCategoryProductCounts = async (): Promise<Record<string, number>> => {
   try {
-    const [pcRes, prodRes] = await Promise.all([
-      supabase.from('product_categories').select('category_id, product_id'),
-      supabase.from('products').select('id, category_id').not('category_id', 'is', null),
-    ]);
-    if (pcRes.error) throw pcRes.error;
-    if (prodRes.error) throw prodRes.error;
+    const { data, error } = await supabase.rpc('get_category_product_counts');
+    if (error) throw error;
 
-    return countDistinctProductsByCategory([
-      ...(pcRes.data || []).map((row: { category_id: string; product_id: string }) => ({
-        categoryId: row.category_id,
-        productId: row.product_id,
-      })),
-      ...(prodRes.data || []).map((row: { id: string; category_id: string }) => ({
-        categoryId: row.category_id,
-        productId: row.id,
-      })),
-    ]);
+    return mapCategoryProductCountRows(data || []);
   } catch (err) {
     console.error('[CategoryService] Erro ao buscar contagem de produtos por categoria:', err);
     throw err;

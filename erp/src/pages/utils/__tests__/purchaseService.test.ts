@@ -360,6 +360,17 @@ describe('Suíte Unitária e de Integração: purchaseService (Pedidos de Compra
   });
 
   describe('4. Reversão Direta de Estoque (reverseInventoryMoves)', () => {
+    it('identifica pelo ID a compra sem número persistido ao registrar o estorno', async () => {
+      const purchase = {
+        id: 'd9b2d6a1-0001-4000-8000-00000000ab45',
+        supplierName: 'Fornecedor', status: 'ordered', items: [],
+      } as unknown as Purchase;
+      await reverseInventoryMoves(purchase);
+      expect(mockCancelInventoryMoves).toHaveBeenCalledWith(
+        purchase.id, 'purchase_order', 'Cancelamento do pedido de compra #ab45 - Fornecedor',
+      );
+    });
+
     it('chama cancelamento de movimentações por entidade relacionada e limpa stockProcessed', async () => {
       const purchaseId = 'd9b2d6a1-0001-4000-8000-000000000006';
 

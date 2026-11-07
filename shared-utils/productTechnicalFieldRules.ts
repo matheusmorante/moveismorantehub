@@ -12,8 +12,18 @@ export {
   isWeightCapacityCharacteristic,
 } from '../erp/src/pages/utils/technicalValuesService';
 
-/** Identifica a característica inteira que representa quantidade de lugares. */
-export const isTechnicalFieldPlacesCount = (name: string): boolean => /lugar(es)?/i.test(name);
+/** Identifica a característica numérica de cadeiras, incluindo o nome legado. */
+export const isTechnicalFieldChairCount = (name: string): boolean => {
+  const normalized = String(name || '')
+    .trim()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLocaleLowerCase('pt-BR');
+  return /^quantidade\s+de\s+(?:cadeiras?|lugares?)$/.test(normalized);
+};
+
+/** @deprecated Use isTechnicalFieldChairCount. */
+export const isTechnicalFieldPlacesCount = isTechnicalFieldChairCount;
 
 /** Força como multi-select as características legadas de corrediças e tipos de porta. */
 export const isTechnicalFieldMultiSelect = (name: string): boolean =>
@@ -21,7 +31,7 @@ export const isTechnicalFieldMultiSelect = (name: string): boolean =>
 
 /** Limite de entrada inteiro usado pelo ERP para características técnicas. */
 export const getTechnicalFieldIntegerMaxValue = (name: string): number =>
-  isTechnicalFieldPlacesCount(name) ? 100 : 50;
+  isTechnicalFieldChairCount(name) ? 100 : 50;
 
 /** Placeholders ERP/mobile para características técnicas com entrada de texto curta. */
 export const getTechnicalFieldTextPlaceholder = (name: string): string | undefined => {
@@ -37,7 +47,13 @@ export const getTechnicalFieldTextPlaceholder = (name: string): string | undefin
 
 export {
   areTechnicalCharacteristicNamesEquivalent,
+  isDedicatedChairCountCharacteristic,
   isCanonicalSofaRequiredCharacteristic,
+  isDresserOrWardrobeCategoryName,
+  isDresserDoorQuantityCharacteristic,
+  isDresserDrawerQuantityCharacteristic,
+  isDresserOrWardrobeRequiredCharacteristic,
+  DRESSER_OR_WARDROBE_REQUIRED_CHARACTERISTIC_NAMES,
   getTechnicalFieldDisplayName,
   isSofaCategoryName,
   isSofaRecliningCharacteristic,
@@ -50,6 +66,7 @@ export {
   isSofaRetractableDependentCharacteristic,
   isTechnicalFieldAllowedForCategories,
 } from './productTechnicalFieldScope';
+export { isDiningSetCategoryName } from './productCategoryResolution';
 
 export const isWardrobeCategoryName = (name: string): boolean => {
   const normalized = String(name || '')

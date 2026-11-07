@@ -130,7 +130,7 @@ const AttendanceDashboard = () => {
                     {log.audio_url && (
                       <div className="flex items-center gap-3 p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800">
                         <i className="bi bi-mic text-blue-500"></i>
-                        <audio src={log.audio_url} controls className="h-8 flex-1 custom-audio" />
+                        <audio src={log.audio_url} controls preload="none" className="h-8 flex-1 custom-audio" />
                       </div>
                     )}
                   </div>

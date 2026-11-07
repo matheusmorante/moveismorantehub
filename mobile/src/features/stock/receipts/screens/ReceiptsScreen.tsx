@@ -3,12 +3,9 @@ import type { ReactNode } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
   FlatList,
   TouchableOpacity,
   ActivityIndicator,
-  Modal,
-  Pressable,
   useWindowDimensions,
 } from 'react-native';
 import {
@@ -23,6 +20,10 @@ import { ReceiptDetailsModal } from '../modals/ReceiptDetailsModal';
 import { ReceiptMovementDetailsModal } from '../modals/ReceiptMovementDetailsModal';
 import { ReceiptCard } from './ReceiptCard';
 import { ReceiptActionsMenu } from './ReceiptActionsMenu';
+import {
+  ReceiptActionDialogModal,
+  type ReceiptActionDialogState,
+} from './ReceiptActionDialogModal';
 import {
   useReceiptUnreverseAvailability,
   type ReceiptUnreverseCheck,
@@ -47,10 +48,6 @@ interface Props {
 
 const isReceiptDraft = (receipt: any) => receipt?.is_draft === true || receipt?.status === 'draft';
 
-type ReceiptActionDialog =
-  | { kind: 'confirm'; action: 'discard' | 'reverse' | 'unreverse'; receipt: any }
-  | { kind: 'error'; title: string; message: string };
-
 export const ReceiptsScreen: React.FC<Props> = ({
   isDarkMode,
   canPrintIdentificationLabels = false,
@@ -74,7 +71,7 @@ export const ReceiptsScreen: React.FC<Props> = ({
   const consumedStartInvoiceRef = useRef('');
   const [isNewReceiptOpen, setIsNewReceiptOpen] = useState(false);
   const [isReceiptActionRunning, setIsReceiptActionRunning] = useState(false);
-  const [receiptActionDialog, setReceiptActionDialog] = useState<ReceiptActionDialog | null>(null);
+  const [receiptActionDialog, setReceiptActionDialog] = useState<ReceiptActionDialogState | null>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [menuPosition, setMenuPosition] = useState({ top: 0, right: 16 });
   const [unreverseCheck, setUnreverseCheck] = useState<ReceiptUnreverseCheck | null>(null);
@@ -374,105 +371,13 @@ export const ReceiptsScreen: React.FC<Props> = ({
         onReverse={handleReverseReceipt}
         onUnreverse={handleUnreverseReceipt}
       />
-      <Modal
-        visible={receiptActionDialog !== null}
-        transparent
-        animationType="fade"
-        onRequestClose={() => {
-          if (!isReceiptActionRunning) setReceiptActionDialog(null);
-        }}
-      >
-        <View style={styles.receiptActionDialogOverlay}>
-          <Pressable
-            style={StyleSheet.absoluteFill}
-            disabled={isReceiptActionRunning}
-            onPress={() => setReceiptActionDialog(null)}
-            accessibilityRole="button"
-            accessibilityLabel="Fechar confirmação do recebimento"
-          />
-          <View
-            style={[styles.receiptActionDialogCard, isDarkMode && styles.menuDark]}
-            accessibilityViewIsModal
-          >
-            <Text style={[styles.receiptActionDialogTitle, isDarkMode && styles.textDark]}>
-              {receiptActionDialog?.kind === 'error'
-                ? receiptActionDialog.title
-                : receiptActionDialog?.action === 'discard'
-                  ? 'Descartar rascunho?'
-                  : receiptActionDialog?.action === 'reverse'
-                    ? 'Estornar recebimento?'
-                    : 'Desfazer estorno?'}
-            </Text>
-            <Text style={[styles.receiptActionDialogMessage, isDarkMode && styles.dialogMessageDark]}>
-              {receiptActionDialog?.kind === 'error'
-                ? receiptActionDialog.message
-                : receiptActionDialog?.action === 'discard'
-                  ? 'O rascunho deste recebimento será apagado.'
-                  : receiptActionDialog?.action === 'reverse'
-                    ? 'O estorno reverte as entradas de estoque deste recebimento.'
-                    : 'O recebimento será reativado e as entradas voltarão ao estoque.'}
-            </Text>
-            <View style={styles.receiptActionDialogActions}>
-              {receiptActionDialog?.kind === 'confirm' ? (
-                <TouchableOpacity
-                  style={[styles.receiptActionDialogButton, styles.receiptActionCancel]}
-                  onPress={() => setReceiptActionDialog(null)}
-                  disabled={isReceiptActionRunning}
-                  accessibilityRole="button"
-                  accessibilityLabel="Cancelar ação do recebimento"
-                >
-                  <Text style={[styles.receiptActionCancelText, isDarkMode && styles.textDark]}>
-                    Cancelar
-                  </Text>
-                </TouchableOpacity>
-              ) : null}
-              <TouchableOpacity
-                style={[
-                  styles.receiptActionDialogButton,
-                  receiptActionDialog?.kind === 'error'
-                    ? styles.receiptActionPrimary
-                    : receiptActionDialog?.action === 'unreverse'
-                      ? styles.receiptActionSuccess
-                      : styles.receiptActionDanger,
-                  isReceiptActionRunning && styles.receiptActionButtonDisabled,
-                ]}
-                onPress={() => {
-                  if (receiptActionDialog?.kind === 'error') {
-                    setReceiptActionDialog(null);
-                    return;
-                  }
-                  void confirmReceiptAction();
-                }}
-                disabled={isReceiptActionRunning}
-                accessibilityRole="button"
-                accessibilityLabel={
-                  receiptActionDialog?.kind === 'error'
-                    ? 'Fechar mensagem'
-                    : receiptActionDialog?.action === 'discard'
-                      ? 'Confirmar descarte do rascunho'
-                      : receiptActionDialog?.action === 'reverse'
-                        ? 'Confirmar estorno do recebimento'
-                        : 'Confirmar desfazer estorno'
-                }
-              >
-                {isReceiptActionRunning ? (
-                  <ActivityIndicator size="small" color="#ffffff" />
-                ) : (
-                  <Text style={styles.receiptActionConfirmText}>
-                    {receiptActionDialog?.kind === 'error'
-                      ? 'Fechar'
-                      : receiptActionDialog?.action === 'discard'
-                        ? 'Descartar rascunho'
-                        : receiptActionDialog?.action === 'reverse'
-                          ? 'Estornar recebimento'
-                          : 'Desfazer estorno'}
-                  </Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+      <ReceiptActionDialogModal
+        dialog={receiptActionDialog}
+        isDarkMode={isDarkMode}
+        isActionRunning={isReceiptActionRunning}
+        onDismiss={() => setReceiptActionDialog(null)}
+        onConfirm={() => void confirmReceiptAction()}
+      />
       <NewGoodsReceiptModal
         visible={isNewReceiptOpen}
         isDarkMode={isDarkMode}

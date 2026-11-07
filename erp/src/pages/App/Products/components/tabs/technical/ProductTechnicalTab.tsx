@@ -54,7 +54,6 @@ export const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
     handleToggleCharacteristic,
     handleSetCharacteristicScope,
     handleAddCharacteristicFromSearch,
-    handleRemoveManualField,
     openAttributeModal,
     closeAttributeModal,
   } = useProductTechnicalTab({
@@ -209,7 +208,6 @@ export const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
       onToggleCharacteristic={productGroup && isSimpleProduct ? handleToggleCharacteristic : undefined}
       onValueChange={handleTechnicalValueChange}
       onOpenAttributeModal={openAttributeModal}
-      onRemoveManualField={handleRemoveManualField}
     />
   );
 

@@ -43,6 +43,7 @@ const MobileNav = ({ isOpen, onClose, activeMenu, setActiveMenu }: MobileNavProp
   const canViewStockPurchases = canPerform('viewStockPurchases', roles);
   const canViewStockLabels = canPerform('viewStockLabels', roles);
   const canViewProductSubmodules = [
+    'managePromotions',
     'viewProductCharacteristics',
     'viewProductCategories',
     'viewProductReconciliation',
@@ -64,7 +65,7 @@ const MobileNav = ({ isOpen, onClose, activeMenu, setActiveMenu }: MobileNavProp
   const canSeeFinanceBeta = canSeeFinanceModuleBeta(roles);
   const canViewMarketing = [
     'viewMarketingPosts',
-    'viewChannelCatalog',
+    'manageSiteElements',
     'viewMetaCatalog',
     'viewWhatsAppMarketplace',
   ].some((action) => canPerform(action, roles));
@@ -98,6 +99,8 @@ const MobileNav = ({ isOpen, onClose, activeMenu, setActiveMenu }: MobileNavProp
     const path = to.split('?')[0];
     const permissionByPath: Record<string, string> = {
       '/products': 'viewProducts',
+      '/products/campaigns': 'managePromotions',
+      '/products/promotions': 'managePromotions',
       '/products/characteristics': 'viewProductCharacteristics',
       '/products/categories': 'viewProductCategories',
       '/products/reconciliation/suppliers': 'viewProductReconciliation',
@@ -128,8 +131,9 @@ const MobileNav = ({ isOpen, onClose, activeMenu, setActiveMenu }: MobileNavProp
       '/finance/receivables': 'viewFinanceReceivables',
       '/finance/settings': 'viewFinanceSettings',
       '/marketing/posts': 'viewMarketingPosts',
+      '/marketing/site-elements': 'manageSiteElements',
+      '/marketing/image-templates': 'manageCatalogImageTemplates',
       '/products/meta-catalog': 'viewMetaCatalog',
-      '/marketing/channel-catalog': 'viewChannelCatalog',
       '/registrations/whatsapp-marketplace': 'viewWhatsAppMarketplace',
       '/atendimento': 'viewCustomerSupport',
     };

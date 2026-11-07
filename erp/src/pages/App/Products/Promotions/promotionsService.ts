@@ -72,7 +72,7 @@ export async function fetchPromotion(id: string) {
     .maybeSingle();
 
   if (error) throw error;
-  if (!data) throw new Error('A promoção não foi encontrada.');
+  if (!data) throw new Error('A campanha não foi encontrada.');
 
   return {
     ...data,
@@ -112,12 +112,14 @@ export async function searchPromotionParticipants(input: {
   search: string;
   categoryId: string;
   supplierId: string;
+  selectedKeys: string[];
   page: number;
 }) {
-  const { data, error } = await supabase.rpc('search_promotion_items', {
+  const { data, error } = await supabase.rpc('search_available_promotion_items', {
     p_search: input.search.trim() || null,
     p_category_id: input.categoryId || null,
     p_supplier_id: input.supplierId || null,
+    p_selected_keys: input.selectedKeys,
     p_limit: PAGE_SIZE,
     p_offset: (input.page - 1) * PAGE_SIZE,
   });
@@ -182,19 +184,19 @@ export function getPromotionErrorMessage(error: unknown) {
     message.includes('PROMOTION_PERIOD_OVERLAP') ||
     message.includes('promotions_no_overlapping_scheduled_periods')
   ) {
-    return 'Esse período se sobrepõe a outra promoção programada. Escolha datas sem conflito.';
+    return 'Esse período se sobrepõe a outra campanha programada. Escolha datas sem conflito.';
   }
   if (message.includes('PROMOTION_PERMISSION_REQUIRED')) {
-    return 'Seu perfil não tem permissão para gerenciar promoções.';
+    return 'Seu perfil não tem permissão para gerenciar campanhas.';
   }
   if (message.includes('PROMOTION_SCHEDULE_INCOMPLETE')) {
     return 'Informe o período, os produtos participantes e o desconto antes de programar.';
   }
   if (message.includes('PROMOTION_CANNOT_RESUME_OUTSIDE_PERIOD')) {
-    return 'O período da promoção já terminou ou ainda não começou. Ajuste as datas antes de retomar.';
+    return 'O período da campanha já terminou ou ainda não começou. Ajuste as datas antes de retomar.';
   }
   if (message.includes('PROMOTION_MUST_BE_INTERRUPTED_BEFORE_DELETE')) {
-    return 'Interrompa a promoção antes de excluí-la.';
+    return 'Interrompa a campanha antes de excluí-la.';
   }
   if (message.includes('PROMOTION_VARIATION')) {
     return 'Uma das variações escolhidas não está mais ativa. Atualize os participantes.';
@@ -203,9 +205,9 @@ export function getPromotionErrorMessage(error: unknown) {
     return 'Um dos produtos escolhidos deixou de estar ativo. Atualize os participantes.';
   }
   if (message.includes('PROMOTION_PRODUCT_TYPE_NOT_SUPPORTED')) {
-    return 'Serviços e produtos compostos não podem participar de promoções.';
+    return 'Serviços e produtos compostos não podem participar de campanhas.';
   }
-  return message || 'Não foi possível salvar a promoção.';
+  return message || 'Não foi possível salvar a campanha.';
 }
 
 export function formatPromotionDate(value: string | null, timezone = 'America/Sao_Paulo') {

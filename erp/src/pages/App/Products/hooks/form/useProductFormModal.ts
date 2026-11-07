@@ -1,16 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
 import { requestConfirmation } from '@/components/shared/confirmationService';
-import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { useZodForm } from '@/hooks/useZodForm';
 import { createProductVariationFormSchema } from '../../../../../../../shared-utils/productVariationValidation';
 import type Person from '@/pages/types/person.type';
 import type Product from '@/pages/types/product.type';
 import { serializeProductFormForDirtyCheck } from '../../utils/form/productFormDirtyCheck';
 import { getProductDraftSnapshotWithoutPendingVariation } from '../../utils/form/productDraftSnapshot';
-import type { Variation } from '@/pages/types/product.type';
 import { fetchGroupsAndCategories } from '@/pages/utils/categoryService';
 import { subscribeToPeople } from '@/pages/utils/personService';
-import { physicalDeleteVariation, saveVariation } from '@/pages/utils/productService';
+import { physicalDeleteVariation } from '@/pages/utils/productService';
 import { setTestArtifactMode } from '../../../../../../../shared-utils/testArtifactContext';
 import { readTestArtifactIdentity } from '../../../../../../../shared-utils/testArtifactPolicy';
 import { checkEcomLegibility } from '../../domain/productLegibilityRules';
@@ -23,7 +22,6 @@ import {
   scrollToRequirementField,
 } from '../../utils/form/productRequirementNavigation';
 import { useProductJevClassification } from '../fiscal/useProductJevClassification';
-import { getEnteredProductName } from './rules/productDraftRules';
 import { ensureDefaultVariation } from '@/pages/utils/productVariationDefaults';
 import { useProductFormAi } from './useProductFormAi';
 import { useProductFormDraft } from './useProductFormDraft';
@@ -38,8 +36,10 @@ import { useProductFormVariations } from './useProductFormVariations';
 import { useProductFormKeyboardShortcuts } from './useProductFormKeyboardShortcuts';
 import { replaceProductImageGlobally } from '../../components/tabs/images/productImageOrdering';
 import { inheritSimpleProductVariationFromParent } from '../../../../../../../shared-utils/simpleProductVariationInheritance';
-
-const PRODUCT_FORM_ERROR_TOAST_OPTIONS = { autoClose: 8000 } as const;
+import {
+  PRODUCT_FORM_ERROR_TOAST_OPTIONS,
+  useProductFormVariationSave,
+} from './useProductFormVariationSave';
 
 export interface UseProductFormModalProps {
   readonly isOpen: boolean;
@@ -394,68 +394,17 @@ export function useProductFormModal({
     variations.setEditingVariationIssue?.(null);
   }, [variations, setFormData]);
 
-  const handleSaveVariation = useCallback(
-    async (updatedVariation: Variation): Promise<boolean> => {
-      return (await validateSavedVariation({ ...updatedVariation }, async (values) => {
-        const updatedVar = values as Variation;
-        const current = latestFormDataRef.current;
-        const sku = updatedVar.sku?.trim().toLocaleUpperCase();
-        const duplicateSku = (current.variations || []).some(
-          (item) =>
-            Boolean(sku) &&
-            String(item.id) !== String(updatedVar.id) &&
-            item.sku?.trim().toLocaleUpperCase() === sku
-        );
-        if (duplicateSku) {
-          toast.error(`O SKU "${updatedVar.sku}" já está em uso em outra variação.`, PRODUCT_FORM_ERROR_TOAST_OPTIONS);
-          return false;
-        }
-
-        const alreadyPresent = (current.variations || []).some(
-          (item) => String(item.id) === String(updatedVar.id)
-        );
-        const nextVariations = alreadyPresent
-          ? current.variations?.map((item) =>
-              String(item.id) === String(updatedVar.id) ? updatedVar : item
-            ) || []
-          : [...(current.variations || []), updatedVar];
-        const next: Partial<Product> = {
-          ...current,
-          hasVariations:
-            nextVariations.length > 1 || Boolean(current.isDraft && current.hasVariations),
-          variations: nextVariations,
-        };
-
-        if (draftSaveTimerRef.current) clearTimeout(draftSaveTimerRef.current);
-        draftSaveTimerRef.current = null;
-
-        try {
-          if (isDraftProduct) {
-            const saved = await autoSaveDraft(next);
-            if (!saved && getEnteredProductName(next)) return false;
-            latestFormDataRef.current = next;
-            setFormData(next);
-          } else {
-            const productId = String(current.parentId || current.id || '');
-            if (!productId)
-              throw new Error('O produto precisa estar salvo antes de cadastrar a variação.');
-            await saveVariation(productId, updatedVar);
-            latestFormDataRef.current = next;
-            setFormData(next);
-          }
-          pendingNewVariationIdRef.current = null;
-          setEditingVariationId(null);
-          setEditingVariationIssue?.(null);
-          return true;
-        } catch (error) {
-          toast.error(error instanceof Error ? error.message : 'Erro ao salvar a variação.', PRODUCT_FORM_ERROR_TOAST_OPTIONS);
-          console.error('[ProductForm] Falha ao salvar variação concluída:', error);
-          return false;
-        }
-      }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0], PRODUCT_FORM_ERROR_TOAST_OPTIONS))) === true;
-    },
-    [autoSaveDraft, isDraftProduct, pendingNewVariationIdRef, setEditingVariationId, setEditingVariationIssue, validateSavedVariation]
-  );
+  const handleSaveVariation = useProductFormVariationSave({
+    validateSavedVariation,
+    latestFormDataRef,
+    autoSaveDraft,
+    isDraftProduct,
+    pendingNewVariationIdRef,
+    setFormData,
+    setEditingVariationId,
+    setEditingVariationIssue,
+    draftSaveTimerRef,
+  });
 
   const handleReplaceImageGlobal = useCallback(async (oldUrl: string, newUrl: string) => {
     const current = latestFormDataRef.current;

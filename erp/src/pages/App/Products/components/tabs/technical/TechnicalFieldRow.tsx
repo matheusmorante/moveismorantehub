@@ -43,7 +43,6 @@ export interface TechnicalFieldRowProps {
   readonly onToggleCharacteristic?: (field: TechnicalFieldDefinition) => void;
   readonly onValueChange: (fieldName: string, value: unknown) => void;
   readonly onOpenAttributeModal: () => void;
-  readonly onRemoveManualField: (fieldName: string) => void;
 }
 
 export const TechnicalFieldRow: React.FC<TechnicalFieldRowProps> = ({
@@ -60,7 +59,6 @@ export const TechnicalFieldRow: React.FC<TechnicalFieldRowProps> = ({
   onToggleCharacteristic,
   onValueChange,
   onOpenAttributeModal,
-  onRemoveManualField,
 }) => {
   const [showTooltip, setShowTooltip] = React.useState(false);
   const [isScopeMenuOpen, setIsScopeMenuOpen] = React.useState(false);
@@ -324,17 +322,6 @@ export const TechnicalFieldRow: React.FC<TechnicalFieldRowProps> = ({
                 ))}
               </div>
             </div>
-          )}
-          {manualFieldNames.includes(field.name) && (
-            <button
-              type="button"
-              aria-label={`Remover campo ${field.name}`}
-              title="Remover característica deste produto"
-              onClick={() => onRemoveManualField(field.name)}
-              className="inline-flex h-7 w-7 shrink-0 items-center justify-center text-slate-400 transition-colors hover:text-red-600 dark:hover:text-red-400"
-            >
-              <CircleMinus aria-hidden="true" className="h-4 w-4" />
-            </button>
           )}
         </div>
 

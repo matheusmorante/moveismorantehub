@@ -29,12 +29,10 @@ interface ProductCardProps {
     slug: string;
     price: number;
     promo_price?: number;
-    promotion_price?: number;
     campaign?: {
       id: string;
       name: string;
       discount_percent: number;
-      final_price: number;
       conditions?: string | null;
     } | null;
     image: string;
@@ -61,8 +59,9 @@ export function ProductCard({ product, style = defaultProductCardStyle }: Produc
 
   const isAdmin = user?.email === 'matheusmorante002@gmail.com';
 
-  const displayPrice = product.promotion_price ?? product.promo_price ?? product.price;
-  const originalPrice = product.promotion_price != null || product.promo_price ? product.price : undefined;
+  const hasRegisteredPromo = Number(product.promo_price) > 0 && Number(product.promo_price) < Number(product.price);
+  const displayPrice = hasRegisteredPromo ? Number(product.promo_price) : product.price;
+  const originalPrice = hasRegisteredPromo ? product.price : undefined;
   const handleEditClick = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -247,7 +246,7 @@ export function ProductCard({ product, style = defaultProductCardStyle }: Produc
           </h3>
         </Link>
         <div className="mt-1 space-y-0.5">
-          {(product.promotion_price != null || product.promo_price) && originalPrice ? (
+          {hasRegisteredPromo && originalPrice ? (
             <div className="flex min-h-4 flex-wrap items-center gap-x-2 gap-y-1">
               <span className="shrink-0 whitespace-nowrap text-[10px] text-muted-foreground line-through">
                 {formatCurrency(originalPrice)}
@@ -265,7 +264,7 @@ export function ProductCard({ product, style = defaultProductCardStyle }: Produc
             </div>
           ) : null}
 
-          {product.campaign ? <span className="block truncate text-[9px] font-bold text-blue-600" title={product.campaign.name}>Promoção: {product.campaign.name} · {product.campaign.discount_percent}% adicional</span> : null}
+          {product.campaign ? <span className="block truncate text-[9px] font-bold text-blue-600" title="Desconto informativo, sujeito às condições da campanha.">Campanha: {product.campaign.name} · {product.campaign.discount_percent}%</span> : null}
 
           <div className="flex flex-col">
             <span className="whitespace-nowrap text-lg font-bold leading-none text-[#00A650] sm:text-xl lg:text-2xl">

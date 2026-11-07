@@ -60,7 +60,7 @@ export const BodyRowDesktopCollapsed: React.FC<Props> = ({
           <span className="min-w-0 flex-1 truncate text-xs font-semibold text-slate-700 dark:text-slate-200">
             {item.description || (isService ? 'Serviço sem descrição' : 'Produto sem descrição')}
           </span>
-          {item.promotionId && <span className="shrink-0 rounded-full bg-blue-50 px-1.5 py-0.5 text-[9px] font-bold text-blue-700 dark:bg-blue-950/50 dark:text-blue-300" title={item.promotionName || 'Promoção aplicada'}>Promoção</span>}
+          {item.promotionId && <span className="shrink-0 rounded-full bg-blue-50 px-1.5 py-0.5 text-[9px] font-bold text-blue-700 dark:bg-blue-950/50 dark:text-blue-300" title={`Desconto informativo de ${item.promotionDiscountPercent || 0}%, sujeito às condições; não aplicado automaticamente${item.promotionName ? ` (${item.promotionName})` : ''}.`}>Campanha</span>}
           {isLinkedProduct && <i className="bi bi-check-circle-fill shrink-0 text-[10px] text-emerald-500" aria-label="Produto vinculado" />}
           {showTemporaryProductLabel && <i className="bi bi-clock-history shrink-0 text-[10px] text-amber-500" aria-label="Produto temporário" />}
           {itemHasError && <i className="bi bi-exclamation-circle-fill shrink-0 text-[10px] text-red-500" aria-label="Pendência no item" />}

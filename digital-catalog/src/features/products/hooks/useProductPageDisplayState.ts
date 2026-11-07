@@ -6,6 +6,42 @@ import { getTechnicalFieldDisplayName } from '../../../../../shared-utils/produc
 
 export type TechnicalSpecification = { name: string; slug: string };
 
+const normalizeTechnicalFieldName = (name: string) =>
+  String(name || '')
+    .trim()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLocaleLowerCase('pt-BR');
+
+const normalizeDiningSetChairCountValue = (
+  values: Record<string, unknown>,
+  isDiningSet: boolean
+): Record<string, unknown> => {
+  if (!isDiningSet) return values;
+
+  const normalized = { ...values };
+  const chairCountKey = Object.keys(normalized).find(
+    (key) => normalizeTechnicalFieldName(key) === 'quantidade de cadeiras'
+  ) || 'Quantidade de cadeiras';
+  const legacyKeys = Object.keys(normalized).filter(
+    (key) => normalizeTechnicalFieldName(key) === 'quantidade de lugares'
+  );
+
+  for (const legacyKey of legacyKeys) {
+    const chairCountValue = normalized[chairCountKey];
+    if (
+      chairCountValue === undefined ||
+      chairCountValue === null ||
+      String(chairCountValue).trim() === ''
+    ) {
+      normalized[chairCountKey] = normalized[legacyKey];
+    }
+    delete normalized[legacyKey];
+  }
+
+  return normalized;
+};
+
 interface UseProductPageDisplayStateOptions {
   product: any;
   technicalSpecifications?: TechnicalSpecification[];
@@ -49,7 +85,7 @@ export function useProductPageDisplayState({
         ? parseFloat(activeVariation.promo_price)
         : null
       : product?.promo_price;
-  const displayPromoPrice = displayPromotion?.final_price ?? regularPromoPrice;
+  const displayPromoPrice = regularPromoPrice;
 
   const isParentDesc = activeVariation ? activeVariation.use_parent_description !== false : true;
   const rawDescription =
@@ -126,8 +162,15 @@ export function useProductPageDisplayState({
 
   const totalImages = displayImages.length;
 
-  const productTechnicalValues = readTechnicalValues(product);
-  const activeVariationTechnicalValues = readTechnicalValues(activeVariation);
+  const isDiningSet = product?.has_chair_count_category === true;
+  const productTechnicalValues = normalizeDiningSetChairCountValue(
+    readTechnicalValues(product),
+    isDiningSet
+  );
+  const activeVariationTechnicalValues = normalizeDiningSetChairCountValue(
+    readTechnicalValues(activeVariation),
+    isDiningSet
+  );
   const effectiveTechnicalValues = {
     ...productTechnicalValues,
     ...activeVariationTechnicalValues,

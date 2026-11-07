@@ -19,10 +19,14 @@ import type { TechnicalFieldDefinition, TechnicalValuesMap } from './types';
 import { deduplicateProductTechnicalValueAliasFields } from '../../../../../shared-utils/productTechnicalValueAliases';
 import { isProductTechnicalAttributeRequiredByCategories } from '../../../../../shared-utils/productCategoryRequiredAttributes';
 import {
+  isDedicatedChairCountCharacteristic,
+  isDresserOrWardrobeCategoryName,
+  isDresserOrWardrobeRequiredCharacteristic,
   isSofaCategoryName,
   isSofaRequiredCharacteristic,
   isTechnicalFieldAllowedForCategories,
 } from '../../../../../shared-utils/productTechnicalFieldScope';
+import { isDiningSetCategoryName } from '../../../../../shared-utils/productCategoryResolution';
 import { resolveProductCharacteristicApplication } from '../../../../../shared-utils/productCharacteristicApplications';
 import { isCatalogCoreRequiredCharacteristicName } from '../../../../../shared-utils/catalogPublication/characteristicValues';
 import { isCatalogNeverRequiredCharacteristicName } from '../../../../../shared-utils/catalogPublication/requiredCharacteristicPolicy';
@@ -48,12 +52,15 @@ export const getApplicableTechnicalFields = (
   const activeCategorySet = new Set(productCategoryIds);
   const manualSet = new Set(manuallyAddedFieldNames);
   const isSink = isSinkCategory(productCategoryIds, safeFields);
+  const isDresserOrWardrobeCategorySelected = productCategoryNames.some(isDresserOrWardrobeCategoryName);
+  const isDiningSetCategorySelected = productCategoryNames.some(isDiningSetCategoryName);
   const hasCategoryApplication = (field: TechnicalFieldDefinition) =>
     field.categoryApplications?.some((application) =>
       activeCategorySet.has(String(application.categoryId))
     ) ?? false;
 
   const isRequiredForProduct = (field: TechnicalFieldDefinition): boolean => {
+    if (isDresserOrWardrobeCategorySelected && isDresserOrWardrobeRequiredCharacteristic(field.name)) return true;
     if (isCatalogNeverRequiredCharacteristicName(field.name)) return false;
     if (Array.isArray(field.categoryApplications)) {
       return resolveProductCharacteristicApplication(field, productCategoryIds) === 'required';
@@ -75,6 +82,7 @@ export const getApplicableTechnicalFields = (
   };
 
   const applicable = safeFields.filter((field) => {
+    if (isDedicatedChairCountCharacteristic(field.name) && !isDiningSetCategorySelected) return false;
     const isCatalogCoreRequired =
       isCatalogCoreRequiredCharacteristicName(field.name) && !isExcludedCharacteristic(field.name);
     const hasCatalogCategoryRequirement =

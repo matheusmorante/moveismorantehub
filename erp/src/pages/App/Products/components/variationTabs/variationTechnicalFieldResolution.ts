@@ -9,6 +9,7 @@ import {
 } from '@/pages/utils/technicalValuesService';
 import {
   areTechnicalCharacteristicNamesEquivalent,
+  isDresserOrWardrobeRequiredCharacteristic,
   isSofaRequiredCharacteristic,
   isTechnicalFieldAllowedForCategories,
 } from '../../../../../../../shared-utils/productTechnicalFieldScope';
@@ -34,6 +35,7 @@ type ResolveVisibleVariationTechnicalFieldsParams = {
   readonly applicableFields: TechnicalFieldDefinition[];
   readonly isChairCategorySelected: boolean;
   readonly isSofaCategorySelected: boolean;
+  readonly isDresserOrWardrobeCategorySelected: boolean;
   readonly isVariableField: (fieldName: string) => boolean;
   readonly parentProduct: Product & { readonly attributes?: Variation['attributes'] };
   readonly formData: Variation & { readonly material?: string | null };
@@ -48,6 +50,7 @@ export const resolveVisibleVariationTechnicalFields = ({
   applicableFields,
   isChairCategorySelected,
   isSofaCategorySelected,
+  isDresserOrWardrobeCategorySelected,
   isVariableField,
   parentProduct,
   formData,
@@ -64,6 +67,7 @@ export const resolveVisibleVariationTechnicalFields = ({
   const hasExplicitActiveFieldIds = Array.isArray(parentProduct.activeCharacteristicIds);
   const isRequiredInCategory = (field: TechnicalFieldDefinition) => {
     if (isSofaCategorySelected && isSofaRequiredCharacteristic(field.name)) return true;
+    if (isDresserOrWardrobeCategorySelected && isDresserOrWardrobeRequiredCharacteristic(field.name)) return true;
     if (isCatalogNeverRequiredCharacteristicName(field.name)) return false;
     if (isCatalogCoreRequiredCharacteristicName(field.name)) return true;
     const application = resolveProductCharacteristicApplication(field, parentProduct.categoryIds || []);
@@ -163,9 +167,13 @@ export const resolveVisibleVariationTechnicalFields = ({
         isSofaCategorySelected && isDepthCharacteristic(field.name)
           ? { ...field, isRequired: false, isRequiredForCatalog: false }
           : field;
-      const requiredField = groupState.required
-        ? { ...visibleField, isRequired: true }
-        : visibleField;
+      const requiredField = {
+        ...visibleField,
+        ...(groupState.required ? { isRequired: true } : {}),
+        ...(isDresserOrWardrobeCategorySelected && isDresserOrWardrobeRequiredCharacteristic(field.name)
+          ? { isRequiredForProductEntry: true }
+          : {}),
+      };
       fieldsByName.set(
         key,
         requiredField

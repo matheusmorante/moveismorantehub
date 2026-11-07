@@ -53,11 +53,12 @@ export type Item = {
   returnedTotalValue?: number;
   /** Preço unitário original vendido (snapshot da venda) */
   originalUnitPrice?: number;
-  /** Campanha promocional aplicada no instante da inclusão do item. */
+  /** Campanha informativa elegível no instante da seleção; não compõe o preço automaticamente. */
   promotionId?: string;
   promotionName?: string;
   productDiscountAmount?: number;
   promotionDiscountPercent?: number;
+  /** Campo legado informativo; descontos efetivamente aplicados ficam em unitDiscount. */
   promotionDiscountAmount?: number;
   finalUnitPrice?: number;
   /** Valor total original vendido do item */

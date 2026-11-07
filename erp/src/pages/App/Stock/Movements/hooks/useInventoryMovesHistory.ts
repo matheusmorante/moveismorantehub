@@ -1,10 +1,15 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import type { ReceiptPeriod } from '@/pages/App/Stock/Receipts/types/receiptPeriodFilter.types';
 import type InventoryMove from '@/pages/types/inventoryMove.type';
 import type Product from '@/pages/types/product.type';
 import type { Variation } from '@/pages/types/product.type';
-import { subscribeToInventoryMoves, reverseInventoryMove } from '@/pages/utils/inventoryService';
-import { calculateInventoryTimelineBalance } from '@/pages/utils/inventoryTimelineBalance';
+import {
+  fetchCurrentInventoryStock,
+  fetchInventoryMovesHistoryPage,
+  INVENTORY_MOVES_HISTORY_PAGE_SIZE,
+  reverseInventoryMove,
+  subscribeToInventoryMoveMutations,
+} from '@/pages/utils/inventoryService';
 import { useInventoryOrdersLookup } from './useInventoryOrdersLookup';
 import { toast } from 'react-toastify';
 import { formatInventoryAuditObservation } from '../../../../../../../shared-utils/inventoryMoveObservation';
@@ -21,7 +26,10 @@ export function useInventoryMovesHistory({
   externalOnSelectProduct,
 }: UseInventoryMovesHistoryProps) {
   const [moves, setMoves] = useState<InventoryMove[]>([]);
+  const [totalItems, setTotalItems] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [refreshKey, setRefreshKey] = useState(0);
   const [internalProduct, setInternalProduct] = useState<Product | null>(null);
   const [internalVariation, setInternalVariation] = useState<Variation | undefined>(undefined);
   const [searchQuery, setSearchQuery] = useState('');
@@ -29,35 +37,137 @@ export function useInventoryMovesHistory({
   const [editingMove, setEditingMove] = useState<InventoryMove | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [expandedMoveIds, setExpandedMoveIds] = useState<Record<string, boolean>>({});
+  const [currentStock, setCurrentStock] = useState<number | null>(null);
+  const [stockLoading, setStockLoading] = useState(false);
+  const [stockError, setStockError] = useState('');
+  const [stockRefreshKey, setStockRefreshKey] = useState(0);
 
   // Period filter
   const [period, setPeriod] = useState<ReceiptPeriod>('this_month');
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
 
-  // Pagination
+  // A paginação é sempre de 15 registros no ERP.
   const [page, setPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(15);
 
   const selectedProduct =
     externalSelectedProduct !== undefined ? externalSelectedProduct : internalProduct;
   const selectedVariation =
     externalSelectedVariation !== undefined ? externalSelectedVariation : internalVariation;
 
+  const filterKey = JSON.stringify([
+    selectedProduct?.id || '',
+    selectedVariation?.id || '',
+    Boolean(selectedVariation?.isVirtual),
+    period,
+    customStartDate,
+    customEndDate,
+  ]);
+  const [pageFilterKey, setPageFilterKey] = useState(filterKey);
+  const effectivePage = pageFilterKey === filterKey ? page : 1;
+
   useEffect(() => {
+    setPageFilterKey(filterKey);
     setPage(1);
-  }, [selectedProduct?.id, selectedVariation?.id, period, customStartDate, customEndDate]);
-
-  const isInventoryAuditMarker = (move: InventoryMove) =>
-    move.label?.startsWith('Inventário #') && Number(move.quantity || 0) === 0;
+  }, [filterKey]);
 
   useEffect(() => {
-    const unsubscribe = subscribeToInventoryMoves((data) => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const scheduleRefresh = () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
+        setRefreshKey((key) => key + 1);
+        setStockRefreshKey((key) => key + 1);
+      }, 250);
+    };
+    const unsubscribe = subscribeToInventoryMoveMutations(scheduleRefresh);
+    if (typeof window !== 'undefined') window.addEventListener('online', scheduleRefresh);
+    return () => {
+      if (timer) clearTimeout(timer);
+      unsubscribe();
+      if (typeof window !== 'undefined') window.removeEventListener('online', scheduleRefresh);
+    };
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    let active = true;
+    setLoading(true);
+    setError('');
+    void fetchInventoryMovesHistoryPage(
+      effectivePage,
+      {
+        productId: selectedProduct?.id,
+        variationId: selectedVariation?.id,
+        variationIsVirtual: selectedVariation?.isVirtual,
+        variationName: selectedVariation?.name,
+        period,
+        customStartDate,
+        customEndDate,
+      },
+      { signal: controller.signal },
+    ).then(({ data, total }) => {
+      if (!active) return;
       setMoves(data);
+      setTotalItems(total);
+      setLoading(false);
+    }).catch(() => {
+      if (!active || controller.signal.aborted) return;
+      setMoves([]);
+      setTotalItems(0);
+      setError('Não foi possível atualizar o histórico. Verifique a conexão e tente novamente.');
       setLoading(false);
     });
-    return () => unsubscribe();
-  }, []);
+    return () => {
+      active = false;
+      controller.abort();
+    };
+  }, [
+    effectivePage,
+    filterKey,
+    refreshKey,
+    selectedProduct?.id,
+    selectedVariation?.id,
+    selectedVariation?.isVirtual,
+    selectedVariation?.name,
+    period,
+    customStartDate,
+    customEndDate,
+  ]);
+
+  useEffect(() => {
+    const productId = selectedProduct?.id;
+    if (!productId) {
+      setCurrentStock(null);
+      setStockError('');
+      setStockLoading(false);
+      return;
+    }
+    const controller = new AbortController();
+    let active = true;
+    setStockLoading(true);
+    setStockError('');
+    void fetchCurrentInventoryStock(
+      productId,
+      selectedVariation
+        ? { id: selectedVariation.id, isVirtual: selectedVariation.isVirtual }
+        : undefined,
+      controller.signal,
+    ).then((stock) => {
+      if (!active) return;
+      setCurrentStock(stock);
+      setStockLoading(false);
+    }).catch(() => {
+      if (!active || controller.signal.aborted) return;
+      setCurrentStock(null);
+      setStockError('Saldo atual indisponível. Atualize a consulta para conferir novamente.');
+      setStockLoading(false);
+    });
+    return () => {
+      active = false;
+      controller.abort();
+    };
+  }, [selectedProduct?.id, selectedVariation?.id, selectedVariation?.isVirtual, stockRefreshKey]);
 
   const getDisplayName = (_prod: Product, variation?: Variation) => {
     if (variation?.name) return variation.name;
@@ -100,74 +210,7 @@ export function useInventoryMovesHistory({
     setSearchQuery('');
   };
 
-  const currentStock = useMemo(() => {
-    if (!selectedProduct) return 0;
-
-    const relevantMoves = moves.filter((m) => {
-      if (m.status === 'reversed' || m.status === 'cancelled') return false;
-      if (isInventoryAuditMarker(m)) return false;
-      if (m.productId !== selectedProduct.id) return false;
-      if (selectedVariation && m.variationId) {
-        return String(m.variationId) === String(selectedVariation.id);
-      }
-      return true;
-    });
-
-    const timelineBalance = calculateInventoryTimelineBalance(relevantMoves);
-    if (timelineBalance !== null) return timelineBalance;
-
-    if (selectedVariation !== undefined) {
-      return Number(selectedVariation.stock || 0);
-    }
-    return Number(selectedProduct.stock || 0);
-  }, [selectedProduct, selectedVariation, moves]);
-
-  const filtered = useMemo(() => {
-    let result = moves.filter((m) => !isInventoryAuditMarker(m));
-
-    if (selectedProduct) {
-      result = result.filter((m) => m.productId === selectedProduct.id);
-      if (selectedVariation) {
-        result = result.filter(
-          (m) => m.variationId && String(m.variationId) === String(selectedVariation.id)
-        );
-      }
-    }
-
-    // Apply period filter
-    if (period !== 'all') {
-      const now = new Date();
-      let start = new Date(0);
-      let end = new Date();
-
-      if (period === 'this_month') {
-        start = new Date(now.getFullYear(), now.getMonth(), 1);
-        end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
-      } else if (period === 'last_month') {
-        start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-        end = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
-      } else if (period === 'this_year') {
-        start = new Date(now.getFullYear(), 0, 1);
-        end = new Date(now.getFullYear(), 11, 31, 23, 59, 59);
-      } else if (period === 'custom' && customStartDate && customEndDate) {
-        start = new Date(`${customStartDate}T00:00:00`);
-        end = new Date(`${customEndDate}T23:59:59`);
-      }
-
-      result = result.filter((m) => {
-        if (!m.date) return false;
-        const mDate = new Date(m.date);
-        return mDate >= start && mDate <= end;
-      });
-    }
-
-    return result;
-  }, [moves, selectedProduct, selectedVariation, period, customStartDate, customEndDate]);
-
-  const paginatedFiltered = useMemo(() => {
-    const startIndex = (page - 1) * itemsPerPage;
-    return filtered.slice(startIndex, startIndex + itemsPerPage);
-  }, [filtered, page, itemsPerPage]);
+  const paginatedFiltered = moves;
   const orderReferences = paginatedFiltered.flatMap((move) => [
     move.relatedEntityId || '',
     move.label?.replace(/^(Saída - )?Pedido\s*#/i, '') || '',
@@ -175,7 +218,15 @@ export function useInventoryMovesHistory({
   ]);
   const { formatOrderLabel, formatReversalReason } = useInventoryOrdersLookup(orderReferences);
 
-  const totalPages = Math.ceil(filtered.length / itemsPerPage);
+  const totalPages = Math.max(1, Math.ceil(totalItems / INVENTORY_MOVES_HISTORY_PAGE_SIZE));
+  const handlePageChange = (nextPage: number) => {
+    setPageFilterKey(filterKey);
+    setPage(nextPage);
+  };
+  const retry = () => {
+    setRefreshKey((key) => key + 1);
+    setStockRefreshKey((key) => key + 1);
+  };
 
   const isPurchaseEntry = (move: InventoryMove) =>
     move.relatedEntityType === 'purchase_order' ||
@@ -281,7 +332,10 @@ export function useInventoryMovesHistory({
     selectedVariation,
     searchQuery,
     currentStock,
-    filtered,
+    stockLoading,
+    stockError,
+    error,
+    retry,
     expandedMoveIds,
     moveToDelete,
     editingMove,
@@ -305,12 +359,10 @@ export function useInventoryMovesHistory({
     setCustomStartDate,
     customEndDate,
     setCustomEndDate,
-    page,
-    setPage,
+    page: effectivePage,
+    setPage: handlePageChange,
     totalPages,
     paginatedFiltered,
-    itemsPerPage,
-    setItemsPerPage,
-    totalItems: filtered.length,
+    totalItems,
   };
 }

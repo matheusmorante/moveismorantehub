@@ -2,14 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 import type { AppSettings } from '../../erp/src/pages/utils/settingsService';
 import { generateNfeAccessKey } from '../../erp/src/pages/utils/nfe/nfeAccessKey';
-import {
-  buildReviewedFiscalOperationXml,
-  normalizeReviewedFiscalBlock,
-} from '../../erp/src/pages/utils/nfe/fiscalOperationXml';
-import {
-  buildProportionalReturnTaxesXml,
-  buildReturnProductXml,
-} from '../../erp/src/pages/utils/nfe/fiscalOperationReview';
+import { buildReviewedFiscalOperationXml } from '../../erp/src/pages/utils/nfe/fiscalOperationXml';
 import { parseSefazAuthorization } from '../../erp/src/pages/utils/nfe/sefazResponseParser';
 import { authorizeFiscalOperator } from './fiscalAuthorization';
 import {
@@ -32,7 +25,6 @@ import { loadReturnFiscalSourceContext } from './returnFiscalRules';
 import {
   getFiscalFormRules,
   getFiscalFormXmlDefaults,
-  getReturnCfopOptionsForSourceItem,
 } from '../../shared-utils/fiscalOperationContext';
 import {
   originalItemCfop,
@@ -47,7 +39,6 @@ import {
   asFiscalSettings,
   assertDraftXmlMatchesReview,
   brazilTimestamp,
-  extractXmlBlock,
   readTag,
 } from './operation-draft/draftXmlAudit';
 import {
@@ -55,6 +46,7 @@ import {
   validateDraftPreconditions,
   validateEstornoItems,
   validateEstornoPreconditions,
+  validateReturnDraftReview,
   validateSourceDocument,
 } from './operation-draft/draftValidation';
 import {
@@ -406,78 +398,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           error: 'O cenário da devolução não possui opções fiscais aprovadas.',
         });
       }
-      const fixedRecipient = normalizeReviewedFiscalBlock(
-        extractXmlBlock(String(validatedSource.xml_nfe || ''), 'dest'),
-        'dest'
-      );
-      const submittedRecipient = normalizeReviewedFiscalBlock(
-        String(review.recipient_xml || ''),
-        'dest'
-      );
-      const fixedPayment = normalizeReviewedFiscalBlock(returnXmlDefaults.paymentXml, 'pag');
-      const submittedPayment = normalizeReviewedFiscalBlock(
-        String(review.payment_xml || ''),
-        'pag'
-      );
-      const fixedTransport = normalizeReviewedFiscalBlock(
-        returnXmlDefaults.transportXml,
-        'transp'
-      );
-      const submittedTransport = normalizeReviewedFiscalBlock(
-        String(review.transport_xml || ''),
-        'transp'
-      );
-      if (
-        fixedRecipient !== submittedRecipient ||
-        fixedPayment !== submittedPayment ||
-        fixedTransport !== submittedTransport ||
-        String(review.nature_of_operation || '').trim() !== returnXmlDefaults.natureOfOperation
-      ) {
-        return res.status(409).json({
-          success: false,
-          error: 'Os campos estruturais da NF-e de devolução divergem do cenário fiscal permitido.',
-        });
-      }
-      for (const line of lines) {
-        const original = originalById.get(line.original_document_item_id);
-        if (!original)
-          return res.status(409).json({ success: false, error: 'Item original ausente.' });
-        const originalCfop = originalItemCfop(original.product_xml);
-        const allowedCfops = getReturnCfopOptionsForSourceItem(
-          originalCfop || '',
-          original.taxes_xml
-        );
-        if (!allowedCfops.some((option) => option.value === line.reviewed_cfop)) {
-          return res.status(409).json({
-            success: false,
-            error: `CFOP ${line.reviewed_cfop} não é permitido para o item original e o cenário de devolução.`,
-          });
-        }
-        const expectedProduct = buildReturnProductXml({
-          originalProductXml: original.product_xml,
-          quantity: Number(line.quantity),
-          originalQuantity: Number(original.billed_quantity),
-          grossValue: Number(line.gross_value),
-          discountValue: Number(line.discount_value),
-          cfop: String(line.reviewed_cfop),
-        });
-        const expectedTaxes = buildProportionalReturnTaxesXml(
-          original.taxes_xml,
-          Number(line.quantity),
-          Number(original.billed_quantity)
-        );
-        if (
-          normalizeReviewedFiscalBlock(String(line.reviewed_product_xml), 'prod') !==
-            normalizeReviewedFiscalBlock(expectedProduct, 'prod') ||
-          normalizeReviewedFiscalBlock(String(line.reviewed_taxes_xml), 'imposto') !==
-            normalizeReviewedFiscalBlock(expectedTaxes, 'imposto')
-        ) {
-          return res.status(409).json({
-            success: false,
-            error:
-              'Item ou tributação fiscal diverge da quantidade e referência originais da devolução.',
-          });
-        }
+      const returnReviewError = validateReturnDraftReview({
+        sourceXml: String(validatedSource.xml_nfe || ''),
+        review,
+        returnXmlDefaults,
+        lines,
+        originalById,
+      });
+      if (returnReviewError) {
+        return res.status(409).json({ success: false, error: returnReviewError });
       }
     }
 

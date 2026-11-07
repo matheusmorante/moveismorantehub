@@ -35,7 +35,7 @@ export const PurchasesScreenHeader: React.FC<PurchasesScreenHeaderProps> = ({
           <FormTextInput
             value={search}
             onChangeText={onSearchChange}
-            placeholder="Fornecedor ou número do pedido"
+            placeholder="Buscar por fornecedor"
             placeholderTextColor={colors.muted}
             style={[styles.searchInput, { color: colors.text }]}
           />

@@ -24,6 +24,13 @@ export const isCatalogCoreRequiredCharacteristicName = (name: string): boolean =
 
 export const getCharacteristicNameAliases = (name: string): string[] => {
   const normalized = normalizeCharacteristicKey(name);
+  if (
+    ['quantidadedecadeira', 'quantidadedecadeiras', 'quantidadedelugar', 'quantidadedelugares'].includes(
+      normalized
+    )
+  ) {
+    return ['quantidadedecadeiras', 'quantidadedelugares'];
+  }
   if (['retratil', 'eretratil', 'possuiretratil'].includes(normalized)) {
     return ['retratil', 'eretratil', 'possuiretratil'];
   }

@@ -223,6 +223,8 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   cardHeaderBadges: {
+    flex: 1,
+    minWidth: 0,
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 6,
@@ -230,6 +232,8 @@ const styles = StyleSheet.create({
   handlingBadge: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexShrink: 1,
+    maxWidth: '100%',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
@@ -245,6 +249,9 @@ const styles = StyleSheet.create({
     fontSize: 9,
     fontWeight: '900',
     letterSpacing: 0.5,
+    lineHeight: 11,
+    flexShrink: 1,
+    minWidth: 0,
   },
   timeRow: {
     flexDirection: 'row',

@@ -15,6 +15,7 @@ const DEFAULT_PERMISSION_ROLES: Record<string, string[]> = {
   viewOrders: ['manager'],
   viewChannelCatalog: ['manager'],
   viewMarketing: ['manager'],
+  manageCatalogImageTemplates: ['manager'],
   viewDeliverySchedule: ['manager', 'seller', 'deliverer'],
   sendCustomerSupportMessages: ['manager', 'seller'],
 };

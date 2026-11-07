@@ -22,8 +22,8 @@ export const fetchScheduledAndDraftOrders = async (
 
     return await enrichOrdersWithPeopleOrigins(mappedOrders);
   } catch (error) {
-    console.error('[OrdersSync] Exception fetching scheduled orders:', error);
     if (options.throwOnError) throw error;
+    console.error('[OrdersSync] Exception fetching scheduled orders:', error);
     return [];
   }
 };

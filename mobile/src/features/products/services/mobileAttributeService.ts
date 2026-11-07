@@ -49,6 +49,9 @@ export interface MobileAttribute {
   unit?: string;
   configuration?: CharacteristicFillConfigurationPayload;
   categoryAttributes?: MobileCategoryAttribute[];
+  optionCount?: number;
+  activeOptionCount?: number;
+  optionsLoaded?: boolean;
   options: MobileAttributeValue[];
 }
 
@@ -110,14 +113,14 @@ const fetchAttributeRows = async () => {
   return query.data;
 };
 
-const fetchAttributeValues = async () => {
-  const fetchWithColumns = (columns: string) => fetchAllAttributeRows((firstRow, lastRow) =>
-    supabase
+const fetchAttributeValues = async (attributeId?: string) => {
+  const fetchWithColumns = (columns: string) => fetchAllAttributeRows((firstRow, lastRow) => {
+    let query = supabase
       .from('attribute_values')
-      .select(columns)
-      .order('id', { ascending: true })
-      .range(firstRow, lastRow)
-  );
+      .select(columns);
+    if (attributeId) query = query.eq('attribute_id', attributeId);
+    return query.order('id', { ascending: true }).range(firstRow, lastRow);
+  });
 
   let columns = ['id', 'attribute_id', 'value', 'sort_order', 'active'];
   let query = await fetchWithColumns(columns.join(', '));
@@ -130,11 +133,59 @@ const fetchAttributeValues = async () => {
   return query.data;
 };
 
-export const fetchMobileAttributes = async (): Promise<MobileAttribute[]> => {
+const fetchAttributeValueSummaries = async () => {
+  const fetchWithColumns = (columns: string) => fetchAllAttributeRows((firstRow, lastRow) =>
+    supabase
+      .from('attribute_values')
+      .select(columns)
+      .order('id', { ascending: true })
+      .range(firstRow, lastRow)
+  );
+  let query = await fetchWithColumns('attribute_id, active');
+  if (isMissingColumn(query.error, 'active')) {
+    query = await fetchWithColumns('attribute_id');
+  }
+  if (query.error) throw query.error;
+  return query.data;
+};
+
+const mapMobileAttributeOptions = (rows: any[], attributeId: string): MobileAttributeValue[] => {
+  const options: MobileAttributeValue[] = rows
+    .filter((value: any) => String(value.attribute_id) === attributeId)
+    .map((value: any) => ({
+      id: String(value.id),
+      value: String(value.value),
+      attribute_id: String(value.attribute_id),
+      sortOrder: Number.isInteger(value.sort_order) ? value.sort_order : undefined,
+      active: value.active !== false,
+    }));
+  return options.some((option) => option.sortOrder !== undefined)
+    ? options.sort(
+        (left, right) =>
+          (left.sortOrder ?? Number.MAX_SAFE_INTEGER) - (right.sortOrder ?? Number.MAX_SAFE_INTEGER)
+      )
+    : options.sort((left, right) => left.value.localeCompare(right.value, 'pt-BR', {
+        numeric: true,
+        sensitivity: 'base',
+      }));
+};
+
+export const fetchMobileAttributeOptions = async (attributeId: string): Promise<MobileAttributeValue[]> =>
+  mapMobileAttributeOptions(
+    await withCatalogAttributesLoadTimeout(
+      fetchAttributeValues(attributeId),
+      'mobile:product-attributes:options',
+    ),
+    attributeId,
+  );
+
+const fetchMobileAttributesWithOptionMode = async (
+  includeOptionValues: boolean,
+): Promise<MobileAttribute[]> => {
   const [attributes, values, categoriesResult] = await withCatalogAttributesLoadTimeout(
     Promise.all([
       fetchAttributeRows(),
-      fetchAttributeValues(),
+      includeOptionValues ? fetchAttributeValues() : fetchAttributeValueSummaries(),
       fetchAllAttributeRows((firstRow, lastRow) =>
         supabase
           .from('category_attributes')
@@ -156,29 +207,16 @@ export const fetchMobileAttributes = async (): Promise<MobileAttribute[]> => {
 
   const attributeRows = attributes ?? [];
   const valueRows = values ?? [];
+  const optionCounts = new Map<string, { optionCount: number; activeOptionCount: number }>();
+  for (const value of valueRows) {
+    const attributeId = String(value.attribute_id);
+    const count = optionCounts.get(attributeId) ?? { optionCount: 0, activeOptionCount: 0 };
+    count.optionCount += 1;
+    if (value.active !== false) count.activeOptionCount += 1;
+    optionCounts.set(attributeId, count);
+  }
   const mapped: MobileAttribute[] = attributeRows.map((attribute: any) => {
-    const options: MobileAttributeValue[] = valueRows
-      .filter((value: any) => String(value.attribute_id) === String(attribute.id))
-      .map((value: any) => ({
-        id: String(value.id),
-        value: String(value.value),
-        attribute_id: String(value.attribute_id),
-        sortOrder: Number.isInteger(value.sort_order) ? value.sort_order : undefined,
-        active: value.active !== false,
-      }));
-    const orderedOptions = options.some((option: MobileAttributeValue) => option.sortOrder !== undefined)
-      ? options.sort(
-          (left: MobileAttributeValue, right: MobileAttributeValue) =>
-            (left.sortOrder ?? Number.MAX_SAFE_INTEGER) -
-            (right.sortOrder ?? Number.MAX_SAFE_INTEGER)
-        )
-      : options.sort((left: MobileAttributeValue, right: MobileAttributeValue) =>
-          left.value.localeCompare(right.value, 'pt-BR', {
-            numeric: true,
-            sensitivity: 'base',
-          })
-        );
-
+    const counts = optionCounts.get(String(attribute.id));
     const dataType = inferAttributeDataType(attribute.name, attribute.data_type || attribute.dataType);
     return {
       id: String(attribute.id),
@@ -202,7 +240,14 @@ export const fetchMobileAttributes = async (): Promise<MobileAttribute[]> => {
         dataType,
         attribute.configuration,
       ),
-      options: orderedOptions,
+      ...(includeOptionValues ? {} : {
+        optionCount: counts?.optionCount ?? 0,
+        activeOptionCount: counts?.activeOptionCount ?? 0,
+        optionsLoaded: false,
+      }),
+      options: includeOptionValues
+        ? mapMobileAttributeOptions(valueRows, String(attribute.id))
+        : [],
       categoryAttributes: categoriesResult.error
         ? undefined
         : (categoriesResult.data ?? [])
@@ -219,6 +264,12 @@ export const fetchMobileAttributes = async (): Promise<MobileAttribute[]> => {
     left.name.localeCompare(right.name, 'pt-BR', { sensitivity: 'base' })
   );
 };
+
+export const fetchMobileAttributes = async (): Promise<MobileAttribute[]> =>
+  fetchMobileAttributesWithOptionMode(true);
+
+export const fetchMobileAttributeSummaries = async (): Promise<MobileAttribute[]> =>
+  fetchMobileAttributesWithOptionMode(false);
 
 /** Saves the complete characteristic definition in the same transaction used by ERP. */
 export const saveMobileAttributeDefinition = async (
@@ -343,26 +394,64 @@ const saveMobileAttributeOptions = async (
   return savedOptions;
 };
 
+const fetchAttributeMetadataForOptions = async (attributeId: string): Promise<MobileAttribute> => {
+  let columns = ['id', 'name', 'data_type'];
+  const fetchWithColumns = (selectedColumns: string[]) => supabase
+    .from('attributes')
+    .select(selectedColumns.join(', '))
+    .eq('id', attributeId)
+    .maybeSingle();
+  let result = await withCatalogAttributesLoadTimeout(
+    fetchWithColumns(columns),
+    'mobile:product-attributes:option-metadata',
+  );
+  if (isMissingColumn(result.error, 'data_type')) {
+    columns = columns.filter((column) => column !== 'data_type');
+    result = await withCatalogAttributesLoadTimeout(
+      fetchWithColumns(columns),
+      'mobile:product-attributes:option-metadata',
+    );
+  }
+  if (result.error) throw result.error;
+  if (!result.data) throw new Error('Característica não encontrada.');
+  return {
+    id: String(result.data.id),
+    name: String(result.data.name),
+    dataType: inferAttributeDataType(result.data.name, result.data.data_type),
+    options: [],
+  };
+};
+
 export const addMobileAttributeValue = async (
   attributeId: string,
   value: string
 ): Promise<void> => {
   const trimmed = value.trim();
   if (!trimmed) return;
-  const attribute = (await fetchMobileAttributes()).find((item) => item.id === attributeId);
-  if (!attribute) throw new Error('Característica não encontrada.');
+  const [attribute, options] = await Promise.all([
+    fetchAttributeMetadataForOptions(attributeId),
+    fetchMobileAttributeOptions(attributeId),
+  ]);
   await saveMobileAttributeOptions(attribute, [
-    ...attribute.options,
+    ...options,
     { id: '', value: trimmed, attribute_id: attribute.id },
   ]);
 };
 
 export const deleteMobileAttributeValue = async (valId: string): Promise<void> => {
-  const attributes = await fetchMobileAttributes();
-  const attribute = attributes.find((item) => item.options.some((option) => option.id === valId));
-  if (!attribute) throw new Error('Opção da característica não encontrada.');
+  const { data, error } = await supabase
+    .from('attribute_values')
+    .select('attribute_id')
+    .eq('id', valId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data?.attribute_id) throw new Error('Opção da característica não encontrada.');
+  const [attribute, options] = await Promise.all([
+    fetchAttributeMetadataForOptions(String(data.attribute_id)),
+    fetchMobileAttributeOptions(String(data.attribute_id)),
+  ]);
   await saveMobileAttributeOptions(
     attribute,
-    attribute.options.filter((option) => option.id !== valId),
+    options.filter((option) => option.id !== valId),
   );
 };

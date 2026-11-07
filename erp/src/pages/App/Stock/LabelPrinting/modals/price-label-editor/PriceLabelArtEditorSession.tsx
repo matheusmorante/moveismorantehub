@@ -18,6 +18,7 @@ import { PriceLabelEditorStatusMessages } from './PriceLabelEditorStatusMessages
 import { PriceLabelMenuBar } from './PriceLabelMenuBar';
 import { PriceLabelArtEditorPreview } from './PriceLabelArtEditorPreview';
 import { buildPriceLabelLayers } from './priceLabelLayersConfig';
+import { buildPriceLabelOpportunityOptions } from './priceLabelOpportunityOptions';
 import { usePriceLabelCanvasInteractions } from './usePriceLabelCanvasInteractions';
 import { usePriceLabelArtworkSession } from './usePriceLabelArtworkSession';
 import type { ArtworkSaveGuard } from './usePriceLabelArtworkSession';
@@ -351,17 +352,10 @@ export const PriceLabelArtEditorSession: React.FC<
   }, [isOpen]);
 
   // Options memo
-  const allOppOptions = useMemo(() => {
-    const baseOptions = [{ id: 'none', name: 'SEM OPORTUNIDADE' }];
-    if (dbOpportunities && dbOpportunities.length > 0) {
-      const oppsMapped = dbOpportunities.map((opp) => ({
-        id: opp.id || opp.slug || opp.name,
-        name: opp.name.toUpperCase(),
-      }));
-      return [...baseOptions, ...oppsMapped];
-    }
-    return [...baseOptions, { id: 'salvado', name: 'QUEIMA DOS SALVADOS' }];
-  }, [dbOpportunities]);
+  const allOppOptions = useMemo(
+    () => buildPriceLabelOpportunityOptions(dbOpportunities),
+    [dbOpportunities]
+  );
 
   usePriceLabelOpportunityColorSync({
     selectedOppId,

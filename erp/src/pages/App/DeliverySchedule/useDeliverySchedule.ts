@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import Order from '../../types/order.type';
 import {
   subscribeToOrderChanges,
@@ -250,6 +250,7 @@ export const useDeliverySchedule = () => {
   const [schedule, setSchedule] = useState<Record<string, Order[]>>({});
   const [pendingOrders, setPendingOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+  const [ordersError, setOrdersError] = useState('');
   const [viewMode, setViewMode] = useState<'card' | 'table' | 'timeline'>('timeline');
   const [filter, setFilter] = useState<ScheduleFilter>('default');
   const [typeFilter, setTypeFilter] = useState<OrderTypeFilter[]>([
@@ -265,6 +266,8 @@ export const useDeliverySchedule = () => {
   const queryFilters = useMemo(() => ({
     ...schedulePeriodFilters(filter, new Date(), { start: startDate, end: endDate }), types: typeFilter,
   }), [filter, startDate, endDate, typeFilter]);
+  const lastLoadedQueryKey = useRef<string | null>(null);
+  const queryFiltersKey = JSON.stringify(queryFilters);
 
   // Subscribe to settings for real-time reactivity (important for public/anon users)
   useEffect(() => {
@@ -284,10 +287,27 @@ export const useDeliverySchedule = () => {
       controller?.abort();
       controller = new AbortController();
       if (!silent) setLoading(true);
-      const orders = await fetchScheduledAndDraftOrders({ filters: queryFilters, signal: controller.signal });
-      if (!isMounted || sequence !== latestLoadSequence) return;
-      setAllOrders(orders);
-      setLoading(false);
+      setOrdersError('');
+      try {
+        const orders = await fetchScheduledAndDraftOrders({
+          filters: queryFilters,
+          signal: controller.signal,
+          throwOnError: true,
+        });
+        if (!isMounted || sequence !== latestLoadSequence || controller.signal.aborted) return;
+        setAllOrders(orders);
+        lastLoadedQueryKey.current = queryFiltersKey;
+      } catch (error) {
+        if (!isMounted || sequence !== latestLoadSequence || controller.signal.aborted) return;
+        console.error('[Agenda] Não foi possível atualizar os pedidos:', error);
+        if (lastLoadedQueryKey.current !== queryFiltersKey) {
+          lastLoadedQueryKey.current = null;
+          setAllOrders([]);
+        }
+        setOrdersError('Não foi possível atualizar os pedidos. A lista atual pode estar desatualizada.');
+      } finally {
+        if (isMounted && sequence === latestLoadSequence) setLoading(false);
+      }
     };
 
     loadOrders();
@@ -302,7 +322,7 @@ export const useDeliverySchedule = () => {
       controller?.abort();
       unsubscribe();
     };
-  }, [queryFilters, settings]);
+  }, [queryFilters, queryFiltersKey, settings]);
 
   // Fetch Showroom Assemblies
   useEffect(() => {
@@ -395,6 +415,7 @@ export const useDeliverySchedule = () => {
     schedule,
     pendingOrders,
     loading,
+    ordersError,
     viewMode,
     setViewMode,
     filter,

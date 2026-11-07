@@ -220,7 +220,10 @@ export const fetchInventoryItems = async (
   }));
 };
 
-export const searchProducts = async (query: string) => {
+export const searchProducts = async (
+  query: string,
+  options: { includeTrashEligibility?: boolean } = {},
+) => {
   const searchTerm = query.trim();
   if (searchTerm.length < 3) return [];
 
@@ -228,6 +231,7 @@ export const searchProducts = async (query: string) => {
     search: searchTerm,
     statusFilter: 'active',
     throwOnError: true,
+    includeTrashEligibility: options.includeTrashEligibility,
   });
   const searchWords = searchTerm.split(/\s+/).filter(Boolean);
 

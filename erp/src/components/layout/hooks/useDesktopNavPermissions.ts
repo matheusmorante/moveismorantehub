@@ -57,6 +57,8 @@ export interface DesktopNavPermissions {
 
   // Marketing
   canViewMarketingPosts: boolean;
+  canManageSiteElements: boolean;
+  canManageCatalogImageTemplates: boolean;
   canViewWhatsAppMarketplace: boolean;
   canViewMarketing: boolean;
 
@@ -135,10 +137,13 @@ export function useDesktopNavPermissions(profile: UserProfile | null): DesktopNa
 
     // Marketing
     const canViewMarketingPosts = canPerform('viewMarketingPosts', roles);
+    const canManageSiteElements = canPerform('manageSiteElements', roles);
+    const canManageCatalogImageTemplates = canPerform('manageCatalogImageTemplates', roles);
     const canViewWhatsAppMarketplace = canPerform('viewWhatsAppMarketplace', roles);
     const canViewMarketing =
       canViewMarketingPosts ||
-      canPerform('viewChannelCatalog', roles) ||
+      canManageSiteElements ||
+      canManageCatalogImageTemplates ||
       canViewMetaCatalog ||
       canViewWhatsAppMarketplace;
 
@@ -189,6 +194,8 @@ export function useDesktopNavPermissions(profile: UserProfile | null): DesktopNa
       canViewAssemblyList,
       canViewLogistics,
       canViewMarketingPosts,
+      canManageSiteElements,
+      canManageCatalogImageTemplates,
       canViewWhatsAppMarketplace,
       canViewMarketing,
       canUseFinance,

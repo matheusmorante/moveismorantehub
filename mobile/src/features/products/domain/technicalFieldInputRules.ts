@@ -46,7 +46,10 @@ export const getTechnicalFieldMaxLength = (dataType: string) => {
 };
 
 export const getTechnicalFieldIntegerPlaceholder = (name: string) => {
-  if (/lugar(es)?/i.test(name)) return 'Digite o número de quantidades';
+  if (/^quantidade\s+de\s+cadeiras?$/i.test(name.trim())) {
+    return 'Insira a quantidade de cadeiras';
+  }
+  if (/^quantidade\s+de\s+lugares?$/i.test(name.trim())) return 'Digite o número de quantidades';
   const quantitySubject = name.match(/quantidade\s+de\s+(.+)/i)?.[1]?.trim();
   if (quantitySubject) return `Insira a quantidade de ${quantitySubject}`;
   return 'Insira um número inteiro';

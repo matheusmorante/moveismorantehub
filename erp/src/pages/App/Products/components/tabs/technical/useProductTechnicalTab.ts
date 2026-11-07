@@ -433,7 +433,6 @@ export const useProductTechnicalTab = ({
     handleToggleCharacteristic,
     handleSetCharacteristicScope,
     handleAddCharacteristicFromSearch,
-    handleRemoveManualField: actions.handleRemoveManualField,
     openAttributeModal,
     closeAttributeModal,
   };

@@ -4,6 +4,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useCategoriesAndEnvironments } from './useCategoriesAndEnvironments';
 const mocks = vi.hoisted(() => ({ environments: vi.fn(), categories: vi.fn(), counts: vi.fn(), createEnvironment: vi.fn(), updateEnvironment: vi.fn(), createCategory: vi.fn(), updateCategory: vi.fn(), attributes: vi.fn(), activeCharacteristics: vi.fn(), categoryApplications: vi.fn(), error: vi.fn() }));
 vi.mock('@/pages/utils/categoryService', () => ({
+  fetchCategoryEnvironmentData: async () => {
+    const [environments, categories] = await Promise.all([mocks.environments(), mocks.categories()]);
+    return { environments, categories };
+  },
   fetchEnvironments: mocks.environments, fetchCategories: mocks.categories, fetchCategoryProductCounts: mocks.counts,
   createEnvironment: mocks.createEnvironment, updateEnvironment: mocks.updateEnvironment,
   createCategory: mocks.createCategory, updateCategory: mocks.updateCategory, fetchCategoryAttributes: mocks.attributes,

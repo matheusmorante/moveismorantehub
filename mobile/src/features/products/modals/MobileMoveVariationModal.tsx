@@ -35,6 +35,10 @@ import { MobileMoveVariationFamilySelector } from './MobileMoveVariationFamilySe
 import { MobileMoveVariationFooter } from './MobileMoveVariationFooter';
 import { MobileMoveVariationStatusNotices } from './MobileMoveVariationStatusNotices';
 import {
+  useMobileMoveVariationConfirmationCountdown,
+  type MobileMoveVariationConflictState,
+} from './useMobileMoveVariationConfirmationCountdown';
+import {
   getMobileVariationFamilyName,
   getMobileVariationFamilySuggestions,
 } from './mobileMoveVariationFamilySuggestions';
@@ -87,9 +91,7 @@ export const MobileMoveVariationModal: React.FC<Props> = ({
   const [attributes, setAttributes] = useState<AttributeRow[]>([]);
   const [queryError, setQueryError] = useState('');
   const [queryRevision, setQueryRevision] = useState(0);
-  const [conflictState, setConflictState] = useState<
-    'idle' | 'checking' | 'clear' | 'conflict' | 'error'
-  >('idle');
+  const [conflictState, setConflictState] = useState<MobileMoveVariationConflictState>('idle');
   const [conflictError, setConflictError] = useState('');
   const [conflictRevision, setConflictRevision] = useState(0);
   const [countdown, setCountdown] = useState(5);
@@ -303,15 +305,14 @@ export const MobileMoveVariationModal: React.FC<Props> = ({
     };
   }, [visible, queryReady, variationId, targetFamilyId, validAttributes, formAttributes, conflictRevision, conflictQueryForm.validateValues]);
 
-  useEffect(() => {
-    if (!visible || !targetFamilyId || conflictState !== 'clear' || saving) {
-      setCountdown(5);
-      return;
-    }
-    if (countdown <= 0) return;
-    const timer = setTimeout(() => setCountdown((current) => current - 1), 1000);
-    return () => clearTimeout(timer);
-  }, [visible, targetFamilyId, conflictState, saving, countdown]);
+  useMobileMoveVariationConfirmationCountdown({
+    visible,
+    targetFamilyId,
+    conflictState,
+    saving,
+    countdown,
+    setCountdown,
+  });
 
   const updateAttribute = (index: number, field: 'name' | 'value', value: string) => {
     if (mutationBlocked || saving) return;

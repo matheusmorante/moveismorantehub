@@ -89,7 +89,6 @@ export function useOrderProductSelection(
                   promotionId: pricing.promotionId,
                   promotionName: pricing.promotionName,
                   promotionDiscountPercent: pricing.promotionDiscountPercent,
-                  promotionDiscountAmount: pricing.promotionDiscountAmount,
                   finalUnitPrice: pricing.finalUnitPrice,
                   quantity: quantityPerComposition * requestedQuantity,
                   total: Math.max(
@@ -159,7 +158,6 @@ export function useOrderProductSelection(
               promotionId: pricing.promotionId,
               promotionName: pricing.promotionName,
               promotionDiscountPercent: pricing.promotionDiscountPercent,
-              promotionDiscountAmount: pricing.promotionDiscountAmount,
               finalUnitPrice: pricing.finalUnitPrice,
               costPrice: Number(selectedCost) || 0,
               handlingType: '',

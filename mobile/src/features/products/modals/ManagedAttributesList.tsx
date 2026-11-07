@@ -14,12 +14,15 @@ interface Props {
   handleDeleteAttr: (id: string, name: string) => void;
   handleDeleteValue: (attribute: MobileAttribute, valueId: string, value: string) => void;
   load: () => Promise<void>;
+  loadOptions: (attributeId: string) => Promise<void>;
   loadError: string | null;
   loading: boolean;
+  onToggleExpanded: (attributeId: string) => void;
+  optionsLoadErrorId: string | null;
+  optionsLoadingId: string | null;
   newValText: string;
   savingValueId: string | null;
   searchTerm: string;
-  setExpandedId: Dispatch<SetStateAction<string | null>>;
   setNewValText: Dispatch<SetStateAction<string>>;
 }
 
@@ -31,12 +34,15 @@ export const ManagedAttributesList = ({
   handleDeleteAttr,
   handleDeleteValue,
   load,
+  loadOptions,
   loadError,
   loading,
+  onToggleExpanded,
+  optionsLoadErrorId,
+  optionsLoadingId,
   newValText,
   savingValueId,
   searchTerm,
-  setExpandedId,
   setNewValText,
 }: Props) =>
   loading ? (
@@ -60,7 +66,7 @@ export const ManagedAttributesList = ({
             return (
               <View key={attr.id} style={[styles.attrCard, dark && styles.darkItem]}>
                 <TouchableOpacity
-                  onPress={() => setExpandedId(isExp ? null : attr.id)}
+                  onPress={() => onToggleExpanded(attr.id)}
                   style={styles.attrHeader}
                 >
                   <View style={styles.attrTitleRow}>
@@ -71,7 +77,7 @@ export const ManagedAttributesList = ({
                     )}
                     <Text style={[styles.attrName, dark && styles.light]}>{attr.name}</Text>
                     <Text style={styles.valCount}>
-                      ({attr.options.length} opções · {attr.dataType || 'text_short'}
+                      ({attr.optionCount ?? attr.options.length} opções · {attr.dataType || 'text_short'}
                       {attr.active === false ? ' · inativa' : ''})
                     </Text>
                   </View>
@@ -87,6 +93,18 @@ export const ManagedAttributesList = ({
 
                 {isExp && (
                   <View style={styles.valuesArea}>
+                    {!attr.optionsLoaded ? (
+                      optionsLoadingId === attr.id ? (
+                        <ActivityIndicator size="small" color="#7c3aed" />
+                      ) : (
+                        <TouchableOpacity onPress={() => void loadOptions(attr.id)}>
+                          <Text style={optionsLoadErrorId === attr.id ? styles.retryText : styles.emptyText}>
+                            {optionsLoadErrorId === attr.id ? 'Não foi possível carregar. Tentar novamente' : 'Carregar opções'}
+                          </Text>
+                        </TouchableOpacity>
+                      )
+                    ) : (
+                      <>
                     <View style={styles.valuesList}>
                       {attr.options.map((opt) => (
                         <View
@@ -134,6 +152,8 @@ export const ManagedAttributesList = ({
                         )}
                       </TouchableOpacity>
                     </View>
+                      </>
+                    )}
                   </View>
                 )}
               </View>

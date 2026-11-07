@@ -29,6 +29,7 @@ export interface MobileProductFilterOptions {
   catalogStatus?: 'all' | 'published' | 'hidden';
   includeDeactivated?: boolean;
   includeMerged?: boolean;
+  includeTrashEligibility?: boolean;
   showTrash?: boolean;
   showTestProducts?: boolean;
   summaryOnly?: boolean;
@@ -262,7 +263,9 @@ export const fetchMobileProductsPage = async (
 
       const withCompositionAvailability = await applyMobileCompositionAvailability(summaries);
       return {
-        data: await applyMobileTrashEligibility(withCompositionAvailability, options?.showTrash),
+        data: options?.includeTrashEligibility === false
+          ? withCompositionAvailability
+          : await applyMobileTrashEligibility(withCompositionAvailability, options?.showTrash),
         total,
       };
     }
@@ -278,7 +281,9 @@ export const fetchMobileProductsPage = async (
 
     const withCompositionAvailability = await applyMobileCompositionAvailability(filteredFormatted);
     return {
-      data: await applyMobileTrashEligibility(withCompositionAvailability, options?.showTrash),
+      data: options?.includeTrashEligibility === false
+        ? withCompositionAvailability
+        : await applyMobileTrashEligibility(withCompositionAvailability, options?.showTrash),
       total,
     };
   } catch (err) {

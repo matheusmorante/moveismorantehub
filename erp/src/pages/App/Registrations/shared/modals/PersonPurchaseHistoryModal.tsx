@@ -44,7 +44,12 @@ const PersonPurchaseHistoryModal = ({
     const controller = new AbortController();
     setLoading(true);
     setLoadError(false);
-    getOrdersByCustomerInfoPage(person.fullName, person.phone, person.email, { page, signal: controller.signal })
+    getOrdersByCustomerInfoPage(person.fullName, person.phone, person.email, {
+      page,
+      signal: controller.signal,
+      skipLinkedReturnMovementEnrichment: true,
+      skipPeopleOriginEnrichment: true,
+    })
       .then((data) => {
         if (controller.signal.aborted) return;
         setOrders(data.orders);

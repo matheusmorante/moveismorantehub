@@ -10,11 +10,43 @@ vi.mock('../../../services/supabaseClient', () => ({
   },
 }));
 
-import { mapPurchaseFromDb, purchaseStatusLabel } from './mobilePurchaseService';
+import { cancelMobilePurchase, fetchMobilePurchases, mapPurchaseFromDb, purchaseStatusLabel } from './mobilePurchaseService';
 
 describe('Suíte Unitária: mobilePurchaseService (Pedidos de Compra Mobile)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  it('não cria número de compra pela posição da página mobile', async () => {
+    const query: any = {
+      select: vi.fn().mockReturnThis(), order: vi.fn().mockReturnThis(),
+      range: vi.fn().mockResolvedValue({
+        data: [{ id: 'purchase-stable-id', supplier_name: 'Fornecedor', status: 'ordered' }],
+        count: 1, error: null,
+      }),
+    };
+    mocks.from.mockReturnValue(query);
+    const result = await fetchMobilePurchases(2);
+    expect(result.data[0].purchaseNumber).toBeUndefined();
+    expect(result.data[0].id).toBe('purchase-stable-id');
+  });
+
+  it('usa o código curto no motivo de estorno quando não há número salvo', async () => {
+    const stop = new Error('interromper antes da gravação simulada');
+    const update = vi.fn(() => { throw stop; });
+    const query: any = {
+      select: vi.fn().mockReturnThis(),
+      or: vi.fn().mockResolvedValue({ data: [{ id: 'move' }], error: null }),
+      update,
+    };
+    mocks.from.mockReturnValue(query);
+    const purchase = mapPurchaseFromDb({
+      id: 'abcdef12-0001-4000-8000-00000000ab45', status: 'ordered', stockProcessed: true,
+    });
+    await expect(cancelMobilePurchase(purchase)).rejects.toBe(stop);
+    expect(update).toHaveBeenCalledWith(expect.objectContaining({
+      reason: 'Cancelamento do pedido de compra #ABCDEF12',
+    }));
   });
 
   describe('1. Mapeamento de registros do banco (mapPurchaseFromDb)', () => {

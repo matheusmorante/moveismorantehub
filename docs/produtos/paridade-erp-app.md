@@ -7060,3 +7060,35 @@ Continuar a aba Tributário/NF pelo estado Produto normal versus Serviço e comp
 - [ ] `git diff --check` passou. Não executei Vitest/RTL, typecheck, build, Playwright ou Maestro; o estado autenticado e a interação visual/nativa não foram exercitados. Não houve consulta/escrita remota, migration, deploy ou OTA. O Guia Prático do Estoque não se aplica: a alteração limita sugestões na configuração comercial de composição, sem mudar procedimento operacional de estoque.
 
 **Conclusão do recorte:** a busca de componentes na composição de variação agora limita a UI mobile a cinco sugestões, com o mesmo limite ERP e política compartilhada. A inspeção visual autenticada e a validação Android/iOS permanecem pendentes.
+
+### Ciclo 644 — Quantidade de cadeiras em Conjunto Mesa e Cadeiras — 06/11/2026
+
+**Recorte:** tornar “Quantidade de cadeiras” obrigatória para publicação no Catálogo Digital em “Conjunto Mesa e Cadeiras”, preservando o campo “Quantidade de lugares” nas demais categorias.
+
+- [x] A característica original está vinculada a sete categorias. Para não renomear o campo de Sofás, Poltronas, Mesas para Cozinha/Sala de Jantar, Sala de Estar, Sala de Jantar e Tampos, foi criado o atributo inteiro “Quantidade de cadeiras” somente para Conjunto Mesa e Cadeiras. O vínculo está obrigatório para o Catálogo Digital e opcional no formulário ERP; não bloqueia cadastro nem ativação no ERP, conforme `AGENTS.md` §15.
+- [x] ERP e app compartilham a regra de campo inteiro: o novo nome usa limite 100 e placeholder de quantidade de cadeiras. `productTechnicalValueAliases` permite que valores já salvos como “Quantidade de lugares” sejam lidos e editados pelo novo campo, inclusive nos dados locais usados pelo app offline.
+- [x] A validação de publicação do Catálogo reconhece os dois nomes como aliases do mesmo valor. O detalhe público do produto inclui um booleano de categoria na consulta já existente; a página do Catálogo exibe valores legados sob “Quantidade de cadeiras” somente nessa categoria, sem consulta adicional.
+- [x] Migrations aplicadas no projeto operacional `hkoxhourxwlddgsfdgws`: `20261106181646_add_chair_count_for_dining_sets.sql` e `20261106182158_show_dining_set_chair_count_in_catalog.sql`. Consulta remota confirmou o campo novo obrigatório para Catálogo e opcional no ERP, o nome antigo indisponível somente na categoria alvo e os seis vínculos antigos preservados.
+- [x] `git diff --check` passou. Não executei Vitest/RTL, typecheck, Playwright ou Maestro; validação visual de formulários e publicação permanece sem execução nesta rodada.
+
+**Conclusão do recorte:** ERP, app e Catálogo reconhecem o novo nome nessa categoria; produtos já preenchidos continuam com o valor válido e as outras seis categorias conservam “Quantidade de lugares”.
+
+### Ciclo 645 — Quantidade de cadeiras indisponível fora de conjuntos de jantar — 06/11/2026
+
+- [x] A categoria “Conjunto Mesa e Cadeiras” continua sendo a única em que o atributo novo “Quantidade de cadeiras” pode ser usado. A tela ERP de Ambientes e Categorias mostra N/A e bloqueia a alteração nas demais categorias; ao salvar uma categoria, a aplicação N/A é persistida pelo RPC existente.
+- [x] Os filtros compartilhados do ERP e do app mobile também excluem esse atributo das demais categorias, mesmo que exista uma configuração legada como opcional. O campo antigo “Quantidade de lugares” não é confundido com o atributo novo e continua disponível nas categorias que já o utilizavam.
+- [x] Não houve mudança nas consultas: a tela reaproveita os carregamentos e a gravação de aplicações por categoria já existentes. `git diff --check` passou; não executei testes, typecheck nem validação visual.
+
+**Conclusão do recorte:** o campo novo fica N/A fora de “Conjunto Mesa e Cadeiras”, enquanto “Quantidade de lugares” permanece intacta onde já se aplica.
+
+### Ciclo 646 — Medidas do tampo em conjuntos e mesas de jantar — 06/11/2026
+
+**Recorte:** tornar largura, profundidade e espessura do tampo obrigatórias para publicação no Catálogo Digital em “Conjunto Mesa e Cadeiras” e “Mesas para Cozinha/Sala de Jantar”.
+
+- [x] Reaproveitei “Largura da mesa” e “Profundidade da mesa” do conjunto, renomeando os mesmos atributos para “Largura do tampo da mesa” e “Profundidade do tampo da mesa”. Isso preserva os IDs, os valores existentes e a obrigatoriedade ERP já configurada para o conjunto. O atributo legado “Espessura do Tampo (mm)” foi convertido para medida em milímetros e renomeado para “Espessura do tampo da mesa”.
+- [x] As três características estão vinculadas e obrigatórias para Catálogo nas duas categorias. No ERP, largura e profundidade continuam obrigatórias no conjunto, como antes; a espessura segue opcional. Na categoria de mesas, as três ficam opcionais no formulário ERP, de acordo com `AGENTS.md` §15, sem bloquear cadastro/ativação.
+- [x] ERP e app usam os metadados compartilhados de categoria e preservam a leitura de valores salvos nos rótulos antigos. O mapeamento legado de medidas do produto também reconhece os novos nomes; ambas as interfaces ordenam as características no grupo de dimensões.
+- [x] Migration `20261106192654_require_tabletop_measurements_for_dining.sql` aplicada no projeto operacional `hkoxhourxwlddgsfdgws`. A verificação remota confirmou os seis vínculos como obrigatórios para Catálogo, tipos/unidades (`cm`, `cm`, `mm`), espessura ERP opcional nas duas categorias e medidas ERP do conjunto ainda obrigatórias.
+- [x] Nenhuma consulta nova foi adicionada: os formulários reutilizam a leitura de atributos, vínculos e aplicações já existente. A resposta atual passa a carregar essas definições/vínculos adicionais; o acréscimo de bytes e a economia/impacto de consumo não foram medidos. `git diff --check` passou; não executei Vitest/RTL, typecheck, build, Playwright ou Maestro nesta rodada.
+
+**Conclusão do recorte:** as três medidas do tampo são exigidas pelo Catálogo nas duas categorias, com dados antigos legíveis e sem nova chamada Supabase. A tela e o fluxo de publicação ainda não foram exercitados visualmente.

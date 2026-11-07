@@ -251,6 +251,12 @@ function getFiscalCancellationPolicy(input) {
   };
 }
 
+// shared-utils/fiscalIcmsGroups.ts
+var CSOSN_CODES = ["101", "102", "103", "201", "202", "203", "300", "400", "500", "900"];
+
+// shared-utils/fiscalItemSelections.ts
+var csosns = new Set(CSOSN_CODES);
+
 // shared-utils/fiscal-cfop-model/data/cfopBaseCatalog.ts
 var CFOP_CATALOG_BASE = [
   // --- SAÍDAS INTERNAS (5.xxx) ---
@@ -737,12 +743,6 @@ var CANONICAL_CFOPS = CFOP_CATALOG_BASE.map((item) => {
 var CFOP_BY_CODE = new Map(
   CANONICAL_CFOPS.map((def) => [def.code, def])
 );
-
-// shared-utils/fiscalIcmsGroups.ts
-var CSOSN_CODES = ["101", "102", "103", "201", "202", "203", "300", "400", "500", "900"];
-
-// shared-utils/fiscalItemSelections.ts
-var csosns = new Set(CSOSN_CODES);
 
 // api/nfe/fiscalXmlAuditDom.ts
 var import_xmldom = require("@xmldom/xmldom");

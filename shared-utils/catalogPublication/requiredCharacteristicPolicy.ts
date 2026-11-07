@@ -6,7 +6,7 @@ const normalizeCharacteristicKey = (name: string): string =>
     .toLocaleLowerCase('pt-BR')
     .replace(/[\s/?¿]+/g, '');
 
-/** These characteristics stay optional for ERP registration and catalog publication in every category. */
+/** These characteristics are excluded from Catalog requirements; ERP may add a category-specific requirement. */
 export const isCatalogNeverRequiredCharacteristicName = (name: string): boolean => {
   const key = normalizeCharacteristicKey(name);
   return (

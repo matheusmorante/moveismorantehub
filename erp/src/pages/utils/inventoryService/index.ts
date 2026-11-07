@@ -5,3 +5,4 @@ export * from './inventorySubscriptionState';
 export * from './inventoryReversalService';
 export * from './inventoryQueryService';
 export * from './inventoryMutationService';
+export * from './inventoryHistoryPageService';

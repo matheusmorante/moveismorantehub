@@ -6,7 +6,11 @@ import { normalizeCharacteristicName } from './normalization';
 
 export const isDepthCharacteristic = (name: string): boolean => {
   const norm = normalizeCharacteristicName(name);
-  return norm === 'profundidade' || norm === 'profundidade total';
+  return (
+    norm === 'profundidade' ||
+    norm === 'profundidade total' ||
+    norm === 'profundidade do tampo da mesa'
+  );
 };
 
 export const isLengthCharacteristic = (name: string): boolean => {
@@ -21,12 +25,17 @@ export const isHeightCharacteristic = (name: string): boolean => {
 
 export const isWidthCharacteristic = (name: string): boolean => {
   const norm = normalizeCharacteristicName(name);
-  return norm === 'largura' || norm === 'largura total';
+  return norm === 'largura' || norm === 'largura total' || norm === 'largura do tampo da mesa';
 };
 
 export const isThicknessCharacteristic = (name: string): boolean => {
   const norm = normalizeCharacteristicName(name);
-  return norm === 'espessura' || norm === 'espessura do colchão' || norm === 'espessura do tampo';
+  return (
+    norm === 'espessura' ||
+    norm === 'espessura do colchão' ||
+    norm === 'espessura do tampo' ||
+    norm === 'espessura do tampo da mesa'
+  );
 };
 
 export const isWeightCharacteristicName = (name: string): boolean =>

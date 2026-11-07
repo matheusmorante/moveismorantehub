@@ -1,8 +1,9 @@
 import { FormTextInput } from '../../../../../components/shared/FormTextInput';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { FlatList, Modal, Text, TouchableOpacity, View } from 'react-native';
 import { X } from 'lucide-react-native';
 import { fetchMobileSuppliers } from '../../../../products/services/mobileSupplierService';
+import { useAuth } from '../../../../../contexts/AuthContext';
 import { styles } from './purchasesScreen.styles';
 import { matchesSearchText } from '../../../../../../../shared-utils/searchText';
 
@@ -19,12 +20,55 @@ export const PurchaseSupplierFilterModal: React.FC<PurchaseSupplierFilterModalPr
   onClose,
   onSelectSupplier,
 }) => {
+  const { userProfile } = useAuth();
+  const cacheScope = String(userProfile?.id || userProfile?.user_id || '');
   const [supplierSearch, setSupplierSearch] = useState('');
   const [suppliers, setSuppliers] = useState<any[]>([]);
+  const cacheRef = useRef<{ scope: string; expiresAt: number; data: any[] } | null>(null);
+  const requestRef = useRef<{ scope: string; promise: Promise<any[]> } | null>(null);
+  const cacheScopeRef = useRef(cacheScope);
+  cacheScopeRef.current = cacheScope;
 
   useEffect(() => {
-    if (visible) void fetchMobileSuppliers().then(setSuppliers);
-  }, [visible]);
+    cacheRef.current = null;
+    requestRef.current = null;
+    setSuppliers([]);
+  }, [cacheScope]);
+
+  useEffect(() => {
+    if (!visible || !cacheScope) return;
+
+    const cached = cacheRef.current;
+    if (cached?.scope === cacheScope && cached.expiresAt > Date.now()) {
+      setSuppliers(cached.data);
+      return;
+    }
+
+    let request = requestRef.current;
+    if (!request || request.scope !== cacheScope) {
+      const promise = fetchMobileSuppliers().then((data) => {
+        const result = Array.isArray(data) ? data : [];
+        if (result.length && cacheScopeRef.current === cacheScope) {
+          cacheRef.current = { scope: cacheScope, expiresAt: Date.now() + 30_000, data: result };
+        }
+        return result;
+      }).finally(() => {
+        if (requestRef.current?.promise === promise) requestRef.current = null;
+      });
+      request = { scope: cacheScope, promise };
+      requestRef.current = request;
+    }
+
+    let active = true;
+    void request.promise.then((data) => {
+      if (active && cacheScopeRef.current === cacheScope) setSuppliers(data);
+    }, () => {
+      if (active && cacheScopeRef.current === cacheScope) setSuppliers([]);
+    });
+    return () => {
+      active = false;
+    };
+  }, [visible, cacheScope]);
 
   const filteredSuppliers = useMemo(
     () =>

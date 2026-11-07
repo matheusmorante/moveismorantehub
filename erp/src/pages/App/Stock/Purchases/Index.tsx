@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useAuth } from '@/context/AuthContext';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -8,7 +8,6 @@ import {
   cancelPurchase,
   deleteCancelledPurchase,
   discardPurchaseDraft,
-  subscribeToPurchases,
   updatePurchase,
 } from '../../../utils/purchaseService';
 import { fetchPersons } from '../../../utils/personService';
@@ -21,6 +20,8 @@ import PurchaseSupplierFilter from './components/PurchaseSupplierFilter';
 import PurchaseTable from './components/PurchaseTable';
 import { ERPListPagination } from '@/components/shared/ERPListPagination';
 import { canPerform } from '@/pages/utils/permissionService';
+import { fetchPurchaseById, PURCHASE_LIST_PAGE_SIZE } from '@/pages/utils/purchasePageService';
+import { usePurchasesPage } from './hooks/usePurchasesPage';
 
 type PurchaseConfirmation = {
   action: 'cancel' | 'delete' | 'discardDraft';
@@ -34,12 +35,13 @@ export const PurchasesPage: React.FC = () => {
   const { profile } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const [purchases, setPurchases] = useState<readonly Purchase[]>([]);
   const [suppliers, setSuppliers] = useState<readonly Person[]>([]);
   const [selectedSupplierId, setSelectedSupplierId] = useState('');
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(15);
-  const [loading, setLoading] = useState(true);
+  const { purchases, total, loading, error, reload } = usePurchasesPage(
+    page, selectedSupplierId, profile?.id || '',
+  );
+  const [isOpeningPurchase, setIsOpeningPurchase] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [isCheckModalOpen, setIsCheckModalOpen] = useState(false);
@@ -51,23 +53,43 @@ export const PurchasesPage: React.FC = () => {
 
   useEffect(() => {
     fetchPersons('suppliers').then((data) => setSuppliers(data || []));
-    return subscribeToPurchases((data) => {
-      setPurchases(data || []);
-      setLoading(false);
-      setSelectedPurchase((current) =>
-        current ? data.find((purchase) => purchase.id === current.id) || current : null
-      );
-    });
   }, []);
 
   useEffect(() => {
+    setSelectedPurchase((current) =>
+      current ? purchases.find((purchase) => purchase.id === current.id) || current : null
+    );
+  }, [purchases]);
+
+  useEffect(() => {
     const purchaseId = location.state?.purchaseIdToOpen as string | undefined;
-    const purchase = purchases.find((item) => item.id === purchaseId);
-    if (!purchase) return;
-    setSelectedPurchase(purchase);
-    setIsDetailsModalOpen(true);
-    navigate('/estoque/inventarios?tab=purchases', { replace: true, state: null });
-  }, [location.state, navigate, purchases]);
+    if (!purchaseId) return;
+    let active = true;
+    const controller = new AbortController();
+    setIsOpeningPurchase(true);
+    void fetchPurchaseById(purchaseId, controller.signal)
+      .then((purchase) => {
+        if (!active || controller.signal.aborted) return;
+        if (purchase) {
+          setSelectedPurchase(purchase);
+          setIsDetailsModalOpen(true);
+        } else {
+          toast.error('Este pedido de compra não foi encontrado.');
+        }
+        setIsOpeningPurchase(false);
+        navigate('/estoque/inventarios?tab=purchases', { replace: true, state: null });
+      })
+      .catch(() => {
+        if (!active || controller.signal.aborted) return;
+        setIsOpeningPurchase(false);
+        toast.error('Não foi possível abrir o pedido de compra. Tente novamente.');
+        navigate('/estoque/inventarios?tab=purchases', { replace: true, state: null });
+      });
+    return () => {
+      active = false;
+      controller.abort();
+    };
+  }, [location.state, navigate]);
 
   useEffect(() => {
     if (!purchaseConfirmation || isConfirmingPurchaseAction) return;
@@ -93,16 +115,6 @@ export const PurchasesPage: React.FC = () => {
       document.removeEventListener('keydown', closeOnEscape);
     };
   }, [isHeaderMenuOpen]);
-
-  const filteredPurchases = useMemo(
-    () =>
-      selectedSupplierId
-        ? purchases.filter((purchase) => purchase.supplierId === selectedSupplierId)
-        : purchases,
-    [purchases, selectedSupplierId]
-  );
-  const safePage = Math.min(page, Math.max(1, Math.ceil(filteredPurchases.length / pageSize)));
-  const visiblePurchases = filteredPurchases.slice((safePage - 1) * pageSize, safePage * pageSize);
 
   const canEditPurchase = (purchase: Purchase) =>
     ['pending', 'ordered'].includes(purchase.status) && !purchase.stockProcessed;
@@ -234,8 +246,17 @@ export const PurchasesPage: React.FC = () => {
             />
           </div>
 
+          {isOpeningPurchase && (
+            <div role="status" className="px-4 py-3 text-sm text-blue-600">Abrindo pedido de compra...</div>
+          )}
+          {error && (
+            <div role="alert" className="flex items-center justify-between gap-3 px-4 py-3 text-sm text-rose-600">
+              <span>{error}{purchases.length > 0 && ' Os resultados exibidos são da última atualização concluída.'}</span>
+              <button type="button" onClick={reload} className="shrink-0 font-bold underline">Tentar novamente</button>
+            </div>
+          )}
           <PurchaseTable
-            purchases={visiblePurchases}
+            purchases={purchases}
             onOpen={(purchase) => {
               setSelectedPurchase(purchase);
               setIsDetailsModalOpen(true);
@@ -258,7 +279,7 @@ export const PurchasesPage: React.FC = () => {
               Carregando compras...
             </div>
           )}
-          {!loading && !filteredPurchases.length && (
+          {!loading && !error && !purchases.length && (
             <div className="p-8 text-center text-lg font-black text-slate-400 sm:p-12 sm:text-xl lg:p-20">
               {selectedSupplierId
                 ? 'Nenhum pedido para este fornecedor'
@@ -268,14 +289,10 @@ export const PurchasesPage: React.FC = () => {
           <ERPListPagination
             ariaLabel="Paginação de pedidos de compra"
             page={page}
-            pageSize={pageSize}
-            totalItems={filteredPurchases.length}
+            pageSize={PURCHASE_LIST_PAGE_SIZE}
+            fixedPageSize={PURCHASE_LIST_PAGE_SIZE}
+            totalItems={total}
             onPageChange={setPage}
-            onPageSizeChange={(size) => {
-              setPage(1);
-              setPageSize(size);
-            }}
-            preferenceKey="stock-purchases"
             itemLabel="pedidos de compra"
             loading={loading}
             className="px-4 py-3"

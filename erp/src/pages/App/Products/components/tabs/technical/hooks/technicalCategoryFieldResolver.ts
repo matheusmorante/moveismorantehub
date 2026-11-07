@@ -6,6 +6,8 @@ import {
 import { isCatalogCoreRequiredCharacteristicName } from '../../../../../../../../../shared-utils/catalogPublication/characteristicValues';
 import { isCatalogNeverRequiredCharacteristicName } from '../../../../../../../../../shared-utils/catalogPublication/requiredCharacteristicPolicy';
 import {
+  isDresserOrWardrobeCategoryName,
+  isDresserOrWardrobeRequiredCharacteristic,
   isSofaRequiredCharacteristic,
   isTechnicalFieldAllowedForCategories,
 } from '../../../../../../../../../shared-utils/productTechnicalFieldScope';
@@ -16,6 +18,7 @@ import {
   SOFA_ONLY_DIMENSION_DEFAULTS,
   getSofaRequiredTechnicalFields,
 } from './sofaTechnicalConstants';
+import { getDresserOrWardrobeRequiredTechnicalFields } from './dresserTechnicalConstants';
 import { resolveProductCharacteristicApplication } from '../productCharacteristicGroupRules';
 
 export const resolveTechnicalCategoryFields = (
@@ -24,6 +27,7 @@ export const resolveTechnicalCategoryFields = (
   categoryName: string
 ) => {
   const isSofaCategorySelected = isSofaCategoryName(categoryName);
+  const isDresserOrWardrobeCategorySelected = isDresserOrWardrobeCategoryName(categoryName);
   const isChairCategorySelected = /(?:^|[^a-z0-9])cadeiras?(?=$|[^a-z0-9])/i.test(
     normalizeSearchTerm(categoryName)
   );
@@ -41,9 +45,26 @@ export const resolveTechnicalCategoryFields = (
       ) ?? false)
     );
 
-  const categoryTechnicalFields = allTechnicalFields
+  const categorySourceFields = isDresserOrWardrobeCategorySelected
+    ? [
+        ...allTechnicalFields.filter((field) => !isDresserOrWardrobeRequiredCharacteristic(field.name)),
+        ...getDresserOrWardrobeRequiredTechnicalFields(allTechnicalFields, formData.categoryIds || []),
+      ]
+    : allTechnicalFields;
+
+  const categoryTechnicalFields = categorySourceFields
     .filter((field) => !isSofaCategorySelected || !isSofaRequiredCharacteristic(field.name))
     .map((field) => {
+      if (isDresserOrWardrobeCategorySelected && isDresserOrWardrobeRequiredCharacteristic(field.name)) {
+        return {
+          ...field,
+          isRequired: true,
+          isRequiredForProductEntry: true,
+          isRequiredForCatalog: false,
+          active: true,
+          categoryApplications: undefined,
+        };
+      }
       if (isCatalogNeverRequiredCharacteristicName(field.name)) {
         return { ...field, isRequired: false, isRequiredForCatalog: false };
       }
@@ -107,6 +128,7 @@ export const resolveTechnicalCategoryFields = (
 
   return {
     isSofaCategorySelected,
+    isDresserOrWardrobeCategorySelected,
     sofaTechnicalFields,
     hasSelectedCategoryApplication,
     isCatalogRequiredForSelectedCategory,

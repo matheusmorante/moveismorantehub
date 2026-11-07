@@ -1,8 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Alert } from 'react-native';
 import {
-  fetchMobileEnvironments,
-  fetchMobileCategories,
+  fetchMobileCategoryEnvironmentData,
   fetchMobileCategoryProductCounts,
   deleteMobileEnvironment,
   deleteMobileCategory,
@@ -33,11 +32,11 @@ export function useMobileCategoriesAndEnvironments(onDataChanged?: () => void) {
     else setRefreshing(true);
 
     try {
-      const [envs, cats, prodCounts] = await Promise.all([
-        fetchMobileEnvironments(),
-        fetchMobileCategories(),
+      const [catalog, prodCounts] = await Promise.all([
+        fetchMobileCategoryEnvironmentData(),
         fetchMobileCategoryProductCounts(),
       ]);
+      const { environments: envs, categories: cats } = catalog;
 
       const categoriesWithCounts: CategoryNode[] = (cats || []).map((c) => ({
         id: String(c.id),

@@ -7,7 +7,12 @@ import { ncmService, NcmSearchResult } from '@/services/fiscal/ncmService';
 import { useAuth } from '@/context/AuthContext';
 import { ERPListPagination } from '@/components/shared/ERPListPagination';
 import { requestConfirmation } from '@/components/shared/confirmationService';
-import { Metric, StatusPill } from './NcmManagementPanelIndicators';
+import { StatusPill } from './NcmManagementPanelIndicators';
+import {
+  NcmCatalogSummary,
+  type NcmSummary,
+  type StoreSummary,
+} from './NcmCatalogSummary';
 import { NcmManagementSyncPreview } from './NcmManagementSyncPreview';
 import type { NcmPreview, NcmPreviewChange } from './NcmManagementSyncPreview';
 import { getNcmStatus, NcmCatalogResults, type NcmRow } from './NcmCatalogResults';
@@ -24,23 +29,6 @@ interface NcmProduct {
   ncm_code: string;
   ncm_description: string;
   total_count: number;
-}
-interface NcmSummary {
-  active_count: number;
-  recent_changes_count: number;
-  retired_with_products_count: number;
-  products_to_review_count: number;
-  last_sync: null | {
-    completed_at: string;
-    source_updated_at: string;
-    status: string;
-    source_valid_count: number;
-  };
-}
-interface StoreSummary {
-  total_count: number;
-  active_count: number;
-  inactive_count: number;
 }
 const PAGE_SIZE = 15;
 const NCM_PAGE_SIZES = [15] as const;
@@ -404,56 +392,18 @@ export function NcmManagementPanel() {
 
   return (
     <section className="mt-6 overflow-hidden rounded-3xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
-      <header className="border-b border-slate-200 bg-slate-50/70 p-5 dark:border-slate-800 dark:bg-slate-800/20 md:p-7">
-        <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
-          <div>
-            <h3 className="flex items-center gap-2 text-base font-bold text-slate-800 dark:text-slate-100">
-              <i className="bi bi-journal-check text-blue-500" /> Gestão da tabela NCM
-            </h3>
-            <p className="mt-1 max-w-3xl text-xs text-slate-500 dark:text-slate-400">
-              Consulta local da tabela Classif/Siscomex. NCMs antigos permanecem no histórico;
-              alterações cadastrais só são aplicadas após revisão.
-            </p>
-          </div>
-          {canManage && (
-            <button
-              type="button"
-              onClick={requestSyncPreview}
-              disabled={isSyncing}
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-500/20 transition hover:bg-blue-700 disabled:cursor-wait disabled:opacity-60"
-            >
-              {isSyncing ? (
-                <>
-                  <i className="bi bi-arrow-repeat animate-spin" /> Consultando fonte...
-                </>
-              ) : (
-                <>
-                  <i className="bi bi-cloud-download" /> Atualizar tabela oficial
-                </>
-              )}
-            </button>
-          )}
-        </div>
-
-        <div className="mt-5 grid grid-cols-2 gap-2 lg:grid-cols-4">
-          <Metric label="NCMs ativos na loja" value={storeSummary?.active_count} />
-          <Metric label="NCMs desativados na loja" value={storeSummary?.inactive_count} warning />
-          <Metric label="NCMs vigentes" value={summary?.active_count} />
-          <Metric label="Mudanças em 30 dias" value={summary?.recent_changes_count} />
-          <Metric
-            label="Encerrados com produtos"
-            value={summary?.retired_with_products_count}
-            warning
-          />
-          <Metric label="Produtos pendentes" value={summary?.products_to_review_count} warning />
-        </div>
-        <p className="mt-3 text-[11px] text-slate-500 dark:text-slate-400">
-          Última sincronização:{' '}
-          {summary?.last_sync?.completed_at
+      <NcmCatalogSummary
+        canManage={canManage}
+        isSyncing={isSyncing}
+        summary={summary}
+        storeSummary={storeSummary}
+        lastSyncLabel={
+          summary?.last_sync?.completed_at
             ? `${formatDate(summary.last_sync.completed_at)} · ${summary.last_sync.source_updated_at}`
-            : 'Ainda não sincronizada'}
-        </p>
-      </header>
+            : 'Ainda não sincronizada'
+        }
+        onRequestSync={requestSyncPreview}
+      />
 
       {errorMessage && (
         <div

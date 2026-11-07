@@ -19,7 +19,10 @@ export function useScopedOrderSchedule(scope: OrderScheduleScope, filters: Recor
   const [counts, setCounts] = useState<Record<string, number>>({});
   const sequence = useRef(0);
   const controller = useRef<AbortController | null>(null);
+  const lastLoadedKey = useRef<string | null>(null);
+  const lastLoadWasOffline = useRef(false);
   const filtersKey = JSON.stringify(filters);
+  const dataKey = `${cacheKey}:${scope}:${filtersKey}`;
 
   const reload = useCallback(async () => {
     if (!enabled) return;
@@ -42,6 +45,8 @@ export function useScopedOrderSchedule(scope: OrderScheduleScope, filters: Recor
           ...byId.get(local.id), id: local.id, status: local.status, order_type: local.orderType,
           created_at: local.updatedAt, customer_name: local.customerName, order_data: local.orderData,
         });
+        lastLoadedKey.current = dataKey;
+        lastLoadWasOffline.current = true;
         setOrders([...byId.values()]); setShowingOffline(true);
         return;
       }
@@ -51,6 +56,8 @@ export function useScopedOrderSchedule(scope: OrderScheduleScope, filters: Recor
       rows.forEach((row: any) => { row.order_data = { ...row.order_data, items: row.items || [] }; });
       const reconciled = await OrderRepository.overlayPendingLocalOrders(rows);
       if (current !== sequence.current || request.signal.aborted) return;
+      lastLoadedKey.current = dataKey;
+      lastLoadWasOffline.current = false;
       setOrders(reconciled);
       await refreshOfflineOrderSnapshots(rows, request.signal).catch((cause) => console.warn('[Agenda] Detalhes offline não atualizados:', cause));
       const cached = await offlineStorageService.getWorkingSet<any[]>(`${cacheKey}:summaries`).catch(() => null);
@@ -60,15 +67,22 @@ export function useScopedOrderSchedule(scope: OrderScheduleScope, filters: Recor
     } catch (failure) {
       if (current === sequence.current && !request.signal.aborted) {
         console.warn('[Agenda] Não foi possível consultar os pedidos:', failure);
-        setOrders([]); setCounts({}); setError('Não foi possível carregar os pedidos. Tente atualizar.');
+        if (lastLoadedKey.current !== dataKey) {
+          lastLoadedKey.current = null;
+          lastLoadWasOffline.current = false;
+          setOrders([]); setCounts({});
+        } else if (lastLoadWasOffline.current) {
+          setShowingOffline(true);
+        }
+        setError('Não foi possível carregar os pedidos. Tente atualizar.');
       }
     } finally {
       if (current === sequence.current) { setLoading(false); setRefreshing(false); }
     }
-  }, [cacheKey, enabled, filtersKey, scope]);
+  }, [cacheKey, dataKey, enabled, filtersKey, scope]);
 
   useEffect(() => {
-    if (!enabled) { setOrders([]); setCounts({}); setLoading(false); setRefreshing(false); return; }
+    if (!enabled) { lastLoadedKey.current = null; lastLoadWasOffline.current = false; setOrders([]); setCounts({}); setLoading(false); setRefreshing(false); return; }
     void reload();
     const stopRealtime = subscribeToLogisticsChanges(() => void reload());
     let wasConnected = connectivityService.connected;

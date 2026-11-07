@@ -339,11 +339,11 @@ export const getCharacteristicSubtitle = (attribute: VariationType): string => {
     case 'text_short': return 'Texto curto';
     case 'text_long': return 'Texto longo';
     case 'radio': {
-      const count = attribute.options.filter((option) => option.active !== false).length;
+      const count = attribute.activeOptionCount ?? attribute.options.filter((option) => option.active !== false).length;
       return `Opção única • ${count} ${count === 1 ? 'opção ativa' : 'opções ativas'}`;
     }
     case 'multi_select': {
-      const count = attribute.options.filter((option) => option.active !== false).length;
+      const count = attribute.activeOptionCount ?? attribute.options.filter((option) => option.active !== false).length;
       return `Opção múltipla • ${count} ${count === 1 ? 'opção ativa' : 'opções ativas'}`;
     }
   }

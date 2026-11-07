@@ -107,7 +107,7 @@ export const ManageAttributesModal: React.FC<ManageAttributesModalProps> = ({
               ? 1
               : undefined,
         options: values.options,
-      });
+      }, { invalidateVariationQueries: false });
 
       await refresh();
       toast.success('Característica criada com sucesso!');
@@ -133,7 +133,7 @@ export const ManageAttributesModal: React.FC<ManageAttributesModalProps> = ({
       decimalPlaces: attr.decimalPlaces ?? 2,
       options,
     }, async (values) => {
-      await saveCharacteristicOptions(attr.id!, values.options);
+      await saveCharacteristicOptions(attr.id!, values.options, { invalidateVariationQueries: false });
       return true;
     }, showValidationErrors);
 

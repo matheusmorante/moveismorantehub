@@ -1,4 +1,4 @@
-import { getFullProduct } from '@/pages/utils/productService';
+import { getFullProduct, getFullProductsByIds } from '@/pages/utils/productService';
 import { getCompositionById } from '@/pages/utils/compositionService';
 import Product, { Variation } from '@/pages/types/product.type';
 
@@ -20,28 +20,27 @@ const hydrateProductComposition = async (
     throw new Error('Este produto composto não possui componentes cadastrados.');
   }
 
-  const resolvedItems = await Promise.all(
-    compositionItems.map(async (item) => {
-      const component = await getFullProduct(item.productId);
-      if (!component) throw new Error('Um produto componente não foi encontrado.');
-      if (component.itemType === 'composition' || component.isCombo) {
-        throw new Error('Uma composição não pode conter outra composição como componente.');
-      }
+  const productsById = await getFullProductsByIds(compositionItems.map((item) => item.productId));
+  const resolvedItems = compositionItems.map((item) => {
+    const component = productsById.get(String(item.productId || '').trim());
+    if (!component) throw new Error('Um produto componente não foi encontrado.');
+    if (component.itemType === 'composition' || component.isCombo) {
+      throw new Error('Uma composição não pode conter outra composição como componente.');
+    }
 
-      const componentVariation = item.variationId
-        ? component.variations?.find((candidate) => candidate.id === item.variationId)
-        : undefined;
-      if (item.variationId && !componentVariation) {
-        throw new Error('Uma variação de produto componente não foi encontrada.');
-      }
+    const componentVariation = item.variationId
+      ? component.variations?.find((candidate) => candidate.id === item.variationId)
+      : undefined;
+    if (item.variationId && !componentVariation) {
+      throw new Error('Uma variação de produto componente não foi encontrada.');
+    }
 
-      return {
-        ...item,
-        product: component,
-        variation: componentVariation,
-      };
-    })
-  );
+    return {
+      ...item,
+      product: component,
+      variation: componentVariation,
+    };
+  });
 
   return {
     product: { ...product, isComposition: true, items: resolvedItems } as Product,

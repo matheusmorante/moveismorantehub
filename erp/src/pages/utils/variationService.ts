@@ -11,6 +11,7 @@ import { withTimeout } from '../../../../shared-utils/withTimeout';
 import { saveAttributeValueWithClient } from '../../../../shared-utils/productAttributeValueService';
 import { normalizeCharacteristicText } from '../../../../shared-utils/characteristicFormRules';
 import { invalidateTechnicalFieldDefinitionsCache } from '@/pages/App/Products/services/technicalFieldService';
+import { withCatalogAttributesLoadTimeout } from '../../../../shared-utils/catalogAttributesLoadTimeout';
 
 export { normalizeAttributeDataType };
 
@@ -132,12 +133,14 @@ const VARIATION_FETCH_PAGE_SIZE = 1000;
 const fetchAllVariationRows = async (
   table: string,
   columns: string,
-  orderBy: string[]
+  orderBy: string[],
+  applyFilter?: (query: any) => any,
 ): Promise<{ data: any[] | null; error: any | null }> => {
   const allRows: any[] = [];
 
   for (let firstRow = 0; ; firstRow += VARIATION_FETCH_PAGE_SIZE) {
     let query = supabase.from(table).select(columns);
+    if (applyFilter) query = applyFilter(query);
     for (const column of orderBy) {
       query = query.order(column, { ascending: true });
     }
@@ -155,7 +158,11 @@ const fetchAllVariationRows = async (
 };
 
 export const fetchVariations = async (
-  options: { throwOnError?: boolean; includeCategoryApplications?: boolean } = {}
+  options: {
+    throwOnError?: boolean;
+    includeCategoryApplications?: boolean;
+    includeOptionValues?: boolean;
+  } = {}
 ): Promise<VariationType[]> => {
   try {
     // 1. Buscar características globais ordenadas por nome
@@ -193,13 +200,36 @@ export const fetchVariations = async (
       attrData = primaryQuery.data;
     }
 
-    // 2. Buscar todos os valores/opções vinculados
-    const { data: valData, error: valErr } = await fetchAllVariationRows(
+    // A lista precisa da contagem para manter os subtítulos, mas não dos textos.
+    // Os valores completos são buscados pelo ID quando a pessoa abre um editor.
+    const includeOptionValues = options.includeOptionValues !== false;
+    let valueColumns = includeOptionValues
+      ? ['id', 'attribute_id', 'value', 'sort_order', 'active']
+      : ['attribute_id', 'active'];
+    const fetchValues = (columns: string[]) => fetchAllVariationRows(
       'attribute_values',
-      '*',
-      ['id']
+      columns.join(', '),
+      ['id'],
     );
+    let valuesResult = await fetchValues(valueColumns);
+    for (const optionalColumn of (includeOptionValues ? ['sort_order', 'active'] : ['active'])) {
+      if (!valuesResult.error || !(
+        valuesResult.error.message?.toLocaleLowerCase().includes(optionalColumn) ||
+        valuesResult.error.code === '42703'
+      )) continue;
+      valueColumns = valueColumns.filter((column) => column !== optionalColumn);
+      valuesResult = await fetchValues(valueColumns);
+    }
+    const { data: valData, error: valErr } = valuesResult;
     if (valErr) throw valErr;
+    const optionCounts = new Map<string, { optionCount: number; activeOptionCount: number }>();
+    for (const value of valData || []) {
+      const attributeId = String(value.attribute_id);
+      const count = optionCounts.get(attributeId) ?? { optionCount: 0, activeOptionCount: 0 };
+      count.optionCount += 1;
+      if (value.active !== false) count.activeOptionCount += 1;
+      optionCounts.set(attributeId, count);
+    }
 
     // Aplicação da característica e obrigatoriedade do catálogo têm finalidades distintas.
     const [catalogLinks, categoryApplications] = await Promise.all([
@@ -245,7 +275,11 @@ export const fetchVariations = async (
       isGloballyRequired:
         !isCatalogNeverRequiredCharacteristicName(attr.name) && Boolean(attr.is_globally_required),
       isCustom: Boolean(attr.is_custom),
-      options: (() => {
+      ...(includeOptionValues ? {} : {
+        optionCount: optionCounts.get(String(attr.id))?.optionCount ?? 0,
+        activeOptionCount: optionCounts.get(String(attr.id))?.activeOptionCount ?? 0,
+      }),
+      options: includeOptionValues ? (() => {
         const values = (valData || [])
           .filter((val: any) => val.attribute_id === attr.id)
           .map((val: any) => ({
@@ -261,7 +295,7 @@ export const fetchVariations = async (
                 (right.sortOrder ?? Number.MAX_SAFE_INTEGER)
             )
           : sortAttributeValuesNaturally(values);
-      })(),
+      })() : [],
       categoryAttributes: (catAttrErr ? [] : catAttrData || [])
         .filter((ca: any) => ca.attribute_id === attr.id)
         .map((ca: any) => ({
@@ -291,6 +325,45 @@ export const fetchVariations = async (
   }
 };
 
+export const fetchVariationOptionsByAttributeId = async (
+  attributeId: string,
+): Promise<VariationOption[]> => {
+  let columns = ['id', 'attribute_id', 'value', 'sort_order', 'active'];
+  const fetchValues = (selectedColumns: string[]) => fetchAllVariationRows(
+    'attribute_values',
+    selectedColumns.join(', '),
+    ['id'],
+    (query) => query.eq('attribute_id', attributeId),
+  );
+  let result = await withCatalogAttributesLoadTimeout(
+    fetchValues(columns),
+    'erp:characteristic-options',
+  );
+  for (const optionalColumn of ['sort_order', 'active']) {
+    if (!result.error || !(
+      result.error.message?.toLocaleLowerCase().includes(optionalColumn) || result.error.code === '42703'
+    )) continue;
+    columns = columns.filter((column) => column !== optionalColumn);
+    result = await withCatalogAttributesLoadTimeout(
+      fetchValues(columns),
+      'erp:characteristic-options',
+    );
+  }
+  if (result.error) throw result.error;
+
+  const options = (result.data || []).map((value: any) => ({
+    id: String(value.id),
+    value: String(value.value),
+    sortOrder: Number.isInteger(value.sort_order) ? value.sort_order : undefined,
+    active: value.active !== false,
+  }));
+  return options.some((option) => option.sortOrder !== undefined)
+    ? options.sort((left, right) =>
+        (left.sortOrder ?? Number.MAX_SAFE_INTEGER) - (right.sortOrder ?? Number.MAX_SAFE_INTEGER)
+      )
+    : sortAttributeValuesNaturally(options);
+};
+
 export const subscribeToVariations = (callback: (variations: VariationType[]) => void) => {
   fetchVariations()
     .then(callback)
@@ -306,7 +379,7 @@ export const subscribeToVariations = (callback: (variations: VariationType[]) =>
 
 export const saveVariation = async (
   variation: VariationType,
-  options: { invalidate?: boolean } = {}
+  options: { invalidate?: boolean; invalidateVariationQueries?: boolean } = {}
 ): Promise<string> => {
   return persistVariationDefinition(variation, options);
 };
@@ -346,8 +419,10 @@ export const updateVariation = async (
 };
 
 
-const invalidateVariationsQueries = () => {
+/** Set invalidateVariationQueries=false only when the caller awaits its own list refresh. */
+const invalidateVariationsQueries = (options: { invalidateVariationQueries?: boolean } = {}) => {
   invalidateTechnicalFieldDefinitionsCache();
+  if (options.invalidateVariationQueries === false) return;
   void queryClient
     .invalidateQueries({ queryKey: ['variations'] })
     .catch((error) => console.error('[Variations] Falha ao atualizar o cache:', error));
@@ -356,6 +431,7 @@ const invalidateVariationsQueries = () => {
 export const saveCharacteristicOptions = async (
   attributeId: string,
   options: readonly VariationOption[],
+  invalidation: { invalidateVariationQueries?: boolean } = {},
 ): Promise<VariationOption[]> => {
   assertUniqueCharacteristicOptions(options);
 
@@ -395,13 +471,13 @@ export const saveCharacteristicOptions = async (
   ) {
     throw new Error('O banco não confirmou todas as opções. Atualize a lista antes de tentar novamente.');
   }
-  invalidateVariationsQueries();
+  invalidateVariationsQueries(invalidation);
   return savedOptions;
 };
 
 const persistVariationDefinition = async (
   variation: Partial<VariationType>,
-  options: { invalidate?: boolean } = {}
+  options: { invalidate?: boolean; invalidateVariationQueries?: boolean } = {}
 ): Promise<string> => {
   const definition: Record<string, unknown> = { ...variation };
   if (variation.dataType) definition.dataType = normalizeAttributeDataType(variation.dataType);
@@ -465,7 +541,7 @@ const persistVariationDefinition = async (
   if (typeof data !== 'string' || !data) {
     throw new Error('O banco não retornou o identificador da característica salva.');
   }
-  if (options.invalidate !== false) invalidateVariationsQueries();
+  if (options.invalidate !== false) invalidateVariationsQueries(options);
   return data;
 };
 

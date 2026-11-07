@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 
 export default function ProfileDropdown() {
-  const { user, profile, logout, isAdmin } = useAuth();
+  const { user, profile, logout, isAdmin, isAdministrator, isManager } = useAuth();
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const profileCloseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -77,7 +77,7 @@ export default function ProfileDropdown() {
             </p>
             <p className="text-xs text-slate-400 truncate">{user?.email}</p>
             <span className="inline-block mt-2 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
-              {isAdmin ? 'Administrador' : 'Colaborador'}
+              {isAdministrator ? 'Administrador' : isManager ? 'Gestor' : 'Colaborador'}
             </span>
           </div>
 

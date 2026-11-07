@@ -1,7 +1,7 @@
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { INVENTORY_TABLE_NAME } from './inventoryTypeRules';
 import { mapInventoryMoveFromDB } from './inventoryMapper';
-import { updateMoveInState } from './inventorySubscriptionState';
+import { notifyInventoryMoveMutation, updateMoveInState } from './inventorySubscriptionState';
 import { recalculateInventoryAuditBalance } from '@/pages/utils/inventoryAuditBalance';
 import {
   revertProductStockFromMove,
@@ -158,10 +158,14 @@ export const reverseInventoryMove = async (
       reversedAt: reversedAt,
     });
 
-    if (await recalculateInventoryAuditBalance(move.productId)) return;
+    if (await recalculateInventoryAuditBalance(move.productId)) {
+      notifyInventoryMoveMutation();
+      return;
+    }
 
     // Recompor o saldo de estoque do produto/variação (inverso da movimentação)
     await revertProductStockFromMove(move);
+    notifyInventoryMoveMutation();
   } catch (error) {
     console.error('Erro ao estornar lançamento de estoque: ', error);
     throw error;
@@ -283,10 +287,14 @@ export const unreverseInventoryMove = async (
       reversedAt: undefined,
     });
 
-    if (await recalculateInventoryAuditBalance(move.productId)) return;
+    if (await recalculateInventoryAuditBalance(move.productId)) {
+      notifyInventoryMoveMutation();
+      return;
+    }
 
     // Recompor o saldo de estoque do produto/variação (reativando a movimentação original)
     await reapplyProductStockFromMove(move);
+    notifyInventoryMoveMutation();
   } catch (error) {
     console.error('Erro ao desfazer estorno do lançamento de estoque: ', error);
     throw error;

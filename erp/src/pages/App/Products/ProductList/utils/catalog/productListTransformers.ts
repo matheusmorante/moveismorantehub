@@ -22,7 +22,6 @@ interface RawVariationItem {
   promotionId?: string;
   promotionName?: string;
   promotionDiscountPercent?: number;
-  promotionFinalPrice?: number;
   costPrice?: number;
   stock?: number;
   minStock?: number;
@@ -136,7 +135,6 @@ function buildVariationListRow(
     promotionId: variation.promotionId,
     promotionName: variation.promotionName,
     promotionDiscountPercent: variation.promotionDiscountPercent,
-    promotionFinalPrice: variation.promotionFinalPrice,
     costPrice:
       variation.syncCostPrice ||
       typeof variation.costPrice === 'undefined' ||

@@ -2511,6 +2511,44 @@ async function recoverNormalSale(db, command, reconcileFn) {
 // api/nfe/normal-sale/outboundTransmission.ts
 var import_node_crypto5 = require("node:crypto");
 
+// api/nfe/fiscalXmlAuditHelpers.ts
+var FiscalXmlAuditError = class extends Error {
+  mismatches;
+  constructor(mismatches) {
+    const detail = mismatches.map(({ field, expected, actual }) => `${field}: esperado ${expected}; encontrado ${actual}`).join("\n");
+    super(`O XML assinado diverge do snapshot fiscal confirmado:
+${detail}`);
+    this.name = "FiscalXmlAuditError";
+    this.mismatches = mismatches;
+  }
+};
+function normalizeTaxId(value) {
+  return normalizeFiscalIdentifier(value);
+}
+function addTextMismatch(mismatches, field, expected, actual, normalize3) {
+  if (expected === void 0) return;
+  const wanted = normalize3 ? normalize3(expected) : expected;
+  const found = normalize3 ? normalize3(actual) : actual;
+  if (wanted !== found)
+    mismatches.push({ field, expected: wanted, actual: found || "(ausente)" });
+}
+function addOptionalTextMismatch(mismatches, field, expected, actual) {
+  if (expected === void 0 || expected === "") {
+    if (actual !== "") mismatches.push({ field, expected: "(ausente)", actual });
+    return;
+  }
+  addTextMismatch(mismatches, field, expected, actual);
+}
+function addNumberMismatch(mismatches, field, expected, actualText, tolerance = 5e-3) {
+  const actual = actualText ? Number(actualText.replace(",", ".")) : NaN;
+  if (!Number.isFinite(actual) || Math.abs(actual - expected) > tolerance)
+    mismatches.push({
+      field,
+      expected,
+      actual: Number.isFinite(actual) ? actual : actualText || "(ausente)"
+    });
+}
+
 // erp/src/pages/utils/nfe/serviceFiscalComposition.ts
 var toCents = (value) => Math.round((Number(value) || 0) * 100);
 var normalizeLabel = (value) => String(value || "").replace(/\s+/g, " ").trim();
@@ -2977,6 +3015,137 @@ function resolveNormalSalePayments(params) {
   return { payments, payment, billingInstallments };
 }
 
+// api/nfe/fiscalCommercialSnapshotAudit.ts
+function objectValue(value) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+}
+function assertFiscalDocumentMatchesCommercialSnapshot(snapshot, document) {
+  const orderItems = snapshot.order.data.items;
+  if (!Array.isArray(orderItems)) throw new Error("Snapshot comercial sem itens do pedido.");
+  const composition = composeServiceFiscalValues(orderItems, document.model);
+  const paymentFeeComposition = composePaymentFeeVoutro({
+    snapshot,
+    model: document.model,
+    itemNetCents: composition.products.map((item) => item.vProdCents - item.vDescCents)
+  });
+  const mismatches = [];
+  if (composition.products.length !== document.items.length)
+    mismatches.push({ field: "itens.count", expected: composition.products.length, actual: document.items.length });
+  composition.products.forEach(({ item, vProdCents, vDescCents }, index) => {
+    const fiscalItem = document.items[index];
+    if (!fiscalItem) return;
+    const n = index + 1;
+    const code = String(item.code || item.sku || `ITEM-${n}`).slice(0, 60);
+    const description = String(item.description || "").trim();
+    const quantity = Number(item.quantity) || 1;
+    const gross = vProdCents / 100;
+    const freight2 = index === 0 ? Number(snapshot.order.data.shipping?.value || 0) : 0;
+    const otherExpenses = ((index === 0 ? composition.vOutroCents : 0) + (paymentFeeComposition.itemFeeCents[index] || 0)) / 100;
+    const fields2 = [
+      [`itens[${n}].codigo`, code, fiscalItem.product.code],
+      [`itens[${n}].descricao`, description, fiscalItem.product.description],
+      [`itens[${n}].quantidade`, quantity, fiscalItem.product.quantity, 1e-6],
+      [`itens[${n}].valorBruto`, gross, fiscalItem.product.gross],
+      [`itens[${n}].desconto`, vDescCents / 100, fiscalItem.product.discount],
+      [`itens[${n}].valorUnitario`, gross / quantity, fiscalItem.product.unitValue, 1e-6],
+      [`itens[${n}].frete`, freight2, fiscalItem.product.freight],
+      [`itens[${n}].outrasDespesas`, otherExpenses, fiscalItem.product.otherExpenses]
+    ];
+    for (const [field, expected, actual, tolerance = 5e-3] of fields2) {
+      const matches = typeof expected === "string" ? expected === actual : typeof actual === "number" && Math.abs(expected - actual) <= tolerance;
+      if (!matches) mismatches.push({ field, expected, actual });
+    }
+  });
+  const shipping = objectValue(snapshot.order.data.shipping);
+  const freight = Number(shipping.value || 0);
+  const expectedCommercialTotal = (composition.products.reduce((sum, item) => sum + item.vProdCents - item.vDescCents, 0) + composition.vOutroCents + paymentFeeComposition.totalFeeCents) / 100 + freight;
+  if (Math.abs(expectedCommercialTotal - document.totals.invoice) > 5e-3)
+    mismatches.push({
+      field: "total.valorPedidoCalculado",
+      expected: expectedCommercialTotal,
+      actual: document.totals.invoice
+    });
+  const expectedAdditionalInformation = joinFiscalAdditionalInformation(
+    composition.additionalInformation,
+    paymentFeeComposition.additionalInformation
+  ) || "";
+  if ((document.additionalInformation || "") !== expectedAdditionalInformation)
+    mismatches.push({
+      field: "informacoesAdicionais.infCpl",
+      expected: expectedAdditionalInformation || "(ausente)",
+      actual: document.additionalInformation || "(ausente)"
+    });
+  if (document.modelDecision?.status === "ready") {
+    const expectedPayments = resolveNormalSalePayments({
+      snapshot,
+      data: snapshot.order.data,
+      shipping: objectValue(snapshot.order.data.shipping),
+      modelDecision: document.modelDecision,
+      traces: [...document.decisions],
+      invoice: Math.round(document.totals.invoice * 100),
+      feeCentsByPayment: resolvePaymentFeeRows(snapshot.order.data).feeCentsByPayment
+    }).payments;
+    const paymentCount = Math.max(expectedPayments.length, document.payments.length);
+    for (let index = 0; index < paymentCount; index += 1) {
+      const expected = expectedPayments[index];
+      const actual = document.payments[index];
+      if (!expected || !actual) {
+        mismatches.push({
+          field: `pagamentos[${index + 1}]`,
+          expected: expected ? "presente" : "(ausente)",
+          actual: actual ? "presente" : "(ausente)"
+        });
+        continue;
+      }
+      if (expected.methodCode !== actual.methodCode)
+        mismatches.push({ field: `pagamentos[${index + 1}].meio`, expected: expected.methodCode, actual: actual.methodCode });
+      if (Math.abs(expected.amount - actual.amount) > 5e-3)
+        mismatches.push({ field: `pagamentos[${index + 1}].valor`, expected: expected.amount, actual: actual.amount });
+      if (expected.paymentIndicator !== actual.paymentIndicator)
+        mismatches.push({ field: `pagamentos[${index + 1}].indicador`, expected: expected.paymentIndicator || "", actual: actual.paymentIndicator || "" });
+      if ((expected.description || "") !== (actual.description || ""))
+        mismatches.push({ field: `pagamentos[${index + 1}].descri\xE7\xE3o`, expected: expected.description || "", actual: actual.description || "" });
+      if ((expected.paymentDate || "") !== (actual.paymentDate || ""))
+        mismatches.push({ field: `pagamentos[${index + 1}].data`, expected: expected.paymentDate || "", actual: actual.paymentDate || "" });
+      if (JSON.stringify(expected.card || null) !== JSON.stringify(actual.card || null))
+        mismatches.push({ field: `pagamentos[${index + 1}].cart\xE3o`, expected: "dados do pedido", actual: "dados divergentes" });
+    }
+  }
+  const orderCustomer = objectValue(snapshot.order.data.customerData);
+  const fiscalCustomer = objectValue(snapshot.fiscalInputs?.customer);
+  const selectedTaxId = normalizeTaxId(
+    String(
+      snapshot.emissionRequest.recipientTaxId ?? orderCustomer.cpfCnpj ?? fiscalCustomer.cpfCnpj ?? ""
+    )
+  );
+  const resolvedTaxId = normalizeTaxId(document.recipient.cpfCnpj);
+  if (selectedTaxId && selectedTaxId !== resolvedTaxId)
+    mismatches.push({ field: "cliente.CPF_CNPJ", expected: selectedTaxId, actual: resolvedTaxId || "(ausente)" });
+  const orderCustomerName = String(orderCustomer.fullName || orderCustomer.name || "").trim();
+  if (orderCustomerName && orderCustomerName !== document.recipient.name)
+    mismatches.push({ field: "cliente.nome", expected: orderCustomerName, actual: document.recipient.name });
+  const orderCustomerId = String(snapshot.order.data.customerId || orderCustomer.id || "");
+  const fiscalCustomerId = String(fiscalCustomer.id || "");
+  if (orderCustomerId && fiscalCustomerId && orderCustomerId !== fiscalCustomerId)
+    mismatches.push({ field: "cliente.id", expected: orderCustomerId, actual: fiscalCustomerId });
+  if (snapshot.emissionRequest.finalConsumer !== void 0 && document.operation.finalConsumer !== (snapshot.emissionRequest.finalConsumer ? "1" : "0"))
+    mismatches.push({
+      field: "operacao.consumidorFinal",
+      expected: snapshot.emissionRequest.finalConsumer ? "1" : "0",
+      actual: document.operation.finalConsumer
+    });
+  if (snapshot.emissionRequest.freightMode !== void 0 && document.operation.freightMode !== snapshot.emissionRequest.freightMode)
+    mismatches.push({
+      field: "transporte.modalidadeFrete",
+      expected: snapshot.emissionRequest.freightMode,
+      actual: document.operation.freightMode
+    });
+  const sourceTotal = Number(objectValue(snapshot.order.data.paymentsSummary).totalOrderValue);
+  if (Number.isFinite(sourceTotal) && Math.abs(sourceTotal - document.totals.invoice) > 5e-3)
+    mismatches.push({ field: "total.valorPedido", expected: sourceTotal, actual: document.totals.invoice });
+  if (mismatches.length) throw new FiscalXmlAuditError(mismatches);
+}
+
 // api/nfe/fiscalXmlAuditDom.ts
 var import_xmldom = require("@xmldom/xmldom");
 function createStrictXmlParser(parseErrors) {
@@ -3050,45 +3219,6 @@ function fiscalPreviewFingerprint(snapshot, document, identity, signedXml) {
 }
 
 // api/nfe/fiscalXmlAudit.ts
-var FiscalXmlAuditError = class extends Error {
-  mismatches;
-  constructor(mismatches) {
-    const detail = mismatches.map(({ field, expected, actual }) => `${field}: esperado ${expected}; encontrado ${actual}`).join("\n");
-    super(`O XML assinado diverge do snapshot fiscal confirmado:
-${detail}`);
-    this.name = "FiscalXmlAuditError";
-    this.mismatches = mismatches;
-  }
-};
-function normalizeTaxId(value) {
-  return normalizeFiscalIdentifier(value);
-}
-function objectValue(value) {
-  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
-}
-function addTextMismatch(mismatches, field, expected, actual, normalize3) {
-  if (expected === void 0) return;
-  const wanted = normalize3 ? normalize3(expected) : expected;
-  const found = normalize3 ? normalize3(actual) : actual;
-  if (wanted !== found)
-    mismatches.push({ field, expected: wanted, actual: found || "(ausente)" });
-}
-function addOptionalTextMismatch(mismatches, field, expected, actual) {
-  if (expected === void 0 || expected === "") {
-    if (actual !== "") mismatches.push({ field, expected: "(ausente)", actual });
-    return;
-  }
-  addTextMismatch(mismatches, field, expected, actual);
-}
-function addNumberMismatch(mismatches, field, expected, actualText, tolerance = 5e-3) {
-  const actual = actualText ? Number(actualText.replace(",", ".")) : NaN;
-  if (!Number.isFinite(actual) || Math.abs(actual - expected) > tolerance)
-    mismatches.push({
-      field,
-      expected,
-      actual: Number.isFinite(actual) ? actual : actualText || "(ausente)"
-    });
-}
 function compareAddress(mismatches, field, actual, expected) {
   if (!expected) {
     if (actual)
@@ -3265,132 +3395,6 @@ function compareItem(mismatches, item, actual, environment, model) {
         actual: "(presente)"
       });
   }
-}
-function assertFiscalDocumentMatchesCommercialSnapshot(snapshot, document) {
-  const orderItems = snapshot.order.data.items;
-  if (!Array.isArray(orderItems)) throw new Error("Snapshot comercial sem itens do pedido.");
-  const composition = composeServiceFiscalValues(orderItems, document.model);
-  const paymentFeeComposition = composePaymentFeeVoutro({
-    snapshot,
-    model: document.model,
-    itemNetCents: composition.products.map((item) => item.vProdCents - item.vDescCents)
-  });
-  const mismatches = [];
-  if (composition.products.length !== document.items.length)
-    mismatches.push({ field: "itens.count", expected: composition.products.length, actual: document.items.length });
-  composition.products.forEach(({ item, vProdCents, vDescCents }, index) => {
-    const fiscalItem = document.items[index];
-    if (!fiscalItem) return;
-    const n = index + 1;
-    const code = String(item.code || item.sku || `ITEM-${n}`).slice(0, 60);
-    const description = String(item.description || "").trim();
-    const quantity = Number(item.quantity) || 1;
-    const gross = vProdCents / 100;
-    const freight2 = index === 0 ? Number(snapshot.order.data.shipping?.value || 0) : 0;
-    const otherExpenses = ((index === 0 ? composition.vOutroCents : 0) + (paymentFeeComposition.itemFeeCents[index] || 0)) / 100;
-    const fields2 = [
-      [`itens[${n}].codigo`, code, fiscalItem.product.code],
-      [`itens[${n}].descricao`, description, fiscalItem.product.description],
-      [`itens[${n}].quantidade`, quantity, fiscalItem.product.quantity, 1e-6],
-      [`itens[${n}].valorBruto`, gross, fiscalItem.product.gross],
-      [`itens[${n}].desconto`, vDescCents / 100, fiscalItem.product.discount],
-      [`itens[${n}].valorUnitario`, gross / quantity, fiscalItem.product.unitValue, 1e-6],
-      [`itens[${n}].frete`, freight2, fiscalItem.product.freight],
-      [`itens[${n}].outrasDespesas`, otherExpenses, fiscalItem.product.otherExpenses]
-    ];
-    for (const [field, expected, actual, tolerance = 5e-3] of fields2) {
-      const matches = typeof expected === "string" ? expected === actual : typeof actual === "number" && Math.abs(expected - actual) <= tolerance;
-      if (!matches) mismatches.push({ field, expected, actual });
-    }
-  });
-  const shipping = objectValue(snapshot.order.data.shipping);
-  const freight = Number(shipping.value || 0);
-  const expectedCommercialTotal = (composition.products.reduce((sum, item) => sum + item.vProdCents - item.vDescCents, 0) + composition.vOutroCents + paymentFeeComposition.totalFeeCents) / 100 + freight;
-  if (Math.abs(expectedCommercialTotal - document.totals.invoice) > 5e-3)
-    mismatches.push({
-      field: "total.valorPedidoCalculado",
-      expected: expectedCommercialTotal,
-      actual: document.totals.invoice
-    });
-  const expectedAdditionalInformation = joinFiscalAdditionalInformation(
-    composition.additionalInformation,
-    paymentFeeComposition.additionalInformation
-  ) || "";
-  if ((document.additionalInformation || "") !== expectedAdditionalInformation)
-    mismatches.push({
-      field: "informacoesAdicionais.infCpl",
-      expected: expectedAdditionalInformation || "(ausente)",
-      actual: document.additionalInformation || "(ausente)"
-    });
-  if (document.modelDecision?.status === "ready") {
-    const expectedPayments = resolveNormalSalePayments({
-      snapshot,
-      data: snapshot.order.data,
-      shipping: objectValue(snapshot.order.data.shipping),
-      modelDecision: document.modelDecision,
-      traces: [...document.decisions],
-      invoice: Math.round(document.totals.invoice * 100),
-      feeCentsByPayment: resolvePaymentFeeRows(snapshot.order.data).feeCentsByPayment
-    }).payments;
-    const paymentCount = Math.max(expectedPayments.length, document.payments.length);
-    for (let index = 0; index < paymentCount; index += 1) {
-      const expected = expectedPayments[index];
-      const actual = document.payments[index];
-      if (!expected || !actual) {
-        mismatches.push({
-          field: `pagamentos[${index + 1}]`,
-          expected: expected ? "presente" : "(ausente)",
-          actual: actual ? "presente" : "(ausente)"
-        });
-        continue;
-      }
-      if (expected.methodCode !== actual.methodCode)
-        mismatches.push({ field: `pagamentos[${index + 1}].meio`, expected: expected.methodCode, actual: actual.methodCode });
-      if (Math.abs(expected.amount - actual.amount) > 5e-3)
-        mismatches.push({ field: `pagamentos[${index + 1}].valor`, expected: expected.amount, actual: actual.amount });
-      if (expected.paymentIndicator !== actual.paymentIndicator)
-        mismatches.push({ field: `pagamentos[${index + 1}].indicador`, expected: expected.paymentIndicator || "", actual: actual.paymentIndicator || "" });
-      if ((expected.description || "") !== (actual.description || ""))
-        mismatches.push({ field: `pagamentos[${index + 1}].descri\xE7\xE3o`, expected: expected.description || "", actual: actual.description || "" });
-      if ((expected.paymentDate || "") !== (actual.paymentDate || ""))
-        mismatches.push({ field: `pagamentos[${index + 1}].data`, expected: expected.paymentDate || "", actual: actual.paymentDate || "" });
-      if (JSON.stringify(expected.card || null) !== JSON.stringify(actual.card || null))
-        mismatches.push({ field: `pagamentos[${index + 1}].cart\xE3o`, expected: "dados do pedido", actual: "dados divergentes" });
-    }
-  }
-  const orderCustomer = objectValue(snapshot.order.data.customerData);
-  const fiscalCustomer = objectValue(snapshot.fiscalInputs?.customer);
-  const selectedTaxId = normalizeTaxId(
-    String(
-      snapshot.emissionRequest.recipientTaxId ?? orderCustomer.cpfCnpj ?? fiscalCustomer.cpfCnpj ?? ""
-    )
-  );
-  const resolvedTaxId = normalizeTaxId(document.recipient.cpfCnpj);
-  if (selectedTaxId && selectedTaxId !== resolvedTaxId)
-    mismatches.push({ field: "cliente.CPF_CNPJ", expected: selectedTaxId, actual: resolvedTaxId || "(ausente)" });
-  const orderCustomerName = String(orderCustomer.fullName || orderCustomer.name || "").trim();
-  if (orderCustomerName && orderCustomerName !== document.recipient.name)
-    mismatches.push({ field: "cliente.nome", expected: orderCustomerName, actual: document.recipient.name });
-  const orderCustomerId = String(snapshot.order.data.customerId || orderCustomer.id || "");
-  const fiscalCustomerId = String(fiscalCustomer.id || "");
-  if (orderCustomerId && fiscalCustomerId && orderCustomerId !== fiscalCustomerId)
-    mismatches.push({ field: "cliente.id", expected: orderCustomerId, actual: fiscalCustomerId });
-  if (snapshot.emissionRequest.finalConsumer !== void 0 && document.operation.finalConsumer !== (snapshot.emissionRequest.finalConsumer ? "1" : "0"))
-    mismatches.push({
-      field: "operacao.consumidorFinal",
-      expected: snapshot.emissionRequest.finalConsumer ? "1" : "0",
-      actual: document.operation.finalConsumer
-    });
-  if (snapshot.emissionRequest.freightMode !== void 0 && document.operation.freightMode !== snapshot.emissionRequest.freightMode)
-    mismatches.push({
-      field: "transporte.modalidadeFrete",
-      expected: snapshot.emissionRequest.freightMode,
-      actual: document.operation.freightMode
-    });
-  const sourceTotal = Number(objectValue(snapshot.order.data.paymentsSummary).totalOrderValue);
-  if (Number.isFinite(sourceTotal) && Math.abs(sourceTotal - document.totals.invoice) > 5e-3)
-    mismatches.push({ field: "total.valorPedido", expected: sourceTotal, actual: document.totals.invoice });
-  if (mismatches.length) throw new FiscalXmlAuditError(mismatches);
 }
 function assertSignedFiscalXmlMatchesSnapshot(snapshot, document, xml, identity, expectedCertificatePem) {
   assertFiscalDocumentMatchesCommercialSnapshot(snapshot, document);
@@ -6359,6 +6363,30 @@ function freshNfceEmissionRequired(doc, cStat) {
   );
 }
 
+// api/nfe/hml-technical/snapshotReservationRequest.ts
+function buildHmlSnapshotReservationRequest(command, document, technicalFixture, sequence, effectiveRecipientTaxId) {
+  const snapshotRpcName = command.requestedNumber === void 0 ? technicalFixture ? "prepare_nfe_fiscal_snapshot" : "prepare_nfe_fiscal_snapshot_with_context" : technicalFixture ? "prepare_numbered_nfe_fiscal_snapshot" : "prepare_numbered_nfe_fiscal_snapshot_with_context";
+  const snapshotArgs = {
+    p_order_id: command.orderId,
+    p_emission_request_id: command.emissionRequestId,
+    p_modelo: document.model,
+    p_ambiente: 2,
+    p_serie: sequence.series,
+    p_numero_minimo: sequence.minimumNumber,
+    p_item_csosn_overrides: command.itemCsosnOverrides || {},
+    p_item_fiscal_selections: command.itemFiscalSelections || {},
+    ...technicalFixture ? {} : { p_recipient_tax_id: normalizeRecipientTaxId(effectiveRecipientTaxId) },
+    ...technicalFixture ? {} : {
+      p_final_consumer: command.finalConsumer ?? (document.modelDecision?.status === "ready" && document.modelDecision.finalConsumer),
+      p_delivery_by_issuer: command.deliveryByIssuer ?? false,
+      p_card_not_integrated: command.cardNotIntegrated ?? false,
+      p_model_decision: document.modelDecision
+    },
+    ...command.requestedNumber === void 0 ? {} : { p_requested_number: command.requestedNumber }
+  };
+  return { snapshotRpcName, snapshotArgs };
+}
+
 // api/nfe/hml-technical/snapshotClassification.ts
 function snapshotReasonOf(error) {
   const message = typeof error === "object" && error !== null && "message" in error && typeof error.message === "string" ? error.message.trim() : "";
@@ -7318,25 +7346,13 @@ async function emitHmlTechnical(db, command, candidate, appSettings) {
       `A numera\xE7\xE3o manual precisa ser igual ou superior ao in\xEDcio configurado (${sequence.minimumNumber}).`,
       { numberReserved: false, sefazContacted: false }
     );
-  const snapshotRpcName = command.requestedNumber === void 0 ? technicalFixture ? "prepare_nfe_fiscal_snapshot" : "prepare_nfe_fiscal_snapshot_with_context" : technicalFixture ? "prepare_numbered_nfe_fiscal_snapshot" : "prepare_numbered_nfe_fiscal_snapshot_with_context";
-  const snapshotArgs = {
-    p_order_id: command.orderId,
-    p_emission_request_id: command.emissionRequestId,
-    p_modelo: preflight.document.model,
-    p_ambiente: 2,
-    p_serie: sequence.series,
-    p_numero_minimo: sequence.minimumNumber,
-    p_item_csosn_overrides: command.itemCsosnOverrides || {},
-    p_item_fiscal_selections: command.itemFiscalSelections || {},
-    ...technicalFixture ? {} : { p_recipient_tax_id: normalizeRecipientTaxId(effectiveRecipientTaxId) },
-    ...technicalFixture ? {} : {
-      p_final_consumer: command.finalConsumer ?? (preflight.document.modelDecision?.status === "ready" && preflight.document.modelDecision.finalConsumer),
-      p_delivery_by_issuer: command.deliveryByIssuer ?? false,
-      p_card_not_integrated: command.cardNotIntegrated ?? false,
-      p_model_decision: preflight.document.modelDecision
-    },
-    ...command.requestedNumber === void 0 ? {} : { p_requested_number: command.requestedNumber }
-  };
+  const { snapshotRpcName, snapshotArgs } = buildHmlSnapshotReservationRequest(
+    command,
+    preflight.document,
+    technicalFixture,
+    sequence,
+    effectiveRecipientTaxId
+  );
   const { data: reservationValue, error: reservationError } = await db.rpc(
     snapshotRpcName,
     snapshotArgs

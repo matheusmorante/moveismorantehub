@@ -51,7 +51,7 @@ export const ProductSearchItem = ({
         <span className="text-xs sm:text-sm font-black text-emerald-600 dark:text-emerald-400">
           {formatCurrency(price)}
         </span>
-        {priceType === 'unit' && pricing.promotionId ? <span className="mt-0.5 block max-w-36 truncate text-[9px] font-bold text-blue-600 dark:text-blue-400" title={pricing.promotionName || 'Promoção ativa'}>{pricing.promotionName || `${pricing.promotionDiscountPercent}% de desconto`}</span> : null}
+        {priceType === 'unit' && pricing.promotionId ? <span className="mt-0.5 block max-w-36 truncate text-[9px] font-bold text-blue-600 dark:text-blue-400" title={`Desconto informativo, sujeito às condições da campanha${pricing.promotionName ? ` ${pricing.promotionName}` : ''}; não aplicado automaticamente.`}>{`Campanha: ${pricing.promotionName || 'desconto condicional'} · ${pricing.promotionDiscountPercent || 0}%`}</span> : null}
       </div>
     </div>
   );

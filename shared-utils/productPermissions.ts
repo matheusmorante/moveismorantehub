@@ -96,9 +96,9 @@ export const PRODUCT_PERMISSION_AREA: ProductPermissionArea = {
     },
     {
       id: 'managePromotions',
-      submodule: 'Promoções',
+      submodule: 'Campanhas',
       capability: 'edit',
-      label: 'Gerenciar promoções',
+      label: 'Gerenciar campanhas',
       description: 'Criar campanhas e programar descontos temporários dos produtos.',
       icon: 'bi-megaphone-fill',
       defaultRoles: ['manager'],

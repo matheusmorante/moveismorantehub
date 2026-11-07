@@ -2,15 +2,12 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Alert } from 'react-native';
 import { MobilePurchaseItem } from '../mobilePurchaseService';
 import type { SearchableProduct } from '../../inventory/components/InventoryProductSearchModal';
+import {
+  fetchMobilePurchaseSuppliersByIds,
+  type MobilePurchaseSupplier,
+} from '../../../products/services/mobileSupplierService';
 
-export type Supplier = {
-  id: string;
-  name: string;
-  full_name?: string;
-  nickname?: string;
-  social_name?: string;
-  stock_origins?: string[] | null;
-};
+export type Supplier = MobilePurchaseSupplier;
 
 export const parseNumber = (value: string) =>
   Number(value.replace(',', '.').replace(/[^\d.-]/g, '')) || 0;
@@ -77,6 +74,28 @@ export function useMobilePurchaseItems({
   const [productPickerOpen, setProductPickerOpen] = useState(false);
   const [productPickerIndex, setProductPickerIndex] = useState<number | null>(null);
 
+  const resolveProductSupplierName = useCallback(async (
+    product: SearchableProduct,
+    productSupplierId?: string,
+  ) => {
+    const loadedSupplier = suppliers.find((supplier) => supplier.id === productSupplierId);
+    if (loadedSupplier?.name?.trim()) return loadedSupplier.name;
+
+    const productName = product.assignedSupplier?.trim() || '';
+    const normalizedProductName = productName.toLocaleLowerCase('pt-BR');
+    const hasSpecificProductName = productName &&
+      normalizedProductName !== 'sem fornecedor' &&
+      normalizedProductName !== 'fábrica não informada';
+    if (hasSpecificProductName || !productSupplierId) {
+      return productName;
+    }
+
+    const result = await fetchMobilePurchaseSuppliersByIds([productSupplierId]);
+    return result.ok
+      ? result.suppliers.find((supplier) => supplier.id === productSupplierId)?.name || productName
+      : productName;
+  }, [suppliers]);
+
   useEffect(() => {
     setItems((previous) =>
       previous.map((item) => {
@@ -105,7 +124,7 @@ export function useMobilePurchaseItems({
     setProductPickerOpen(true);
   }, []);
 
-  const addProduct = useCallback((product: SearchableProduct) => {
+  const addProduct = useCallback(async (product: SearchableProduct) => {
     const supplierIds = [...new Set([
       ...(product.supplier_ids || []),
       product.main_supplier_id,
@@ -113,21 +132,23 @@ export function useMobilePurchaseItems({
     ].filter(Boolean).map(String))];
     const productSupplierId = product.main_supplier_id || product.supplier_id;
     if (supplierId && !supplierIds.includes(supplierId) && productSupplierId !== supplierId) {
-      const otherSupplier = suppliers.find((supplier) => supplier.id === productSupplierId);
+      const otherSupplierName = await resolveProductSupplierName(product, productSupplierId);
       Alert.alert(
         'Produto de outro fornecedor',
-        `Este produto pertence ao fornecedor "${otherSupplier?.name || product.assignedSupplier || 'outro fornecedor'}". Remova os itens para trocar o fornecedor.`
+        `Este produto pertence ao fornecedor "${otherSupplierName || 'outro fornecedor'}". Remova os itens para trocar o fornecedor.`
       );
       return;
     }
     const existing = items.findIndex(
       (item) => item.variationId === product.variation_id && item.productId === product.id
     );
+    const resolvedSupplierName = !supplierId && productSupplierId
+      ? await resolveProductSupplierName(product, productSupplierId)
+      : '';
     onItemsChange?.();
     if (!supplierId && productSupplierId) {
-      const matchedSupplier = suppliers.find((supplier) => supplier.id === productSupplierId);
       setSupplierId(productSupplierId);
-      setSupplierName(matchedSupplier?.name || product.assignedSupplier || '');
+      setSupplierName(resolvedSupplierName);
     }
     if (existing >= 0) {
       setItems((previous) =>
@@ -151,7 +172,7 @@ export function useMobilePurchaseItems({
         sku: product.sku || undefined,
       },
     ]);
-  }, [supplierId, suppliers, items, onItemsChange, setSupplierId, setSupplierName]);
+  }, [supplierId, items, onItemsChange, setSupplierId, setSupplierName, resolveProductSupplierName]);
 
   const addItemRow = useCallback(() => {
     if (!supplierId) return;
@@ -174,7 +195,7 @@ export function useMobilePurchaseItems({
     setProductPickerOpen(true);
   }, [items.length, onItemsChange, supplierId]);
 
-  const handleProductSelect = useCallback((product: SearchableProduct) => {
+  const handleProductSelect = useCallback(async (product: SearchableProduct) => {
     const supplierIds = [...new Set([
       ...(product.supplier_ids || []),
       product.main_supplier_id,
@@ -182,22 +203,23 @@ export function useMobilePurchaseItems({
     ].filter(Boolean).map(String))];
     const productSupplierId = product.main_supplier_id || product.supplier_id;
     if (supplierId && !supplierIds.includes(supplierId) && productSupplierId !== supplierId) {
-      const otherSupplier = suppliers.find((supplier) => supplier.id === productSupplierId);
+      const otherSupplierName = await resolveProductSupplierName(product, productSupplierId);
       Alert.alert(
         'Produto de outro fornecedor',
-        `Este produto pertence ao fornecedor "${otherSupplier?.name || product.assignedSupplier || 'outro fornecedor'}". Remova os itens para trocar o fornecedor.`
+        `Este produto pertence ao fornecedor "${otherSupplierName || 'outro fornecedor'}". Remova os itens para trocar o fornecedor.`
       );
       return;
     }
 
-    onItemsChange?.();
-    if (!supplierId && productSupplierId) {
-      const matchedSupplier = suppliers.find((supplier) => supplier.id === productSupplierId);
-      setSupplierId(productSupplierId);
-      setSupplierName(matchedSupplier?.name || product.assignedSupplier || '');
-    }
-
     if (productPickerIndex !== null && items[productPickerIndex] !== undefined) {
+      const resolvedSupplierName = !supplierId && productSupplierId
+        ? await resolveProductSupplierName(product, productSupplierId)
+        : '';
+      onItemsChange?.();
+      if (!supplierId && productSupplierId) {
+        setSupplierId(productSupplierId);
+        setSupplierName(resolvedSupplierName);
+      }
       const currentItem = items[productPickerIndex];
       const baseCost = Number(currentItem.baseCost || 0);
       const unitCost = calculateUnitCost(
@@ -224,16 +246,16 @@ export function useMobilePurchaseItems({
         })
       );
     } else {
-      addProduct(product);
+      await addProduct(product);
     }
     setProductPickerIndex(null);
     setProductPickerOpen(false);
   }, [
     supplierId,
-    suppliers,
     onItemsChange,
     setSupplierId,
     setSupplierName,
+    resolveProductSupplierName,
     productPickerIndex,
     items,
     discountPercent,

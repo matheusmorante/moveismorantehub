@@ -101,16 +101,10 @@ export const useTechnicalFieldActions = ({
     addTechnicalFieldNames([field.name]);
   };
 
-  const handleRemoveManualField = (fieldName: string) => {
-    setManualFieldNames((prev) => prev.filter((name) => name !== fieldName));
-    handleTechnicalValueChange(fieldName, undefined);
-  };
-
   return {
     handleFieldChange,
     handleTechnicalValueChange,
     handleAddGroup,
     handleAddManualField,
-    handleRemoveManualField,
   };
 };

@@ -15,6 +15,12 @@ export const mobileNavMenuItems: any[] = [
         label: 'Cadastros',
       },
       {
+        to: '/products/campaigns',
+        icon: 'bi-megaphone-fill',
+        iconColor: 'text-blue-500',
+        label: 'Campanhas',
+      },
+      {
         to: '/products/characteristics',
         icon: 'bi-sliders2',
         iconColor: 'text-blue-500',
@@ -254,16 +260,22 @@ export const mobileNavMenuItems: any[] = [
         label: 'Gerador de Prompt para Posts',
       },
       {
+        to: '/marketing/site-elements',
+        icon: 'bi-images',
+        iconColor: 'text-pink-500',
+        label: 'Elementos do site',
+      },
+      {
+        to: '/marketing/image-templates',
+        icon: 'bi-image',
+        iconColor: 'text-pink-500',
+        label: 'Modelos de imagem',
+      },
+      {
         to: '/products/meta-catalog',
         icon: 'bi-meta',
         iconColor: 'text-blue-600',
         label: 'Catálogo Meta',
-      },
-      {
-        to: '/marketing/channel-catalog',
-        icon: 'bi-grid-3x3-gap',
-        iconColor: 'text-indigo-500',
-        label: 'Catálogo de canais',
       },
       {
         to: '/registrations/whatsapp-marketplace',

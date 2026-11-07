@@ -9,8 +9,12 @@ import {
 import { isFactoryDefaultCharacteristicName } from '../../../../../../shared-utils/characteristicFormRules';
 
 export const VARIATIONS_QUERY_KEY = ['variations'] as const;
+export const VARIATION_SUMMARIES_QUERY_KEY = [...VARIATIONS_QUERY_KEY, 'summary'] as const;
 
-export const useVariations = () => {
+const useVariationCollection = (
+  queryKey: readonly string[],
+  includeOptionValues: boolean,
+) => {
   const queryClient = useQueryClient();
 
   const {
@@ -18,8 +22,12 @@ export const useVariations = () => {
     isLoading: loading,
     error,
   } = useQuery({
-    queryKey: VARIATIONS_QUERY_KEY,
-    queryFn: () => fetchVariations({ throwOnError: true, includeCategoryApplications: false }),
+    queryKey,
+    queryFn: () => fetchVariations({
+      throwOnError: true,
+      includeCategoryApplications: false,
+      includeOptionValues,
+    }),
     staleTime: 5 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
   });
@@ -55,3 +63,9 @@ export const useVariations = () => {
 
   return { variations, loading, error, handleDelete, refresh };
 };
+
+export const useVariations = () =>
+  useVariationCollection(VARIATIONS_QUERY_KEY, true);
+
+export const useVariationSummaries = () =>
+  useVariationCollection(VARIATION_SUMMARIES_QUERY_KEY, false);

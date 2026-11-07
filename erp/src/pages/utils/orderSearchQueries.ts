@@ -136,7 +136,14 @@ export const getOrdersByCustomerInfoPage = async (
   fullName: string,
   phone?: string,
   email?: string,
-  options: { page?: number; pageSize?: number; signal?: AbortSignal; partialName?: boolean } = {},
+  options: {
+    page?: number;
+    pageSize?: number;
+    signal?: AbortSignal;
+    partialName?: boolean;
+    skipLinkedReturnMovementEnrichment?: boolean;
+    skipPeopleOriginEnrichment?: boolean;
+  } = {},
 ): Promise<{ orders: Order[]; total: number; totalAmount: number }> => {
   const name = String(fullName || '').trim();
   const customerPhone = String(phone || '').trim();
@@ -152,7 +159,12 @@ export const getOrdersByCustomerInfoPage = async (
   };
   const page = options.page || 1;
   const pageSize = options.pageSize || 15;
-  const requestOptions = { throwOnError: true, signal: options.signal };
+  const requestOptions = {
+    throwOnError: true,
+    signal: options.signal,
+    skipLinkedReturnMovementEnrichment: options.skipLinkedReturnMovementEnrichment,
+    skipPeopleOriginEnrichment: options.skipPeopleOriginEnrichment,
+  };
   if (options.partialName) {
     return fetchOrdersPage(page, pageSize, { ...common, customerName: name }, requestOptions);
   }

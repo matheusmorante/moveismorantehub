@@ -89,6 +89,8 @@ const moduleViewChildren: Record<string, string[]> = {
   ],
   viewMarketing: [
     'viewMarketingPosts',
+    'manageSiteElements',
+    'manageCatalogImageTemplates',
     'viewChannelCatalog',
     'viewMetaCatalog',
     'viewWhatsAppMarketplace',

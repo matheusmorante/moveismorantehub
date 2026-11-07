@@ -18,6 +18,7 @@ import { NORMAL_SALE_RULESET_VERSION } from './normal-sale/constants';
 import { authorizeFiscalOperator } from './fiscalAuthorization';
 import type { FiscalDatabase } from './fiscalDatabaseTypes';
 import { validateNfeAgainstOfficialSchema } from './schemaValidator';
+import { validateStoredRetryDocumentXml } from './normal-sale/retryXmlValidation';
 import {
   emitHmlTechnical,
   recoverHmlTechnical,
@@ -28,7 +29,6 @@ import { embeddedNfeXml } from './xmlEnvelope';
 import {
   appendResponsibleTechnician,
   getResponsibleTechnicianConfig,
-  hasResponsibleTechnicianCsrt,
 } from './responsibleTechnician';
 import {
   parseFiscalEmissionCommand,
@@ -387,33 +387,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           .status(404)
           .json({ success: false, error: 'Documento original não encontrado para retransmissão.' });
       const retryXml = typeof retryDoc.xml_nfe === 'string' ? retryDoc.xml_nfe : '';
-      if (String(retryDoc.modelo) === '55' && !hasResponsibleTechnicianCsrt(retryXml)) {
-        return res.status(409).json({
-          success: false,
-          ...retryResponseMetadata,
-          error:
-            'XML original sem CSRT exigido pela SEFA/PR; a retransmissão imutável foi bloqueada.',
-        });
-      }
-      const retryEnvelopeError = validateOrdinaryOutboundEnvelope({
+      const retryXmlError = await validateStoredRetryDocumentXml({
         xml: retryXml,
         accessKey: String(retryDoc.chave_acesso || ''),
-        model: String(retryDoc.modelo) as '55' | '65',
-        environment: Number(retryDoc.ambiente) as 1 | 2,
+        model: String(retryDoc.modelo),
+        environment: Number(retryDoc.ambiente),
         nfeNumber: Number(retryDoc.numero_nfe),
         series: String(retryDoc.serie || ''),
       });
-      if (retryEnvelopeError) {
+      if (retryXmlError) {
         return res.status(409).json({
           success: false,
           ...retryResponseMetadata,
-          error:
-            'XML persistido não confere com a chave e a numeração originais; retransmissão bloqueada.',
+          error: retryXmlError,
         });
       }
-      // Stored 217 retries keep the same key and XML, but must pass the local
-      // schema gate again before the document is reactivated.
-      await validateNfeAgainstOfficialSchema(retryXml);
 
       const pfxBase64 = process.env.NFE_CERTIFICATE_BASE64;
       if (!pfxBase64)

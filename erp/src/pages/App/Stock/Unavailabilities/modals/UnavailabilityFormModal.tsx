@@ -64,6 +64,7 @@ function UnavailabilityFormSession({ isOpen, onClose, onSuccess, operationGuard 
             </span>
             <ProductAutocomplete
               variationsOnly
+              includeTrashEligibility={false}
               isSelected={!!state.selectedVariation}
               onSelect={(prod, vari) => {
                 actions.setSelectedProduct(prod);
