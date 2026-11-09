@@ -13,6 +13,7 @@
 
 import { test, expect } from '@playwright/test';
 import { Client } from 'pg';
+import { assertOrderRowsNormalized } from './assertOrderRowsNormalized';
 import { registerOrderReturnRelationshipCase } from './orderReturnRelationshipCase';
 
 const PG_CONNECTION = 'postgresql://postgres:Morantenho%4012345@db.hkoxhourxwlddgsfdgws.supabase.co:5432/postgres';
@@ -190,31 +191,7 @@ test.describe('Auditoria E2E via Browser - Normalização de Pedidos Morante Hub
         expect(orderRow.status).toBe('scheduled');
         expect(orderRow.scheduled_date ? orderRow.scheduled_date.toISOString().slice(0, 10) : '').toBe('2026-09-30');
 
-        // Asserções no Banco - order_items normalizados
-        const itemRows = (await pgClient.query('SELECT * FROM public.order_items WHERE order_id = $1 ORDER BY item_index ASC', [createdId])).rows;
-        expect(itemRows).toHaveLength(2);
-        expect(itemRows[0].description).toBe('Mesa de Jantar 6 Lugares Madeira Nobre');
-        expect(Number(itemRows[0].quantity)).toBe(1);
-        expect(Number(itemRows[0].unit_price)).toBe(2500.00);
-        expect(Number(itemRows[0].unit_discount)).toBe(200.00);
-
-        expect(itemRows[1].description).toBe('Cadeira Estofada Bege Linho');
-        expect(Number(itemRows[1].quantity)).toBe(6);
-        expect(Number(itemRows[1].unit_price)).toBe(350.00);
-
-        // Asserções no Banco - order_payments normalizados
-        const payRows = (await pgClient.query('SELECT * FROM public.order_payments WHERE order_id = $1 ORDER BY payment_index ASC', [createdId])).rows;
-        expect(payRows).toHaveLength(2);
-        expect(payRows[0].payment_method).toBe('Pix');
-        expect(Number(payRows[0].amount)).toBe(1550.00);
-        expect(payRows[1].payment_method).toBe('Cartão de Crédito 3x');
-        expect(Number(payRows[1].amount)).toBe(3000.00);
-
-        // Batimento Matemático
-        const sumItems = itemRows.reduce((acc, r) => acc + (Number(r.quantity) * Number(r.unit_price)) - (Number(r.unit_discount) || 0), 0);
-        const sumPayments = payRows.reduce((acc, r) => acc + Number(r.amount), 0);
-        expect(sumItems + 150.00).toBe(Number(orderRow.total_amount));
-        expect(sumPayments).toBe(Number(orderRow.total_amount));
+        await assertOrderRowsNormalized(pgClient, createdId, orderRow.total_amount, 150.00);
         console.log('✅ [E2E UI - Cenário 1] PASS - Criação via UI persistiu tabelas normalizadas com fidelidade total.');
     });
 

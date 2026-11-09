@@ -9,7 +9,13 @@ import { fetchInboundInvoicesPage } from '@/pages/utils/inboundNfe/inboundInvoic
 vi.mock('@/context/AuthContext', () => ({ useAuth: () => ({ profile: null }) }));
 vi.mock('@/pages/utils/permissionService', () => ({ canPerform: () => false }));
 vi.mock('@/pages/utils/accessRoles', () => ({ canPrintProductIdentificationLabels: () => false, getProfileRoles: () => [] }));
-vi.mock('@/pages/utils/inboundNfe/inboundInvoicesService', () => ({ fetchInboundInvoicesPage: vi.fn() }));
+vi.mock('@/pages/utils/inboundNfe/inboundInvoicesService', () => ({
+  fetchInboundInvoicesPage: vi.fn(),
+  subscribeToInboundInvoiceListRefresh: (onRefresh: () => void, onFirstSubscribed?: () => void) => {
+    (onFirstSubscribed || onRefresh)();
+    return vi.fn();
+  },
+}));
 vi.mock('../components/InboundInvoicesHeader', () => ({
   InboundInvoicesHeader: ({ onSearchChange }: { onSearchChange: (value: string) => void }) =>
     <input aria-label="Buscar entrada" onChange={(event) => onSearchChange(event.target.value)} />,
@@ -36,6 +42,7 @@ describe('InboundInvoicesPage pagination', () => {
     vi.mocked(fetchInboundInvoicesPage).mockResolvedValue(response('initial'));
     render(<MemoryRouter><InboundInvoicesPage /></MemoryRouter>);
     await screen.findByText('initial');
+    expect(fetchInboundInvoicesPage).toHaveBeenCalledTimes(1);
     expect(screen.queryByRole('combobox', { name: 'Registros por página' })).toBeNull();
     expect(screen.getByText('15 por página')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Página 2' }));

@@ -22,6 +22,7 @@ import { getAssemblyTasks } from '../../assemblies/assemblyTasks';
 import type { AssemblyHandlingOption } from '../../../utils/aiSummaryHelper';
 import { addDaysToLocalDateString, getLocalDateString } from '../../../utils/orderUtils';
 import { offlineStorageService } from '../../../services/offline/offlineStorageService';
+import { connectivityService } from '../../../services/offline/connectivityService';
 import { supabase } from '../../../services/supabaseClient';
 import { useScopedOrderSchedule } from '../hooks/useScopedOrderSchedule';
 import { withAbortTimeout } from '../../../../../shared-utils/withAbortTimeout';
@@ -58,31 +59,60 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
 
   useEffect(() => {
     let active = true;
-    const loadHandlingOptions = async () => {
+    let requestController: AbortController | undefined;
+    let stopConnection: (() => void) | undefined;
+
+    const loadRemoteHandlingOptions = async () => {
+      if (!active || !connectivityService.connected) return;
+
+      requestController?.abort();
+      const controller = new AbortController();
+      requestController = controller;
+
+      try {
+        const { data, error } = await withAbortTimeout(
+          supabase
+            .from('settings')
+            .select('delivery:data->deliveryHandlingOptions,pickup:data->pickupHandlingOptions')
+            .eq('id', 'app')
+            .limit(1),
+          'operacoes:opcoes-manuseio',
+          15_000,
+          controller.signal
+        );
+        if (!active || controller.signal.aborted || error || !data?.length) return;
+
+        const settings = (data[0] || {}) as { delivery?: unknown; pickup?: unknown };
+        const deliveryOptions = settings.delivery;
+        const pickupOptions = settings.pickup;
+        if ((deliveryOptions != null && !Array.isArray(deliveryOptions)) || (pickupOptions != null && !Array.isArray(pickupOptions))) return;
+
+        const options = [...(deliveryOptions || []), ...(pickupOptions || [])] as AssemblyHandlingOption[];
+        setHandlingOptions(options);
+        void offlineStorageService.cacheWorkingSet('order_handling_options_v1', options).catch(() => {});
+      } catch {
+        // Mantém as últimas opções conhecidas até uma nova tentativa ou recarga manual.
+      }
+    };
+
+    const loadCachedHandlingOptions = async () => {
       const cached = await offlineStorageService
         .getWorkingSet<AssemblyHandlingOption[]>('order_handling_options_v1')
         .catch(() => null);
       if (active && Array.isArray(cached?.data)) setHandlingOptions(cached.data);
+      if (!active) return;
 
-      try {
-        const { data, error } = await withAbortTimeout(supabase.from('settings').select('data').eq('id', 'app').limit(1), 'operacoes:opcoes-manuseio', 15_000);
-        if (active && !error && data?.length) {
-          const settings = data[0]?.data || data[0];
-          const options = [
-            ...(settings.deliveryHandlingOptions || []),
-            ...(settings.pickupHandlingOptions || []),
-          ];
-          setHandlingOptions(options);
-          void offlineStorageService
-            .cacheWorkingSet('order_handling_options_v1', options)
-            .catch(() => {});
-        }
-      } catch {}
+      // subscribe() reports the current connection too, and then every change.
+      stopConnection = connectivityService.subscribe((connected) => {
+        if (connected) void loadRemoteHandlingOptions();
+      });
     };
 
-    void loadHandlingOptions();
+    void loadCachedHandlingOptions();
     return () => {
       active = false;
+      requestController?.abort();
+      stopConnection?.();
     };
   }, []);
   useEffect(() => {

@@ -145,7 +145,11 @@ const OrderHistoryList = forwardRef<OrderHistoryListRef, OrderHistoryListProps>(
     } | null>(null);
 
     const [openingOrder, setOpeningOrder] = React.useState(false);
+    const [sendingDirectOrderIds, setSendingDirectOrderIds] = React.useState<Set<string>>(
+      () => new Set()
+    );
     const openRequest = React.useRef(0);
+    const directSendOrderActionsInFlight = React.useRef(new Set<string>());
     React.useEffect(() => () => { openRequest.current++; }, []);
     const withCompleteOrder = async (order: Order, action: (full: Order) => unknown) => {
       const request = ++openRequest.current;
@@ -157,21 +161,41 @@ const OrderHistoryList = forwardRef<OrderHistoryListRef, OrderHistoryListProps>(
         if (request === openRequest.current) toast.error(cause instanceof Error ? cause.message : 'Não foi possível abrir o pedido.');
       } finally { if (request === openRequest.current) setOpeningOrder(false); }
     };
-    const onAction = (actionKey: string, summary: Order) => withCompleteOrder(summary, async (order) => {
-      if (onActionProp) {
-        onActionProp(actionKey, order);
+    const onAction = (actionKey: string, summary: Order) => {
+      const directSendKey =
+        actionKey === 'sendCustomerOrderDirectApi' && summary.id ? String(summary.id) : null;
+      if (directSendKey && directSendOrderActionsInFlight.current.has(directSendKey)) return;
+      if (directSendKey) {
+        directSendOrderActionsInFlight.current.add(directSendKey);
+        setSendingDirectOrderIds((current) => new Set(current).add(directSendKey));
       }
 
-      if (actionKey === 'stockWithdrawal') {
-        setStockModal({ order, type: 'withdrawal' });
-        return;
-      }
-      if (actionKey === 'stockReversal') {
-        setStockModal({ order, type: 'entry' });
-        return;
-      }
-      await handleAction(actionKey, order);
-    });
+      const actionRequest = withCompleteOrder(summary, async (order) => {
+        if (onActionProp) {
+          onActionProp(actionKey, order);
+        }
+
+        if (actionKey === 'stockWithdrawal') {
+          setStockModal({ order, type: 'withdrawal' });
+          return;
+        }
+        if (actionKey === 'stockReversal') {
+          setStockModal({ order, type: 'entry' });
+          return;
+        }
+        await handleAction(actionKey, order);
+      });
+
+      if (!directSendKey) return actionRequest;
+      return actionRequest.finally(() => {
+        directSendOrderActionsInFlight.current.delete(directSendKey);
+        setSendingDirectOrderIds((current) => {
+          const next = new Set(current);
+          next.delete(directSendKey);
+          return next;
+        });
+      });
+    };
 
     const [showTroubleshoot, setShowTroubleshoot] = React.useState(false);
 
@@ -199,7 +223,18 @@ const OrderHistoryList = forwardRef<OrderHistoryListRef, OrderHistoryListProps>(
 
       return (
         <div className="flex flex-col gap-4 flex-1">
-          {openingOrder && <div role="status" className="text-sm text-blue-600"><i className="bi bi-arrow-repeat animate-spin mr-2" />Carregando pedido…</div>}
+          {openingOrder && sendingDirectOrderIds.size === 0 && (
+            <div role="status" className="text-sm text-blue-600">
+              <i className="bi bi-arrow-repeat animate-spin mr-2" />
+              Carregando pedido…
+            </div>
+          )}
+          {sendingDirectOrderIds.size > 0 && (
+            <div role="status" className="text-sm text-blue-600">
+              <i className="bi bi-arrow-repeat animate-spin mr-2" />
+              Enviando mensagem ao cliente…
+            </div>
+          )}
           {orders.length === 0 ? (
             <OrderHistoryEmptyPageNotice />
           ) : (

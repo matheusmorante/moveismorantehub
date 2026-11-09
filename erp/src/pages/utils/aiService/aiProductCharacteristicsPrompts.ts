@@ -35,7 +35,7 @@ IDENTIFICAÇÃO DO PRODUTO:
 
 DIRETRIZES DE PESQUISA E ANÁLISE (OBRIGATÓRIAS):
 1. PESQUISA NA WEB:
-   - Utilize a ferramenta Google Search para pesquisar a ficha técnica deste móvel.
+   - Utilize a ferramenta de pesquisa na web disponível para pesquisar a ficha técnica deste móvel.
    - O nome do produto é o único dado de identificação obrigatório. Use marca, linha/modelo, categoria, descrição e fotos como referências adicionais somente quando estiverem disponíveis.
    - Priorize o site oficial da marca "${brand}" quando a marca estiver informada; sem marca, pesquise pelo nome e demais dados disponíveis.
    - Procure fichas técnicas e manuais oficiais do modelo "${model}" quando houver modelo informado; sem modelo, identifique o produto usando as outras referências disponíveis.

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { useGeminiQuotaStatus } from '@/pages/utils/geminiQuotaService';
-import { GeminiQuotaWarningBanner } from './GeminiQuotaWarningBanner';
+import { useAiQuotaStatus } from '@/pages/utils/openAiQuotaService';
+import { AiQuotaWarningBanner } from './GeminiQuotaWarningBanner';
 import { SefazSyncStatusBadge } from './SefazSyncStatusBadge';
 
 export type DateFilterMode =
@@ -35,7 +35,7 @@ export const InboundInvoicesHeader: React.FC<InboundInvoicesHeaderProps> = ({
   onOpenAddInvoice,
   onSyncSuccess,
 }) => {
-  const { isUnavailable, reason } = useGeminiQuotaStatus();
+  const { isUnavailable, reason } = useAiQuotaStatus();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -71,7 +71,7 @@ export const InboundInvoicesHeader: React.FC<InboundInvoicesHeaderProps> = ({
 
   return (
     <header className="mb-4 flex flex-col gap-3">
-      <GeminiQuotaWarningBanner isUnavailable={isUnavailable} reason={reason} variant="header" />
+      <AiQuotaWarningBanner isUnavailable={isUnavailable} reason={reason} variant="header" />
 
       <div className="flex min-h-[52px] items-center justify-between gap-3 py-2">
         <div className="flex min-w-0 items-center gap-2.5">

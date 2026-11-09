@@ -217,13 +217,13 @@ export default function UnavailabilitiesPage() {
                           Obs: {item.observation}
                         </div>
                       )}
-                      {item.photos && item.photos.length > 0 && (
+                      {item.photos_count > 0 && (
                         <button
                           type="button"
                           onClick={() => setSelectedPhotosItem(item)}
                           className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 font-semibold mt-0.5"
                         >
-                          📷 {item.photos.length} foto(s)
+                          📷 {item.photos_count} foto(s)
                         </button>
                       )}
                     </td>

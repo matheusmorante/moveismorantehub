@@ -65,7 +65,7 @@ export function useNativeBottomNav({
         icon: Sparkles,
         url: `${WEB_URL}/agent`,
         visible: true,
-        disabled: !isAdmin,
+        disabled: false,
       },
       {
         key: 'estoque',
@@ -112,13 +112,11 @@ export function useNativeBottomNav({
     return (customTabs || allTabs)
       .filter((t) => t.visible !== false)
       .map((tab) =>
-        tab.key === 'agente'
-          ? { ...tab, disabled: !isAdmin }
-          : tab.key === 'produtos' && isBetaApp
-            ? { ...tab, disabled: true }
-            : tab
+        tab.key === 'produtos' && isBetaApp
+          ? { ...tab, disabled: true }
+          : tab
       );
-  }, [customTabs, allTabs, isAdmin, isBetaApp]);
+  }, [customTabs, allTabs, isBetaApp]);
 
   const hasOverflow = visibleTabs.length > 5;
   const primaryTabs = useMemo(

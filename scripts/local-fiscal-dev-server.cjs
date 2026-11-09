@@ -74,7 +74,7 @@ const server = http.createServer(async (req, res) => {
     routeName = 'whatsapp-dispatch';
   } else if (pathname === '/api/testing/test-artifact-operator') {
     routeName = 'test-artifact-operator';
-  } else if (['/api/meta-graph', '/api/gemini-proxy', '/api/google-routes'].includes(pathname)) {
+  } else if (['/api/meta-graph', '/api/gemini-proxy', '/api/openai-proxy', '/api/google-routes'].includes(pathname)) {
     routeName = 'secure-integrations';
     supportOperation = pathname.slice('/api/'.length);
   } else if (pathname.startsWith('/api/nfe/')) {

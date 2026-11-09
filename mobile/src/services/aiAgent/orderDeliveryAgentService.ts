@@ -2,10 +2,16 @@ import { supabase } from '../supabaseClient';
 import { isIdentifiedTestArtifact } from '../../../../shared-utils/testArtifactPolicy';
 import { isAssemblyInternalType, isAssemblyOutsideType } from '../../utils/aiSummaryHelper';
 import { withAbortTimeout } from '../../../../shared-utils/withAbortTimeout';
+import {
+  getActiveAgentPermissionContext,
+  hasAgentActionPermission,
+  isPermissionContextEnforced,
+} from '../../../../shared-utils/agentPermissionGuard';
 
 export type MobileOperationKind =
   | 'todas'
   | 'venda'
+  | 'orcamento'
   | 'entrega'
   | 'retirada'
   | 'assistencia'
@@ -40,12 +46,16 @@ let handlingOptionsCacheExpiresAt = 0;
 async function getHandlingOptions(): Promise<any[]> {
   if (handlingOptionsCache && Date.now() < handlingOptionsCacheExpiresAt)
     return handlingOptionsCache;
-  const { data, error } = await supabase.from('settings').select('data').limit(1).maybeSingle();
+  const { data, error } = await supabase
+    .from('settings')
+    .select('delivery:data->deliveryHandlingOptions,pickup:data->pickupHandlingOptions')
+    .limit(1)
+    .maybeSingle();
   if (error) throw error;
-  const settings = asRecord(data?.data ?? data);
+  const settings = asRecord(data);
   handlingOptionsCache = [
-    ...(Array.isArray(settings.deliveryHandlingOptions) ? settings.deliveryHandlingOptions : []),
-    ...(Array.isArray(settings.pickupHandlingOptions) ? settings.pickupHandlingOptions : []),
+    ...(Array.isArray(settings.delivery) ? settings.delivery : []),
+    ...(Array.isArray(settings.pickup) ? settings.pickup : []),
   ];
   handlingOptionsCacheExpiresAt = Date.now() + 5 * 60 * 1000;
   return handlingOptionsCache;
@@ -123,7 +133,6 @@ function getAssemblyKinds(row: Record<string, any>, options: any[]): string[] {
   ) as string[];
 }
 
-
 function toOperationSummary(row: Record<string, any>, assemblyKinds: string[]) {
   const data = getOrderData(row);
   const customer = asRecord(data.customerData);
@@ -132,6 +141,8 @@ function toOperationSummary(row: Record<string, any>, assemblyKinds: string[]) {
   const kind = getOperationKind(row);
   const kindLabels: Record<string, string> = {
     sale: 'pedido de venda',
+    budget: 'orçamento',
+    orcamento: 'orçamento',
     assistance: 'assistência',
     return: 'devolução',
   };
@@ -182,20 +193,37 @@ export async function searchOperations(input: OrderDeliverySearchInput) {
   if (input.dataInicio && input.dataFim && input.dataInicio > input.dataFim)
     throw new Error('A data inicial não pode ser posterior à data final.');
   const selectedLimit = normalizeLimit(input.limite);
-  const selected = await withAbortTimeout(supabase.rpc('search_order_operation_ids', {
-    p_filters: input, p_limit: selectedLimit,
-  }), 'assistente:pesquisar-operacoes', 15_000);
+  const selected = await withAbortTimeout(
+    supabase.rpc('search_order_operation_ids', {
+      p_filters: input,
+      p_limit: selectedLimit,
+    }),
+    'assistente:pesquisar-operacoes',
+    15_000
+  );
   if (selected.error) throw selected.error;
   const ids = selected.data?.ids;
-  if (!Array.isArray(ids) || ids.length > selectedLimit || ids.some((id: unknown) => typeof id !== 'string')) {
+  if (
+    !Array.isArray(ids) ||
+    ids.length > selectedLimit ||
+    ids.some((id: unknown) => typeof id !== 'string')
+  ) {
     throw new Error('A consulta de operações retornou resultados inválidos.');
   }
   if (!ids.length) return [];
-  const { data, error } = await withAbortTimeout(supabase.from('orders').select(
-    'id,order_number,order_index,status,order_type,customer_name,total_amount,created_at,updated_at,scheduled_date,scheduled_start_time,scheduled_end_time,delivery_method,delivery_status,deleted,order_data,items'
-  ).in('id', ids), 'assistente:resultados-da-pesquisa', 15_000);
+  const { data, error } = await withAbortTimeout(
+    supabase
+      .from('orders')
+      .select(
+        'id,order_number,order_index,status,order_type,customer_name,total_amount,created_at,updated_at,scheduled_date,scheduled_start_time,scheduled_end_time,delivery_method,delivery_status,deleted,order_data,items'
+      )
+      .in('id', ids),
+    'assistente:resultados-da-pesquisa',
+    15_000
+  );
   if (error) throw error;
-  const options = kind === 'montagem' || kind === 'todas' ? await getHandlingOptions().catch(() => []) : [];
+  const options =
+    kind === 'montagem' || kind === 'todas' ? await getHandlingOptions().catch(() => []) : [];
   const byId = new Map((data || []).map((row: any) => [String(row.id), row]));
   return ids.flatMap((id: string) => {
     const row: any = byId.get(id);
@@ -206,32 +234,107 @@ export async function searchOperations(input: OrderDeliverySearchInput) {
 export async function getOrderDeliveryDetails(
   orderId: string
 ): Promise<Record<string, unknown> | null> {
-  const { data: row, error } = await supabase
+  const cleanTarget = orderId.trim().replace(/^#/, '');
+  let { data: row, error } = await supabase
     .from('orders')
     .select(
       'id, order_number, order_index, status, order_type, customer_name, total_amount, created_at, updated_at, scheduled_date, scheduled_start_time, scheduled_end_time, delivery_method, delivery_status, order_data, items'
     )
-    .eq('id', orderId)
+    .eq('id', cleanTarget)
     .or('deleted.is.null,deleted.eq.false')
     .maybeSingle();
   if (error) throw error;
+
+  if (!row && cleanTarget && !/^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(cleanTarget)) {
+    const num = Number(cleanTarget);
+    const expr = Number.isFinite(num)
+      ? `order_number.eq.${cleanTarget},order_index.eq.${num}`
+      : `order_number.eq.${cleanTarget}`;
+    const fallback = await supabase
+      .from('orders')
+      .select(
+        'id, order_number, order_index, status, order_type, customer_name, total_amount, created_at, updated_at, scheduled_date, scheduled_start_time, scheduled_end_time, delivery_method, delivery_status, order_data, items'
+      )
+      .or('deleted.is.null,deleted.eq.false')
+      .or(expr)
+      .limit(1)
+      .maybeSingle();
+    if (!fallback.error && fallback.data) {
+      row = fallback.data;
+    }
+  }
+
   if (!row || isIdentifiedTestArtifact(row)) return null;
 
   const data = asRecord(row.order_data);
   const customer = asRecord(data.customerData);
   const shipping = asRecord(data.shipping);
   const scheduling = asRecord(shipping.scheduling || data.schedule || data.scheduling);
+  const kind = getOperationKind(row);
+
+  const permCtx = getActiveAgentPermissionContext();
+  if (isPermissionContextEnforced(permCtx)) {
+    if (
+      kind === 'budget' &&
+      !hasAgentActionPermission('viewBudgets', permCtx) &&
+      !hasAgentActionPermission('createEditOrders', permCtx) &&
+      !hasAgentActionPermission('viewOrders', permCtx)
+    ) {
+      throw new Error('Seu perfil de acesso não tem permissão para visualizar detalhes de orçamentos.');
+    }
+    if (
+      kind === 'return' &&
+      !hasAgentActionPermission('viewReturns', permCtx) &&
+      !hasAgentActionPermission('createEditOrders', permCtx) &&
+      !hasAgentActionPermission('viewOrders', permCtx)
+    ) {
+      throw new Error('Seu perfil de acesso não tem permissão para visualizar detalhes de devoluções.');
+    }
+    if (
+      kind === 'assistance' &&
+      !hasAgentActionPermission('viewAssistanceOrders', permCtx) &&
+      !hasAgentActionPermission('createEditOrders', permCtx) &&
+      !hasAgentActionPermission('viewOrders', permCtx)
+    ) {
+      throw new Error('Seu perfil de acesso não tem permissão para visualizar detalhes de assistências técnicas.');
+    }
+  }
+
+  const isLogisticsOnly =
+    isPermissionContextEnforced(permCtx) &&
+    !hasAgentActionPermission('viewOrders', permCtx) &&
+    !hasAgentActionPermission('createEditOrders', permCtx) &&
+    !hasAgentActionPermission('viewFinancials', permCtx) &&
+    (hasAgentActionPermission('startDelivery', permCtx) ||
+      hasAgentActionPermission('viewAssemblyList', permCtx) ||
+      hasAgentActionPermission('viewDeliverySchedule', permCtx));
+
+  if (isLogisticsOnly) {
+    const deliveryMethod = row.delivery_method || shipping.deliveryMethod || data.deliveryMethod || 'delivery';
+    const isPickup = deliveryMethod === 'pickup' || deliveryMethod === 'retirada';
+    if (kind === 'budget' || isPickup) {
+      throw new Error(
+        'Este pedido não possui rota de entrega ou montagem vinculada ao seu escopo de entregador.'
+      );
+    }
+  }
+
+  const valorTotal = isLogisticsOnly
+    ? undefined
+    : Number(row.total_amount ?? data.paymentsSummary?.totalOrderValue ?? 0);
+  const pagamentos = isLogisticsOnly ? undefined : data.paymentsSummary || data.payments || [];
+
   return {
     id: String(row.id),
     codigo: String(row.order_number ?? data.orderIndex ?? data.order_index ?? ''),
-    tipo: getOperationKind(row),
+    tipo: kind,
     status: row.status || data.status || 'pending',
     cliente: {
       nome: row.customer_name || customer.fullName || '',
       telefone: customer.phone || customer.phoneNumber || null,
       endereco: customer.fullAddress || customer.address || null,
     },
-    valorTotal: Number(row.total_amount ?? data.paymentsSummary?.totalOrderValue ?? 0),
+    valorTotal,
     dataPedido: row.created_at || data.createdAt || data.date || null,
     agendamento: {
       data: row.scheduled_date || scheduling.date || data.scheduledDate || null,
@@ -248,10 +351,10 @@ export async function getOrderDeliveryDetails(
     },
     itens: Array.isArray(data.items) ? data.items : Array.isArray(row.items) ? row.items : [],
     itensAssistencia: Array.isArray(data.assistanceItems) ? data.assistanceItems : [],
-    pagamentos: data.paymentsSummary || data.payments || [],
+    pagamentos,
     observacoes: data.observations || data.notes || null,
     devolucao:
-      getOperationKind(row) === 'return'
+      kind === 'return'
         ? {
             motivo: data.returnReason || data.reason || null,
             estoqueProcessado: data.returnStockProcessed ?? null,

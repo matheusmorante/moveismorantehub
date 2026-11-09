@@ -46,7 +46,7 @@ export const fetchInboundInvoicesPage = async ({
   let query = supabase
     .from('inbound_invoices')
     .select(
-      'id,numero_nfe,serie,chave_acesso,emitente_nome,emitente_cnpj,data_emissao,valor_total,status_recebimento,itens,xml_conteudo,supplier:people(stock_origins),inbound_invoice_items(*)',
+      'id,numero_nfe,serie,chave_acesso,emitente_nome,emitente_cnpj,data_emissao,valor_total,status_recebimento,itens,supplier:people(stock_origins),inbound_invoice_items(*)',
       { count: 'exact' }
     );
 

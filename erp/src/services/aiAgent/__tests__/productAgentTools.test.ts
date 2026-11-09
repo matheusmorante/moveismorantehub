@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { productAgentTools } from '../productAgentTools';
 import { GeminiToolDispatcher } from '../geminiToolDispatcher';
 import { supabase } from '@/pages/utils/supabaseConfig';
+import { setActiveAgentPermissionContext } from '../../../../../shared-utils/agentPermissionGuard';
 
 // Identificador único obrigatório de teste
 const testRunId = `TEST_AUT_${Date.now()}_prod_tools`;
@@ -154,6 +155,7 @@ describe(`[${testRunId}] productAgentTools - Consulta e Ficha Técnica de Produt
       return { select: vi.fn().mockReturnThis() };
     });
 
+    setActiveAgentPermissionContext({ role: 'administrator', enforced: true });
     const response = await productAgentTools.obterDetalhesProduto({ codigoOuSku: '100010' });
 
     expect(response.success).toBe(true);

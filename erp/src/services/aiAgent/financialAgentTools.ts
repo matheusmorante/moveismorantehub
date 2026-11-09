@@ -1,19 +1,24 @@
 import { financeService } from '../../pages/services/financeService';
-import { normalizeSearchTerm } from '../../pages/utils/textUtils';
-
+import { supabase } from '@/pages/utils/supabaseConfig';
 import { saveAgentFeedback } from './aiFeedbackService';
+import {
+  normalizeFinancialPaymentMethod,
+  normalizeFinancialDate,
+  validateTransactionCategoryAndPurpose,
+} from '../../../../shared-utils/agentFinancialOperations';
+import { financialPayableReceivableTools } from './financialPayableReceivableTools';
+import type { ToolExecutionResponse } from './geminiAgentTypes';
 
-// Handlers de execução das tools do módulo financeiro
+export type { ToolExecutionResponse };
+export { financialPayableReceivableTools };
 
-export interface ToolExecutionResponse {
-  success: boolean;
-  data?: any;
-  error?: string;
-  code?: string;
-  message?: string;
-}
+// Handlers de execução das tools do módulo financeiro no ERP
+
+const recentCreations = new Map<string, { data: any; timestamp: number }>();
 
 export const financialAgentTools = {
+  ...financialPayableReceivableTools,
+
   async buscarCategoriasFinanceiras(args: {
     tipo?: 'income' | 'expense';
   }): Promise<ToolExecutionResponse> {
@@ -46,36 +51,29 @@ export const financialAgentTools = {
     limite?: number;
   }): Promise<ToolExecutionResponse> {
     try {
-      const txs = await financeService.getTransactions(args.dataInicio, args.dataFim);
-      let filtered = txs || [];
-
-      if (args.tipo) {
-        filtered = filtered.filter((t) => t.type === args.tipo);
-      }
-
-      if (args.categoriaId) {
-        filtered = filtered.filter((t) => t.category_id === args.categoriaId);
-      }
-
-      if (args.termo && args.termo.trim()) {
-        const normTerm = normalizeSearchTerm(args.termo);
-        filtered = filtered.filter((t) => {
-          const desc = normalizeSearchTerm(t.description || '');
-          const notes = normalizeSearchTerm(t.notes || '');
-          const catName = normalizeSearchTerm(t.category_name || '');
-          return desc.includes(normTerm) || notes.includes(normTerm) || catName.includes(normTerm);
-        });
-      }
-
       const limit = Math.min(Math.max(args.limite || 10, 1), 30);
-      const results = filtered.slice(0, limit).map((t) => ({
+      const { data, error } = await supabase.rpc('get_finance_assistant_movements', {
+        p_search: args.termo?.trim() ? args.termo : null,
+        p_start_date: args.dataInicio || null,
+        p_end_date: args.dataFim || null,
+        p_type: args.tipo || null,
+        p_category_id: args.categoriaId || null,
+        p_limit: limit,
+      });
+
+      if (error) throw error;
+
+      const rows = Array.isArray(data) ? data : [];
+      const results = rows.map((t) => ({
         id: t.id,
         tipo: t.type,
         valor: t.amount,
         data: t.date,
         descricao: t.description,
         formaPagamento: t.payment_method,
+        categoriaId: t.category_id || null,
         categoria: t.category_name || 'Sem categoria',
+        finalidade: t.purpose || null,
         observacoes: t.notes || null,
       }));
 
@@ -125,11 +123,14 @@ export const financialAgentTools = {
     tipo: 'income' | 'expense';
     valor: number;
     descricao: string;
-    finalidade?: 'BUSINESS' | 'PERSONAL';
+    finalidade?: 'BUSINESS' | 'PERSONAL' | 'PERSONAL_PARTNER';
     categoriaId?: string;
     data?: string;
     formaPagamento?: string;
+    veiculo?: string;
     observacoes?: string;
+    confirmado?: boolean;
+    apenasPreparar?: boolean;
   }): Promise<ToolExecutionResponse> {
     try {
       if (!args.tipo || !['income', 'expense'].includes(args.tipo)) {
@@ -154,29 +155,155 @@ export const financialAgentTools = {
         };
       }
 
-      const today = new Date().toISOString().split('T')[0];
+      if (args.categoriaId) {
+        const categories = await financeService.getCategories();
+        if (Array.isArray(categories) && categories.length > 0) {
+          const category = categories.find((c) => String(c.id) === String(args.categoriaId));
+          const validation = validateTransactionCategoryAndPurpose(category, args.tipo, args.finalidade);
+          if (!validation.valid) {
+            return {
+              success: false,
+              code: validation.code || 'INVALID_CATEGORY',
+              error: validation.error || 'Categoria inválida.',
+            };
+          }
+        }
+      }
+
+      const normalizedPaymentMethod = normalizeFinancialPaymentMethod(args.formaPagamento);
+      const targetDate = normalizeFinancialDate(args.data);
+      const roundedAmount = Number(args.valor.toFixed(2));
+      const cleanDesc = args.descricao.trim();
+      const dedupKey = `${args.tipo}:${roundedAmount}:${cleanDesc.toLowerCase()}:${targetDate}:${args.categoriaId || ''}:${normalizedPaymentMethod.toLowerCase()}`;
+
+      const now = Date.now();
+      const recent = recentCreations.get(dedupKey);
+      if (recent && now - recent.timestamp < 60_000) {
+        return {
+          success: true,
+          data: recent.data,
+          message: `Movimentação de ${args.tipo === 'expense' ? 'saída' : 'entrada'} de R$ ${roundedAmount.toFixed(2)} já havia sido registrada (id: ${recent.data?.id}). Nenhuma duplicata foi criada.`,
+        };
+      }
+
+      if (args.confirmado === false || args.apenasPreparar === true) {
+        const preparedData = {
+          id: `draft_${Date.now()}`,
+          tipo: args.tipo,
+          valor: roundedAmount,
+          descricao: cleanDesc,
+          categoriaId: args.categoriaId || null,
+          data: targetDate,
+          formaPagamento: normalizedPaymentMethod,
+          finalidade: args.finalidade || 'BUSINESS',
+          veiculo: args.veiculo || null,
+          observacoes: args.observacoes || null,
+          preparadoParaConfirmacao: true,
+        };
+        return {
+          success: true,
+          data: preparedData,
+          message: `Movimentação de ${args.tipo === 'expense' ? 'saída' : 'entrada'} de R$ ${roundedAmount.toFixed(2)} ("${cleanDesc}") preparada para confirmação do operador.`,
+        };
+      }
+
       const payload = {
         type: args.tipo,
-        amount: Number(args.valor.toFixed(2)),
-        description: args.descricao.trim(),
+        amount: roundedAmount,
+        description: cleanDesc,
         category_id: args.categoriaId || undefined,
-        date: args.data || today,
-        payment_method: args.formaPagamento || 'Manual',
-        purpose: args.finalidade || 'BUSINESS',
+        date: targetDate,
+        payment_method: normalizedPaymentMethod,
+        purpose:
+          (args.finalidade === 'PERSONAL_PARTNER' ? 'PERSONAL' : args.finalidade) || 'BUSINESS',
+        vehicle_id: args.veiculo || undefined,
         notes: args.observacoes || undefined,
       };
 
-      const created = await financeService.createTransaction(payload);
+      const created = await financeService.createTransaction(payload as any);
+      recentCreations.set(dedupKey, { data: created, timestamp: now });
       return {
         success: true,
         data: created,
-        message: `Movimentação de ${args.tipo === 'expense' ? 'saída' : 'entrada'} de R$ ${args.valor.toFixed(2)} criada com sucesso.`,
+        message: `Movimentação de ${args.tipo === 'expense' ? 'saída' : 'entrada'} de R$ ${roundedAmount.toFixed(2)} criada com sucesso.`,
       };
     } catch (err: any) {
       return {
         success: false,
         code: 'TRANSACTION_CREATE_ERROR',
         error: err?.message || 'Erro ao registrar movimentação no banco.',
+      };
+    }
+  },
+
+  async editarMovimentacaoFinanceira(args: {
+    movimentacaoId: string;
+    tipo?: 'income' | 'expense';
+    valor?: number;
+    descricao?: string;
+    categoriaId?: string;
+    finalidade?: 'BUSINESS' | 'PERSONAL' | 'PERSONAL_PARTNER';
+    data?: string;
+    formaPagamento?: string;
+    veiculo?: string;
+    observacoes?: string;
+  }): Promise<ToolExecutionResponse> {
+    try {
+      const id = args.movimentacaoId?.trim();
+      if (!id) {
+        return {
+          success: false,
+          code: 'MISSING_ID',
+          error: 'O ID da movimentação financeira é obrigatório para edição.',
+        };
+      }
+      if (args.valor !== undefined && (typeof args.valor !== 'number' || args.valor <= 0 || isNaN(args.valor))) {
+        return {
+          success: false,
+          code: 'INVALID_AMOUNT',
+          error: 'O novo valor deve ser um número positivo maior que zero.',
+        };
+      }
+      if (args.descricao !== undefined && !args.descricao.trim()) {
+        return {
+          success: false,
+          code: 'INVALID_DESCRIPTION',
+          error: 'A descrição da movimentação não pode ficar vazia.',
+        };
+      }
+
+      const updates: Record<string, any> = {};
+      if (args.tipo) updates.type = args.tipo;
+      if (args.valor !== undefined) updates.amount = Number(args.valor.toFixed(2));
+      if (args.descricao !== undefined) updates.description = args.descricao.trim();
+      if (args.categoriaId !== undefined) updates.category_id = args.categoriaId;
+      if (args.finalidade !== undefined) {
+        updates.purpose = args.finalidade === 'PERSONAL_PARTNER' ? 'PERSONAL' : args.finalidade;
+      }
+      if (args.data !== undefined) updates.date = args.data;
+      if (args.formaPagamento !== undefined) updates.payment_method = args.formaPagamento;
+      if (args.veiculo !== undefined) updates.vehicle_id = args.veiculo;
+      if (args.observacoes !== undefined) updates.notes = args.observacoes;
+
+      if (Object.keys(updates).length === 0) {
+        return {
+          success: false,
+          code: 'NO_CHANGES',
+          error: 'Informe ao menos um campo para atualizar na movimentação financeira.',
+        };
+      }
+
+      const updated = await financeService.updateTransaction(id, updates);
+      return {
+        success: true,
+        data: { id: updated?.id || id, ...updates },
+        message: `Movimentação financeira ${id} atualizada com sucesso.`,
+      };
+    } catch (err: any) {
+      return {
+        success: false,
+        code: 'TRANSACTION_UPDATE_ERROR',
+        error: err?.message || 'Erro ao editar movimentação financeira.',
       };
     }
   },

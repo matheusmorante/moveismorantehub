@@ -10,10 +10,6 @@ import {
 import { deriveProductDiscountFields } from '../../../../../shared-utils/productDiscountFields';
 import { withOwnInboundVariationCost } from '../../../../../shared-utils/inboundQuickRegisterRules';
 import { withTimeout } from '../../../../../shared-utils/withTimeout';
-import {
-  ChevronLeft,
-  X,
-} from 'lucide-react-native';
 import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -77,6 +73,7 @@ import { ProductFormPricesTab } from '../modals/tabs/ProductFormPricesTab';
 import { ProductFormTechnicalTab } from '../modals/tabs/ProductFormTechnicalTab';
 import { ProductFormVariationsTab } from '../modals/tabs/ProductFormVariationsTab';
 import { ProductFormReadinessChecklist } from './ProductFormReadinessChecklist';
+import { ProductFormHeader } from './ProductFormHeader';
 import { buildMobileProductFormReadinessItems } from './productFormReadinessItems';
 import { ProductFormTabNavigation } from './ProductFormTabNavigation';
 import { ProductFormStepFooter } from './ProductFormStepFooter';
@@ -1109,79 +1106,20 @@ export const ProductFormScreen: React.FC<Props> = ({
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           keyboardVerticalOffset={0}
         >
-          {/* ── Header ── */}
-          <View style={[styles.header, dark && styles.darkHeader]}>
-            <TouchableOpacity
-              onPress={handleRequestClose}
-              style={[styles.backBtn, dark && styles.darkBtn]}
-              accessibilityRole="button"
-              accessibilityLabel="Voltar ou fechar formulário de produto"
-            >
-              <ChevronLeft size={20} color={dark ? '#94a3b8' : '#475569'} />
-            </TouchableOpacity>
-            <View style={styles.headerCenter}>
-              <Text style={[styles.headerTitle, dark && styles.lightText]} numberOfLines={1}>
-                {product?.id ? 'Editar Produto' : 'Cadastro de Produto'}
-              </Text>
-              <View style={styles.headerMeta}>
-                {formData.code ? <Text style={styles.headerCode}>{formData.code}</Text> : null}
-              {!isSalvado && (
-                <TouchableOpacity
-                  onPress={() => setOpenReadiness(openReadiness === 'erp' ? null : 'erp')}
-                  style={[
-                    styles.statusBadge,
-                    erpReady ? styles.erpStatusReady : styles.erpStatusPending,
-                  ]}
-                  accessibilityRole="button"
-                  accessibilityLabel={`ERP: ${erpReady ? 'Ativo' : 'Pendente'}, abrir requisitos`}
-                  accessibilityState={{ expanded: openReadiness === 'erp' }}
-                >
-                  <Text
-                    style={[
-                      styles.statusBadgeText,
-                      erpReady ? styles.erpStatusTextReady : styles.erpStatusTextPending,
-                    ]}
-                  >
-                    ERP: {erpReady ? 'Ativo' : 'Pendente'}
-                  </Text>
-                </TouchableOpacity>
-              )}
-                {!hideCatalogPublicationStatus && (
-                  <TouchableOpacity
-                    onPress={() => setOpenReadiness(openReadiness === 'catalog' ? null : 'catalog')}
-                    style={[
-                      styles.statusBadge,
-                      catalogPublished ? styles.catalogStatusPublished : styles.catalogStatusHidden,
-                    ]}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Catálogo: ${catalogPublished ? 'Publicado' : 'Ocultado'}, abrir requisitos`}
-                    accessibilityState={{ expanded: openReadiness === 'catalog' }}
-                  >
-                    <Text
-                      style={[
-                        styles.statusBadgeText,
-                        catalogPublished
-                          ? styles.catalogStatusTextPublished
-                          : styles.catalogStatusTextHidden,
-                      ]}
-                    >
-                      CATÁLOGO: {catalogPublished ? 'Publicado' : 'Ocultado'}
-                    </Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            </View>
-            {!product?.id && (
-              <TouchableOpacity
-                onPress={handleRequestClose}
-                style={[styles.closeBtn, dark && styles.darkBtn]}
-                accessibilityRole="button"
-                accessibilityLabel="Fechar formulário de produto"
-              >
-                <X size={18} color={dark ? '#94a3b8' : '#475569'} />
-              </TouchableOpacity>
-            )}
-          </View>
+          <ProductFormHeader
+            dark={dark}
+            isExistingProduct={Boolean(product?.id)}
+            productCode={formData.code}
+            erpReady={erpReady}
+            isSalvado={isSalvado}
+            catalogPublished={catalogPublished}
+            hideCatalogPublicationStatus={hideCatalogPublicationStatus}
+            openReadiness={openReadiness}
+            onRequestClose={handleRequestClose}
+            onToggleReadiness={(readiness) =>
+              setOpenReadiness(openReadiness === readiness ? null : readiness)
+            }
+          />
 
           {activeReadiness ? (
             <ProductFormReadinessChecklist

@@ -39,6 +39,8 @@ const getPreviousYearMonth = (): string => {
   return `${y}-${m}`;
 };
 
+const INITIAL_INVOICE_LIST_FALLBACK_MS = 1_500;
+
 export default function InboundInvoicesPage() {
   const navigate = useNavigate();
   const { profile } = useAuth();
@@ -62,6 +64,8 @@ export default function InboundInvoicesPage() {
   const [isLoading, setIsLoading] = useState(false);
   const requestRevision = useRef(0);
   const pendingVisibleLoad = useRef(false);
+  const initialLoadStarted = useRef(false);
+  const initialLoadTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const currentPageRef = useRef(currentPage);
   currentPageRef.current = currentPage;
 
@@ -115,21 +119,54 @@ export default function InboundInvoicesPage() {
 
   useEffect(() => {
     setCurrentPage(1);
-    void loadInvoices(1);
-    return () => { requestRevision.current += 1; };
+    if (initialLoadStarted.current) {
+      void loadInvoices(1);
+    } else {
+      pendingVisibleLoad.current = true;
+      setIsLoading(true);
+      if (initialLoadTimer.current) clearTimeout(initialLoadTimer.current);
+      initialLoadTimer.current = setTimeout(() => {
+        initialLoadTimer.current = null;
+        if (initialLoadStarted.current) return;
+        initialLoadStarted.current = true;
+        void loadInvoicesRef.current(1);
+      }, INITIAL_INVOICE_LIST_FALLBACK_MS);
+    }
+    return () => {
+      if (initialLoadTimer.current) clearTimeout(initialLoadTimer.current);
+      initialLoadTimer.current = null;
+      requestRevision.current += 1;
+    };
   }, [searchTerm, dateFilter, loadInvoices]);
 
   useEffect(() => {
     let refreshTimer: ReturnType<typeof setTimeout> | null = null;
     const scheduleRefresh = () => {
       if (document.visibilityState === 'hidden') return;
+      if (!initialLoadStarted.current) {
+        initialLoadStarted.current = true;
+        if (initialLoadTimer.current) clearTimeout(initialLoadTimer.current);
+        initialLoadTimer.current = null;
+        void loadInvoicesRef.current(1);
+        return;
+      }
       if (refreshTimer) clearTimeout(refreshTimer);
       refreshTimer = setTimeout(() => {
         refreshTimer = null;
         void loadInvoicesRef.current(currentPageRef.current, true);
       }, 450);
     };
-    const unsubscribe = subscribeToInboundInvoiceListRefresh(scheduleRefresh);
+    const startInitialLoadOrRefresh = () => {
+      if (initialLoadStarted.current) {
+        scheduleRefresh();
+        return;
+      }
+      initialLoadStarted.current = true;
+      if (initialLoadTimer.current) clearTimeout(initialLoadTimer.current);
+      initialLoadTimer.current = null;
+      void loadInvoicesRef.current(1);
+    };
+    const unsubscribe = subscribeToInboundInvoiceListRefresh(scheduleRefresh, startInitialLoadOrRefresh);
     window.addEventListener('focus', scheduleRefresh);
     document.addEventListener('visibilitychange', scheduleRefresh);
 

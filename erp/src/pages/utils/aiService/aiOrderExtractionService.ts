@@ -1,4 +1,4 @@
-import { callAIBackend, callGeminiDirect } from './aiDirectClient';
+import { callAIBackend, callOpenAIDirect } from './aiDirectClient';
 import { AiHybridDispatcher } from '@/services/aiGateway/core/AiHybridDispatcher';
 
 export interface AIIntentResponse {
@@ -49,7 +49,7 @@ ${finalPrompt}
 Mensagem do Usuário:
 ${msg}`;
 
-          const textResponse = await callGeminiDirect(systemPrompt);
+          const textResponse = await callOpenAIDirect(systemPrompt);
           let cleanJson = textResponse.trim();
           if (cleanJson.startsWith('```json')) {
             cleanJson = cleanJson
@@ -71,7 +71,7 @@ ${msg}`;
       };
     } catch (error) {
       console.warn(
-        'Falha no detectIntent direto via Gemini, tentando backend local ou fallback:',
+        'Falha no detectIntent via OpenAI, tentando backend local ou fallback:',
         error
       );
       try {
@@ -92,10 +92,10 @@ ${msg}`;
       }
 
       const prompt = `${systemContext}\n\nUsuário: ${message}\nAssistente:`;
-      const textResponse = await callGeminiDirect(prompt, false);
+      const textResponse = await callOpenAIDirect(prompt, false);
       return { answer: textResponse.trim() };
     } catch (error: any) {
-      console.warn('Falha no chat direto via Gemini, tentando backend local:', error);
+      console.warn('Falha no chat via OpenAI, tentando backend local:', error);
       try {
         return await callAIBackend('ai-chat', { message, systemPrompt: chatPrompt });
       } catch (fallbackError) {
@@ -226,7 +226,7 @@ TEXTO DO OPERADOR:
 
 Retorne EXCLUSIVAMENTE o JSON estruturado, sem markdown.`;
 
-    const textResponse = await callGeminiDirect(prompt);
+    const textResponse = await callOpenAIDirect(prompt);
     const clean = textResponse
       .trim()
       .replace(/^```json/, '')

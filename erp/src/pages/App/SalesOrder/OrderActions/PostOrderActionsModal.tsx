@@ -78,6 +78,8 @@ const PostOrderActionsModal: React.FC<PostOrderActionsModalProps> = ({
   const [clickedButtons, setClickedButtons] = React.useState<Record<string, boolean>>(
     order.isButtonsClicked || {}
   );
+  const directApiSendInFlight = React.useRef(false);
+  const [isDirectApiSending, setIsDirectApiSending] = React.useState(false);
   const [staleButtons, setStaleButtons] = React.useState<Order['isButtonsStale']>(
     order.isButtonsStale || {}
   );
@@ -125,12 +127,25 @@ const PostOrderActionsModal: React.FC<PostOrderActionsModalProps> = ({
     key: keyof IsButtonsClicked,
     action: (typeof buttons)[number]['action']
   ) => {
+    const isDirectApiSend = action === 'SEND_CUSTOMER_ORDER_DIRECT_API';
+    if (isDirectApiSend && directApiSendInFlight.current) return;
+    if (isDirectApiSend) {
+      directApiSendInFlight.current = true;
+      setIsDirectApiSending(true);
+    }
+
     try {
       const module = await import('./orderActionsConfig');
-      if (module.actionsMap[action]) module.actionsMap[action](order);
+      const actionResult = module.actionsMap[action]?.(order);
       await handleMarkActionCompleted(key);
+      if (isDirectApiSend) await actionResult;
     } catch (err: unknown) {
       console.error('Erro ao executar ação pós-venda:', err);
+    } finally {
+      if (isDirectApiSend) {
+        directApiSendInFlight.current = false;
+        setIsDirectApiSending(false);
+      }
     }
   };
 
@@ -248,6 +263,7 @@ const PostOrderActionsModal: React.FC<PostOrderActionsModalProps> = ({
                 order={order}
                 isClicked={Boolean(clickedButtons[btn.key])}
                 isStale={Boolean(staleButtons?.[btn.key])}
+                isDirectApiSending={isDirectApiSending}
                 isNfeIssued={isNfeIssued}
                 isAdministrator={isAdministrator}
                 onIssueNfeClick={() => {
@@ -305,6 +321,7 @@ const PostOrderActionsModal: React.FC<PostOrderActionsModalProps> = ({
             onClose={() => setIsDeliveryModalOpen(false)}
             onExecuteAction={handleExecuteAction}
             isAdministrator={isAdministrator}
+            isDirectApiSending={isDirectApiSending}
           />
         </div>
 

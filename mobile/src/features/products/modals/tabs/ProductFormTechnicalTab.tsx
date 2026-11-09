@@ -1,13 +1,7 @@
-import { ArrowLeftRight, Check, Info } from 'lucide-react-native';
 import { matchesSearchText } from '../../../../../../shared-utils/searchText';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  Switch,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { Text, TouchableOpacity, View } from 'react-native';
 import {
   getProductTechnicalDependencyChain,
   getProductTechnicalFieldDisplayName,
@@ -62,6 +56,7 @@ import {
 } from '../../../../../../shared-utils/productTechnicalFieldScope';
 import type { MobileProductTechnicalField } from '../../services/mobileProductTechnicalService';
 import { ProductAiCharacteristicsAssistant } from '../components/ProductAiCharacteristicsAssistant';
+import { ProductTechnicalFieldActions } from './ProductTechnicalFieldActions';
 import { ProductTechnicalFieldInput } from './ProductTechnicalFieldInput';
 import { ProductTechnicalFieldScopeControl } from './ProductTechnicalFieldScopeControl';
 import { ProductTechnicalFieldsLoadStatus } from './ProductTechnicalFieldsLoadStatus';
@@ -676,107 +671,60 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
                             )}
                           </Text>
                         </View>
-                        <View style={styles.attributeActions}>
-                          {isDependencyDisabled && dependencyState.disabledReason && (
-                            <TouchableOpacity
-                              onPress={() =>
-                                setVisibleDependencyReason((current) =>
-                                  current === field.name ? null : field.name
-                                )
-                              }
-                              style={styles.inheritanceButton}
-                              accessibilityRole="button"
-                              accessibilityLabel={dependencyState.disabledReason}
-                              accessibilityHint="Mostrar ou ocultar o motivo do bloqueio."
-                              accessibilityState={{
-                                expanded: visibleDependencyReason === field.name,
-                              }}
-                            >
-                              <Info size={15} color="#d97706" />
-                            </TouchableOpacity>
-                          )}
-                          {['profundidade', 'comprimento'].includes(normalizeName(field.name)) && (
-                            <TouchableOpacity
-                              disabled={isSingleVariation}
-                              onPress={() => toggleDepthLength(field)}
-                              style={styles.inheritanceButton}
-                              accessibilityRole="button"
-                              accessibilityState={{ disabled: isSingleVariation }}
-                              accessibilityLabel={`Alternar para ${normalizeName(field.name) === 'profundidade' ? 'Comprimento' : 'Profundidade'}`}
-                            >
-                              <ArrowLeftRight size={15} color="#64748b" />
-                            </TouchableOpacity>
-                          )}
-                          {showsApplicabilitySwitch && (
-                            <Switch
-                              value={parentData ? true : applicable}
-                              onValueChange={(value) => {
-                                if (parentData && isQuantityField) {
-                                  if (!value) removeManualVariationField(field.name);
-                                  return;
-                                }
-                                setTechnicalValue(
-                                  field.name,
-                                  value
-                                    ? (hasOwnValue
-                                        ? (isQuantityField ? null : '')
-                                        : currentValue)
-                                    : 'Não se aplica'
-                                );
-                              }}
-                              accessibilityLabel={
-                                parentData
-                                  ? `Exibir característica ${field.name}`
-                                  : `Se aplica: ${field.name}`
-                              }
-                              trackColor={{ false: '#cbd5e1', true: '#2563eb' }}
-                            />
-                          )}
-                          {!parentData && isColorField && (
-                            <TouchableOpacity
-                              disabled={!canUseInVariationName}
-                              onPress={() =>
-                                setFormData((previous: any) => {
-                                  const variations = Array.isArray(previous.variations)
-                                    ? previous.variations
-                                    : [];
-                                  const updatedVariations =
-                                    applyProductCharacteristicToVariationNames(
-                                      variations,
-                                      String(previous.name || previous.description || '').trim(),
-                                      field.name,
-                                      getTechnicalValue(
-                                        previous.technicalValues || {},
-                                        field.name
-                                      ) ?? parentColor
-                                    );
-                                  return updatedVariations === variations
-                                    ? previous
-                                    : { ...previous, variations: updatedVariations };
-                                })
-                              }
-                              style={[
-                                styles.nameAction,
-                                !canUseInVariationName && styles.disabledNameAction,
-                                isIncludedInVariationName && styles.nameActionSelected,
-                              ]}
-                              accessibilityRole="button"
-                              accessibilityLabel="Usar cor no nome da variação"
-                              accessibilityState={{ disabled: !canUseInVariationName }}
-                              accessibilityHint="Inclui a cor no nome e nas características das variações que têm um valor disponível."
-                            >
-                              {isIncludedInVariationName && <Check size={12} color="#15803d" />}
-                              <Text
-                                style={[
-                                  styles.nameActionText,
-                                  isIncludedInVariationName && styles.nameActionTextSelected,
-                                ]}
-                              >
-                                Usar no nome
-                              </Text>
-                            </TouchableOpacity>
-                          )}
-                        </View>
+                        <ProductTechnicalFieldActions
+                          model={{
+                            fieldName: field.name,
+                            dependencyDisabled: isDependencyDisabled,
+                            dependencyDisabledReason: dependencyState.disabledReason,
+                            dependencyReasonVisible: visibleDependencyReason === field.name,
+                            isSingleVariation,
+                            showsApplicabilitySwitch,
+                            hasParentData: Boolean(parentData),
+                            applicable,
+                            isColorField,
+                            canUseInVariationName,
+                            isIncludedInVariationName,
+                          }}
+                          onToggleDependencyReason={() =>
+                            setVisibleDependencyReason((current) =>
+                              current === field.name ? null : field.name
+                            )
+                          }
+                          onToggleDepthLength={() => toggleDepthLength(field)}
+                          onApplicabilityChange={(value) => {
+                            if (parentData && isQuantityField) {
+                              if (!value) removeManualVariationField(field.name);
+                              return;
+                            }
+                            setTechnicalValue(
+                              field.name,
+                              value
+                                ? (hasOwnValue
+                                    ? (isQuantityField ? null : '')
+                                    : currentValue)
+                                : 'Não se aplica'
+                            );
+                          }}
+                          onUseColorInVariationName={() =>
+                            setFormData((previous: any) => {
+                              const variations = Array.isArray(previous.variations)
+                                ? previous.variations
+                                : [];
+                              const updatedVariations = applyProductCharacteristicToVariationNames(
+                                variations,
+                                String(previous.name || previous.description || '').trim(),
+                                field.name,
+                                getTechnicalValue(
+                                  previous.technicalValues || {},
+                                  field.name
+                                ) ?? parentColor
+                              );
+                              return updatedVariations === variations
+                                ? previous
+                                : { ...previous, variations: updatedVariations };
+                            })
+                          }
+                        />
                       </View>
                       {isDependencyDisabled &&
                         visibleDependencyReason === field.name &&

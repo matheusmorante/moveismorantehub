@@ -29,6 +29,7 @@ import {
 
 import { FormTextInput } from '../../../../components/shared/FormTextInput';
 import { styles } from './productFormFiscalTab.styles';
+import { ProductFormNcmSuggestion } from './ProductFormNcmSuggestion';
 import { useProductFiscalPickerState } from './useProductFiscalPickerState';
 
 interface Props {
@@ -263,35 +264,12 @@ export const ProductFormFiscalTab: React.FC<Props> = ({
                 </View>
               )}
               {ncmSuggestion && !fiscal.ncm && (
-                <View style={styles.ncmSuggestion}>
-                  <View style={styles.ncmSuggestionCopy}>
-                    <Text style={[styles.ncmCode, dark && styles.lightText]}>
-                      Sugestão de NCM: {ncmSuggestion.code}
-                    </Text>
-                    <Text style={styles.ncmDesc}>{ncmSuggestion.description}</Text>
-                    <Text style={styles.ncmDesc}>
-                      Confirme a classificação antes de usá-la em documentos fiscais.
-                    </Text>
-                  </View>
-                  <View style={styles.ncmSuggestionActions}>
-                    <TouchableOpacity
-                      onPress={onAcceptNcmSuggestion}
-                      accessibilityRole="button"
-                      accessibilityLabel="Aceitar sugestão de NCM"
-                      style={styles.ncmSuggestionAccept}
-                    >
-                      <Text style={styles.ncmSuggestionAcceptText}>Aceitar</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      onPress={onRejectNcmSuggestion}
-                      accessibilityRole="button"
-                      accessibilityLabel="Rejeitar sugestão de NCM"
-                      style={styles.ncmSuggestionReject}
-                    >
-                      <Text style={styles.ncmSuggestionRejectText}>Recusar</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
+                <ProductFormNcmSuggestion
+                  dark={dark}
+                  suggestion={ncmSuggestion}
+                  onAccept={onAcceptNcmSuggestion}
+                  onReject={onRejectNcmSuggestion}
+                />
               )}
               {ncmResults.length > 0 && ncmSearch.trim().length >= 2 && (
                 <View style={[styles.dropdownBox, dark && styles.darkCard]}>

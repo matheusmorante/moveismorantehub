@@ -73,10 +73,10 @@ export function isQuotaExceeded(error: any): boolean {
  * Não utiliza toast flutuante para evitar poluição visual.
  */
 export function notifyAiQuotaWarning(model: string, featureLabel?: string): void {
-  const cleanModel = model?.trim() || 'Gemini';
+  const cleanModel = model?.trim() || 'OpenAI';
   const id = cleanModel.toLowerCase();
   const contextMsg = featureLabel ? ` para ${featureLabel}` : '';
-  const message = `Cota da API Gemini (${cleanModel}) atingida${contextMsg}. O ERP está operando em modo manual sem interrupções.`;
+  const message = `Cota da API OpenAI (${cleanModel}) atingida${contextMsg}. O ERP está operando em modo manual sem interrupções.`;
 
   // Atualiza ou insere o alerta para esse modelo
   const existingIndex = activeAlerts.findIndex((a) => a.id === id);
@@ -109,7 +109,7 @@ export function getActiveAiQuotaAlerts(): AiQuotaAlert[] {
  * Remove o alerta de cota de um modelo específico quando ele responder com sucesso (cota normalizada).
  */
 export function clearModelAiQuotaAlert(model: string): void {
-  const cleanModel = model?.trim() || 'Gemini';
+  const cleanModel = model?.trim() || 'OpenAI';
   const id = cleanModel.toLowerCase();
   const prevLength = activeAlerts.length;
   activeAlerts = activeAlerts.filter(

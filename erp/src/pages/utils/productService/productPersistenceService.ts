@@ -149,22 +149,11 @@ export const syncProductToSupabase = async (
       })(),
       (async () => {
         if (product.id && Array.isArray(product.images)) {
-          const imageRecords = product.images.map((url, idx) => ({
-            product_id: product.id,
-            image_url: url,
-            is_main: idx === 0,
-          }));
-          const { error: deleteImagesError } = await supabase
-            .from('product_images')
-            .delete()
-            .eq('product_id', product.id);
-          if (deleteImagesError) throw deleteImagesError;
-          if (imageRecords.length > 0) {
-            const { error: insertImagesError } = await supabase
-              .from('product_images')
-              .insert(imageRecords);
-            if (insertImagesError) throw insertImagesError;
-          }
+          const { error: imageSyncError } = await supabase.rpc('replace_product_images', {
+            p_product_id: product.id,
+            p_image_urls: product.images,
+          });
+          if (imageSyncError) throw imageSyncError;
         }
       })(),
     ]);

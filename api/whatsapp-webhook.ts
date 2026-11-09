@@ -24,6 +24,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Hub-Signature-256');
   if (req.method === 'OPTIONS') return res.status(200).end();
 
+  const operation = req.query?.operation as string | undefined;
+  if (operation === 'dispatch') {
+    const { createWhatsAppTestDispatchHandler } = await import('./whatsapp-dispatch.js');
+    return createWhatsAppTestDispatchHandler()(req, res);
+  }
+  if (operation === 'support-send') {
+    const { createWhatsAppSupportSendHandler } = await import('./whatsapp-support-send.js');
+    return createWhatsAppSupportSendHandler()(req, res);
+  }
+  if (operation === 'media') {
+    const { createWhatsAppMediaProxyHandler } = await import('./whatsapp-media.js');
+    return createWhatsAppMediaProxyHandler()(req, res);
+  }
+
   if (req.method === 'GET') {
     if (!VERIFY_TOKEN) return res.status(503).json({ error: 'Webhook verification is not configured.' });
     const mode = req.query['hub.mode'];

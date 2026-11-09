@@ -27,7 +27,7 @@ export const AiUsageDashboardPanel: React.FC = () => {
         let q = supabase
           .from('api_usage_logs')
           .select('id', { count: 'exact', head: true })
-          .eq('provider', 'gemini')
+          .in('provider', ['gemini', 'openai'])
           .eq('status', 'SUCCESS')
           .gte('created_at', startOfDay);
         if (mod) q = q.eq('module_source', mod);
@@ -66,7 +66,7 @@ export const AiUsageDashboardPanel: React.FC = () => {
             <i className="bi bi-[#10a37f] bi-cpu-fill text-xl"></i>
           </div>
           <div>
-            <h3 className="text-base font-bold text-white">Monitoramento de IA (Gemini Gateway)</h3>
+            <h3 className="text-base font-bold text-white">Monitoramento de IA (OpenAI Gateway)</h3>
             <p className="text-xs text-slate-400">
               Proteção global contra consumo excessivo e controle conservador de cota
             </p>
@@ -98,7 +98,7 @@ export const AiUsageDashboardPanel: React.FC = () => {
         <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-2">
           <div className="flex justify-between items-center text-xs">
             <span className="text-slate-300 font-semibold flex items-center gap-1.5">
-              <i className="bi bi-fonts text-purple-400"></i> Texto (Gemini 2.5)
+              <i className="bi bi-fonts text-purple-400"></i> Texto (GPT-6 Luna)
             </span>
             <strong className="text-white">
               {counts.textToday} / {AI_LIMITS.categories.TEXT.perDay}
@@ -140,7 +140,7 @@ export const AiUsageDashboardPanel: React.FC = () => {
         <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-2">
           <div className="flex justify-between items-center text-xs">
             <span className="text-slate-300 font-semibold flex items-center gap-1.5">
-              <i className="bi bi-globe text-emerald-400"></i> Teto Global Gemini
+              <i className="bi bi-globe text-emerald-400"></i> Teto Global OpenAI
             </span>
             <strong className="text-white">
               {counts.globalToday} / {AI_LIMITS.global.perDay}

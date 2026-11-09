@@ -10,6 +10,7 @@ export * from './QuickSnippetsModal';
 export * from './UsageConsumptionModal';
 export * from './MessageBubble';
 export * from './ManualLinkModal';
+export * from './WhatsAppAiAgentModal';
 
 // Subcomponent barrels
 export * from './chat';

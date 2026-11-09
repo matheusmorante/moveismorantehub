@@ -22,6 +22,10 @@ Modelo de etiqueta: biblioteca sem consumidor ativo retida e conferida até leit
 
 ## Proprietários e caminhos de operação
 
+### Modelos de imagem — identificação de testes em 07/11/2026
+
+O editor `Marketing/ImageTemplates/ImageTemplateEditor.tsx` mantém o controle de teste dentro do formulário RHF e do schema Zod do desenho; começa desligado e exige administrador/contexto verificado. `TemplateDetailsDialog.tsx` inclui a identidade no contrato parseado de exclusão, com confirmação e versão. O serviço e o banco validam a propriedade. Cobertura: 98 testes no módulo, suíte remota de proteções e ciclo Playwright real de dois modelos próprios, ambos excluídos ao fim. Este recorte não altera a conclusão global do inventário. [Operação e evidências](../../marketing/modelos-de-imagem-catalogo-2026-11-06.md#persistência-real-com-propriedade-de-execução--07112026).
+
 Continuação de 16/10 no agregado de variações: **99 testes/11 arquivos, lint sem erros (cinco avisos anteriores) e build aprovados**; 26 provas diretas com abas reais. TypeScript global tem 290 diagnósticos, sem diagnóstico nas fontes alteradas/teste novo. As correções de conclusão, consultas e ciclo de salvamento não fecham o item agregado enquanto recorte/upload/propagação global de imagem e resolver da consulta compartilhada do componente estiverem pendentes. [Arquivos, linhas e limites](../../fiscal/historico-correcoes-2026-10-16.md#formulário-de-variações--composição-em-conferência).
 
 Todos os caminhos abaixo precisam de conferência individual. `Manual` significa que o caminho original contém condições imperativas; não afirma completude de domínio. Schemas já existentes devem ser reaproveitados.

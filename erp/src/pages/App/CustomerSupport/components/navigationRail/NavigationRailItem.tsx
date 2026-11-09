@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { memo } from 'react';
 
-interface NavigationRailItemProps {
+export interface NavigationRailItemProps {
   icon: string;
   title: string;
   isActive?: boolean;
@@ -11,7 +11,7 @@ interface NavigationRailItemProps {
   ariaControls?: string;
 }
 
-export const NavigationRailItem: React.FC<NavigationRailItemProps> = ({
+export const NavigationRailItem: React.FC<NavigationRailItemProps> = memo(({
   icon,
   title,
   isActive = false,
@@ -35,7 +35,7 @@ export const NavigationRailItem: React.FC<NavigationRailItemProps> = ({
           : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800/50'
       }`}
     >
-      <i className={`bi ${icon} text-base`}></i>
+      <i className={`bi ${icon} text-base`} aria-hidden="true" />
       {badgeCount > 0 && (
         <span className="absolute -top-1 -right-1 min-w-[17px] h-[17px] px-1 rounded-full bg-emerald-500 text-white text-[9px] font-black flex items-center justify-center shadow-xs">
           {badgeCount > 99 ? '99+' : badgeCount}
@@ -43,4 +43,6 @@ export const NavigationRailItem: React.FC<NavigationRailItemProps> = ({
       )}
     </button>
   );
-};
+});
+
+NavigationRailItem.displayName = 'NavigationRailItem';

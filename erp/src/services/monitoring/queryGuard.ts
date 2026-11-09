@@ -95,10 +95,7 @@ class QueryGuard {
             Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({
-            payload: metricsToSave.map((m) => ({
-              ...m,
-              user_id: userId,
-            })),
+            payload: metricsToSave,
           }),
         }), 10000, null, 'envio de telemetria');
         controller.abort();

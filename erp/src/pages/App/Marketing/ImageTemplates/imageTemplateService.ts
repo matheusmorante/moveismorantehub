@@ -4,11 +4,14 @@ import { withTimeout } from '../../../../../../shared-utils/withTimeout';
 import {
   deleteImageTemplateSchema, imageTemplateFormSchema, imageTemplateMetadataSchema, templateAssetIds,
   type DeleteImageTemplateValues, type ImageTemplateFormValues,
+  type ImageTemplateTestArtifact,
 } from '../../../../../../shared-utils/catalogImageTemplate';
 import type { TemplateListQuery } from './imageTemplateListFilters';
+import { applyImageTemplateTestScope, assertImageTemplateTestWrite, imageTemplateTestContext } from './imageTemplateTestContext';
 
 export const IMAGE_TEMPLATE_PAGE_SIZE = 15;
 const SUMMARY = 'id,name,description,created_at,updated_at';
+const WRITE_SUMMARY = `${SUMMARY},test_artifact:design->testArtifact`;
 const TABLE = 'catalog_image_templates';
 const ASSETS = 'catalog_image_template_assets';
 const TIMEOUT = 20_000;
@@ -19,6 +22,7 @@ export interface ImageTemplateSummary {
   description: string;
   created_at: string;
   updated_at: string;
+  test_artifact?: ImageTemplateTestArtifact | null;
 }
 export type SavedImageTemplate = ImageTemplateSummary & ImageTemplateFormValues;
 export type TemplateAsset = { id: string; webp_base64: string };
@@ -31,7 +35,9 @@ export function imageTemplateError(error: unknown) {
 
 export async function listImageTemplates(page: number, criteria: TemplateListQuery, signal: AbortSignal) {
   const offset = (page - 1) * IMAGE_TEMPLATE_PAGE_SIZE;
-  let query = supabase.from('catalog_image_template_list').select(SUMMARY, { count: 'exact' });
+  let query = supabase.from('catalog_image_template_list').select(`${SUMMARY},test_artifact`, { count: 'exact' });
+  const context = imageTemplateTestContext();
+  if (context) query = query.eq('test_artifact->>runId', context.runId).eq('test_artifact->>ownerId', context.ownerId);
   if (criteria.pattern) query = query.filter('search_text', 'match', criteria.pattern);
   if (criteria.from) query = query.gte('created_on', criteria.from);
   if (criteria.through) query = query.lte('created_on', criteria.through);
@@ -43,13 +49,15 @@ export async function listImageTemplates(page: number, criteria: TemplateListQue
 }
 
 export async function readImageTemplate(id: string, signal: AbortSignal): Promise<SavedImageTemplate> {
-  const result = await withAbortTimeout(supabase.from(TABLE).select(`${SUMMARY},design`).eq('id', id).maybeSingle(),
+  const query = supabase.from(TABLE).select(`${SUMMARY},design`).eq('id', id);
+  applyImageTemplateTestScope((column, value) => { query.eq(column, value); });
+  const result = await withAbortTimeout(query.maybeSingle(),
     'modelos-de-imagem:detalhe', TIMEOUT, signal);
   if (result.error) throw result.error;
   if (!result.data) throw new Error('Modelo removido ou indisponível. Atualize a lista.');
   const parsed = imageTemplateFormSchema.safeParse(result.data);
   if (!parsed.success) throw new Error('O conteúdo deste modelo é inválido.');
-  return { ...result.data as ImageTemplateSummary, ...parsed.data };
+  return { ...result.data as ImageTemplateSummary, ...parsed.data, test_artifact: parsed.data.design.testArtifact ?? null };
 }
 
 export async function readTemplateAssets(ids: string[], signal: AbortSignal) {
@@ -73,6 +81,8 @@ export async function saveImageTemplate(
   pendingAssets: ReadonlyMap<string, TemplateAsset>,
 ): Promise<ImageTemplateSummary> {
   const values = imageTemplateFormSchema.parse(input);
+  assertImageTemplateTestWrite(values.design.testArtifact);
+  if (original) assertImageTemplateTestWrite(original.test_artifact);
   const pending = templateAssetIds(values.design).flatMap((assetId) => {
     const asset = pendingAssets.get(assetId);
     return asset ? [asset] : [];
@@ -86,18 +96,25 @@ export async function saveImageTemplate(
   const query = original
     ? supabase.from(TABLE).update(values).eq('id', id).eq('updated_at', original.updated_at)
     : supabase.from(TABLE).insert({ id, ...values });
-  return requireWrite(query.select(SUMMARY).maybeSingle(), 'Salvar modelo de imagem') as Promise<ImageTemplateSummary>;
+  if (original) applyImageTemplateTestScope((column, value) => { query.eq(column, value); });
+  return requireWrite(query.select(WRITE_SUMMARY).maybeSingle(), 'Salvar modelo de imagem') as Promise<ImageTemplateSummary>;
 }
 
 export async function renameImageTemplate(original: ImageTemplateSummary, values: { name: string; description: string }) {
   const metadata = imageTemplateMetadataSchema.parse(values);
-  return requireWrite(supabase.from(TABLE).update(metadata).eq('id', original.id).eq('updated_at', original.updated_at)
+  assertImageTemplateTestWrite(original.test_artifact);
+  const query = supabase.from(TABLE).update(metadata).eq('id', original.id).eq('updated_at', original.updated_at);
+  applyImageTemplateTestScope((column, value) => { query.eq(column, value); });
+  return requireWrite(query
     .select('id').maybeSingle(), 'Renomear modelo de imagem');
 }
 
 export async function deleteImageTemplate(values: DeleteImageTemplateValues) {
   const target = deleteImageTemplateSchema.parse(values);
-  return requireWrite(supabase.from(TABLE).delete().eq('id', target.id).eq('updated_at', target.updated_at)
+  assertImageTemplateTestWrite(target.test_artifact);
+  const query = supabase.from(TABLE).delete().eq('id', target.id).eq('updated_at', target.updated_at);
+  applyImageTemplateTestScope((column, value) => { query.eq(column, value); });
+  return requireWrite(query
     .select('id').maybeSingle(), 'Excluir modelo de imagem');
 }
 

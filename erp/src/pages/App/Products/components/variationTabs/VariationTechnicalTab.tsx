@@ -28,12 +28,6 @@ import {
   syncProductVariationTechnicalAttribute,
 } from '../../../../../../../shared-utils/productVariationTechnicalAttributes';
 import {
-  isDoorQuantityCharacteristic,
-  isDrawerQuantityCharacteristic,
-  isHasDoorsCharacteristic,
-  isHasDrawersCharacteristic,
-} from '@/pages/utils/technicalValues/predicates/furniture';
-import {
   cleanupDependentCharacteristicsOnZero,
   cleanupDependentVariationAttributesOnQuantityChange,
 } from '../tabs/technical/sync/dependentCleanup';
@@ -49,6 +43,7 @@ import {
   normalizeSearchTerm,
   resolveVisibleVariationTechnicalFields,
 } from './variationTechnicalFieldResolution';
+import { buildVariationTechnicalDependencyValues } from './variationTechnicalDependencyValues';
 import { useVariationTechnicalReferenceData } from './useVariationTechnicalReferenceData';
 import { getSofaRequiredTechnicalFields } from '../tabs/technical/hooks/sofaTechnicalConstants';
 import { getDresserOrWardrobeRequiredTechnicalFields } from '../tabs/technical/hooks/dresserTechnicalConstants';
@@ -157,37 +152,23 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
     };
   }, [parentNormalizedValues, variationAttributeValues, formData?.technicalValues]);
 
-  const dependencyValues = useMemo(() => {
-    const values = { ...combinedValues };
-
-    const useVariationQuantity = (
-      isQuantity: (name: string) => boolean,
-      isLegacyToggle: (name: string) => boolean
-    ) => {
-      const quantityName = allTechnicalFields.find(
-        (field) => isQuantity(field.name) && isTechnicalFieldVariable(field.name, variableFieldNames)
-      )?.name;
-      if (!quantityName) return;
-
-      const ownQuantity =
-        Object.entries(formData?.technicalValues || {}).find(([name]) => isQuantity(name)) ||
-        Object.entries(variationAttributeValues).find(([name]) => isQuantity(name));
-      Object.keys(values).forEach((name) => {
-        if (isQuantity(name) || isLegacyToggle(name)) delete values[name];
-      });
-      if (ownQuantity) values[quantityName] = ownQuantity[1];
-    };
-
-    useVariationQuantity(isDoorQuantityCharacteristic, isHasDoorsCharacteristic);
-    useVariationQuantity(isDrawerQuantityCharacteristic, isHasDrawersCharacteristic);
-    return values;
-  }, [
-    allTechnicalFields,
-    combinedValues,
-    formData?.technicalValues,
-    variableFieldNames,
-    variationAttributeValues,
-  ]);
+  const dependencyValues = useMemo(
+    () =>
+      buildVariationTechnicalDependencyValues({
+        allTechnicalFields,
+        combinedValues,
+        formDataTechnicalValues: formData?.technicalValues,
+        variableFieldNames,
+        variationAttributeValues,
+      }),
+    [
+      allTechnicalFields,
+      combinedValues,
+      formData?.technicalValues,
+      variableFieldNames,
+      variationAttributeValues,
+    ]
+  );
 
   const isSofaCategorySelected = isSofaCategoryName(parentProduct.category || '');
   const isDresserOrWardrobeCategorySelected = isDresserOrWardrobeCategoryName(parentProduct.category || '');

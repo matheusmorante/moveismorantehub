@@ -5,7 +5,6 @@ import { fetchMobileNcmCatalogEntry } from '../services/mobileProductFiscalServi
 export type PendingMobileNcmSuggestion = { code: string; description: string };
 
 type ClassificationResult = {
-  category?: { id: string; name: string } | null;
   ncm?: PendingMobileNcmSuggestion | null;
 };
 
@@ -124,27 +123,19 @@ export function useMobileProductJevClassification(
           if (!currentNcm) setSuggestion(result.ncm);
         }
 
-        const inferredCategory = !categoryId ? result.category : null;
-        if (currentNcm || inferredCategory?.id) {
-          setFormData((previous) => ({
-            ...previous,
-            ...(inferredCategory?.id && !previous.categoryIds?.length && !previous.categoryId
-              ? {
-                  categoryIds: [inferredCategory.id],
-                  categoryId: inferredCategory.id,
-                  category: inferredCategory.name || previous.category,
-                }
-              : {}),
-            ...(currentNcm && !previous.fiscal?.ncm?.trim()
-              ? {
+        if (currentNcm) {
+          setFormData((previous) =>
+            previous.fiscal?.ncm?.trim()
+              ? previous
+              : {
+                  ...previous,
                   fiscal: {
                     ...(previous.fiscal || {}),
                     ncm: currentNcm.code,
                     ncmDescription: currentNcm.description,
                   },
                 }
-              : {}),
-          }));
+          );
         }
       } catch {
         // Classificação é opcional; os campos permanecem editáveis.

@@ -20,27 +20,19 @@ export const fetchMonthlySummary = async (year: number, month: number): Promise<
   const nextYear = month === 12 ? year + 1 : year;
   const endDate = `${nextYear}-${String(nextMonth).padStart(2, '0')}-01`;
 
-  const queryRes: any = await fetchReportTransactions(startDate, endDate, true);
-
-  const { data, error } = queryRes;
+  const { data, error } = await supabase.rpc('get_mobile_financial_monthly_summary', {
+    p_start_date: startDate,
+    p_end_date_exclusive: endDate,
+  });
 
   if (error) {
     console.warn('Erro ao consultar resumo mensal:', error.message);
     return { income: 0, expense: 0, balance: 0 };
   }
 
-  let income = 0;
-  let expense = 0;
-
-  (data || []).forEach((row: any) => {
-    if (row.status === 'REVERSED' || row.status === 'CANCELLED' || row.status === 'PENDING') return;
-    const val = Number(row.amount) || 0;
-    if (row.type === 'income') {
-      income += val;
-    } else if (row.type === 'expense') {
-      expense += val;
-    }
-  });
+  const summary = data as any;
+  const income = Number(summary?.income) || 0;
+  const expense = Number(summary?.expense) || 0;
 
   return {
     income,

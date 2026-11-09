@@ -1,4 +1,4 @@
-import { callGeminiDirect } from './aiDirectClient';
+import { callOpenAIDirect } from './aiDirectClient';
 import {
   validateInboundCandidates,
   type InboundProductCandidate,
@@ -55,7 +55,7 @@ ITENS DA NF: ` +
   const operation = `inbound_batch:items=${items.map((entry) => entry.itemNumber).join(',')}:top=${catalog.length}`;
   const traceId = AiLatencyTracker.startCall(operation, 'gateway', 'TEXT');
   try {
-    const response = await callGeminiDirect(prompt, true, {
+    const response = await callOpenAIDirect(prompt, true, {
       tier: 'reasoning',
       moduleSource: 'inbound_invoices',
       thinkingBudget: 'low',
@@ -77,7 +77,7 @@ ITENS DA NF: ` +
       result[context.item.itemNumber] = validateInboundCandidates(entries[0], context.products);
     }
     AiLatencyTracker.endCall(traceId, true, response.length);
-    console.info('[InboundGemini]', { traceId, operation, accepted: result });
+    console.info('[InboundOpenAI]', { traceId, operation, accepted: result });
   } catch (error) {
     AiLatencyTracker.endCall(traceId, false, 0, 'Falha na consulta ou validação do lote');
     throw error;

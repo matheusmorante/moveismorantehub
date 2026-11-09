@@ -4,6 +4,7 @@ import {
   type MetaCatalogProductSource,
   type MetaCatalogVariationSource,
 } from './metaCatalogPayload';
+import { buildProductMetaCatalogSyncItems, type MetaCatalogDeleteItem } from '../../../../../../../shared-utils/productMetaCatalogSyncItems';
 
 describe('buildMetaCatalogItems', () => {
   it('publica somente variações ativas e visíveis e compõe seus dados com o produto pai', () => {
@@ -298,5 +299,37 @@ describe('buildMetaCatalogItems', () => {
 
     const items = buildMetaCatalogItems([product], variations, []);
     expect(items).toHaveLength(0);
+  });
+  it('gera códigos de exclusão legados com sufixo UUID e código do pai para variações ocultas (ex: Sofá Ibiza)', () => {
+    const parent: MetaCatalogProductSource = {
+      id: 'b85d5c3f-4b19-40fe-bb53-d2dd7ec428f7',
+      code: '000132',
+      name: 'Sofá Ibiza 2,90m 3 Lugares Retrátil e Reclinavel',
+      status: 'hidden',
+      active: false,
+      is_salvado: true,
+      deleted: false,
+    };
+    const variations: MetaCatalogVariationSource[] = [
+      {
+        id: '641cc66d-328b-4627-85a2-a4dcb45a0d53',
+        product_id: parent.id,
+        sku: '000227-01',
+        name: 'Sofá Ibiza 2,90m 3 Lugares Retrátil e Reclinavel',
+        status: 'hidden',
+        active: false,
+      },
+    ];
+
+    const syncItems = buildProductMetaCatalogSyncItems(parent, variations, []);
+    const deleteCodes = syncItems
+      .filter((item): item is MetaCatalogDeleteItem => 'deleted' in item)
+      .map((item) => item.code);
+
+    expect(deleteCodes).toContain('000227-01');
+    expect(deleteCodes).toContain('000227-01-641cc6');
+    expect(deleteCodes).toContain('000132-01');
+    expect(deleteCodes).toContain('000132-641cc6');
+    expect(deleteCodes).toContain('641cc66d-328b-4627-85a2-a4dcb45a0d53');
   });
 });

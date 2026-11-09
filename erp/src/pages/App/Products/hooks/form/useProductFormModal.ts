@@ -34,6 +34,7 @@ import { useProductFormSubmit } from './useProductFormSubmit';
 import { useProductFormSync } from './useProductFormSync';
 import { useProductFormVariations } from './useProductFormVariations';
 import { useProductFormKeyboardShortcuts } from './useProductFormKeyboardShortcuts';
+import { useProductFormCategorySelection } from './useProductFormCategorySelection';
 import { replaceProductImageGlobally } from '../../components/tabs/images/productImageOrdering';
 import { inheritSimpleProductVariationFromParent } from '../../../../../../../shared-utils/simpleProductVariationInheritance';
 import {
@@ -124,11 +125,11 @@ export function useProductFormModal({
 
   const pricing = useProductFormPricing(formData, setFormData);
   const ai = useProductFormAi(formData, setFormData, availableCategories, isQuickRegister, isOpen);
-  const selectedCategoryName = availableCategories
-    .filter((category) => formData.categoryIds?.includes(category.id))
-    .map((category) => category.name)
-    .filter(Boolean)
-    .join(' / ');
+  const { selectedCategoryName, handleCategorySelect } = useProductFormCategorySelection(
+    formData,
+    availableCategories,
+    setFormData
+  );
   const jev = useProductJevClassification(
     formData,
     setFormData,
@@ -341,27 +342,6 @@ export function useProductFormModal({
     handleCloseWithAutoSave,
     handleSubmit,
   });
-
-  const handleCategorySelect = useCallback(
-    (cid: string) => {
-      const isSelected = formData.categoryIds?.includes(cid);
-      const newIds = isSelected
-        ? formData.categoryIds?.filter((id) => id !== cid)
-        : [...(formData.categoryIds || []), cid];
-      const categoryIds = newIds || [];
-      const availableEnvironments = getProductCategoryRootNames(categoryIds, availableCategories);
-      setFormData((prev) => ({
-        ...prev,
-        categoryIds,
-        environment:
-          prev.environment && availableEnvironments.includes(prev.environment)
-            ? prev.environment
-            : availableEnvironments[0] || '',
-        availableEnvironments,
-      }));
-    },
-    [formData.categoryIds, formData.environment, availableCategories]
-  );
 
   const handleCloseVariationModal = useCallback(() => {
     const pendingVariationId = variations.pendingNewVariationIdRef.current;

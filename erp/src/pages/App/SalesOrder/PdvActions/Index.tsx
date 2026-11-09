@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import Order, { OrderAction, IsButtonsClicked } from '../../../types/order.type';
 import { buttons, actionsMap } from '../OrderActions/orderActionsConfig';
 import { validateOrder, validateAssistanceOrder } from '../../../utils/validations';
@@ -22,16 +22,42 @@ const OrderActions = ({ order }: { order: Order }) => {
     sendAssistanceOS: false,
     printAssistanceOS: false,
   });
+  const directApiSendInFlight = useRef(false);
+  const [isDirectApiSending, setIsDirectApiSending] = useState(false);
 
   function markClicked(key: keyof IsButtonsClicked) {
     setIsButtonsClicked((prev) => ({ ...prev, [key]: true }));
   }
 
-  function handleAction(action: OrderAction) {
-    const updated = { ...order, date: order.date || new Date().toISOString() };
-    sessionStorage.setItem('order', JSON.stringify(updated));
-    if (actionsMap[action]) {
-      actionsMap[action](updated);
+  function handleAction(action: OrderAction): boolean {
+    const isDirectApiSend = action === 'SEND_CUSTOMER_ORDER_DIRECT_API';
+    if (isDirectApiSend && directApiSendInFlight.current) return false;
+    if (isDirectApiSend) {
+      directApiSendInFlight.current = true;
+      setIsDirectApiSending(true);
+    }
+
+    try {
+      const updated = { ...order, date: order.date || new Date().toISOString() };
+      sessionStorage.setItem('order', JSON.stringify(updated));
+      if (actionsMap[action]) {
+        const actionResult = actionsMap[action](updated);
+        if (isDirectApiSend) {
+          void Promise.resolve(actionResult)
+            .catch((error) => console.error('Erro ao enviar pedido pelo WhatsApp:', error))
+            .finally(() => {
+              directApiSendInFlight.current = false;
+              setIsDirectApiSending(false);
+            });
+        }
+      }
+      return true;
+    } catch (error) {
+      if (isDirectApiSend) {
+        directApiSendInFlight.current = false;
+        setIsDirectApiSending(false);
+      }
+      throw error;
     }
   }
 
@@ -94,21 +120,30 @@ const OrderActions = ({ order }: { order: Order }) => {
           return (
             <button
               key={`${btn.key}-${idx}`}
-              disabled={isDisabled}
+              disabled={isDisabled || (btn.action === 'SEND_CUSTOMER_ORDER_DIRECT_API' && isDirectApiSending)}
+              aria-busy={btn.action === 'SEND_CUSTOMER_ORDER_DIRECT_API' && isDirectApiSending}
               className={`${isDisabled ? 'opacity-50 cursor-not-allowed bg-slate-300 text-slate-500 rounded-xl px-6 py-3 shadow-sm' : btn.color} flex items-center gap-3 whitespace-nowrap active:scale-95`}
-              title={disabledReason}
+              title={
+                btn.action === 'SEND_CUSTOMER_ORDER_DIRECT_API' && isDirectApiSending
+                  ? 'Envio em andamento. Aguarde antes de tentar novamente.'
+                  : disabledReason
+              }
               onClick={(e) => {
                 e.preventDefault();
                 if (isDisabled) {
                   toast.warning(disabledReason);
                   return;
                 }
-                handleAction(btn.action);
+                if (!handleAction(btn.action)) return;
                 markClicked(btn.key as keyof IsButtonsClicked);
               }}
             >
               <i className={`bi ${btn.icon} text-lg`} />
-              <span className="font-black">{label}</span>
+              <span className="font-black">
+                {btn.action === 'SEND_CUSTOMER_ORDER_DIRECT_API' && isDirectApiSending
+                  ? 'Enviando…'
+                  : label}
+              </span>
               {isButtonsClicked[btn.key as keyof IsButtonsClicked] && (
                 <i className="bi bi-check-circle-fill text-white ml-1" />
               )}

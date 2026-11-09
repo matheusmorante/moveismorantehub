@@ -7,6 +7,8 @@ export interface NavigationRailProps {
   onToggleInboxSidebar?: () => void;
   isConversationSidebarOpen?: boolean;
   onToggleConversationSidebar?: () => void;
+  onOpenAiAgentModal?: () => void;
+  isAiAgentModalOpen?: boolean;
 }
 
 export const NavigationRail: React.FC<NavigationRailProps> = ({
@@ -15,6 +17,8 @@ export const NavigationRail: React.FC<NavigationRailProps> = ({
   onToggleInboxSidebar,
   isConversationSidebarOpen = true,
   onToggleConversationSidebar,
+  onOpenAiAgentModal,
+  isAiAgentModalOpen = false,
 }) => {
   return (
     <aside
@@ -55,6 +59,15 @@ export const NavigationRail: React.FC<NavigationRailProps> = ({
             onClick={onToggleConversationSidebar}
           />
         )}
+
+        {/* Agente de IA do WhatsApp */}
+        <NavigationRailItem
+          icon="bi-robot"
+          title="Configurações do Agente de IA (WhatsApp)"
+          ariaLabel="Configurações do Agente de IA"
+          isActive={isAiAgentModalOpen}
+          onClick={onOpenAiAgentModal}
+        />
       </div>
 
       {/* Opções da Central */}

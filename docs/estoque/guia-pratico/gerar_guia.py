@@ -428,7 +428,7 @@ y = table(['Opção do formulário', 'Quando escolher'], [
     ['<b>Variação de produto existente</b>', 'O pai já existe. Exemplo: incluir a Cadeira Aurora Branca na família Cadeira Aurora.'],
     ['<b>Produto composto</b>', 'Para kits ou conjuntos. Escolha pelo menos dois componentes distintos e suas quantidades. Não use para cor ou medida.'],
 ], y, widths=[185, TW - 185], size=8.8)
-y = note('Cadastro rápido', 'No simples, informe Nome do produto e Categoria. O sistema aproveita dados disponíveis na NF-e. Preço e fotos podem ser completados depois. <b>Cadastrar e vincular</b> salva; <b>Cancelar</b> fecha. O produto fica ativo para uso interno, oculto do catálogo e com saldo zero até confirmar o recebimento. Se o código já existir, use <b>Reutilizar e vincular</b>.', y, fill=MINT)
+y = note('Cadastro rápido', 'No simples, confira a Categoria sugerida pelo nome e ajuste-a se necessário. Para cadeiras, a sugestão depende de o nome indicar “Escritório” ou “Sala de Jantar”; sem esse contexto, escolha a categoria manualmente. O sistema aproveita dados disponíveis na NF-e. Preço e fotos podem ser completados depois. <b>Cadastrar e vincular</b> salva; <b>Cancelar</b> fecha. O produto fica ativo para uso interno, oculto do catálogo e com saldo zero até confirmar o recebimento. Se o código já existir, use <b>Reutilizar e vincular</b>.', y, fill=MINT)
 
 # 10 - Composição e características
 y = base('03 / Cadastro de produtos', 'Composição e características', 'Produto simples é um item vendido por conta própria. Produto composto é um conjunto de produtos cadastrados como peças.')

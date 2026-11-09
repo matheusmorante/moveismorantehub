@@ -49,6 +49,11 @@ export interface WhatsAppConversation {
   createdAt: string;
   updatedAt: string;
 
+  // Estado da Inteligência Artificial (Silent Handoff e Ciclo de Vida)
+  aiStatus?: 'active' | 'needs_human' | 'human_active' | 'paused';
+  aiHandoffReason?: string | null;
+  aiHandoffAt?: string | null;
+
   // Campos enriquecidos e calculados em tempo de execução
   status?: ConversationStatus;
   assignedProfile?: AssignedProfileSummary | null;
@@ -114,6 +119,7 @@ export type ConversationFilter =
   | 'mine'
   | 'unassigned'
   | 'unread'
+  | 'needs_human'
   | 'linked'
   | 'unlinked'
   | 'with_orders'

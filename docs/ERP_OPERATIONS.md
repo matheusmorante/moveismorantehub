@@ -121,3 +121,13 @@
     - **Estornada** (vermelho): saída estornada por cancelamento do pedido.
     - **Não efetivada** (cinza): produto cadastrado que ainda não teve movimentação lançada.
     - **Item não cadastrado (sem movimentação)** (âmbar): alerta explícito de que itens sem cadastro (temporários) ou serviços não movimentam estoque.
+
+---
+
+## 13. Motores de Inteligência Artificial e Governança de Custos
+
+- **Provedor Primário (WhatsApp Comercial Lizandro):** OpenAI GPT-6 Luna (`gpt-6-luna`).
+- **Provedor de Failover e Leitura de Documentos:** Google Gemini (`gemini-3.8-flash`).
+- **Governança de Custos e Cotas:** Gerenciada no PostgreSQL via RPCs atômicas `check_and_reserve_ai_quota` e `record_ai_token_usage`, com teto mensal consolidado de R$ 30,00, limites horários/diários e failover automático sem interrupção de atendimento ao cliente.
+- **Documentação Detalhada:** Consulte [`docs/integracoes/central-de-atendimento-openai-gpt6-luna-2026-11-09.md`](integracoes/central-de-atendimento-openai-gpt6-luna-2026-11-09.md).
+

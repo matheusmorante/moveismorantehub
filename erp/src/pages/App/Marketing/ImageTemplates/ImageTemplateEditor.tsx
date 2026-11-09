@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useAuth } from '@/context/AuthContext';
 import { requestConfirmation } from '@/components/shared/confirmationService';
 import {
   copyImageLayout, createImageLayer, FORMAT_DIMENSIONS, IMAGE_FORMATS, imageTemplateFormSchema, isLayerVisible,
   LAYER_TYPES, MAX_IMAGE_LAYERS, templateAssetIds, type ImageFormat, type ImageLayer, type ImageLayerType, type ImageLayout,
   type ImageTemplateDesign, type ImageTemplateFormValues,
 } from '../../../../../../shared-utils/catalogImageTemplate';
+import { setTestArtifactMode } from '../../../../../../shared-utils/testArtifactContext';
 import { TemplateArtboard } from './TemplateArtboard';
 import { TemplateLayerSettings } from './TemplateLayerSettings';
 import { TemplateProductPreview, useTemplateProductPreview } from './TemplateProductPreview';
@@ -14,6 +16,7 @@ import { createTemplatePictureLoader, renderImageTemplate } from './renderImageT
 import { assetSource, imageTemplateError, prepareTemplateAsset, readTemplateAssets, saveImageTemplate,
   type ImageTemplateSummary, type TemplateAsset } from './imageTemplateService';
 import { useTemplateAssets } from './useTemplateAssets';
+import { imageTemplateTestContext } from './imageTemplateTestContext';
 
 interface EditorProps {
   initial: ImageTemplateFormValues;
@@ -28,6 +31,7 @@ const formatLabels: Record<ImageFormat, string> = { '1:1': 'Quadrado', '4:5': 'F
 
 export default function ImageTemplateEditor({ initial, original, userId, onBack, onSaved }: EditorProps) {
   const form = useForm<ImageTemplateFormValues>({ defaultValues: initial, resolver: zodResolver(imageTemplateFormSchema) });
+  const { profile } = useAuth();
   const design = useWatch({ control: form.control, name: 'design' });
   const { isDirty, isSubmitting } = form.formState;
   const [record, setRecord] = useState(original);
@@ -47,16 +51,30 @@ export default function ImageTemplateEditor({ initial, original, userId, onBack,
   const exportRequest = useRef<AbortController | null>(null);
   const dragId = useRef('');
   const getPicture = useMemo(createTemplatePictureLoader, []);
-  const preview = useTemplateProductPreview(userId);
-  const product = preview.product;
   const currentFormat = design.formats[format] ? format : FIRST_FORMAT;
   const layout = design.formats[currentFormat]!;
+  const productImageCount = Math.max(1, ...layout.layers.flatMap((layer) => layer.type === 'product' ? [layer.imageIndex + 1] : []));
+  const preview = useTemplateProductPreview(userId, productImageCount);
+  const product = preview.product;
   const active = layout.layers.find((layer) => layer.id === activeId) ?? layout.layers[0];
   const assets = useTemplateAssets(layout, product, pendingAssets);
   const busy = uploading || exporting || isSubmitting;
   const dimensions = FORMAT_DIMENSIONS[currentFormat];
+  const testContext = imageTemplateTestContext();
+  const canMarkTest = import.meta.env.DEV && testContext?.ownerId === userId
+    && (profile?.role === 'administrator' || profile?.roles?.includes('administrator'));
 
   useEffect(() => () => exportRequest.current?.abort(), []);
+  useEffect(() => {
+    if (!layerMenuId) return;
+    const closeMenu = (event: MouseEvent | KeyboardEvent) => {
+      if (event instanceof KeyboardEvent) { if (event.key === 'Escape') setLayerMenuId(null); return; }
+      if (!(event.target as Element | null)?.closest('.ct-layer-row')) setLayerMenuId(null);
+    };
+    document.addEventListener('mousedown', closeMenu);
+    document.addEventListener('keydown', closeMenu);
+    return () => { document.removeEventListener('mousedown', closeMenu); document.removeEventListener('keydown', closeMenu); };
+  }, [layerMenuId]);
   useEffect(() => {
     if (record && !isDirty && !isSubmitting) return;
     const guard = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ''; };
@@ -65,7 +83,7 @@ export default function ImageTemplateEditor({ initial, original, userId, onBack,
   }, [isDirty, isSubmitting, record]);
 
   function applyDesign(next: ImageTemplateDesign) {
-    form.setValue('design', next, { shouldDirty: true });
+    form.setValue('design', record?.test_artifact ? { ...next, testArtifact: record.test_artifact } : next, { shouldDirty: true });
     setError('');
     setMessage('');
   }
@@ -138,6 +156,17 @@ export default function ImageTemplateEditor({ initial, original, userId, onBack,
 
   function canRemove(layer: ImageLayer) {
     return layer.type !== 'product' || layout.layers.filter((entry) => entry.type === 'product').length > 1;
+  }
+
+  function removeLayer(layer: ImageLayer) {
+    if (busy || !canRemove(layer)) return;
+    const nextLayer = layout.layers.find((entry) => entry.id !== layer.id);
+    changeLayout({ layers: layout.layers.filter((entry) => entry.id !== layer.id) });
+    setActiveId(nextLayer?.id ?? '');
+    setLayerMenuId(null);
+    if (nextLayer) window.requestAnimationFrame(() => {
+      document.querySelector<HTMLButtonElement>('.ct-select-layer[aria-pressed="true"]')?.focus();
+    });
   }
 
   async function attachFile(file: File) {
@@ -232,10 +261,22 @@ export default function ImageTemplateEditor({ initial, original, userId, onBack,
     onBack();
   }
 
-  return <form className="ct-editor ct-surface" noValidate onSubmit={submit}>
+  return <form className="ct-editor ct-surface" noValidate onSubmit={submit} onKeyDown={(event) => {
+    const target = event.target as HTMLElement;
+    if (event.key !== 'Delete' || busy || !canRemove(active)
+      || (!target.closest('.ct-artboard') && !target.closest('.ct-select-layer[aria-pressed="true"]'))) return;
+    event.preventDefault();
+    removeLayer(active);
+  }}>
     <header className="ct-header">
       <nav aria-label="Localização"><button type="button" className="ct-link" disabled={busy} onClick={() => void leave()}>Modelos de imagem</button><i className="bi bi-chevron-right" aria-hidden="true" /><h1>{initial.name}</h1></nav>
       <p>Crie e edite modelos de imagem para os produtos do ERP.</p>
+      {canMarkTest && <label className="ct-checkbox">
+        <input type="checkbox" checked={!!design.testArtifact} disabled={busy || !!record}
+          onChange={(event) => commit(setTestArtifactMode({ design }, 'design', event.target.checked, testContext).design)} />
+        Modelo de teste desta execução
+      </label>}
+      {design.testArtifact && <small className="ct-muted">Modelo identificado como teste e vinculado ao operador desta execução.</small>}
     </header>
     <div className="ct-workspace">
       <aside className="ct-layers" aria-label="Camadas">
@@ -271,7 +312,9 @@ export default function ImageTemplateEditor({ initial, original, userId, onBack,
             <button type="button" className="ct-select-layer" aria-pressed={layer.id === active.id} disabled={busy}
               onClick={() => { setActiveId(layer.id); setLayerMenuId(null); setUploadError(''); }}>
               <i className={`bi ${layer.type === 'background' ? 'bi-lock' : 'bi-grip-vertical'}`} aria-hidden="true" />
-              <i className={`bi ${LAYER_TYPES[layer.type].icon}`} aria-hidden="true" />
+              {layer.type === 'image' && layer.assetId && assets.sources.get(layer.assetId)
+                ? <img className="ct-layer-thumb" src={assets.sources.get(layer.assetId)} alt="" aria-hidden="true" />
+                : <i className={`bi ${LAYER_TYPES[layer.type].icon}`} aria-hidden="true" />}
               <span><strong>{layer.name || 'Camada sem nome'}</strong><small>{LAYER_TYPES[layer.type].label}</small></span>
             </button>
             <button type="button" className="ct-layer-menu-toggle" aria-label={`Ações da camada ${layer.name}`}
@@ -290,9 +333,7 @@ export default function ImageTemplateEditor({ initial, original, userId, onBack,
                   input?.select();
                 });
               }}>Alterar nome</button>
-              <button type="button" disabled={busy || !canRemove(layer)} onClick={() => {
-                changeLayout({ layers: layout.layers.filter((entry) => entry.id !== layer.id) }); setLayerMenuId(null);
-              }}>Excluir</button>
+              <button type="button" disabled={busy || !canRemove(layer)} onClick={() => removeLayer(layer)}>Excluir</button>
               <button type="button" disabled={busy || layer.type === 'background' || layout.layers.length >= MAX_IMAGE_LAYERS} onClick={() => {
                 duplicateLayer(layer, index); setLayerMenuId(null);
               }}>Duplicar</button>
@@ -309,6 +350,8 @@ export default function ImageTemplateEditor({ initial, original, userId, onBack,
       </aside>
       <TemplateLayerSettings key={active.id} layer={active} product={product}
         assetPreview={active.type === 'image' && active.assetId ? assets.sources.get(active.assetId) : undefined}
+        palette={layout.layers.flatMap((entry) => entry.type === 'background' ? [entry.color]
+          : entry.type === 'sticker' ? [entry.fill, entry.color] : 'color' in entry ? [entry.color] : [])}
         onChange={replaceLayer} onFile={(file) => void attachFile(file)}
         uploading={uploading} disabled={busy} uploadError={uploadError} />
       <section className="ct-preview-area" aria-label="Modelo">

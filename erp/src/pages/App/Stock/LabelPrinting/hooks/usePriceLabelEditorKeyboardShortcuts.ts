@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import type { PriceLabelLayerKey } from '../types/PriceLabelArtEditorTypes';
 
@@ -9,14 +9,55 @@ type PositionSetter = Dispatch<SetStateAction<Position>>;
 interface UsePriceLabelEditorKeyboardShortcutsParams {
   isOpen: boolean;
   selectedElement: PriceLabelLayerKey;
-  positionSetters: Record<MovableLayerKey, PositionSetter>;
+  setTitlePos: PositionSetter;
+  setDePricePorGroupPos: PositionSetter;
+  setDePos: PositionSetter;
+  setNormalPricePos: PositionSetter;
+  setPorPos: PositionSetter;
+  setCurrencyPos: PositionSetter;
+  setPromoPricePos: PositionSetter;
+  setCentsPos: PositionSetter;
+  setInstallmentsPos: PositionSetter;
 }
 
 export function usePriceLabelEditorKeyboardShortcuts({
   isOpen,
   selectedElement,
-  positionSetters,
+  setTitlePos,
+  setDePricePorGroupPos,
+  setDePos,
+  setNormalPricePos,
+  setPorPos,
+  setCurrencyPos,
+  setPromoPricePos,
+  setCentsPos,
+  setInstallmentsPos,
 }: UsePriceLabelEditorKeyboardShortcutsParams) {
+  const positionSetters = useMemo<Record<MovableLayerKey, PositionSetter>>(
+    () => ({
+      title: setTitlePos,
+      dePricePorGroup: setDePricePorGroupPos,
+      deText: setDePos,
+      normalPrice: setNormalPricePos,
+      porText: setPorPos,
+      currencySymbol: setCurrencyPos,
+      promoPrice: setPromoPricePos,
+      cents: setCentsPos,
+      installments: setInstallmentsPos,
+    }),
+    [
+      setTitlePos,
+      setDePricePorGroupPos,
+      setDePos,
+      setNormalPricePos,
+      setPorPos,
+      setCurrencyPos,
+      setPromoPricePos,
+      setCentsPos,
+      setInstallmentsPos,
+    ]
+  );
+
   useEffect(() => {
     if (!isOpen) return;
 

@@ -1,4 +1,4 @@
-import { callGeminiDirect } from './aiDirectClient';
+import { callOpenAIDirect } from './aiDirectClient';
 
 export const aiFiscalClassificationService = {
   async generateFiscalData(productData: {
@@ -62,7 +62,7 @@ Retorne SOMENTE JSON válido no formato exato abaixo, sem markdown:
 }`;
 
     try {
-      const textResponse = await callGeminiDirect(prompt, true, {
+      const textResponse = await callOpenAIDirect(prompt, true, {
         tier: 'reasoning',
         moduleSource: 'fiscal',
         thinkingBudget: 'low',

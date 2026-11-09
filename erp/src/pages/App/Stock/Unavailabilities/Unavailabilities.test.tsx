@@ -9,6 +9,7 @@ import { canPerform } from '@/pages/utils/permissionService';
 import {
   createStockUnavailability,
   fetchStockUnavailabilities,
+  fetchStockUnavailabilityPhotoPaths,
   undoStockUnavailability,
   type StockUnavailability,
 } from '@/pages/utils/stockUnavailabilityService';
@@ -44,6 +45,7 @@ vi.mock('@/pages/utils/stockUnavailabilityService', () => ({
   STOCK_UNAVAILABILITIES_PAGE_SIZE: 15,
   createStockUnavailability: vi.fn(),
   fetchStockUnavailabilities: vi.fn(),
+  fetchStockUnavailabilityPhotoPaths: vi.fn(() => Promise.resolve([])),
   undoStockUnavailability: vi.fn(),
   getUnavailabilityPhotoUrls: vi.fn((photos?: string[]) => Promise.resolve(photos || [])),
 }));
@@ -104,7 +106,7 @@ const activeRecord = {
   physical_location: 'Depósito',
   status: 'active' as const,
   observation: null,
-  photos: null,
+  photos_count: 0,
   created_at: '2026-09-28T12:00:00.000Z',
   products: { id: 'product-1', name: 'Produto teste', sku: 'P-1', product_kind: 'normal' as const },
   product_variations: { name: 'Variação azul', sku: 'SKU-1' },
@@ -363,7 +365,7 @@ describe('UnavailabilitiesPage', () => {
     const recordWithPhotos: StockUnavailability = {
       ...activeRecord,
       id: 'unavail-with-photos',
-      photos: ['https://example.com/test-photo.jpg'],
+      photos_count: 1,
       observation: 'Canto quebrado',
     };
     vi.mocked(fetchStockUnavailabilities).mockResolvedValueOnce({
@@ -375,9 +377,12 @@ describe('UnavailabilitiesPage', () => {
     expect(await screen.findByText('Obs: Canto quebrado')).toBeInTheDocument();
     const photosBtn = await screen.findByRole('button', { name: /1 foto\(s\)/i });
     expect(photosBtn).toBeInTheDocument();
+    expect(fetchStockUnavailabilityPhotoPaths).not.toHaveBeenCalled();
 
+    vi.mocked(fetchStockUnavailabilityPhotoPaths).mockResolvedValueOnce(['https://example.com/test-photo.jpg']);
     fireEvent.click(photosBtn);
     expect(await screen.findByText('Fotos da Indisponibilidade')).toBeInTheDocument();
+    await waitFor(() => expect(fetchStockUnavailabilityPhotoPaths).toHaveBeenCalledWith('unavail-with-photos'));
 
     fireEvent.click(screen.getByRole('button', { name: 'Fechar' }));
     await waitFor(() => {

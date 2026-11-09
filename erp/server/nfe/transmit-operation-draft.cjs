@@ -1272,96 +1272,6 @@ function buildReviewedFiscalOperationXml(input) {
   return `<?xml version="1.0" encoding="UTF-8"?><NFe xmlns="${namespace}"><infNFe Id="NFe${input.accessKey}" versao="4.00">${ide}${buildEmitXml(settings)}${new import_xmldom.XMLSerializer().serializeToString(recipient)}${details}${new import_xmldom.XMLSerializer().serializeToString(totals)}${transport}${payment}${information}</infNFe></NFe>`;
 }
 
-// erp/src/pages/utils/nfe/fiscalOperationReview.ts
-var import_xmldom2 = require("@xmldom/xmldom");
-var NFE_NAMESPACE = "http://www.portalfiscal.inf.br/nfe";
-function parseElement(xml, expectedName) {
-  if (!xml || /<!DOCTYPE|<!ENTITY|<\?/i.test(xml))
-    throw new Error("Bloco fiscal original inv\xE1lido.");
-  let error = "";
-  const onParseError = (level, message) => {
-    if (level === "warning" && message.includes("errorHandler") && message.includes("deprecated"))
-      return;
-    error ||= message;
-  };
-  const document = new import_xmldom2.DOMParser({
-    errorHandler: onParseError
-  }).parseFromString(xml, "application/xml");
-  if (error || !document.documentElement || document.documentElement.localName !== expectedName || document.documentElement.namespaceURI && document.documentElement.namespaceURI !== NFE_NAMESPACE) {
-    throw new Error(`Esperado XML v\xE1lido do bloco ${expectedName}.`);
-  }
-  return document.documentElement;
-}
-function findElement(root, name) {
-  if (root.localName === name) return root;
-  for (const child2 of Array.from(root.childNodes)) {
-    if (child2.nodeType !== 1) continue;
-    const found = findElement(child2, name);
-    if (found) return found;
-  }
-  return null;
-}
-function updateText(root, name, value) {
-  const element = findElement(root, name);
-  if (!element) throw new Error(`O item fiscal original n\xE3o possui o campo ${name}.`);
-  if (!element.ownerDocument) throw new Error("Bloco fiscal sem documento XML.");
-  while (element.firstChild) element.removeChild(element.firstChild);
-  element.appendChild(element.ownerDocument.createTextNode(value));
-}
-function proportionalValue(element, factor) {
-  if (!element.ownerDocument) throw new Error("Bloco fiscal sem documento XML.");
-  const original = element.textContent?.trim() || "";
-  if (!/^\d+(?:\.\d+)?$/.test(original))
-    throw new Error(`Valor fiscal inv\xE1lido em ${element.localName}.`);
-  const decimals = original.split(".")[1]?.length || 0;
-  const scale = 10 ** decimals;
-  const value = Math.round(Number(original) * factor * scale) / scale;
-  while (element.firstChild) element.removeChild(element.firstChild);
-  element.appendChild(element.ownerDocument.createTextNode(value.toFixed(decimals)));
-}
-function buildReturnProductXml(input) {
-  if (!Number.isFinite(input.quantity) || input.quantity <= 0 || input.quantity > input.originalQuantity || !Number.isFinite(input.originalQuantity) || input.originalQuantity <= 0 || !/^\d{4}$/.test(input.cfop))
-    throw new Error("Quantidade ou CFOP de devolu\xE7\xE3o inv\xE1lido.");
-  const product = parseElement(input.originalProductXml, "prod");
-  const factor = input.quantity / input.originalQuantity;
-  const originalTributaryQuantity = findElement(product, "qTrib");
-  if (!originalTributaryQuantity)
-    throw new Error("Item fiscal original sem quantidade tribut\xE1vel.");
-  proportionalValue(originalTributaryQuantity, factor);
-  updateText(product, "CFOP", input.cfop);
-  updateText(product, "qCom", input.quantity.toFixed(4));
-  updateText(product, "vProd", input.grossValue.toFixed(2));
-  const discount = findElement(product, "vDesc");
-  if (discount) updateText(product, "vDesc", input.discountValue.toFixed(2));
-  for (const name of ["vFrete", "vSeg", "vOutro"]) {
-    const value = findElement(product, name);
-    if (value) proportionalValue(value, factor);
-  }
-  return normalizeReviewedFiscalBlock(new import_xmldom2.XMLSerializer().serializeToString(product), "prod");
-}
-function buildProportionalReturnTaxesXml(originalTaxesXml, quantity, originalQuantity) {
-  if (!Number.isFinite(quantity) || !Number.isFinite(originalQuantity) || quantity <= 0 || originalQuantity <= 0 || quantity > originalQuantity) {
-    throw new Error("Quantidade inv\xE1lida para c\xE1lculo proporcional dos tributos.");
-  }
-  const taxes = parseElement(originalTaxesXml, "imposto");
-  const factor = quantity / originalQuantity;
-  const scaleTags = (element) => {
-    for (const child2 of Array.from(element.childNodes)) {
-      if (child2.nodeType !== 1) continue;
-      const childElement = child2;
-      const childName = childElement.localName || "";
-      const isNumericLeaf = !Array.from(childElement.childNodes).some(
-        (node) => node.nodeType === 1
-      );
-      if (isNumericLeaf && (/^v/.test(childName) && !/^vAliqProd$/.test(childName) || /^q(?:BC|Selo)/.test(childName)))
-        proportionalValue(childElement, factor);
-      else scaleTags(childElement);
-    }
-  };
-  scaleTags(taxes);
-  return normalizeReviewedFiscalBlock(new import_xmldom2.XMLSerializer().serializeToString(taxes), "imposto");
-}
-
 // erp/src/pages/utils/nfe/sefazResponseParser.ts
 function firstTag(xml, tag) {
   const qualifiedTag = `(?:[\\w.-]+:)?${tag}`;
@@ -1503,7 +1413,7 @@ function decideOperationDraftRecovery(cStat, state) {
 var import_node_fs = require("node:fs");
 var import_node_path = require("node:path");
 var import_node_url = require("node:url");
-var import_xmldom3 = require("@xmldom/xmldom");
+var import_xmldom2 = require("@xmldom/xmldom");
 var NFE_SCHEMA_PACKAGE = "PL_010f_v1.04";
 var schemaRelativePath = `api/nfe/schemas/${NFE_SCHEMA_PACKAGE}/nfe_v4.00.xsd`;
 function resolveFilePath(filename) {
@@ -2332,12 +2242,12 @@ function isUncertainAuthorization(cStat, pending) {
 }
 
 // api/nfe/authorizationResponseIdentity.ts
-var import_xmldom4 = require("@xmldom/xmldom");
+var import_xmldom3 = require("@xmldom/xmldom");
 function readSefazResult(response) {
   try {
     if (/<!DOCTYPE|<!ENTITY/i.test(response)) return null;
     let invalidXml = false;
-    const xml = new import_xmldom4.DOMParser({ errorHandler(level, message) {
+    const xml = new import_xmldom3.DOMParser({ errorHandler(level, message) {
       if (level === "warning" && String(message).includes("errorHandler") && String(message).includes("deprecated")) return;
       invalidXml = true;
     } }).parseFromString(response, "text/xml");
@@ -2427,9 +2337,9 @@ var CSOSN_CODES = ["101", "102", "103", "201", "202", "203", "300", "400", "500"
 var csosns = new Set(CSOSN_CODES);
 
 // api/nfe/fiscalXmlAuditDom.ts
-var import_xmldom5 = require("@xmldom/xmldom");
+var import_xmldom4 = require("@xmldom/xmldom");
 function createStrictXmlParser(parseErrors) {
-  return new import_xmldom5.DOMParser({
+  return new import_xmldom4.DOMParser({
     errorHandler: (level, message) => {
       if (level === "warning" && String(message).includes("errorHandler") && String(message).includes("deprecated"))
         return;
@@ -2732,6 +2642,96 @@ function getFiscalCancellationPolicy(input) {
   };
 }
 
+// erp/src/pages/utils/nfe/fiscalOperationReview.ts
+var import_xmldom5 = require("@xmldom/xmldom");
+var NFE_NAMESPACE = "http://www.portalfiscal.inf.br/nfe";
+function parseElement(xml, expectedName) {
+  if (!xml || /<!DOCTYPE|<!ENTITY|<\?/i.test(xml))
+    throw new Error("Bloco fiscal original inv\xE1lido.");
+  let error = "";
+  const onParseError = (level, message) => {
+    if (level === "warning" && message.includes("errorHandler") && message.includes("deprecated"))
+      return;
+    error ||= message;
+  };
+  const document = new import_xmldom5.DOMParser({
+    errorHandler: onParseError
+  }).parseFromString(xml, "application/xml");
+  if (error || !document.documentElement || document.documentElement.localName !== expectedName || document.documentElement.namespaceURI && document.documentElement.namespaceURI !== NFE_NAMESPACE) {
+    throw new Error(`Esperado XML v\xE1lido do bloco ${expectedName}.`);
+  }
+  return document.documentElement;
+}
+function findElement(root, name) {
+  if (root.localName === name) return root;
+  for (const child2 of Array.from(root.childNodes)) {
+    if (child2.nodeType !== 1) continue;
+    const found = findElement(child2, name);
+    if (found) return found;
+  }
+  return null;
+}
+function updateText(root, name, value) {
+  const element = findElement(root, name);
+  if (!element) throw new Error(`O item fiscal original n\xE3o possui o campo ${name}.`);
+  if (!element.ownerDocument) throw new Error("Bloco fiscal sem documento XML.");
+  while (element.firstChild) element.removeChild(element.firstChild);
+  element.appendChild(element.ownerDocument.createTextNode(value));
+}
+function proportionalValue(element, factor) {
+  if (!element.ownerDocument) throw new Error("Bloco fiscal sem documento XML.");
+  const original = element.textContent?.trim() || "";
+  if (!/^\d+(?:\.\d+)?$/.test(original))
+    throw new Error(`Valor fiscal inv\xE1lido em ${element.localName}.`);
+  const decimals = original.split(".")[1]?.length || 0;
+  const scale = 10 ** decimals;
+  const value = Math.round(Number(original) * factor * scale) / scale;
+  while (element.firstChild) element.removeChild(element.firstChild);
+  element.appendChild(element.ownerDocument.createTextNode(value.toFixed(decimals)));
+}
+function buildReturnProductXml(input) {
+  if (!Number.isFinite(input.quantity) || input.quantity <= 0 || input.quantity > input.originalQuantity || !Number.isFinite(input.originalQuantity) || input.originalQuantity <= 0 || !/^\d{4}$/.test(input.cfop))
+    throw new Error("Quantidade ou CFOP de devolu\xE7\xE3o inv\xE1lido.");
+  const product = parseElement(input.originalProductXml, "prod");
+  const factor = input.quantity / input.originalQuantity;
+  const originalTributaryQuantity = findElement(product, "qTrib");
+  if (!originalTributaryQuantity)
+    throw new Error("Item fiscal original sem quantidade tribut\xE1vel.");
+  proportionalValue(originalTributaryQuantity, factor);
+  updateText(product, "CFOP", input.cfop);
+  updateText(product, "qCom", input.quantity.toFixed(4));
+  updateText(product, "vProd", input.grossValue.toFixed(2));
+  const discount = findElement(product, "vDesc");
+  if (discount) updateText(product, "vDesc", input.discountValue.toFixed(2));
+  for (const name of ["vFrete", "vSeg", "vOutro"]) {
+    const value = findElement(product, name);
+    if (value) proportionalValue(value, factor);
+  }
+  return normalizeReviewedFiscalBlock(new import_xmldom5.XMLSerializer().serializeToString(product), "prod");
+}
+function buildProportionalReturnTaxesXml(originalTaxesXml, quantity, originalQuantity) {
+  if (!Number.isFinite(quantity) || !Number.isFinite(originalQuantity) || quantity <= 0 || originalQuantity <= 0 || quantity > originalQuantity) {
+    throw new Error("Quantidade inv\xE1lida para c\xE1lculo proporcional dos tributos.");
+  }
+  const taxes = parseElement(originalTaxesXml, "imposto");
+  const factor = quantity / originalQuantity;
+  const scaleTags = (element) => {
+    for (const child2 of Array.from(element.childNodes)) {
+      if (child2.nodeType !== 1) continue;
+      const childElement = child2;
+      const childName = childElement.localName || "";
+      const isNumericLeaf = !Array.from(childElement.childNodes).some(
+        (node) => node.nodeType === 1
+      );
+      if (isNumericLeaf && (/^v/.test(childName) && !/^vAliqProd$/.test(childName) || /^q(?:BC|Selo)/.test(childName)))
+        proportionalValue(childElement, factor);
+      else scaleTags(childElement);
+    }
+  };
+  scaleTags(taxes);
+  return normalizeReviewedFiscalBlock(new import_xmldom5.XMLSerializer().serializeToString(taxes), "imposto");
+}
+
 // api/nfe/orderEditReplacement.ts
 async function hasPendingOrderEditEstorno(db, orderId, documentId, environment) {
   const { data, error } = await db.from("nfe_order_edit_replacements").select("id").eq("order_id", orderId).eq("original_document_id", documentId).eq("environment", environment).eq("reversal_kind", "estorno").eq("status", "awaiting_reversal").maybeSingle();
@@ -2862,6 +2862,53 @@ function validateEstornoItems(params) {
     });
     if (normalizeReviewedFiscalBlock(String(line.reviewed_product_xml), "prod") !== normalizeReviewedFiscalBlock(expectedProduct, "prod")) {
       return "O item do estorno precisa preservar os dados fiscais e valores originais.";
+    }
+  }
+  return null;
+}
+function validateReturnDraftReview(params) {
+  const { sourceXml, review, returnXmlDefaults, lines, originalById } = params;
+  const fixedRecipient = normalizeReviewedFiscalBlock(extractXmlBlock(sourceXml, "dest"), "dest");
+  const submittedRecipient = normalizeReviewedFiscalBlock(
+    String(review.recipient_xml || ""),
+    "dest"
+  );
+  const fixedPayment = normalizeReviewedFiscalBlock(returnXmlDefaults.paymentXml, "pag");
+  const submittedPayment = normalizeReviewedFiscalBlock(String(review.payment_xml || ""), "pag");
+  const fixedTransport = normalizeReviewedFiscalBlock(returnXmlDefaults.transportXml, "transp");
+  const submittedTransport = normalizeReviewedFiscalBlock(
+    String(review.transport_xml || ""),
+    "transp"
+  );
+  if (fixedRecipient !== submittedRecipient || fixedPayment !== submittedPayment || fixedTransport !== submittedTransport || String(review.nature_of_operation || "").trim() !== returnXmlDefaults.natureOfOperation) {
+    return "Os campos estruturais da NF-e de devolu\xE7\xE3o divergem do cen\xE1rio fiscal permitido.";
+  }
+  for (const line of lines) {
+    const original = originalById.get(line.original_document_item_id);
+    if (!original) return "Item original ausente.";
+    const originalCfop = originalItemCfop(original.product_xml);
+    const allowedCfops = getReturnCfopOptionsForSourceItem(
+      originalCfop || "",
+      original.taxes_xml
+    );
+    if (!allowedCfops.some((option) => option.value === line.reviewed_cfop)) {
+      return `CFOP ${line.reviewed_cfop} n\xE3o \xE9 permitido para o item original e o cen\xE1rio de devolu\xE7\xE3o.`;
+    }
+    const expectedProduct = buildReturnProductXml({
+      originalProductXml: original.product_xml,
+      quantity: Number(line.quantity),
+      originalQuantity: Number(original.billed_quantity),
+      grossValue: Number(line.gross_value),
+      discountValue: Number(line.discount_value),
+      cfop: String(line.reviewed_cfop)
+    });
+    const expectedTaxes = buildProportionalReturnTaxesXml(
+      original.taxes_xml,
+      Number(line.quantity),
+      Number(original.billed_quantity)
+    );
+    if (normalizeReviewedFiscalBlock(String(line.reviewed_product_xml), "prod") !== normalizeReviewedFiscalBlock(expectedProduct, "prod") || normalizeReviewedFiscalBlock(String(line.reviewed_taxes_xml), "imposto") !== normalizeReviewedFiscalBlock(expectedTaxes, "imposto")) {
+      return "Item ou tributa\xE7\xE3o fiscal diverge da quantidade e refer\xEAncia originais da devolu\xE7\xE3o.";
     }
   }
   return null;
@@ -3469,67 +3516,15 @@ async function handler(req, res) {
           error: "O cen\xE1rio da devolu\xE7\xE3o n\xE3o possui op\xE7\xF5es fiscais aprovadas."
         });
       }
-      const fixedRecipient = normalizeReviewedFiscalBlock(
-        extractXmlBlock(String(validatedSource.xml_nfe || ""), "dest"),
-        "dest"
-      );
-      const submittedRecipient = normalizeReviewedFiscalBlock(
-        String(review.recipient_xml || ""),
-        "dest"
-      );
-      const fixedPayment = normalizeReviewedFiscalBlock(returnXmlDefaults.paymentXml, "pag");
-      const submittedPayment = normalizeReviewedFiscalBlock(
-        String(review.payment_xml || ""),
-        "pag"
-      );
-      const fixedTransport = normalizeReviewedFiscalBlock(
-        returnXmlDefaults.transportXml,
-        "transp"
-      );
-      const submittedTransport = normalizeReviewedFiscalBlock(
-        String(review.transport_xml || ""),
-        "transp"
-      );
-      if (fixedRecipient !== submittedRecipient || fixedPayment !== submittedPayment || fixedTransport !== submittedTransport || String(review.nature_of_operation || "").trim() !== returnXmlDefaults.natureOfOperation) {
-        return res.status(409).json({
-          success: false,
-          error: "Os campos estruturais da NF-e de devolu\xE7\xE3o divergem do cen\xE1rio fiscal permitido."
-        });
-      }
-      for (const line of lines) {
-        const original = originalById.get(line.original_document_item_id);
-        if (!original)
-          return res.status(409).json({ success: false, error: "Item original ausente." });
-        const originalCfop = originalItemCfop(original.product_xml);
-        const allowedCfops = getReturnCfopOptionsForSourceItem(
-          originalCfop || "",
-          original.taxes_xml
-        );
-        if (!allowedCfops.some((option) => option.value === line.reviewed_cfop)) {
-          return res.status(409).json({
-            success: false,
-            error: `CFOP ${line.reviewed_cfop} n\xE3o \xE9 permitido para o item original e o cen\xE1rio de devolu\xE7\xE3o.`
-          });
-        }
-        const expectedProduct = buildReturnProductXml({
-          originalProductXml: original.product_xml,
-          quantity: Number(line.quantity),
-          originalQuantity: Number(original.billed_quantity),
-          grossValue: Number(line.gross_value),
-          discountValue: Number(line.discount_value),
-          cfop: String(line.reviewed_cfop)
-        });
-        const expectedTaxes = buildProportionalReturnTaxesXml(
-          original.taxes_xml,
-          Number(line.quantity),
-          Number(original.billed_quantity)
-        );
-        if (normalizeReviewedFiscalBlock(String(line.reviewed_product_xml), "prod") !== normalizeReviewedFiscalBlock(expectedProduct, "prod") || normalizeReviewedFiscalBlock(String(line.reviewed_taxes_xml), "imposto") !== normalizeReviewedFiscalBlock(expectedTaxes, "imposto")) {
-          return res.status(409).json({
-            success: false,
-            error: "Item ou tributa\xE7\xE3o fiscal diverge da quantidade e refer\xEAncia originais da devolu\xE7\xE3o."
-          });
-        }
+      const returnReviewError = validateReturnDraftReview({
+        sourceXml: String(validatedSource.xml_nfe || ""),
+        review,
+        returnXmlDefaults,
+        lines,
+        originalById
+      });
+      if (returnReviewError) {
+        return res.status(409).json({ success: false, error: returnReviewError });
       }
     }
     let accessKey = draft.access_key;

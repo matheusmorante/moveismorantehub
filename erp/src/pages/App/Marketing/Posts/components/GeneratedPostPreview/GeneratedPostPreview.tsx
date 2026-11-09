@@ -9,7 +9,7 @@ import { exportPostImage } from '../../services/exportPostImage';
 import { AiQuotaManager, MonthlyUsageReport } from '@/services/aiGateway/core/AiQuotaManager';
 import { AiGateway } from '@/services/aiGateway/AiGateway';
 import {
-  harmonizePostStylesWithGeminiFlash,
+  harmonizePostStylesWithOpenAI,
   HtmlPostThemeStyle,
   DEFAULT_THEME_STYLE,
 } from '../../services/postHtmlStyleOptimizer';
@@ -167,7 +167,7 @@ export function GeneratedPostPreview({
     }
   };
 
-  // Handler para harmonização de cores e contraste via Gemini Flash
+  // Handler para harmonização de cores e contraste via GPT-6 Luna
   const handleHarmonizeColors = async () => {
     if (!product) {
       toast.warn('Selecione um produto para harmonizar cores.');
@@ -177,7 +177,7 @@ export function GeneratedPostPreview({
     setHarmonizingColors(true);
     try {
       const isWhite = backgroundMode === 'white';
-      const harmonized = await harmonizePostStylesWithGeminiFlash({
+      const harmonized = await harmonizePostStylesWithOpenAI({
         productName: product.name,
         category: product.category,
         opportunityName: product.opportunity?.name || product.oppName,
@@ -253,7 +253,7 @@ export function GeneratedPostPreview({
             </button>
           )}
 
-          {/* Botão Harmonizar Cores (Gemini Flash) */}
+          {/* Botão Harmonizar Cores (GPT-6 Luna) */}
           <button
             type="button"
             disabled={!product || harmonizingColors}

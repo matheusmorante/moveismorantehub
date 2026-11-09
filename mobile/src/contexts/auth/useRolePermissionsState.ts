@@ -9,15 +9,19 @@ const ROLE_PERMISSIONS_CACHE_KEY = 'app_role_permissions_v1';
 export const useRolePermissionsState = (profileAccessKey: string | null) => {
   const [rolePermissions, setRolePermissions] = useState<Record<string, string[]>>({});
   const [rolePermissionsLoaded, setRolePermissionsLoaded] = useState(false);
+  const [rolePermissionsConfirmed, setRolePermissionsConfirmed] = useState(false);
   const [rolePermissionsLoadFailed, setRolePermissionsLoadFailed] = useState(false);
   const [permissionReloadVersion, setPermissionReloadVersion] = useState(0);
+  const [permissionsLoadedForKey, setPermissionsLoadedForKey] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
     if (!profileAccessKey) {
       setRolePermissions({});
       setRolePermissionsLoaded(false);
+      setRolePermissionsConfirmed(false);
       setRolePermissionsLoadFailed(false);
+      setPermissionsLoadedForKey(null);
       return () => {
         active = false;
       };
@@ -27,17 +31,19 @@ export const useRolePermissionsState = (profileAccessKey: string | null) => {
       try {
         const { data, error } = await supabase
           .from('settings')
-          .select('data')
+          .select('rolePermissions:data->rolePermissions')
           .eq('id', 'app')
           .maybeSingle();
         if (!active) return;
         if (error) throw error;
 
-        const safePermissions = sanitizeLoadedRolePermissions(data?.data?.rolePermissions);
+        const safePermissions = sanitizeLoadedRolePermissions(data?.rolePermissions);
 
         setRolePermissions(safePermissions);
         setRolePermissionsLoaded(true);
+        setRolePermissionsConfirmed(true);
         setRolePermissionsLoadFailed(false);
+        setPermissionsLoadedForKey(profileAccessKey);
         await offlineStorageService
           .cacheWorkingSet(ROLE_PERMISSIONS_CACHE_KEY, safePermissions)
           .catch(() => {});
@@ -52,17 +58,23 @@ export const useRolePermissionsState = (profileAccessKey: string | null) => {
           if (cached?.data && typeof cached.data === 'object') {
             setRolePermissions(cached.data);
             setRolePermissionsLoaded(true);
+            setRolePermissionsConfirmed(false);
             setRolePermissionsLoadFailed(false);
+            setPermissionsLoadedForKey(profileAccessKey);
             return;
           }
         } catch {}
         setRolePermissions({});
+        setRolePermissionsConfirmed(false);
         setRolePermissionsLoadFailed(true);
+        setPermissionsLoadedForKey(profileAccessKey);
       }
     };
 
     setRolePermissionsLoaded(false);
+    setRolePermissionsConfirmed(false);
     setRolePermissionsLoadFailed(false);
+    setPermissionsLoadedForKey(profileAccessKey);
     void loadRolePermissions();
 
     const settingsChannel = supabase
@@ -115,6 +127,7 @@ export const useRolePermissionsState = (profileAccessKey: string | null) => {
 
     setRolePermissions(nextPermissions as Record<string, string[]>);
     setRolePermissionsLoaded(true);
+    setRolePermissionsConfirmed(true);
     setRolePermissionsLoadFailed(false);
     await offlineStorageService
       .cacheWorkingSet(ROLE_PERMISSIONS_CACHE_KEY, nextPermissions)
@@ -123,8 +136,9 @@ export const useRolePermissionsState = (profileAccessKey: string | null) => {
 
   return {
     rolePermissions,
-    rolePermissionsLoaded,
-    rolePermissionsLoadFailed,
+    rolePermissionsLoaded: Boolean(profileAccessKey && permissionsLoadedForKey === profileAccessKey && rolePermissionsLoaded),
+    rolePermissionsConfirmed: Boolean(profileAccessKey && permissionsLoadedForKey === profileAccessKey && rolePermissionsConfirmed),
+    rolePermissionsLoadFailed: Boolean(profileAccessKey && permissionsLoadedForKey === profileAccessKey && rolePermissionsLoadFailed),
     reloadRolePermissions,
     saveRolePermissions,
   };

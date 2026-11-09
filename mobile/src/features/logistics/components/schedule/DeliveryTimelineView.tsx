@@ -84,14 +84,14 @@ export const DeliveryTimelineView: React.FC<Props> = ({
 
     supabase
       .from('settings')
-      .select('*')
+      .select('delivery:data->deliveryHandlingOptions,pickup:data->pickupHandlingOptions')
       .limit(1)
       .then(({ data }) => {
         if (!active) return;
-        const settings = data?.[0]?.data || data?.[0] || {};
+        const settings = data?.[0] || {};
         setLoadedHandlingOptions([
-          ...(settings.deliveryHandlingOptions || []),
-          ...(settings.pickupHandlingOptions || []),
+          ...(settings.delivery || []),
+          ...(settings.pickup || []),
         ]);
       });
 

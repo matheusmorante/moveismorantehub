@@ -19,16 +19,14 @@ const moveVariationFormSchema = variationFamilyCommandSchema.safeExtend({
   ready: z.boolean().refine(Boolean, 'Aguarde a validação da combinação antes de mover a variação.'),
 });
 import {
-  ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
   Modal,
   Platform,
   ScrollView,
-  Text,
-  TouchableOpacity,
   View,
 } from 'react-native';
+import { MobileMoveVariationHeader } from './MobileMoveVariationHeader';
 import { MobileMoveVariationAttributesEditor } from './MobileMoveVariationAttributesEditor';
 import { MobileMoveVariationValidationNotice } from './MobileMoveVariationValidationNotice';
 import { MobileMoveVariationFamilySelector } from './MobileMoveVariationFamilySelector';
@@ -453,25 +451,11 @@ export const MobileMoveVariationModal: React.FC<Props> = ({
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <View style={[styles.sheet, dark && styles.sheetDark]}>
-          <View style={[styles.header, dark && styles.borderDark]}>
-            <View style={styles.headerText}>
-              <Text style={[styles.title, dark && styles.textDark]}>
-                Mover para outro produto pai
-              </Text>
-              <Text style={[styles.subtitle, dark && styles.subtitleDark]}>
-                O ID e o histórico da variação serão preservados.
-              </Text>
-            </View>
-            <TouchableOpacity
-              onPress={onClose}
-              disabled={saving || Boolean(operationGuard.active)}
-              style={styles.closeButton}
-              accessibilityRole="button"
-              accessibilityLabel="Fechar movimento de variação"
-            >
-              <Text style={[styles.closeText, dark && styles.textDark]}>×</Text>
-            </TouchableOpacity>
-          </View>
+          <MobileMoveVariationHeader
+            dark={dark}
+            closeDisabled={saving || Boolean(operationGuard.active)}
+            onClose={onClose}
+          />
 
           <ScrollView
             style={styles.scroll}

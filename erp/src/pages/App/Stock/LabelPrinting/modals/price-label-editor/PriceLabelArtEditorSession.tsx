@@ -485,31 +485,6 @@ export const PriceLabelArtEditorSession: React.FC<
     setScaleTenThousands,
   });
 
-  const keyboardPositionSetters = useMemo(
-    () => ({
-      title: setTitlePos,
-      dePricePorGroup: setDePricePorGroupPos,
-      deText: setDePos,
-      normalPrice: setNormalPricePos,
-      porText: setPorPos,
-      currencySymbol: setCurrencyPos,
-      promoPrice: setPromoPricePos,
-      cents: setCentsPos,
-      installments: setInstallmentsPos,
-    }),
-    [
-      setTitlePos,
-      setDePricePorGroupPos,
-      setDePos,
-      setNormalPricePos,
-      setPorPos,
-      setCurrencyPos,
-      setPromoPricePos,
-      setCentsPos,
-      setInstallmentsPos,
-    ]
-  );
-
   usePriceLabelEditorKeyboardShortcuts({
     isOpen:
       isOpen &&
@@ -519,7 +494,15 @@ export const PriceLabelArtEditorSession: React.FC<
       !session.isClosing &&
       !session.actionBusy,
     selectedElement,
-    positionSetters: keyboardPositionSetters,
+    setTitlePos,
+    setDePricePorGroupPos,
+    setDePos,
+    setNormalPricePos,
+    setPorPos,
+    setCurrencyPos,
+    setPromoPricePos,
+    setCentsPos,
+    setInstallmentsPos,
   });
 
   const handleElementClick = usePriceLabelLayerSelection({

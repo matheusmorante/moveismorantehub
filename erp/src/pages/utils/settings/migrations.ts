@@ -1,4 +1,5 @@
 import { AppSettings, HandlingOption } from './types';
+import { DEFAULT_AI_USAGE_LIMITS } from '../../../../../shared-utils/aiUsageLimitSchemas';
 import {
   MORANTE_DELIVERY_HANDLING_OPTIONS,
   MORANTE_PICKUP_HANDLING_OPTIONS,
@@ -311,6 +312,15 @@ export const migrateSettings = (settings: any): AppSettings => {
   }
   if (settingsUseGenericDefaults(settings.pickupHandlingOptions)) {
     settings.pickupHandlingOptions = MORANTE_PICKUP_HANDLING_OPTIONS;
+  }
+
+  // Invariante de Segurança: o Agente de IA do WhatsApp opera estritamente em modo de testes restrito nesta fase
+  if (settings.whatsappAiAgent && typeof settings.whatsappAiAgent === 'object') {
+    settings.whatsappAiAgent.testMode = true;
+  }
+
+  if (!settings.aiUsageLimits || typeof settings.aiUsageLimits !== 'object') {
+    settings.aiUsageLimits = { ...DEFAULT_AI_USAGE_LIMITS };
   }
 
   return settings as AppSettings;

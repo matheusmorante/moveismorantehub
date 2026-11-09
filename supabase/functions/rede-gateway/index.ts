@@ -25,7 +25,7 @@ serve(async (req) => {
     // 1. Buscar credenciais no banco de dados
     const { data: config, error: configError } = await supabaseClient
       .from("rede_config")
-      .select("*")
+      .select("environment,client_id,client_secret")
       .eq("active", true)
       .single();
 

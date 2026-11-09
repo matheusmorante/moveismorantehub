@@ -22,7 +22,7 @@ export type InboundProductClassification = {
   matchedVariationId: string | null;
   confidence: number;
   reasons: string[];
-  source: 'confirmed_mapping' | 'deterministic' | 'gemini' | 'manual';
+  source: 'confirmed_mapping' | 'deterministic' | 'openai' | 'manual';
 };
 
 export const INBOUND_PRODUCT_CONFIDENCE = {
@@ -71,7 +71,7 @@ export function validateInboundProductClassification(value: unknown): InboundPro
       raw.source === 'deterministic' ||
       raw.source === 'manual'
         ? raw.source
-        : 'gemini',
+        : 'openai',
   };
 }
 

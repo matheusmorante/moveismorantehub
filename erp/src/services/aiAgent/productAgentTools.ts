@@ -6,6 +6,14 @@ import {
   buildPostgrestAccentInsensitiveOrFilter,
   buildPostgrestAccentInsensitivePattern,
 } from '../../../../shared-utils/searchText';
+import {
+  AgentCreateProductInput,
+  AgentUpdateProductInput,
+  createProductForAgent,
+  listProductCategoriesAndCharacteristicsForAgent,
+  updateProductForAgent,
+} from '../../../../shared-utils/agentProductOperations';
+import { canAgentViewProductCost } from '../../../../shared-utils/agentPermissionGuard';
 
 // Interfaces de transporte exclusivas para o Agente IA (sem IDs de banco)
 
@@ -83,6 +91,7 @@ export interface ProductDetailForAgent {
     cores?: string;
     diferencialPrincipal?: string;
     naoIncluso?: string;
+    valoresTecnicos?: Record<string, any>;
   };
   fotos: string[];
   possuiVariacoes: boolean;
@@ -104,12 +113,15 @@ export interface ProductToolResponse<T = any> {
 
 // Sanitizadores para garantia absoluta de omissão de IDs do banco
 
-const sanitizeVariationForAgent = (v: Variation): ProductVariationDetailForAgent => {
+const sanitizeVariationForAgent = (
+  v: Variation,
+  allowCost = false
+): ProductVariationDetailForAgent => {
   const attrs: Record<string, string> = {};
   if (Array.isArray(v.attributes)) {
     for (const attr of v.attributes) {
-      if (attr && attr.name && attr.value) {
-        attrs[attr.name] = attr.value;
+      if (attr && attr.name && attr.value !== undefined && attr.value !== null) {
+        attrs[attr.name] = String(attr.value);
       }
     }
   }
@@ -126,7 +138,10 @@ const sanitizeVariationForAgent = (v: Variation): ProductVariationDetailForAgent
     preco: Number(v.unitPrice ?? 0),
     precoPromocional:
       v.promoPrice !== undefined && v.promoPrice !== null ? Number(v.promoPrice) : undefined,
-    precoCusto: v.costPrice !== undefined && v.costPrice !== null ? Number(v.costPrice) : undefined,
+    precoCusto:
+      allowCost && v.costPrice !== undefined && v.costPrice !== null
+        ? Number(v.costPrice)
+        : undefined,
     estoque: Number(v.stock ?? 0),
     ativo: Boolean(v.active),
     atributos: attrs,
@@ -142,8 +157,11 @@ const sanitizeVariationForAgent = (v: Variation): ProductVariationDetailForAgent
   };
 };
 
-const sanitizeProductDetailForAgent = (p: Product): ProductDetailForAgent => {
-  const variations = (p.variations || []).map(sanitizeVariationForAgent);
+const sanitizeProductDetailForAgent = (
+  p: Product,
+  allowCost = false
+): ProductDetailForAgent => {
+  const variations = (p.variations || []).map((v) => sanitizeVariationForAgent(v, allowCost));
 
   return {
     codigo: p.code || '',
@@ -161,7 +179,9 @@ const sanitizeProductDetailForAgent = (p: Product): ProductDetailForAgent => {
       precoPromocional:
         p.promoPrice !== undefined && p.promoPrice !== null ? Number(p.promoPrice) : undefined,
       precoCusto:
-        p.costPrice !== undefined && p.costPrice !== null ? Number(p.costPrice) : undefined,
+        allowCost && p.costPrice !== undefined && p.costPrice !== null
+          ? Number(p.costPrice)
+          : undefined,
       custoFrete:
         p.freightCost !== undefined && p.freightCost !== null ? Number(p.freightCost) : undefined,
     },
@@ -192,6 +212,10 @@ const sanitizeProductDetailForAgent = (p: Product): ProductDetailForAgent => {
       cores: p.colors || undefined,
       diferencialPrincipal: p.mainDifferential || undefined,
       naoIncluso: p.notIncluded || undefined,
+      valoresTecnicos:
+        p.technicalValues && Object.keys(p.technicalValues).length > 0
+          ? p.technicalValues
+          : undefined,
     },
     fotos: Array.isArray(p.images) ? p.images : [],
     possuiVariacoes: Boolean(p.hasVariations || variations.length > 1),
@@ -201,7 +225,10 @@ const sanitizeProductDetailForAgent = (p: Product): ProductDetailForAgent => {
   };
 };
 
-const sanitizeProductSummaryForAgent = (p: Product): ProductSummaryForAgent => {
+const sanitizeProductSummaryForAgent = (
+  p: Product,
+  allowCost = false
+): ProductSummaryForAgent => {
   const skus = (p.variations || []).map((v) => v.sku).filter(Boolean);
 
   return {
@@ -214,7 +241,10 @@ const sanitizeProductSummaryForAgent = (p: Product): ProductSummaryForAgent => {
     preco: Number(p.unitPrice ?? 0),
     precoPromocional:
       p.promoPrice !== undefined && p.promoPrice !== null ? Number(p.promoPrice) : undefined,
-    precoCusto: p.costPrice !== undefined && p.costPrice !== null ? Number(p.costPrice) : undefined,
+    precoCusto:
+      allowCost && p.costPrice !== undefined && p.costPrice !== null
+        ? Number(p.costPrice)
+        : undefined,
     estoque: Number(p.stock ?? 0),
     unidade: p.unit || 'UN',
     ativo: Boolean(p.active),
@@ -223,7 +253,7 @@ const sanitizeProductSummaryForAgent = (p: Product): ProductSummaryForAgent => {
   };
 };
 
-// Ferramentas seguras oficiais para o Agente IA (apenas leitura)
+// Ferramentas oficiais de Produto para o Agente IA (consulta, metadados, criação e edição)
 
 export const productAgentTools = {
   /**
@@ -233,13 +263,15 @@ export const productAgentTools = {
     termo?: string;
     categoria?: string;
     apenasAtivos?: boolean;
+    naLixeira?: boolean;
     limite?: number;
   }): Promise<ProductToolResponse<ProductSummaryForAgent[]>> {
     try {
       const limit = Math.min(Math.max(Number(args.limite) || 10, 1), 30);
       const searchTerm = args.termo?.trim();
       const categoryFilter = args.categoria?.trim();
-      const onlyActive = args.apenasAtivos !== false;
+      const inTrash = Boolean(args.naLixeira);
+      const onlyActive = !inTrash && args.apenasAtivos !== false;
 
       let query = supabase
         .from(TABLE_NAME)
@@ -247,7 +279,7 @@ export const productAgentTools = {
           '*, product_variations(*), product_categories(*, categories(*)), product_images(*)',
           { count: 'exact' }
         )
-        .eq('deleted', false);
+        .eq('deleted', inTrash);
 
       if (onlyActive) {
         query = query.eq('active', true);
@@ -258,7 +290,6 @@ export const productAgentTools = {
       }
 
       if (searchTerm) {
-        // Busca se há variações que combinam com o termo para incluir os produtos pai
         let matchedParentIds: string[] = [];
         try {
           const { data: matchedVars } = await supabase
@@ -302,7 +333,8 @@ export const productAgentTools = {
       }
 
       const products: Product[] = (data || []).map((row, idx) => mapFromDB(row, idx));
-      const sanitized = products.map(sanitizeProductSummaryForAgent);
+      const allowCost = canAgentViewProductCost();
+      const sanitized = products.map((p) => sanitizeProductSummaryForAgent(p, allowCost));
 
       return {
         success: true,
@@ -336,7 +368,6 @@ export const productAgentTools = {
     }
 
     try {
-      // 1. Tenta buscar direto pelo code ou sku do produto pai
       let { data, error } = await supabase
         .from(TABLE_NAME)
         .select('*, product_variations(*), product_categories(*, categories(*)), product_images(*)')
@@ -344,7 +375,6 @@ export const productAgentTools = {
         .or(`code.eq.${rawTarget},sku.eq.${rawTarget}`)
         .maybeSingle();
 
-      // 2. Se não encontrou no pai, verifica se é o SKU de uma variação filha
       if (!data && !error) {
         const { data: varData } = await supabase
           .from('product_variations')
@@ -366,7 +396,6 @@ export const productAgentTools = {
         }
       }
 
-      // 3. Fallback com ilike caso o código tenha sido digitado sem zeros à esquerda ou similar
       if (!data && !error && rawTarget.length >= 3) {
         const paddedCode = rawTarget.padStart(6, '0');
         const { data: fallbackData } = await supabase
@@ -399,7 +428,8 @@ export const productAgentTools = {
       }
 
       const product = mapFromDB(data);
-      const sanitized = sanitizeProductDetailForAgent(product);
+      const allowCost = canAgentViewProductCost();
+      const sanitized = sanitizeProductDetailForAgent(product, allowCost);
 
       return {
         success: true,
@@ -413,5 +443,26 @@ export const productAgentTools = {
         error: err?.message || 'Falha inesperada ao carregar detalhes do produto.',
       };
     }
+  },
+
+  /**
+   * Lista categorias, ambientes e características técnicas cadastradas para produtos.
+   */
+  async listarCategoriasECaracteristicasProduto(): Promise<ProductToolResponse> {
+    return listProductCategoriesAndCharacteristicsForAgent(supabase);
+  },
+
+  /**
+   * Cria um novo produto no catálogo/estoque com suas variações, preços, estoque e ficha técnica.
+   */
+  async criarProduto(args: AgentCreateProductInput): Promise<ProductToolResponse<ProductDetailForAgent>> {
+    return createProductForAgent(supabase, args);
+  },
+
+  /**
+   * Edita um produto existente (dados gerais, preços, estoque, dimensões, características, variações, ativação ou lixeira).
+   */
+  async editarProduto(args: AgentUpdateProductInput): Promise<ProductToolResponse<ProductDetailForAgent>> {
+    return updateProductForAgent(supabase, args);
   },
 };

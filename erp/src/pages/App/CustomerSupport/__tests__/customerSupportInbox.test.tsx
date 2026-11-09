@@ -97,7 +97,7 @@ describe('Inbox da Central de Atendimento', () => {
       p_agent_id: 'agent-2',
       p_criteria: expect.objectContaining({ unread: true, orders: 'with_orders' }),
     }));
-    expect(rpc.mock.calls.map(([, args]) => args.p_page)).toEqual([1, 2]);
+    expect(rpc.mock.calls.filter(([name]) => name === 'customer_support_list_conversations').map(([, args]) => args.p_page)).toEqual([1, 2]);
     expect(first.conversations).toHaveLength(50);
     expect(second.conversations).toHaveLength(1);
     expect(first.totalCount).toBe(51);

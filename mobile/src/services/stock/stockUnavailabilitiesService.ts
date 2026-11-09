@@ -23,7 +23,7 @@ export interface StockUnavailability {
   physical_location: string | null;
   status: 'active' | 'cancelled';
   observation: string | null;
-  photos: string[] | null;
+  photos_count: number;
   created_at: string;
   products: {
     id: string;
@@ -58,7 +58,7 @@ const UNAVAILABILITY_COLUMNS = [
   'physical_location',
   'status',
   'observation',
-  'photos',
+  'photos_count:stock_unavailability_photo_count',
   'created_at',
   'products!inner(id,name,product_kind)',
   'product_variations(name,sku)',

@@ -65,7 +65,7 @@ export const MainNavigator: React.FC<MainNavigatorProps> = ({ isDarkMode, setIsD
   const assemblySubTab: 'all' | 'internal' | 'outside' = 'all';
   const [deliveriesSubTab, setDeliveriesSubTab] = useState<'today' | 'map'>('today');
   const activeTab =
-    (currentTab === 'agente' && !isAdmin) || (currentTab === 'produtos' && !canAccessProducts)
+    currentTab === 'produtos' && !canAccessProducts
       ? 'entregas'
       : currentTab;
 

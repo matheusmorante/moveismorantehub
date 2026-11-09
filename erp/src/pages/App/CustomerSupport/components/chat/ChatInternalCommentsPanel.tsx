@@ -5,24 +5,27 @@ import { supportInternalCommentSchema } from '../../../../../../../shared-utils/
 import type { WhatsAppMessage } from '../../types';
 
 interface ChatInternalCommentsPanelProps {
-  isActive: boolean;
-  canShareCommercialInfo: boolean;
-  internalNotes: string | null;
-  internalComments: WhatsAppMessage[];
+  isActive?: boolean;
+  canShareCommercialInfo?: boolean;
+  internalNotes?: string | null;
+  internalComments?: WhatsAppMessage[];
   onAddInternalNote?: (text: string) => Promise<boolean | void>;
-  onReturnToChat: () => void;
-  onQuickReply: () => void;
+  onReturnToChat?: () => void;
+  onClose?: () => void;
+  onQuickReply?: () => void;
 }
 
 export const ChatInternalCommentsPanel: React.FC<ChatInternalCommentsPanelProps> = ({
-  isActive,
-  canShareCommercialInfo,
-  internalNotes,
-  internalComments,
+  isActive = true,
+  canShareCommercialInfo = false,
+  internalNotes = null,
+  internalComments = [],
   onAddInternalNote,
   onReturnToChat,
+  onClose,
   onQuickReply,
 }) => {
+  const handleClose = onReturnToChat || onClose || (() => undefined);
   const {
     register,
     handleSubmit,
@@ -43,7 +46,7 @@ export const ChatInternalCommentsPanel: React.FC<ChatInternalCommentsPanelProps>
         return;
       }
       reset({ comment: '' });
-      onReturnToChat();
+      handleClose();
     } catch {
       setError('root.server', { message: 'Não foi possível salvar o comentário. Tente novamente.' });
     }
@@ -55,7 +58,7 @@ export const ChatInternalCommentsPanel: React.FC<ChatInternalCommentsPanelProps>
     <form onSubmit={submitComment} className="flex flex-col gap-2 rounded-2xl border-2 border-amber-400/80 bg-amber-50/80 p-3 shadow-md dark:border-amber-600/70 dark:bg-amber-950/30">
       <div className="flex items-center justify-between gap-3 border-b border-amber-200/70 pb-1.5 text-xs font-bold text-amber-900 dark:border-amber-800/60 dark:text-amber-200">
         <span className="flex items-center gap-1.5"><i className="bi bi-lock-fill text-amber-600" />Comentário interno da equipe</span>
-        <button type="button" onClick={onReturnToChat} className="text-[11px] text-amber-700 underline dark:text-amber-300">Voltar ao atendimento</button>
+        <button type="button" onClick={handleClose} className="text-[11px] text-amber-700 underline dark:text-amber-300">Voltar ao atendimento</button>
       </div>
       <div aria-label="Comentários internos salvos" className="max-h-36 space-y-2 overflow-y-auto">
         {canShareCommercialInfo && internalNotes?.trim() && (
@@ -95,8 +98,8 @@ export const ChatInternalCommentsPanel: React.FC<ChatInternalCommentsPanelProps>
       <div className="flex items-center justify-between gap-3">
         <button type="button" onClick={onQuickReply} className="inline-flex items-center gap-1 text-xs font-semibold text-amber-700 dark:text-amber-300"><i className="bi bi-lightning-charge-fill" />Inserir resposta rápida</button>
         <div className="flex items-center gap-2">
-          <button type="button" onClick={onReturnToChat} className="rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300">Cancelar</button>
-          <button type="submit" disabled={isSubmitting || !onAddInternalNote} className="inline-flex items-center gap-1.5 rounded-xl bg-amber-500 px-4 py-1.5 text-xs font-bold text-white disabled:opacity-50"><i className="bi bi-check-lg" />{isSubmitting ? 'Salvando…' : 'Salvar comentário'}</button>
+          <button type="button" onClick={handleClose} className="rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300">Cancelar</button>
+          <button type="submit" disabled={isSubmitting || !onAddInternalNote} className="inline-flex items-center gap-1.5 rounded-xl bg-amber-500 px-4 py-1.5 text-xs font-bold text-white disabled:opacity-50"><i className="bi bi-check-lg" />{isSubmitting ? 'Salvando…' : 'Salvar Comentário'}</button>
         </div>
       </div>
     </form>

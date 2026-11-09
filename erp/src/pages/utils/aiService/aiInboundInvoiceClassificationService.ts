@@ -1,4 +1,4 @@
-import { callGeminiDirect } from './aiDirectClient';
+import { callOpenAIDirect } from './aiDirectClient';
 
 export type InboundSupplierClassificationResult = {
   decision: 'EXISTING_VARIATION' | 'NEW_VARIATION_OF_EXISTING_PRODUCT' | 'NEW_PRODUCT' | 'UNSURE';
@@ -62,7 +62,7 @@ Retorne SOMENTE JSON neste formato (sem markdown):
 }`;
 
     try {
-      const textResponse = await callGeminiDirect(prompt);
+      const textResponse = await callOpenAIDirect(prompt);
       const match = textResponse.match(/\{[\s\S]*\}/);
       const clean = match ? match[0] : textResponse.trim();
       const parsed = JSON.parse(clean);

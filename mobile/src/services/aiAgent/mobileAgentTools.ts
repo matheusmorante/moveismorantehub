@@ -1,5 +1,4 @@
 import { supabase } from '../supabaseClient';
-import { isIdentifiedTestArtifact } from '../../../../shared-utils/testArtifactPolicy';
 import { ToolExecutionResponse } from './mobileAgentTypes';
 import {
   getOrderDeliveryDetails,
@@ -8,9 +7,25 @@ import {
 } from './orderDeliveryAgentService';
 import { getMobileProductDetails, searchMobileProducts } from './productAgentService';
 import { mobileAgentFinanceTools } from './mobileAgentFinanceTools';
-import { buildPostgrestAccentInsensitiveOrFilter } from '../../../../shared-utils/searchText';
+import {
+  CreateAgentOrderOperationInput,
+  UpdateAgentOrderOperationInput,
+  UpsertAgentCustomerInput,
+  createOrderOperationForAgent,
+  updateOrderOperationForAgent,
+  upsertCustomerForAgent,
+  searchCustomersForAgent,
+  searchCollaboratorsForAgent,
+} from '../../../../shared-utils/agentOrderAndPeopleOperations';
+import {
+  AgentCreateProductInput,
+  AgentUpdateProductInput,
+  createProductForAgent,
+  listProductCategoriesAndCharacteristicsForAgent,
+  updateProductForAgent,
+} from '../../../../shared-utils/agentProductOperations';
 
-// Executores deterministicos das ferramentas do Gemini no Mobile
+// Executores determinísticos das ferramentas do agente OpenAI no mobile.
 
 export const mobileAgentTools = {
   async buscarOperacoes(args: {
@@ -18,7 +33,15 @@ export const mobileAgentTools = {
     dataInicio?: string;
     dataFim?: string;
     status?: string;
-    tipo?: 'todas' | 'venda' | 'entrega' | 'retirada' | 'assistencia' | 'devolucao' | 'montagem';
+    tipo?:
+      | 'todas'
+      | 'venda'
+      | 'orcamento'
+      | 'entrega'
+      | 'retirada'
+      | 'assistencia'
+      | 'devolucao'
+      | 'montagem';
     limite?: number;
   }): Promise<ToolExecutionResponse> {
     try {
@@ -42,7 +65,7 @@ export const mobileAgentTools = {
       return {
         success: false,
         code: 'INVALID_OPERATION_ID',
-        error: 'É necessário informar o ID real da operação.',
+        error: 'É necessário informar o ID ou número real da operação.',
       };
     try {
       const operation = await getOrderDeliveryDetails(args.operacaoId);
@@ -86,7 +109,7 @@ export const mobileAgentTools = {
       return {
         success: false,
         code: 'INVALID_ORDER_ID',
-        error: 'É necessário informar um ID de pedido válido.',
+        error: 'É necessário informar um ID ou número de pedido válido.',
       };
     try {
       const order = await getOrderDeliveryDetails(args.pedidoId);
@@ -106,40 +129,54 @@ export const mobileAgentTools = {
     }
   },
 
+  async criarPedidoOperacao(args: CreateAgentOrderOperationInput): Promise<ToolExecutionResponse> {
+    try {
+      const created = await createOrderOperationForAgent(supabase, args);
+      return {
+        success: true,
+        data: created,
+        message: `${created.tipo.charAt(0).toUpperCase() + created.tipo.slice(1)} #${created.codigo} criado(a) com sucesso para ${created.cliente}.`,
+      };
+    } catch (error: unknown) {
+      return {
+        success: false,
+        code: 'ORDER_OPERATION_CREATE_ERROR',
+        error: error instanceof Error ? error.message : 'Falha ao criar pedido/operação.',
+      };
+    }
+  },
+
+  async editarPedidoOperacao(args: UpdateAgentOrderOperationInput): Promise<ToolExecutionResponse> {
+    try {
+      const updated = await updateOrderOperationForAgent(supabase, args);
+      return {
+        success: true,
+        data: updated,
+        message: `${updated.tipo.charAt(0).toUpperCase() + updated.tipo.slice(1)} #${updated.codigo} atualizado(a) com sucesso.`,
+      };
+    } catch (error: unknown) {
+      return {
+        success: false,
+        code: 'ORDER_OPERATION_UPDATE_ERROR',
+        error: error instanceof Error ? error.message : 'Falha ao atualizar pedido/operação.',
+      };
+    }
+  },
+
   async buscarClientes(args: { termo: string; limite?: number }): Promise<ToolExecutionResponse> {
-    const term = args.termo?.trim().replace(/[,%()]/g, '');
-    if (!term || term.length < 2)
+    if (!args?.termo || args.termo.trim().length < 2) {
       return {
         success: false,
         code: 'CUSTOMER_SEARCH_TERM_REQUIRED',
         error: 'Informe pelo menos dois caracteres do nome, telefone ou e-mail do cliente.',
       };
+    }
     try {
-      const limit = Math.min(Math.max(Math.floor(args.limite ?? 10), 1), 20);
-      const { data, error } = await supabase
-        .from('people')
-        .select('id, full_name, phone, email, full_address, active')
-        .eq('person_type', 'customers')
-        .eq('deleted', false)
-        .or(
-          'full_address->testArtifact->>is_test.is.null,full_address->testArtifact->>is_test.neq.true'
-        )
-        .or(buildPostgrestAccentInsensitiveOrFilter(['full_name', 'phone', 'email'], term))
-        .order('full_name', { ascending: true })
-        .limit(limit);
-      if (error) throw error;
-      const visiblePeople = (data || []).filter((person) => !isIdentifiedTestArtifact(person));
+      const customers = await searchCustomersForAgent(supabase, args);
       return {
         success: true,
-        data: visiblePeople.map((person) => ({
-          id: person.id,
-          nome: person.full_name,
-          telefone: person.phone,
-          email: person.email,
-          cidade: person.full_address?.city || person.full_address?.cidade || null,
-          ativo: person.active,
-        })),
-        message: `${visiblePeople.length} cliente(s) encontrado(s).`,
+        data: customers,
+        message: `${customers.length} cliente(s) encontrado(s).`,
       };
     } catch (error: unknown) {
       return {
@@ -150,82 +187,40 @@ export const mobileAgentTools = {
     }
   },
 
+  async criarOuEditarCliente(args: UpsertAgentCustomerInput): Promise<ToolExecutionResponse> {
+    try {
+      const customer = await upsertCustomerForAgent(supabase, args);
+      return {
+        success: true,
+        data: customer,
+        message: `Cliente "${customer.nome}" ${customer.acao} com sucesso.`,
+      };
+    } catch (error: unknown) {
+      return {
+        success: false,
+        code: 'CUSTOMER_UPSERT_ERROR',
+        error: error instanceof Error ? error.message : 'Falha ao criar ou atualizar cliente.',
+      };
+    }
+  },
+
   async buscarColaboradores(args: {
     termo: string;
     limite?: number;
   }): Promise<ToolExecutionResponse> {
-    const term = args.termo?.trim().replace(/[,%(){}]/g, '');
-    if (!term || term.length < 2)
+    if (!args?.termo || args.termo.trim().length < 2) {
       return {
         success: false,
         code: 'COLLABORATOR_SEARCH_TERM_REQUIRED',
         error: 'Informe pelo menos dois caracteres do nome, e-mail ou cargo do colaborador.',
       };
+    }
     try {
-      const limit = Math.min(Math.max(Math.floor(args.limite ?? 10), 1), 20);
-      const normalizedTerm = term
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .toLowerCase();
-      const roleAliases: Record<string, string> = {
-        administrador: 'administrator',
-        administradora: 'administrator',
-        admin: 'administrator',
-        gerente: 'manager',
-        vendedor: 'seller',
-        vendedora: 'seller',
-        entregador: 'deliverer',
-        entregadora: 'deliverer',
-        contador: 'accountant',
-        contadora: 'accountant',
-        estoquista: 'stockist',
-        pendente: 'pending',
-      };
-      const role =
-        roleAliases[normalizedTerm] ||
-        ([
-          'administrator',
-          'manager',
-          'seller',
-          'deliverer',
-          'accountant',
-          'stockist',
-          'pending',
-        ].includes(normalizedTerm)
-          ? normalizedTerm
-          : null);
-      const conditions = [
-        buildPostgrestAccentInsensitiveOrFilter(['full_name', 'email', 'position'], term),
-      ];
-      if (role) conditions.push(`role.eq.${role}`, `roles.cs.{${role}}`);
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id, email, full_name, position, role, roles')
-        .or(conditions.join(','))
-        .order('full_name', { ascending: true })
-        .limit(100);
-      if (error) throw error;
-      const matched = (data || [])
-        .filter((profile) => {
-          const roles =
-            Array.isArray(profile.roles) && profile.roles.length
-              ? profile.roles
-              : profile.role
-                ? [profile.role]
-                : [];
-          return !role || roles.includes(role) || profile.role === role;
-        })
-        .slice(0, limit);
+      const collaborators = await searchCollaboratorsForAgent(supabase, args);
       return {
         success: true,
-        data: matched.map((profile) => ({
-          id: profile.id,
-          nome: profile.full_name || profile.email,
-          email: profile.email,
-          cargo: profile.position,
-          cargos: profile.roles?.length ? profile.roles : profile.role ? [profile.role] : [],
-        })),
-        message: `${matched.length} colaborador(es) encontrado(s).`,
+        data: collaborators,
+        message: `${collaborators.length} colaborador(es) encontrado(s).`,
       };
     } catch (error: unknown) {
       return {
@@ -289,6 +284,7 @@ export const mobileAgentTools = {
     termo?: string;
     categoria?: string;
     apenasAtivos?: boolean;
+    naLixeira?: boolean;
     limite?: number;
   }): Promise<ToolExecutionResponse> {
     try {
@@ -340,5 +336,17 @@ export const mobileAgentTools = {
         error: error instanceof Error ? error.message : 'Falha ao carregar detalhes do produto.',
       };
     }
+  },
+
+  async listarCategoriasECaracteristicasProduto(): Promise<ToolExecutionResponse> {
+    return listProductCategoriesAndCharacteristicsForAgent(supabase);
+  },
+
+  async criarProduto(args: AgentCreateProductInput): Promise<ToolExecutionResponse> {
+    return createProductForAgent(supabase, args);
+  },
+
+  async editarProduto(args: AgentUpdateProductInput): Promise<ToolExecutionResponse> {
+    return updateProductForAgent(supabase, args);
   },
 };

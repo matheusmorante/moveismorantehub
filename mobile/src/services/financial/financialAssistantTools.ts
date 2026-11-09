@@ -1,6 +1,6 @@
 /**
  * Definição oficial de Function Calling / Tools para o Assistente Financeiro IA do Morante Hub.
- * O Gemini 3.7 Flash seleciona deterministicamente a ferramenta e argumentos estruturados.
+ * O GPT-6 Luna seleciona a ferramenta e os argumentos estruturados.
  */
 
 export const FINANCIAL_ASSISTANT_TOOLS = [

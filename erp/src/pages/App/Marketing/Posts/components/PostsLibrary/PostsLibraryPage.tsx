@@ -279,7 +279,7 @@ export function PostsLibraryPage({
           <span className="text-4xl">🖼️</span>
           <p className="text-sm">Nenhuma arte encontrada</p>
           <p className="text-xs text-slate-600">
-            Crie a arte no ChatGPT ou Gemini e adicione aqui via <strong>+ Adicionar post</strong>.
+            Crie a arte no ChatGPT ou OpenAI e adicione aqui via <strong>+ Adicionar post</strong>.
           </p>
         </div>
       ) : (

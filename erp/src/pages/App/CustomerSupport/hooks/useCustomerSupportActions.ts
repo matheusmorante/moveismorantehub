@@ -8,6 +8,7 @@ import {
   updateConversationStatus,
   createInternalNoteMessage,
   toggleArchiveConversation,
+  updateConversationAiStatus,
 } from '@/pages/utils/customerSupport/customerSupportService';
 
 interface UseCustomerSupportActionsParams {
@@ -146,12 +147,41 @@ export function useCustomerSupportActions({
     return Boolean(created);
   };
 
+  // 6. Atualizar estado da IA na conversa (Assumir atendimento, reativar, pausar)
+  const handleUpdateAiStatus = async (
+    aiStatus: 'active' | 'needs_human' | 'human_active' | 'paused',
+    reason?: string
+  ) => {
+    if (!selectedConversation) return false;
+    const ok = await updateConversationAiStatus(
+      supabase,
+      selectedConversation.id,
+      aiStatus,
+      reason,
+      aiStatus === 'human_active'
+    );
+    if (ok && isCurrent()) {
+      const apply = (row: WhatsAppConversation): WhatsAppConversation => row.id === selectedConversation.id
+        ? {
+            ...row,
+            aiStatus,
+            aiHandoffReason: aiStatus === 'active' ? null : (reason || row.aiHandoffReason),
+            assignedTo: aiStatus === 'human_active' && currentUserId ? currentUserId : row.assignedTo,
+          }
+        : row;
+      setSelectedConversation((prev) => prev ? apply(prev) : prev);
+      setConversations((prev) => prev.map(apply));
+    }
+    return ok;
+  };
+
   return {
     handleToggleArchive,
     handleToggleReadStatus,
     handleConversationUpdated,
     handleAssignConversation,
     handleUpdateStatus,
+    handleUpdateAiStatus,
     handleAddInternalNote,
   };
 }

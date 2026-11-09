@@ -3,10 +3,10 @@ import {
   aiProductCatalogService,
   sanitizeGeneratedProductDescription,
 } from './aiProductCatalogService';
-import { callGeminiDirect } from './aiDirectClient';
+import { callOpenAIDirect } from './aiDirectClient';
 
 vi.mock('./aiDirectClient', () => ({
-  callGeminiDirect: vi.fn(),
+  callOpenAIDirect: vi.fn(),
 }));
 
 describe('aiProductCatalogService — Descrição de Produto com IA', () => {
@@ -68,7 +68,7 @@ Largura: 160 cm`;
   describe('improveProductDescription', () => {
     it('exclui Cor das informações técnicas enviadas no prompt e instrui a IA sobre Modelo/Linha e Cor', async () => {
       let capturedPrompt = '';
-      vi.mocked(callGeminiDirect).mockImplementation(async (prompt) => {
+      vi.mocked(callOpenAIDirect).mockImplementation(async (prompt) => {
         capturedPrompt = prompt;
         return `Sofá Dallas Retrátil 3 Lugares.
 
@@ -116,7 +116,7 @@ Largura: 220 cm`;
 
     it('lida com produto que tem apenas Linha informada', async () => {
       let capturedPrompt = '';
-      vi.mocked(callGeminiDirect).mockImplementation(async (prompt) => {
+      vi.mocked(callOpenAIDirect).mockImplementation(async (prompt) => {
         capturedPrompt = prompt;
         return 'Guarda Roupa Linha Paris 6 Portas.';
       });
@@ -135,7 +135,7 @@ Largura: 220 cm`;
   describe('generateDescriptionFromInformativeText', () => {
     it('instrui a IA a não usar barra em Modelo/Linha e a não incluir cor', async () => {
       let capturedPrompt = '';
-      vi.mocked(callGeminiDirect).mockImplementation(async (prompt) => {
+      vi.mocked(callOpenAIDirect).mockImplementation(async (prompt) => {
         capturedPrompt = prompt;
         return `Cama Box Queen.
 

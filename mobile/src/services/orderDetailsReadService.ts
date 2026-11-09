@@ -6,6 +6,9 @@ import { withAbortTimeout } from '../../../shared-utils/withAbortTimeout';
 import { isOrderSummary } from '../../../shared-utils/orderSummaryQuery';
 import { isIdentifiedTestArtifact } from '../../../shared-utils/testArtifactPolicy';
 
+const MOBILE_ORDER_DETAIL_COLUMNS =
+  'id,status,order_type,order_number,order_index,customer_name,total_amount,order_data,version,updated_at,created_at,delivery_status';
+
 async function cachedDetails(order: any) {
   const local = await OrderRepository.getById(order.id);
   if (local && !isOrderSummary(local.orderData)) return {
@@ -24,8 +27,16 @@ export async function loadMobileOrderDetails(order: any, signal?: AbortSignal): 
   let result: any = null;
   if (connectivityService.connected) {
     try {
-      const { data, error } = await withAbortTimeout(supabase.from('orders').select('*').eq('id', order.id).maybeSingle(),
-        'app:detalhes-pedido', 15_000, signal);
+      const { data, error } = await withAbortTimeout(
+        supabase
+          .from('orders')
+          .select(MOBILE_ORDER_DETAIL_COLUMNS)
+          .eq('id', order.id)
+          .maybeSingle(),
+        'app:detalhes-pedido',
+        15_000,
+        signal
+      );
       if (error) throw error;
       if (!data) throw new Error('Pedido não encontrado ou sem permissão de acesso.');
       if (!isIdentifiedTestArtifact(data.order_data)) await OrderRepository.saveLocal({

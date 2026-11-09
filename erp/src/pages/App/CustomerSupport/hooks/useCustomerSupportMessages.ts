@@ -1,18 +1,15 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/pages/utils/supabaseConfig';
-import { WhatsAppConversation, WhatsAppMessage } from '../types';
+import type { WhatsAppConversation, WhatsAppMessage } from '../types';
 import {
   fetchInitialConversationMessagePage,
-  fetchConversationMessageChanges,
-  fetchConversationMessageContext,
-  fetchPreviousConversationMessages,
   fetchConversationReplyTarget,
-  mapRowToMessage,
 } from '@/pages/utils/customerSupport/customerSupportService';
 import { mergeSupportMessageChanges } from '@/pages/utils/customerSupport/customerSupportMessageSync';
+import { useCustomerSupportRealtimeSync } from './useCustomerSupportRealtimeSync';
+import { useCustomerSupportHistoryLoader } from './useCustomerSupportHistoryLoader';
 
 const INITIAL_MESSAGE_PAGE_SIZE = 80;
-const OLDER_MESSAGE_PAGE_SIZE = 50;
 
 interface UseCustomerSupportMessagesParams {
   selectedConversation: WhatsAppConversation | null;
@@ -23,11 +20,7 @@ export function useCustomerSupportMessages({
 }: UseCustomerSupportMessagesParams) {
   const [messages, setMessages] = useState<WhatsAppMessage[]>([]);
   const messagesRef = useRef<WhatsAppMessage[]>([]);
-  const [jumpToMessageId, setJumpToMessageId] = useState<string | null>(null);
-  const pendingJumpRef = useRef<WhatsAppMessage | null>(null);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
-  const [isLoadingOlderMessages, setIsLoadingOlderMessages] = useState(false);
-  const [hasOlderMessages, setHasOlderMessages] = useState(false);
   const [messagesError, setMessagesError] = useState('');
   const activeConvIdRef = useRef<string | null>(null);
   const generationRef = useRef(0);
@@ -36,29 +29,62 @@ export function useCustomerSupportMessages({
     activeConvIdRef.current = nextConvId;
     generationRef.current += 1;
   }
-  const loadingOlderRef = useRef<number | null>(null);
   const latestRequestRef = useRef(0);
   const pendingLatestRef = useRef<number | null>(null);
   const initializedHistoryRef = useRef<number | null>(null);
-  // A quoted message can sit outside the contiguous history already fetched.
   const historyCursorRef = useRef<{ timestamp: string; id: string } | null>(null);
   const historyConversationIdRef = useRef<string | null>(null);
-  const syncWatermarkRef = useRef<{ generation: number; value: string | null }>({ generation: 0, value: null });
-  const syncControllerRef = useRef<AbortController | null>(null);
-  const syncPendingRef = useRef<number | null>(null);
-  useEffect(() => { messagesRef.current = messages; }, [messages]);
+  const syncWatermarkRef = useRef<{ generation: number; value: string | null }>({
+    generation: 0,
+    value: null,
+  });
 
-  const resolveReplyTarget = useCallback(async (reference: {
-    conversationId: string;
-    messageId: string | null;
-    apiMessageId: string | null;
-  }) => {
-    const conversationId = activeConvIdRef.current;
-    if (!conversationId || reference.conversationId !== conversationId) return null;
-    return fetchConversationReplyTarget(supabase, conversationId, reference);
-  }, []);
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
 
-  const clearJumpToMessage = useCallback(() => setJumpToMessageId(null), []);
+  const {
+    jumpToMessageId,
+    setJumpToMessageId,
+    pendingJumpRef,
+    clearJumpToMessage,
+    loadMessageContext,
+    jumpToMessage,
+    hasOlderMessages,
+    setHasOlderMessages,
+    isLoadingOlderMessages,
+    setIsLoadingOlderMessages,
+    loadingOlderRef,
+    loadOlderMessages,
+  } = useCustomerSupportHistoryLoader({
+    supabase,
+    activeConvIdRef,
+    generationRef,
+    latestRequestRef,
+    pendingLatestRef,
+    syncWatermarkRef,
+    historyCursorRef,
+    historyConversationIdRef,
+    initializedHistoryRef,
+    messagesRef,
+    setMessages,
+    setIsLoadingMessages,
+    setMessagesError,
+  });
+
+  const resolveReplyTarget = useCallback(
+    async (reference: {
+      conversationId: string;
+      messageId: string | null;
+      apiMessageId: string | null;
+    }) => {
+      const conversationId = activeConvIdRef.current;
+      if (!conversationId || reference.conversationId !== conversationId) return null;
+      return fetchConversationReplyTarget(supabase, conversationId, reference);
+    },
+    []
+  );
+
   const loadMessages = useCallback(async (convId: string, isSilent = false) => {
     if (!convId) return;
     const generation = generationRef.current;
@@ -67,7 +93,11 @@ export function useCustomerSupportMessages({
     pendingLatestRef.current = generation;
     if (!isSilent) setIsLoadingMessages(true);
     try {
-      const page = await fetchInitialConversationMessagePage(supabase, convId, INITIAL_MESSAGE_PAGE_SIZE);
+      const page = await fetchInitialConversationMessagePage(
+        supabase,
+        convId,
+        INITIAL_MESSAGE_PAGE_SIZE
+      );
       const latest = page.messages;
       if (generation !== generationRef.current || request !== latestRequestRef.current) return;
       syncWatermarkRef.current = { generation, value: page.watermark };
@@ -80,83 +110,12 @@ export function useCustomerSupportMessages({
         setHasOlderMessages(latest.length === INITIAL_MESSAGE_PAGE_SIZE);
       }
       setMessagesError('');
-      setMessages((current) => {
-        return mergeSupportMessageChanges(current, latest);
-      });
+      setMessages((current) => mergeSupportMessageChanges(current, latest));
     } catch (error) {
       if (generation === generationRef.current && request === latestRequestRef.current) {
-        setMessagesError(error instanceof Error ? error.message : 'Não foi possível carregar as mensagens.');
-      }
-    } finally {
-      if (generation === generationRef.current && request === latestRequestRef.current) {
-        pendingLatestRef.current = null;
-        setIsLoadingMessages(false);
-      }
-    }
-  }, []);
-
-  const syncMessages = useCallback(async () => {
-    const convId = activeConvIdRef.current;
-    const generation = generationRef.current;
-    if (!convId || syncPendingRef.current === generation || pendingLatestRef.current === generation) return;
-    if (initializedHistoryRef.current !== generation) { await loadMessages(convId, true); return; }
-    syncControllerRef.current?.abort();
-    const controller = new AbortController(); syncControllerRef.current = controller;
-    syncPendingRef.current = generation;
-    const request = latestRequestRef.current;
-    try {
-      const response = await fetchConversationMessageChanges(supabase, convId,
-        syncWatermarkRef.current.generation === generation ? syncWatermarkRef.current.value : null,
-        messagesRef.current, controller.signal);
-      if (controller.signal.aborted || generation !== generationRef.current || request !== latestRequestRef.current) return;
-      syncWatermarkRef.current = { generation, value: response.watermark };
-      setMessages((current) => mergeSupportMessageChanges(current, response.messages));
-      setMessagesError('');
-    } catch (error) {
-      if (!controller.signal.aborted && generation === generationRef.current) {
-        setMessagesError(error instanceof Error ? error.message : 'Não foi possível atualizar as mensagens.');
-      }
-    } finally { if (syncPendingRef.current === generation) syncPendingRef.current = null; }
-  }, [loadMessages]);
-
-  const loadMessageContext = useCallback(async (
-    convId: string,
-    target: WhatsAppMessage,
-    generation: number,
-    mergeWithCurrent = false
-  ) => {
-    if (!convId || target.conversationId !== convId) return;
-    const request = ++latestRequestRef.current;
-    pendingLatestRef.current = generation;
-    setIsLoadingMessages(true);
-    setMessagesError('');
-    try {
-      const needsWatermark = syncWatermarkRef.current.generation !== generation;
-      const [context, anchor] = await Promise.all([
-        fetchConversationMessageContext(supabase, convId, target.id),
-        needsWatermark ? fetchInitialConversationMessagePage(supabase, convId, 1) : null,
-      ]);
-      if (generation !== generationRef.current || request !== latestRequestRef.current) return;
-      if (anchor) syncWatermarkRef.current = { generation, value: anchor.watermark };
-      historyConversationIdRef.current = convId;
-      initializedHistoryRef.current = generation;
-      if (!mergeWithCurrent || !historyCursorRef.current) {
-        historyCursorRef.current = context.messages[0]
-          ? { timestamp: context.messages[0].timestamp, id: context.messages[0].id }
-          : null;
-        setHasOlderMessages(context.hasOlderMessages);
-      } else setHasOlderMessages((current) => current || context.hasOlderMessages);
-      setMessages((current) => {
-        const combined = new Map((mergeWithCurrent ? current : []).map((message) => [message.id, message]));
-        context.messages.forEach((message) => combined.set(message.id, { ...combined.get(message.id), ...message }));
-        return Array.from(combined.values()).sort((a, b) =>
-          a.timestamp.localeCompare(b.timestamp) || a.id.localeCompare(b.id)
+        setMessagesError(
+          error instanceof Error ? error.message : 'Não foi possível carregar as mensagens.'
         );
-      });
-      setJumpToMessageId(target.id);
-    } catch (error) {
-      if (generation === generationRef.current && request === latestRequestRef.current) {
-        setMessagesError(error instanceof Error ? error.message : 'Não foi possível abrir essa mensagem no histórico.');
       }
     } finally {
       if (generation === generationRef.current && request === latestRequestRef.current) {
@@ -164,70 +123,28 @@ export function useCustomerSupportMessages({
         setIsLoadingMessages(false);
       }
     }
-  }, []);
+  }, [setHasOlderMessages]);
 
-  const jumpToMessage = useCallback((message: WhatsAppMessage) => {
-    if (!message.id) return;
-    if (message.conversationId !== activeConvIdRef.current) {
-      pendingJumpRef.current = message;
-      return;
-    }
-    pendingJumpRef.current = null;
-    if (messagesRef.current.some((item) => item.id === message.id)) {
-      setJumpToMessageId(message.id);
-      return;
-    }
-    void loadMessageContext(message.conversationId, message, generationRef.current, true);
-  }, [loadMessageContext]);
-
-  const loadOlderMessages = useCallback(async () => {
-    const convId = activeConvIdRef.current;
-    const generation = generationRef.current;
-    if (!convId || historyConversationIdRef.current !== convId
-      || loadingOlderRef.current === generation || !hasOlderMessages) return 0;
-    const oldest = historyCursorRef.current;
-    if (!oldest) return 0;
-    loadingOlderRef.current = generation;
-    setIsLoadingOlderMessages(true);
-    try {
-      const older = await fetchPreviousConversationMessages(
-        supabase,
-        convId,
-        { timestamp: oldest.timestamp, id: oldest.id },
-        OLDER_MESSAGE_PAGE_SIZE
-      );
-      if (generation !== generationRef.current) return 0;
-      setHasOlderMessages(older.length === OLDER_MESSAGE_PAGE_SIZE);
-      setMessagesError('');
-      if (older.length) {
-        historyCursorRef.current = { timestamp: older[0].timestamp, id: older[0].id };
-        setMessages((current) => {
-          const existing = new Set(current.map((message) => message.id));
-          return [...older.filter((message) => !existing.has(message.id)), ...current].sort((a, b) =>
-            a.timestamp.localeCompare(b.timestamp) || a.id.localeCompare(b.id)
-          );
-        });
-      }
-      return older.length;
-    } catch (error) {
-      if (generation === generationRef.current) {
-        setMessagesError(error instanceof Error ? error.message : 'Não foi possível carregar as mensagens anteriores.');
-      }
-      return 0;
-    } finally {
-      if (loadingOlderRef.current === generation) {
-        loadingOlderRef.current = null;
-        setIsLoadingOlderMessages(false);
-      }
-    }
-  }, [hasOlderMessages]);
+  const { refreshMessages, abortSync } = useCustomerSupportRealtimeSync({
+    supabase,
+    selectedConversationId: selectedConversation?.id || null,
+    activeConvIdRef,
+    generationRef,
+    latestRequestRef,
+    pendingLatestRef,
+    initializedHistoryRef,
+    syncWatermarkRef,
+    messagesRef,
+    setMessages,
+    setMessagesError,
+    loadMessages,
+  });
 
   const lastLoadedConvIdRef = useRef<string | null>(null);
   useEffect(() => {
     const convId = selectedConversation?.id || null;
     if (convId !== lastLoadedConvIdRef.current) {
-      syncControllerRef.current?.abort();
-      syncPendingRef.current = null;
+      abortSync();
       lastLoadedConvIdRef.current = convId;
       loadingOlderRef.current = null;
       setIsLoadingOlderMessages(false);
@@ -252,83 +169,17 @@ export function useCustomerSupportMessages({
         setHasOlderMessages(false);
       }
     }
-  }, [selectedConversation?.id, loadMessages, loadMessageContext]);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const currentId = activeConvIdRef.current;
-      if (currentId && (typeof document === 'undefined' || document.visibilityState === 'visible')) {
-        void syncMessages();
-      }
-    }, 30_000);
-    const handleVisibilityChange = () => {
-      const currentId = activeConvIdRef.current;
-      if (currentId && document.visibilityState === 'visible') void syncMessages();
-    };
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('online', handleVisibilityChange);
-    return () => {
-      clearInterval(interval);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('online', handleVisibilityChange);
-      syncControllerRef.current?.abort();
-    };
-  }, [syncMessages]);
-
-  useEffect(() => {
-    if (!selectedConversation?.id) return;
-    let active = true;
-    let channelGeneration = 0;
-    let channel: ReturnType<typeof supabase.channel> | null = null;
-    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
-    const setupChannel = () => {
-      if (!active) return;
-      const generation = ++channelGeneration;
-      const isCurrent = () => active && generation === channelGeneration;
-      if (channel) void supabase.removeChannel(channel);
-      channel = supabase
-        .channel(`whatsapp-messages-realtime-${Date.now()}`)
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'whatsapp_messages', filter: `conversation_id=eq.${selectedConversation.id}` }, (payload) => {
-          if (!isCurrent()) return;
-          if (payload.eventType === 'INSERT') {
-            const newMessage = mapRowToMessage(payload.new);
-            if (activeConvIdRef.current !== newMessage.conversationId) return;
-            setMessages((current) => {
-              if (current.some((message) => message.id === newMessage.id || (
-                message.apiMessageId && message.apiMessageId === newMessage.apiMessageId
-              ))) return current;
-              return mergeSupportMessageChanges(current, [newMessage]);
-            });
-          } else if (payload.eventType === 'UPDATE') {
-            const updatedMessage = mapRowToMessage(payload.new);
-            if (activeConvIdRef.current === updatedMessage.conversationId) {
-              setMessages((current) => mergeSupportMessageChanges(current, [updatedMessage]));
-            }
-          }
-        })
-        .subscribe((status) => {
-          if (!isCurrent()) return;
-          if (reconnectTimer) clearTimeout(reconnectTimer);
-          reconnectTimer = null;
-          if (status === 'SUBSCRIBED') void syncMessages();
-          if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
-            reconnectTimer = setTimeout(setupChannel, 5000);
-          }
-        });
-    };
-    setupChannel();
-    return () => {
-      active = false;
-      if (reconnectTimer) clearTimeout(reconnectTimer);
-      if (channel) void supabase.removeChannel(channel);
-    };
-  }, [selectedConversation?.id, syncMessages]);
-
-  const refreshMessages = useCallback(async () => {
-    const currentId = activeConvIdRef.current;
-    if (!currentId) return;
-    await syncMessages();
-  }, [syncMessages]);
+  }, [
+    selectedConversation?.id,
+    loadMessages,
+    loadMessageContext,
+    abortSync,
+    loadingOlderRef,
+    setIsLoadingOlderMessages,
+    setJumpToMessageId,
+    setHasOlderMessages,
+    pendingJumpRef,
+  ]);
 
   return {
     messages,

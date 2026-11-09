@@ -54,6 +54,70 @@ export const fetchPayableAccounts = async (): Promise<FinancialTransaction[]> =>
   }));
 };
 
+export interface PendingPayablesPageOptions {
+  supplier?: string | null;
+  dueDateStart?: string | null;
+  dueDateEnd?: string | null;
+  limit?: number;
+  offset?: number;
+  includeSummary?: boolean;
+}
+
+export interface PendingPayablesPage {
+  rows: FinancialTransaction[];
+  totalCount?: number;
+  totalAmount?: number;
+}
+
+export const fetchPendingPayablesPage = async (
+  options: PendingPayablesPageOptions = {}
+): Promise<PendingPayablesPage> => {
+  const { data, error } = await supabase.rpc('get_mobile_pending_payables_page', {
+    p_supplier: options.supplier?.trim() || null,
+    p_due_date_start: options.dueDateStart || null,
+    p_due_date_end: options.dueDateEnd || null,
+    p_limit: Math.min(Math.max(options.limit || 15, 1), 30),
+    p_offset: Math.max(0, options.offset || 0),
+    p_include_summary: options.includeSummary !== false,
+  });
+
+  if (error) {
+    console.warn('Erro ao buscar contas a pagar pendentes:', error.message);
+    if (options.includeSummary === false) throw new Error(error.message);
+    return { rows: [], totalCount: 0, totalAmount: 0 };
+  }
+
+  const result: any = data || {};
+  const rows: FinancialTransaction[] = (Array.isArray(result.rows) ? result.rows : []).map(
+    (row: any) => ({
+      id: row.id,
+      type: row.type,
+      amount: Number(row.amount) || 0,
+      date: row.date,
+      transaction_time: row.transaction_time || null,
+      description: row.description,
+      payment_method: row.payment_method || 'Boleto',
+      category_id: row.category_id || null,
+      category_name: row.category_name || 'Despesa não classificada',
+      result_nature: row.result_nature || determineResultNature(row.category_name, row.type),
+      account_id: 'Caixa Geral',
+      counterparty: row.counterparty || null,
+      due_date: row.due_date || row.date,
+      origin: row.origin || 'MANUAL',
+      created_by: row.created_by || null,
+      status: row.status,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+    })
+  );
+
+  return {
+    rows,
+    totalCount: result.total_count == null ? undefined : Number(result.total_count) || 0,
+    totalAmount: result.total_amount == null ? undefined : Number(result.total_amount) || 0,
+  };
+};
+
 export const calculateInstallments = (
   totalAmount: number,
   count: number,

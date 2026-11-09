@@ -158,3 +158,43 @@ export const fetchFinancialCategories = async (): Promise<FinancialCategory[]> =
 
   return sortCategoriesWithOthersAtEnd(DEFAULT_FINANCIAL_CATEGORIES);
 };
+
+/**
+ * Busca usada somente pela assistente. Mantém o carregador geral acima sem
+ * filtros, pois telas e relatórios precisam da lista completa de categorias.
+ */
+export const fetchFinancialCategoriesForAgent = async (
+  type?: 'income' | 'expense'
+): Promise<FinancialCategory[]> => {
+  try {
+    let query = supabase
+      .from('financial_categories')
+      .select('id,name,type,result_nature,parent_id')
+      .order('name', { ascending: true });
+    if (type) query = query.eq('type', type);
+
+    const { data, error } = await query;
+    if (error) throw error;
+
+    if (Array.isArray(data) && data.length > 0) {
+      const mapped = data.map((category) => ({
+        ...category,
+        result_nature: category.result_nature || determineResultNature(category.name, category.type),
+      }));
+      return sortCategoriesWithOthersAtEnd(mapped);
+    }
+
+    if (type && Array.isArray(data)) {
+      // Preserve the old distinction between an empty table (static fallback)
+      // and a table containing only categories of the other type (empty result).
+      const { data: anyCategories, error: existenceError } = await supabase
+        .from('financial_categories')
+        .select('id')
+        .limit(1);
+      if (existenceError) return fetchFinancialCategories();
+      if (anyCategories?.length) return [];
+    }
+  } catch {}
+
+  return sortCategoriesWithOthersAtEnd(DEFAULT_FINANCIAL_CATEGORIES);
+};

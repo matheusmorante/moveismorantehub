@@ -34,6 +34,9 @@ export function mapRowToConversation(row: any): WhatsAppConversation {
     status: computeConversationStatus(row),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    aiStatus: row.ai_status || (Array.isArray(row.tags) && row.tags.includes('intervencao_necessaria') ? 'needs_human' : 'active'),
+    aiHandoffReason: row.ai_handoff_reason || null,
+    aiHandoffAt: row.ai_handoff_at || null,
   };
 }
 

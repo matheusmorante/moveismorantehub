@@ -2,7 +2,6 @@ import { Package } from 'lucide-react-native';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   Linking,
   Platform,
@@ -28,12 +27,10 @@ import { ProductsHeader } from '../components/ProductsHeader';
 import type { ProductListMode } from '../components/header/ProductsHeaderModeSelector';
 import { useMobileProducts } from '../hooks/useMobileProducts';
 import { MobileProductMetadataProvider } from '../hooks/useMobileProductMetadata';
-import {
-  getMobileCompositionEmptyHint,
-  shouldShowMobileProductPagination,
-} from '../domain/mobileProductListPresentation';
+import { shouldShowMobileProductPagination } from '../domain/mobileProductListPresentation';
 import { NativeMetaCatalogScreen } from './NativeMetaCatalogScreen';
 import { ProductModulesMenu } from './ProductModulesMenu';
+import { NativeProductListStatus } from './NativeProductListStatus';
 import { ProductScreenOverlays } from './ProductScreenOverlays';
 import {
   canShowMobileLinkedProductOrders,
@@ -413,46 +410,21 @@ export const NativeProductsScreen: React.FC<Props> = ({
           />
 
           {productsHook.loading && !productsHook.refreshing ? (
-            <View style={styles.loadingContent}>
-              <ActivityIndicator size="large" color="#2563eb" />
-              <Text style={styles.loading}>Sincronizando catálogo...</Text>
-            </View>
+            <NativeProductListStatus state="loading" />
           ) : productsHook.loadError && productsHook.products.length === 0 ? (
-            <View style={styles.empty}>
-              <Package size={40} color="#dc2626" />
-              <Text
-                style={styles.emptyText}
-                accessibilityRole="alert"
-                accessibilityLiveRegion="assertive"
-              >
-                {productsHook.loadError}
-              </Text>
-              <TouchableOpacity
-                onPress={() => productsHook.retry()}
-                style={styles.retryButton}
-                accessibilityRole="button"
-              >
-                <Text style={styles.retryButtonText}>Tentar novamente</Text>
-              </TouchableOpacity>
-            </View>
+            <NativeProductListStatus
+              state="error"
+              message={productsHook.loadError}
+              onRetry={() => productsHook.retry()}
+            />
           ) : productsHook.products.length === 0 ? (
-            <View style={styles.empty}>
-              <Package size={40} color="#cbd5e1" />
-              <Text style={styles.emptyText}>
-                {activeMode === 'composition'
-                  ? 'Nenhum produto composto encontrado'
-                  : productsHook.showTrash
-                    ? 'A lixeira está vazia'
-                    : 'Nenhum item encontrado'}
-              </Text>
-              {!productsHook.showTrash && (
-                <Text style={[styles.emptyHint, isDarkMode && styles.emptyHintDark]}>
-                  {activeMode === 'composition'
-                    ? getMobileCompositionEmptyHint(canCreateComposition)
-                    : 'Tente ajustar seus filtros ou adicione um novo produto ou serviço.'}
-                </Text>
-              )}
-            </View>
+            <NativeProductListStatus
+              state="empty"
+              isComposition={activeMode === 'composition'}
+              showTrash={productsHook.showTrash}
+              canCreateComposition={canCreateComposition}
+              dark={isDarkMode}
+            />
           ) : (
             <MobileProductMetadataProvider products={productsHook.products}>
             {productsHook.products.map((product) => (

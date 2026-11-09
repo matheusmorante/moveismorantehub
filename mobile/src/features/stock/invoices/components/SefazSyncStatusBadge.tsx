@@ -4,6 +4,49 @@ import { AlertTriangle, RefreshCw } from 'lucide-react-native';
 import * as stockService from '../../../../services/stockService';
 
 const NSU_RECOVERY_CHECK_INTERVAL_MS = 5 * 60 * 1000;
+const NSU_SYNC_INTERVAL_MS = 60 * 60 * 1000;
+
+interface ConfirmedSefazSyncResponse {
+  success?: boolean;
+  statusPersisted?: boolean;
+  statusUpdatedAt?: string;
+  nextAllowedSyncAt?: string;
+  statusDocsCount?: number;
+  ultNSU?: string;
+  maxNSU?: string;
+  cStat?: string;
+  xMotivo?: string;
+  environment?: 'production' | 'homologation';
+}
+
+const statusFromConfirmedSync = (result?: ConfirmedSefazSyncResponse | null) => {
+  if (!result?.success || result.statusPersisted !== true || typeof result.statusUpdatedAt !== 'string') return null;
+
+  const lastSyncMs = Date.parse(result.statusUpdatedAt);
+  if (!Number.isFinite(lastSyncMs)) return null;
+  const storedNextAllowed = typeof result.nextAllowedSyncAt === 'string'
+    ? Date.parse(result.nextAllowedSyncAt)
+    : 0;
+  const nextAllowed = Math.max(
+    Number.isFinite(storedNextAllowed) ? storedNextAllowed : 0,
+    lastSyncMs + NSU_SYNC_INTERVAL_MS,
+  );
+
+  return {
+    status: 'idle',
+    last_sync_at: result.statusUpdatedAt,
+    next_allowed_sync_at: new Date(nextAllowed).toISOString(),
+    last_nsu: result.ultNSU || '0',
+    max_nsu: result.maxNSU || '0',
+    last_cstat: result.cStat || null,
+    last_xmotivo: result.xMotivo || null,
+    last_docs_count: typeof result.statusDocsCount === 'number' && Number.isFinite(result.statusDocsCount)
+      ? result.statusDocsCount
+      : 0,
+    environment: result.environment || 'production',
+    can_sync_now: Date.now() >= nextAllowed,
+  };
+};
 
 interface Props {
   isDarkMode: boolean;
@@ -135,6 +178,7 @@ export const SefazSyncStatusBadge: React.FC<Props> = ({ isDarkMode, onSyncSucces
     if (autoSyncInFlight.current) return;
     autoSyncInFlight.current = true;
     let attemptedSync = false;
+    let statusUpdatedFromResponse = false;
     try {
       const current = await stockService.fetchSefazSyncStatus();
       setStatus(current);
@@ -142,6 +186,11 @@ export const SefazSyncStatusBadge: React.FC<Props> = ({ isDarkMode, onSyncSucces
 
       attemptedSync = true;
       const result = await stockService.triggerSefazSync();
+      const confirmedStatus = statusFromConfirmedSync(result?.data);
+      if (confirmedStatus) {
+        setStatus(confirmedStatus);
+        statusUpdatedFromResponse = true;
+      }
       if (result?.data?.success && (result.data.newDocsCount || 0) > 0) {
         onSyncSuccessRef.current?.();
       }
@@ -150,7 +199,7 @@ export const SefazSyncStatusBadge: React.FC<Props> = ({ isDarkMode, onSyncSucces
       console.warn('Erro na descoberta automática da SEFAZ no mobile:', e);
     } finally {
       autoSyncInFlight.current = false;
-      if (attemptedSync) await loadStatus();
+      if (attemptedSync && !statusUpdatedFromResponse) await loadStatus();
     }
   }, [loadStatus, requestScienceProcessing]);
 
@@ -179,8 +228,14 @@ export const SefazSyncStatusBadge: React.FC<Props> = ({ isDarkMode, onSyncSucces
   const handleRetry = async () => {
     if (isRetrying) return;
     setIsRetrying(true);
+    let statusUpdatedFromResponse = false;
     try {
       const res = await stockService.triggerSefazSync();
+      const confirmedStatus = statusFromConfirmedSync(res?.data);
+      if (confirmedStatus) {
+        setStatus(confirmedStatus);
+        statusUpdatedFromResponse = true;
+      }
       if (res?.data?.success && onSyncSuccess) {
         onSyncSuccess();
       }
@@ -189,7 +244,7 @@ export const SefazSyncStatusBadge: React.FC<Props> = ({ isDarkMode, onSyncSucces
       console.error('Falha no retry da SEFAZ:', err);
     } finally {
       setIsRetrying(false);
-      await loadStatus();
+      if (!statusUpdatedFromResponse) await loadStatus();
     }
   };
 

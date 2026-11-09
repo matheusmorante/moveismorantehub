@@ -58,7 +58,7 @@ interface HarmonizeParams {
   isWhiteBackground?: boolean;
 }
 
-export async function harmonizePostStylesWithGeminiFlash(
+export async function harmonizePostStylesWithOpenAI(
   params: HarmonizeParams
 ): Promise<HtmlPostThemeStyle> {
   const {
@@ -137,7 +137,7 @@ Retorne ESTRITAMENTE um JSON no seguinte formato (sem markdown em volta):
       benefitsTextColor: parsed.benefitsTextColor || defaultFallback.benefitsTextColor,
       cardBorderColor: '#ffffff', // Força borda branca sempre conforme regra do usuário
       backgroundLightingOverlay: defaultFallback.backgroundLightingOverlay,
-      contrastGrade: parsed.contrastGrade || 'Contraste Otimizado por Gemini Flash',
+      contrastGrade: parsed.contrastGrade || 'Contraste otimizado com GPT-6 Luna',
       rationale: parsed.rationale || 'Cores harmonizadas para contraste máximo com o cenário.',
     };
   } catch {
@@ -145,3 +145,6 @@ Retorne ESTRITAMENTE um JSON no seguinte formato (sem markdown em volta):
     return defaultFallback;
   }
 }
+
+/** Compatibilidade para importações legadas; a chamada usa exclusivamente o AiGateway OpenAI. */
+export const harmonizePostStylesWithGeminiFlash = harmonizePostStylesWithOpenAI;

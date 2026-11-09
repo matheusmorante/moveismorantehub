@@ -16,6 +16,7 @@ import {
 import { NcmManagementSyncPreview } from './NcmManagementSyncPreview';
 import type { NcmPreview, NcmPreviewChange } from './NcmManagementSyncPreview';
 import { getNcmStatus, NcmCatalogResults, type NcmRow } from './NcmCatalogResults';
+import { NcmCorrelationRecords } from './NcmCorrelationRecords';
 import {
   NcmCatalogFilters,
   type NcmFilter,
@@ -756,76 +757,14 @@ export function NcmManagementPanel() {
                         </button>
                       </div>
                     )}
-                    {correlations.length === 0 ? (
-                      <p className="rounded-xl bg-slate-50 p-3 text-xs text-slate-500 dark:bg-slate-800">
-                        Nenhuma correlação registrada. Consulte o{' '}
-                        <a
-                          className="font-bold text-blue-600 underline"
-                          href="https://rastreador-ncm.dth.mdic.gov.br/"
-                          target="_blank"
-                          rel="noreferrer"
-                        >
-                          Rastreador NCM do MDIC
-                        </a>{' '}
-                        para apoiar a revisão.
-                      </p>
-                    ) : (
-                      <div className="space-y-2">
-                        {correlations.map((item) => {
-                          const outgoing = correlations.filter(
-                            (relation) => relation.source_code === selectedRow.code
-                          );
-                          const unambiguous =
-                            outgoing.length > 0 &&
-                            new Set(outgoing.map((relation) => relation.destination_code)).size ===
-                              1 &&
-                            outgoing.every(
-                              (relation) =>
-                                relation.relation_type === 'one_to_one' ||
-                                relation.relation_type === 'many_to_one'
-                            );
-                          return (
-                            <div
-                              key={item.id}
-                              className="rounded-xl border border-slate-200 p-3 text-xs dark:border-slate-800"
-                            >
-                              <p className="font-mono font-bold">
-                                {item.source_code} → {item.destination_code}
-                              </p>
-                              <p className="mt-1 text-slate-500">
-                                {item.relation_type.replaceAll('_', ' ')} · {item.source_name}
-                                {item.version_label ? ` · ${item.version_label}` : ''}
-                              </p>
-                              {item.source_reference?.startsWith('https://') && (
-                                <a
-                                  href={item.source_reference}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="mt-1 block break-all text-[10px] text-blue-600 underline"
-                                >
-                                  Fonte da correlação
-                                </a>
-                              )}
-                              {canManage &&
-                                detailStatus !== 'Vigente' &&
-                                products.length > 0 &&
-                                unambiguous &&
-                                item.source_code === selectedRow.code && (
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      void selectDocumentedSuccessor(item.destination_code)
-                                    }
-                                    className="mt-2 font-bold text-blue-600 underline underline-offset-2"
-                                  >
-                                    Selecionar sucessor e produtos desta página
-                                  </button>
-                                )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
+                    <NcmCorrelationRecords
+                      correlations={correlations}
+                      selectedCode={selectedRow.code}
+                      canManage={canManage}
+                      detailStatus={detailStatus}
+                      hasProducts={products.length > 0}
+                      onSelectSuccessor={selectDocumentedSuccessor}
+                    />
                   </section>
                   <section>
                     <h5 className="mb-2 text-sm font-bold text-slate-800 dark:text-slate-100">

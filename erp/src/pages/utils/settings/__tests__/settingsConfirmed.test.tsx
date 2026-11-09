@@ -9,7 +9,13 @@ import { getSettings, saveSettings, subscribeToSettings } from '../storage';
 import { SETTINGS_KEY } from '../defaults';
 import type { AppSettings } from '../types';
 
-vi.mock('@/pages/utils/supabaseConfig', () => ({ supabase: { from: vi.fn() } }));
+vi.mock('@/pages/utils/supabaseConfig', () => ({ supabase: {
+  from: vi.fn(),
+  auth: { onAuthStateChange: (callback: (event: string, session: unknown) => void) => {
+    callback('INITIAL_SESSION', { user: { id: 'operator' } });
+    return { data: { subscription: { unsubscribe: () => undefined } } };
+  } },
+} }));
 vi.mock('react-toastify', () => ({ toast: { success: vi.fn(), info: vi.fn(), error: vi.fn() } }));
 vi.mock('@/pages/App/Stock/LabelPrinting/services/priceLabelTemplateSync', () => ({ subscribeToPriceLabelTemplateUpdates: () => () => undefined }));
 type Row = { id: string; data: AppSettings };
@@ -35,29 +41,29 @@ beforeEach(() => {
 afterEach(() => { cleanup(); for (const unsubscribe of unsubscribers.splice(0)) unsubscribe(); vi.useRealTimers(); vi.restoreAllMocks(); });
 
 describe('confirmação optativa de configurações e preferência real de etiquetas', () => {
-  it('confirma consultas simultâneas equivalentes sem publicar a mesma leitura duas vezes', async () => {
-    const first = deferred<Response>(), second = deferred<Response>();
+  it('compartilha a leitura simultânea da mesma sessão e revisão e confirma cada assinante', async () => {
+    const first = deferred<Response>();
     const settings = changedSettings(), observer = vi.fn(), loaded = [vi.fn(), vi.fn()];
-    transport.read.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise);
+    transport.read.mockReturnValueOnce(first.promise);
     unsubscribers.push(subscribeToSettings(observer, { onRemoteLoad: loaded[0] }));
     unsubscribers.push(subscribeToSettings(vi.fn(), { onRemoteLoad: loaded[1] }));
+    expect(transport.read).toHaveBeenCalledTimes(1);
     first.resolve(ack({ id: 'app', data: settings }));
     await waitFor(() => expect(loaded[0]).toHaveBeenCalledWith({ confirmed: true }));
-    const publications = observer.mock.calls.length;
-    second.resolve(ack({ id: 'app', data: Object.fromEntries(Object.entries(settings).reverse()) as AppSettings }));
     await waitFor(() => expect(loaded[1]).toHaveBeenCalledWith({ confirmed: true }));
-    expect(observer).toHaveBeenCalledTimes(publications);
+    expect(observer.mock.calls.at(-1)?.[0].defaultLabelLayoutIds).toEqual(settings.defaultLabelLayoutIds);
   });
-  it.each(['different-read', 'intervening-write'])('não confirma consulta antiga após %s', async (scenario) => {
+  it('não confirma uma leitura iniciada antes de uma gravação', async () => {
     const first = deferred<Response>(), second = deferred<Response>();
     const settings = changedSettings(), loaded = [vi.fn(), vi.fn()];
     transport.read.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise);
     unsubscribers.push(subscribeToSettings(vi.fn(), { onRemoteLoad: loaded[0] }));
-    unsubscribers.push(subscribeToSettings(vi.fn(), { onRemoteLoad: loaded[1] }));
     first.resolve(ack({ id: 'app', data: settings }));
     await waitFor(() => expect(loaded[0]).toHaveBeenCalledWith({ confirmed: true }));
-    if (scenario === 'intervening-write') await saveSettings(settings, { confirm: true });
-    second.resolve(ack({ id: 'app', data: scenario === 'different-read' ? { ...settings, companyUF: 'SC' } : settings }));
+    unsubscribers.push(subscribeToSettings(vi.fn(), { onRemoteLoad: loaded[1] }));
+    await waitFor(() => expect(transport.read).toHaveBeenCalledTimes(2));
+    await saveSettings(settings, { confirm: true });
+    second.resolve(ack({ id: 'app', data: settings }));
     await waitFor(() => expect(loaded[1]).toHaveBeenCalledWith({ confirmed: false, message: expect.stringContaining('mudou') }));
     expect(getSettings().companyUF).toBe(settings.companyUF);
   });

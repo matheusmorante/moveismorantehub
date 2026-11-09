@@ -8,11 +8,55 @@ const secondary = 'https://catalog.example/secondary.png';
 const product: TemplatePreviewProduct = { id: '1', currency: 'BRL', fields: {}, images: [main, secondary] };
 
 it('resolve campos do produto em textos com valores do produto selecionado', () => {
-  const selected = { ...product, fields: { name: 'Mesa', price: 199, currentPrice: 79 } };
+  const selected = {
+    ...product,
+    fields: {
+      name: 'Mesa', price: 199, promoPrice: 79, currentPrice: 79,
+      discount: '60%', discountPercent: 60, discountValue: 120,
+      stockOrigin: 'Salvados', color: 'Branco', category: 'Cozinha',
+      custom_label_0: 'Cozinha', custom_label_3: 'Queima dos Salvados',
+    },
+  };
   const result = interpolateTemplateFields('DE {{product.price}} POR {{product.currentPrice}} · {{product.name}}', selected);
   expect(result.replace(/\s/g, ' ')).toBe('DE R$ 199,00 POR R$ 79,00 · Mesa');
-  expect(interpolateTemplateFields('{{product.name}} / {{product.brand}}', null, true)).toBe('[Nome] / [Marca]');
+  expect(interpolateTemplateFields('{{product.name}} / {{product.brand}}', null, true)).toBe('[Nome do produto] / [Marca]');
   expect(interpolateTemplateFields('{{product.brand}} {{product.inexistente}}', selected)).toBe(' {{product.inexistente}}');
+
+  // Parâmetros específicos do ERP e aliases em português
+  expect(interpolateTemplateFields('{{product.desconto}} ({{product.desconto_percentual}})', selected)).toBe('60% (60%)');
+  expect(interpolateTemplateFields('Economia: {{product.valor_desconto}}', selected).replace(/\s/g, ' ')).toBe('Economia: R$ 120,00');
+  expect(interpolateTemplateFields('Origem: {{product.origem_estoque}} · Cor: {{product.cor}}', selected)).toBe('Origem: Salvados · Cor: Branco');
+  expect(interpolateTemplateFields('Categoria: {{product.categoria}} · Promo: {{product.preco_promocional}}', selected).replace(/\s/g, ' ')).toBe('Categoria: Cozinha · Promo: R$ 79,00');
+  expect(interpolateTemplateFields('Campanha: {{product.custom_label_3}}', selected)).toBe('Campanha: Queima dos Salvados');
+});
+
+it('resolve especificações técnicas do ERP como campos de texto dinâmicos', () => {
+  const selected = { ...product, attributes: { attribute_material: { name: 'Material', value: 'MDF' } } };
+  expect(interpolateTemplateFields('Material: {{product.attribute_material}}', selected)).toBe('Material: MDF');
+  expect(interpolateTemplateFields('{{product.attribute_material}}', null, true)).toBe('[material]');
+});
+
+it.each(['product', 'image', 'text', 'catalog', 'sticker'] as const)('oculta %s no PNG sem carregar nem desenhar seu conteúdo', async (type) => {
+  const layer = { ...createImageLayer(type, '1:1'), assetId: 'a'.repeat(64),
+    condition: { field: 'name', operator: 'contains', value: 'Cadeira' } } as const;
+  const context = { scale: vi.fn(), fillRect: vi.fn(), save: vi.fn(), translate: vi.fn(), rotate: vi.fn(),
+    beginPath: vi.fn(), rect: vi.fn(), clip: vi.fn(), arc: vi.fn(), fill: vi.fn(), restore: vi.fn(),
+    measureText: vi.fn((text: string) => ({ width: text.length * 10 })), fillText: vi.fn(), drawImage: vi.fn(), globalAlpha: 1 };
+  const canvas = document.createElement('canvas');
+  vi.spyOn(canvas, 'getContext').mockImplementation(() => context as unknown as CanvasRenderingContext2D);
+  const getPicture = vi.fn().mockResolvedValue({ image: document.createElement('img'), width: 100, height: 100 });
+  const options = { canvas, format: '1:1' as const, layout: { layers: [layer] },
+    assets: new Map([[layer.assetId, main]]), getPicture };
+  const hidden = await renderImageTemplate({ ...options, product: { ...product, fields: { name: 'Mesa' } } });
+  expect(hidden.errors).toEqual([]);
+  expect(getPicture).not.toHaveBeenCalled();
+  expect(context.fillText).not.toHaveBeenCalled();
+  expect(context.drawImage).not.toHaveBeenCalled();
+  expect(context.fillRect).toHaveBeenCalledTimes(1);
+  const visible = await renderImageTemplate({ ...options, product: { ...product, fields: { name: 'Cadeira' } } });
+  expect(visible.errors).toEqual([]);
+  if (type === 'product' || type === 'image') expect(context.drawImage).toHaveBeenCalledOnce();
+  else expect(context.fillText).toHaveBeenCalled();
 });
 
 it('desenha os valores dinâmicos na imagem final', async () => {
@@ -51,6 +95,65 @@ it('desenha espaçamento, sublinhado, alinhamento vertical e opacidade da tipogr
   expect(textCalls[1][1] - textCalls[0][1]).toBe(12);
   expect(context.fillRect).toHaveBeenCalledTimes(3); // canvas background plus one underline per line
   expect(context.globalAlpha).toBe(0.4);
+});
+
+it('desenha a sombra opcional do texto', async () => {
+  const layer = createImageLayer('text', '1:1');
+  if (layer.type !== 'text') throw new Error('Camada de texto esperada.');
+  layer.textShadow = true;
+  const context = {
+    scale: vi.fn(), fillRect: vi.fn(), save: vi.fn(), translate: vi.fn(), rotate: vi.fn(),
+    beginPath: vi.fn(), rect: vi.fn(), clip: vi.fn(), restore: vi.fn(),
+    measureText: vi.fn((text: string) => ({ width: text.length * 10 })), fillText: vi.fn(), globalAlpha: 1,
+    shadowColor: '', shadowBlur: 0, shadowOffsetX: 0, shadowOffsetY: 0,
+  };
+  const canvas = document.createElement('canvas');
+  vi.spyOn(canvas, 'getContext').mockImplementation(() => context as unknown as CanvasRenderingContext2D);
+  await renderImageTemplate({ canvas, format: '1:1', layout: { layers: [layer] }, product, assets: new Map(), getPicture: vi.fn() });
+  expect(context.shadowColor).toBe('rgba(0, 0, 0, 0.56)');
+  expect(context.shadowBlur).toBeGreaterThan(0);
+  expect(context.shadowOffsetY).toBeGreaterThan(0);
+});
+
+it('alinha linhas iguais sem contar duas vezes o espaçamento nativo do canvas', async () => {
+  const layer = createImageLayer('text', '1:1');
+  if (layer.type !== 'text') throw new Error('Camada de texto esperada.');
+  Object.assign(layer, { text: 'AB\nAB', width: 200, height: 200, fontSize: 20, letterSpacing: 4, align: 'center' });
+  const context = { scale: vi.fn(), fillRect: vi.fn(), save: vi.fn(), translate: vi.fn(), rotate: vi.fn(),
+    beginPath: vi.fn(), rect: vi.fn(), clip: vi.fn(), restore: vi.fn(), fillText: vi.fn(), globalAlpha: 1,
+    letterSpacing: '0px', measureText(text: string) {
+      return { width: text.length * 10 + Math.max(0, text.length - 1) * parseFloat(this.letterSpacing) };
+    } };
+  const canvas = document.createElement('canvas');
+  vi.spyOn(canvas, 'getContext').mockImplementation(() => context as unknown as CanvasRenderingContext2D);
+  await renderImageTemplate({ canvas, format: '1:1', layout: { layers: [layer] }, product, assets: new Map(), getPicture: vi.fn() });
+  expect(context.fillText.mock.calls).toHaveLength(2);
+  expect(context.fillText.mock.calls[0][1]).toBe(context.fillText.mock.calls[1][1]);
+  expect(context.letterSpacing).toBe('0px');
+});
+
+it('mantém opacidade do preenchimento e do texto da forma independentes', async () => {
+  const layer = createImageLayer('sticker', '1:1');
+  if (layer.type !== 'sticker') throw new Error('Camada de forma esperada.');
+  Object.assign(layer, { text: 'Oferta', opacity: 80, textOpacity: 50, fillOpacity: 35 });
+  const shapeAlpha: number[] = [];
+  const textAlpha: number[] = [];
+  const alpha = { current: 1 };
+  const context = {
+    scale: vi.fn(), fillRect: vi.fn(), save: vi.fn(), translate: vi.fn(), rotate: vi.fn(),
+    beginPath: vi.fn(), arc: vi.fn(), fill: vi.fn(() => shapeAlpha.push(alpha.current)), rect: vi.fn(), clip: vi.fn(), restore: vi.fn(),
+    measureText: vi.fn((text: string) => ({ width: text.length * 10 })),
+    fillText: vi.fn(() => textAlpha.push(alpha.current)),
+    get globalAlpha() { return alpha.current; }, set globalAlpha(value: number) { alpha.current = value; },
+  };
+  const canvas = document.createElement('canvas');
+  vi.spyOn(canvas, 'getContext').mockImplementation(() => context as unknown as CanvasRenderingContext2D);
+  await renderImageTemplate({ canvas, format: '1:1', layout: { layers: [layer] }, product, assets: new Map(), getPicture: vi.fn() });
+  expect(shapeAlpha).toHaveLength(1);
+  expect(shapeAlpha[0]).toBeCloseTo(0.28);
+  expect(textAlpha).toHaveLength(1);
+  expect(textAlpha[0]).toBeCloseTo(0.4);
+  expect(context.fillText.mock.calls.map(([line]) => line)).toEqual(['Oferta']);
 });
 
 function pictureFallback(fallback: 'main' | 'none', preview: boolean, images = product.images) {

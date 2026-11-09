@@ -65,7 +65,7 @@ export async function rankAndScoreCandidates(
         divergences,
       } = computeFeatureMatchScore(nfFeatures, targetFeatures);
 
-      // 3. Similaridade de Embedding (Gemini Embedding 2)
+      // 3. Similaridade vetorial com embeddings OpenAI
       let embeddingBonus = 0;
       if (nfEmbedding) {
         const prodEmbedding = await getOrComputeEmbedding(targetName);

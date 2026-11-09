@@ -23,7 +23,7 @@ import { getOperationalScheduleDate } from '../../../../utils/operationalSchedul
 import { supabase } from '../../../../services/supabaseClient';
 import {
   getLatestSavedSummaryRecord,
-  type DeliverySummaryRecord,
+  type DeliverySummaryReadRecord,
 } from '../../../../services/deliverySummaryService';
 import { offlineStorageService } from '../../../../services/offline/offlineStorageService';
 import { DeliveryShiftMetricsGrid } from './DeliveryShiftMetricsGrid';
@@ -78,12 +78,12 @@ export const TodaySummaryCard: React.FC<TodaySummaryCardProps> = ({
   onViewSchedule,
   onViewAssemblies,
 }) => {
-  const [isGeminiQuotaExceeded, setIsGeminiQuotaExceeded] = useState<boolean>(false);
+  const [isAiQuotaExceeded, setIsAiQuotaExceeded] = useState<boolean>(false);
 
   useEffect(() => {
     if (!SHOW_AI_SUMMARY) return;
     const unsub = subscribeSummaryQuota((exceeded) => {
-      setIsGeminiQuotaExceeded(exceeded);
+      setIsAiQuotaExceeded(exceeded);
     });
     return unsub;
   }, []);
@@ -198,7 +198,7 @@ export const TodaySummaryCard: React.FC<TodaySummaryCardProps> = ({
     if (!SHOW_AI_SUMMARY) return;
     let alive = true;
     const scope = periodFilter === 'today' ? 'today' : 'next_days';
-    const applySummaryRecord = (record: DeliverySummaryRecord | null) => {
+    const applySummaryRecord = (record: DeliverySummaryReadRecord | null) => {
       if (!alive || !record) return;
       if (record.text_status === 'READY' && record.text) setAiSummaryText(record.text);
     };
@@ -216,7 +216,7 @@ export const TodaySummaryCard: React.FC<TodaySummaryCardProps> = ({
 
           if (summaryDebounceTimer) clearTimeout(summaryDebounceTimer);
           summaryDebounceTimer = setTimeout(() => {
-            void applySummaryRecord(record as DeliverySummaryRecord);
+            void applySummaryRecord(record as DeliverySummaryReadRecord);
           }, 2000);
         }
       )
@@ -345,13 +345,13 @@ export const TodaySummaryCard: React.FC<TodaySummaryCardProps> = ({
           <View
             style={[
               styles.resumoBox,
-              isGeminiQuotaExceeded && { borderColor: '#fca5a5', backgroundColor: '#fff1f2' },
+              isAiQuotaExceeded && { borderColor: '#fca5a5', backgroundColor: '#fff1f2' },
             ]}
           >
             <View
-              style={[styles.resumoIconBox, isGeminiQuotaExceeded && { backgroundColor: '#fee2e2' }]}
+              style={[styles.resumoIconBox, isAiQuotaExceeded && { backgroundColor: '#fee2e2' }]}
             >
-              <FileText size={18} color={isGeminiQuotaExceeded ? '#dc2626' : '#0055ff'} />
+              <FileText size={18} color={isAiQuotaExceeded ? '#dc2626' : '#0055ff'} />
             </View>
             <View style={{ flex: 1, marginLeft: 10 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
@@ -362,7 +362,7 @@ export const TodaySummaryCard: React.FC<TodaySummaryCardProps> = ({
                       ? 'Resumo de amanhã'
                       : 'Resumo dos próximos dias'}
                 </Text>
-                {isGeminiQuotaExceeded && (
+                {isAiQuotaExceeded && (
                   <Text
                     style={{
                       fontSize: 10,
@@ -375,7 +375,7 @@ export const TodaySummaryCard: React.FC<TodaySummaryCardProps> = ({
                   </Text>
                 )}
               </View>
-              {isGeminiQuotaExceeded ? (
+              {isAiQuotaExceeded ? (
                 <Text
                   style={[styles.resumoText, { color: '#dc2626', fontWeight: '700' }]}
                   numberOfLines={4}

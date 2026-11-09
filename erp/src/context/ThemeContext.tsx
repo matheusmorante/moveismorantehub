@@ -1,5 +1,4 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { getSettings } from '../pages/utils/settingsService';
 
 type Theme = 'light' | 'dark';
 
@@ -15,9 +14,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [theme, setThemeState] = useState<Theme>(() => {
     const saved = localStorage.getItem('theme');
     if (saved === 'light' || saved === 'dark') return saved;
-    // Fall back to settings default
-    const settings = getSettings();
-    return settings.defaultTheme || 'light';
+    return 'light';
   });
 
   useEffect(() => {

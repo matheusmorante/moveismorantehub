@@ -148,3 +148,7 @@ export const supportFixtureProvisionSchema = z.object({
   history: z.array(supportInternalCommentSchema.shape.comment).min(1).max(81),
 });
 export type SupportFixtureProvisionInput = z.infer<typeof supportFixtureProvisionSchema>;
+
+// Re-exportação unificada de esquemas do Agente de IA da Central de Atendimento
+export * from './whatsappAiAgentSchemas';
+export * from './aiUsageLimitSchemas';

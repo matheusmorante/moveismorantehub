@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { MAX_PARENT_PRODUCT_IMAGES } from './productImageLimits';
 
 export const IMAGE_FORMATS = ['1:1', '4:5', '9:16'] as const;
 export type ImageFormat = typeof IMAGE_FORMATS[number];
@@ -9,16 +10,123 @@ export const FORMAT_DIMENSIONS: Record<ImageFormat, { width: number; height: num
 };
 
 export const CATALOG_FIELDS = {
-  name: 'Nome', brand: 'Marca', description: 'Descrição', retailerId: 'Código/SKU',
-  price: 'Preço normal', salePrice: 'Preço promocional', currentPrice: 'Preço atual',
-  availability: 'Disponibilidade', productType: 'Categoria',
-  custom_label_0: 'Rótulo personalizado 0', custom_label_1: 'Rótulo personalizado 1',
-  custom_label_2: 'Rótulo personalizado 2', custom_label_3: 'Rótulo personalizado 3',
+  // Campos principais do ERP MoranteHub
+  name: 'Nome do produto',
+  category: 'Categoria',
+  price: 'Preço',
+  promoPrice: 'Preço promocional',
+  currentPrice: 'Preço atual',
+  discount: 'Desconto',
+  discountPercent: 'Desconto (%)',
+  discountValue: 'Valor do desconto',
+  stockOrigin: 'Origem do estoque',
+  color: 'Cor',
+  brand: 'Marca',
+  retailerId: 'Código/SKU',
+  description: 'Descrição',
+  availability: 'Disponibilidade',
+
+  // Campos personalizados (iguais aos do Meta)
+  custom_label_0: 'Rótulo personalizado 0',
+  custom_label_1: 'Rótulo personalizado 1',
+  custom_label_2: 'Rótulo personalizado 2',
+  custom_label_3: 'Rótulo personalizado 3',
   custom_label_4: 'Rótulo personalizado 4',
+
+  // Legado / Aliases de compatibilidade Meta
+  productType: 'Categoria',
+  salePrice: 'Preço promocional',
 } as const;
-const fieldSchema = z.enum(Object.keys(CATALOG_FIELDS) as [keyof typeof CATALOG_FIELDS, ...(keyof typeof CATALOG_FIELDS)[]]);
-export type CatalogField = z.infer<typeof fieldSchema>;
-export const PRICE_FIELDS: readonly CatalogField[] = ['price', 'salePrice', 'currentPrice'];
+
+export const FIELD_ALIASES: Record<string, CatalogField> = {
+  nome: 'name',
+  nome_produto: 'name',
+  categoria: 'category',
+  productType: 'category',
+  product_type: 'category',
+  preco: 'price',
+  preco_normal: 'price',
+  promotional_price: 'promoPrice',
+  sale_price: 'promoPrice',
+  salePrice: 'promoPrice',
+  preco_promocional: 'promoPrice',
+  promo_price: 'promoPrice',
+  preco_atual: 'currentPrice',
+  current_price: 'currentPrice',
+  desconto: 'discount',
+  desconto_percentual: 'discountPercent',
+  discount_percent: 'discountPercent',
+  desconto_valor: 'discountValue',
+  discount_value: 'discountValue',
+  valor_desconto: 'discountValue',
+  origem_estoque: 'stockOrigin',
+  origem: 'stockOrigin',
+  stock_origin: 'stockOrigin',
+  cor: 'color',
+  marca: 'brand',
+  codigo: 'retailerId',
+  sku: 'retailerId',
+  code: 'retailerId',
+  retailer_id: 'retailerId',
+  descricao: 'description',
+  disponibilidade: 'availability',
+};
+
+const catalogFieldSchema = z.enum(Object.keys(CATALOG_FIELDS) as [keyof typeof CATALOG_FIELDS, ...(keyof typeof CATALOG_FIELDS)[]]);
+export type TemplateAttributeField = `attribute_${string}`;
+const templateAttributeFieldSchema = z.string().regex(/^attribute_[a-z0-9_]{1,96}$/) as z.ZodType<TemplateAttributeField, TemplateAttributeField>;
+const fieldSchema = z.union([catalogFieldSchema, templateAttributeFieldSchema]);
+export type CatalogField = z.infer<typeof catalogFieldSchema>;
+export type TemplateField = z.infer<typeof fieldSchema>;
+export const PRICE_FIELDS: readonly CatalogField[] = ['price', 'promoPrice', 'salePrice', 'currentPrice', 'discountValue'];
+export const PERCENTAGE_FIELDS: readonly CatalogField[] = ['discountPercent'];
+
+export interface TemplateProductAttribute { name: string; value: string | number }
+export type TemplateProductAttributes = Partial<Record<TemplateAttributeField, TemplateProductAttribute>>;
+
+export function isCatalogField(field: string): field is CatalogField {
+  return Object.prototype.hasOwnProperty.call(CATALOG_FIELDS, field);
+}
+
+export function isTemplateField(field: string): field is TemplateField {
+  return isCatalogField(field) || Object.prototype.hasOwnProperty.call(FIELD_ALIASES, field) || templateAttributeFieldSchema.safeParse(field).success;
+}
+
+export function isPriceField(field: TemplateField): field is CatalogField {
+  const canonical = isCatalogField(field) ? field : FIELD_ALIASES[field];
+  return !!canonical && (PRICE_FIELDS as readonly string[]).includes(canonical);
+}
+
+export function isPercentageField(field: TemplateField): field is CatalogField {
+  const canonical = isCatalogField(field) ? field : FIELD_ALIASES[field];
+  return !!canonical && (PERCENTAGE_FIELDS as readonly string[]).includes(canonical);
+}
+
+export function templateAttributeField(name: string): TemplateAttributeField | null {
+  const slug = name.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 96);
+  return slug ? `attribute_${slug}` as TemplateAttributeField : null;
+}
+
+export function templateFieldLabel(field: TemplateField, attributes?: TemplateProductAttributes): string {
+  const canonical = isCatalogField(field) ? field : FIELD_ALIASES[field];
+  if (canonical && isCatalogField(canonical)) return CATALOG_FIELDS[canonical];
+  if (isCatalogField(field)) return CATALOG_FIELDS[field];
+  return attributes?.[field as TemplateAttributeField]?.name || field.slice('attribute_'.length).replace(/_/g, ' ');
+}
+
+export function templateFieldValue(field: TemplateField, product: TemplatePreviewProduct | null) {
+  if (!product) return undefined;
+  const canonical = (isCatalogField(field) ? field : FIELD_ALIASES[field]) as CatalogField | undefined;
+  if (canonical) {
+    if (product.fields[canonical] !== undefined) return product.fields[canonical];
+    if (canonical === 'category' && product.fields.productType !== undefined) return product.fields.productType;
+    if (canonical === 'productType' && product.fields.category !== undefined) return product.fields.category;
+    if (canonical === 'promoPrice' && product.fields.salePrice !== undefined) return product.fields.salePrice;
+    if (canonical === 'salePrice' && product.fields.promoPrice !== undefined) return product.fields.promoPrice;
+  }
+  if (isCatalogField(field) && product.fields[field] !== undefined) return product.fields[field];
+  return product.attributes?.[field as TemplateAttributeField]?.value;
+}
 
 export const CONDITION_OPERATORS = {
   exists: 'Está preenchido', empty: 'Está vazio', eq: 'É igual a', ne: 'É diferente de',
@@ -27,13 +135,31 @@ export const CONDITION_OPERATORS = {
 } as const;
 const operatorSchema = z.enum(Object.keys(CONDITION_OPERATORS) as [keyof typeof CONDITION_OPERATORS, ...(keyof typeof CONDITION_OPERATORS)[]]);
 const conditionSchema = z.object({ field: fieldSchema, operator: operatorSchema, value: z.string().trim().max(160) })
-  .refine(({ field, operator, value }) => operator === 'exists' || operator === 'empty'
-    || (PRICE_FIELDS.includes(field)
-      ? parseCatalogPrice(value) !== null && !['contains', 'notContains'].includes(operator)
-      : !!value && !['gt', 'gte', 'lt', 'lte'].includes(operator)), 'Informe um valor compatível com a regra.');
+  .refine(({ field, operator, value }) => {
+    if (operator === 'exists' || operator === 'empty') return true;
+    if (isPriceField(field)) {
+      return parseCatalogPrice(value) !== null && !['contains', 'notContains'].includes(operator);
+    }
+    if (isPercentageField(field)) {
+      const num = Number(value.replace(/%/g, '').trim());
+      return Number.isFinite(num) && !['contains', 'notContains'].includes(operator);
+    }
+    if (field === 'discount') {
+      if (['gt', 'gte', 'lt', 'lte'].includes(operator)) {
+        const num = Number(value.replace(/%/g, '').trim());
+        return Number.isFinite(num);
+      }
+      return !!value;
+    }
+    return !!value && !['gt', 'gte', 'lt', 'lte'].includes(operator);
+  }, 'Informe um valor compatível com a regra.');
 export type LayerCondition = z.infer<typeof conditionSchema>;
 
-export const IMAGE_TEMPLATE_FONTS = ['Arial', 'Georgia', 'Verdana', 'Tahoma', 'Trebuchet MS', 'Times New Roman', 'Courier New'] as const;
+export const IMAGE_TEMPLATE_FONTS = ['Bowlby One', 'Noto Sans', 'Noto Serif', 'Open Sans', 'Optimistic',
+  'Optimistic Condensed', 'Optimistic Dark Mode', 'Oswald', 'Playfair Display', 'Poppins', 'Quicksand', 'Raleway',
+  'Roboto', 'Verdana', 'Work Sans'] as const;
+const legacyImageTemplateFonts = ['Arial', 'Georgia', 'Tahoma', 'Trebuchet MS', 'Times New Roman', 'Courier New'] as const;
+const imageTemplateFontSchema = z.enum([...IMAGE_TEMPLATE_FONTS, ...legacyImageTemplateFonts]);
 const color = z.string().regex(/^#[\da-f]{6}$/i);
 const layerName = { id: z.uuid(), name: z.string().trim().min(1).max(80) };
 const position = {
@@ -43,24 +169,24 @@ const position = {
   angle: z.number().min(-180).max(180), opacity: z.number().min(0).max(100),
 };
 const typography = {
-  font: z.enum(IMAGE_TEMPLATE_FONTS), fontSize: z.number().int().min(8).max(240), color,
+  font: imageTemplateFontSchema, fontSize: z.number().int().min(8).max(240), color,
   bold: z.boolean(), italic: z.boolean(), strike: z.boolean(), align: z.enum(['left', 'center', 'right']),
   underline: z.boolean().optional(), verticalAlign: z.enum(['top', 'middle', 'bottom']).optional(),
   lineSpacing: z.number().min(0.5).max(3).optional(), letterSpacing: z.number().min(-20).max(100).optional(),
-  textOpacity: z.number().min(0).max(100).optional(),
+  textOpacity: z.number().min(0).max(100).optional(), textShadow: z.boolean().optional(),
 };
 const condition = { condition: conditionSchema.nullable() };
 export const TEMPLATE_ASSET_ID = /^[a-f0-9]{64}$/;
 export const imageLayerSchema = z.discriminatedUnion('type', [
-  z.object({ ...position, type: z.literal('product'), condition: conditionSchema.nullable().optional(), imageIndex: z.number().int().min(0).max(3),
+  z.object({ ...position, type: z.literal('product'), condition: conditionSchema.nullable().optional(), imageIndex: z.number().int().min(0).max(MAX_PARENT_PRODUCT_IMAGES - 1),
     fallback: z.enum(['main', 'none']), fit: z.enum(['contain', 'cover']), removeBackground: z.boolean() }),
   z.object({ ...position, ...typography, ...condition, type: z.literal('catalog'), field: fieldSchema }),
   z.object({ ...position, ...typography, ...condition, type: z.literal('text'), text: z.string().max(700) }),
   z.object({ ...position, ...condition, type: z.literal('image'), assetId: z.string().regex(TEMPLATE_ASSET_ID).nullable(),
     assetName: z.string().trim().max(120).optional(), fit: z.enum(['contain', 'cover']) }),
-  z.object({ ...position, ...typography, type: z.literal('sticker'), text: z.string().max(700), fill: color,
-    shape: z.enum(['rectangle', 'square', 'circle']) }),
-  z.object({ ...layerName, type: z.literal('background'), color }),
+  z.object({ ...position, ...typography, condition: conditionSchema.nullable().optional(), type: z.literal('sticker'), text: z.string().max(700), fill: color,
+    fillOpacity: z.number().min(0).max(100).optional(), lockAspectRatio: z.boolean().optional(), shape: z.enum(['rectangle', 'square', 'circle']) }),
+  z.object({ ...layerName, type: z.literal('background'), color, opacity: z.number().min(0).max(100).default(100) }),
 ]);
 export type ImageLayer = z.infer<typeof imageLayerSchema>;
 export type PositionedLayer = Exclude<ImageLayer, { type: 'background' }>;
@@ -76,15 +202,22 @@ const layoutSchema = z.object({ layers: z.array(imageLayerSchema).min(1).max(MAX
   .refine(({ layers }) => layers.slice(0, -1).every((layer) => layer.type !== 'background'), 'O fundo deve ficar por último.')
   .refine(({ layers }) => new Set(layers.map(({ id }) => id)).size === layers.length, 'Há camadas repetidas.');
 export type ImageLayout = z.infer<typeof layoutSchema>;
+export const IMAGE_TEMPLATE_TEST_SCENARIO = 'image_template_crud' as const;
+export const imageTemplateTestArtifactSchema = z.object({
+  is_test: z.literal(true), runId: z.uuid(), ownerId: z.uuid(), scenarioKey: z.literal(IMAGE_TEMPLATE_TEST_SCENARIO),
+}).strict();
+export type ImageTemplateTestArtifact = z.infer<typeof imageTemplateTestArtifactSchema>;
 export const imageTemplateDesignSchema = z.object({
   version: z.literal(1), formats: z.object({ '1:1': layoutSchema, '4:5': layoutSchema.optional(), '9:16': layoutSchema.optional() }),
+  testArtifact: imageTemplateTestArtifactSchema.optional(),
 }).refine((design) => templateAssetIds(design).length <= 12, 'Use até 12 imagens diferentes por modelo.');
 export type ImageTemplateDesign = z.infer<typeof imageTemplateDesignSchema>;
 export const imageTemplateMetadataSchema = z.object({
   name: z.string().trim().min(1, 'Informe o nome do modelo.').max(100),
   description: z.string().trim().max(400, 'Use até 400 caracteres.'),
 });
-export const deleteImageTemplateSchema = z.object({ id: z.uuid(), updated_at: z.iso.datetime({ offset: true }) });
+export const deleteImageTemplateSchema = z.object({ id: z.uuid(), updated_at: z.iso.datetime({ offset: true }),
+  test_artifact: imageTemplateTestArtifactSchema.optional() });
 export type DeleteImageTemplateValues = z.infer<typeof deleteImageTemplateSchema>;
 export const imageTemplateFormSchema = imageTemplateMetadataSchema.extend({ design: imageTemplateDesignSchema });
 export type ImageTemplateFormValues = z.infer<typeof imageTemplateFormSchema>;
@@ -97,15 +230,17 @@ export function createImageLayer(type: ImageLayerType, format: ImageFormat): Ima
   const { width, height } = FORMAT_DIMENSIONS[format];
   const identity = { id: crypto.randomUUID(), name: LAYER_TYPES[type].label };
   const box = { ...identity, x: 54, y: Math.round(height * .1), width: width - 108, height: 140, angle: 0, opacity: 100 };
-  const text = { font: 'Arial', fontSize: 54, color: '#172033', bold: true, italic: false, underline: false, strike: false,
-    align: 'center', verticalAlign: 'middle', lineSpacing: 1.16, letterSpacing: 0, textOpacity: 100 } as const;
+  const text = { font: 'Verdana', fontSize: 54, color: '#172033', bold: true, italic: false, underline: false, strike: false,
+    textShadow: false, align: 'center', verticalAlign: 'middle', lineSpacing: 1.16, letterSpacing: 0, textOpacity: 100 } as const;
   switch (type) {
     case 'product': return { ...box, type, x: 0, y: 0, width, height, condition: null, imageIndex: 0, fallback: 'main', fit: 'contain', removeBackground: false };
     case 'catalog': return { ...box, ...text, type, field: 'name', condition: null };
     case 'text': return { ...box, ...text, type, text: 'Seu texto', condition: null };
     case 'image': return { ...box, type, width: 324, height: 250, assetId: null, fit: 'contain', condition: null };
-    case 'sticker': return { ...box, ...text, type, x: 758, width: 260, height: 260, text: 'Oferta', color: '#ffffff', fill: '#2457da', shape: 'circle' };
-    case 'background': return { ...identity, type, color: '#ffffff' };
+    case 'sticker': return { ...box, ...text, type, x: 758, width: 260, height: 260, fontSize: 44, angle: 0, opacity: 100, condition: null,
+      text: 'Oferta', color: '#ffffff',
+      fill: '#2457da', fillOpacity: 100, lockAspectRatio: false, shape: 'circle' };
+    case 'background': return { ...identity, type, color: '#ffffff', opacity: 100 };
   }
 }
 
@@ -127,7 +262,7 @@ export function startImageTemplate(starter: ImageTemplateStarter): ImageTemplate
       break;
     case 'banner': {
       const banner = createImageLayer('sticker', '1:1') as Extract<ImageLayer, { type: 'sticker' }>;
-      layers = [{ ...banner, x: 0, y: 878, width: 1080, height: 202, shape: 'rectangle', text: 'Móveis Morante' }, { ...product, height: 865 }];
+      layers = [{ ...banner, x: 0, y: 878, width: 1080, height: 202, fontSize: 54, shape: 'rectangle', text: 'Móveis Morante' }, { ...product, height: 865 }];
       break;
     }
     case 'details':
@@ -141,10 +276,15 @@ export function startImageTemplate(starter: ImageTemplateStarter): ImageTemplate
 
 export function copyImageLayout(layout: ImageLayout, source: ImageFormat, target: ImageFormat): ImageLayout {
   const ratio = FORMAT_DIMENSIONS[target].height / FORMAT_DIMENSIONS[source].height;
-  return { layers: layout.layers.map((layer) => layer.type === 'background'
-    ? { ...layer }
-    : { ...layer, y: Math.max(-3840, Math.min(3840, Math.round(layer.y * ratio))),
-      height: Math.max(16, Math.min(3840, Math.round(layer.height * ratio))) }) };
+  return { layers: layout.layers.map((layer) => {
+    if (layer.type === 'background') return { ...layer };
+    const keepBoxHeight = layer.type === 'sticker' && (layer.shape !== 'rectangle' || !!layer.lockAspectRatio);
+    return {
+      ...layer,
+      y: Math.max(-3840, Math.min(3840, Math.round(layer.y * ratio))),
+      height: keepBoxHeight ? layer.height : Math.max(16, Math.min(3840, Math.round(layer.height * ratio))),
+    };
+  }) };
 }
 
 export interface TemplatePreviewProduct {
@@ -152,6 +292,7 @@ export interface TemplatePreviewProduct {
   images: (string | null)[];
   currency: string;
   fields: Partial<Record<CatalogField, string | number>>;
+  attributes?: TemplateProductAttributes;
 }
 
 export function templateAssetIds(design: { formats: Partial<Record<ImageFormat, ImageLayout>> }): string[] {
@@ -175,10 +316,10 @@ export function parseCatalogPrice(raw: unknown): number | null {
 export function isLayerVisible(layer: ImageLayer, product: TemplatePreviewProduct | null) {
   if (!('condition' in layer) || !layer.condition) return true;
   const { field, operator, value } = layer.condition;
-  const actual = product?.fields[field];
+  const actual = templateFieldValue(field, product);
   if (operator === 'exists' || operator === 'empty') return (actual != null && actual !== '') === (operator === 'exists');
   if (actual == null || actual === '') return false;
-  if (PRICE_FIELDS.includes(field)) {
+  if (isPriceField(field)) {
     const expected = parseCatalogPrice(value);
     if (typeof actual !== 'number' || expected === null) return false;
     switch (operator) {
@@ -188,6 +329,20 @@ export function isLayerVisible(layer: ImageLayer, product: TemplatePreviewProduc
       case 'gte': return actual >= expected;
       case 'lt': return actual < expected;
       case 'lte': return actual <= expected;
+      default: return false;
+    }
+  }
+  if (isPercentageField(field) || (field === 'discount' && ['gt', 'gte', 'lt', 'lte'].includes(operator))) {
+    const actualNum = typeof actual === 'number' ? actual : Number(String(actual).replace(/%/g, '').trim());
+    const expectedNum = Number(String(value).replace(/%/g, '').trim());
+    if (!Number.isFinite(actualNum) || !Number.isFinite(expectedNum)) return false;
+    switch (operator) {
+      case 'eq': return actualNum === expectedNum;
+      case 'ne': return actualNum !== expectedNum;
+      case 'gt': return actualNum > expectedNum;
+      case 'gte': return actualNum >= expectedNum;
+      case 'lt': return actualNum < expectedNum;
+      case 'lte': return actualNum <= expectedNum;
       default: return false;
     }
   }

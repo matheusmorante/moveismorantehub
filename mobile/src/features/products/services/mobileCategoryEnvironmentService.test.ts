@@ -23,6 +23,7 @@ describe('Roteiro 1 & 2: Serviços de Persistência e Integridade — Ambientes,
   it('mantém ambientes fora das categorias disponíveis para produtos', async () => {
     const categoriesQuery = {
       select: vi.fn().mockReturnThis(),
+      or: vi.fn().mockReturnThis(),
       order: vi.fn().mockResolvedValue({
         data: [
           { id: 'cat-1', name: 'Cozinha', type: 'category' },

@@ -1,5 +1,6 @@
 import { supabase, supabasePublicAnonKey, supabasePublicUrl } from '../../supabaseConfig';
 import { InboundInvoice, InboundInvoiceItem } from '../types/inboundNfeTypes';
+import { extractNfeAccessKeyWithOcr } from './accessKeyOcr';
 
 const MAX_FILE_SIZE = 12 * 1024 * 1024;
 const allowedMime = new Set(['application/pdf', 'image/png', 'image/jpeg']);
@@ -19,6 +20,7 @@ export type InboundDocumentAnalysis = {
 };
 export type InboundDocumentAnalysisStage =
   | 'uploading'
+  | 'extracting_access_key'
   | 'preparing'
   | 'extracting'
   | 'validating'
@@ -40,8 +42,16 @@ export async function analyzeInboundInvoiceDocument(
   const { error: userError } = await supabase.auth.getUser(session.access_token);
   if (userError)
     throw new Error('Sua sessão não é válida neste ambiente. Saia e entre novamente no ERP.');
+  onStage?.('extracting_access_key');
+  let accessKey: string | null = null;
+  try {
+    accessKey = await extractNfeAccessKeyWithOcr(file);
+  } catch {
+    console.warn('[NF import] OCR local da chave não concluiu; a chave ficará para conferência manual.');
+  }
   const body = new FormData();
   body.append('file', file, file.name);
+  if (accessKey) body.append('accessKey', accessKey);
   onStage?.('preparing');
   const functionUrl = `${supabasePublicUrl}/functions/v1/analyze-inbound-invoice`;
   const response = await fetch(functionUrl, {
@@ -116,7 +126,7 @@ export function invoiceFromDocumentAnalysis(analysis: InboundDocumentAnalysis): 
     extractionConfidence: confidence,
     extractionStatus: warnings.length ? 'review_required' : 'completed',
     processedAt: new Date().toISOString(),
-    aiModel: 'gemini-3.8-flash',
+    aiModel: 'gpt-6-luna',
     rawExtraction: { invoice, issuer, recipient, items, warnings, confidence },
     createdAt: new Date().toISOString(),
   };

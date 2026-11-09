@@ -46,10 +46,10 @@ export function dbRowToTemplate(row: PostTemplateDbRow): PostTemplate {
       generateEnvironment: true,
       fit: 'contain',
     },
-    generationConfig: row.generation_config || {
-      provider: 'gemini',
-      model: 'gemini-2.5-flash-image',
-      referenceImageRequired: true,
+    generationConfig: {
+      provider: 'openai',
+      model: 'gpt-image-2',
+      referenceImageRequired: row.generation_config?.referenceImageRequired ?? true,
     },
     assets: row.assets || [],
     extras: row.extras || [],

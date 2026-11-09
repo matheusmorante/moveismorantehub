@@ -93,7 +93,7 @@ const asExample = (row: any): ProductResolutionExample => ({
 });
 
 // Recuperação determinística: código exato, família já identificada ou nome-pai
-// normalizado. A semelhança semântica continua sendo responsabilidade do Gemini.
+// normalizado. A semelhança semântica continua sendo responsabilidade dos embeddings OpenAI.
 export async function findProductResolutionExamples(input: {
   supplierId: string;
   supplierProductCode?: string;

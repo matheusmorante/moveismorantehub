@@ -5,13 +5,14 @@ import { toTitleCase } from './textUtils';
 import { sortAttributeValuesNaturally } from './attributeValueSorting';
 import { queryClient } from '@/lib/queryClient';
 import { isCatalogNeverRequiredCharacteristicName } from '../../../../shared-utils/catalogPublication/requiredCharacteristicPolicy';
-import { inferAttributeDataType, normalizeAttributeDataType } from './attributeDataType';
+import { normalizeAttributeDataType } from './attributeDataType';
 import { variationFamilyAttributeSchema, VariationFamilyUnconfirmedError } from '../../../../shared-utils/variationFamilyFormSchemas';
 import { withTimeout } from '../../../../shared-utils/withTimeout';
 import { saveAttributeValueWithClient } from '../../../../shared-utils/productAttributeValueService';
 import { normalizeCharacteristicText } from '../../../../shared-utils/characteristicFormRules';
 import { invalidateTechnicalFieldDefinitionsCache } from '@/pages/App/Products/services/technicalFieldService';
 import { withCatalogAttributesLoadTimeout } from '../../../../shared-utils/catalogAttributesLoadTimeout';
+import { mapVariationRowsToDefinitions } from './variationServiceMapping';
 
 export { normalizeAttributeDataType };
 
@@ -222,15 +223,6 @@ export const fetchVariations = async (
     }
     const { data: valData, error: valErr } = valuesResult;
     if (valErr) throw valErr;
-    const optionCounts = new Map<string, { optionCount: number; activeOptionCount: number }>();
-    for (const value of valData || []) {
-      const attributeId = String(value.attribute_id);
-      const count = optionCounts.get(attributeId) ?? { optionCount: 0, activeOptionCount: 0 };
-      count.optionCount += 1;
-      if (value.active !== false) count.activeOptionCount += 1;
-      optionCounts.set(attributeId, count);
-    }
-
     // Aplicação da característica e obrigatoriedade do catálogo têm finalidades distintas.
     const [catalogLinks, categoryApplications] = await Promise.all([
       fetchAllVariationRows(
@@ -256,68 +248,16 @@ export const fetchVariations = async (
       throw categoryApplicationErr;
     }
 
-    // 3. Mapear para a estrutura VariationType usada no ERP
-    const mapped: VariationType[] = (attrData || []).map((attr: any) => ({
-      id: String(attr.id),
-      name: attr.name,
-      active: attr.active ?? true,
-      dataType: inferAttributeDataType(attr.name, attr.data_type),
-      unit: attr.unit || '',
-      decimalPlaces:
-        attr.decimal_places === 1 || attr.decimal_places === 2 || attr.decimal_places === 3
-          ? attr.decimal_places
-          : undefined,
-      groupId: typeof attr.group_id === 'string' ? attr.group_id : undefined,
-      configuration:
-        attr.configuration && typeof attr.configuration === 'object' && !Array.isArray(attr.configuration)
-          ? attr.configuration
-          : {},
-      isGloballyRequired:
-        !isCatalogNeverRequiredCharacteristicName(attr.name) && Boolean(attr.is_globally_required),
-      isCustom: Boolean(attr.is_custom),
-      ...(includeOptionValues ? {} : {
-        optionCount: optionCounts.get(String(attr.id))?.optionCount ?? 0,
-        activeOptionCount: optionCounts.get(String(attr.id))?.activeOptionCount ?? 0,
-      }),
-      options: includeOptionValues ? (() => {
-        const values = (valData || [])
-          .filter((val: any) => val.attribute_id === attr.id)
-          .map((val: any) => ({
-            id: String(val.id),
-            value: val.value,
-            sortOrder: Number.isInteger(val.sort_order) ? val.sort_order : undefined,
-            active: val.active !== false,
-          }));
-        return values.some((value: VariationOption) => value.sortOrder !== undefined)
-          ? values.sort(
-              (left: VariationOption, right: VariationOption) =>
-                (left.sortOrder ?? Number.MAX_SAFE_INTEGER) -
-                (right.sortOrder ?? Number.MAX_SAFE_INTEGER)
-            )
-          : sortAttributeValuesNaturally(values);
-      })() : [],
-      categoryAttributes: (catAttrErr ? [] : catAttrData || [])
-        .filter((ca: any) => ca.attribute_id === attr.id)
-        .map((ca: any) => ({
-          categoryId: ca.category_id,
-          isRequired:
-            !isCatalogNeverRequiredCharacteristicName(attr.name) && Boolean(ca.is_required),
-        })),
-      ...(options.includeCategoryApplications === false
-        ? {}
-        : {
-            categoryApplications: (categoryApplicationErr ? [] : categoryApplicationData || [])
-              // Unconfigured rows carry the optional default and must still reach product forms.
-              .filter((application: any) => application.attribute_id === attr.id)
-              .map((application: any) => ({
-                categoryId: String(application.category_id),
-                application: application.application,
-              })),
-          }),
-      deleted: false, // Exclusões sem uso são físicas; itens usados ficam ativos=false.
-    }));
-
-    return mapped;
+    return mapVariationRowsToDefinitions({
+      attrData,
+      valData,
+      catAttrErr,
+      catAttrData,
+      categoryApplicationErr,
+      categoryApplicationData,
+      includeOptionValues,
+      includeCategoryApplications: options.includeCategoryApplications,
+    });
   } catch (error) {
     console.error('Erro ao buscar variações iniciais:', error);
     if (options.throwOnError) throw error;

@@ -1,6 +1,7 @@
 import { ChevronLeft, ChevronRight, ExternalLink, Image as ImageIcon, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import {
+  fetchStockUnavailabilityPhotoPaths,
   getUnavailabilityPhotoUrls,
   type StockUnavailability,
 } from '@/pages/utils/stockUnavailabilityService';
@@ -13,20 +14,24 @@ interface PhotoPreviewModalProps {
 export default function PhotoPreviewModal({ item, onClose }: PhotoPreviewModalProps) {
   const [photoUrls, setPhotoUrls] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
 
   useEffect(() => {
-    if (!item?.photos?.length) {
+    if (!item || item.photos_count <= 0) {
       setPhotoUrls([]);
+      setLoadError(false);
       setIsLoading(false);
       return;
     }
 
     let isMounted = true;
     setIsLoading(true);
+    setLoadError(false);
     setCurrentIndex(0);
 
-    getUnavailabilityPhotoUrls(item.photos)
+    fetchStockUnavailabilityPhotoPaths(item.id)
+      .then(getUnavailabilityPhotoUrls)
       .then((urls) => {
         if (isMounted) {
           setPhotoUrls(urls);
@@ -34,6 +39,7 @@ export default function PhotoPreviewModal({ item, onClose }: PhotoPreviewModalPr
       })
       .catch((err) => {
         console.error('Erro ao carregar fotos da indisponibilidade:', err);
+        if (isMounted) setLoadError(true);
       })
       .finally(() => {
         if (isMounted) {
@@ -104,6 +110,11 @@ export default function PhotoPreviewModal({ item, onClose }: PhotoPreviewModalPr
             <div className="flex flex-col items-center gap-2 text-slate-500 py-12">
               <div className="w-8 h-8 border-3 border-blue-600 border-t-transparent rounded-full animate-spin" />
               <span className="text-sm font-medium">Carregando fotos seguras…</span>
+            </div>
+          ) : loadError ? (
+            <div className="text-center py-12 text-slate-500">
+              <ImageIcon size={48} className="mx-auto mb-2 opacity-50" />
+              <p className="text-sm font-medium">Não foi possível carregar as fotos. Feche e abra a prévia para tentar novamente.</p>
             </div>
           ) : photoUrls.length === 0 ? (
             <div className="text-center py-12 text-slate-400">

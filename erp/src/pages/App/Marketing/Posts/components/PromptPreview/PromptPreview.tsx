@@ -266,7 +266,7 @@ export function PromptPreview({
             onClick={() => void handleDownloadZip()}
             disabled={!currentSpec || downloadingZip}
             className="flex items-center gap-1.5 rounded-lg border border-indigo-500/70 bg-indigo-600 hover:bg-indigo-500 px-3.5 py-1.5 text-xs font-bold text-white shadow transition disabled:cursor-not-allowed disabled:opacity-40"
-            title="Baixar arquivo ZIP com o pacote do prompt e assets para o ChatGPT/Gemini"
+            title="Baixar arquivo ZIP com o pacote do prompt e assets para o ChatGPT/OpenAI"
           >
             {downloadingZip ? (
               <span className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />

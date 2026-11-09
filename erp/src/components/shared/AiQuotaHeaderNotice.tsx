@@ -15,9 +15,7 @@ export const AiQuotaHeaderNotice: React.FC = () => {
     return unsubscribe;
   }, []);
 
-  const visibleAlerts = alerts.filter(
-    (alert) => !alert.model.toLowerCase().includes('gemini-3.8-flash')
-  );
+  const visibleAlerts = alerts;
 
   if (visibleAlerts.length === 0) {
     return null;

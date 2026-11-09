@@ -11,7 +11,7 @@ import {
 import { Calendar, CheckCircle2, AlertTriangle, CreditCard, DollarSign } from 'lucide-react-native';
 import {
   FinancialTransaction,
-  fetchPayableAccounts,
+  fetchPendingPayablesPage,
   payPayableAccount,
 } from '../../../services/mobileFinanceService';
 
@@ -22,14 +22,20 @@ interface Props {
 
 export const PayableAccountsView: React.FC<Props> = ({ onAccountPaid, isDarkMode = false }) => {
   const [payables, setPayables] = useState<FinancialTransaction[]>([]);
+  const [totalPendingCount, setTotalPendingCount] = useState(0);
+  const [totalPendingAmount, setTotalPendingAmount] = useState(0);
+  const [pageOffset, setPageOffset] = useState(0);
   const [loading, setLoading] = useState(true);
   const [payingId, setPayingId] = useState<string | null>(null);
 
-  const loadPayables = async () => {
+  const loadPayables = async (offset = 0, includeSummary = true) => {
     setLoading(true);
     try {
-      const list = await fetchPayableAccounts();
-      setPayables(list);
+      const page = await fetchPendingPayablesPage({ limit: 15, offset, includeSummary });
+      setPayables(page.rows);
+      setPageOffset(offset);
+      if (page.totalCount !== undefined) setTotalPendingCount(page.totalCount);
+      if (page.totalAmount !== undefined) setTotalPendingAmount(page.totalAmount);
     } catch (e) {
       console.warn('Erro ao carregar contas a pagar:', e);
     } finally {
@@ -54,7 +60,7 @@ export const PayableAccountsView: React.FC<Props> = ({ onAccountPaid, isDarkMode
             const res = await payPayableAccount(item.id, 'PIX');
             setPayingId(null);
             if (res.success) {
-              loadPayables();
+              loadPayables(0, true);
               if (onAccountPaid) onAccountPaid();
             } else {
               Alert.alert('Erro', res.error || 'Falha ao dar baixa na conta.');
@@ -64,8 +70,6 @@ export const PayableAccountsView: React.FC<Props> = ({ onAccountPaid, isDarkMode
       ]
     );
   };
-
-  const totalPending = payables.reduce((acc, curr) => acc + curr.amount, 0);
 
   if (loading) {
     return (
@@ -81,10 +85,10 @@ export const PayableAccountsView: React.FC<Props> = ({ onAccountPaid, isDarkMode
       <View style={[styles.summaryCard, isDarkMode && styles.summaryCardDark]}>
         <Text style={styles.summaryLabel}>Total A Pagar Pendente</Text>
         <Text style={styles.summaryValue}>
-          R$ {totalPending.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+          R$ {totalPendingAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
         </Text>
         <Text style={styles.summarySub}>
-          {payables.length} {payables.length === 1 ? 'conta pendente' : 'contas pendentes'}
+          {totalPendingCount} {totalPendingCount === 1 ? 'conta pendente' : 'contas pendentes'}
         </Text>
       </View>
 
@@ -97,72 +101,99 @@ export const PayableAccountsView: React.FC<Props> = ({ onAccountPaid, isDarkMode
           <Text style={styles.emptySubtitle}>Todas as contas e boletos estão em dia!</Text>
         </View>
       ) : (
-        <FlatList
-          data={payables}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={{ padding: 16 }}
-          renderItem={({ item }) => {
-            const isOverdue = new Date(item.due_date || item.date) < new Date();
-            return (
-              <View style={[styles.payableCard, isDarkMode && styles.payableCardDark]}>
-                <View style={styles.cardHeader}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={[styles.itemTitle, isDarkMode && styles.textDark]}>
-                      {item.counterparty || item.description}
-                    </Text>
-                    <Text style={styles.categoryName}>{item.category_name || 'Despesa'}</Text>
-                  </View>
+        <>
+          <FlatList
+            data={payables}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={{ padding: 16 }}
+            renderItem={({ item }) => {
+              const isOverdue = new Date(item.due_date || item.date) < new Date();
+              return (
+                <View style={[styles.payableCard, isDarkMode && styles.payableCardDark]}>
+                  <View style={styles.cardHeader}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.itemTitle, isDarkMode && styles.textDark]}>
+                        {item.counterparty || item.description}
+                      </Text>
+                      <Text style={styles.categoryName}>{item.category_name || 'Despesa'}</Text>
+                    </View>
 
-                  <View
-                    style={[
-                      styles.statusBadge,
-                      isOverdue ? styles.badgeOverdue : styles.badgePending,
-                    ]}
-                  >
-                    {isOverdue ? (
-                      <AlertTriangle size={12} color="#dc2626" />
-                    ) : (
-                      <Calendar size={12} color="#d97706" />
-                    )}
-                    <Text
+                    <View
                       style={[
-                        styles.statusBadgeText,
-                        isOverdue ? styles.textOverdue : styles.textPending,
+                        styles.statusBadge,
+                        isOverdue ? styles.badgeOverdue : styles.badgePending,
                       ]}
                     >
-                      {isOverdue ? 'Atrasado' : 'Pendente'}
-                    </Text>
+                      {isOverdue ? (
+                        <AlertTriangle size={12} color="#dc2626" />
+                      ) : (
+                        <Calendar size={12} color="#d97706" />
+                      )}
+                      <Text
+                        style={[
+                          styles.statusBadgeText,
+                          isOverdue ? styles.textOverdue : styles.textPending,
+                        ]}
+                      >
+                        {isOverdue ? 'Atrasado' : 'Pendente'}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.cardFooter}>
+                    <View>
+                      <Text style={styles.dateLabel}>Vencimento: {item.due_date || item.date}</Text>
+                      <Text style={styles.amountText}>
+                        R$ {item.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </Text>
+                    </View>
+
+                    <TouchableOpacity
+                      style={styles.payBtn}
+                      onPress={() => handlePayAccount(item)}
+                      disabled={payingId === item.id}
+                      activeOpacity={0.8}
+                    >
+                      {payingId === item.id ? (
+                        <ActivityIndicator color="#ffffff" size="small" />
+                      ) : (
+                        <>
+                          <CheckCircle2 size={14} color="#ffffff" />
+                          <Text style={styles.payBtnText}>Pagar</Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
                   </View>
                 </View>
-
-                <View style={styles.cardFooter}>
-                  <View>
-                    <Text style={styles.dateLabel}>Vencimento: {item.due_date || item.date}</Text>
-                    <Text style={styles.amountText}>
-                      R$ {item.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                    </Text>
-                  </View>
-
-                  <TouchableOpacity
-                    style={styles.payBtn}
-                    onPress={() => handlePayAccount(item)}
-                    disabled={payingId === item.id}
-                    activeOpacity={0.8}
-                  >
-                    {payingId === item.id ? (
-                      <ActivityIndicator color="#ffffff" size="small" />
-                    ) : (
-                      <>
-                        <CheckCircle2 size={14} color="#ffffff" />
-                        <Text style={styles.payBtnText}>Pagar</Text>
-                      </>
-                    )}
-                  </TouchableOpacity>
-                </View>
-              </View>
-            );
-          }}
-        />
+              );
+            }}
+          />
+          {totalPendingCount > 15 && (
+            <View style={styles.pagination}>
+              <TouchableOpacity
+                style={[styles.pageButton, pageOffset === 0 && styles.pageButtonDisabled]}
+                disabled={pageOffset === 0 || loading}
+                onPress={() => loadPayables(Math.max(0, pageOffset - 15), false)}
+              >
+                <Text style={styles.pageButtonText}>Anterior</Text>
+              </TouchableOpacity>
+              <Text style={styles.pageLabel}>
+                {pageOffset + 1}–
+                {Math.min(pageOffset + payables.length, totalPendingCount)} de {totalPendingCount}
+              </Text>
+              <TouchableOpacity
+                style={[
+                  styles.pageButton,
+                  pageOffset + payables.length >= totalPendingCount && styles.pageButtonDisabled,
+                ]}
+                disabled={pageOffset + payables.length >= totalPendingCount || loading}
+                onPress={() => loadPayables(pageOffset + 15, false)}
+              >
+                <Text style={styles.pageButtonText}>Próxima</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </>
       )}
     </View>
   );
@@ -292,6 +323,31 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#dc2626',
     marginTop: 2,
+  },
+  pagination: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  pageButton: {
+    backgroundColor: '#dbeafe',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  pageButtonDisabled: {
+    opacity: 0.45,
+  },
+  pageButtonText: {
+    color: '#1d4ed8',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  pageLabel: {
+    color: '#64748b',
+    fontSize: 12,
   },
   payBtn: {
     flexDirection: 'row',

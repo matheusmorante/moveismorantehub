@@ -26,7 +26,7 @@ export const SmartAIFillHeader: React.FC<SmartAIFillHeaderProps> = ({
               Preenchimento Inteligente IA
             </h3>
             <span className="px-2 py-0.5 rounded-full bg-gradient-to-r from-violet-600 to-blue-600 text-[9px] font-black uppercase text-white tracking-widest shadow-sm">
-              Gemini 2.5
+              GPT-6 Luna
             </span>
           </div>
           <p className="text-[11px] font-semibold text-slate-400 dark:text-slate-500">

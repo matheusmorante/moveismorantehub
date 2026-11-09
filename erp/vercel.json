@@ -74,6 +74,7 @@
     { "source": "/api/whatsapp-support-send", "destination": "/api/whatsapp-webhook?operation=support-send" },
     { "source": "/api/meta-graph", "destination": "/api/secure-integrations?operation=meta-graph" },
     { "source": "/api/gemini-proxy", "destination": "/api/secure-integrations?operation=gemini-proxy" },
+    { "source": "/api/openai-proxy", "destination": "/api/secure-integrations?operation=openai-proxy" },
     { "source": "/api/google-routes", "destination": "/api/secure-integrations?operation=google-routes" },
     { "source": "/mobile/etiquetas", "destination": "/mobile-labels.html" },
     {

@@ -6,6 +6,7 @@ interface DeliveryInfoActionButtonsProps {
   readonly order: Order;
   readonly isPickup: boolean;
   readonly isAdministrator: boolean;
+  readonly isDirectApiSending?: boolean;
   readonly clickedButtons: Record<string, boolean>;
   readonly staleButtons: Order['isButtonsStale'];
   readonly onExecuteAction: (
@@ -18,6 +19,7 @@ export const DeliveryInfoActionButtons: React.FC<DeliveryInfoActionButtonsProps>
   order,
   isPickup,
   isAdministrator,
+  isDirectApiSending = false,
   clickedButtons,
   staleButtons,
   onExecuteAction,
@@ -74,12 +76,15 @@ export const DeliveryInfoActionButtons: React.FC<DeliveryInfoActionButtonsProps>
       <div className="relative">
         <button
           type="button"
-          disabled={!isAdministrator}
+          disabled={!isAdministrator || isDirectApiSending}
+          aria-busy={isDirectApiSending}
           onClick={() =>
             onExecuteAction('sendCustomerOrderDirectApi', 'SEND_CUSTOMER_ORDER_DIRECT_API')
           }
           title={
-            !isAdministrator
+            isDirectApiSending
+              ? 'Envio em andamento. Aguarde antes de tentar novamente.'
+              : !isAdministrator
               ? 'Disponível apenas para administradores (Beta)'
               : 'Enviar para o cliente diretamente via Cloud WhatsApp API (Beta)'
           }
@@ -95,7 +100,9 @@ export const DeliveryInfoActionButtons: React.FC<DeliveryInfoActionButtonsProps>
           <div className="flex-1 min-w-0 pr-6">
             <div className="flex items-center gap-2">
               <span className="text-xs font-black uppercase tracking-wider block text-slate-900 dark:text-slate-100">
-                Enviar para o cliente diretamente (Cloud WhatsApp)
+                {isDirectApiSending
+                  ? 'Enviando para o cliente (Cloud WhatsApp)'
+                  : 'Enviar para o cliente diretamente (Cloud WhatsApp)'}
               </span>
               <span className="px-1.5 py-0.5 text-[8px] font-black uppercase tracking-widest rounded bg-amber-200 text-[#3b1900] border border-amber-400 dark:bg-amber-800 dark:text-amber-100">
                 BETA

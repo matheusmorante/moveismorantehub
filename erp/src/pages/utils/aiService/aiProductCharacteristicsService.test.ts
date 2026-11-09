@@ -26,7 +26,7 @@ describe('aiProductCharacteristicsService — Pure Functions & Domain Rules', ()
     expect(prompt).toContain('Guarda-Roupa Casal Sidney');
     expect(prompt).toContain('Madesa');
     expect(prompt).toContain('Sidney');
-    expect(prompt).toContain('Google Search');
+    expect(prompt).toContain('ferramenta de pesquisa na web');
     expect(prompt).toContain('Opções válidas: MDF, MDP');
     expect(prompt).toContain('Opções válidas: Correr, Bater');
   });

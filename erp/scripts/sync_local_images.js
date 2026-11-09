@@ -2,38 +2,51 @@
 import { createClient } from '@supabase/supabase-js';
 import fs from 'fs';
 import path from 'path';
-import { GoogleGenerativeAI } from "@google/generative-ai";
 import dotenv from 'dotenv';
 
 dotenv.config();
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://wzpdfmihnwcrgkyagwkd.supabase.co';
 const SUPABASE_KEY = process.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind6cGRmbWlobndjcmdreWFnd2tkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI5Nzg0NTQsImV4cCI6MjA4ODU1NDQ1NH0.Mb4kqKeDYILblAD83z9PYOywQ_V0MZ31LI0AlA_1GwY';
-const GEMINI_KEY = '__REDACTED_GCP_API_KEY__';
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY?.trim();
+if (!OPENAI_API_KEY) throw new Error('Configure OPENAI_API_KEY no ambiente antes de executar.');
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
-const genAI = new GoogleGenerativeAI(GEMINI_KEY);
-const imageModel = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
 const ROOT_PATH = 'H:\\owner';
 
 async function analyzeImage(imagePath, productName) {
     try {
         const imageData = fs.readFileSync(imagePath);
-        const parts = [
-            { inlineData: { data: imageData.toString('base64'), mimeType: 'image/jpeg' } },
-            { text: `Este é um produto da loja Móveis Morante. O nome provável é "${productName}". 
+        const mimeType = /\.png$/i.test(imagePath) ? 'image/png' : 'image/jpeg';
+        const response = await fetch('https://api.openai.com/v1/responses', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${OPENAI_API_KEY}`,
+            },
+            body: JSON.stringify({
+                model: 'gpt-6-luna',
+                input: [{ role: 'user', content: [
+                    { type: 'input_image', image_url: `data:${mimeType};base64,${imageData.toString('base64')}` },
+                    { type: 'input_text', text: `Este é um produto da loja Móveis Morante. O nome provável é "${productName}". 
             Analise esta imagem e retorne apenas um JSON:
             {
                 "is_good_main_photo": boolean,
                 "color_detected": "string",
                 "certainty": 0 to 1,
                 "description": "descrição curta"
-            }` }
-        ];
-
-        const result = await imageModel.generateContent({ contents: [{ role: 'user', parts }] });
-        const text = result.response.text();
+            }` },
+                ] }],
+                text: { format: { type: 'json_object' } },
+                reasoning: { effort: 'low' },
+                max_output_tokens: 500,
+            }),
+            signal: AbortSignal.timeout(45_000),
+        });
+        if (!response.ok) throw new Error(`OpenAI respondeu HTTP ${response.status}.`);
+        const result = await response.json();
+        const text = result.output_text || '';
         const jsonMatch = text.match(/\{[\s\S]*\}/);
         return jsonMatch ? JSON.parse(jsonMatch[0]) : null;
     } catch (e) {
@@ -44,9 +57,10 @@ async function analyzeImage(imagePath, productName) {
 
 async function uploadToStorage(filePath, bucket, storagePath) {
     const fileData = fs.readFileSync(filePath);
+    const contentType = /\.png$/i.test(filePath) ? 'image/png' : 'image/jpeg';
     const { data, error } = await supabase.storage.from(bucket).upload(storagePath, fileData, {
         upsert: true,
-        contentType: 'image/jpeg'
+        contentType,
     });
     if (error) throw error;
     

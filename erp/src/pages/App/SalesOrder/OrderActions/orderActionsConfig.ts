@@ -23,7 +23,7 @@ export { buttons, type OrderButton } from './orderButtonsConfig';
  * Mapa central de roteamento e despacho de ações pós-pedido.
  * Cada ação é delegada para o seu respectivo módulo de negócio de alta coesão.
  */
-export const actionsMap: Record<OrderAction, (order: Order) => void> = {
+export const actionsMap: Record<OrderAction, (order: Order) => void | Promise<unknown>> = {
   PRINT_RECEIPT: (order) => {
     printReceipt(order);
   },
@@ -54,7 +54,7 @@ export const actionsMap: Record<OrderAction, (order: Order) => void> = {
     sendDirectCustomerMessage(order);
   },
   SEND_CUSTOMER_ORDER_DIRECT_API: (order) => {
-    void sendDirectCustomerOrderViaMetaApi(order);
+    return sendDirectCustomerOrderViaMetaApi(order);
   },
   SEND_ASSISTANCE_CUSTOMER: (order) => {
     sendDirectAssistanceMessage(order);

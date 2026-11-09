@@ -10,6 +10,46 @@ vi.mock('../../../pages/services/financeService', () => ({
     createTransaction: vi.fn(),
     deleteTransaction: vi.fn(),
     updateTransaction: vi.fn(),
+    settleAccount: vi.fn(),
+    createPayable: vi.fn(),
+    createReceivable: vi.fn(),
+  },
+}));
+
+vi.mock('@/pages/utils/supabaseConfig', () => ({
+  supabase: {
+    from: vi.fn(() => ({
+      select: vi.fn(() => ({
+        eq: vi.fn(() => ({
+          maybeSingle: vi.fn(() =>
+            Promise.resolve({
+              data: { id: 'pay-456', description: 'Conta teste', amount: 100 },
+              error: null,
+            })
+          ),
+          single: vi.fn(() =>
+            Promise.resolve({ data: { id: 'pay-456', status: 'paid' }, error: null })
+          ),
+        })),
+      })),
+      insert: vi.fn(() => ({
+        select: vi.fn(() => ({
+          single: vi.fn(() => Promise.resolve({ data: { id: 'pay-789' }, error: null })),
+        })),
+      })),
+      update: vi.fn(() => ({
+        eq: vi.fn(() => ({
+          select: vi.fn(() => ({
+            single: vi.fn(() =>
+              Promise.resolve({ data: { id: 'pay-456', status: 'paid' }, error: null })
+            ),
+          })),
+        })),
+      })),
+    })),
+    auth: {
+      getSession: () => Promise.resolve({ data: { session: null }, error: null }),
+    },
   },
 }));
 
@@ -65,7 +105,7 @@ describe('financialAgentTools - Handlers das Ferramentas Financeiras', () => {
         amount: 230,
         description: 'Gasolina Fiorino',
         category_id: 'cat-1',
-        payment_method: 'Pix',
+        payment_method: 'PIX',
       })
     );
   });
@@ -100,7 +140,7 @@ describe('financialAgentTools - Handlers das Ferramentas Financeiras', () => {
         type: 'expense',
         amount: 230,
         description: 'Posto Shell Gasolina Fiorino',
-        payment_method: 'Pix',
+        payment_method: 'PIX',
       },
       {
         id: '2',
@@ -162,5 +202,86 @@ describe('financialAgentTools - Handlers das Ferramentas Financeiras', () => {
 
     expect(result.success).toBe(true);
     expect(result.message).toContain('Feedback registrado com sucesso');
+  });
+
+  it('deve dar baixa em conta financeira aceitando tipoConta="pagar" ou "receber" e dataBaixa', async () => {
+    (financeService.settleAccount as any).mockResolvedValueOnce({
+      success: true,
+      kind: 'payable',
+      settledAt: '2026-11-10',
+    });
+
+    const result = await financialAgentTools.baixarContaFinanceira({
+      tipoConta: 'pagar' as any,
+      contaId: 'pay-456',
+      dataBaixa: '2026-11-10',
+      formaPagamento: 'PIX',
+    });
+
+    expect(result.success).toBe(true);
+    expect(financeService.settleAccount).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: 'payable',
+        account: expect.objectContaining({
+          id: 'pay-456',
+          date: '2026-11-10',
+          payment_method: 'PIX',
+        }),
+      })
+    );
+  });
+
+  it('deve dar baixa em conta financeira aceitando aliases resilientes (conta_id, tipo_conta="despesa", data_pagamento)', async () => {
+    (financeService.settleAccount as any).mockResolvedValueOnce({
+      success: true,
+      kind: 'payable',
+      settledAt: '2026-11-12',
+    });
+
+    const result = await financialAgentTools.baixarContaFinanceira({
+      tipo_conta: 'despesa',
+      conta_id: 'pay-777',
+      data_pagamento: '2026-11-12',
+      forma_pagamento: 'Dinheiro',
+    } as any);
+
+    expect(result.success).toBe(true);
+    expect(financeService.settleAccount).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: 'payable',
+        account: expect.objectContaining({
+          id: 'pay-777',
+          date: '2026-11-12',
+          payment_method: 'Dinheiro',
+        }),
+      })
+    );
+  });
+
+  it('deve criar conta a pagar aceitando fornecedorNome conforme schema de declaração', async () => {
+    (financeService.createPayable as any).mockResolvedValueOnce({
+      id: 'pay-789',
+      description: 'Madeira MDF',
+      amount: 1500,
+      due_date: '2026-12-01',
+      supplier_name: 'Madeireira Silva',
+    });
+
+    const result = await financialAgentTools.criarContaAPagar({
+      descricao: 'Madeira MDF',
+      valor: 1500,
+      dataVencimento: '2026-12-01',
+      fornecedorNome: 'Madeireira Silva',
+      formaPagamento: 'Boleto',
+    });
+
+    expect(result.success).toBe(true);
+    expect(financeService.createPayable).toHaveBeenCalledWith(
+      expect.objectContaining({
+        description: 'Madeira MDF',
+        amount: 1500,
+        supplier_name: 'Madeireira Silva',
+      })
+    );
   });
 });

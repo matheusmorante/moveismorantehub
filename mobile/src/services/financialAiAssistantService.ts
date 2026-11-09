@@ -54,7 +54,7 @@ export type { FinancialCategory } from './financial/mobileFinanceTypes';
 
 import { MobileAgentClient } from './aiAgent/mobileAgentClient';
 
-export const parseFinancialIntentWithGemini = async (
+export const parseFinancialIntentWithOpenAI = async (
   userMessage: string,
   history: ChatMessage[] = [],
   categories: FinancialCategory[] = [],
@@ -246,30 +246,28 @@ export const parseFinancialIntentWithGemini = async (
   }
 
   // 3. Tentar verificar se é um pagamento de conta a pagar pendente já existente
-  const matchedPayable = await findMatchingPayableAccount(null, userMessage);
-  if (
-    matchedPayable &&
-    (userMessage.toLowerCase().includes('paguei') ||
-      userMessage.toLowerCase().includes('baixa') ||
-      userMessage.toLowerCase().includes('quitei'))
-  ) {
-    return validateParsedIntent(
-      {
-        intentType: 'MATCH_EXISTING',
-        type: 'expense',
-        amount: matchedPayable.amount,
-        description: matchedPayable.description,
-        categoryName: matchedPayable.category_name || 'Despesa',
-        categoryId: matchedPayable.category_id,
-        supplier: matchedPayable.counterparty || matchedPayable.description,
-        dueDate: matchedPayable.due_date || matchedPayable.date,
-        matchedAccount: matchedPayable,
-        missingFields: [],
-        confidence: 0.95,
-        isReadyForConfirmation: true,
-      },
-      todayStr
-    );
+  const paymentWords = ['paguei', 'baixa', 'quitei'];
+  if (paymentWords.some((word) => userMessage.toLowerCase().includes(word))) {
+    const matchedPayable = await findMatchingPayableAccount(null, userMessage);
+    if (matchedPayable) {
+      return validateParsedIntent(
+        {
+          intentType: 'MATCH_EXISTING',
+          type: 'expense',
+          amount: matchedPayable.amount,
+          description: matchedPayable.description,
+          categoryName: matchedPayable.category_name || 'Despesa',
+          categoryId: matchedPayable.category_id,
+          supplier: matchedPayable.counterparty || matchedPayable.description,
+          dueDate: matchedPayable.due_date || matchedPayable.date,
+          matchedAccount: matchedPayable,
+          missingFields: [],
+          confidence: 0.95,
+          isReadyForConfirmation: true,
+        },
+        todayStr
+      );
+    }
   }
 
   const systemPrompt = `Você é o Assistente Financeiro IA do ERP Morante Hub.
@@ -365,7 +363,7 @@ Responda APENAS um JSON válido no formato:
       throw err;
     }
     console.warn(
-      'Erro ao chamar Gemini no assistente financeiro, fallback determinístico acionado:',
+      'Erro ao chamar OpenAI no assistente financeiro; fallback determinístico acionado:',
       err
     );
   }
@@ -373,6 +371,9 @@ Responda APENAS um JSON válido no formato:
   const rawHeuristic = fallbackHeuristicParser(userMessage, categories, todayStr, activeDraft);
   return validateParsedIntent(rawHeuristic, todayStr);
 };
+
+// Alias para imports legados; o parser atual envia as solicitações ao GPT-6 Luna.
+export const parseFinancialIntentWithGemini = parseFinancialIntentWithOpenAI;
 
 export interface LocalSemanticDelta {
   amountsFound: number[];
@@ -468,7 +469,7 @@ export const parseIncrementalDraftDelta = async (
     const patched = trySlotFillingFallback(deltaText, currentDraft, todayStr);
     if (patched) return patched;
   }
-  return parseFinancialIntentWithGemini(deltaText, [], categories, currentDraft, abortSignal);
+  return parseFinancialIntentWithOpenAI(deltaText, [], categories, currentDraft, abortSignal);
 };
 
 export const consolidateFinalFinancialIntent = async (
@@ -482,5 +483,5 @@ export const consolidateFinalFinancialIntent = async (
     const patched = trySlotFillingFallback(fullSessionText, activeDraft, todayStr);
     if (patched) return patched;
   }
-  return parseFinancialIntentWithGemini(fullSessionText, [], categories, activeDraft, abortSignal);
+  return parseFinancialIntentWithOpenAI(fullSessionText, [], categories, activeDraft, abortSignal);
 };

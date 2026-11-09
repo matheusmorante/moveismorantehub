@@ -25,6 +25,7 @@ vi.mock('@/pages/utils/customerSupport/customerSupportService', () => ({
   fetchConversations: mocks.fetchConversations, fetchConversationCounts: mocks.fetchConversationCounts,
   fetchConversationMessages: mocks.fetchConversationMessages,
   fetchPreviousConversationMessages: mocks.fetchPreviousConversationMessages,
+  fetchConversationMessageContext: vi.fn().mockResolvedValue({ messages: [], hasOlderMessages: false }),
   fetchConversationReplyTarget: mocks.fetchConversationReplyTarget,
   markConversationAsRead: mocks.markConversationAsRead, mapRowToMessage: (row: unknown) => row,
 }));

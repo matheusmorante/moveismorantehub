@@ -61,6 +61,28 @@ describe('settings autosave owner', () => {
     act(() => result.current.handleChange('freightPerKm', 0));
     await act(async () => { await result.current.flush(); }); expect(mocks.save).toHaveBeenCalledWith(expect.objectContaining({ freightPerKm: 0 }), expect.any(Object));
   });
+  it('keeps the selected theme on this device without saving it to shared settings', async () => {
+    const setTheme = vi.fn();
+    localStorage.setItem('theme', 'light');
+    const { result } = renderHook(() => useSettingsForm('operator', setTheme));
+
+    act(() => result.current.handleChange('defaultTheme', 'dark'));
+
+    expect(result.current.settings.defaultTheme).toBe('dark');
+    expect(localStorage.getItem('theme')).toBe('dark');
+    expect(setTheme).toHaveBeenCalledWith('dark');
+    expect(result.current.hasPendingEdits).toBe(false);
+    expect(mocks.save).not.toHaveBeenCalled();
+
+    act(() => mocks.subscriber({ ...getDefaultSettings(), defaultTheme: 'light' }));
+    expect(result.current.settings.defaultTheme).toBe('dark');
+    expect(setTheme).toHaveBeenLastCalledWith('dark');
+
+    act(() => result.current.handleChange('companyName', 'Empresa'));
+    await act(async () => { await result.current.flush(); });
+    expect(mocks.save).toHaveBeenCalledTimes(1);
+    expect(mocks.save.mock.calls[0][0].defaultTheme).toBe('light');
+  });
   it('debounces multiple child changes into one submission and preserves unrelated metadata', async () => {
     vi.useFakeTimers(); const original = getDefaultSettings(); mocks.get.mockReturnValue({ ...original, customPreference: 'preserved' });
     const { result } = renderHook(() => useSettingsForm('operator', vi.fn()));

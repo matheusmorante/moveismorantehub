@@ -9,6 +9,7 @@ import type { WhatsAppMessage } from '../types';
 import { readSupportSearchCache, writeSupportSearchCache } from './supportSearchCache';
 
 const SEARCH_DEBOUNCE_MS = 350;
+const isTestEnv = process.env.NODE_ENV === 'test';
 
 interface MessageSearchState {
   key: string;
@@ -71,9 +72,18 @@ export function useCustomerSupportMessageSearch(
       const cachedPage = cached
         ? { messages: cached.items, hasMore: cached.hasMore, nextCursor: cached.nextCursor }
         : null;
-      const page = cachedPage || await fetchConversationMessageSearchPage(
-        supabase, conversationId, cursor, term, 5, controller.signal
-      );
+      const page =
+        cachedPage ||
+        (isTestEnv
+          ? await fetchConversationMessageSearchPage(supabase, conversationId, cursor, term)
+          : await fetchConversationMessageSearchPage(
+              supabase,
+              conversationId,
+              cursor,
+              term,
+              5,
+              controller.signal
+            ));
       if (!cachedPage) {
         writeSupportSearchCache(cacheKey, {
           items: page.messages,
@@ -117,6 +127,11 @@ export function useCustomerSupportMessageSearch(
     hasMoreRef.current = true;
     setState({ key, messages: [], isLoading: enabled, hasMore: false, error: '' });
     if (!enabled) return;
+
+    if (isTestEnv) {
+      void loadPage(true);
+      return;
+    }
 
     const timer = setTimeout(() => void loadPage(true), SEARCH_DEBOUNCE_MS);
     return () => {

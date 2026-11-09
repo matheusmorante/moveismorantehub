@@ -71,7 +71,7 @@ export function createWhatsAppTestDispatchHandler(dependencies: WhatsAppTestDisp
   if (req.method !== 'POST') return res.status(405).json({ error: 'Método não permitido.' });
   if (!sandbox.enabled) {
     return res.status(403).json({
-      error: 'Envio indisponível por política da empresa.',
+      error: 'O envio de teste só fica disponível no Development com o remetente sandbox configurado.',
       status: 'BLOCKED_FREE_TIER_PROTECTION',
       reason: 'O envio de teste só fica disponível no Development com o remetente sandbox configurado.',
     });

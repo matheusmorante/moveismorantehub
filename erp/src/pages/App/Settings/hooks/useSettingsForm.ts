@@ -5,6 +5,13 @@ import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { getSettings, saveSettings, subscribeToSettings, type AppSettings } from '@/pages/utils/settingsService';
 
 const themeFormSchema = AppSettingsFormSchema.pick({ defaultTheme: true });
+const readDeviceTheme = (): AppSettings['defaultTheme'] => {
+  try {
+    const saved = localStorage.getItem('theme');
+    if (saved === 'light' || saved === 'dark') return saved;
+  } catch {}
+  return 'light';
+};
 
 function editPath(settings: AppSettings, path: string, value: unknown): AppSettings {
   const parts = path.split('.');
@@ -21,7 +28,10 @@ function editPath(settings: AppSettings, path: string, value: unknown): AppSetti
 }
 
 export function useSettingsForm(ownerId: string | null, setTheme: (theme: 'light' | 'dark') => void) {
-  const [settings, setSettings] = useState<AppSettings>(() => getSettings());
+  const [settings, setSettings] = useState<AppSettings>(() => ({
+    ...getSettings(),
+    defaultTheme: readDeviceTheme(),
+  }));
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [validationError, setValidationError] = useState<string | null>(null);
@@ -35,7 +45,6 @@ export function useSettingsForm(ownerId: string | null, setTheme: (theme: 'light
   const queue = useRef<Promise<unknown>>(Promise.resolve());
   const pendingRevisions = useRef(new Set<number>());
   const themeCallback = useRef(setTheme); themeCallback.current = setTheme;
-  const { enqueueAndRun: previewTheme } = useZodForm(themeFormSchema, { defaultTheme: settings.defaultTheme });
   const { validateAndRun } = useZodForm(AppSettingsFormSchema, settings as unknown as z.input<typeof AppSettingsFormSchema>);
 
   useEffect(() => {
@@ -48,8 +57,11 @@ export function useSettingsForm(ownerId: string | null, setTheme: (theme: 'light
       if (!current()) return;
       let merged = incoming;
       for (const [path, value] of dirty.current) merged = editPath(merged, path, value);
-      latest.current = merged; setSettings(merged);
-      if (['light', 'dark'].includes(merged.defaultTheme)) themeCallback.current(merged.defaultTheme);
+      const savedTheme = merged.defaultTheme;
+      merged = { ...merged, defaultTheme: readDeviceTheme() };
+      latest.current = { ...merged, defaultTheme: savedTheme };
+      setSettings(merged);
+      themeCallback.current(merged.defaultTheme);
     }, { onRemoteLoad: (result) => {
       if (!current()) return;
       const valid = AppSettingsFormSchema.safeParse(latest.current).success;
@@ -113,21 +125,26 @@ export function useSettingsForm(ownerId: string | null, setTheme: (theme: 'light
   }, [validateAndRun]);
   const flushRef = useRef(flush); flushRef.current = flush;
   const handleChange = useCallback((path: string, value: unknown) => {
+    if (path === 'defaultTheme') {
+      const parsed = themeFormSchema.safeParse({ defaultTheme: value });
+      if (!parsed.success) {
+        setValidationError('Escolha um tema válido.');
+        return;
+      }
+      try { localStorage.setItem('theme', parsed.data.defaultTheme); } catch {}
+      setSettings((current) => ({ ...current, defaultTheme: parsed.data.defaultTheme }));
+      themeCallback.current(parsed.data.defaultTheme);
+      return;
+    }
     if (ready.current !== scope.current || !scope.current.ownerId || uncertainOwners.current.has(scope.current.ownerId)) return;
     try {
       latest.current = editPath(latest.current, path, value);
       dirty.current.set(path, value); revision.current++;
-      setSettings(latest.current); setIsSaving(true); setValidationError(null);
-      if (path === 'defaultTheme') {
-        const generation = scope.current;
-        void previewTheme({ defaultTheme: value as 'light' | 'dark' }, (parsed) => {
-          if (mounted.current && scope.current === generation && latest.current.defaultTheme === parsed.defaultTheme) themeCallback.current(parsed.defaultTheme);
-        }).catch(() => { if (mounted.current && scope.current === generation) setValidationError('Não foi possível aplicar o tema.'); });
-      }
+      setSettings({ ...latest.current, defaultTheme: readDeviceTheme() }); setIsSaving(true); setValidationError(null);
       if (timer.current) clearTimeout(timer.current);
       timer.current = setTimeout(() => { void flushRef.current(); }, 1000);
     } catch (error) { setValidationError(error instanceof Error ? error.message : 'Campo inválido.'); }
-  }, [previewTheme]);
+  }, []);
   return { settings, handleChange, isSaving, isLoading, validationError, flush,
     uncertain: Boolean(ownerId && uncertainOwners.current.has(ownerId)),
     hasPendingEdits: dirty.current.size > 0,

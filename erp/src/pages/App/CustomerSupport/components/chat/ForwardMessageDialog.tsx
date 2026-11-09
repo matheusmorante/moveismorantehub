@@ -6,11 +6,22 @@ import {
   supportForwardConversationSearchSchema,
   supportForwardMessageSchema,
 } from '../../../../../../../shared-utils/customerSupportFormSchemas';
-import { fetchConversations, sendCustomerSupportMessage, downloadCustomerSupportForwardFile, CustomerSupportSendError } from '@/pages/utils/customerSupport/customerSupportService';
+import {
+  fetchConversations,
+  sendCustomerSupportMessage,
+  downloadCustomerSupportForwardFile,
+  CustomerSupportSendError,
+} from '@/pages/utils/customerSupport/customerSupportService';
 import { formatPhoneForDisplay } from '@/pages/utils/customerSupport/phoneUtils';
-import { getSettings } from '@/pages/utils/settingsService';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import type { WhatsAppConversation, WhatsAppMessage } from '../../types';
+import {
+  recipientBlockReason,
+  messagePreview,
+  templateForwardContent,
+  hasTemplateMedia,
+  ForwardConversationItem,
+} from './forward';
 
 interface ForwardMessageDialogProps {
   message: WhatsAppMessage;
@@ -21,58 +32,6 @@ interface ForwardMessageDialogProps {
 
 type ConversationSearch = z.infer<typeof supportForwardConversationSearchSchema>;
 type ForwardMessageForm = z.infer<typeof supportForwardMessageSchema>;
-
-const CARE_WINDOW_MS = 24 * 60 * 60 * 1000;
-
-function recipientBlockReason(conversation: WhatsAppConversation): string {
-  if (conversation.isArchived) return 'Reabra o atendimento para encaminhar.';
-  const lastMessageAt = Date.parse(String(conversation.lastCustomerMessageAt || ''));
-  const elapsed = Date.now() - lastMessageAt;
-  if (!Number.isFinite(lastMessageAt) || elapsed < 0 || elapsed >= CARE_WINDOW_MS) return 'Janela de 24 horas fechada.';
-  const configuredPhoneNumberId = getSettings().whatsappConfig?.phoneNumberId;
-  if (!configuredPhoneNumberId || configuredPhoneNumberId !== conversation.businessPhoneNumberId) return 'Canal WhatsApp desconectado.';
-  return '';
-}
-
-function messagePreview(message: WhatsAppMessage): string {
-  if (message.messageType === 'sticker') return 'Figurinha';
-  return message.textContent || message.mediaCaption || message.mediaFilename ||
-    (message.messageType === 'image' ? 'Foto' : message.messageType === 'video' ? 'Vídeo' : message.messageType === 'audio' ? 'Áudio' : 'Documento');
-}
-
-function templateForwardContent(message: WhatsAppMessage): string {
-  const preview = message.rawPayload?.template_preview;
-  if (!preview || typeof preview !== 'object') return message.textContent || 'Mensagem de modelo do WhatsApp';
-
-  const header = preview.header && typeof preview.header === 'object' ? preview.header : null;
-  const lines = [
-    header?.type === 'text' && typeof header.text === 'string' ? header.text.trim() : '',
-    typeof preview.body === 'string' ? preview.body.trim() : '',
-    typeof preview.footer === 'string' ? preview.footer.trim() : '',
-  ].filter(Boolean);
-  const buttons = Array.isArray(preview.buttons) ? preview.buttons.map((button: any) => {
-    const label = typeof button?.text === 'string' ? button.text.trim() : '';
-    if (!label) return '';
-    if (button.type === 'url' && typeof button.url === 'string') {
-      try {
-        const url = new URL(button.url.trim());
-        if (url.protocol === 'http:' || url.protocol === 'https:') return `${label}: ${url.href}`;
-      } catch {
-        // Keep the visible button label and discard an invalid destination.
-      }
-    }
-    if (button.type === 'phone_number' && typeof button.phoneNumber === 'string') return `${label}: ${button.phoneNumber}`;
-    return label;
-  }).filter(Boolean) : [];
-
-  return [...lines, ...(buttons.length ? ['Opções:', ...buttons.map((label) => `• ${label}`)] : [])].join('\n\n')
-    || message.textContent || 'Mensagem de modelo do WhatsApp';
-}
-
-function hasTemplateMedia(message: WhatsAppMessage): boolean {
-  const type = message.rawPayload?.template_preview?.header?.type;
-  return Boolean(message.mediaId && ['image', 'video', 'document'].includes(type));
-}
 
 export const ForwardMessageDialog: React.FC<ForwardMessageDialogProps> = ({
   message,
@@ -137,16 +96,20 @@ export const ForwardMessageDialog: React.FC<ForwardMessageDialogProps> = ({
     setSendError('');
     try {
       const isTemplate = message.messageType === 'template';
-      const isTextForward = ['text', 'interactive', 'location', 'contacts'].includes(message.messageType)
-        || (isTemplate && !hasTemplateMedia(message));
+      const isTextForward =
+        ['text', 'interactive', 'location', 'contacts'].includes(message.messageType) ||
+        (isTemplate && !hasTemplateMedia(message));
       const forwardedText = isTemplate ? templateForwardContent(message) : message.textContent || '';
       const file = isTextForward
         ? undefined
         : await downloadCustomerSupportForwardFile(supabase, message);
       const result = await sendCustomerSupportMessage(supabase, recipient.id, {
-        message: isTextForward || isTemplate
-          ? forwardedText
-          : message.messageType === 'sticker' ? '' : message.mediaCaption || '',
+        message:
+          isTextForward || isTemplate
+            ? forwardedText
+            : message.messageType === 'sticker'
+              ? ''
+              : message.mediaCaption || '',
         ...(file ? { file } : {}),
         forwarded: true,
       });
@@ -169,6 +132,8 @@ export const ForwardMessageDialog: React.FC<ForwardMessageDialogProps> = ({
     onClose();
   };
 
+  const isBlocked = Boolean(successRecipient) || Boolean(uncertainRecipient);
+
   return (
     <div role="dialog" aria-modal="true" aria-labelledby="support-forward-title" className="fixed inset-0 z-[999999] flex items-center justify-center bg-slate-950/60 p-3 backdrop-blur-sm">
       <section className="flex max-h-[88vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900">
@@ -176,10 +141,16 @@ export const ForwardMessageDialog: React.FC<ForwardMessageDialogProps> = ({
           <div>
             <h2 id="support-forward-title" className="text-sm font-bold">Encaminhar mensagem</h2>
             <p className="mt-1 max-w-sm truncate text-xs text-slate-500">{messagePreview(message)}</p>
-            {message.messageType === 'template' && <p className="mt-1 text-[10px] text-slate-400">O template será encaminhado com o conteúdo e a mídia disponíveis; os botões seguem como texto.</p>}
-            {['interactive', 'location', 'contacts'].includes(message.messageType) && <p className="mt-1 text-[10px] text-slate-400">Este conteúdo será encaminhado como texto.</p>}
+            {message.messageType === 'template' && (
+              <p className="mt-1 text-[10px] text-slate-400">O template será encaminhado com o conteúdo e a mídia disponíveis; os botões seguem como texto.</p>
+            )}
+            {['interactive', 'location', 'contacts'].includes(message.messageType) && (
+              <p className="mt-1 text-[10px] text-slate-400">Este conteúdo será encaminhado como texto.</p>
+            )}
           </div>
-          <button type="button" onClick={onClose} aria-label="Fechar encaminhamento" className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"><i className="bi bi-x-lg" /></button>
+          <button type="button" onClick={onClose} aria-label="Fechar encaminhamento" className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800">
+            <i className="bi bi-x-lg" />
+          </button>
         </header>
 
         <form onSubmit={(event) => { event.preventDefault(); void searchConversations(); }} className="flex gap-2 border-b border-slate-100 p-4 dark:border-slate-800">
@@ -191,32 +162,44 @@ export const ForwardMessageDialog: React.FC<ForwardMessageDialogProps> = ({
         <form onSubmit={(event) => { event.preventDefault(); void handleForward(); }} className="flex min-h-0 flex-1 flex-col">
           <div className="min-h-24 flex-1 space-y-2 overflow-y-auto p-4">
             {searchError && <p role="status" className="py-8 text-center text-xs text-slate-500">{searchError}</p>}
-            {conversations.map((conversation) => {
-              const blockedReason = recipientBlockReason(conversation);
-              const selected = conversation.id === selectedConversationId;
-              const name = conversation.customer?.fullName || conversation.contactName || formatPhoneForDisplay(conversation.contactPhone);
-              return (
-                <button key={conversation.id} type="button" disabled={Boolean(blockedReason) || isForwarding || Boolean(successRecipient) || Boolean(uncertainRecipient)} aria-pressed={selected}
-                  onClick={() => { setForwardValue('recipientConversationId', conversation.id, { shouldDirty: true, shouldValidate: true }); setSendError(''); }}
-                  className={`w-full rounded-xl border p-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${selected ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30' : 'border-slate-200 hover:border-slate-300 dark:border-slate-700 dark:hover:border-slate-600'}`}>
-                  <span className="flex items-center justify-between gap-2"><span className="truncate text-xs font-bold">{name}</span><span className="shrink-0 text-[10px] text-slate-500">{formatPhoneForDisplay(conversation.contactPhone)}</span></span>
-                  <span className="mt-1 block text-[10px] text-slate-500">{blockedReason || 'Pronto para receber'}</span>
-                </button>
-              );
-            })}
+            {conversations.map((conversation) => (
+              <ForwardConversationItem
+                key={conversation.id}
+                conversation={conversation}
+                isSelected={conversation.id === selectedConversationId}
+                isDisabled={isForwarding || isBlocked}
+                onSelect={(id) => {
+                  setForwardValue('recipientConversationId', id, { shouldDirty: true, shouldValidate: true });
+                  setSendError('');
+                }}
+              />
+            ))}
           </div>
 
           {forwardErrors.recipientConversationId && <p role="alert" className="px-4 text-xs text-red-600">{forwardErrors.recipientConversationId.message}</p>}
           {sendError && <p role="alert" className="px-4 text-xs text-amber-700 dark:text-amber-300">{sendError}</p>}
-          {successRecipient && <p role="status" className="px-4 text-xs text-emerald-700 dark:text-emerald-300">Mensagem encaminhada para {successRecipient.customer?.fullName || successRecipient.contactName || formatPhoneForDisplay(successRecipient.contactPhone)}.</p>}
+          {successRecipient && (
+            <p role="status" className="px-4 text-xs text-emerald-700 dark:text-emerald-300">
+              Mensagem encaminhada para {successRecipient.customer?.fullName || successRecipient.contactName || formatPhoneForDisplay(successRecipient.contactPhone)}.
+            </p>
+          )}
 
           <footer className="flex items-center justify-between gap-3 border-t border-slate-100 p-4 dark:border-slate-800">
-            <button type="button" onClick={onClose} className="rounded-xl px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800">Fechar</button>
+            <button type="button" onClick={onClose} className="rounded-xl px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800">
+              Fechar
+            </button>
             {successRecipient || uncertainRecipient ? (
-              <button type="button" onClick={finishForward} className="rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white">Abrir destino</button>
+              <button type="button" onClick={finishForward} className="rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white">
+                Abrir destino
+              </button>
             ) : (
-              <button type="submit" disabled={!canSend || !selectedConversation || Boolean(selectedConversation && recipientBlockReason(selectedConversation)) || isForwarding}
-                className="rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-50">{isForwarding ? 'Encaminhando…' : 'Encaminhar'}</button>
+              <button
+                type="submit"
+                disabled={!canSend || !selectedConversation || Boolean(selectedConversation && recipientBlockReason(selectedConversation)) || isForwarding}
+                className="rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {isForwarding ? 'Encaminhando…' : 'Encaminhar'}
+              </button>
             )}
           </footer>
         </form>

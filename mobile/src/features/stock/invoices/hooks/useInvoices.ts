@@ -7,6 +7,8 @@ import { getDefaultInvoiceDateFilter } from '../utils/invoiceList';
 import { flattenFormErrors, useZodForm } from '../../../../hooks/useZodForm';
 import { invoiceListFormSchema } from '../../../../../../shared-utils/listingFormSchemas';
 
+const INITIAL_INVOICE_LIST_FALLBACK_MS = 1_500;
+
 export const useInvoices = () => {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(false);
@@ -21,6 +23,8 @@ export const useInvoices = () => {
   const [reloadVersion, setReloadVersion] = useState(0);
   const requestId = useRef(0);
   const pendingVisibleLoad = useRef(false);
+  const initialLoadStarted = useRef(false);
+  const initialLoadTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { validateValues: validateList } = useZodForm(invoiceListFormSchema, { page: page - 1, searchTerm, dateFilter });
 
   const loadInvoices = useCallback(async (silent = false) => {
@@ -72,9 +76,16 @@ export const useInvoices = () => {
     pendingVisibleLoad.current = true;
     setLoading(true);
     setError(null);
-    const timer = setTimeout(() => void loadInvoices(), 350);
+    const delay = initialLoadStarted.current ? 350 : INITIAL_INVOICE_LIST_FALLBACK_MS;
+    const timer = setTimeout(() => {
+      if (!initialLoadStarted.current) initialLoadStarted.current = true;
+      initialLoadTimer.current = null;
+      void loadInvoices();
+    }, delay);
+    initialLoadTimer.current = timer;
     return () => {
       clearTimeout(timer);
+      if (initialLoadTimer.current === timer) initialLoadTimer.current = null;
       requestId.current += 1;
     };
   }, [loadInvoices, reloadVersion]);
@@ -87,13 +98,30 @@ export const useInvoices = () => {
         refreshTimer = null;
         return;
       }
+      if (!initialLoadStarted.current) {
+        initialLoadStarted.current = true;
+        if (initialLoadTimer.current) clearTimeout(initialLoadTimer.current);
+        initialLoadTimer.current = null;
+        void loadInvoicesRef.current();
+        return;
+      }
       if (refreshTimer) clearTimeout(refreshTimer);
       refreshTimer = setTimeout(() => {
         refreshTimer = null;
         void loadInvoicesRef.current(true);
       }, 450);
     };
-    const unsubscribe = subscribeToInboundInvoiceListRefresh(scheduleRefresh);
+    const startInitialLoadOrRefresh = () => {
+      if (initialLoadStarted.current) {
+        scheduleRefresh();
+        return;
+      }
+      initialLoadStarted.current = true;
+      if (initialLoadTimer.current) clearTimeout(initialLoadTimer.current);
+      initialLoadTimer.current = null;
+      void loadInvoicesRef.current();
+    };
+    const unsubscribe = subscribeToInboundInvoiceListRefresh(scheduleRefresh, startInitialLoadOrRefresh);
     const appStateSubscription = AppState.addEventListener('change', (state) => {
       if (state === 'active') scheduleRefresh();
     });

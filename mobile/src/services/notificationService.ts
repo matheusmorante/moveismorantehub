@@ -160,7 +160,7 @@ export const savePushTokenToSupabase = async (token: string): Promise<boolean> =
       { onConflict: 'token' }
     );
     if (error) throw error;
-    console.log('[PushToken] Sincronizado no Supabase com sucesso:', token);
+    console.log('[PushToken] Sincronizado no Supabase com sucesso.');
     return true;
   } catch (err) {
     lastPushTokenRegistrationError = `Não foi possível salvar o token no Supabase: ${err instanceof Error ? err.message : String(err)}`;

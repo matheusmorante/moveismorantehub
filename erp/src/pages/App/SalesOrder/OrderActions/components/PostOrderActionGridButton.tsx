@@ -11,6 +11,7 @@ interface PostOrderActionGridButtonProps {
   readonly order: Order;
   readonly isClicked: boolean;
   readonly isStale?: boolean;
+  readonly isDirectApiSending?: boolean;
   readonly isNfeIssued: boolean;
   readonly isAdministrator: boolean;
   readonly onIssueNfeClick: () => void;
@@ -27,6 +28,7 @@ export const PostOrderActionGridButton: React.FC<PostOrderActionGridButtonProps>
   order,
   isClicked,
   isStale = false,
+  isDirectApiSending = false,
   isNfeIssued,
   isAdministrator,
   onIssueNfeClick,
@@ -40,9 +42,12 @@ export const PostOrderActionGridButton: React.FC<PostOrderActionGridButtonProps>
     (btn as { adminOnly?: boolean }).adminOnly || btn.key === 'sendCustomerOrderDirectApi'
   );
   const isMissingAdmin = isAdminOnlyBtn && !isAdministrator;
-  const isButtonDisabled = (isIssueNfeBtn && isNfeIssued) || isMissingAdmin;
+  const isDirectApiBusy = btn.key === 'sendCustomerOrderDirectApi' && isDirectApiSending;
+  const isButtonDisabled = (isIssueNfeBtn && isNfeIssued) || isMissingAdmin || isDirectApiBusy;
 
-  const tooltipText = isMissingAdmin
+  const tooltipText = isDirectApiBusy
+    ? 'Envio em andamento. Aguarde antes de tentar novamente.'
+    : isMissingAdmin
     ? 'Disponível apenas para administradores (Beta)'
     : isButtonDisabled
       ? 'Nota fiscal já emitida para este pedido.'

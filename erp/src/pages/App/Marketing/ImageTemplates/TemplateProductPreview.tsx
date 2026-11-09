@@ -1,15 +1,16 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { listPreviewProducts, mapPreviewProduct, PREVIEW_PRODUCT_PAGE_SIZE, readPreviewProduct,
+import { listPreviewProductGroups, listPreviewProducts, mapPreviewProduct, PREVIEW_PRODUCT_PAGE_SIZE, readPreviewProduct,
   type PreviewProductSource } from './productPreviewService';
 import { imageTemplateError } from './imageTemplateService';
 import { PRODUCT_LIST_SEARCH_DEBOUNCE_MS, PRODUCT_LIST_SEARCH_MIN_LENGTH } from '../../../../../../shared-utils/productListSearch';
 
-export function useTemplateProductPreview(userId: string) {
+export function useTemplateProductPreview(userId: string, requiredImageCount = 1) {
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [selectedProduct, setSelectedProduct] = useState('');
+  const [categoryId, setCategoryId] = useState('');
   const [preferLast, setPreferLast] = useState(false);
   const [selectedVariation, setSelectedVariation] = useState<{ productId: string; id: string } | null>(null);
   useEffect(() => {
@@ -23,18 +24,25 @@ export function useTemplateProductPreview(userId: string) {
 
   const searchReady = !search || search.replace(/[^\p{L}\p{N}]/gu, '').length >= PRODUCT_LIST_SEARCH_MIN_LENGTH;
   const products = useQuery({
-    queryKey: ['image-template-erp-products', userId, page, search],
-    queryFn: ({ signal }) => listPreviewProducts(page, search, signal),
+    queryKey: ['image-template-erp-products', userId, page, search, categoryId],
+    queryFn: ({ signal }) => categoryId
+      ? listPreviewProducts(page, search, signal, categoryId)
+      : listPreviewProducts(page, search, signal),
     enabled: searchReady, staleTime: 30_000, retry: false, refetchOnWindowFocus: false,
+  });
+  const groups = useQuery({
+    queryKey: ['image-template-erp-product-groups', userId],
+    queryFn: ({ signal }) => listPreviewProductGroups(signal),
+    staleTime: 60_000, retry: false, refetchOnWindowFocus: false,
   });
   const rows = products.data?.rows ?? [];
   const found = rows.findIndex((row) => row.id === selectedProduct);
   const position = found >= 0 ? found : preferLast ? rows.length - 1 : 0;
   const productId = rows[position]?.id;
   const detail = useQuery({
-    queryKey: ['image-template-erp-product', userId, productId],
-    queryFn: ({ signal }) => readPreviewProduct(productId!, signal),
-    enabled: !!productId, staleTime: 0, retry: false, refetchOnWindowFocus: true,
+    queryKey: ['image-template-erp-product', userId, productId, requiredImageCount],
+    queryFn: ({ signal }) => readPreviewProduct(productId!, signal, requiredImageCount),
+    enabled: !!productId, staleTime: 0, gcTime: 0, retry: false, refetchOnWindowFocus: true,
   });
   const variations = detail.data?.variations ?? [];
   const chosenId = selectedVariation && selectedVariation.productId === productId ? selectedVariation.id : '';
@@ -55,9 +63,13 @@ export function useTemplateProductPreview(userId: string) {
     setSelectedProduct('');
   }
 
+  function selectCategory(id: string) {
+    setCategoryId(id); setPage(1); setSelectedProduct(''); setPreferLast(false); setSelectedVariation(null);
+  }
+
   return {
-    searchInput, setSearchInput, searchReady, products, rows, page, position, productId, detail, product,
-    variations, variationId, setSelectedProduct, setSelectedVariation, stepProduct,
+    searchInput, setSearchInput, searchReady, products, groups, rows, page, position, productId, detail, product,
+    categoryId, selectCategory, variations, variationId, setSelectedProduct, setSelectedVariation, stepProduct,
     resolveFresh: (source: PreviewProductSource) => mapPreviewProduct(source, variationId),
   };
 }
@@ -65,11 +77,18 @@ export function useTemplateProductPreview(userId: string) {
 type Preview = ReturnType<typeof useTemplateProductPreview>;
 
 export function TemplateProductPreview({ preview, disabled }: { preview: Preview; disabled: boolean }) {
-  const { products, detail, rows, position, productId, variations, variationId, page } = preview;
+  const { products, groups, detail, rows, position, productId, categoryId, variations, variationId, page } = preview;
   const failure = products.isError ? products : detail.isError ? detail : null;
   const hasNext = position < rows.length - 1 || page * PREVIEW_PRODUCT_PAGE_SIZE < (products.data?.total ?? 0);
   return <section className="ct-preview-controls" aria-label="Prévia do produto">
     <fieldset className="ct-preview-fields" disabled={disabled}>
+      <label className="ct-field ct-preview-group">
+        <span>Conjunto de produtos</span>
+        <select value={categoryId} onChange={(event) => preview.selectCategory(event.target.value)}>
+          <option value="">Todos os produtos</option>
+          {(groups.data ?? []).map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}
+        </select>
+      </label>
       <label className="ct-field ct-preview-search">
         <span>Pesquisar produtos</span>
         <input type="search" maxLength={120} value={preview.searchInput} placeholder="Nome ou código"
@@ -97,6 +116,9 @@ export function TemplateProductPreview({ preview, disabled }: { preview: Preview
           onClick={() => preview.stepProduct(1)}><i className="bi bi-arrow-right" aria-hidden="true" /></button>
       </div>
     </fieldset>
+    {groups.isError && <p className="ct-preview-message" role="alert">Não foi possível carregar as categorias do ERP.
+      <button className="ct-link" type="button" disabled={disabled} onClick={() => void groups.refetch()}>Tentar novamente</button>
+    </p>}
     {!preview.searchReady && <p className="ct-preview-message">Digite pelo menos três letras ou números para pesquisar.</p>}
     {failure && <p className="ct-preview-message" role="alert">{imageTemplateError(failure.error)} <button className="ct-link" type="button" disabled={disabled} onClick={() => void failure.refetch()}>Tentar novamente</button></p>}
     {!failure && (products.isFetching || detail.isFetching) && <p className="ct-preview-message" role="status">Carregando a prévia do produto…</p>}

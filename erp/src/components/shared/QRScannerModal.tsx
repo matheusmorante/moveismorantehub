@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
 import { getSettings } from '@/pages/utils/settingsService';
 import { ManualScanForm } from './ManualScanForm';
+import { extractNfeAccessKeyFromOcrText } from '../../../../shared-utils/fiscalIdentifiers';
 
 /**
  * QRScannerModal - BARCODE OPTIMIZED (v7)
@@ -283,17 +284,13 @@ const QRScannerModal: React.FC<QRScannerModalProps> = ({
       });
       try {
         await worker.setParameters({
-          tessedit_char_whitelist: '0123456789',
-          tessedit_pageseg_mode: PSM.SINGLE_BLOCK,
+          tessedit_char_whitelist: '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ',
+          tessedit_pageseg_mode: PSM.SPARSE_TEXT,
         });
         const {
           data: { text },
         } = await worker.recognize(canvas);
-        const key =
-          text
-            .split(/\r?\n/)
-            .map((line) => line.replace(/\D/g, ''))
-            .find((line) => line.length === 44) ?? text.match(/(?:^|\D)(\d{44})(?:\D|$)/)?.[1];
+        const key = extractNfeAccessKeyFromOcrText(text);
         if (!key) {
           setStep('Chave não reconhecida. Ajuste o enquadramento e tente novamente.');
           return;

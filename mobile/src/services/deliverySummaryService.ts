@@ -16,22 +16,27 @@ export interface DeliverySummaryRecord {
   updated_at?: string;
 }
 
+export type DeliverySummaryReadRecord = Pick<
+  DeliverySummaryRecord,
+  'text' | 'text_status' | 'generation_started_at'
+>;
+
 const GENERATING_TIMEOUT_MS = 2 * 60 * 1000; // 2 minutos de lease/timeout
 
 export const getSavedSummaryRecord = async (
   scope: 'today' | 'tomorrow' | 'next_days' | 'next5days',
   fingerprint: string
-): Promise<DeliverySummaryRecord | null> => {
+): Promise<DeliverySummaryReadRecord | null> => {
   try {
     const { data, error } = await supabase
       .from('delivery_summaries')
-      .select('*')
+      .select('text, text_status, generation_started_at')
       .eq('scope', scope)
       .eq('data_fingerprint', fingerprint)
       .maybeSingle();
 
     if (!error && data) {
-      return data as DeliverySummaryRecord;
+      return data as DeliverySummaryReadRecord;
     }
   } catch (err) {
     // Tabela pode ainda não ter sido criada no Supabase — usa AsyncStorage como fallback seguro
@@ -40,7 +45,7 @@ export const getSavedSummaryRecord = async (
   try {
     const raw = await AsyncStorage.getItem(`@morante_delivery_summary_${scope}_${fingerprint}`);
     if (raw) {
-      return JSON.parse(raw) as DeliverySummaryRecord;
+      return JSON.parse(raw) as DeliverySummaryReadRecord;
     }
   } catch {}
 
@@ -50,11 +55,11 @@ export const getSavedSummaryRecord = async (
 /** A tela acompanha a versão mais recente produzida pelo servidor para o escopo. */
 export const getLatestSavedSummaryRecord = async (
   scope: DeliverySummaryRecord['scope']
-): Promise<DeliverySummaryRecord | null> => {
+): Promise<DeliverySummaryReadRecord | null> => {
   try {
     const { data, error } = await supabase
       .from('delivery_summaries')
-      .select('*')
+      .select('text, text_status, generation_started_at')
       .eq('scope', scope)
       .order('updated_at', { ascending: false })
       .limit(1)

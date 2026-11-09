@@ -35,7 +35,7 @@ export default function AIChatAssistant({
   mode = 'drawer',
 }: AIChatAssistantProps) {
   const location = useLocation();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [internalIsOpen, setInternalIsOpen] = useState(false);
   const isOpen = controlledIsOpen !== undefined ? controlledIsOpen : internalIsOpen;
 
@@ -272,6 +272,7 @@ export default function AIChatAssistant({
         const expired = Symbol('expired');
         const rawResponse = await withTimeout<unknown>(GeminiAgentService.sendMessage(parsed.text, parsed.history, parsed.pageContext, {
           signal: request.controller.signal, isCurrent, onToolDispatch: () => { toolDispatched = true; },
+          ...(profile?.role || profile?.roles?.length ? { permissionContext: { userId: user.id, role: profile.role, roles: profile.roles, rolePermissions: settings.rolePermissions, enforced: true } } : {}),
         }), 90_000, expired, 'conversa do assistente');
         if (rawResponse === expired) {
           request.controller.abort();

@@ -1,4 +1,4 @@
-import { callGeminiDirect } from './aiDirectClient';
+import { callOpenAIDirect } from './aiDirectClient';
 import { INBOUND_SUGGESTION_INSTRUCTIONS } from '../inboundNfe/inboundSuggestionInstructions';
 import type { SupplierProductSummary } from '../inboundNfe/inboundSupplierProductContext';
 import type { InboundInvoiceItem } from '../inboundNfe/inboundNfeTypes';
@@ -93,7 +93,7 @@ ITEM DA NF: ` +
   const operation = `inbound_suggestion:item=${item.itemNumber}:code=${item.productCode}:products=${products.length}`;
   const traceId = AiLatencyTracker.startCall(operation, 'gateway', 'TEXT');
   try {
-    const response = await callGeminiDirect(prompt, true, {
+    const response = await callOpenAIDirect(prompt, true, {
       tier: 'reasoning',
       moduleSource: 'inbound_invoices',
       thinkingBudget: 'low',
@@ -106,7 +106,7 @@ ITEM DA NF: ` +
     const parsed = JSON.parse(clean);
     const validated = validateInboundCandidates(parsed, products);
     AiLatencyTracker.endCall(traceId, true, response.length);
-    console.info('[InboundGemini]', {
+    console.info('[InboundOpenAI]', {
       traceId,
       operation,
       received: parsed.candidates?.length ?? 0,
@@ -122,7 +122,7 @@ ITEM DA NF: ` +
       traceId,
       false,
       0,
-      error instanceof SyntaxError ? 'Resposta JSON inválida' : 'Falha na consulta Gemini'
+      error instanceof SyntaxError ? 'Resposta JSON inválida' : 'Falha na consulta OpenAI'
     );
     throw error;
   }

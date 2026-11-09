@@ -1,6 +1,14 @@
 import { AppSettings } from './types';
 import { META_CATALOG_WHATSAPP_BASE_DESCRIPTION } from '../../../../../shared-utils/metaCatalogPayload';
 import {
+  DEFAULT_WHATSAPP_AI_AGENT_PROMPT,
+  DEFAULT_WHATSAPP_ENABLED_TOOLS,
+  DEFAULT_KNOWLEDGE_ARTICLES,
+  DEFAULT_SITUATION_RULES,
+  DEFAULT_WORKFLOWS,
+} from '../../../../../shared-utils/whatsappAiAgentSchemas';
+import { DEFAULT_AI_USAGE_LIMITS } from '../../../../../shared-utils/aiUsageLimitSchemas';
+import {
   MORANTE_DELIVERY_HANDLING_OPTIONS,
   MORANTE_PICKUP_HANDLING_OPTIONS,
 } from '../handlingMigration';
@@ -252,6 +260,20 @@ RESPOSTA NO FORMATO JSON:
     templateLanguage: 'pt_BR',
     templateVariableCount: 8,
   },
+  whatsappAiAgent: {
+    enabled: false,
+    testMode: true,
+    testPhoneNumbers: [],
+    supportMode: 'automatico',
+    provider: 'openai',
+    model: 'gpt-6-luna',
+    systemPrompt: DEFAULT_WHATSAPP_AI_AGENT_PROMPT,
+    enabledTools: [...DEFAULT_WHATSAPP_ENABLED_TOOLS],
+    knowledgeBase: [...DEFAULT_KNOWLEDGE_ARTICLES],
+    situationRules: [...DEFAULT_SITUATION_RULES],
+    workflows: [...DEFAULT_WORKFLOWS],
+  },
+  aiUsageLimits: { ...DEFAULT_AI_USAGE_LIMITS },
   channelBaseDescriptions: {
     whatsapp: META_CATALOG_WHATSAPP_BASE_DESCRIPTION,
     ecommerce: `A **Móveis Morante** é referência em móveis planejados e decoração de interiores há mais de 10 anos. Trabalhamos com móveis novos, usados e salvados, sempre com qualidade e atendimento personalizado.

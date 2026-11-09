@@ -8,6 +8,7 @@ import {
   resolveWhatsAppSupportCatalogMessage,
   type ResolvedCatalogMessage,
 } from './whatsappSupportCatalogMessage.js';
+import { buildWhatsAppNativeCatalogMessage } from '../shared-utils/whatsappNativeCatalogMessage.js';
 import {
   classifyWhatsAppSupportFile,
   type WhatsAppSupportContentType,

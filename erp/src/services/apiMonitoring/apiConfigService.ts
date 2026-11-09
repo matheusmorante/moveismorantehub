@@ -3,176 +3,18 @@
 import { supabase } from '../../pages/utils/supabaseConfig';
 import { ApiConfiguration, ApiServiceId } from './apiMonitoringTypes';
 import { apiConfigurationWriteSchema } from '../../../../shared-utils/apiConfigFormSchema';
+import { DEFAULT_API_CONFIGURATIONS } from './defaultApiConfigurations';
+
+export { DEFAULT_API_CONFIGURATIONS };
 
 const CONFIG_CACHE_KEY = 'morante_api_configurations_v1';
+const isLegacyGeminiConfig = (serviceId: string, provider?: string) =>
+  serviceId.startsWith('gemini_') || provider === 'gemini';
 
-export const DEFAULT_API_CONFIGURATIONS: Record<ApiServiceId, ApiConfiguration> = {
-  google_routes: {
-    service_id: 'google_routes',
-    provider: 'google',
-    service_name: 'Google Routes API',
-    metric: 'requests',
-    billing_unit: 'req',
-    monthly_limit: 1000,
-    warning_threshold: 70,
-    critical_threshold: 90,
-    hard_limit: 95,
-    block_on_hard_limit: true,
-    criticality: 'IMPORTANT',
-    price_per_unit: 0.025,
-    free_allowance: 500,
-    currency: 'BRL',
-    circuit_breaker_max_per_minute: 20,
-    enabled: true,
-  },
-  google_places: {
-    service_id: 'google_places',
-    provider: 'google',
-    service_name: 'Google Places (Autocomplete & Details)',
-    metric: 'requests',
-    billing_unit: 'req',
-    monthly_limit: 1500,
-    warning_threshold: 75,
-    critical_threshold: 90,
-    hard_limit: 95,
-    block_on_hard_limit: true,
-    criticality: 'IMPORTANT',
-    price_per_unit: 0.017,
-    free_allowance: 1000,
-    currency: 'BRL',
-    circuit_breaker_max_per_minute: 25,
-    enabled: true,
-  },
-  google_geocoding: {
-    service_id: 'google_geocoding',
-    provider: 'google',
-    service_name: 'Google Geocoding API',
-    metric: 'requests',
-    billing_unit: 'req',
-    monthly_limit: 1000,
-    warning_threshold: 75,
-    critical_threshold: 90,
-    hard_limit: 95,
-    block_on_hard_limit: true,
-    criticality: 'IMPORTANT',
-    price_per_unit: 0.025,
-    free_allowance: 500,
-    currency: 'BRL',
-    circuit_breaker_max_per_minute: 20,
-    enabled: true,
-  },
-  google_route_optimization: {
-    service_id: 'google_route_optimization',
-    provider: 'google',
-    service_name: 'Google Route Optimization',
-    metric: 'requests',
-    billing_unit: 'req',
-    monthly_limit: 200,
-    warning_threshold: 70,
-    critical_threshold: 90,
-    hard_limit: 95,
-    block_on_hard_limit: true,
-    criticality: 'OPTIONAL',
-    price_per_unit: 0.15,
-    free_allowance: 100,
-    currency: 'BRL',
-    circuit_breaker_max_per_minute: 10,
-    enabled: false,
-  },
-  gemini_flash: {
-    service_id: 'gemini_flash',
-    provider: 'gemini',
-    service_name: 'Google Gemini 1.5/2.5 Flash',
-    metric: 'requests',
-    billing_unit: 'req',
-    monthly_limit: 3000,
-    warning_threshold: 70,
-    critical_threshold: 90,
-    hard_limit: 95,
-    block_on_hard_limit: true,
-    criticality: 'OPTIONAL',
-    price_per_unit: 0.01,
-    free_allowance: 100,
-    currency: 'BRL',
-    max_monthly_budget_brl: 30.0, // Teto máximo absoluto de R$ 30,00 por mês
-    circuit_breaker_max_per_minute: 60,
-    enabled: true,
-  },
-  gemini_antigravity: {
-    service_id: 'gemini_antigravity',
-    provider: 'gemini',
-    service_name: 'Google Gemini Antigravity / AI Agent',
-    metric: 'requests',
-    billing_unit: 'req',
-    monthly_limit: 3000,
-    warning_threshold: 70,
-    critical_threshold: 90,
-    hard_limit: 95,
-    block_on_hard_limit: true,
-    criticality: 'OPTIONAL',
-    price_per_unit: 0.01,
-    free_allowance: 100,
-    currency: 'BRL',
-    max_monthly_budget_brl: 30.0, // Teto máximo absoluto de R$ 30,00 por mês
-    circuit_breaker_max_per_minute: 60,
-    enabled: true,
-  },
-  gemini_image: {
-    service_id: 'gemini_image',
-    provider: 'gemini',
-    service_name: 'Google Gemini Imagem (Marketing & Posts)',
-    metric: 'images',
-    billing_unit: 'img',
-    monthly_limit: 150,
-    warning_threshold: 70,
-    critical_threshold: 90,
-    hard_limit: 95,
-    block_on_hard_limit: true,
-    criticality: 'OPTIONAL',
-    price_per_unit: 0.2,
-    free_allowance: 10,
-    currency: 'BRL',
-    max_monthly_budget_brl: 30.0,
-    circuit_breaker_max_per_minute: 5,
-    enabled: true,
-  },
-  meta_whatsapp: {
-    service_id: 'meta_whatsapp',
-    provider: 'meta',
-    service_name: 'WhatsApp Graph API',
-    metric: 'messages',
-    billing_unit: 'msg',
-    monthly_limit: 2000,
-    warning_threshold: 70,
-    critical_threshold: 90,
-    hard_limit: 95,
-    block_on_hard_limit: false,
-    criticality: 'IMPORTANT',
-    price_per_unit: 0.35,
-    free_allowance: 250,
-    currency: 'BRL',
-    circuit_breaker_max_per_minute: 60,
-    enabled: true,
-  },
-  sefaz_nfe: {
-    service_id: 'sefaz_nfe',
-    provider: 'sefaz',
-    service_name: 'SEFAZ-PR (NF-e & NFC-e)',
-    metric: 'requests',
-    billing_unit: 'doc',
-    monthly_limit: 10000,
-    warning_threshold: 80,
-    critical_threshold: 95,
-    hard_limit: 100,
-    block_on_hard_limit: false, // Crítico: NUNCA bloquear
-    criticality: 'CRITICAL',
-    price_per_unit: 0.0,
-    free_allowance: 0,
-    currency: 'BRL',
-    circuit_breaker_max_per_minute: 200,
-    enabled: true,
-  },
-};
+const withoutLegacyGeminiConfigs = (configs: Record<string, ApiConfiguration>) =>
+  Object.fromEntries(
+    Object.entries(configs).filter(([serviceId, config]) => !isLegacyGeminiConfig(serviceId, config.provider))
+  ) as Record<string, ApiConfiguration>;
 
 export class ApiConfigService {
   private static memoryCache: Record<string, ApiConfiguration> | null = null;
@@ -182,10 +24,10 @@ export class ApiConfigService {
     try {
       const stored = JSON.parse(localStorage.getItem(CONFIG_CACHE_KEY) || 'null');
       if (stored && typeof stored === 'object' && !Array.isArray(stored)) {
-        return { ...DEFAULT_API_CONFIGURATIONS, ...stored };
+        return withoutLegacyGeminiConfigs({ ...DEFAULT_API_CONFIGURATIONS, ...stored });
       }
     } catch { /* Fall back to the installed defaults when browser storage is unavailable. */ }
-    return { ...DEFAULT_API_CONFIGURATIONS };
+    return withoutLegacyGeminiConfigs({ ...DEFAULT_API_CONFIGURATIONS });
   }
 
   /**
@@ -198,11 +40,15 @@ export class ApiConfigService {
 
     // Buscar do Supabase em segundo plano ou na inicialização
     try {
-      const { data, error } = await supabase.from('api_configurations').select('*');
+      const { data, error } = await supabase
+        .from('api_configurations')
+        .select('service_id,provider,service_name,metric,billing_unit,monthly_limit,warning_threshold,critical_threshold,hard_limit,block_on_hard_limit,criticality,price_per_unit,free_allowance,currency,circuit_breaker_max_per_minute,enabled,updated_at,updated_by')
+        .neq('provider', 'gemini');
 
       if (!error && data && data.length > 0) {
         const merged: Record<string, ApiConfiguration> = { ...DEFAULT_API_CONFIGURATIONS };
         data.forEach((item: any) => {
+          if (isLegacyGeminiConfig(String(item.service_id || ''), item.provider)) return;
           merged[item.service_id] = {
             service_id: item.service_id,
             provider: item.provider,
@@ -224,7 +70,7 @@ export class ApiConfigService {
             updated_by: item.updated_by,
           };
         });
-        this.memoryCache = merged;
+        this.memoryCache = withoutLegacyGeminiConfigs(merged);
         localStorage.setItem(CONFIG_CACHE_KEY, JSON.stringify(merged));
       }
     } catch (e) {

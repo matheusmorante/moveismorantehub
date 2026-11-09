@@ -33,6 +33,7 @@ interface AuthContextProps {
   canUsePermission: (actionId: string, defaultRoles?: readonly string[]) => boolean;
   rolePermissions: Record<string, string[]>;
   rolePermissionsLoaded: boolean;
+  rolePermissionsConfirmed: boolean;
   rolePermissionsLoadFailed: boolean;
   reloadRolePermissions: () => void;
   saveRolePermissions: (updates: Record<string, string[]>) => Promise<void>;
@@ -89,6 +90,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const {
     rolePermissions,
     rolePermissionsLoaded,
+    rolePermissionsConfirmed,
     rolePermissionsLoadFailed,
     reloadRolePermissions,
     saveRolePermissions,
@@ -258,6 +260,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         ...roleFlags,
         rolePermissions,
         rolePermissionsLoaded,
+        rolePermissionsConfirmed,
         rolePermissionsLoadFailed,
         reloadRolePermissions,
         saveRolePermissions,

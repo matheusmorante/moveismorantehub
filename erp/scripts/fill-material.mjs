@@ -7,12 +7,11 @@
  *   node scripts/fill-material.mjs --dry-run               → só imprime, não salva
  *   node scripts/fill-material.mjs --only-unmerged         → ignora produtos cujas variações foram mescladas
  *
- * Configure MORANTE_SUPABASE_URL, MORANTE_SUPABASE_ANON_KEY e GEMINI_API_KEY
+ * Configure MORANTE_SUPABASE_URL, MORANTE_SUPABASE_ANON_KEY e OPENAI_API_KEY
  * no ambiente antes da execução. Nenhuma credencial deve ser gravada neste arquivo.
  */
 
 import { createClient } from '@supabase/supabase-js';
-import { GoogleGenAI } from '@google/genai';
 
 const requireEnv = (name) => {
   const value = process.env[name]?.trim();
@@ -22,12 +21,12 @@ const requireEnv = (name) => {
 
 const SUPABASE_URL = requireEnv('MORANTE_SUPABASE_URL');
 const SUPABASE_ANON_KEY = requireEnv('MORANTE_SUPABASE_ANON_KEY');
-const GEMINI_API_KEY = requireEnv('GEMINI_API_KEY');
+const OPENAI_API_KEY = requireEnv('OPENAI_API_KEY');
 
 const DRY_RUN = process.argv.includes('--dry-run');
 const ONLY_UNMERGED = process.argv.includes('--only-unmerged');
 const BATCH_DELAY_MS = 300;
-const GEMINI_BATCH = 8;
+const OPENAI_BATCH = 8;
 
 const VALID_MATERIALS = [
   'Aco Carbono','Inox','Madeira Macica','Madeira Macica/Metal',
@@ -38,7 +37,6 @@ const VALID_MATERIALS = [
 ];
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 const chunk = (arr, n) => { const out=[]; for(let i=0;i<arr.length;i+=n) out.push(arr.slice(i,i+n)); return out; };
 
@@ -86,13 +84,25 @@ Nenhum texto fora do JSON.
 
 ${productList}`;
 
-  const resp = await ai.models.generateContent({
-    model: 'gemini-2.0-flash',
-    contents: [{ role: 'user', parts: [{ text: prompt }] }],
-    config: { temperature: 0, responseMimeType: 'application/json' }
+  const response = await fetch('https://api.openai.com/v1/responses', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${OPENAI_API_KEY}`,
+    },
+    body: JSON.stringify({
+      model: 'gpt-6-luna',
+      input: prompt,
+      text: { format: { type: 'json_object' } },
+      reasoning: { effort: 'low' },
+      max_output_tokens: 2000,
+    }),
+    signal: AbortSignal.timeout(45_000),
   });
+  if (!response.ok) throw new Error(`OpenAI respondeu HTTP ${response.status}.`);
+  const payload = await response.json();
 
-  const txt = resp.text?.trim() || '[]';
+  const txt = payload.output_text?.trim() || '[]';
   try {
     const m = txt.match(/\[[\s\S]*\]/);
     return JSON.parse(m ? m[0] : txt);
@@ -111,7 +121,7 @@ async function main() {
   const classified = [];
   const notFound = [];
 
-  const batches = chunk(products, GEMINI_BATCH);
+  const batches = chunk(products, OPENAI_BATCH);
   let done = 0;
   for (const batch of batches) {
     const res = await classifyBatch(batch);

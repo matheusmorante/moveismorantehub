@@ -31,49 +31,91 @@ export const findProductSupplierCodes = async (supplierId: string, supplierCodes
   // A referência do fornecedor continua guardando a variação original. Para
   // novos recebimentos e movimentações, porém, usamos a canônica quando a
   // original já foi fundida. Assim o histórico não é reescrito.
-  const resolvedRows = await Promise.all(
-    (data || []).map(async (row) => {
-      let productVariationId =
-        row.product_variation_id && isValidUuid(row.product_variation_id)
-          ? row.product_variation_id
-          : undefined;
+  const rows = data || [];
+  const originalVariationIds = [
+    ...new Set(
+      rows
+        .map((row) => row.product_variation_id)
+        .filter((id): id is string => Boolean(id && isValidUuid(id)))
+    ),
+  ];
+  const canonicalVariationByOriginal = new Map<string, string>();
 
-      if (productVariationId) {
-        const { data: canonicalVariationId, error: resolutionError } = await supabase.rpc(
-          'resolve_canonical_variation_id',
-          { p_variation_id: productVariationId }
-        );
+  await Promise.all(
+    originalVariationIds.map(async (originalVariationId) => {
+      const { data: canonicalVariationId, error: resolutionError } = await supabase.rpc(
+        'resolve_canonical_variation_id',
+        { p_variation_id: originalVariationId }
+      );
 
-        if (resolutionError) throw resolutionError;
-        productVariationId = canonicalVariationId || productVariationId;
-
-        const { data: canonicalVariation, error: variationError } = await supabase
-          .from('product_variations')
-          .select('product_id')
-          .eq('id', productVariationId)
-          .single();
-        if (variationError) throw variationError;
-
-        // O item operacional deve sempre trazer o pai real da variação
-        // canônica; nunca o pai legado da referência de fornecedor.
-        if (canonicalVariation?.product_id) {
-          row.product_id = canonicalVariation.product_id;
-        }
-      }
-
-      return [
-        normalizeSupplierProductCode(row.supplier_product_code),
-        {
-          productId: row.product_id,
-          productVariationId,
-          supplierId: row.supplier_id,
-          supplierProductCode: row.supplier_product_code,
-          supplierDescription: row.supplier_description || undefined,
-          confirmedByUser: true,
-        } satisfies ProductSupplierCode,
-      ] as const;
+      if (resolutionError) throw resolutionError;
+      canonicalVariationByOriginal.set(
+        originalVariationId,
+        canonicalVariationId || originalVariationId
+      );
     })
   );
+
+  const canonicalVariationIds = [...new Set(canonicalVariationByOriginal.values())];
+  const productIdByCanonicalVariation = new Map<string, string>();
+
+  if (canonicalVariationIds.length) {
+    const { data: canonicalVariations, error: variationsError } = await supabase
+      .from('product_variations')
+      .select('id, product_id')
+      .in('id', canonicalVariationIds);
+
+    if (variationsError) throw variationsError;
+
+    for (const variation of canonicalVariations || []) {
+      if (variation.product_id) {
+        productIdByCanonicalVariation.set(variation.id, variation.product_id);
+      }
+    }
+
+    // Preserve o erro anterior do .single() se uma variação sumir ou ficar
+    // inacessível entre a resolução e a leitura em lote.
+    const missingVariationIds = canonicalVariationIds.filter(
+      (id) => !productIdByCanonicalVariation.has(id)
+    );
+    await Promise.all(
+      missingVariationIds.map(async (id) => {
+        const { error: variationError } = await supabase
+          .from('product_variations')
+          .select('product_id')
+          .eq('id', id)
+          .single();
+        if (variationError) throw variationError;
+      })
+    );
+  }
+
+  const resolvedRows = rows.map((row) => {
+    const originalVariationId =
+      row.product_variation_id && isValidUuid(row.product_variation_id)
+        ? row.product_variation_id
+        : undefined;
+    const productVariationId = originalVariationId
+      ? canonicalVariationByOriginal.get(originalVariationId) || originalVariationId
+      : undefined;
+    const canonicalProductId = productVariationId
+      ? productIdByCanonicalVariation.get(productVariationId)
+      : undefined;
+
+    // O item operacional deve sempre trazer o pai real da variação
+    // canônica; nunca o pai legado da referência de fornecedor.
+    return [
+      normalizeSupplierProductCode(row.supplier_product_code),
+      {
+        productId: canonicalProductId || row.product_id,
+        productVariationId,
+        supplierId: row.supplier_id,
+        supplierProductCode: row.supplier_product_code,
+        supplierDescription: row.supplier_description || undefined,
+        confirmedByUser: true,
+      } satisfies ProductSupplierCode,
+    ] as const;
+  });
 
   return new Map(resolvedRows);
 };

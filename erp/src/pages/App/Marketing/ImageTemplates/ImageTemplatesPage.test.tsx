@@ -3,12 +3,14 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { startImageTemplate } from '../../../../../../shared-utils/catalogImageTemplate';
+import { bindTestArtifactContext, clearTestArtifactContext } from '../../../../../../shared-utils/testArtifactContext';
 import ImageTemplatesPage from './index';
-import { listPreviewProducts, mapPreviewProduct, readPreviewProduct } from './productPreviewService';
+import { listPreviewProductGroups, listPreviewProducts, mapPreviewProduct, readPreviewProduct } from './productPreviewService';
 import { prepareTemplateAsset, readTemplateAssets } from './imageTemplateService';
 
-const mocks = vi.hoisted(() => ({ list: vi.fn(), read: vi.fn(), save: vi.fn(), remove: vi.fn(), rename: vi.fn(), render: vi.fn() }));
-vi.mock('@/context/AuthContext', () => ({ useAuth: () => ({ user: { id: 'operator' } }) }));
+const mocks = vi.hoisted(() => ({ list: vi.fn(), read: vi.fn(), save: vi.fn(), remove: vi.fn(), rename: vi.fn(), render: vi.fn(),
+  userId: 'operator', role: 'manager' }));
+vi.mock('@/context/AuthContext', () => ({ useAuth: () => ({ user: { id: mocks.userId }, profile: { role: mocks.role } }) }));
 vi.mock('@/components/shared/confirmationService', () => ({ requestConfirmation: vi.fn().mockResolvedValue(true) }));
 vi.mock('./imageTemplateService', () => ({
   IMAGE_TEMPLATE_PAGE_SIZE: 15, listImageTemplates: mocks.list, readImageTemplate: mocks.read,
@@ -18,7 +20,7 @@ vi.mock('./imageTemplateService', () => ({
   readTemplateAssets: vi.fn().mockResolvedValue([]), prepareTemplateAsset: vi.fn(),
 }));
 vi.mock('./productPreviewService', () => ({
-  PREVIEW_PRODUCT_PAGE_SIZE: 15, listPreviewProducts: vi.fn(), readPreviewProduct: vi.fn(), mapPreviewProduct: vi.fn(),
+  PREVIEW_PRODUCT_PAGE_SIZE: 15, listPreviewProductGroups: vi.fn(), listPreviewProducts: vi.fn(), readPreviewProduct: vi.fn(), mapPreviewProduct: vi.fn(),
 }));
 vi.mock('./TemplateArtboard', () => ({ TemplateArtboard: () => <div role="img" aria-label="Área de prévia" /> }));
 vi.mock('./renderImageTemplate', () => ({ createTemplatePictureLoader: () => vi.fn(), renderImageTemplate: mocks.render }));
@@ -28,7 +30,11 @@ beforeAll(() => {
   if (!HTMLDialogElement.prototype.close) HTMLDialogElement.prototype.close = function () { this.removeAttribute('open'); };
 });
 beforeEach(() => {
-  vi.mocked(listPreviewProducts).mockResolvedValue({ rows: [], total: 0 });
+  mocks.userId = 'operator'; mocks.role = 'manager'; clearTestArtifactContext();
+  vi.mocked(listPreviewProductGroups).mockReset().mockResolvedValue([]);
+  vi.mocked(listPreviewProducts).mockReset().mockResolvedValue({ rows: [], total: 0 });
+  vi.mocked(readPreviewProduct).mockReset();
+  vi.mocked(mapPreviewProduct).mockReset();
   vi.mocked(readTemplateAssets).mockResolvedValue([]);
   mocks.render.mockResolvedValue({ errors: [], notices: [] });
 });
@@ -43,6 +49,28 @@ function open() {
 }
 
 describe('biblioteca e editor de modelos', () => {
+  it('mantém o marcador de teste desligado inicialmente e não o perde ao desfazer após salvar', async () => {
+    mocks.userId = '00000000-0000-4000-8000-000000000012'; mocks.role = 'administrator';
+    const identity = { runId: '00000000-0000-4000-8000-000000000011', ownerId: mocks.userId, scenarioKey: 'image_template_crud' };
+    const metadata = { is_test: true, ...identity };
+    bindTestArtifactContext(identity);
+    mocks.list.mockResolvedValue({ rows: [], total: 0 });
+    mocks.save.mockResolvedValue({ ...saved, test_artifact: metadata });
+    open();
+    fireEvent.click(screen.getByRole('button', { name: 'Criar' }));
+    fireEvent.change(within(screen.getByRole('dialog')).getByRole('textbox', { name: 'Nome do modelo' }), { target: { value: 'Teste vinculado' } });
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Avançar' }));
+    const marker = await screen.findByRole<HTMLInputElement>('checkbox', { name: 'Modelo de teste desta execução' });
+    expect(marker.checked).toBe(false);
+    fireEvent.click(marker);
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar' }));
+    await screen.findByText('Modelo salvo.');
+    expect(mocks.save.mock.calls[0][1].design.testArtifact).toEqual(metadata);
+    fireEvent.click(screen.getByRole('button', { name: 'Desfazer' }));
+    expect(marker.checked).toBe(true);
+    expect(marker.disabled).toBe(true);
+  });
+
   it('valida o nome antes de abrir o editor e salva uma composição em dois formatos', async () => {
     mocks.list.mockResolvedValue({ rows: [], total: 0 });
     mocks.save.mockResolvedValue(saved);
@@ -101,7 +129,7 @@ describe('biblioteca e editor de modelos', () => {
     fireEvent.change(input, { target: { value: 'DE  POR' } });
     input.setSelectionRange(3, 3);
     fireEvent.click(screen.getByRole('button', { name: 'Adicionar campo do produto' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Preço normal' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Preço' }));
     expect(input.value).toBe('DE {{product.price}} POR');
     fireEvent.click(screen.getByRole('button', { name: 'Sublinhado' }));
     fireEvent.click(screen.getByRole('button', { name: 'Alinhar no topo' }));
@@ -126,6 +154,33 @@ describe('biblioteca e editor de modelos', () => {
       lineSpacing: 1.5, letterSpacing: 2, textOpacity: 70 });
   });
 
+  it('oferece os atributos técnicos do ERP em campos e textos do modelo', async () => {
+    mocks.list.mockResolvedValue({ rows: [], total: 0 });
+    mocks.save.mockResolvedValue(saved);
+    vi.mocked(listPreviewProducts).mockResolvedValue({ rows: [{ id: 'p1', name: 'Armário', code: '101', active: true }], total: 1 });
+    vi.mocked(readPreviewProduct).mockResolvedValue({ id: 'p1', variations: [] } as never);
+    vi.mocked(mapPreviewProduct).mockReturnValue({ id: 'p1', currency: 'BRL', images: [], fields: { name: 'Armário' },
+      attributes: { attribute_material: { name: 'Material', value: 'MDF' } } });
+    open();
+    fireEvent.click(screen.getByRole('button', { name: 'Criar' }));
+    fireEvent.change(within(screen.getByRole('dialog')).getByRole('textbox', { name: 'Nome do modelo' }), { target: { value: 'ERP' } });
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Avançar' }));
+    await screen.findByRole('heading', { name: 'ERP' });
+    await screen.findByRole('combobox', { name: 'Prévia de um produto' });
+    await waitFor(() => expect(mapPreviewProduct).toHaveBeenCalled());
+
+    fireEvent.change(screen.getByRole('combobox', { name: 'Adicionar camada' }), { target: { value: 'catalog' } });
+    fireEvent.change(screen.getByRole('combobox', { name: 'Campo do produto' }), { target: { value: 'attribute_material' } });
+    expect((screen.getByRole('combobox', { name: 'Campo do produto' }) as HTMLSelectElement).value).toBe('attribute_material');
+
+    fireEvent.change(screen.getByRole('combobox', { name: 'Adicionar camada' }), { target: { value: 'text' } });
+    const message = screen.getByRole<HTMLTextAreaElement>('textbox', { name: 'Mensagem' });
+    fireEvent.change(message, { target: { value: 'Material: ' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Adicionar campo do produto' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Material' }));
+    expect(message.value).toBe('Material: {{product.attribute_material}}');
+  });
+
   it('abre Alterar nome focando e selecionando o nome da camada ativa', async () => {
     mocks.list.mockResolvedValue({ rows: [], total: 0 });
     open();
@@ -140,6 +195,14 @@ describe('biblioteca e editor de modelos', () => {
     await waitFor(() => expect(document.activeElement).toBe(nameInput));
     expect(nameInput.selectionStart).toBe(0);
     expect(nameInput.selectionEnd).toBe(nameInput.value.length);
+    fireEvent.click(screen.getByRole('button', { name: 'Ações da camada Texto' }));
+    expect(screen.getByRole('button', { name: 'Duplicar' })).toBeTruthy();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.queryByRole('button', { name: 'Duplicar' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Adicionar campo do produto' }));
+    expect(screen.getByRole('button', { name: 'Preço' })).toBeTruthy();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.queryByRole('button', { name: 'Preço' })).toBeNull();
   });
 
   it('configura a foto do produto, os ajustes de imagem e a regra condicional', async () => {
@@ -153,7 +216,7 @@ describe('biblioteca e editor de modelos', () => {
     const imageIndex = screen.getByRole<HTMLInputElement>('spinbutton', { name: 'Número da imagem' });
     fireEvent.change(imageIndex, { target: { value: '2' } });
     fireEvent.blur(imageIndex);
-    fireEvent.click(screen.getByRole('switch', { name: /Remoção de fundo/ }));
+    fireEvent.click(screen.getByRole('switch', { name: /Remoção do fundo/ }));
     fireEvent.click(screen.getByRole('switch', { name: /Recortar para ajustar/ }));
     fireEvent.click(screen.getByRole('switch', { name: /Mostrar apenas esta camada/ }));
     fireEvent.change(screen.getByRole('combobox', { name: 'Campo da regra' }), { target: { value: 'currentPrice' } });

@@ -46,13 +46,14 @@ export function useFinanceHubData({ userProfile }: UseFinanceHubDataProps) {
     async (showLoading = true) => {
       if (showLoading) setLoadingData(true);
       try {
+        const categoriesPromise = fetchFinancialCategories();
         const [cats, sum, list] = await Promise.all([
-          fetchFinancialCategories(),
+          categoriesPromise,
           fetchMonthlySummary(selectedYear, selectedMonth),
           fetchTransactionsForMonth(selectedYear, selectedMonth, {
             type: typeFilter,
             ...advancedFilters,
-          }),
+          }, categoriesPromise),
         ]);
         setCategories(cats);
         setSummary(sum);

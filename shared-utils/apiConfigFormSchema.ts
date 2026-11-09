@@ -18,7 +18,7 @@ export const apiConfigFormSchema = z.object({
 
 export const apiConfigurationWriteSchema = apiConfigFormSchema.extend({
   service_id: z.string().trim().min(1, 'Serviço de API não identificado.'),
-  provider: z.enum(['google', 'gemini', 'meta', 'sefaz', 'brasilapi', 'expo', 'other']),
+  provider: z.enum(['google', 'openai', 'meta', 'sefaz', 'brasilapi', 'expo', 'other']),
   service_name: z.string().trim().min(1, 'Informe o nome do serviço.'),
   metric: z.string().trim().min(1), billing_unit: z.string().trim().min(1),
   criticality: z.enum(['OPTIONAL', 'IMPORTANT', 'CRITICAL']),

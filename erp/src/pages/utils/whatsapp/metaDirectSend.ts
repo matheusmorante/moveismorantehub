@@ -18,8 +18,34 @@ interface LastSendRecord {
 }
 
 const lastSendTimestamps = new Map<string, LastSendRecord>();
+const inFlightSends = new Map<string, Promise<boolean>>();
 export const RECENT_SEND_COOLDOWN_MS = 60 * 1000; // 60 segundos
 export const clearRecentSendTimestamps = () => lastSendTimestamps.clear();
+
+const getInFlightSendKey = (order: Order): string | null => {
+  const customer = order.customerData;
+  if (!customer?.phone || !order.id) return null;
+
+  const settings = getSettings();
+  const config = settings.whatsappConfig;
+  if (!config?.phoneNumberId) return null;
+
+  const message = buildCustomerOrderMessage(order);
+  const templateName = config.templateNameOrderConfirmation?.trim() || null;
+  const templateLanguage = config.templateLanguage || 'pt_BR';
+  const templateParams = buildOrderMetaTemplateParams(order, config);
+
+  return JSON.stringify([
+    String(order.id),
+    customer.phone.replace(/\D/g, ''),
+    (settings.companyPhone || '(41) 99749-3547').replace(/\D/g, ''),
+    config.phoneNumberId,
+    message,
+    templateName,
+    templateLanguage,
+    templateParams,
+  ]);
+};
 
 /**
  * Atualiza um toast existente em carregamento para o status final ou dispara um novo
@@ -66,7 +92,31 @@ function updateToastStatus(
  * O texto enviado é 100% idêntico ao texto gerado pelo botão tradicional que abre a aba do WhatsApp.
  * Aguarda a confirmação de entrega do Webhook da Meta antes de confirmar o sucesso.
  */
-export const sendDirectCustomerOrderViaMetaApi = async (order: Order): Promise<boolean> => {
+export const sendDirectCustomerOrderViaMetaApi = (order: Order): Promise<boolean> => {
+  let inFlightKey: string | null;
+  try {
+    inFlightKey = getInFlightSendKey(order);
+  } catch (error) {
+    return Promise.reject(error);
+  }
+
+  if (inFlightKey) {
+    const existingSend = inFlightSends.get(inFlightKey);
+    if (existingSend) return existingSend;
+  }
+
+  const sendPromise = sendDirectCustomerOrderViaMetaApiOnce(order);
+  if (!inFlightKey) return sendPromise;
+
+  inFlightSends.set(inFlightKey, sendPromise);
+  const clearInFlight = () => {
+    if (inFlightSends.get(inFlightKey) === sendPromise) inFlightSends.delete(inFlightKey);
+  };
+  void sendPromise.then(clearInFlight, clearInFlight);
+  return sendPromise;
+};
+
+const sendDirectCustomerOrderViaMetaApiOnce = async (order: Order): Promise<boolean> => {
   const customer = order.customerData;
   if (!customer?.phone) {
     toast.error('Cliente sem telefone cadastrado.');

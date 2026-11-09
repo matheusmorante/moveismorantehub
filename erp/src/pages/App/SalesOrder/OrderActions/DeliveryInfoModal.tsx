@@ -16,6 +16,7 @@ interface DeliveryInfoModalProps {
     action: OrderAction
   ) => void | Promise<void>;
   readonly isAdministrator?: boolean;
+  readonly isDirectApiSending?: boolean;
 }
 
 export const DeliveryInfoModal: React.FC<DeliveryInfoModalProps> = ({
@@ -26,6 +27,7 @@ export const DeliveryInfoModal: React.FC<DeliveryInfoModalProps> = ({
   staleButtons,
   onExecuteAction,
   isAdministrator = false,
+  isDirectApiSending = false,
 }) => {
   useBodyScrollLock(isOpen);
 
@@ -100,6 +102,7 @@ export const DeliveryInfoModal: React.FC<DeliveryInfoModalProps> = ({
             isAdministrator={isAdministrator}
             clickedButtons={clickedButtons}
             staleButtons={staleButtons}
+            isDirectApiSending={isDirectApiSending}
             onExecuteAction={onExecuteAction}
           />
         </div>

@@ -3,6 +3,7 @@ import type { Product, Variation } from '@/pages/types/product.type';
 import {
   createStockUnavailability,
   fetchStockUnavailabilities,
+  fetchStockUnavailabilityPhotoPaths,
   getUnavailabilityPhotoUrls,
   undoStockUnavailability,
 } from './stockUnavailabilityService';
@@ -65,7 +66,7 @@ describe('stockUnavailabilityService - fetchStockUnavailabilities', () => {
             physical_location: 'Depósito',
             status: 'active',
             observation: null,
-            photos: null,
+            photos_count: 0,
             created_at: '2026-10-01T12:00:00Z',
             products: { id: 'prod-1', name: 'Mesa', product_kind: 'normal' },
             product_variations: { name: 'Mesa Branca', sku: 'MS-BR-1' },
@@ -87,7 +88,7 @@ describe('stockUnavailabilityService - fetchStockUnavailabilities', () => {
             physical_location: 'Depósito',
             status: 'cancelled',
             observation: 'Quebrou no transporte',
-            photos: ['photo.jpg'],
+            photos_count: 1,
             created_at: '2026-10-01T11:00:00Z',
             products: { id: 'prod-2', name: 'Cadeira', product_kind: 'salvado' },
             product_variations: { name: 'Cadeira Azul', sku: 'CD-AZ-1' },
@@ -104,7 +105,7 @@ describe('stockUnavailabilityService - fetchStockUnavailabilities', () => {
             physical_location: 'Depósito',
             status: 'active',
             observation: null,
-            photos: null,
+            photos_count: 0,
             created_at: '2026-10-01T10:00:00Z',
             products: { id: 'prod-3', name: 'Armário', product_kind: null },
             product_variations: { name: 'Armário Carvalho', sku: 'AR-CV-1' },
@@ -134,9 +135,14 @@ describe('stockUnavailabilityService - fetchStockUnavailabilities', () => {
       expect.stringContaining('people:supplier_id(id,full_name,nickname,social_name)'),
       { count: 'exact' }
     );
+    expect(mockQuery.select).toHaveBeenCalledWith(
+      expect.stringContaining('photos_count:stock_unavailability_photo_count'),
+      { count: 'exact' }
+    );
+    expect(mockQuery.select.mock.calls[0][0]).not.toMatch(/(?:^|[,\s])photos(?:[,\s]|$)/);
     expect(mockQuery.order).toHaveBeenCalledWith('created_at', { ascending: false });
     expect(mockQuery.order).toHaveBeenCalledWith('id', { ascending: false });
-    expect(mockQuery.range).toHaveBeenCalledWith(0, 29);
+    expect(mockQuery.range).toHaveBeenCalledWith(0, 14);
 
     expect(result.totalCount).toBe(3);
     expect(result.data).toHaveLength(3);
@@ -154,6 +160,21 @@ describe('stockUnavailabilityService - fetchStockUnavailabilities', () => {
     expect(result.data[2].products.sku).toBe('AR-CV-1');
   });
 
+  it('loads photo paths only by record id when a preview requests them', async () => {
+    const detailQuery = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({ data: { photos: ['private/photo.jpg'] }, error: null }),
+    };
+    from.mockReturnValueOnce(detailQuery);
+
+    await expect(fetchStockUnavailabilityPhotoPaths('unavail-2')).resolves.toEqual(['private/photo.jpg']);
+
+    expect(from).toHaveBeenCalledWith('stock_unavailabilities');
+    expect(detailQuery.select).toHaveBeenCalledWith('photos');
+    expect(detailQuery.eq).toHaveBeenCalledWith('id', 'unavail-2');
+  });
+
   it('applies filters for status, productKind, and id', async () => {
     await fetchStockUnavailabilities({
       page: 2,
@@ -162,7 +183,7 @@ describe('stockUnavailabilityService - fetchStockUnavailabilities', () => {
       id: 'target-id-123',
     });
 
-    expect(mockQuery.range).toHaveBeenCalledWith(30, 59);
+    expect(mockQuery.range).toHaveBeenCalledWith(15, 29);
     expect(mockQuery.eq).toHaveBeenCalledWith('id', 'target-id-123');
     expect(mockQuery.eq).toHaveBeenCalledWith('status', 'active');
     expect(mockQuery.eq).toHaveBeenCalledWith('products.product_kind', 'salvado');

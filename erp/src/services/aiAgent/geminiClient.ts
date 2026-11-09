@@ -3,8 +3,9 @@ import { ApiUsageTracker } from '../apiMonitoring/apiUsageTracker';
 import { supabase } from '../../pages/utils/supabaseConfig';
 import { GeminiContent, GeminiTool, GeminiToolConfig } from './geminiAgentTypes';
 import { withTimeout } from '../../../../shared-utils/withTimeout';
+import { buildOpenAiAgentRequest, parseOpenAiAgentResponse } from '../../../../shared-utils/openAiAgentAdapter';
 
-// Cliente HTTP para a API Gemini v1beta com monitoramento de cotas e circuit breaker
+// Adaptador que mantém o contrato do agente e executa as chamadas pelo GPT-6 Luna.
 
 export interface GeminiGenerateRequest {
   systemInstruction?: { parts: Array<{ text: string }> };
@@ -33,9 +34,8 @@ export const setGeminiCustomTransport = (fn: GeminiTransportFn | null) => {
 export class GeminiClient {
   public static async generateContent(
     payload: GeminiGenerateRequest,
-    options: { signal?: AbortSignal; timeoutMs?: number } = {},
+    options: { signal?: AbortSignal; timeoutMs?: number; moduleSource?: string } = {},
   ): Promise<GeminiGenerateResponse> {
-    const model = 'gemini-3.8-flash';
     const startTime = Date.now();
 
     const bodyData: any = {
@@ -80,7 +80,7 @@ export class GeminiClient {
       const request = async (): Promise<GeminiGenerateResponse> => {
         checkAborted();
         if (transport) return transport(payload);
-        const guard = await ApiUsageGuard.check('gemini_flash');
+      const guard = await ApiUsageGuard.check('openai_gpt');
         checkAborted();
         if (!guard.allowed) {
           throw new Error(`[ApiUsageGuard] Chamada bloqueada: ${guard.reason}`);
@@ -90,50 +90,55 @@ export class GeminiClient {
         checkAborted();
         const accessToken = sessionData.session?.access_token;
         if (sessionError || !accessToken) throw new Error('Sessão inválida. Entre novamente.');
-        const res = await fetch('/api/gemini-proxy', {
+        const res = await fetch('/api/openai-proxy', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
-          body: JSON.stringify({ model, action: 'generateContent', payload: bodyData }),
+          body: JSON.stringify({
+            action: 'responses',
+            request: buildOpenAiAgentRequest({ ...payload, ...bodyData }),
+            moduleSource: options.moduleSource || 'financial',
+          }),
           signal: controller.signal,
         });
         httpStatus = res.status;
-        if (!res.ok) throw new Error(`Erro na API Gemini: HTTP ${res.status}.`);
-        return await res.json().catch(() => {
-          throw new Error('A API Gemini retornou uma resposta inválida.');
+        if (!res.ok) throw new Error(`Erro na API OpenAI: HTTP ${res.status}.`);
+        const result = await res.json().catch(() => {
+          throw new Error('A API OpenAI retornou uma resposta inválida.');
         });
+        return parseOpenAiAgentResponse(result);
       };
       const result = await withTimeout<GeminiGenerateResponse | typeof expired>(
         Promise.race([request(), aborted]),
         Math.max(1, Math.min(options.timeoutMs ?? 30_000, 30_000)),
         expired,
-        'assistente ERP: transporte Gemini',
+        'assistente ERP: transporte OpenAI',
       );
       if (result === expired) throw new Error('A resposta do assistente excedeu o prazo.');
       checkAborted();
       if (!transport) {
         ApiUsageTracker.record({
-          provider: 'gemini',
-          service: 'gemini_flash',
-          operation: 'generateContent',
+          provider: 'openai',
+          service: 'openai_gpt',
+          operation: 'responses',
           units: 1,
           status: 'SUCCESS',
           http_status: httpStatus,
           response_time_ms: Date.now() - startTime,
-          module_source: 'financial',
+          module_source: options.moduleSource || 'financial',
         });
       }
       return result;
     } catch (error) {
       if (!transport && guardAllowed) ApiUsageTracker.record({
-        provider: 'gemini',
-        service: 'gemini_flash',
-        operation: 'generateContent',
+        provider: 'openai',
+        service: 'openai_gpt',
+        operation: 'responses',
         units: 1,
         status: httpStatus === 429 ? 'RATE_LIMITED' : 'ERROR',
         http_status: httpStatus,
         response_time_ms: Date.now() - startTime,
-        module_source: 'financial',
-        error_message: httpStatus ? `Falha na consulta Gemini (HTTP ${httpStatus}).` : 'Consulta Gemini interrompida ou indisponível.',
+        module_source: options.moduleSource || 'financial',
+        error_message: httpStatus ? `Falha na consulta OpenAI (HTTP ${httpStatus}).` : 'Consulta OpenAI interrompida ou indisponível.',
       });
       throw error;
     } finally {

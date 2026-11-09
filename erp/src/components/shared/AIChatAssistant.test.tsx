@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({ send: vi.fn(), path: '/finance', user: { id: '
 vi.mock('@/context/AuthContext', () => ({ useAuth: () => ({ user: mocks.user }) }));
 vi.mock('react-router-dom', () => ({ useLocation: () => ({ pathname: mocks.path }) }));
 vi.mock('@/pages/utils/settingsService', () => ({ getSettings: () => ({}), subscribeToSettings: () => () => {} }));
+vi.mock('@/components/shared/confirmationService', () => ({ requestConfirmation: async (opts: { message: string }) => Boolean(window.confirm(opts.message)) }));
 vi.mock('react-toastify', () => ({ toast: { error: vi.fn() } }));
 vi.mock('@/services/aiAgent/geminiAgentService', () => ({ GeminiAgentService: { sendMessage: mocks.send } }));
 import AIChatAssistant from './AIChatAssistant';

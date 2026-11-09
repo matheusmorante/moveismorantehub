@@ -5,10 +5,11 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { mapProductPreviewSource } from './productPreviewService';
 import { TemplateProductPreview, useTemplateProductPreview } from './TemplateProductPreview';
 
-const mocks = vi.hoisted(() => ({ list: vi.fn(), read: vi.fn() }));
+const mocks = vi.hoisted(() => ({ groups: vi.fn(), list: vi.fn(), read: vi.fn() }));
 vi.mock('@/pages/utils/supabaseConfig', () => ({ supabase: {} }));
 vi.mock('./productPreviewService', async (original) => ({
-  ...(await original<typeof import('./productPreviewService')>()), listPreviewProducts: mocks.list, readPreviewProduct: mocks.read,
+  ...(await original<typeof import('./productPreviewService')>()), listPreviewProductGroups: mocks.groups,
+  listPreviewProducts: mocks.list, readPreviewProduct: mocks.read,
 }));
 
 const first = mapProductPreviewSource({ id: 'p1', name: 'Sofá', code: '101', unit_price: 100,
@@ -20,14 +21,15 @@ const first = mapProductPreviewSource({ id: 'p1', name: 'Sofá', code: '101', un
   ] });
 const second = mapProductPreviewSource({ id: 'p2', name: 'Mesa', code: '102', unit_price: 300, images: ['https://example.com/mesa.jpg'] });
 
-function Owner() {
-  const preview = useTemplateProductPreview('operator');
+function Owner({ requiredImageCount = 1 }: { requiredImageCount?: number }) {
+  const preview = useTemplateProductPreview('operator', requiredImageCount);
   return <><TemplateProductPreview preview={preview} disabled={false} />
     <output data-testid="preview">{preview.product ? JSON.stringify({ name: preview.product.fields.name,
       price: preview.product.fields.currentPrice, image: preview.product.images[0] }) : ''}</output></>;
 }
 
 beforeEach(() => {
+  mocks.groups.mockReset().mockResolvedValue([{ id: 'cat-1', name: 'Móveis' }]);
   mocks.list.mockReset().mockResolvedValue({ rows: [
     { id: 'p1', name: 'Sofá', code: '101', active: true }, { id: 'p2', name: 'Mesa', code: '102', active: true },
   ], total: 2 });
@@ -52,4 +54,25 @@ it('seleciona produto e variação do ERP e pesquisa após três caracteres', as
   expect(mocks.list.mock.calls.some((call) => call[1] === 'so')).toBe(false);
   fireEvent.change(screen.getByRole('searchbox', { name: 'Pesquisar produtos' }), { target: { value: 'sof' } });
   await waitFor(() => expect(mocks.list).toHaveBeenCalledWith(1, 'sof', expect.any(AbortSignal)));
+});
+
+it('solicita fotos até o índice máximo usado pelas camadas do formato', async () => {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  render(<QueryClientProvider client={client}><Owner requiredImageCount={12} /></QueryClientProvider>);
+  await screen.findByRole('combobox', { name: 'Variação' });
+  await waitFor(() => expect(mocks.read).toHaveBeenCalledWith('p1', expect.any(AbortSignal), 12));
+});
+
+it('filtra os produtos da prévia por categoria do ERP', async () => {
+  mocks.list.mockReset().mockImplementation(async (_page: number, _search: string, _signal: AbortSignal, categoryId?: string) =>
+    categoryId ? { rows: [{ id: 'p2', name: 'Mesa', code: '102', active: true }], total: 1 }
+      : { rows: [{ id: 'p1', name: 'Sofá', code: '101', active: true }, { id: 'p2', name: 'Mesa', code: '102', active: true }], total: 2 });
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  render(<QueryClientProvider client={client}><Owner /></QueryClientProvider>);
+  const group = await screen.findByRole<HTMLSelectElement>('combobox', { name: 'Conjunto de produtos' });
+  await screen.findByRole('combobox', { name: 'Variação' });
+  fireEvent.change(group, { target: { value: 'cat-1' } });
+  await waitFor(() => expect(mocks.list).toHaveBeenCalledWith(1, '', expect.any(AbortSignal), 'cat-1'));
+  await waitFor(() => expect((screen.getByRole('combobox', { name: 'Prévia de um produto' }) as HTMLSelectElement).value).toBe('p2'));
+  await waitFor(() => expect(screen.getByTestId('preview').textContent).toContain('mesa.jpg'));
 });

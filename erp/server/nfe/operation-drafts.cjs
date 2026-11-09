@@ -1126,9 +1126,9 @@ function parseBlock(xml, expected) {
   }).parseFromString(`<wrapper xmlns="${namespace}">${xml}</wrapper>`, "application/xml");
   if (parseError || !document?.documentElement)
     throw new Error(`Bloco ${expected} n\xE3o \xE9 XML v\xE1lido.`);
-  const children = Array.from(document.documentElement.childNodes);
-  const elements = children.filter((child) => child.nodeType === 1);
-  if (elements.length !== 1 || children.some((child) => child.nodeType === 3 && child.textContent?.trim())) {
+  const children2 = Array.from(document.documentElement.childNodes);
+  const elements = children2.filter((child2) => child2.nodeType === 1);
+  if (elements.length !== 1 || children2.some((child2) => child2.nodeType === 3 && child2.textContent?.trim())) {
     throw new Error(`Bloco ${expected} deve conter apenas um elemento.`);
   }
   const element = elements[0];
@@ -1166,9 +1166,9 @@ function parseElement(xml, expectedName) {
 }
 function findElement(root, name) {
   if (root.localName === name) return root;
-  for (const child of Array.from(root.childNodes)) {
-    if (child.nodeType !== 1) continue;
-    const found = findElement(child, name);
+  for (const child2 of Array.from(root.childNodes)) {
+    if (child2.nodeType !== 1) continue;
+    const found = findElement(child2, name);
     if (found) return found;
   }
   return null;
@@ -1218,9 +1218,9 @@ function buildProportionalReturnTaxesXml(originalTaxesXml, quantity, originalQua
   const taxes = parseElement(originalTaxesXml, "imposto");
   const factor = quantity / originalQuantity;
   const scaleTags = (element) => {
-    for (const child of Array.from(element.childNodes)) {
-      if (child.nodeType !== 1) continue;
-      const childElement = child;
+    for (const child2 of Array.from(element.childNodes)) {
+      if (child2.nodeType !== 1) continue;
+      const childElement = child2;
       const childName = childElement.localName || "";
       const isNumericLeaf = !Array.from(childElement.childNodes).some(
         (node) => node.nodeType === 1
@@ -1513,6 +1513,18 @@ async function loadReturnFiscalSourceContext(db, originalDocumentId, returnOrder
     }
   };
 }
+
+// shared-utils/fiscalIcmsGroups.ts
+var CSOSN_CODES = ["101", "102", "103", "201", "202", "203", "300", "400", "500", "900"];
+
+// shared-utils/fiscalItemSelections.ts
+var csosns = new Set(CSOSN_CODES);
+
+// api/nfe/fiscalXmlAuditDom.ts
+var import_xmldom3 = require("@xmldom/xmldom");
+
+// api/nfe/fiscalXmlSignatureAudit.ts
+var import_xml_crypto = require("xml-crypto");
 
 // api/nfe/operation-draft/draftValidation.ts
 function validateEstornoDraftReviewItems(params) {

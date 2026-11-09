@@ -1,92 +1,18 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { requestConfirmation } from '@/components/shared/confirmationService';
-import { z } from 'zod';
-import {
-  supportChatComposerDraftSchema,
-  supportOrderDocumentSchema,
-  type SupportChatComposerDraft,
-  type SupportOrderDocumentInput,
-} from '../../../../../../../shared-utils/customerSupportFormSchemas';
-import type { ProductCatalogPrepareInput } from '../../../../../../../shared-utils/productCatalogFormSchemas';
-import type { WhatsAppConversation, WhatsAppMessage } from '../../types';
-import { ProductCatalogPanel } from '@/components/catalog/ProductCatalogPanel';
-import NewSaleOrder from '@/pages/App/SalesOrder/pages/NewSaleOrder';
-import { getSettings } from '@/pages/utils/settingsService';
-import { supabase } from '@/pages/utils/supabaseConfig';
-import {
-  formatDate,
-  getCustomerOrders,
-  type SupportOrderSummary,
-} from '@/pages/utils/customerSupport/supportOrdersService';
-import type {
-  CustomerSupportSendInput,
-  CustomerSupportSendResult,
-} from '@/pages/utils/customerSupport/customerSupportService';
+import React from 'react';
 import { ChatAudioRecordingControls, RecordedAudioPreview } from './ChatAudioRecordingPanels';
+import { ChatComposerStatus } from './ChatComposerStatus';
 import { ChatInternalCommentsPanel } from './ChatInternalCommentsPanel';
 import { ChatComposerAttachmentList } from './ChatComposerAttachmentList';
-import { ChatComposerAttachmentMenu } from './ChatComposerAttachmentMenu';
-import { createChatAudioRecordingActions } from './chatComposerAudioRecording';
-import { toCatalogSendSelection } from './chatComposerCatalogSelection';
+import { ChatComposerInputBar } from './ChatComposerInputBar';
+import { ChatComposerTestModeBanner } from './ChatComposerTestModeBanner';
+import { ChatComposerModals } from './ChatComposerModals';
+import { useChatComposerController } from './useChatComposerController';
 import {
-  CHAT_COMPOSER_UNSUPPORTED_AUDIO_ERROR,
-  getChatComposerSendPreflightError,
-  isSupportedChatComposerAudioMimeType,
-} from './chatComposerSendValidation';
-import {
-  MAX_ATTACHMENTS,
-  normalizedFileType,
-  prepareChatComposerFileAttachments,
-} from './chatComposerAttachmentFiles';
-import type { ChatComposerAttachment as SupportChatComposerAttachment } from './chatComposerAttachmentFiles';
-import { SupportOrderPickerDialog } from './SupportOrderPickerDialog';
-import {
-  createOrderSummaryPdf,
-  formatSupportOrderMoney,
-  isQuoteOrder,
-} from './supportOrderSummaryPdf';
-import { useChatComposerDraftLifecycle } from './useChatComposerDraftLifecycle';
+  type ChatComposerProps,
+  EMPTY_CONVERSATION,
+} from './chatComposerTypes';
 
-type InsertedSnippet = { id: number; text: string };
-
-interface ChatComposerProps {
-  conversation?: WhatsAppConversation;
-  displayName?: string;
-  canSend?: boolean;
-  canShareCommercialInfo?: boolean;
-  canCreateOrders?: boolean;
-  shareOrderRequest?: { record: SupportOrderSummary; requestId: string } | null;
-  onShareOrderRequestHandled?: (requestId: string) => void;
-  careWindowOpen?: boolean;
-  isChannelConnected?: boolean;
-  onSendCustomerMessage?: (input: CustomerSupportSendInput) => Promise<CustomerSupportSendResult>;
-  onRefreshMessages?: () => Promise<void> | void;
-  replyTarget?: WhatsAppMessage | null;
-  onClearReplyTarget?: () => void;
-  composerMode?: 'whatsapp' | 'comment';
-  onComposerModeChange?: (mode: 'whatsapp' | 'comment') => void;
-  insertedSnippet?: InsertedSnippet | null;
-  onAddInternalNote?: (text: string) => Promise<boolean | void>;
-  internalComments?: WhatsAppMessage[];
-  onOpenSnippets: () => void;
-  catalogSpaceRef?: React.RefObject<HTMLElement | null>;
-}
-
-const EMOJIS = ['😀', '😊', '😍', '👍', '🙏', '❤️', '✨', '😉', '🎉', '👋', '😄', '🛋️'];
-const makeId = () => globalThis.crypto?.randomUUID?.()
-  || `draft-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
-
-const formatDuration = (seconds: number) =>
-  `${Math.floor(seconds / 60).toString().padStart(2, '0')}:${(seconds % 60).toString().padStart(2, '0')}`;
-
-const EMPTY_CONVERSATION = {
-  id: '', businessPhoneNumberId: '', contactPhone: '', contactWaId: '', contactName: null,
-  customerId: null, customerLinkStatus: 'unlinked' as const, lastMessageText: null,
-  lastMessageAt: '', lastCustomerMessageAt: null, unreadCount: 0, isArchived: true,
-  internalNotes: null, tags: [], assignedTo: null, createdAt: '', updatedAt: '',
-} as WhatsAppConversation;
+export type { ChatComposerProps };
 
 export const ChatComposer: React.FC<ChatComposerProps> = ({
   conversation = EMPTY_CONVERSATION,
@@ -102,652 +28,151 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
   onRefreshMessages,
   replyTarget = null,
   onClearReplyTarget,
-  composerMode = 'whatsapp',
+  composerMode: composerModeProp = 'whatsapp',
   onComposerModeChange,
   insertedSnippet,
   onAddInternalNote,
   internalComments = [],
   onOpenSnippets,
-  catalogSpaceRef,
 }) => {
-  const setComposerMode = onComposerModeChange || (() => undefined);
-  const [isAttachmentMenuOpen, setIsAttachmentMenuOpen] = useState(false);
-  const [isEmojiMenuOpen, setIsEmojiMenuOpen] = useState(false);
-  const [isCatalogOpen, setIsCatalogOpen] = useState(false);
-  const [newOrderType, setNewOrderType] = useState<'sale' | 'budget' | null>(null);
-  const [isOrderPickerOpen, setIsOrderPickerOpen] = useState(false);
-  const [isLoadingOrders, setIsLoadingOrders] = useState(false);
-  const [orders, setOrders] = useState<SupportOrderSummary[]>([]);
-  const [ordersError, setOrdersError] = useState('');
-  const [orderFilter, setOrderFilter] = useState<'all' | 'orders' | 'quotes'>('all');
-  const [isRecording, setIsRecording] = useState(false);
-  const [isRecordingPaused, setIsRecordingPaused] = useState(false);
-  const [recordingSeconds, setRecordingSeconds] = useState(0);
-  const [recordingError, setRecordingError] = useState('');
-  const [sendError, setSendError] = useState('');
-  const [sendFeedback, setSendFeedback] = useState('');
-  const [isOutcomeUncertain, setIsOutcomeUncertain] = useState(false);
-  const [isRefreshingForRetry, setIsRefreshingForRetry] = useState(false);
-  const [isSending, setIsSending] = useState(false);
-  const [selectedOrderId, setSelectedOrderId] = useState('');
-  const [isCreatingOrderPdf, setIsCreatingOrderPdf] = useState(false);
-  const requestedOrderRef = useRef<SupportOrderSummary | null>(null);
-  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
-  const photoInputRef = useRef<HTMLInputElement | null>(null);
-  const documentInputRef = useRef<HTMLInputElement | null>(null);
-  const attachmentMenuRef = useRef<HTMLDivElement | null>(null);
-  const emojiMenuRef = useRef<HTMLDivElement | null>(null);
-  const objectUrlsRef = useRef(new Set<string>());
-  const fileByAttachmentIdRef = useRef(new Map<string, File>());
-  const recordingRef = useRef<MediaRecorder | null>(null);
-  const recordingStreamRef = useRef<MediaStream | null>(null);
-  const recordingChunksRef = useRef<Blob[]>([]);
-  const currentAudioAttachmentRef = useRef<string | null>(null);
-  const isSendingRef = useRef(false);
-  const [audioPreview, setAudioPreview] = useState<{ url: string; type: string; name: string } | null>(null);
-
   const {
-    register: registerDraft,
-    handleSubmit: handleDraftSubmit,
-    watch: watchDraft,
-    setValue: setDraftValue,
-    setError: setDraftError,
-    clearErrors: clearDraftErrors,
-    formState: { errors: draftErrors, isSubmitting: isDraftSubmitting },
-  } = useForm<z.input<typeof supportChatComposerDraftSchema>, unknown, SupportChatComposerDraft>({
-    resolver: zodResolver(supportChatComposerDraftSchema),
-    defaultValues: { message: '', attachments: [] },
-  });
-  const message = watchDraft('message');
-  const attachments = watchDraft('attachments');
-  const sendAllowed = canSend && careWindowOpen && isChannelConnected && Boolean(onSendCustomerMessage) && !isOutcomeUncertain;
-
-  useEffect(() => {
-    if (replyTarget && composerMode === 'whatsapp') requestAnimationFrame(() => textareaRef.current?.focus());
-  }, [replyTarget?.id, composerMode]);
-
-  const {
-    setValue: setOrderValue,
-    handleSubmit: submitOrderForm,
-    formState: { errors: orderErrors },
-  } = useForm<SupportOrderDocumentInput>({
-    resolver: zodResolver(supportOrderDocumentSchema),
-    defaultValues: { orderId: '' },
-  });
-
-  useEffect(() => {
-    if (!shareOrderRequest || !canSend || !canShareCommercialInfo) return;
-    const { record, requestId } = shareOrderRequest;
-    requestedOrderRef.current = record;
-    setOrders((current) => [record, ...current.filter((order) => order.id !== record.id)]);
-    setOrderFilter(isQuoteOrder(record) ? 'quotes' : 'orders');
-    setSelectedOrderId(record.id);
-    setOrderValue('orderId', record.id, { shouldDirty: true, shouldValidate: true });
-    setOrdersError('');
-    setIsOrderPickerOpen(true);
-    onShareOrderRequestHandled?.(requestId);
-  }, [canSend, canShareCommercialInfo, onShareOrderRequestHandled, setOrderValue, shareOrderRequest]);
-
-  useEffect(() => {
-    const textarea = textareaRef.current;
-    if (!textarea) return;
-    textarea.style.height = 'auto';
-    textarea.style.height = `${Math.min(textarea.scrollHeight, 160)}px`;
-  }, [message]);
-
-  useChatComposerDraftLifecycle({
-    objectUrlsRef,
-    fileByAttachmentIdRef,
-    recordingStreamRef,
-    isRecording,
-    isRecordingPaused,
-    setRecordingSeconds,
-    audioPreview,
-  });
-
-  useEffect(() => {
-    if (!isAttachmentMenuOpen && !isEmojiMenuOpen) return;
-    const closeOutside = (event: PointerEvent) => {
-      const target = event.target as Node;
-      if (!attachmentMenuRef.current?.contains(target)) {
-        setIsAttachmentMenuOpen(false);
-      }
-      if (!emojiMenuRef.current?.contains(target)) {
-        setIsEmojiMenuOpen(false);
-      }
-    };
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        setIsAttachmentMenuOpen(false);
-        setIsEmojiMenuOpen(false);
-      }
-    };
-    document.addEventListener('pointerdown', closeOutside);
-    document.addEventListener('keydown', closeOnEscape);
-    return () => {
-      document.removeEventListener('pointerdown', closeOutside);
-      document.removeEventListener('keydown', closeOnEscape);
-    };
-  }, [isAttachmentMenuOpen, isEmojiMenuOpen]);
-
-  useEffect(() => {
-    if (!insertedSnippet?.text) return;
-    setComposerMode('whatsapp');
-    const current = watchDraft('message') || '';
-    const next = current.trim() ? `${current.replace(/\s+$/, '')}\n${insertedSnippet.text}` : insertedSnippet.text;
-    setDraftValue('message', next, { shouldDirty: true, shouldValidate: true });
-    requestAnimationFrame(() => textareaRef.current?.focus());
-  }, [insertedSnippet?.id]);
-
-  useEffect(() => {
-    if (!isOrderPickerOpen || !conversation.customerId) return;
-    let active = true;
-    setOrders([]);
-    setOrdersError('');
-    setIsLoadingOrders(true);
-    getCustomerOrders(supabase, conversation.customerId, orderFilter)
-      .then((data) => {
-        if (!active) return;
-        const requestedOrder = requestedOrderRef.current;
-        setOrders(requestedOrder
-          ? [requestedOrder, ...data.filter((order) => order.id !== requestedOrder.id)]
-          : data);
-      })
-      .catch(() => { if (active) setOrdersError('Não foi possível carregar os documentos deste cliente.'); })
-      .finally(() => { if (active) setIsLoadingOrders(false); });
-    return () => { active = false; };
-  }, [isOrderPickerOpen, conversation.customerId, orderFilter]);
-
-  const currentAttachments = () => watchDraft('attachments') || [];
-  const releaseAttachment = (attachment: SupportChatComposerAttachment | undefined) => {
-    if (!attachment) return;
-    fileByAttachmentIdRef.current.delete(attachment.id);
-    if ('previewUrl' in attachment && attachment.previewUrl) {
-      URL.revokeObjectURL(attachment.previewUrl);
-      objectUrlsRef.current.delete(attachment.previewUrl);
-    }
-    if (attachment.id === currentAudioAttachmentRef.current) currentAudioAttachmentRef.current = null;
-    if (audioPreview?.url && 'previewUrl' in attachment && attachment.previewUrl === audioPreview.url) {
-      setAudioPreview(null);
-    }
-  };
-
-  const appendAttachments = (nextAttachments: SupportChatComposerAttachment[], files: Map<string, File> = new Map()) => {
-    const next = [...currentAttachments(), ...nextAttachments];
-    if (next.length > MAX_ATTACHMENTS) {
-      nextAttachments.forEach(releaseAttachment);
-      setDraftError('attachments', { type: 'max', message: `O rascunho aceita até ${MAX_ATTACHMENTS} anexos.` });
-      return false;
-    }
-    files.forEach((file, id) => fileByAttachmentIdRef.current.set(id, file));
-    clearDraftErrors(['attachments', 'message']);
-    setDraftValue('attachments', next, { shouldDirty: true, shouldValidate: true });
-    setSendError('');
-    setSendFeedback('');
-    return true;
-  };
-
-  const removeAttachment = (attachmentId: string) => {
-    const current = currentAttachments();
-    const removed = current.find((attachment) => attachment.id === attachmentId);
-    releaseAttachment(removed);
-    setDraftValue('attachments', current.filter((attachment) => attachment.id !== attachmentId), {
-      shouldDirty: true,
-      shouldValidate: true,
-    });
-    setSendFeedback('');
-  };
-
-  const addFiles = (incoming: FileList | File[], kind: 'media' | 'document', customKind?: 'order' | 'quote'): boolean => {
-    if (!incoming.length) return false;
-    const { additions, fileMap, validationMessages } = prepareChatComposerFileAttachments(
-      incoming,
-      kind,
-      customKind,
-      makeId,
-      (url) => objectUrlsRef.current.add(url),
-    );
-    const wasAdded = additions.length > 0 && appendAttachments(additions, fileMap);
-    if (validationMessages.length) setSendError(validationMessages.slice(0, 2).join(' '));
-    if (kind === 'media' && photoInputRef.current) photoInputRef.current.value = '';
-    if (kind === 'document' && documentInputRef.current) documentInputRef.current.value = '';
-    return wasAdded;
-  };
-
-  const addStoreContact = () => {
-    const settings = getSettings();
-    const phone = String(settings.companyPhone || '').replace(/\D/g, '');
-    const name = String(settings.companyName || 'Móveis Morante').trim();
-    if (!/^\d{10,15}$/.test(phone)) {
-      setSendError('Cadastre um telefone comercial válido nas configurações da empresa para compartilhar o contato.');
-      setIsAttachmentMenuOpen(false);
-      return;
-    }
-    appendAttachments([{
-      kind: 'contact',
-      id: makeId(),
-      label: name,
-      detail: `+${phone}`,
-      contactName: name,
-      contactPhone: phone,
-    }]);
-    setIsAttachmentMenuOpen(false);
-  };
-
-  const addBusinessDocument = async (data: SupportOrderDocumentInput) => {
-    if (isCreatingOrderPdf) return;
-    const order = orders.find((item) => item.id === data.orderId)
-      || (requestedOrderRef.current?.id === data.orderId ? requestedOrderRef.current : undefined);
-    if (!order) {
-      setOrdersError('Selecione um documento disponível.');
-      return;
-    }
-    setIsCreatingOrderPdf(true);
-    try {
-      const blob = await createOrderSummaryPdf(order, displayName, getSettings().companyName || 'Móveis Morante');
-      const quote = isQuoteOrder(order);
-      const prefix = quote ? 'Orcamento' : 'Pedido';
-      const fileName = `${prefix}-${order.orderNumber.replace(/[^a-zA-Z0-9_-]/g, '-')}.pdf`;
-      const file = new File([blob], fileName, { type: 'application/pdf' });
-      const wasAdded = addFiles([file], 'document', quote ? 'quote' : 'order');
-      if (!wasAdded) {
-        setOrdersError('Não foi possível adicionar o PDF ao rascunho. Remova alguns anexos e tente novamente.');
-        return;
-      }
-      if (requestedOrderRef.current?.id === order.id) requestedOrderRef.current = null;
-      setIsOrderPickerOpen(false);
-      setSelectedOrderId('');
-    } catch {
-      setOrdersError('Não foi possível preparar o resumo em PDF. Tente novamente.');
-    } finally {
-      setIsCreatingOrderPdf(false);
-    }
-  };
-  const submitOrderDocument = submitOrderForm(addBusinessDocument, () => {
-    setOrdersError('Selecione um pedido ou orçamento antes de preparar o PDF.');
-  });
-
-  const insertEmoji = (emoji: string) => {
-    const textarea = textareaRef.current;
-    const start = textarea?.selectionStart ?? message.length;
-    const end = textarea?.selectionEnd ?? message.length;
-    const nextMessage = `${message.slice(0, start)}${emoji}${message.slice(end)}`;
-    setDraftValue('message', nextMessage, { shouldDirty: true, shouldValidate: true });
-    setIsEmojiMenuOpen(false);
-    requestAnimationFrame(() => {
-      textareaRef.current?.focus();
-      textareaRef.current?.setSelectionRange(start + emoji.length, start + emoji.length);
-    });
-  };
-
-  const {
-    cancelRecording,
-    startRecording,
-    stopRecording,
-    toggleRecordingPause,
-  } = createChatAudioRecordingActions({
-    recordingRef,
-    recordingStreamRef,
-    recordingChunksRef,
-    currentAudioAttachmentRef,
-    objectUrlsRef,
-    recordingSeconds,
-    setIsRecording,
-    setIsRecordingPaused,
-    setRecordingSeconds,
-    setRecordingError,
-    setSendError,
-    setAudioPreview,
-    makeId,
-    formatDuration,
+    composerMode,
+    setComposerMode,
+    isCatalogOpen,
+    setIsCatalogOpen,
+    newOrderType,
+    setNewOrderType,
+    message,
+    attachments,
+    registerDraft,
+    handleSendDraft,
+    draftErrors,
+    isDraftSubmitting,
+    textareaRef,
+    insertEmoji,
+    photoInputRef,
+    documentInputRef,
+    releaseAttachment,
     removeAttachment,
-    appendAttachments,
+    addFiles,
+    addStoreContact,
+    addCatalogSelection,
+    sendControl,
+    orderPicker,
+    audioRecording,
+  } = useChatComposerController({
+    conversation,
+    displayName,
+    canSend,
+    canShareCommercialInfo,
+    canCreateOrders,
+    shareOrderRequest,
+    onShareOrderRequestHandled,
+    careWindowOpen,
+    isChannelConnected,
+    onSendCustomerMessage,
+    onRefreshMessages,
+    replyTarget,
+    onClearReplyTarget,
+    composerModeProp,
+    onComposerModeChange,
+    insertedSnippet,
   });
-
-  const addCatalogSelection = (selection: ProductCatalogPrepareInput, catalogUrl: string | null) => {
-    appendAttachments([{
-      kind: 'catalog',
-      id: makeId(),
-      selection,
-      ...(catalogUrl ? { catalogUrl } : {}),
-    }]);
-    setIsCatalogOpen(false);
-  };
-
-  const handleRefreshAfterUncertainSend = async () => {
-    if (!onRefreshMessages || isRefreshingForRetry) return;
-    setIsRefreshingForRetry(true);
-    try {
-      await onRefreshMessages();
-      setIsOutcomeUncertain(false);
-      setSendError('Histórico atualizado. Confira se a última mensagem apareceu antes de tentar enviar novamente.');
-    } catch {
-      setSendError('Não foi possível atualizar o histórico. Tente atualizar novamente antes de reenviar.');
-    } finally {
-      setIsRefreshingForRetry(false);
-    }
-  };
-
-  const handleSendDraft = handleDraftSubmit(async (draft) => {
-    if (isSendingRef.current) return;
-    if (!sendAllowed || !onSendCustomerMessage) {
-      setSendError(!canSend
-        ? 'Seu perfil não tem permissão para enviar mensagens pela Central.'
-        : !careWindowOpen
-          ? 'A janela de atendimento de 24 horas está fechada.'
-          : !isChannelConnected
-            ? 'O canal WhatsApp desta conversa está desconectado.'
-            : 'O envio está indisponível para esta conversa.');
-      return;
-    }
-    const startCount = draft.attachments.reduce((total, attachment) => {
-      if (attachment.kind === 'catalog') return total + (attachment.selection.bulkScope?.total || attachment.selection.items.length);
-      return total + 1;
-    }, 0);
-    if (startCount > 10 && !await requestConfirmation({
-      title: 'Enviar mais de 10 itens?',
-      message: `Você está prestes a enviar conteúdo sobre ${startCount} itens. Deseja continuar?`,
-      confirmLabel: 'Enviar',
-      type: 'warning',
-    })) return;
-
-    // Valida o lote inteiro antes da primeira chamada externa para evitar envios parciais previsíveis.
-    const preflightError = getChatComposerSendPreflightError(draft, fileByAttachmentIdRef.current);
-    if (preflightError) {
-      setSendError(preflightError);
-      return;
-    }
-
-    isSendingRef.current = true;
-    setIsSending(true);
-    setSendError('');
-    setSendFeedback('');
-    let pendingText = draft.message.trim();
-    let pendingReplyToWamid = replyTarget?.apiMessageId || undefined;
-    let replyWasSent = false;
-    let hadWarning = false;
-    const acceptResult = (result: CustomerSupportSendResult) => {
-      if (!result.persisted || result.warning) {
-        hadWarning = true;
-        setSendFeedback(result.warning || 'A Meta aceitou a mensagem. Atualize o histórico para conferir o registro.');
-      }
-    };
-    const sendMessage = async (input: CustomerSupportSendInput) => {
-      const result = await onSendCustomerMessage({
-        ...input,
-        ...(pendingReplyToWamid ? { replyToWamid: pendingReplyToWamid } : {}),
-      });
-      acceptResult(result);
-      if (pendingReplyToWamid) {
-        pendingReplyToWamid = undefined;
-        replyWasSent = true;
-      }
-      return result;
-    };
-    const sendText = async (text: string) => {
-      await sendMessage({ message: text });
-      pendingText = '';
-      setDraftValue('message', '', { shouldDirty: true, shouldValidate: false });
-    };
-
-    try {
-      if (draft.attachments.length === 0) {
-        await sendText(pendingText);
-      } else {
-        for (const attachment of draft.attachments) {
-          if (attachment.kind === 'catalog') {
-            await sendMessage({
-              message: pendingText,
-              catalogSelection: toCatalogSendSelection(attachment.selection),
-            });
-            pendingText = '';
-            setDraftValue('message', '', { shouldDirty: true, shouldValidate: false });
-            removeAttachment(attachment.id);
-            continue;
-          }
-
-          if (attachment.kind === 'contact') {
-            if (pendingText) await sendText(pendingText);
-            await sendMessage({
-              message: '',
-              contact: { name: attachment.contactName || attachment.label, phone: attachment.contactPhone || '' },
-            });
-            removeAttachment(attachment.id);
-            continue;
-          }
-
-          const file = fileByAttachmentIdRef.current.get(attachment.id);
-          if (!file) throw new Error(`O arquivo “${attachment.label}” não está mais disponível. Remova e anexe novamente.`);
-          const fileInfo = normalizedFileType(file);
-          if (!fileInfo) throw new Error(`O formato de “${attachment.label}” não é aceito pelo WhatsApp.`);
-          if (fileInfo.label === 'Áudio' && !isSupportedChatComposerAudioMimeType(fileInfo.mimeType)) {
-            throw new Error(CHAT_COMPOSER_UNSUPPORTED_AUDIO_ERROR);
-          }
-          const supportsCaption = fileInfo.label !== 'Áudio';
-          if (!supportsCaption && pendingText) await sendText(pendingText);
-          await sendMessage({
-            message: supportsCaption ? pendingText : '',
-            file,
-          });
-          if (supportsCaption) {
-            pendingText = '';
-            setDraftValue('message', '', { shouldDirty: true, shouldValidate: false });
-          }
-          removeAttachment(attachment.id);
-        }
-        if (pendingText) await sendText(pendingText);
-      }
-      setSendError('');
-      if (replyWasSent) onClearReplyTarget?.();
-      if (!hadWarning) setSendFeedback('Mensagem enviada.');
-      try {
-        await onRefreshMessages?.();
-      } catch {
-        if (!hadWarning) setSendFeedback('Mensagem enviada. Não foi possível atualizar o histórico automaticamente; atualize a conversa para conferir.');
-      }
-    } catch (error) {
-      const messageText = error instanceof Error ? error.message : 'Não foi possível enviar a mensagem.';
-      const outcomeUncertain = Boolean((error as { outcomeUncertain?: unknown })?.outcomeUncertain);
-      setIsOutcomeUncertain(outcomeUncertain);
-      setSendError(messageText);
-      setSendFeedback('');
-    } finally {
-      setIsSending(false);
-      isSendingRef.current = false;
-    }
-  });
-
-  const messageField = registerDraft('message');
-  const effectiveSendDisabled = isDraftSubmitting || isSending || !sendAllowed;
-  const quickReplyAction = () => {
-    setIsAttachmentMenuOpen(false);
-    onOpenSnippets();
-  };
 
   return (
-    <div className="shrink-0 border-t border-slate-200/80 bg-white/95 p-3 transition-colors dark:border-slate-800 dark:bg-slate-900/95">
-      <ChatInternalCommentsPanel
-        isActive={composerMode === 'comment'}
-        canShareCommercialInfo={canShareCommercialInfo}
-        internalNotes={conversation.internalNotes}
-        internalComments={internalComments}
-        onAddInternalNote={onAddInternalNote}
-        onReturnToChat={() => setComposerMode('whatsapp')}
-        onQuickReply={quickReplyAction}
+    <div className="relative border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 select-text">
+      {/* Indicadores de Status e Mensagens de Erro/Incerteza */}
+      <ChatComposerStatus
+        sendError={sendControl.sendError}
+        sendFeedback={sendControl.sendFeedback}
+        recordingError={audioRecording.recordingError}
+        draftErrorMessage={draftErrors.message?.message}
+        draftErrorAttachments={draftErrors.attachments?.message}
+        isOutcomeUncertain={sendControl.isOutcomeUncertain}
+        isRefreshingForRetry={sendControl.isRefreshingForRetry}
+        onRefreshAfterUncertainSend={sendControl.handleRefreshAfterUncertainSend}
       />
-      {composerMode !== 'comment' && (
-        <div className="flex flex-col gap-2">
-          {replyTarget && (
-            <div className="flex items-center gap-3 rounded-xl border-l-4 border-emerald-600 bg-emerald-50 px-3 py-2 dark:bg-emerald-950/30">
-              <div className="min-w-0 flex-1">
-                <p className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300">
-                  Respondendo a {replyTarget.direction === 'inbound' ? displayName : replyTarget.authorName || 'Atendente'}
-                </p>
-                <p className="truncate text-xs text-slate-600 dark:text-slate-300">
-                  {replyTarget.textContent || replyTarget.mediaCaption || replyTarget.mediaFilename ||
-                    (replyTarget.messageType === 'image' ? 'Foto' : replyTarget.messageType === 'video' ? 'Vídeo' : replyTarget.messageType === 'audio' ? 'Áudio' : replyTarget.messageType === 'document' ? 'Documento' : 'Mensagem')}
-                </p>
-              </div>
-              <button type="button" onClick={onClearReplyTarget} aria-label="Cancelar resposta" title="Cancelar resposta" className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-slate-500 hover:bg-white hover:text-slate-800 dark:hover:bg-slate-800 dark:hover:text-white">
-                <i className="bi bi-x-lg text-xs" />
-              </button>
-            </div>
-          )}
-          <form onSubmit={(event) => { event.preventDefault(); void handleSendDraft(); }} className={`relative flex items-end gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm dark:border-slate-700 dark:bg-slate-850 ${isRecording ? 'hidden' : ''}`}>
-            <input ref={photoInputRef} type="file" accept="image/jpeg,image/png,video/mp4,video/3gpp,.jpg,.jpeg,.png,.mp4,.3gp" multiple className="hidden" onChange={(event) => addFiles(event.target.files || [], 'media')} />
-            <input ref={documentInputRef} type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.aac,.m4a,.mp3,.amr,.ogg,application/pdf,text/plain,audio/aac,audio/mp4,audio/mpeg,audio/amr,audio/ogg" multiple className="hidden" onChange={(event) => addFiles(event.target.files || [], 'document')} />
 
-            <ChatComposerAttachmentMenu
-              menuRef={attachmentMenuRef}
-              isOpen={isAttachmentMenuOpen}
-              canShareCommercialInfo={canShareCommercialInfo}
-              canCreateOrders={canCreateOrders}
-              hasCustomer={Boolean(conversation.customerId)}
-              onToggle={() => {
-                setIsAttachmentMenuOpen((open) => !open);
-                setIsEmojiMenuOpen(false);
-              }}
-              onOpenCatalog={() => {
-                setIsAttachmentMenuOpen(false);
-                setIsCatalogOpen(true);
-              }}
-              onChooseMedia={() => {
-                setIsAttachmentMenuOpen(false);
-                photoInputRef.current?.click();
-              }}
-              onChooseDocument={() => {
-                setIsAttachmentMenuOpen(false);
-                documentInputRef.current?.click();
-              }}
-              onOpenOrderPicker={() => {
-                setIsAttachmentMenuOpen(false);
-                setIsOrderPickerOpen(true);
-              }}
-              onNewSalesOrder={() => {
-                setIsAttachmentMenuOpen(false);
-                setNewOrderType('sale');
-              }}
-              onNewBudget={() => {
-                setIsAttachmentMenuOpen(false);
-                setNewOrderType('budget');
-              }}
-              onAddStoreContact={addStoreContact}
-              onOpenSnippets={quickReplyAction}
-            />
+      {/* Faixa indicadora de ambiente de teste */}
+      <ChatComposerTestModeBanner canSend={canSend} />
 
-            <div className="min-w-0 flex-1 py-1">
-              {attachments.length > 0 && (
-                <ChatComposerAttachmentList
-                  attachments={attachments}
-                  onRemove={removeAttachment}
-                />
-              )}
-
-              {audioPreview && (
-                <RecordedAudioPreview audioUrl={audioPreview.url} onDiscard={cancelRecording} />
-              )}
-
-              <textarea
-                {...messageField}
-                ref={(element) => { messageField.ref(element); textareaRef.current = element; }}
-                rows={1}
-                aria-label="Mensagem"
-                placeholder={sendAllowed ? 'Digite uma mensagem…' : 'Envio indisponível para esta conversa'}
-                disabled={!canSend || !careWindowOpen || !isChannelConnected || isOutcomeUncertain}
-                onChange={(event) => {
-                  messageField.onChange(event);
-                  if (sendError) setSendError('');
-                }}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
-                    event.preventDefault();
-                    void handleSendDraft();
-                  }
-                }}
-                className="block max-h-40 w-full resize-none bg-transparent px-1 py-1 text-sm text-slate-800 outline-none placeholder:text-slate-400 disabled:cursor-not-allowed disabled:opacity-60 dark:text-slate-100"
-              />
-              {draftErrors.message && <p role="alert" className="px-1 pt-1 text-[11px] text-red-600">{draftErrors.message.message}</p>}
-              {draftErrors.attachments && <p role="alert" className="px-1 pt-1 text-[11px] text-red-600">{draftErrors.attachments.message}</p>}
-            </div>
-
-            <div ref={emojiMenuRef} className="relative flex shrink-0 items-end gap-1">
-              <button type="button" aria-label="Inserir emoji" aria-expanded={isEmojiMenuOpen} title="Inserir emoji" onClick={() => { setIsEmojiMenuOpen((open) => !open); setIsAttachmentMenuOpen(false); }} className="flex h-9 w-9 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 hover:text-amber-500 dark:text-slate-400 dark:hover:bg-slate-800"><i className="bi bi-emoji-smile text-lg" /></button>
-              {isEmojiMenuOpen && <div role="menu" aria-label="Emojis" className="absolute bottom-11 right-10 z-40 grid w-52 grid-cols-6 gap-1 rounded-2xl border border-slate-200 bg-white p-2 shadow-xl dark:border-slate-700 dark:bg-slate-900">{EMOJIS.map((emoji) => <button key={emoji} type="button" aria-label={`Inserir ${emoji}`} onClick={() => insertEmoji(emoji)} className="rounded-lg p-1 text-xl hover:bg-slate-100 dark:hover:bg-slate-800">{emoji}</button>)}</div>}
-              {message.trim() || attachments.length > 0 ? (
-                <button type="submit" disabled={effectiveSendDisabled} title="Enviar mensagem" aria-label="Enviar mensagem" className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-600 text-white shadow-sm transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-45"><i className="bi bi-send-fill text-sm" /></button>
-              ) : (
-                <button type="button" disabled={!sendAllowed || isSending} title="Gravar áudio" aria-label="Gravar áudio" onClick={() => void startRecording()} className="flex h-10 w-10 items-center justify-center rounded-full text-slate-500 transition-colors hover:bg-slate-100 hover:text-emerald-600 disabled:cursor-not-allowed disabled:opacity-45 dark:text-slate-400 dark:hover:bg-slate-800"><i className="bi bi-mic-fill text-lg" /></button>
-              )}
-            </div>
-          </form>
-
-          <ChatAudioRecordingControls
-            isRecording={isRecording}
-            isRecordingPaused={isRecordingPaused}
-            durationLabel={formatDuration(recordingSeconds)}
-            recordingError={recordingError}
-            onCancel={cancelRecording}
-            onTogglePause={toggleRecordingPause}
-            onStop={stopRecording}
-          />
-          {!canSend && <p role="status" className="px-1 text-[11px] text-slate-500">Seu perfil não tem permissão para enviar mensagens pela Central.</p>}
-          {canSend && !isChannelConnected && <p role="status" className="px-1 text-[11px] text-amber-700 dark:text-amber-300">O canal WhatsApp desta conversa está desconectado.</p>}
-          {canSend && isChannelConnected && !careWindowOpen && <p role="status" className="px-1 text-[11px] text-amber-700 dark:text-amber-300">A janela de atendimento de 24 horas está fechada. Aguarde uma nova mensagem do cliente.</p>}
-          {isOutcomeUncertain && <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-amber-50 px-2.5 py-2 text-[11px] text-amber-800 dark:bg-amber-950/40 dark:text-amber-200"><span>{sendError}</span><button type="button" onClick={() => void handleRefreshAfterUncertainSend()} disabled={isRefreshingForRetry} className="rounded-md bg-white px-2 py-1 font-bold disabled:opacity-50 dark:bg-slate-900">{isRefreshingForRetry ? 'Atualizando…' : 'Atualizar conversa'}</button></div>}
-          {sendError && !isOutcomeUncertain && <p role="alert" className="px-1 text-[11px] text-red-600 dark:text-red-400">{sendError}</p>}
-          {sendFeedback && !isOutcomeUncertain && <p role="status" className={`px-1 text-[11px] ${sendFeedback.includes('aceitou') ? 'text-amber-700 dark:text-amber-300' : 'text-emerald-700 dark:text-emerald-300'}`}>{sendFeedback}</p>}
-
-        </div>
-      )}
-
-      {isCatalogOpen && (
-        <ProductCatalogPanel
-          isOpen
-          onClose={() => setIsCatalogOpen(false)}
-          onSelectionPrepared={addCatalogSelection}
-          onPdfPrepared={(file) => {
-            const added = addFiles([file], 'document');
-            if (added) setIsCatalogOpen(false);
-            return added;
-          }}
-          selectionActionLabel="Adicionar à conversa"
-          availableSpaceRef={catalogSpaceRef}
+      {/* Painel de Comentários Internos */}
+      {composerMode === 'comment' && (
+        <ChatInternalCommentsPanel
+          internalComments={internalComments}
+          onAddInternalNote={onAddInternalNote}
+          onClose={() => setComposerMode('whatsapp')}
         />
       )}
 
-      {isOrderPickerOpen && (
-        <SupportOrderPickerDialog
-          customerId={conversation.customerId}
-          orderFilter={orderFilter}
-          onOrderFilterChange={(filter) => {
-            if (filter === orderFilter) return;
-            requestedOrderRef.current = null;
-            setSelectedOrderId('');
-            setOrderValue('orderId', '', { shouldDirty: true, shouldValidate: false });
-            setOrderFilter(filter);
-          }}
-          isLoading={isLoadingOrders}
-          error={ordersError}
-          orders={orders}
-          isQuoteOrder={isQuoteOrder}
-          selectedOrderId={selectedOrderId}
-          onSelectOrder={(orderId) => {
-            setSelectedOrderId(orderId);
-            setOrderValue('orderId', orderId, { shouldDirty: true, shouldValidate: true });
-            setOrdersError('');
-          }}
-          orderFieldError={orderErrors.orderId?.message}
-          isCreatingPdf={isCreatingOrderPdf}
-          formatMoney={formatSupportOrderMoney}
-          formatDate={formatDate}
-          onClose={() => setIsOrderPickerOpen(false)}
-          onSubmit={(event) => { event.preventDefault(); void submitOrderDocument(); }}
+      {/* Rascunho de Áudio Gravado */}
+      {audioRecording.audioPreview && (
+        <RecordedAudioPreview
+          audioPreview={audioRecording.audioPreview}
+          onRemove={audioRecording.clearAudioPreview}
         />
       )}
 
-      {newOrderType && (
-        <NewSaleOrder orderType={newOrderType} onClose={() => setNewOrderType(null)} />
+      {/* Controles de Gravação de Áudio ao Vivo */}
+      {audioRecording.isRecording && (
+        <ChatAudioRecordingControls
+          recordingSeconds={audioRecording.recordingSeconds}
+          isRecordingPaused={audioRecording.isRecordingPaused}
+          onCancel={audioRecording.cancelRecording}
+          onTogglePause={audioRecording.toggleRecordingPause}
+          onFinish={audioRecording.stopRecording}
+        />
       )}
+
+      {/* Lista de Anexos Prontos para Envio */}
+      {attachments.length > 0 && (
+        <ChatComposerAttachmentList
+          attachments={attachments}
+          onRemove={removeAttachment}
+          onRelease={releaseAttachment}
+        />
+      )}
+
+      {/* Barra de Digitação e Ações Principais */}
+      {!audioRecording.isRecording && composerMode === 'whatsapp' && (
+        <ChatComposerInputBar
+          textareaRef={textareaRef}
+          messageRegister={registerDraft('message')}
+          message={message}
+          hasAttachments={attachments.length > 0}
+          canSend={canSend}
+          isSending={sendControl.isSending}
+          isDraftSubmitting={isDraftSubmitting}
+          canShareCommercialInfo={canShareCommercialInfo}
+          replyTarget={replyTarget}
+          onClearReplyTarget={onClearReplyTarget}
+          onOpenSnippets={onOpenSnippets}
+          onSwitchToCommentMode={() => setComposerMode('comment')}
+          onSendDraft={() => void handleSendDraft()}
+          onStartRecording={audioRecording.startRecording}
+          onSelectPhotos={() => photoInputRef.current?.click()}
+          onSelectDocument={() => documentInputRef.current?.click()}
+          onSelectContact={() => addStoreContact()}
+          onSelectCatalog={() => setIsCatalogOpen(true)}
+          onSelectOrderDocument={() => orderPicker.setIsOrderPickerOpen(true)}
+          onInsertEmoji={insertEmoji}
+        />
+      )}
+
+      {/* Modais, Seletores e Inputs Ocultos de Arquivos */}
+      <ChatComposerModals
+        conversation={conversation}
+        displayName={displayName}
+        photoInputRef={photoInputRef}
+        documentInputRef={documentInputRef}
+        addFiles={addFiles}
+        orderPicker={orderPicker}
+        isCatalogOpen={isCatalogOpen}
+        setIsCatalogOpen={setIsCatalogOpen}
+        addCatalogSelection={addCatalogSelection}
+        newOrderType={newOrderType}
+        setNewOrderType={setNewOrderType}
+      />
     </div>
   );
 };

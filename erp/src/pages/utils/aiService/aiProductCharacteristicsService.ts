@@ -148,7 +148,7 @@ export function normalizeSuggestedTechnicalValues(
 }
 
 /**
- * Serviço especializado em extração de características técnicas com Gemini 3.5 Flash-Lite,
+ * Serviço especializado em extração de características técnicas com GPT-6 Luna,
  * Grounding de busca na web e análise visual de fotos.
  */
 export const aiProductCharacteristicsService = {
@@ -169,7 +169,7 @@ export const aiProductCharacteristicsService = {
       },
     ];
 
-    // 4. Disparar via AiGateway com Gemini 3.5 Flash-Lite e Google Search Tool
+    // 4. Disparar via AiGateway com GPT-6 Luna e pesquisa web
     const result = await AiGateway.requestText({
       operation: CHARACTERISTICS_AI_LIMITS.operation,
       moduleSource: 'characteristics_ai',

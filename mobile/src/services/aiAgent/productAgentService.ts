@@ -2,6 +2,7 @@ import { fetchMobileProductsPage } from '../../features/products/services/mobile
 import { supabase } from '../supabaseClient';
 import { isTestProduct } from '../../../../shared-utils/isTestProduct';
 import { buildPostgrestAccentInsensitivePattern } from '../../../../shared-utils/searchText';
+import { canAgentViewProductCost } from '../../../../shared-utils/agentPermissionGuard';
 
 export interface MobileProductSummaryForAgent {
   codigo: string;
@@ -77,6 +78,7 @@ export interface MobileProductDetailForAgent {
     cores?: string;
     diferencialPrincipal?: string;
     naoIncluso?: string;
+    valoresTecnicos?: Record<string, any>;
   };
   fotos: string[];
   possuiVariacoes: boolean;
@@ -93,20 +95,27 @@ export async function searchMobileProducts(input: {
   termo?: string;
   categoria?: string;
   apenasAtivos?: boolean;
+  naLixeira?: boolean;
   limite?: number;
 }): Promise<MobileProductSummaryForAgent[]> {
   const limit = normalizeLimit(input.limite);
-  const statusFilter = input.apenasAtivos !== false ? 'active' : 'all';
+  const statusFilter = input.naLixeira
+    ? 'deleted'
+    : input.apenasAtivos !== false
+      ? 'active'
+      : 'all';
   const searchTerm = input.termo?.trim().replace(/[,%()]/g, '');
 
   const { data } = await fetchMobileProductsPage(1, limit, {
     search: searchTerm,
     category: input.categoria,
-    statusFilter,
-    includeDeactivated: input.apenasAtivos === false,
+    statusFilter: statusFilter as any,
+    includeDeactivated: input.apenasAtivos === false || Boolean(input.naLixeira),
     summaryOnly: true,
     throwOnError: true,
   });
+
+  const allowCost = canAgentViewProductCost();
 
   return (data || []).map((p: any) => {
     const parentCode = p.code || p.sku || '';
@@ -122,7 +131,7 @@ export async function searchMobileProducts(input: {
       condicao: p.condition || 'novo',
       preco: Number(p.unitPrice ?? p.price ?? 0),
       precoPromocional: p.promoPrice ? Number(p.promoPrice) : undefined,
-      precoCusto: p.costPrice ? Number(p.costPrice) : undefined,
+      precoCusto: allowCost && p.costPrice ? Number(p.costPrice) : undefined,
       estoque: Number(p.stock ?? 0),
       unidade: p.unit || 'UN',
       ativo: p.active !== false,
@@ -188,6 +197,7 @@ export async function getMobileProductDetails(
 
   if (!data || isTestProduct(data)) return null;
 
+  const allowCost = canAgentViewProductCost();
   const rawVars = data.product_variations || [];
   const parentCode = data.code || data.sku || '';
 
@@ -226,7 +236,7 @@ export async function getMobileProductDetails(
       nome: v.name || data.name || '',
       preco: Number(v.price ?? data.unit_price ?? data.price ?? 0),
       precoPromocional: v.promo_price ? Number(v.promo_price) : undefined,
-      precoCusto: v.cost_price ? Number(v.cost_price) : undefined,
+      precoCusto: allowCost && v.cost_price ? Number(v.cost_price) : undefined,
       estoque: Number(v.stock ?? 0),
       ativo: v.active !== false,
       atributos: attrs,
@@ -262,7 +272,7 @@ export async function getMobileProductDetails(
     precos: {
       precoVenda: Number(data.price ?? data.unit_price ?? 0),
       precoPromocional: data.promo_price ? Number(data.promo_price) : undefined,
-      precoCusto: data.cost_price ? Number(data.cost_price) : undefined,
+      precoCusto: allowCost && data.cost_price ? Number(data.cost_price) : undefined,
       custoFrete: data.freight_cost ? Number(data.freight_cost) : undefined,
     },
     estoque: {
@@ -292,6 +302,11 @@ export async function getMobileProductDetails(
       cores: data.colors || undefined,
       diferencialPrincipal: data.main_differential || undefined,
       naoIncluso: data.not_included || undefined,
+      valoresTecnicos:
+        data.technical_specs?.technicalValues &&
+        Object.keys(data.technical_specs.technicalValues).length > 0
+          ? data.technical_specs.technicalValues
+          : undefined,
     },
     fotos: parentImages,
     possuiVariacoes: Boolean(data.has_variations || mappedVars.length > 1),

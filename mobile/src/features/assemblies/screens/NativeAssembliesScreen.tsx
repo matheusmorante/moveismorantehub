@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Platform,
@@ -112,34 +112,68 @@ export const NativeAssembliesScreen: React.FC<Props> = ({
   const { orders, loading, refreshing, showingOffline, error, counts, onRefresh: refreshOrders } =
     useScopedOrderSchedule('assembly_mobile', { dateScope, location: locationFilter, startDate: todayKey }, ASSEMBLIES_CACHE_KEY);
   const hasExternalHandlingOptions = sharedHandlingOptions !== undefined;
+  const handlingOptionsRequestRef = useRef<{
+    authGeneration: number;
+    promise: Promise<void>;
+  } | null>(null);
+  const handlingOptionsAuthGenerationRef = useRef(0);
 
   useEffect(() => setLocationFilter(initialSubTab), [initialSubTab]);
 
   const fetchSettings = async () => {
-    try {
-      const { data, error } = await withAbortTimeout(supabase.from('settings').select('delivery:data->deliveryHandlingOptions,pickup:data->pickupHandlingOptions').eq('id', 'app').limit(1), 'montagens:opcoes-manuseio', 15_000);
-      if (!error && data?.length) {
-        const settings = data[0] as { delivery?: AssemblyHandlingOption[]; pickup?: AssemblyHandlingOption[] };
-        const opts = [
-          ...(Array.isArray(settings.delivery) ? settings.delivery : []),
-          ...(Array.isArray(settings.pickup) ? settings.pickup : []),
-        ];
-        setLoadedHandlingOptions(opts);
-        await offlineStorageService
-          .cacheWorkingSet(HANDLING_OPTIONS_CACHE_KEY, opts)
-          .catch(() => {});
-        return;
-      }
-    } catch {}
+    const authGeneration = handlingOptionsAuthGenerationRef.current;
+    const current = handlingOptionsRequestRef.current;
+    if (current?.authGeneration === authGeneration) return current.promise;
+
+    const promise = (async () => {
+      try {
+        const { data, error } = await withAbortTimeout(supabase.from('settings').select('delivery:data->deliveryHandlingOptions,pickup:data->pickupHandlingOptions').eq('id', 'app').limit(1), 'montagens:opcoes-manuseio', 15_000);
+        if (!error && data?.length) {
+          const settings = data[0] as { delivery?: AssemblyHandlingOption[]; pickup?: AssemblyHandlingOption[] };
+          const opts = [
+            ...(Array.isArray(settings.delivery) ? settings.delivery : []),
+            ...(Array.isArray(settings.pickup) ? settings.pickup : []),
+          ];
+          setLoadedHandlingOptions(opts);
+          await offlineStorageService
+            .cacheWorkingSet(HANDLING_OPTIONS_CACHE_KEY, opts)
+            .catch(() => {});
+          return;
+        }
+      } catch {}
+
+      try {
+        const cached =
+          await offlineStorageService.getWorkingSet<any[]>(HANDLING_OPTIONS_CACHE_KEY);
+        if (Array.isArray(cached?.data)) {
+          setLoadedHandlingOptions(cached.data);
+        }
+      } catch {}
+    })();
+    const pendingRequest = { authGeneration, promise };
+    handlingOptionsRequestRef.current = pendingRequest;
 
     try {
-      const cached =
-        await offlineStorageService.getWorkingSet<any[]>(HANDLING_OPTIONS_CACHE_KEY);
-      if (Array.isArray(cached?.data)) {
-        setLoadedHandlingOptions(cached.data);
+      await promise;
+    } finally {
+      if (handlingOptionsRequestRef.current === pendingRequest) {
+        handlingOptionsRequestRef.current = null;
       }
-    } catch {}
+    }
   };
+
+  useEffect(() => {
+    if (hasExternalHandlingOptions) return;
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
+      handlingOptionsAuthGenerationRef.current += 1;
+      handlingOptionsRequestRef.current = null;
+    });
+    return () => {
+      handlingOptionsAuthGenerationRef.current += 1;
+      handlingOptionsRequestRef.current = null;
+      subscription.unsubscribe();
+    };
+  }, [hasExternalHandlingOptions]);
 
   useEffect(() => {
     if (!hasExternalHandlingOptions) void fetchSettings();

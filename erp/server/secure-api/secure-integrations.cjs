@@ -8,9 +8,9 @@ var __hasOwnProp = Object.prototype.hasOwnProperty;
 var __commonJS = (cb, mod) => function __require() {
   return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
 };
-var __export = (target2, all) => {
+var __export = (target, all) => {
   for (var name in all)
-    __defProp(target2, name, { get: all[name], enumerable: true });
+    __defProp(target, name, { get: all[name], enumerable: true });
 };
 var __copyProps = (to, from, except, desc) => {
   if (from && typeof from === "object" || typeof from === "function") {
@@ -20,12 +20,12 @@ var __copyProps = (to, from, except, desc) => {
   }
   return to;
 };
-var __toESM = (mod, isNodeMode, target2) => (target2 = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(
+var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(
   // If the importer is in node compatibility mode or this is not an ESM
   // file that has been converted to a CommonJS file using a Babel-
   // compatible transform (i.e. "__esModule" has not been set), then set
   // "default" to the CommonJS "module.exports" for node compatibility.
-  isNodeMode || !mod || !mod.__esModule ? __defProp(target2, "default", { value: mod, enumerable: true }) : target2,
+  isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
   mod
 ));
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
@@ -121,23 +121,23 @@ var require_dist = __commonJS({
       } catch (error) {
         return false;
       }
-      for (const target2 of targets) try {
-        if (typeof target2 === "string") {
-          if (matchStringTarget(url.hostname, target2)) return true;
-        } else if (target2 instanceof RegExp) {
-          if (target2.test(url.hostname)) return true;
-        } else if (typeof target2 === "function") {
-          if (target2(url)) return true;
+      for (const target of targets) try {
+        if (typeof target === "string") {
+          if (matchStringTarget(url.hostname, target)) return true;
+        } else if (target instanceof RegExp) {
+          if (target.test(url.hostname)) return true;
+        } else if (typeof target === "function") {
+          if (target(url)) return true;
         }
       } catch (error) {
         continue;
       }
       return false;
     }
-    function matchStringTarget(hostname, target2) {
-      if (target2 === hostname) return true;
-      if (target2.startsWith("*.")) {
-        const domain = target2.slice(2);
+    function matchStringTarget(hostname, target) {
+      if (target === hostname) return true;
+      if (target.startsWith("*.")) {
+        const domain = target.slice(2);
         if (hostname.endsWith(domain)) {
           if (hostname === domain || hostname.endsWith("." + domain)) return true;
         }
@@ -870,9 +870,33 @@ var require_dist = __commonJS({
 // erp/api/secure-integrations.ts
 var secure_integrations_exports = {};
 __export(secure_integrations_exports, {
-  default: () => handler
+  checkAiQuotaOrReject: () => checkAiQuotaOrReject,
+  default: () => handler,
+  getOperation: () => getOperation,
+  handleGemini: () => handleGemini,
+  handleGoogleRoutes: () => handleGoogleRoutes,
+  handleMetaGraph: () => handleMetaGraph,
+  handleOpenAi: () => handleOpenAi,
+  recordAiUsageTokensSafe: () => recordAiUsageTokensSafe,
+  releaseAiReservationSafe: () => releaseAiReservationSafe
 });
 module.exports = __toCommonJS(secure_integrations_exports);
+
+// erp/api/_lib/secureIntegrations/types.ts
+var MAX_META_REQUEST_BYTES = 1e6;
+var MAX_OPENAI_REQUEST_BYTES = 4e6;
+var MAX_ROUTE_REQUEST_BYTES = 16e3;
+var OPENAI_MODEL_PATTERN = /^(gpt-6-luna|gpt-5\.6-luna|gpt-6-sol|gpt-6-astra|gpt-5\.2-pro|gpt-5(-mini|-nano|-pro)?|gpt-4o(-mini)?)$/i;
+var OPENAI_EMBEDDING_MODEL_PATTERN = /^text-embedding-3-(small|large)$/i;
+var ROUTES_FIELD_MASK = "routes.distanceMeters,routes.duration,routes.polyline.encodedPolyline";
+var GRAPH_VERSION = "v26.0";
+function bodySize(value) {
+  return Buffer.byteLength(JSON.stringify(value ?? {}), "utf8");
+}
+function getOperation(req) {
+  const value = req.query?.operation;
+  return Array.isArray(value) ? String(value[0] || "") : String(value || "");
+}
 
 // erp/api/_lib/authenticatedErpRequest.ts
 var import_supabase_js = __toESM(require_dist(), 1);
@@ -942,112 +966,6 @@ function hasErpPermission(context, permission) {
   const configured = context.rolePermissions[permission];
   const allowedRoles = Array.isArray(configured) ? configured.filter((role) => typeof role === "string") : DEFAULT_PERMISSION_ROLES[permission] || [];
   return context.roles.some((role) => allowedRoles.includes(role));
-}
-
-// erp/api/_lib/metaImageTemplatePreview.ts
-var import_zod = require("zod");
-
-// shared-utils/metaCatalogIds.ts
-var META_ADS_CREATIVE_CATALOG_ID = "3884846918337684";
-
-// erp/api/_lib/metaImageTemplatePreview.ts
-var OPERATIONS = ["list_image_template_sets", "list_image_template_products", "read_image_template_product"];
-var PAGE_SIZE = 15;
-var metaId = import_zod.z.string().regex(/^\d{1,32}$/);
-var cursor = import_zod.z.string().regex(/^[A-Za-z0-9_.=+\/-]{1,2048}$/);
-var target = import_zod.z.enum(["ads", "whatsapp"]).default("ads");
-var inputSchema = import_zod.z.discriminatedUnion("operation", [
-  import_zod.z.object({ operation: import_zod.z.literal(OPERATIONS[0]), target, after: cursor.optional() }),
-  import_zod.z.object({ operation: import_zod.z.literal(OPERATIONS[1]), target, after: cursor.optional(), setId: metaId.optional() }),
-  import_zod.z.object({ operation: import_zod.z.literal(OPERATIONS[2]), target, productId: metaId })
-]);
-var entrySchema = import_zod.z.object({ id: metaId, name: import_zod.z.string(), retailer_id: import_zod.z.string().optional() });
-var pageSchema = import_zod.z.object({
-  data: import_zod.z.array(entrySchema).max(PAGE_SIZE),
-  paging: import_zod.z.object({ next: import_zod.z.string().optional(), cursors: import_zod.z.object({ after: cursor.optional() }).optional() }).optional()
-});
-var ownerSchema = import_zod.z.object({ product_catalog: import_zod.z.object({ id: metaId }) });
-var productSchema = entrySchema.extend({
-  ...ownerSchema.shape,
-  image_url: import_zod.z.string().nullish(),
-  additional_image_urls: import_zod.z.array(import_zod.z.string().nullable()).nullish(),
-  brand: import_zod.z.string().nullish(),
-  description: import_zod.z.string().nullish(),
-  product_type: import_zod.z.string().nullish(),
-  currency: import_zod.z.string().nullish(),
-  availability: import_zod.z.string().nullish(),
-  price: import_zod.z.union([import_zod.z.string(), import_zod.z.number()]).nullish(),
-  sale_price: import_zod.z.union([import_zod.z.string(), import_zod.z.number()]).nullish(),
-  sale_price_start_date: import_zod.z.string().nullish(),
-  sale_price_end_date: import_zod.z.string().nullish(),
-  custom_label_0: import_zod.z.string().nullish(),
-  custom_label_1: import_zod.z.string().nullish(),
-  custom_label_2: import_zod.z.string().nullish(),
-  custom_label_3: import_zod.z.string().nullish(),
-  custom_label_4: import_zod.z.string().nullish()
-});
-var productFields = Object.keys(productSchema.shape).map((key) => key === "product_catalog" ? "product_catalog{id}" : key).join(",");
-function isImageTemplatePreviewOperation(operation) {
-  return OPERATIONS.some((value) => value === operation);
-}
-var CatalogReadError = class extends Error {
-  constructor(status, message) {
-    super(message);
-    this.status = status;
-  }
-};
-async function handleMetaImageTemplatePreview(body, context, res, token, graphVersion) {
-  if (!hasErpPermission(context, "manageCatalogImageTemplates")) {
-    return res.status(403).json({ error: "Sem permiss\xE3o para consultar a pr\xE9via de modelos." });
-  }
-  const parsed = inputSchema.safeParse(body);
-  if (!parsed.success) return res.status(400).json({ error: "Sele\xE7\xE3o de pr\xE9via inv\xE1lida." });
-  const input = parsed.data;
-  const configured = context.whatsappConfig;
-  const catalog = metaId.safeParse(input.target === "ads" ? META_ADS_CREATIVE_CATALOG_ID : configured?.catalogId);
-  if (!catalog.success) return res.status(400).json({ error: "Este cat\xE1logo n\xE3o est\xE1 configurado no ERP." });
-  const catalogId = catalog.data;
-  const signal = AbortSignal.timeout(17e3);
-  const read = async (path, params) => {
-    const response = await fetch(`https://graph.facebook.com/${graphVersion}/${path}?${new URLSearchParams(params)}`, {
-      method: "GET",
-      headers: { Authorization: `Bearer ${token}` },
-      signal
-    });
-    const data = await response.json();
-    if (!response.ok || data?.error) {
-      const denied = [10, 190, 200].includes(Number(data?.error?.code)) || response.status === 403;
-      throw new CatalogReadError(denied ? 403 : 502, denied ? "A integra\xE7\xE3o da Meta n\xE3o tem acesso ao cat\xE1logo selecionado." : "A Meta n\xE3o conseguiu consultar o cat\xE1logo selecionado.");
-    }
-    return data;
-  };
-  try {
-    if (input.operation === "read_image_template_product") {
-      const data = productSchema.parse(await read(input.productId, { fields: productFields, catalog_id: catalogId }));
-      if (data.product_catalog.id !== catalogId || data.id !== input.productId) {
-        throw new CatalogReadError(404, "Produto fora do cat\xE1logo selecionado.");
-      }
-      const { product_catalog: _owner, additional_image_urls: additionalImages, ...product } = data;
-      return res.status(200).json({ ...product, additional_image_urls: additionalImages?.slice(0, 3) });
-    }
-    const isSets = input.operation === "list_image_template_sets";
-    const setId = !isSets ? input.setId : void 0;
-    if (setId) {
-      const owner = ownerSchema.safeParse(await read(setId, { fields: "product_catalog{id}" }));
-      if (!owner.success || owner.data.product_catalog.id !== catalogId) {
-        throw new CatalogReadError(404, "Conjunto fora do cat\xE1logo selecionado.");
-      }
-    }
-    const page = pageSchema.parse(await read(`${setId ?? catalogId}/${isSets ? "product_sets" : "products"}`, {
-      fields: isSets ? "id,name" : "id,name,retailer_id",
-      limit: String(PAGE_SIZE),
-      ...input.after ? { after: input.after } : {}
-    }));
-    return res.status(200).json({ rows: page.data, nextCursor: page.paging?.next ? page.paging.cursors?.after ?? null : null });
-  } catch (error) {
-    if (error instanceof CatalogReadError) return res.status(error.status).json({ error: error.message });
-    return res.status(signal.aborted ? 504 : 502).json({ error: signal.aborted ? "A consulta \xE0 Meta demorou demais." : "N\xE3o foi poss\xEDvel ler a resposta do cat\xE1logo selecionado." });
-  }
 }
 
 // erp/server/secure-api/verifyMetaAppCredentials.ts
@@ -1317,6 +1235,9 @@ async function ensureWhatsAppEchoWebhookSubscription({
   return { valid: true, changed: true, fields: verifiedFields };
 }
 
+// shared-utils/metaCatalogIds.ts
+var META_ADS_CREATIVE_CATALOG_ID = "3884846918337684";
+
 // erp/src/pages/utils/metaService/metaGraphProxyPolicy.ts
 var numericId = (value) => {
   const normalized = typeof value === "string" ? value.trim() : "";
@@ -1340,8 +1261,8 @@ function getCatalogTarget(value) {
   if (value === "whatsapp" || value === "ads") return value;
   throw new Error("Destino do cat\xE1logo Meta inv\xE1lido.");
 }
-function getCatalogId(target2, settings) {
-  return target2 === "ads" ? configuredId(META_ADS_CREATIVE_CATALOG_ID) : configuredId(settings.catalogId);
+function getCatalogId(target, settings) {
+  return target === "ads" ? configuredId(META_ADS_CREATIVE_CATALOG_ID) : configuredId(settings.catalogId);
 }
 function getBatchHandle(value) {
   const handle = typeof value === "string" ? value.trim() : "";
@@ -1484,14 +1405,14 @@ function planMetaGraphRequest(input, settings) {
     case "check_catalog_batch": {
       const requestedTarget = input.catalogTarget === void 0 ? void 0 : getCatalogTarget(input.catalogTarget);
       const batch = parseMetaCatalogBatchHandle(input.handle, requestedTarget);
-      const target2 = requestedTarget ?? batch.catalogTargets[0];
-      const targetIndex = batch.catalogTargets.indexOf(target2);
+      const target = requestedTarget ?? batch.catalogTargets[0];
+      const targetIndex = batch.catalogTargets.indexOf(target);
       if (targetIndex < 0) throw new Error("Destino do lote Meta n\xE3o corresponde ao identificador.");
       const handle = batch.handles[targetIndex];
       return {
         permission: "productConfig",
         method: "GET",
-        path: `${getCatalogId(target2, settings)}/check_batch_request_status?handle=${encodeURIComponent(handle)}`
+        path: `${getCatalogId(target, settings)}/check_batch_request_status?handle=${encodeURIComponent(handle)}`
       };
     }
     case "list_product_sets":
@@ -1511,21 +1432,7 @@ function planMetaGraphRequest(input, settings) {
   }
 }
 
-// erp/api/secure-integrations.ts
-var MAX_META_REQUEST_BYTES = 1e6;
-var MAX_GEMINI_REQUEST_BYTES = 1e6;
-var MAX_ROUTE_REQUEST_BYTES = 16e3;
-var MODEL_PATTERN = /^gemini-[a-z0-9][a-z0-9.-]{0,100}$/i;
-var ALLOWED_GEMINI_FIELDS = /* @__PURE__ */ new Set(["content", "contents", "generationConfig", "tools", "toolConfig", "systemInstruction"]);
-var ROUTES_FIELD_MASK = "routes.distanceMeters,routes.duration,routes.polyline.encodedPolyline";
-var GRAPH_VERSION = "v26.0";
-function bodySize(value) {
-  return Buffer.byteLength(JSON.stringify(value ?? {}), "utf8");
-}
-function getOperation(req) {
-  const value = req.query?.operation;
-  return Array.isArray(value) ? String(value[0] || "") : String(value || "");
-}
+// erp/api/_lib/secureIntegrations/handlers/metaGraphHandler.ts
 function getMetaGraphSettings(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};
   const config = value;
@@ -1535,11 +1442,6 @@ function getMetaGraphSettings(value) {
     catalogId: config.catalogId
   };
 }
-function validPoint(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
-  const point = value;
-  return typeof point.latitude === "number" && Number.isFinite(point.latitude) && point.latitude >= -90 && point.latitude <= 90 && typeof point.longitude === "number" && Number.isFinite(point.longitude) && point.longitude >= -180 && point.longitude <= 180;
-}
 async function handleMetaGraph(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "M\xE9todo n\xE3o permitido." });
   const metaToken = process.env.WHATSAPP_ACCESS_TOKEN?.trim();
@@ -1547,16 +1449,14 @@ async function handleMetaGraph(req, res) {
   if (bodySize(req.body) > MAX_META_REQUEST_BYTES) {
     return res.status(413).json({ error: "Solicita\xE7\xE3o excede o tamanho permitido." });
   }
-  const imageTemplatePreview = isImageTemplatePreviewOperation(req.body?.operation);
   const context = await authenticateErpRequest(req, res, {
-    includeWhatsAppConfig: imageTemplatePreview ? req.body?.target === "whatsapp" : req.body?.operation !== "verify_app_credentials" && req.body?.operation !== "ensure_smb_message_echoes_subscription"
+    includeWhatsAppConfig: req.body?.operation !== "verify_app_credentials" && req.body?.operation !== "ensure_smb_message_echoes_subscription"
   });
   if (!context) return;
   const body = req.body;
   if (!body || typeof body !== "object" || Array.isArray(body)) {
     return res.status(400).json({ error: "Solicita\xE7\xE3o inv\xE1lida." });
   }
-  if (imageTemplatePreview) return handleMetaImageTemplatePreview(body, context, res, metaToken, GRAPH_VERSION);
   if (body.operation === "verify_app_credentials") {
     if (!hasErpPermission(context, "manageSettings")) {
       return res.status(403).json({ error: "Sem permiss\xE3o para verificar a configura\xE7\xE3o Meta." });
@@ -1653,18 +1553,18 @@ async function handleMetaGraph(req, res) {
   try {
     const metaSettings = getMetaGraphSettings(context.whatsappConfig);
     if (body.operation === "sync_catalog_batch") {
-      planEntries = ["whatsapp", "ads"].map((target2) => ({
-        target: target2,
-        plan: planMetaGraphRequest({ ...body, catalogTarget: target2 }, metaSettings)
+      planEntries = ["whatsapp", "ads"].map((target) => ({
+        target,
+        plan: planMetaGraphRequest({ ...body, catalogTarget: target }, metaSettings)
       }));
     } else if (body.operation === "check_catalog_batch") {
       const batch = parseMetaCatalogBatchHandle(body.handle);
-      planEntries = batch.catalogTargets.map((target2, index) => ({
-        target: target2,
+      planEntries = batch.catalogTargets.map((target, index) => ({
+        target,
         plan: planMetaGraphRequest({
           ...body,
           handle: batch.handles[index],
-          catalogTarget: target2
+          catalogTarget: target
         }, metaSettings)
       }));
     } else {
@@ -1687,7 +1587,7 @@ async function handleMetaGraph(req, res) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 2e4);
   try {
-    const outcomes = await Promise.allSettled(planEntries.map(async ({ plan: requestPlan, target: target2 }) => {
+    const outcomes = await Promise.allSettled(planEntries.map(async ({ plan: requestPlan, target }) => {
       const response = await fetch(`https://graph.facebook.com/${GRAPH_VERSION}/${requestPlan.path}`, {
         method: requestPlan.method,
         headers: {
@@ -1698,7 +1598,7 @@ async function handleMetaGraph(req, res) {
         signal: controller.signal
       });
       const data = await response.json().catch(() => ({}));
-      return { target: target2, response, data };
+      return { target, response, data };
     }));
     const isCatalogWrite = body.operation === "sync_catalog_batch";
     const isCatalogStatusCheck = body.operation === "check_catalog_batch";
@@ -1790,10 +1690,194 @@ async function handleMetaGraph(req, res) {
     clearTimeout(timeout);
   }
 }
-async function handleGemini(req, res) {
+
+// erp/api/_lib/secureIntegrations/aiQuotaBridge.ts
+async function checkAiQuotaOrReject(userDb, provider, service, estimatedTokens, moduleSource, res) {
+  if (typeof userDb?.rpc !== "function") return { allowed: true };
+  try {
+    const { data: quotaCheck } = await userDb.rpc("check_and_reserve_ai_quota", {
+      p_provider: provider,
+      p_service: service,
+      p_estimated_tokens: estimatedTokens,
+      p_module_source: moduleSource
+    });
+    if (quotaCheck && !quotaCheck.allowed) {
+      res.status(429).json({
+        error: quotaCheck.reason || "Limite de cota de IA excedido para este per\xEDodo.",
+        quotaBlocked: true,
+        quota: quotaCheck
+      });
+      return { allowed: false, quotaCheck };
+    }
+    return {
+      allowed: true,
+      reservationId: quotaCheck?.reservation_id || void 0,
+      quotaCheck
+    };
+  } catch (quotaErr) {
+    console.warn("[secure-integrations] Falha n\xE3o bloqueante ao consultar quota no banco:", quotaErr);
+  }
+  return { allowed: true };
+}
+function releaseAiReservationSafe(userDb, reservationId) {
+  if (!reservationId || typeof userDb?.rpc !== "function") return;
+  void Promise.resolve().then(() => userDb.rpc("release_ai_reservation", { p_reservation_id: reservationId })).catch(() => {
+  });
+}
+function recordAiUsageTokensSafe(userDb, params) {
+  if (typeof userDb?.rpc !== "function") return;
+  void Promise.resolve().then(() => userDb.rpc("record_ai_token_usage", {
+    p_provider: params.provider,
+    p_service: params.service,
+    p_operation: params.operation,
+    p_prompt_tokens: params.promptTokens,
+    p_completion_tokens: params.completionTokens,
+    p_total_tokens: params.totalTokens,
+    p_module_source: params.moduleSource,
+    p_environment: process.env.VERCEL_ENV || "production",
+    p_response_time_ms: params.responseTimeMs,
+    p_status: params.ok ? "SUCCESS" : "ERROR",
+    p_reservation_id: params.reservationId || null,
+    p_cached_tokens: params.cachedTokens || 0
+  })).catch(() => {
+  });
+}
+
+// shared-utils/openAiAgentAdapter.ts
+var schemaTypes = {
+  OBJECT: "object",
+  STRING: "string",
+  NUMBER: "number",
+  INTEGER: "integer",
+  BOOLEAN: "boolean",
+  ARRAY: "array"
+};
+function toJsonSchema(schema) {
+  const type = schemaTypes[String(schema.type || "").toUpperCase()] || "object";
+  return {
+    type,
+    ...schema.description ? { description: schema.description } : {},
+    ...schema.enum ? { enum: schema.enum } : {},
+    ...schema.properties ? { properties: Object.fromEntries(Object.entries(schema.properties).map(([key, value]) => [key, toJsonSchema(value)])) } : {},
+    ...schema.required ? { required: schema.required } : {},
+    ...schema.items ? { items: toJsonSchema(schema.items) } : {}
+  };
+}
+function toOpenAiTools(tools = []) {
+  return tools.flatMap(
+    (tool) => (tool?.functionDeclarations || []).map((declaration) => ({
+      type: "function",
+      name: declaration.name,
+      description: declaration.description,
+      parameters: toJsonSchema(declaration.parameters || { type: "OBJECT" })
+    }))
+  );
+}
+function buildOpenAiAgentRequest(payload) {
+  const input = [];
+  const pendingCallIds = /* @__PURE__ */ new Map();
+  let callIndex = 0;
+  for (const content of payload?.contents || []) {
+    const role = content?.role === "model" || content?.role === "assistant" ? "assistant" : "user";
+    const textParts = [];
+    const functionItems = [];
+    for (const part of content?.parts || []) {
+      if (typeof part?.text === "string" && part.text) textParts.push(part.text);
+      if (part?.functionCall?.name) {
+        const name = part.functionCall.name;
+        const callId = `history_call_${++callIndex}`;
+        const queue = pendingCallIds.get(name) || [];
+        queue.push(callId);
+        pendingCallIds.set(name, queue);
+        functionItems.push({
+          type: "function_call",
+          call_id: callId,
+          name,
+          arguments: JSON.stringify(part.functionCall.args || {})
+        });
+      }
+      if (part?.functionResponse?.name) {
+        const name = part.functionResponse.name;
+        const callId = pendingCallIds.get(name)?.shift();
+        if (callId) {
+          functionItems.push({
+            type: "function_call_output",
+            call_id: callId,
+            output: JSON.stringify(part.functionResponse.response || {})
+          });
+        }
+      }
+    }
+    if (textParts.length) {
+      input.push({
+        role,
+        content: role === "assistant" ? textParts.join("\n") : [{ type: "input_text", text: textParts.join("\n") }]
+      });
+    }
+    input.push(...functionItems);
+  }
+  const tools = toOpenAiTools(payload?.tools);
+  const callMode = payload?.toolConfig?.functionCallingConfig?.mode;
+  const allowedNames = payload?.toolConfig?.functionCallingConfig?.allowedFunctionNames;
+  let toolChoice = callMode === "ANY" ? "required" : callMode === "NONE" ? "none" : "auto";
+  if (Array.isArray(allowedNames) && allowedNames.length && callMode !== "NONE") {
+    toolChoice = {
+      type: "allowed_tools",
+      mode: callMode === "ANY" ? "required" : "auto",
+      tools: allowedNames.map((name) => ({ type: "function", name }))
+    };
+  }
+  const instructions = (payload?.systemInstruction?.parts || []).map((part) => typeof part?.text === "string" ? part.text : "").filter(Boolean).join("\n");
+  return {
+    model: "gpt-6-luna",
+    input,
+    ...instructions ? { instructions } : {},
+    ...tools.length ? { tools, tool_choice: toolChoice } : {},
+    reasoning: { effort: "low" },
+    max_output_tokens: 2048
+  };
+}
+function parseOpenAiAgentResponse(response) {
+  const parts = [];
+  for (const item of response?.output || []) {
+    if (item?.type === "message") {
+      for (const content of item?.content || []) {
+        if (content?.type === "output_text" && typeof content.text === "string") {
+          parts.push({ text: content.text });
+        }
+      }
+    } else if (item?.type === "function_call" && typeof item.name === "string") {
+      let args = {};
+      try {
+        const parsed = JSON.parse(item.arguments || "{}");
+        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) args = parsed;
+      } catch {
+        args = {};
+      }
+      parts.push({ functionCall: { name: item.name, args } });
+    }
+  }
+  return {
+    candidates: [
+      {
+        content: { role: "model", parts },
+        finishReason: parts.some((part) => "functionCall" in part) ? "TOOL_CALLS" : "STOP"
+      }
+    ],
+    usageMetadata: {
+      promptTokenCount: Number(response?.usage?.input_tokens || 0),
+      candidatesTokenCount: Number(response?.usage?.output_tokens || 0),
+      totalTokenCount: Number(response?.usage?.total_tokens || 0)
+    }
+  };
+}
+
+// erp/api/_lib/secureIntegrations/handlers/openAiHandler.ts
+async function handleOpenAi(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "M\xE9todo n\xE3o permitido." });
-  if (!process.env.GEMINI_API_KEY?.trim()) return res.status(503).json({ error: "IA indispon\xEDvel no servidor." });
-  if (bodySize(req.body) > MAX_GEMINI_REQUEST_BYTES) {
+  const openAiApiKey = process.env.OPENAI_API_KEY?.trim();
+  if (!openAiApiKey) return res.status(503).json({ error: "OpenAI indispon\xEDvel no servidor." });
+  if (bodySize(req.body) > MAX_OPENAI_REQUEST_BYTES) {
     return res.status(413).json({ error: "Solicita\xE7\xE3o excede o tamanho permitido." });
   }
   const context = await authenticateErpRequest(req, res);
@@ -1802,37 +1886,118 @@ async function handleGemini(req, res) {
   if (!body || typeof body !== "object" || Array.isArray(body)) {
     return res.status(400).json({ error: "Solicita\xE7\xE3o inv\xE1lida." });
   }
-  const model = typeof body.model === "string" ? body.model.trim() : "";
-  const action = body.action;
-  const payload = body.payload;
-  if (!MODEL_PATTERN.test(model) || !["generateContent", "embedContent"].includes(action)) {
-    return res.status(400).json({ error: "Modelo ou opera\xE7\xE3o de IA n\xE3o permitido." });
+  const action = typeof body.action === "string" ? body.action : "chat_completions";
+  let requestBody = body.request && typeof body.request === "object" && !Array.isArray(body.request) ? body.request : body;
+  const isAgentCompat = action === "agent_compat";
+  if (isAgentCompat) {
+    if (!body.payload || typeof body.payload !== "object" || Array.isArray(body.payload)) {
+      return res.status(400).json({ error: "Conte\xFAdo do assistente inv\xE1lido." });
+    }
+    requestBody = buildOpenAiAgentRequest(body.payload);
   }
-  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
-    return res.status(400).json({ error: "Conte\xFAdo de IA inv\xE1lido." });
+  const model = typeof requestBody.model === "string" ? requestBody.model.trim() : "gpt-6-luna";
+  const isEmbeddings = action === "embeddings";
+  const isResponses = action === "responses" || isAgentCompat;
+  const isChatCompletions = action === "chat_completions";
+  if (!isEmbeddings && !isResponses && !isChatCompletions) {
+    return res.status(400).json({ error: "Opera\xE7\xE3o OpenAI n\xE3o permitida." });
   }
-  if (Object.keys(payload).some((key) => !ALLOWED_GEMINI_FIELDS.has(key))) {
-    return res.status(400).json({ error: "Campo de IA n\xE3o permitido." });
+  if (isEmbeddings ? !OPENAI_EMBEDDING_MODEL_PATTERN.test(model) : !OPENAI_MODEL_PATTERN.test(model)) {
+    return res.status(400).json({ error: "Modelo OpenAI n\xE3o permitido." });
   }
+  if (isEmbeddings && !(typeof requestBody.input === "string" || Array.isArray(requestBody.input))) {
+    return res.status(400).json({ error: "Entrada de embedding inv\xE1lida." });
+  }
+  if (isResponses && (requestBody.input === void 0 || requestBody.input === null)) {
+    return res.status(400).json({ error: "Entrada de resposta inv\xE1lida." });
+  }
+  if (isChatCompletions && !Array.isArray(requestBody.messages)) {
+    return res.status(400).json({ error: "Mensagens inv\xE1lidas para a OpenAI." });
+  }
+  if (isResponses && Object.keys(requestBody).some(
+    (key) => !["model", "input", "instructions", "tools", "tool_choice", "text", "reasoning", "max_output_tokens", "temperature"].includes(key)
+  )) {
+    return res.status(400).json({ error: "Campo n\xE3o permitido na solicita\xE7\xE3o OpenAI." });
+  }
+  const moduleSource = typeof body.moduleSource === "string" && /^[a-z0-9_.:-]{1,80}$/i.test(body.moduleSource) ? body.moduleSource : "openai_proxy";
+  const quota = await checkAiQuotaOrReject(
+    context.userDb,
+    "openai",
+    "openai_gpt",
+    isEmbeddings ? 1e3 : 1500,
+    moduleSource,
+    res
+  );
+  if (!quota.allowed) return;
+  const reservationId = quota.reservationId;
+  let committed = false;
+  const startTime = Date.now();
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 45e3);
   try {
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:${action}?key=${encodeURIComponent(process.env.GEMINI_API_KEY.trim())}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-        signal: controller.signal
-      }
-    );
+    const endpoint = isResponses ? "responses" : isEmbeddings ? "embeddings" : "chat/completions";
+    const upstreamBody = isResponses || isEmbeddings ? requestBody : { ...requestBody, model };
+    const response = await fetch(`https://api.openai.com/v1/${endpoint}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${openAiApiKey}`
+      },
+      body: JSON.stringify(upstreamBody),
+      signal: controller.signal
+    });
     const data = await response.json().catch(() => ({}));
-    return res.status(response.status).json(data);
+    const usage = data?.usage;
+    const promptTokens = Number(usage?.input_tokens ?? usage?.prompt_tokens ?? 0);
+    const completionTokens = Number(usage?.output_tokens ?? usage?.completion_tokens ?? 0);
+    const totalTokens = Number(usage?.total_tokens || 0) || promptTokens + completionTokens;
+    const cachedTokens = Number(usage?.prompt_tokens_details?.cached_tokens ?? usage?.cached_tokens ?? 0);
+    recordAiUsageTokensSafe(context.userDb, {
+      provider: "openai",
+      service: "openai_gpt",
+      operation: endpoint,
+      promptTokens,
+      completionTokens,
+      totalTokens,
+      moduleSource,
+      responseTimeMs: Date.now() - startTime,
+      ok: response.ok,
+      reservationId,
+      cachedTokens
+    });
+    committed = true;
+    return res.status(response.status).json(isAgentCompat ? parseOpenAiAgentResponse(data) : data);
   } catch {
-    return res.status(controller.signal.aborted ? 504 : 502).json({ error: "N\xE3o foi poss\xEDvel consultar o servi\xE7o de IA." });
+    return res.status(controller.signal.aborted ? 504 : 502).json({ error: "N\xE3o foi poss\xEDvel consultar a OpenAI." });
   } finally {
     clearTimeout(timeout);
+    if (!committed && reservationId) {
+      releaseAiReservationSafe(context.userDb, reservationId);
+    }
   }
+}
+
+// erp/api/_lib/secureIntegrations/handlers/geminiHandler.ts
+async function handleGemini(req, res) {
+  if (req.method === "OPTIONS") return res.status(200).end();
+  if (req.method !== "POST") return res.status(405).json({ error: "M\xE9todo n\xE3o permitido." });
+  const body = req.body;
+  if (!body || typeof body !== "object" || Array.isArray(body) || body.action !== "generateContent") {
+    return res.status(410).json({ error: "O endpoint Gemini foi desativado. Atualize o aplicativo." });
+  }
+  req.body = {
+    action: "agent_compat",
+    payload: body.payload,
+    moduleSource: "legacy_gemini_proxy"
+  };
+  return handleOpenAi(req, res);
+}
+
+// erp/api/_lib/secureIntegrations/handlers/googleRoutesHandler.ts
+function validPoint(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const point = value;
+  return typeof point.latitude === "number" && Number.isFinite(point.latitude) && point.latitude >= -90 && point.latitude <= 90 && typeof point.longitude === "number" && Number.isFinite(point.longitude) && point.longitude >= -180 && point.longitude <= 180;
 }
 async function handleGoogleRoutes(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "M\xE9todo n\xE3o permitido." });
@@ -1879,9 +2044,12 @@ async function handleGoogleRoutes(req, res) {
     clearTimeout(timeout);
   }
 }
+
+// erp/api/secure-integrations.ts
 var operations = {
   "meta-graph": handleMetaGraph,
   "gemini-proxy": handleGemini,
+  "openai-proxy": handleOpenAi,
   "google-routes": handleGoogleRoutes
 };
 async function handler(req, res) {
@@ -1897,3 +2065,14 @@ async function handler(req, res) {
   const operationHandler = operations[operation];
   return operationHandler(req, res);
 }
+// Annotate the CommonJS export names for ESM import in node:
+0 && (module.exports = {
+  checkAiQuotaOrReject,
+  getOperation,
+  handleGemini,
+  handleGoogleRoutes,
+  handleMetaGraph,
+  handleOpenAi,
+  recordAiUsageTokensSafe,
+  releaseAiReservationSafe
+});

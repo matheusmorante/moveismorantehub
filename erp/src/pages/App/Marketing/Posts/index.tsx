@@ -324,7 +324,7 @@ export default function MarketingPostsManager() {
             </span>
           </h1>
           <p className="text-xs text-slate-400 mt-0.5">
-            Geração de especificações estruturadas para ChatGPT/Gemini e Biblioteca de Artes.
+            Geração de especificações estruturadas para ChatGPT/OpenAI e Biblioteca de Artes.
           </p>
         </div>
       </header>

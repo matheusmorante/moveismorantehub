@@ -4,6 +4,11 @@ import { GeminiClient } from './geminiClient';
 import { withTimeout } from '../../../../shared-utils/withTimeout';
 import { agentContentSchema } from '../../../../shared-utils/agentChatFormSchemas';
 import {
+  AgentPermissionContext,
+  describeOperatorPermissionsForPrompt,
+  filterAgentToolsByPermission,
+} from '../../../../shared-utils/agentPermissionGuard';
+import {
   GeminiContent,
   GeminiPart,
   AgentExecutionResult,
@@ -11,7 +16,7 @@ import {
   AgentPageContext,
 } from './geminiAgentTypes';
 
-// Orquestrador conversacional do Agente Lizandro com Function Calling nativo
+// Orquestrador conversacional do Agente Lizandro com Function Calling nativo e controle de permissões por perfil
 
 const MAX_TOOL_ITERATIONS = 5;
 
@@ -19,14 +24,20 @@ export interface AgentRequestOptions {
   signal?: AbortSignal;
   isCurrent?: () => boolean;
   onToolDispatch?: () => void;
+  permissionContext?: AgentPermissionContext | null;
 }
 
 export class AgentRequestError extends Error {
-  constructor(message: string, public readonly knownFailure: boolean) { super(message); }
+  constructor(message: string, public readonly knownFailure: boolean) {
+    super(message);
+  }
 }
 
 export class GeminiAgentService {
-  public static buildSystemInstruction(pageContext?: AgentPageContext): string {
+  public static buildSystemInstruction(
+    pageContext?: AgentPageContext,
+    permissionContext?: AgentPermissionContext | null
+  ): string {
     const now = new Date();
     const todayStr = now.toISOString().split('T')[0];
     const diasSemana = [
@@ -44,8 +55,12 @@ export class GeminiAgentService {
       ? `\nCONTEXTO DA INTERFACE ATUAL: O operador está na tela/módulo "${pageContext.currentModule}"${pageContext.currentPage ? ` (página: ${pageContext.currentPage})` : ''}. Use isso para compreender o contexto do usuário.`
       : '';
 
+    const permissionSnippet = permissionContext
+      ? `\n${describeOperatorPermissionsForPrompt(permissionContext)}`
+      : '';
+
     return `Você é Lizandro (seu nome é escrito obrigatoriamente com Z: "Lizandro" ou "Seu Lizandro", NUNCA com S), o Agente Geral e Inteligente do ERP Móveis Morante.
-Você é um agente com capacidade de raciocínio, consulta e execução através de ferramentas oficiais do ERP.${contextSnippet}
+Você é um agente com capacidade de raciocínio, consulta e execução através de ferramentas oficiais do ERP, respeitando rigorosamente as permissões do perfil de acesso do usuário.${contextSnippet}${permissionSnippet}
 
 DATA DE REFERÊNCIA DO SISTEMA: ${todayStr} (${diaNome}).
 Use essa data para interpretar datas relativas: "hoje", "ontem", "amanhã", "este mês", "semana passada".
@@ -73,73 +88,55 @@ SUAS REGRAS FUNDAMENTAIS:
      (ex: "conta de luz 200", "conta de água", compras de supermercado sem contexto).
      Nesse caso, pergunte de forma natural: "Essa conta de luz é da loja ou particular de casa? E qual foi a forma de pagamento?"
    - NUNCA use termos técnicos como "(BUSINESS)" ou "(PERSONAL_PARTNER)" na sua mensagem. Fale em português coloquial e profissional.
-   - Quando o usuário responder "loja", "empresa":
-     a) Busque as categorias com "buscarCategoriasFinanceiras(tipo='expense')".
-     b) Crie com "criarMovimentacaoFinanceira" passando finalidade="BUSINESS", tipo="expense", valor, descrição e categoriaId.
-   - Quando o usuário responder "pessoal", "casa", "particular":
-     a) Busque a categoria de retirada com "buscarCategoriasFinanceiras(tipo='expense')".
-     b) Crie com "criarMovimentacaoFinanceira" passando finalidade="PERSONAL_PARTNER", tipo="expense", valor, descrição e categoriaId.
 
-3. MOVIMENTAÇÕES FINANCEIRAS E CONFIRMAÇÃO:
-   - Quando relatar uma entrada/recebimento: use tipo="income" e pergunte como foi recebido se não foi dito.
-   - Ao identificar TODOS os dados (valor, descrição, tipo, categoria, finalidade E forma de pagamento dita pelo usuário):
-     Chame a ferramenta "criarMovimentacaoFinanceira". O sistema exibirá o card de confirmação na tela.
-     Na sua resposta, avise que preparou a movimentação e que ele deve confirmar no card exibido.
-   - Quando o usuário perguntar sobre boletos ou contas a pagar: use "buscarContasAPagar".
-   - Quando perguntar sobre gastos ou saldo: use "obterResumoFinanceiro" ou "buscarMovimentacoesFinanceiras".
+3. FINANCEIRO COMPLETO (CAIXA, CONTAS A PAGAR, CONTAS A RECEBER E BAIXAS):
+   - Consultar categorias: "buscarCategoriasFinanceiras".
+   - Consultar movimentações e saldo: "buscarMovimentacoesFinanceiras" e "obterResumoFinanceiro".
+   - Criar, editar ou excluir movimentação de caixa: "criarMovimentacaoFinanceira", "editarMovimentacaoFinanceira", "cancelarOuExcluirMovimentacaoFinanceira".
+   - Consultar, criar, editar e baixar Contas a Pagar e Contas a Receber: "buscarContasAPagar", "criarContaAPagar", "editarContaAPagar", "buscarContasAReceber", "criarContaAReceber", "editarContaAReceber" e "baixarContaFinanceira".
 
-4. ALTERAÇÕES E CORREÇÕES DE MOVIMENTAÇÕES PREPARADAS / EM CONFIRMAÇÃO:
-   - Se o usuário pedir para alterar qualquer campo (data, valor, forma de pagamento, categoria, descrição) de uma movimentação que foi recém-preparada ou cujo card esteja na tela (ex: "MUDA PARA DATA DE ONTEM", "Muda para 300", "Foi no dinheiro, não Pix", "Coloca categoria X"):
-     * NUNCA DIGA "Não consigo alterar uma movimentação que já foi preparada" ou "Gostaria de criar uma nova movimentação?". O rascunho ainda não foi salvo no banco!
-     * VOCÊ DEVE CHAMAR IMEDIATAMENTE "criarMovimentacaoFinanceira" reaproveitando todos os dados anteriores e aplicando apenas a correção pedida.
-     * Ex: se pediu "muda para data de ontem", chame criarMovimentacaoFinanceira com data='${new Date(Date.now() - 86400000).toISOString().split('T')[0]}' e os mesmos valor, descrição, categoria, formaPagamento e finalidade.
-     * O sistema substitui o card na tela automaticamente com a versão corrigida.
+4. ALTERAÇÕES E CORREÇÕES DE MOVIMENTAÇÕES PREPARADAS / CRIADAS:
+   - Se o usuário pedir para alterar qualquer campo (data, valor, forma de pagamento, categoria, descrição) de uma movimentação que você acabou de criar ou preparar:
+     * VOCÊ DEVE CHAMAR "editarMovimentacaoFinanceira" usando o movimentacaoId retornado.
+     * NUNCA chame "criarMovimentacaoFinanceira" novamente para corrigir um dado, pois isso gera lançamentos duplicados no caixa!
 
 5. REGISTRO OBRIGATÓRIO DE FEEDBACK DO USUÁRIO ("registrarFeedbackAgente"):
-   - Você POSSUI a ferramenta oficial "registrarFeedbackAgente".
-   - Quando o usuário disser "REGISTRA ESSE FEEDBACK", ou reclamar do comportamento da IA ("Você entendeu errado", "Não foi isso que eu falei", "Você colocou errado", "De novo errou", "Por que está perguntando isso?"):
-     * NUNCA DIGA "Não consigo registrar feedbacks" ou "Minhas funcionalidades são para...".
-     * VOCÊ DEVE INVOCAR A FERRAMENTA "registrarFeedbackAgente" IMEDIATAMENTE passando:
-       - categoria: "wrong_arguments" (para data/valor/forma errados), "misunderstanding" (entendeu errado), "unnecessary_question" (pergunta desnecessária) ou "other".
-       - queixaUsuario: resumo fiel do que o usuário reclamou.
-       - campoDivergente: campo envolvido (ex: "data", "categoria", "formaPagamento").
-       - severidade: "medium" ou "high".
-     * Responda de forma cortês confirmando que o feedback foi registrado no sistema de auditoria para a equipe aprimorar a IA.
+   - Quando o usuário disser "REGISTRA ESSE FEEDBACK" ou reclamar de erro de interpretação da IA, invoque IMEDIATAMENTE "registrarFeedbackAgente".
 
-6. LINGUAGEM NATURAL E OBJETIVIDADE:
-   - Responda em Português do Brasil com clareza, objetividade e cordialidade.
-   - Não faça perguntas desnecessárias se tiver informações suficientes para consultar ou operar.
-   - Formate valores monetários como R$ 0,00.
+6. PEDIDOS DE VENDA, ORÇAMENTOS, ASSISTÊNCIAS, DEVOLUÇÕES E CLIENTES:
+   - Consultar operações: use "buscarOperacoes" (tipos: "venda", "orcamento", "assistencia", "devolucao", "entrega", "retirada", "montagem" ou "todas") e "obterDetalhesOperacao" (ou "buscarPedidosEntregas" / "obterDetalhesPedidoEntrega").
+   - Criar ou editar pedidos de venda, orçamentos, assistências técnicas e devoluções: use "criarPedidoOperacao" e "editarPedidoOperacao".
+   - Consultar, criar ou editar clientes e consultar colaboradores: use "buscarClientes", "criarOuEditarCliente" e "buscarColaboradores".
 
-7. CONSULTA DE PRODUTOS E ESTOQUE (SOMENTE LEITURA):
-   - Você possui ferramentas oficiais de CONSULTA do catálogo e estoque de produtos: "buscarProdutos" e "obterDetalhesProduto".
-   - Para perguntas sobre especificações técnicas, medidas/dimensões, materiais, cores, fotos, preços (venda, promoção, custo) ou saldos de estoque, SEMPRE consulte os dados reais via ferramenta antes de responder.
-   - Primeiro localize o produto por termo de busca se o usuário não souber o código exato; para detalhes completos, utilize "obterDetalhesProduto" passando o código oficial de 6 dígitos ou o SKU da variação.
-   - NUNCA invente produtos, códigos, especificações, fotos ou estoques.
-   - PROIBIÇÃO ABSOLUTA DE CRIAÇÃO, EDIÇÃO OU EXCLUSÃO DE PRODUTOS:
-     * Você NÃO possui ferramentas e NÃO tem permissão para cadastrar novos produtos, editar informações de produtos existentes, alterar preços, mexer em estoques ou excluir produtos.
-     * Se o usuário solicitar qualquer alteração de cadastro de produto (ex: "cadastre um sofá novo", "mude o preço do produto X", "delete esse produto", "ajuste o estoque"), recuse educadamente e com clareza, orientando-o a realizar essa alteração manualmente na tela de Cadastro de Produtos do ERP.
+7. TUDO SOBRE PRODUTOS E ESTOQUE (CONSULTA, METADADOS, CRIAÇÃO E EDIÇÃO):
+   - Consultar catálogo e ficha técnica completa: "buscarProdutos", "obterDetalhesProduto" e "listarCategoriasECaracteristicasProduto".
+   - Criar ou editar produtos, variações, preços, estoque, dimensões, características técnicas, NCM, ativação ou lixeira: use "criarProduto" e "editarProduto".
+   - Nunca invente códigos ou SKUs: pesquise primeiro quando precisar localizar um produto existente antes de detalhar ou editar.
 
-8. ESCOPO GERAL E LIMITAÇÃO DE EXECUÇÃO:
-   - Suas ações ativas de execução estão concentradas nos domínios Financeiro (lançamentos de caixa com confirmação) e Feedback.
-   - Consultas estão liberadas para Financeiro e Produtos/Estoque.
-   - Se o usuário solicitar ações de criação/edição para outros módulos ainda não integrados para execução (como compras de fornecedores, pedidos de venda ou cadastro de clientes):
-     * Compreenda a intenção do usuário educadamente.
-     * Responda de forma clara, elegante e direta: "Essa ação ainda não está disponível para mim."
-     * NUNCA tente inventar ferramentas, alucinar dados ou simular que concluiu uma operação sem possuir a ferramenta oficial correspondente.`;
+8. PERMISSÕES POR PERFIL DE ACESSO:
+   - Todas as ferramentas validam se o perfil de acesso do usuário logado tem permissão para consultar, criar ou editar aquele recurso.
+   - Se uma ferramenta retornar código "PERMISSION_DENIED", explique educadamente ao usuário que o perfil de acesso dele não possui permissão para realizar aquela ação específica.
+   - Responda sempre em Português do Brasil com clareza, objetividade e valores formatados como R$ 0,00.`;
   }
 
   public static async sendMessage(
     userMessage: string,
     history: GeminiContent[] = [],
     pageContext?: AgentPageContext,
-    options: AgentRequestOptions = {},
+    options: AgentRequestOptions = {}
   ): Promise<{ result: AgentExecutionResult; updatedHistory: GeminiContent[] }> {
     let toolDispatched = false;
     const startedAt = Date.now();
     const checkCurrent = () => {
-      if (options.signal?.aborted || options.isCurrent?.() === false || Date.now() - startedAt >= 90_000) {
-        throw new AgentRequestError('Consulta interrompida. Confira o resultado das ações já iniciadas antes de repetir.', !toolDispatched);
+      if (
+        options.signal?.aborted ||
+        options.isCurrent?.() === false ||
+        Date.now() - startedAt >= 90_000
+      ) {
+        throw new AgentRequestError(
+          'Consulta interrompida. Confira o resultado das ações já iniciadas antes de repetir.',
+          !toolDispatched
+        );
       }
     };
     const wait = async <T,>(operation: () => Promise<T>, timeoutMs: number): Promise<T> => {
@@ -147,15 +144,32 @@ SUAS REGRAS FUNDAMENTAIS:
       const expired = Symbol('expired');
       let onAbort!: () => void;
       const aborted = new Promise<never>((_, reject) => {
-        onAbort = () => reject(new AgentRequestError('Consulta interrompida. Confira o resultado das ações já iniciadas antes de repetir.', !toolDispatched));
+        onAbort = () =>
+          reject(
+            new AgentRequestError(
+              'Consulta interrompida. Confira o resultado das ações já iniciadas antes de repetir.',
+              !toolDispatched
+            )
+          );
         options.signal?.addEventListener('abort', onAbort, { once: true });
       });
       try {
-        const result = await withTimeout<unknown>(Promise.race([operation(), aborted]), Math.min(timeoutMs, 90_000 - (Date.now() - startedAt)), expired, 'assistente ERP');
-        if (result === expired) throw new AgentRequestError('A resposta do assistente excedeu o prazo. Confira as ações já iniciadas antes de repetir.', !toolDispatched);
+        const result = await withTimeout<unknown>(
+          Promise.race([operation(), aborted]),
+          Math.min(timeoutMs, 90_000 - (Date.now() - startedAt)),
+          expired,
+          'assistente ERP'
+        );
+        if (result === expired)
+          throw new AgentRequestError(
+            'A resposta do assistente excedeu o prazo. Confira as ações já iniciadas antes de repetir.',
+            !toolDispatched
+          );
         checkCurrent();
         return result as T;
-      } finally { options.signal?.removeEventListener('abort', onAbort); }
+      } finally {
+        options.signal?.removeEventListener('abort', onAbort);
+      }
     };
     try {
       const executedTools: ExecutedToolRecord[] = [];
@@ -168,22 +182,35 @@ SUAS REGRAS FUNDAMENTAIS:
 
       let iterations = 0;
       const systemInstruction = {
-        parts: [{ text: this.buildSystemInstruction(pageContext) }],
+        parts: [{ text: this.buildSystemInstruction(pageContext, options.permissionContext) }],
       };
+
+      const permittedTools = filterAgentToolsByPermission(
+        erpAgentTools,
+        options.permissionContext
+      );
+      const activeTools = permittedTools.length > 0 ? permittedTools : erpAgentTools;
 
       while (iterations < MAX_TOOL_ITERATIONS) {
         iterations++;
 
-        const apiResponse = await wait(() => GeminiClient.generateContent({
-          systemInstruction,
-          contents: conversation,
-          tools: erpAgentTools,
-          toolConfig: { functionCallingConfig: { mode: 'AUTO' } },
-          temperature: 0.1,
-        }, {
-          signal: options.signal,
-          timeoutMs: Math.min(30_000, 90_000 - (Date.now() - startedAt)),
-        }), 30_000);
+        const apiResponse = await wait(
+          () =>
+            GeminiClient.generateContent(
+              {
+                systemInstruction,
+                contents: conversation,
+                tools: activeTools,
+                toolConfig: { functionCallingConfig: { mode: 'AUTO' } },
+                temperature: 0.1,
+              },
+              {
+                signal: options.signal,
+                timeoutMs: Math.min(30_000, 90_000 - (Date.now() - startedAt)),
+              }
+            ),
+          30_000
+        );
 
         const candidate = apiResponse.candidates?.[0];
         const modelContent = candidate?.content;
@@ -208,7 +235,12 @@ SUAS REGRAS FUNDAMENTAIS:
           const textParts = modelContent.parts.map((p) => p.text || '').filter(Boolean);
           const finalAnswer = textParts.join('\n').trim();
           return {
-            result: { answer: finalAnswer || 'O assistente não enviou uma resposta em texto. Confira as ações exibidas.', executedTools },
+            result: {
+              answer:
+                finalAnswer ||
+                'O assistente não enviou uma resposta em texto. Confira as ações exibidas.',
+              executedTools,
+            },
             updatedHistory: conversation,
           };
         }
@@ -218,7 +250,10 @@ SUAS REGRAS FUNDAMENTAIS:
           checkCurrent();
           toolDispatched = true;
           options.onToolDispatch?.();
-          const execution = await wait(() => GeminiToolDispatcher.execute(call), 20_000);
+          const execution = await wait(
+            () => GeminiToolDispatcher.execute(call, options.permissionContext),
+            20_000
+          );
           executedTools.push(execution.record);
           responseParts.push({ functionResponse: execution.functionResponse });
         }
@@ -231,14 +266,18 @@ SUAS REGRAS FUNDAMENTAIS:
 
       return {
         result: {
-          answer: 'Consulta interrompida: limite de iterações atingido. Confira as ações exibidas antes de continuar.',
+          answer:
+            'Consulta interrompida: limite de iterações atingido. Confira as ações exibidas antes de continuar.',
           executedTools,
         },
         updatedHistory: conversation,
       };
     } catch (error) {
       if (error instanceof AgentRequestError) throw error;
-      throw new AgentRequestError(error instanceof Error ? error.message : 'Falha ao consultar o assistente.', !toolDispatched);
+      throw new AgentRequestError(
+        error instanceof Error ? error.message : 'Falha ao consultar o assistente.',
+        !toolDispatched
+      );
     }
   }
 }

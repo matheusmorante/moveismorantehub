@@ -32,12 +32,14 @@ interface UseFinancialAiChatProps {
   categories: FinancialCategory[];
   onTransactionRegistered: () => void | Promise<void>;
   userName?: string;
+  userProfile?: any;
 }
 
 export function useFinancialAiChat({
   categories,
   onTransactionRegistered,
   userName = 'Operador',
+  userProfile,
 }: UseFinancialAiChatProps) {
   const [inputText, setInputText] = useState('');
   const inputForm = useZodForm(messageFormSchema, { text: inputText });
@@ -235,6 +237,7 @@ export function useFinancialAiChat({
 
   const voice = useFinancialAiVoiceSession({
     userName,
+    userProfile,
     mountedRef,
     scopeRef,
     operationRef,
@@ -264,7 +267,14 @@ export function useFinancialAiChat({
         const target = values.targetMessageId ? sourceMessages.find((message) => message.id === values.targetMessageId) : undefined;
         if (values.targetMessageId && !target) { Alert.alert('Revise a mensagem', 'A mensagem editada não está mais disponível.'); return false; }
         if (!isCurrent()) return false;
-        const response = await withTimeout(MobileAgentService.sendMessage(values.text, geminiHistoryRef.current), 45_000, null, 'Análise da mensagem financeira');
+        const response = await withTimeout(
+          MobileAgentService.sendMessage(values.text, geminiHistoryRef.current, undefined, {
+            permissionContext: userProfile,
+          }),
+          45_000,
+          null,
+          'Análise da mensagem financeira'
+        );
         if (!isCurrent()) return false;
         if (!response) throw new Error('A análise demorou demais. Sua mensagem foi preservada; tente novamente.');
         const { result, updatedHistory } = response;

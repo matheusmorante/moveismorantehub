@@ -1,19 +1,38 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
 import {
   FinancialCategory,
   fetchFinancialCategories,
 } from '../../../services/mobileFinanceService';
 import { FinancialAiChatView } from '../../finance/components/FinancialAiChatView';
+import { useAuth } from '../../../contexts/AuthContext';
 
 interface Props {
   userProfile?: any;
   isDarkMode?: boolean;
 }
 
-export const GlobalAgentScreen: React.FC<Props> = ({ userProfile, isDarkMode = false }) => {
+export const GlobalAgentScreen: React.FC<Props> = ({
+  userProfile: propUserProfile,
+  isDarkMode = false,
+}) => {
+  const { userProfile: authUserProfile, rolePermissions } = useAuth();
+  const effectiveProfile = propUserProfile || authUserProfile;
   const [categories, setCategories] = useState<FinancialCategory[]>([]);
-  const userName = userProfile?.full_name || userProfile?.name || 'Operador';
+  const userName =
+    effectiveProfile?.full_name ||
+    effectiveProfile?.fullName ||
+    effectiveProfile?.name ||
+    'Operador';
+
+  const permissionContext = useMemo(
+    () => ({
+      ...effectiveProfile,
+      rolePermissions: rolePermissions || effectiveProfile?.rolePermissions,
+      enforced: true,
+    }),
+    [effectiveProfile, rolePermissions]
+  );
 
   useEffect(() => {
     let isMounted = true;
@@ -37,6 +56,7 @@ export const GlobalAgentScreen: React.FC<Props> = ({ userProfile, isDarkMode = f
           // Callback opcional de atualização
         }}
         userName={userName}
+        userProfile={permissionContext}
         isDarkMode={isDarkMode}
       />
     </View>

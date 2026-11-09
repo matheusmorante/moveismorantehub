@@ -4,6 +4,11 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createProductDbClient } from './serverDb';
 import { withSpan } from '../../src/telemetry/tracer';
 import {
+  checkAiQuotaOrReject,
+  recordAiUsageTokensSafe,
+  releaseAiReservationSafe,
+} from '../../erp/api/_lib/secureIntegrations/aiQuotaBridge';
+import {
   buildNcmSearchTerms,
   isCurrentNcm,
   isWoodenBedroomFurnitureByName,
@@ -17,8 +22,9 @@ import {
 
 const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
 const serviceKey = getSupabaseSecretKey() || '';
-const jevKey = process.env.TYPESAFE_API_KEY || '';
-const JEV_INPUT_TOKEN_LIMIT_PER_MINUTE = 2_000;
+const openAiKey = process.env.OPENAI_API_KEY?.trim() || '';
+const CLASSIFICATION_MODEL = 'gpt-6-luna';
+const CLASSIFICATION_INPUT_TOKEN_LIMIT_PER_MINUTE = 2_000;
 const dateInBrazil = () =>
   new Intl.DateTimeFormat('en-CA', {
     timeZone: 'America/Sao_Paulo',
@@ -29,12 +35,12 @@ const dateInBrazil = () =>
 const cleanText = (value: unknown, limit: number) =>
   typeof value === 'string' ? value.trim().slice(0, limit) : '';
 
-type JevClassificationResult = {
+type ClassificationResult = {
   category: { id: string; name: string } | null;
   ncm: { code: string; description: string } | null;
 };
 
-type JevReservation = {
+type ClassificationReservation = {
   allowed: boolean;
   reason: string;
   used_input_tokens: number;
@@ -42,7 +48,7 @@ type JevReservation = {
   cached_response: unknown;
 };
 
-class JevInputBudgetError extends Error {
+class ClassificationBudgetError extends Error {
   constructor(
     readonly statusCode: 413 | 429,
     readonly code: string,
@@ -53,18 +59,18 @@ class JevInputBudgetError extends Error {
   }
 }
 
-function estimateJevInputTokens(serializedRequest: string): number {
+function estimateClassificationInputTokens(serializedRequest: string): number {
   // Reserva com margem antes do envio; o uso reportado pelo provedor substitui a estimativa depois.
   return Math.ceil(Buffer.byteLength(serializedRequest, 'utf8') / 2) + 512;
 }
 
-async function reserveJevInputBudget(
+async function reserveClassificationInputBudget(
   db: ReturnType<typeof createProductDbClient>,
   requestId: string,
   fingerprint: string,
   reservedTokens: number,
   ignoreCache: boolean
-): Promise<JevReservation> {
+): Promise<ClassificationReservation> {
   const { data, error } = await db.rpc('reserve_jev_classification_tokens', {
     p_request_id: requestId,
     p_request_fingerprint: fingerprint,
@@ -74,14 +80,14 @@ async function reserveJevInputBudget(
   if (error) throw new Error('jev_budget_unavailable');
   const row = Array.isArray(data) ? data[0] : data;
   if (!row || typeof row !== 'object') throw new Error('jev_budget_unavailable');
-  return row as JevReservation;
+  return row as ClassificationReservation;
 }
 
-function throwForBudgetDecision(decision: JevReservation): void {
+function throwForBudgetDecision(decision: ClassificationReservation): void {
   if (decision.reason === 'request_too_large')
-    throw new JevInputBudgetError(413, 'request_too_large', 'Dados demais para classificar em uma única chamada.');
+    throw new ClassificationBudgetError(413, 'request_too_large', 'Dados demais para classificar em uma única chamada.');
   if (decision.reason === 'token_limit' || decision.reason === 'in_progress')
-    throw new JevInputBudgetError(
+    throw new ClassificationBudgetError(
       429,
       decision.reason,
       'Limite de uso do classificador atingido. Tente novamente após alguns segundos.',
@@ -94,11 +100,11 @@ function throwForBudgetDecision(decision: JevReservation): void {
 async function validateCachedClassification(
   db: ReturnType<typeof createProductDbClient>,
   cached: unknown
-): Promise<JevClassificationResult | null> {
+): Promise<ClassificationResult | null> {
   if (!cached || typeof cached !== 'object' || Array.isArray(cached)) return null;
   const record = cached as Record<string, unknown>;
-  let category: JevClassificationResult['category'] = null;
-  let ncm: JevClassificationResult['ncm'] = null;
+  let category: ClassificationResult['category'] = null;
+  let ncm: ClassificationResult['ncm'] = null;
 
   if (record.category != null) {
     if (typeof record.category !== 'object' || Array.isArray(record.category)) return null;
@@ -139,7 +145,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Método não permitido.' });
-  if (!supabaseUrl || !serviceKey || !jevKey)
+  if (!supabaseUrl || !serviceKey || !openAiKey)
     return res.status(503).json({ error: 'Classificação indisponível.' });
   const token = /^Bearer (.+)$/i.exec(req.headers.authorization || '')?.[1];
   if (!token) return res.status(401).json({ error: 'Sessão inválida.' });
@@ -170,7 +176,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // A resposta só classifica. Nenhum dado de produto, estoque ou fiscal é gravado aqui.
   try {
     const result = await withSpan(
-      'product.jev.classify',
+      'product.ai.classify',
       async (span) => {
         let category: CategoryCandidate | null = null;
         let ncm: NcmCandidate | null = null;
@@ -310,8 +316,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             category: null,
             ncm: ncm && { code: ncm.code, description: ncm.official_description },
           };
-        const jevRequest = {
-          state: isInvoice
+        const classificationState = isInvoice
             ? { title }
             : {
                 name,
@@ -319,14 +324,51 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 description,
                 material,
                 ...(categoryName ? { category: categoryName } : {}),
+              };
+        const responseProperties: Record<string, unknown> = {};
+        if (questions.category)
+          responseProperties.category = {
+            type: 'object',
+            properties: { choice: { type: 'string', enum: [...categoryOptions.keys()] } },
+            required: ['choice'],
+            additionalProperties: false,
+          };
+        if (questions.ncm)
+          responseProperties.ncm = {
+            type: 'object',
+            properties: { choice: { type: 'string', enum: [...ncmOptions.keys()] } },
+            required: ['choice'],
+            additionalProperties: false,
+          };
+        const openAiRequest = {
+          model: CLASSIFICATION_MODEL,
+          messages: [
+            {
+              role: 'system',
+              content:
+                'Classifique o produto apenas entre as opções fornecidas. Não invente categoria nem NCM. Responda com a opção mais adequada; a classificação é uma sugestão sujeita à revisão humana.',
+            },
+            { role: 'user', content: JSON.stringify({ state: classificationState, questions }) },
+          ],
+          response_format: {
+            type: 'json_schema',
+            json_schema: {
+              name: 'product_classification_choices',
+              strict: true,
+              schema: {
+                type: 'object',
+                properties: responseProperties,
+                required: Object.keys(responseProperties),
+                additionalProperties: false,
               },
-          model: 'jev-latest',
-          questions,
+            },
+          },
+          max_completion_tokens: 256,
         };
-        const serializedRequest = JSON.stringify(jevRequest);
-        const estimatedInputTokens = estimateJevInputTokens(serializedRequest);
-        if (estimatedInputTokens > JEV_INPUT_TOKEN_LIMIT_PER_MINUTE)
-          throw new JevInputBudgetError(
+        const serializedRequest = JSON.stringify(openAiRequest);
+        const estimatedInputTokens = estimateClassificationInputTokens(serializedRequest);
+        if (estimatedInputTokens > CLASSIFICATION_INPUT_TOKEN_LIMIT_PER_MINUTE)
+          throw new ClassificationBudgetError(
             413,
             'request_too_large',
             'Dados demais para classificar em uma única chamada.'
@@ -336,56 +378,102 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             JSON.stringify({
               userId: auth.user.id,
               source,
-              state: jevRequest.state,
+              model: CLASSIFICATION_MODEL,
+              state: classificationState,
               hasNcm,
               questions,
             })
           )
           .digest('hex');
         const requestId = randomUUID();
-        let reservation = await reserveJevInputBudget(
-          db,
-          requestId,
-          fingerprint,
-          estimatedInputTokens,
-          false
+        const quota = await checkAiQuotaOrReject(
+          userDb,
+          'openai',
+          'openai_gpt',
+          estimatedInputTokens + 256,
+          'product_ncm',
+          res
         );
-        if (reservation.allowed && reservation.reason === 'cached') {
-          const cached = await validateCachedClassification(db, reservation.cached_response);
-          if (cached) return cached;
-          // O catálogo mudou desde o cache; reserve a nova chamada sem reaproveitar a resposta.
-          reservation = await reserveJevInputBudget(
+        if (!quota.allowed) throw new Error('ai_quota_blocked');
+        let quotaCommitted = false;
+        const startedAt = Date.now();
+        let reservation: ClassificationReservation;
+        try {
+          reservation = await reserveClassificationInputBudget(
             db,
             requestId,
             fingerprint,
             estimatedInputTokens,
-            true
+            false
           );
-        }
-        throwForBudgetDecision(reservation);
-        span.setAttribute('jev.input_tokens.estimated', estimatedInputTokens);
-        span.setAttribute('jev.input_tokens.limit_per_minute', JEV_INPUT_TOKEN_LIMIT_PER_MINUTE);
-        let response: Response;
-        try {
-          response = await fetch('https://api.typesafe.ai/v1/systemone', {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${jevKey}`, 'Content-Type': 'application/json' },
-          body: serializedRequest,
-          signal: AbortSignal.timeout(8000),
-        });
+          if (reservation.allowed && reservation.reason === 'cached') {
+            const cached = await validateCachedClassification(db, reservation.cached_response);
+            if (cached) {
+              releaseAiReservationSafe(userDb, quota.reservationId);
+              quotaCommitted = true;
+              return cached;
+            }
+            // O catálogo mudou desde o cache; reserve a nova chamada sem reaproveitar a resposta.
+            reservation = await reserveClassificationInputBudget(
+              db,
+              requestId,
+              fingerprint,
+              estimatedInputTokens,
+              true
+            );
+          }
+          throwForBudgetDecision(reservation);
         } catch (error) {
-          if (ncm) return { category: null, ncm: { code: ncm.code, description: ncm.official_description } };
+          if (!quotaCommitted) releaseAiReservationSafe(userDb, quota.reservationId);
+          quotaCommitted = true;
           throw error;
         }
-        if (!response.ok) {
-          if (ncm) return { category: null, ncm: { code: ncm.code, description: ncm.official_description } };
-          throw new Error(response.status === 429 ? 'rate_limited' : 'jev_http');
-        }
-        const payload = await response.json();
-        const reportedInputTokens = Number(
-          payload?.usage?.input_tokens ?? payload?.usage?.inputTokens ?? payload?.meta?.usage?.input_tokens
-        );
-        const answers = payload?.answers || {};
+        span.setAttribute('classification.input_tokens.estimated', estimatedInputTokens);
+        span.setAttribute('classification.input_tokens.limit_per_minute', CLASSIFICATION_INPUT_TOKEN_LIMIT_PER_MINUTE);
+        try {
+          let response: Response;
+          try {
+            response = await fetch('https://api.openai.com/v1/chat/completions', {
+              method: 'POST',
+              headers: { Authorization: `Bearer ${openAiKey}`, 'Content-Type': 'application/json' },
+              body: serializedRequest,
+              signal: AbortSignal.timeout(8000),
+            });
+          } catch (error) {
+            if (ncm) return { category: null, ncm: { code: ncm.code, description: ncm.official_description } };
+            throw error;
+          }
+          const payload = await response.json();
+          const usage = payload?.usage || {};
+          const reportedInputTokens = Number(usage.prompt_tokens);
+          const completionTokens = Number(usage.completion_tokens || 0);
+          const totalTokens = Number(usage.total_tokens || 0) || reportedInputTokens + completionTokens;
+          recordAiUsageTokensSafe(userDb, {
+            provider: 'openai',
+            service: 'openai_gpt',
+            operation: 'product_classify',
+            promptTokens: Number.isInteger(reportedInputTokens) && reportedInputTokens >= 0 ? reportedInputTokens : 0,
+            completionTokens,
+            totalTokens,
+            moduleSource: 'product_ncm',
+            responseTimeMs: Date.now() - startedAt,
+            ok: response.ok,
+            reservationId: quota.reservationId,
+            cachedTokens: Number(usage.prompt_tokens_details?.cached_tokens || 0),
+          });
+          quotaCommitted = true;
+          if (!response.ok) {
+            if (ncm) return { category: null, ncm: { code: ncm.code, description: ncm.official_description } };
+            throw new Error(response.status === 429 ? 'rate_limited' : 'openai_http');
+          }
+          const messageContent = payload?.choices?.[0]?.message?.content;
+          if (typeof messageContent !== 'string') throw new Error('openai_response');
+          let answers: Record<string, any>;
+          try {
+            answers = JSON.parse(messageContent);
+          } catch {
+            throw new Error('openai_response');
+          }
         const today = dateInBrazil();
         if (questions.category) {
           const choice = answers.category?.choice;
@@ -434,7 +522,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
         span.setAttribute('category.validated', Boolean(category));
         span.setAttribute('ncm.validated', Boolean(ncm));
-        const classified: JevClassificationResult = {
+        const classified: ClassificationResult = {
           category: category && { id: category.id, name: category.name },
           ncm: ncm && { code: ncm.code, description: ncm.official_description },
         };
@@ -447,15 +535,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           p_actual_input_tokens: actualInputTokens,
           p_response: classified,
         });
-        span.setAttribute('jev.input_tokens.actual', actualInputTokens);
-        if (settlementError) console.warn('JEV_USAGE_SETTLEMENT_FAILED');
+        span.setAttribute('classification.input_tokens.actual', actualInputTokens);
+        if (settlementError) console.warn('CLASSIFICATION_USAGE_SETTLEMENT_FAILED');
         return classified;
+        } finally {
+          if (!quotaCommitted) releaseAiReservationSafe(userDb, quota.reservationId);
+        }
       },
       { module: 'Products', operation: 'classify' }
     );
     return res.status(200).json(result);
   } catch (error) {
-    if (error instanceof JevInputBudgetError) {
+    if (res.headersSent) return;
+    if (error instanceof ClassificationBudgetError) {
       if (error.retryAfterSeconds) res.setHeader('Retry-After', String(error.retryAfterSeconds));
       return res.status(error.statusCode).json({
         error: error.message,
@@ -472,7 +564,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const safeReason = [
       'timeout',
       'rate_limited',
-      'jev_http',
+      'openai_http',
+      'openai_response',
+      'ai_quota_blocked',
       'catalog_unavailable',
       'ncm_search_unavailable',
       'ncm_catalog_unavailable',
@@ -481,14 +575,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       ? reason
       : 'unknown';
     await withSpan(
-      'product.jev.fallback',
+      'product.ai.fallback',
       async (span) => {
         span.setAttribute('timeout', safeReason === 'timeout');
         span.setAttribute('fallback.manual', true);
       },
       { module: 'Products', reason: safeReason }
     );
-    console.warn('PRODUCT_JEV_CLASSIFICATION_FAILED', safeReason);
+    console.warn('PRODUCT_AI_CLASSIFICATION_FAILED', safeReason);
     return res.status(503).json({ error: 'Classificação indisponível.' });
   }
 }

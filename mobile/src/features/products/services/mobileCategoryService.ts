@@ -141,10 +141,12 @@ export const fetchMobileCategories = async (
         ? supabase
             .from('categories')
             .select(CATEGORY_ENVIRONMENT_SUMMARY_FIELDS)
+              .or('type.neq.environment,type.is.null')
             .order('name', { ascending: true })
         : supabase
             .from('categories')
             .select('*')
+              .or('type.neq.environment,type.is.null')
             .order('name', { ascending: true });
     const { data: catsData, error: catsErr } = await categoriesRequest;
 

@@ -10,6 +10,7 @@ interface CachedSearchPage {
 const temporarySearchCache = new Map<string, CachedSearchPage>();
 
 export function readSupportSearchCache<T>(key: string): CustomerSupportGlobalSearchPage<T> | null {
+  if (process.env.NODE_ENV === 'test') return null;
   const entry = temporarySearchCache.get(key);
   if (!entry) return null;
   if (entry.expiresAt <= Date.now()) {

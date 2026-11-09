@@ -1,13 +1,27 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-const mocks = vi.hoisted(() => ({ rpc: vi.fn(), from: vi.fn(), select: vi.fn(), in: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  rpc: vi.fn(),
+  from: vi.fn(),
+  select: vi.fn(),
+  in: vi.fn(),
+  eq: vi.fn(),
+  or: vi.fn(),
+  maybeSingle: vi.fn(),
+}));
 vi.mock('../supabaseClient', () => ({ supabase: { rpc: mocks.rpc, from: mocks.from } }));
-import { searchOperations } from './orderDeliveryAgentService';
+import { searchOperations, getOrderDeliveryDetails } from './orderDeliveryAgentService';
+import { setActiveAgentPermissionContext } from '../../../../shared-utils/agentPermissionGuard';
 
 describe('consulta de pedidos do assistente', () => {
   beforeEach(() => {
     vi.resetAllMocks();
     mocks.from.mockReturnValue({ select: mocks.select });
-    mocks.select.mockReturnValue({ in: mocks.in });
+    mocks.select.mockReturnValue({
+      in: mocks.in,
+      eq: mocks.eq,
+    });
+    mocks.eq.mockReturnValue({ or: mocks.or });
+    mocks.or.mockReturnValue({ maybeSingle: mocks.maybeSingle });
   });
   it('envia todos os critérios antes do limite e busca somente os pedidos escolhidos', async () => {
     mocks.rpc.mockResolvedValue({ data: { ids: ['a'] }, error: null });
@@ -29,5 +43,37 @@ describe('consulta de pedidos do assistente', () => {
   it('recusa datas inválidas antes de consultar o servidor', async () => {
     await expect(searchOperations({ dataInicio: '04/11/2026' })).rejects.toThrow('AAAA-MM-DD');
     expect(mocks.rpc).not.toHaveBeenCalled();
+  });
+
+  it('bloqueia entregador de acessar orçamentos ou pedidos de retirada sem rota de entrega', async () => {
+    setActiveAgentPermissionContext({
+      role: 'deliverer',
+      enforced: true,
+      rolePermissions: {
+        startDelivery: ['deliverer'],
+        viewDeliverySchedule: ['deliverer'],
+      },
+    });
+
+    // Simula pedido com modalidade pickup (retirada)
+    mocks.maybeSingle.mockResolvedValueOnce({
+      data: {
+        id: '11111111-1111-4111-8111-111111111111',
+        order_number: '5001',
+        status: 'draft',
+        order_type: 'sale',
+        delivery_method: 'pickup',
+        order_data: {
+          deliveryMethod: 'pickup',
+        },
+      },
+      error: null,
+    });
+
+    await expect(
+      getOrderDeliveryDetails('11111111-1111-4111-8111-111111111111')
+    ).rejects.toThrow(/não possui rota de entrega ou montagem vinculada ao seu escopo/);
+
+    setActiveAgentPermissionContext(null);
   });
 });

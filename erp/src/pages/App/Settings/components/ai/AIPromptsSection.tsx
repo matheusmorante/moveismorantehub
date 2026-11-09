@@ -122,13 +122,13 @@ const AIPromptsSection = ({ settings, onChange }: AIPromptsSectionProps) => {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex-1">
             <h4 className="font-bold text-slate-800 dark:text-slate-200 text-sm uppercase tracking-wider flex items-center gap-2">
-              Chave da API Google Gemini
+              Chave da API OpenAI
               <span className="text-[8px] bg-emerald-100 dark:bg-emerald-900/50 text-emerald-600 dark:text-emerald-400 px-1.5 py-0.5 rounded-full font-bold">
                 Ativa
               </span>
             </h4>
             <p className="text-xs text-slate-400 dark:text-slate-500 mt-1 leading-relaxed">
-              A chave do Gemini é mantida em GEMINI_API_KEY no ambiente do servidor e não é
+              A chave da OpenAI é mantida em OPENAI_API_KEY no ambiente do servidor e não é
               exibida nem salva nas configurações do ERP.
             </p>
           </div>

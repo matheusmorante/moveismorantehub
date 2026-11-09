@@ -5,17 +5,18 @@ import { AiConcurrencyLimiter } from './core/AiConcurrencyLimiter';
 import { AiCircuitBreaker } from './core/AiCircuitBreaker';
 import { AiQuotaManager } from './core/AiQuotaManager';
 import { supabase } from '../../pages/utils/supabaseConfig';
-import { parseGeminiResponse } from './core/parseGeminiResponse';
-
+import { parseOpenAiResponse } from './core/parseOpenAiResponse';
 import { AiLatencyTracker } from './core/AiLatencyTracker';
-import { ApiUsageTracker } from '../apiMonitoring/apiUsageTracker';
 import { inferModuleFromOperation } from '../apiMonitoring/apiModuleMapper';
 import { clearModelAiQuotaAlert } from './aiQuotaNotifier';
 import { withTimeout } from '../../../../shared-utils/withTimeout';
+import { buildOpenAiPayload } from './core/openAiPayloadBuilder';
+import { calculateOpenAiCost } from './core/openAiCostCalculator';
+import { AiGatewayUsageLogger } from './core/aiGatewayUsageLogger';
 
 export class AiGateway {
   /**
-   * Ponto de entrada ÚNICO para requisições de Texto Rápido/Econômico (Gemini 3.5 Flash Lite)
+   * Ponto de entrada para geração de texto com GPT-6 Luna.
    * Usado para descrições, categorias, títulos, atributos e extrações leves.
    */
   public static async requestText(
@@ -25,7 +26,7 @@ export class AiGateway {
   }
 
   /**
-   * Ponto de entrada para tarefas de Raciocínio Estruturado e Fiscais (Gemini 3.8 Flash)
+   * Ponto de entrada para tarefas de raciocínio estruturado e fiscais com GPT-6 Luna.
    * Usado para sugestão de NCM, regras tributárias e casos difíceis com thinking low/medium.
    */
   public static async requestReasoning(
@@ -41,7 +42,7 @@ export class AiGateway {
   }
 
   /**
-   * Ponto de entrada para cálculo de similaridade semântica e busca vetorial (Gemini Embedding 2)
+   * Ponto de entrada para embeddings e busca vetorial com o modelo OpenAI especializado.
    */
   public static async requestEmbedding(
     text: string,
@@ -58,7 +59,7 @@ export class AiGateway {
   }
 
   /**
-   * Ponto de entrada ÚNICO e OBRIGATÓRIO para requisições de Imagem (Gemini 2.5/3.1 Flash Image)
+   * Ponto de entrada obrigatório para geração de imagens com GPT Image 2.
    */
   public static async requestImage(
     options: Omit<AiRequestOptions, 'category'>
@@ -160,8 +161,8 @@ export class AiGateway {
           };
         }
 
-        // 6. Chamada de Produção Proxied ao Gemini HTTP Backend
-        const rawResult = await this.callGeminiApiProxied<T>(
+        // 5. Chamada de produção protegida ao backend OpenAI.
+        const rawResult = await this.callOpenAiProxied<T>(
           category,
           effectiveModel,
           payload,
@@ -169,7 +170,8 @@ export class AiGateway {
           options.moduleSource,
           options.thinkingBudget,
           options.jsonMode,
-          options.tools
+          options.tools,
+          quota.requestId
         );
 
         AiCircuitBreaker.recordSuccess(category);
@@ -186,16 +188,16 @@ export class AiGateway {
         const isQuotaOrRateLimit = /429|resource_exhausted|quota|rate limit/i.test(
           err?.message || ''
         );
-        const isEmptyResponse = err?.name === 'GeminiEmptyResponseError';
+        const isEmptyResponse = err?.name === 'OpenAiEmptyResponseError';
         const modelUsed = options.model || categoryConfig.model;
         return {
           success: false,
           errorCode: isQuotaOrRateLimit ? 'AI_RATE_LIMIT_REACHED' : 'AI_SERVICE_ERROR',
-          errorMessage: err.message || 'Erro na comunicação com a API Gemini',
+          errorMessage: err.message || 'Erro na comunicação com a API OpenAI',
           userFriendlyMessage: isQuotaOrRateLimit
             ? `Cota do modelo ${modelUsed} atingida (HTTP 429).`
             : isEmptyResponse
-              ? 'A Gemini respondeu sem texto utilizável. O diagnóstico técnico foi salvo para investigação.'
+              ? 'A OpenAI respondeu sem texto utilizável. O diagnóstico técnico foi salvo para investigação.'
               : 'Não foi possível processar a requisição de IA no momento.',
           category,
           modelUsed,
@@ -212,7 +214,7 @@ export class AiGateway {
     return executionPromise;
   }
 
-  private static async callGeminiApiProxied<T>(
+  private static async callOpenAiProxied<T>(
     category: AiCategory,
     model: string,
     payload: any,
@@ -220,49 +222,24 @@ export class AiGateway {
     moduleSource?: string,
     thinkingBudget?: 'low' | 'medium' | 'high',
     jsonMode?: boolean,
-    tools?: any[]
+    tools?: any[],
+    preAllocRequestId?: string
   ): Promise<T> {
     const callId = AiLatencyTracker.startCall(operation, model, category);
     const resolvedModule = moduleSource || inferModuleFromOperation(operation);
-    const serviceId = category === 'IMAGE' ? 'gemini_image' : 'gemini_flash';
-
     const isEmbedding = model.includes('embedding') || operation.includes('embedding');
-    const action = isEmbedding ? 'embedContent' : 'generateContent';
+    const serviceId = category === 'IMAGE' ? 'openai_image' : isEmbedding ? 'openai_embedding' : 'openai_gpt';
 
-    let requestBody: any;
-    if (isEmbedding) {
-      requestBody = {
-        content: {
-          parts: [{ text: typeof payload === 'string' ? payload : JSON.stringify(payload) }],
-        },
-      };
-    } else {
-      const contents = typeof payload === 'string' ? [{ parts: [{ text: payload }] }] : payload;
-      const generationConfig: any = {};
-      if (category === 'IMAGE') {
-        generationConfig.responseModalities = ['TEXT', 'IMAGE'];
-      } else {
-        if (jsonMode) {
-          // A API do Google Gemini não suporta responseMimeType: 'application/json' quando tools ativas
-          // (como googleSearch) estão habilitadas, retornando HTTP 400 INVALID_ARGUMENT.
-          // Quando tools estão presentes, o formato JSON é garantido pelas instruções do prompt e extraído no parsing.
-          if (!tools || tools.length === 0) {
-            generationConfig.responseMimeType = 'application/json';
-          }
-        }
-        if (thinkingBudget) {
-          generationConfig.thinkingConfig = {
-            thinkingBudget:
-              thinkingBudget === 'low' ? 1024 : thinkingBudget === 'medium' ? 2048 : 4096,
-          };
-        }
-      }
-      requestBody = {
-        contents,
-        ...(Object.keys(generationConfig).length ? { generationConfig } : {}),
-        ...(tools && tools.length ? { tools } : {}),
-      };
-    }
+    const { kind, requestBody } = buildOpenAiPayload({
+      category,
+      model: category === 'IMAGE' ? AI_MODELS.LITE : model,
+      imageModel: AI_MODELS.IMAGE,
+      payload,
+      operation,
+      jsonMode,
+      thinkingBudget,
+      tools,
+    });
 
     const startFetch = Date.now();
     let responseHttpStatus: number | null = null;
@@ -272,101 +249,73 @@ export class AiGateway {
     try {
       const request = async () => {
         const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-        if (controller.signal.aborted) throw new Error('Consulta Gemini encerrada.');
+        if (controller.signal.aborted) throw new Error('Consulta OpenAI encerrada.');
         const accessToken = sessionData.session?.access_token;
         if (sessionError || !accessToken) throw new Error('Sessão inválida. Entre novamente.');
-        const res = await fetch('/api/gemini-proxy', {
+        const res = await fetch('/api/openai-proxy', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
-          body: JSON.stringify({ model, action, payload: requestBody }),
+          body: JSON.stringify({ action: kind, request: requestBody, moduleSource: resolvedModule }),
           signal: controller.signal,
         });
         responseHttpStatus = res.status;
-        if (!res.ok) throw new Error(`Erro na API Gemini (HTTP ${res.status}).`);
+        if (!res.ok) throw new Error(`Erro na API OpenAI (HTTP ${res.status}).`);
         return await res.json().catch(() => {
-          throw new Error('A API Gemini retornou uma resposta inválida.');
+          throw new Error('A API OpenAI retornou uma resposta inválida.');
         });
       };
+
       // Margem sobre os 45 s do proxy, incluindo sessão e leitura do corpo.
       const json = await withTimeout(
         request(),
         60_000,
         expired,
-        'gateway:transporte Gemini',
+        'gateway:transporte OpenAI'
       );
-      if (json === expired) throw new Error('A consulta Gemini excedeu o tempo de espera.');
+      if (json === expired) throw new Error('A consulta OpenAI excedeu o tempo de espera.');
       const durationMs = Date.now() - startFetch;
-      const parsed = parseGeminiResponse(json, category) as T;
+      const parsed = parseOpenAiResponse(json, category, kind) as T;
       const respSize =
         typeof parsed === 'string' ? parsed.length : JSON.stringify(parsed || {}).length;
       AiLatencyTracker.endCall(callId, true, respSize);
 
-      const promptTokens = Number(json?.usageMetadata?.promptTokenCount || 0);
-      const candidateTokens = Number(json?.usageMetadata?.candidatesTokenCount || 0);
-      const totalTokens = Number(json?.usageMetadata?.totalTokenCount || 0);
+      const { units, costEstimated } = calculateOpenAiCost(
+        category,
+        kind,
+        payload,
+        json?.usage
+      );
 
-      let units = 1;
-      let costEstimated = 0;
-      const usdRate = 5.6; // Câmbio estimado USD -> BRL
-
-      if (category === 'IMAGE') {
-        units = 1;
-        costEstimated = 0.2;
-      } else if (category === 'TEXT') {
-        units =
-          totalTokens ||
-          Math.max(1, Math.round((typeof payload === 'string' ? payload.length : 100) / 4));
-        if (model.includes('embedding')) {
-          costEstimated = Number((units * 0.00000015 * usdRate).toFixed(4));
-        } else if (model.includes('3.8-flash')) {
-          costEstimated = Number(
-            ((promptTokens * 0.00000075 + candidateTokens * 0.00000375) * usdRate).toFixed(4)
-          );
-        } else if (model.includes('2.5-flash')) {
-          costEstimated = Number(
-            ((promptTokens * 0.0000003 + candidateTokens * 0.0000025) * usdRate).toFixed(4)
-          );
-        } else {
-          // gemini-3.5-flash-lite (padrão)
-          costEstimated = Number(
-            ((promptTokens * 0.0000001 + candidateTokens * 0.0000004) * usdRate).toFixed(4)
-          );
-        }
-        if (costEstimated <= 0 && units > 0) {
-          costEstimated = Number((units * 0.0000005 * usdRate).toFixed(4));
-        }
-      }
-
-      void ApiUsageTracker.record({
-        provider: 'gemini',
-        service: serviceId,
-        operation: `${operation} [${model}]`,
+      AiGatewayUsageLogger.logSuccess({
+        serviceId,
+        operation,
+        model,
         units,
-        status: 'SUCCESS',
-        http_status: responseHttpStatus ?? 0,
-        module_source: resolvedModule,
-        response_time_ms: durationMs,
+        costEstimated,
+        responseHttpStatus,
+        moduleSource: resolvedModule,
+        durationMs,
+        preAllocRequestId,
       });
 
       return parsed;
     } catch (fetchErr: any) {
       const durationMs = Date.now() - startFetch;
       const safeMessage = responseHttpStatus === null
-        ? 'Consulta Gemini interrompida ou indisponível.'
-        : `Falha na consulta Gemini (HTTP ${responseHttpStatus}).`;
+        ? 'Consulta OpenAI interrompida ou indisponível.'
+        : `Falha na consulta OpenAI (HTTP ${responseHttpStatus}).`;
       AiLatencyTracker.endCall(callId, false, 0, safeMessage);
-      void ApiUsageTracker.record({
-        provider: 'gemini',
-        service: serviceId,
+
+      AiGatewayUsageLogger.logFailure({
+        serviceId,
         operation,
-        units: 0,
-        status: responseHttpStatus === 429 ? 'RATE_LIMITED' : 'ERROR',
-        // 0 indica que a conexão falhou antes de receber uma resposta HTTP.
-        http_status: responseHttpStatus ?? 0,
-        module_source: resolvedModule,
-        error_message: safeMessage,
-        response_time_ms: durationMs,
+        responseHttpStatus,
+        moduleSource: resolvedModule,
+        durationMs,
+        safeMessage,
+        preAllocRequestId,
       });
+
       throw fetchErr;
     } finally {
       controller.abort();

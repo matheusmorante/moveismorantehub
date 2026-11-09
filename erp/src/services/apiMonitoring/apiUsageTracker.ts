@@ -25,6 +25,7 @@ interface RecordUsageOptions {
   response_time_ms?: number;
   request_id?: string;
   error_message?: string;
+  cost_estimated?: number;
 }
 
 // Conjunto em memória para deduplicação de idempotência (últimos 500 requests)
@@ -75,8 +76,8 @@ export class ApiUsageTracker {
     }
 
     // Calcular custo estimado se não for cache hit
-    let estimatedCost = 0;
-    if (!cache_hit && status === 'SUCCESS') {
+    let estimatedCost = cost_estimated !== undefined ? cost_estimated : 0;
+    if (!cache_hit && status === 'SUCCESS' && cost_estimated === undefined) {
       try {
         const config = await ApiConfigService.getConfiguration(service);
         if (config.price_per_unit > 0) {
@@ -124,7 +125,7 @@ export class ApiUsageTracker {
           response_time_ms,
           request_id,
           error_message,
-        }).catch(() => {});
+      }).catch(() => {});
         return null;
       }
 

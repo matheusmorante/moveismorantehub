@@ -213,3 +213,119 @@ describe('POST /api/meta-graph ensure_smb_message_echoes_subscription', () => {
     expect(graph).toHaveBeenCalledTimes(3);
   });
 });
+
+describe('POST /api/openai-proxy', () => {
+  beforeEach(() => {
+    process.env.OPENAI_API_KEY = 'test-openai-key';
+    authMocks.authenticateErpRequest.mockResolvedValue({ id: 'user-1' });
+  });
+
+  afterEach(() => {
+    delete process.env.OPENAI_API_KEY;
+  });
+
+  it('rejeita método GET com 405', async () => {
+    const req = {
+      method: 'GET',
+      query: { operation: 'openai-proxy' },
+      headers: {},
+      body: {},
+    };
+    const res = responseMock();
+    await handler(req as never, res as never);
+    expect(res.statusCode).toBe(405);
+  });
+
+  it('rejeita se OPENAI_API_KEY não estiver configurada no servidor', async () => {
+    delete process.env.OPENAI_API_KEY;
+    const req = {
+      method: 'POST',
+      query: { operation: 'openai-proxy' },
+      headers: { authorization: 'Bearer session' },
+      body: { model: 'gpt-6-luna', messages: [{ role: 'user', content: 'oi' }] },
+    };
+    const res = responseMock();
+    await handler(req as never, res as never);
+    expect(res.statusCode).toBe(503);
+    expect(res.body).toEqual({ error: 'OpenAI indisponível no servidor.' });
+  });
+
+  it('rejeita modelo não permitido', async () => {
+    const req = {
+      method: 'POST',
+      query: { operation: 'openai-proxy' },
+      headers: { authorization: 'Bearer session' },
+      body: { model: 'unauthorized-model', messages: [{ role: 'user', content: 'oi' }] },
+    };
+    const res = responseMock();
+    await handler(req as never, res as never);
+    expect(res.statusCode).toBe(400);
+    expect(res.body).toEqual({ error: 'Modelo OpenAI não permitido.' });
+  });
+
+  it('encaminha chamada com sucesso para a OpenAI com gpt-6-luna', async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(
+      new Response(JSON.stringify({ choices: [{ message: { content: 'Olá! Sou o Seu Lizandro.' } }] }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const req = {
+      method: 'POST',
+      query: { operation: 'openai-proxy' },
+      headers: { authorization: 'Bearer session' },
+      body: { model: 'gpt-6-luna', messages: [{ role: 'user', content: 'oi' }] },
+    };
+    const res = responseMock();
+    await handler(req as never, res as never);
+
+    expect(res.statusCode).toBe(200);
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://api.openai.com/v1/chat/completions',
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({
+          Authorization: 'Bearer test-openai-key',
+        }),
+      })
+    );
+  });
+
+  it('preserva a resposta OpenAI quando os RPCs Supabase retornam thenables sem catch', async () => {
+    const rpc = vi.fn((name: string) => ({
+      then(resolve: (value: unknown) => unknown, reject: (reason: unknown) => unknown) {
+        const result = name === 'check_and_reserve_ai_quota'
+          ? { data: { allowed: true, reservation_id: 'reservation-unit' }, error: null }
+          : { data: null, error: null };
+        return Promise.resolve(result).then(resolve, reject);
+      },
+    }));
+    authMocks.authenticateErpRequest.mockResolvedValueOnce({ id: 'user-1', userDb: { rpc } });
+
+    const fetchMock = vi.fn().mockResolvedValueOnce(
+      new Response(JSON.stringify({ choices: [{ message: { content: 'Resposta de teste.' } }] }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const req = {
+      method: 'POST',
+      query: { operation: 'openai-proxy' },
+      headers: { authorization: 'Bearer session' },
+      body: { model: 'gpt-6-luna', messages: [{ role: 'user', content: 'oi' }] },
+    };
+    const res = responseMock();
+    await handler(req as never, res as never);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(res.statusCode).toBe(200);
+    expect(rpc.mock.calls.map(([name]) => name)).toEqual([
+      'check_and_reserve_ai_quota',
+      'record_ai_token_usage',
+    ]);
+  });
+});

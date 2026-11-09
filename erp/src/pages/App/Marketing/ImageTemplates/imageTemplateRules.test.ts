@@ -12,6 +12,7 @@ describe('modelos de imagem', () => {
     const original = design.formats['1:1'];
     const vertical = copyImageLayout(original, '1:1', '9:16');
     expect(vertical.layers.find((layer) => layer.type === 'product')).toMatchObject({ width: 970, height: 1387 });
+    expect(vertical.layers.find((layer) => layer.type === 'sticker')).toMatchObject({ width: 260, height: 260, shape: 'circle' });
     expect(original.layers.find((layer) => layer.type === 'product')).toMatchObject({ height: 780 });
     expect(imageTemplateFormSchema.safeParse({ name: 'Oferta', description: '', design: { ...design,
       formats: { ...design.formats, '9:16': vertical } } }).success).toBe(true);
@@ -45,11 +46,34 @@ describe('modelos de imagem', () => {
   it('mantém modelos de texto antigos sem as novas opções tipográficas', () => {
     const design = startImageTemplate('blank');
     const legacyText: Record<string, unknown> = { ...createImageLayer('text', '1:1') };
+    legacyText.font = 'Arial';
     delete legacyText.underline; delete legacyText.verticalAlign; delete legacyText.lineSpacing;
-    delete legacyText.letterSpacing; delete legacyText.textOpacity;
+    delete legacyText.letterSpacing; delete legacyText.textOpacity; delete legacyText.textShadow;
     const parsed = imageTemplateFormSchema.safeParse({ name: 'Modelo antigo', description: '', design: { ...design,
       formats: { ...design.formats, '1:1': { layers: [...design.formats['1:1'].layers, legacyText] } } } });
     expect(parsed.success).toBe(true);
+  });
+
+  it('permite escolher qualquer foto já aceita pela galeria do ERP e recusa o próximo índice', () => {
+    const design = startImageTemplate('blank');
+    const [product] = design.formats['1:1'].layers;
+    if (product.type !== 'product') throw new Error('Camada de produto esperada.');
+    const withIndex = (imageIndex: number) => imageTemplateFormSchema.safeParse({ name: 'Modelo', description: '',
+      design: { ...design, formats: { ...design.formats, '1:1': { layers: [{ ...product, imageIndex }] } } } }).success;
+    expect(withIndex(74)).toBe(true);
+    expect(withIndex(75)).toBe(false);
+  });
+
+  it('leva ao editor todas as fotos permitidas no produto ou na galeria da variação', () => {
+    const parentImages = Array.from({ length: 80 }, (_, index) => `https://example.com/parent-${index}.jpg`);
+    const parent = mapPreviewProduct(mapProductPreviewSource({ id: '40', images: parentImages }));
+    expect(parent.images).toHaveLength(75);
+    const variationImages = Array.from({ length: 20 }, (_, index) => `https://example.com/variation-${index}.jpg`);
+    const source = mapProductPreviewSource({ id: '41', name: 'Mesa', product_variations: [
+      { id: 'v1', product_id: '41', name: 'Azul', active: true, image_url: variationImages.join(',') },
+      { id: 'v2', product_id: '41', name: 'Cinza', active: true, image_url: variationImages.join(',') },
+    ] });
+    expect(mapPreviewProduct(source, 'v1').images).toHaveLength(15);
   });
 
   it('usa preços do produto e da variação selecionada do ERP', () => {
@@ -80,6 +104,32 @@ describe('modelos de imagem', () => {
     expect(mapPreviewProduct(missing, 'v3').fields.availability).toBeUndefined();
   });
 
+  it('expõe especificações do ERP como campos dinâmicos do produto e da variação', () => {
+    const source = mapProductPreviewSource({ id: '34', name: 'Mesa', technical_values: { Material: 'Madeira', Gavetas: 2 },
+      technical_specs: { variationDetails: [{ id: 'v6', technicalValues: { Material: 'MDF' } }] },
+      product_variations: [{ id: 'v6', product_id: '34', name: 'Mesa MDF', active: true,
+        attributes: [{ name: 'Material', value: 'Pinus' }, { name: 'Cor', value: 'Preto' }] }] });
+    expect(mapPreviewProduct(source).attributes).toMatchObject({
+      attribute_material: { name: 'Material', value: 'Madeira' },
+      attribute_gavetas: { name: 'Gavetas', value: 2 },
+    });
+    expect(mapPreviewProduct(source, 'v6').attributes).toMatchObject({
+      attribute_material: { name: 'Material', value: 'MDF' },
+      attribute_cor: { name: 'Cor', value: 'Preto' },
+    });
+
+    const text = createImageLayer('text', '1:1');
+    if (text.type !== 'text') throw new Error('Camada de texto esperada.');
+    const conditional = { ...text, condition: { field: 'attribute_material', operator: 'eq', value: 'MDF' } } as const;
+    expect(isLayerVisible(conditional, mapPreviewProduct(source, 'v6'))).toBe(true);
+    expect(isLayerVisible(conditional, mapPreviewProduct(source))).toBe(false);
+
+    const catalog = { ...createImageLayer('catalog', '1:1'), field: 'attribute_material' };
+    const design = startImageTemplate('blank');
+    expect(imageTemplateFormSchema.safeParse({ name: 'Campos do ERP', description: '', design: { ...design,
+      formats: { ...design.formats, '1:1': { layers: [catalog, ...design.formats['1:1'].layers] } } } }).success).toBe(true);
+  });
+
   it('mostra a camada condicional somente no produto que atende a regra', () => {
     const text = createImageLayer('text', '1:1');
     if (text.type !== 'text') throw new Error('Camada de texto esperada.');
@@ -87,6 +137,17 @@ describe('modelos de imagem', () => {
     expect(isLayerVisible(layer, mapPreviewProduct(mapProductPreviewSource({ id: '1', unit_price: 899.90 })))).toBe(true);
     expect(isLayerVisible(layer, mapPreviewProduct(mapProductPreviewSource({ id: '2', unit_price: 1499.00 })))).toBe(false);
     expect(isLayerVisible(layer, null)).toBe(false);
+  });
+
+  it('permite regras condicionais na camada de forma e mantém formas antigas válidas', () => {
+    const design = startImageTemplate('blank');
+    const legacySticker: Record<string, unknown> = { ...createImageLayer('sticker', '1:1') };
+    delete legacySticker.condition;
+    expect(imageTemplateFormSchema.safeParse({ name: 'Modelo antigo', description: '', design: { ...design,
+      formats: { ...design.formats, '1:1': { layers: [...design.formats['1:1'].layers, legacySticker] } } } }).success).toBe(true);
+    const sticker = { ...createImageLayer('sticker', '1:1'), condition: { field: 'currentPrice', operator: 'lt', value: '1.000,00' } } as const;
+    expect(isLayerVisible(sticker, mapPreviewProduct(mapProductPreviewSource({ id: '1', unit_price: 899.90 })))).toBe(true);
+    expect(isLayerVisible(sticker, mapPreviewProduct(mapProductPreviewSource({ id: '2', unit_price: 1499.00 })))).toBe(false);
   });
 
   it('aplica uma regra condicional à camada de produto selecionada', () => {

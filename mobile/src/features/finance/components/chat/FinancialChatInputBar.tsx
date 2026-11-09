@@ -50,7 +50,7 @@ export const FinancialChatInputBar: React.FC<Props> = ({
           accessibilityState={{ disabled: loading }}
           accessibilityRole="button"
           accessibilityLabel="Voice Mode"
-          accessibilityHint="Iniciar conversa por voz Gemini Live"
+          accessibilityHint="Iniciar conversa por voz em tempo real"
           activeOpacity={0.8}
         >
           <AudioLines size={18} color="#ffffff" />

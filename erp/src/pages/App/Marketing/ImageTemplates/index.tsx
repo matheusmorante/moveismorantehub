@@ -62,9 +62,9 @@ function ImageTemplateLibrary({ userId }: { userId: string }) {
 
   async function confirmDetails(values: TemplateDetails) {
     if (!dialog || dialog.kind === 'delete') return;
-    const { name, description, starter } = values;
+    const { name, description } = values;
     if (dialog.kind === 'create') {
-      setEditor({ kind: 'new', initial: { name, description, design: startImageTemplate(starter) } });
+      setEditor({ kind: 'new', initial: { name, description, design: startImageTemplate('blank') } });
     } else if (dialog.kind === 'copy') {
       setEditor({ kind: 'copy', model: dialog.model, metadata: { name, description } });
     } else {
@@ -118,6 +118,7 @@ function ImageTemplateLibrary({ userId }: { userId: string }) {
             </th>)}<th scope="col"><span className="sr-only">Ações</span></th></tr></thead>
             <tbody>{rows.map((model) => <tr key={model.id}>
               <td><button className="ct-link ct-model-name" type="button" onClick={() => setEditor({ kind: 'edit', model })}>{model.name}</button>
+                {model.test_artifact && <small className="ct-muted ct-test-badge">Modelo de teste</small>}
                 <small className="ct-model-id">{model.id}</small>
                 {model.description && <small className="ct-description-narrow">{model.description}</small>}</td>
               <td className="ct-list-description">{model.description || '—'}</td>
@@ -142,7 +143,7 @@ function ImageTemplateLibrary({ userId }: { userId: string }) {
               <circle cx="103" cy="48" r="8" fill="currentColor" />
               <path d="M46 86l21-25 15 17 11-10 23 18z" fill="currentColor" />
             </svg>
-            <h2>Nenhum modelo de imagem</h2><p>Crie um modelo em branco ou escolha um exemplo para começar.</p>
+            <h2>Nenhum modelo de imagem</h2><p>Crie um modelo em branco para começar.</p>
             <button type="button" className="ct-button ct-create" onClick={() => setDialog({ kind: 'create' })}>
               <i className="bi bi-plus-lg" aria-hidden="true" />Criar modelo
             </button>

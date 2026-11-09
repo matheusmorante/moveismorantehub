@@ -1,10 +1,11 @@
 import {
-  CATALOG_FIELDS, FORMAT_DIMENSIONS, isLayerVisible, type CatalogField, type ImageFormat, type ImageLayout,
-  type PositionedLayer, type TemplatePreviewProduct,
+  FIELD_ALIASES, FORMAT_DIMENSIONS, isLayerVisible, isPercentageField, isPriceField, isTemplateField, templateFieldLabel, templateFieldValue,
+  type ImageFormat, type ImageLayout, type PositionedLayer, type TemplateField, type TemplatePreviewProduct,
 } from '../../../../../../shared-utils/catalogImageTemplate';
 
 type Picture = { image: CanvasImageSource; width: number; height: number; flatBackground?: boolean };
 type TextLayer = Extract<PositionedLayer, { type: 'text' | 'catalog' | 'sticker' }>;
+const canvasFont = (layer: TextLayer) => `${layer.italic ? 'italic ' : ''}${layer.bold ? '700 ' : ''}${layer.fontSize}px "${layer.font}", sans-serif`;
 
 async function loadPicture(url: string): Promise<Picture> {
   return new Promise((resolve, reject) => {
@@ -143,10 +144,15 @@ function drawText(ctx: CanvasRenderingContext2D, layer: TextLayer, text: string,
   const available = Math.max(1, width - 2 * padding);
   const letterSpacing = layer.letterSpacing ?? 0;
   ctx.fillStyle = layer.color;
-  ctx.font = `${layer.italic ? 'italic ' : ''}${layer.bold ? '700 ' : ''}${layer.fontSize}px "${layer.font}", sans-serif`;
+  ctx.font = canvasFont(layer);
+  ctx.shadowColor = layer.textShadow ? 'rgba(0, 0, 0, 0.56)' : 'transparent';
+  ctx.shadowBlur = layer.textShadow ? Math.max(2, layer.fontSize * .12) : 0;
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = layer.textShadow ? Math.max(1, layer.fontSize * .04) : 0;
   const textContext = ctx as CanvasRenderingContext2D & { letterSpacing?: string };
   const canSetLetterSpacing = typeof textContext.letterSpacing === 'string';
   const previousLetterSpacing = textContext.letterSpacing ?? '0px';
+  if (canSetLetterSpacing) textContext.letterSpacing = '0px';
   ctx.textAlign = 'left';
   ctx.textBaseline = 'middle';
   const lineHeight = layer.fontSize * (layer.lineSpacing ?? 1.16);
@@ -171,6 +177,7 @@ function drawText(ctx: CanvasRenderingContext2D, layer: TextLayer, text: string,
     if (canSetLetterSpacing) {
       textContext.letterSpacing = `${letterSpacing}px`;
       ctx.fillText(line, x, y, available);
+      textContext.letterSpacing = '0px';
     } else if (letterSpacing !== 0) {
       let cursor = x;
       for (const character of Array.from(line)) {
@@ -187,17 +194,29 @@ function drawText(ctx: CanvasRenderingContext2D, layer: TextLayer, text: string,
   if (canSetLetterSpacing) textContext.letterSpacing = previousLetterSpacing;
 }
 
-function catalogValue(field: CatalogField, product: TemplatePreviewProduct | null, preview: boolean, label: string = CATALOG_FIELDS[field]) {
-  const value = product?.fields[field];
-  if (typeof value === 'number') return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: product!.currency }).format(value);
+function catalogValue(field: TemplateField, product: TemplatePreviewProduct | null, preview: boolean, label = templateFieldLabel(field, product?.attributes)) {
+  const value = templateFieldValue(field, product);
+  if (typeof value === 'number') {
+    if (isPriceField(field)) {
+      return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: product?.currency || 'BRL' }).format(value);
+    }
+    if (isPercentageField(field) || field === 'discountPercent') {
+      return `${value}%`;
+    }
+    return new Intl.NumberFormat('pt-BR').format(value);
+  }
   return value ?? (!product && preview ? `[${label}]` : '');
 }
 
 export function interpolateTemplateFields(text: string, product: TemplatePreviewProduct | null, preview = false) {
-  return text.replace(/\{\{product\.([a-zA-Z0-9_]+)\}\}/g, (token, field: string) =>
-    Object.prototype.hasOwnProperty.call(CATALOG_FIELDS, field)
-      ? catalogValue(field as CatalogField, product, preview)
-      : token);
+  return text.replace(/\{\{product\.([a-zA-Z0-9_]+)\}\}/g, (token, rawField: string) => {
+    const field = FIELD_ALIASES[rawField] || rawField;
+    if (isTemplateField(field)) {
+      const label = templateFieldLabel(field as TemplateField, product?.attributes);
+      return String(catalogValue(field as TemplateField, product, preview, label));
+    }
+    return token;
+  });
 }
 
 export async function renderImageTemplate({ canvas, format, layout, product, assets, getPicture, signal, preview = false }: {
@@ -245,12 +264,20 @@ export async function renderImageTemplate({ canvas, format, layout, product, ass
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error('O navegador não oferece suporte à edição de imagens.');
   ctx.scale(canvas.width / width, canvas.height / height);
+  if (document.fonts?.load) {
+    const fonts = [...new Set(layers.flatMap((layer) => 'font' in layer ? [canvasFont(layer)] : []))];
+    await Promise.all(fonts.map((font) => document.fonts.load(font).catch(() => [])));
+  }
+  if (signal?.aborted) return { errors, notices };
   ctx.fillStyle = '#ffffff';
   ctx.fillRect(0, 0, width, height);
   for (const [index, layer] of layers.entries()) {
     if (layer.type === 'background') {
+      ctx.save();
+      ctx.globalAlpha = (layer.opacity ?? 100) / 100;
       ctx.fillStyle = layer.color;
       ctx.fillRect(0, 0, width, height);
+      ctx.restore();
       continue;
     }
     const { width: w, height: h } = layer;
@@ -266,12 +293,14 @@ export async function renderImageTemplate({ canvas, format, layout, product, ass
       else if (preview && layer.type === 'product' && !product) drawPlaceholder(ctx, w, h);
     } else if (layer.type === 'sticker') {
       const size = Math.min(w, h);
+      ctx.globalAlpha = (layer.opacity / 100) * ((layer.fillOpacity ?? 100) / 100);
       ctx.fillStyle = layer.fill;
       if (layer.shape === 'rectangle') ctx.fillRect(0, 0, w, h);
       else if (layer.shape === 'square') ctx.fillRect((w - size) / 2, (h - size) / 2, size, size);
       else { ctx.beginPath(); ctx.arc(w / 2, h / 2, size / 2, 0, 2 * Math.PI); ctx.fill(); }
-      const textWidth = layer.shape === 'rectangle' ? w : size * (layer.shape === 'circle' ? .78 : 1);
-      const textHeight = layer.shape === 'rectangle' ? h : size * (layer.shape === 'circle' ? .7 : 1);
+      ctx.globalAlpha = layer.opacity / 100;
+      const textWidth = layer.shape === 'rectangle' ? w : size * (layer.shape === 'circle' ? .84 : 1);
+      const textHeight = layer.shape === 'rectangle' ? h : size * (layer.shape === 'circle' ? .76 : 1);
       ctx.translate((w - textWidth) / 2, (h - textHeight) / 2);
       drawText(ctx, layer, interpolateTemplateFields(layer.text, product, preview), textWidth, textHeight);
     } else {

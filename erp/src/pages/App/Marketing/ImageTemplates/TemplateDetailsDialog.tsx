@@ -1,14 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { deleteImageTemplateSchema, IMAGE_TEMPLATE_STARTERS, imageTemplateMetadataSchema, imageTemplateStartSchema,
-  type DeleteImageTemplateValues, type ImageTemplateStarter } from '../../../../../../shared-utils/catalogImageTemplate';
+import { deleteImageTemplateSchema, imageTemplateMetadataSchema, type DeleteImageTemplateValues } from '../../../../../../shared-utils/catalogImageTemplate';
 import { imageTemplateError, type ImageTemplateSummary } from './imageTemplateService';
 
-const starterLabels: Record<ImageTemplateStarter, string> = {
-  blank: 'Começar em branco', showcase: 'Vitrine', frame: 'Moldura', offer: 'Oferta', banner: 'Faixa da marca', details: 'Ficha do produto',
-};
-export type TemplateDetails = { name: string; description: string; starter: ImageTemplateStarter };
+export type TemplateDetails = { name: string; description: string };
 
 function useTemplateDialog() {
   const dialog = useRef<HTMLDialogElement>(null);
@@ -27,8 +23,8 @@ export function TemplateDetailsDialog({ mode, defaults, onClose, onConfirm }: {
   const dialog = useTemplateDialog();
   const [error, setError] = useState('');
   const { register, handleSubmit, formState } = useForm<TemplateDetails>({
-    resolver: zodResolver(imageTemplateStartSchema),
-    defaultValues: { name: '', description: '', ...defaults, starter: 'blank' },
+    resolver: zodResolver(imageTemplateMetadataSchema),
+    defaultValues: { name: '', description: '', ...defaults },
   });
   const { isSubmitting, errors } = formState;
   const title = mode === 'create' ? 'Criar um modelo de imagem' : mode === 'rename' ? 'Renomear modelo' : 'Fazer uma cópia';
@@ -39,22 +35,12 @@ export function TemplateDetailsDialog({ mode, defaults, onClose, onConfirm }: {
       setError('');
       try {
         const metadata = imageTemplateMetadataSchema.parse(values);
-        await onConfirm({ ...metadata, starter: values.starter });
+        await onConfirm(metadata);
       } catch (cause) { setError(imageTemplateError(cause)); }
     })}>
       <header className="ct-dialog-header"><h2 id="ct-dialog-title">{title}</h2>
         <button type="button" className="ct-button ct-icon-button" aria-label="Fechar" disabled={isSubmitting} onClick={onClose}><i className="bi bi-x-lg" aria-hidden="true" /></button>
       </header>
-      {mode === 'create' && <fieldset className="ct-starter-grid" disabled={isSubmitting}>
-        <legend className="sr-only">Modelo inicial</legend>
-        {IMAGE_TEMPLATE_STARTERS.map((starter) => <label className={`ct-starter ct-starter-${starter}`} key={starter}>
-          <input type="radio" value={starter} {...register('starter')} />
-          {starter === 'blank' ? <div><strong>{starterLabels[starter]}</strong><p>Monte o visual do seu produto do zero.</p></div> : <>
-            <div className="ct-starter-preview" aria-hidden="true"><div className="ct-sofa"><span /></div><span className="ct-starter-decoration" /></div>
-            <strong>{starterLabels[starter]}</strong>
-          </>}
-        </label>)}
-      </fieldset>}
       <div className="ct-dialog-fields">
         <label className="ct-field"><span>Nome do modelo</span><input {...register('name')} maxLength={100} autoFocus autoComplete="off"
           placeholder="Nome do modelo" disabled={isSubmitting} aria-invalid={!!errors.name} /></label>
@@ -78,7 +64,8 @@ export function TemplateDeleteDialog({ model, onClose, onConfirm }: {
   const dialog = useTemplateDialog();
   const [error, setError] = useState('');
   const { handleSubmit, formState: { isSubmitting } } = useForm<DeleteImageTemplateValues>({
-    resolver: zodResolver(deleteImageTemplateSchema), defaultValues: { id: model.id, updated_at: model.updated_at },
+    resolver: zodResolver(deleteImageTemplateSchema), defaultValues: { id: model.id, updated_at: model.updated_at,
+      ...(model.test_artifact ? { test_artifact: model.test_artifact } : {}) },
   });
   return <dialog ref={dialog} className="ct-dialog ct-surface" aria-labelledby="ct-delete-title" onCancel={(event) => {
     event.preventDefault(); if (!isSubmitting) onClose();

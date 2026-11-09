@@ -316,7 +316,7 @@ export const ArchitectureDocsSection: React.FC = () => {
                 </div>
                 <div className="flex items-center gap-2 rounded-xl border border-slate-100 p-3 bg-slate-50/50 dark:border-slate-800 dark:bg-slate-955/30">
                   <i className="bi bi-robot text-purple-600 text-lg" />
-                  <span>Google Gemini IA (Native OCR)</span>
+                  <span>OCR local para chave de acesso (sem IA)</span>
                 </div>
                 <div className="flex items-center gap-2 rounded-xl border border-slate-100 p-3 bg-slate-50/50 dark:border-slate-800 dark:bg-slate-955/30">
                   <i className="bi bi-geo-alt text-red-600 text-lg" />

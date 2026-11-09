@@ -24,12 +24,12 @@ type CategoryAliasRule = {
   readonly aliases: readonly string[];
 };
 
-// Aliases foram conferidos contra os nomes das categorias e produtos já classificados
-// no catálogo MoranteHub; abreviações como "G ROUPA" vêm do histórico real.
+// Aliases foram conferidos contra categorias e produtos do catálogo MoranteHub e nomes
+// comerciais de catálogos públicos; abreviações como "G ROUPA" vêm do histórico real.
 const CATEGORY_ALIAS_RULES: readonly CategoryAliasRule[] = [
   {
     category: 'Guarda-Roupas',
-    aliases: ['guarda roupa', 'roupeiro', 'armario roupa', 'g roupa', 'armario de quarto'],
+    aliases: ['guarda roupa', 'roupeiro', 'armario roupa', 'g roupa', 'armario de quarto', 'closet'],
   },
   {
     category: 'Balcões para Pia',
@@ -48,7 +48,16 @@ const CATEGORY_ALIAS_RULES: readonly CategoryAliasRule[] = [
     category: 'Balcões para Filtro de Àgua',
     aliases: ['balcao filtro', 'balcao para filtro', 'balcao para agua'],
   },
-  { category: 'Armários Aéreos', aliases: ['armario aereo', 'armarios aereos', 'aereo cozinha'] },
+  {
+    category: 'Armários Aéreos',
+    aliases: [
+      'armario aereo',
+      'armarios aereos',
+      'aereo cozinha',
+      'armario suspenso cozinha',
+      'modulo aereo',
+    ],
+  },
   {
     category: 'Armários para Fornos',
     aliases: ['armario forno', 'armario para forno', 'torre quente'],
@@ -68,11 +77,17 @@ const CATEGORY_ALIAS_RULES: readonly CategoryAliasRule[] = [
   },
   {
     category: 'Cadeiras para Cozinha/Sala de Jantar',
-    aliases: ['cadeira sala jantar', 'cadeiras jantar', 'cadeira cozinha sala jantar'],
+    aliases: ['cadeira sala jantar', 'cadeira cozinha sala jantar'],
   },
   {
     category: 'Mesas para Escritório',
-    aliases: ['mesa escritorio', 'escrivaninha', 'mesa para escritorio'],
+    aliases: [
+      'mesa escritorio',
+      'escrivaninha',
+      'mesa para escritorio',
+      'mesa gamer',
+      'mesa computador',
+    ],
   },
   {
     category: 'Cadeiras para Escritório',
@@ -93,14 +108,14 @@ const CATEGORY_ALIAS_RULES: readonly CategoryAliasRule[] = [
   { category: 'Colchões', aliases: ['colchao'] },
   {
     category: 'Camas/Bases Box',
-    aliases: ['cama box', 'base box', 'base bau', 'cama casal', 'cama solteiro'],
+    aliases: ['cama box', 'base box', 'base bau', 'cama casal', 'cama solteiro', 'bicama'],
   },
   {
     category: 'Mesas de Cabeceira',
     aliases: ['mesa cabeceira', 'criado mudo', 'mesa de cabeceira'],
   },
   { category: 'Aparadores Buffets', aliases: ['aparador sala', 'buffet sala'] },
-  { category: 'Racks', aliases: ['rack tv', 'rack para tv', 'rack'] },
+  { category: 'Racks', aliases: ['rack tv', 'rack para tv', 'rack', 'bancada tv'] },
   { category: 'Painéis', aliases: ['painel tv', 'painel para tv'] },
   { category: 'Homes', aliases: ['home para tv', 'home tv'] },
   { category: 'Estantes', aliases: ['estante'] },
@@ -218,6 +233,28 @@ export function rankCategoryCandidates(
 
     const normalizedCategory = normalize(categoryName);
     if (hasBathroomContext && KITCHEN_CATEGORIES.has(normalizedCategory)) continue;
+
+    const categoryTokens = normalizedCategory.split(' ');
+    const isDiningSet = normalizedCategory === 'conjunto mesa e cadeiras';
+    const isChairCategory =
+      !isDiningSet && categoryTokens.some((token) => token === 'cadeira' || token === 'cadeiras');
+    if (isChairCategory) {
+      const hasOfficeContext = titleTokens.includes('escritorio');
+      const hasDiningContext = titleTokens.includes('sala') && titleTokens.includes('jantar');
+      const categoryRequiresOfficeContext = categoryTokens.includes('escritorio');
+      const categoryRequiresDiningContext = categoryTokens.includes('jantar');
+
+      if (categoryRequiresOfficeContext && !hasOfficeContext) continue;
+      if (categoryRequiresDiningContext && !hasDiningContext) continue;
+      if (
+        !categoryRequiresOfficeContext &&
+        !categoryRequiresDiningContext &&
+        !hasOfficeContext &&
+        !hasDiningContext
+      ) {
+        continue;
+      }
+    }
 
     const rule = matchingRule(categoryName);
     const aliases = rule?.aliases || [categoryName];

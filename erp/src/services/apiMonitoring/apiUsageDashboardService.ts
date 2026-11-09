@@ -185,7 +185,7 @@ export const getApiUsageDashboardMetrics = async (
     }
     modelMap[specificModel].totalRequests += requestCount;
     modelMap[specificModel].estimatedCostBrl += cost;
-    if (prov === 'gemini' && sId !== 'gemini_image') {
+    if ((prov === 'gemini' && sId !== 'gemini_image') || (prov === 'openai' && sId !== 'openai_image')) {
       modelMap[specificModel].totalTokens += units;
       totalAiTokens += units;
     }
@@ -201,7 +201,7 @@ export const getApiUsageDashboardMetrics = async (
     }
     moduleMap[mod].totalRequests += requestCount;
     moduleMap[mod].estimatedCostBrl += cost;
-    if (prov === 'gemini' && sId !== 'gemini_image') {
+    if ((prov === 'gemini' && sId !== 'gemini_image') || (prov === 'openai' && sId !== 'openai_image')) {
       moduleMap[mod].totalTokens += units;
     }
     moduleMap[mod].modelCounts[specificModel] =

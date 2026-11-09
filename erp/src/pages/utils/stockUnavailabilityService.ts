@@ -27,7 +27,7 @@ export interface StockUnavailability {
   physical_location: string | null;
   status: 'active' | 'cancelled';
   observation: string | null;
-  photos: string[] | null;
+  photos_count: number;
   created_at: string;
   products: {
     id: string;
@@ -62,7 +62,7 @@ const UNAVAILABILITY_COLUMNS = [
   'physical_location',
   'status',
   'observation',
-  'photos',
+  'photos_count:stock_unavailability_photo_count',
   'created_at',
   'products!inner(id,name,product_kind)',
   'product_variations(name,sku)',
@@ -71,7 +71,7 @@ const UNAVAILABILITY_COLUMNS = [
 
 export async function fetchStockUnavailabilities(filters: StockUnavailabilityFilters) {
   const pageSize = filters.pageSize ?? STOCK_UNAVAILABILITIES_PAGE_SIZE;
-  if (!Number.isInteger(pageSize) || pageSize < 1 || pageSize > 100) {
+  if (!Number.isInteger(pageSize) || pageSize < 1 || pageSize > STOCK_UNAVAILABILITIES_PAGE_SIZE) {
     throw new Error('Quantidade por página inválida.');
   }
   const from = (filters.page - 1) * pageSize;
@@ -113,6 +113,20 @@ export async function fetchStockUnavailabilities(filters: StockUnavailabilityFil
     data: mappedData,
     totalCount: count || 0,
   };
+}
+
+export async function fetchStockUnavailabilityPhotoPaths(id: string): Promise<string[]> {
+  const response = await withTimeout(
+    supabase.from('stock_unavailabilities' as any).select('photos').eq('id', id).maybeSingle(),
+    10000,
+    null,
+    'indisponibilidade:fotos',
+  );
+  if (!response) throw new Error('O carregamento das fotos excedeu o prazo. Tente novamente.');
+  if (response.error) throw response.error;
+  return Array.isArray(response.data?.photos)
+    ? response.data.photos.filter((photo: unknown): photo is string => typeof photo === 'string')
+    : [];
 }
 
 async function uploadPrivatePhoto(file: File, userId: string, uploadedPaths: string[]) {

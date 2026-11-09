@@ -308,7 +308,7 @@ export const PromptCopyableImagesList: React.FC<PromptCopyableImagesListProps> =
           <span className="text-base">📸</span>
           <div>
             <h4 className="text-xs font-bold text-white uppercase tracking-wider">
-              Assets para colar no ChatGPT/Gemini
+              Assets para colar no ChatGPT/OpenAI
             </h4>
             <p className="text-[11px] text-slate-400">
               Clique em <strong>Copiar Imagem</strong> e cole com <strong>Ctrl+V</strong> no chat. O

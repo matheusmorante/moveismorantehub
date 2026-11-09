@@ -3,6 +3,7 @@
 import { ApiConfigService } from './apiConfigService';
 import { ApiUsageTracker } from './apiUsageTracker';
 import { ApiServiceId, GuardCheckResult } from './apiMonitoringTypes';
+import { supabase } from '../../pages/utils/supabaseConfig';
 
 interface CircuitBreakerTracker {
   timestamps: number[];
@@ -90,6 +91,31 @@ export class ApiUsageGuard {
     }
 
     const env = ApiUsageTracker.getCurrentEnvironment();
+
+    // 3.1. Para serviços de IA, consultar cota autoritativa no Supabase
+    if (serviceId.startsWith('gemini') || serviceId.startsWith('openai')) {
+      try {
+        const { data: remoteCheck } = await supabase.rpc('check_and_reserve_ai_quota', {
+          p_provider: 'openai',
+          p_service: serviceId,
+          p_estimated_tokens: 1000,
+          p_module_source: 'api_usage_guard',
+          p_reserve: false,
+        });
+        if (remoteCheck && !remoteCheck.allowed) {
+          const res: GuardCheckResult = {
+            allowed: false,
+            status: 'BLOCKED',
+            usagePercent: Number(remoteCheck.month_percent || 0),
+            reason: remoteCheck.reason,
+          };
+          checkCache[serviceId] = { result: res, cachedAt: now };
+          return res;
+        }
+      } catch {
+        // Fallback silencioso para validações locais
+      }
+    }
     const currentUsage = await ApiUsageTracker.getCurrentMonthUsage(serviceId, env);
     const limit = config.monthly_limit || 10000;
     const usagePercent = limit > 0 ? (currentUsage / limit) * 100 : 0;
@@ -100,7 +126,7 @@ export class ApiUsageGuard {
       usagePercent: Number(usagePercent.toFixed(1)),
     };
 
-    // Trava Financeira de Orçamento Mensal (ex: R$ 30,00 para IA Gemini/Antigravity)
+    // Trava financeira de orçamento mensal para serviços de IA.
     if (config.max_monthly_budget_brl && config.max_monthly_budget_brl > 0) {
       const estimatedCostBrl = currentUsage * (config.price_per_unit || 0.01);
       if (estimatedCostBrl >= config.max_monthly_budget_brl * (config.hard_limit / 100)) {

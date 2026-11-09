@@ -34,10 +34,10 @@ export function buildPostTemplateDraft(input: {
       generateEnvironment: true,
       fit: 'contain',
     },
-    generationConfig: value?.generationConfig || {
-      provider: 'gemini',
-      model: 'gemini-2.5-flash-image',
-      referenceImageRequired: true,
+    generationConfig: {
+      provider: 'openai',
+      model: 'gpt-image-2',
+      referenceImageRequired: value?.generationConfig?.referenceImageRequired ?? true,
     },
     createdAt: value?.createdAt || now,
     updatedAt: now,

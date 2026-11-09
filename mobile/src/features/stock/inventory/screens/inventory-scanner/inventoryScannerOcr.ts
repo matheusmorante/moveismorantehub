@@ -17,7 +17,7 @@ export async function recognizeAccessKeyFromCamera(camera: CameraView): Promise<
     const worker = await createWorker('eng');
     try {
       await worker.setParameters({
-        tessedit_char_whitelist: '0123456789',
+        tessedit_char_whitelist: '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ',
         tessedit_pageseg_mode: PSM.SINGLE_BLOCK,
       });
       ({

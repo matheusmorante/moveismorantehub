@@ -49,7 +49,6 @@ export const mapInboundInvoiceListRow = (row: any) => {
     supplierStockOrigins,
     sefazStatus: 'pending' as const,
     isSummaryOnly,
-    rawXml: row.xml_conteudo || '',
   };
 };
 

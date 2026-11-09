@@ -9,11 +9,13 @@ const { state } = vi.hoisted(() => ({
     insertImages: vi.fn(),
     deleteImagesError: null as Error | null,
     insertImagesError: null as Error | null,
+    rpc: vi.fn(),
+    rpcError: null as Error | null,
     mapToDB: vi.fn(),
   },
 }));
 
-vi.mock('@/pages/utils/supabaseConfig', () => ({ supabase: { from: state.from } }));
+vi.mock('@/pages/utils/supabaseConfig', () => ({ supabase: { from: state.from, rpc: state.rpc } }));
 vi.mock('./productMapper', () => ({ mapToDB: state.mapToDB }));
 vi.mock('../uniqueSlug', () => ({ resolveUniqueSlug: async () => 'mesa-aurora' }));
 vi.mock('../productKindRules', () => ({ isNonConventionalProduct: () => false }));
@@ -41,6 +43,8 @@ describe('syncProductToSupabase', () => {
     state.upsert.mockResolvedValue({ error: null });
     state.deleteImagesError = null;
     state.insertImagesError = null;
+    state.rpcError = null;
+    state.rpc.mockImplementation(async () => ({ error: state.rpcError }));
     const query: any = {};
     query.select = vi.fn(() => query);
     query.eq = vi.fn(() => query);
@@ -67,37 +71,36 @@ describe('syncProductToSupabase', () => {
     itemType: 'product',
   } as any);
 
-  it('propaga falha ao remover a galeria persistida do produto', async () => {
-    state.deleteImagesError = new Error('falha ao excluir product_images');
+  it('substitui a galeria em uma chamada, preservando ordem e imagem principal', async () => {
+    await syncProductToSupabase(productWithGallery());
 
-    await expect(syncProductToSupabase(productWithGallery())).rejects.toThrow(
-      'falha ao excluir product_images'
-    );
-
-    expect(state.deleteImages).toHaveBeenCalledTimes(1);
+    expect(state.rpc).toHaveBeenCalledTimes(1);
+    expect(state.rpc).toHaveBeenCalledWith('replace_product_images', {
+      p_product_id: '123e4567-e89b-42d3-a456-426614174000',
+      p_image_urls: ['cover.jpg', 'side.jpg'],
+    });
+    expect(state.deleteImages).not.toHaveBeenCalled();
     expect(state.insertImages).not.toHaveBeenCalled();
   });
 
-  it('propaga falha ao inserir a nova galeria do produto', async () => {
-    state.insertImagesError = new Error('falha ao inserir product_images');
+  it('envia lista vazia para limpar a galeria', async () => {
+    await syncProductToSupabase({ ...productWithGallery(), images: [] });
+
+    expect(state.rpc).toHaveBeenCalledTimes(1);
+    expect(state.rpc).toHaveBeenCalledWith('replace_product_images', {
+      p_product_id: '123e4567-e89b-42d3-a456-426614174000',
+      p_image_urls: [],
+    });
+  });
+
+  it('propaga falha ao substituir a galeria', async () => {
+    state.rpcError = new Error('falha ao substituir product_images');
 
     await expect(syncProductToSupabase(productWithGallery())).rejects.toThrow(
-      'falha ao inserir product_images'
+      'falha ao substituir product_images'
     );
 
-    expect(state.deleteImages).toHaveBeenCalledTimes(1);
-    expect(state.insertImages).toHaveBeenCalledWith([
-      {
-        product_id: '123e4567-e89b-42d3-a456-426614174000',
-        image_url: 'cover.jpg',
-        is_main: true,
-      },
-      {
-        product_id: '123e4567-e89b-42d3-a456-426614174000',
-        image_url: 'side.jpg',
-        is_main: false,
-      },
-    ]);
+    expect(state.rpc).toHaveBeenCalledTimes(1);
   });
 
   it('preserva a coluna products.brand no payload do produto', async () => {
@@ -114,6 +117,7 @@ describe('syncProductToSupabase', () => {
 
     expect(state.from).toHaveBeenCalledWith('products');
     expect(state.upsert).toHaveBeenCalledWith(expect.objectContaining({ brand: 'Morante' }));
+    expect(state.rpc).not.toHaveBeenCalled();
   });
 
   it('não grava disponibilidade calculada no saldo físico da composição simples', async () => {

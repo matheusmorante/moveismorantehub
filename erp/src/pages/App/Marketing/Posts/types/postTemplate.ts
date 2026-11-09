@@ -41,7 +41,7 @@ export interface PostTemplate {
   layout: Layer[];
   reservedAreas: Array<{ region: string; reason: string }>;
   imageRules: { preserveProduct: boolean; generateEnvironment: boolean; fit: 'contain' | 'cover' };
-  generationConfig: { provider: 'gemini'; model: string; referenceImageRequired: boolean };
+  generationConfig: { provider: 'openai'; model: string; referenceImageRequired: boolean };
   createdAt: string;
   updatedAt: string;
 }

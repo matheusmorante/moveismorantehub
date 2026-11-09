@@ -8,9 +8,13 @@ import {
 import { getSettings } from '@/pages/utils/settingsService';
 import { whatsappGraphService } from '@/pages/utils/whatsappGraphService';
 import { supabase } from '@/pages/utils/supabaseConfig';
-import { buildMetaCatalogSyncItems } from '../../../../../shared-utils/productMetaCatalogSyncItems';
+import {
+  buildMetaCatalogSyncItems,
+  buildProductMetaCatalogSyncItems,
+} from '../../../../../shared-utils/productMetaCatalogSyncItems';
 import {
   fetchMetaCatalogSyncSources,
+  fetchActiveCampaignLabelIndex,
 } from '@/pages/App/Products/MetaCatalog/services/metaCatalogDataService';
 
 vi.mock('@/pages/utils/settingsService', () => ({
@@ -31,13 +35,21 @@ vi.mock('@/pages/utils/supabaseConfig', () => ({
 
 vi.mock('@/pages/App/Products/MetaCatalog/services/metaCatalogDataService', () => ({
   fetchMetaCatalogSyncSources: vi.fn(),
+  fetchActiveCampaignLabelIndex: vi.fn().mockResolvedValue({
+    productNames: new Map(),
+    variationNames: new Map(),
+  }),
 }));
 
 vi.mock('../../../../../shared-utils/productMetaCatalogSyncItems', async () => {
   const actual = await vi.importActual<typeof import('../../../../../shared-utils/productMetaCatalogSyncItems')>(
     '../../../../../shared-utils/productMetaCatalogSyncItems'
   );
-  return { ...actual, buildMetaCatalogSyncItems: vi.fn() };
+  return {
+    ...actual,
+    buildMetaCatalogSyncItems: vi.fn(),
+    buildProductMetaCatalogSyncItems: vi.fn(actual.buildProductMetaCatalogSyncItems),
+  };
 });
 
 describe('productMetaCatalogSync', () => {
@@ -45,6 +57,10 @@ describe('productMetaCatalogSync', () => {
     vi.clearAllMocks();
     clearMetaCatalogOpportunitiesCache();
     vi.useFakeTimers();
+    vi.mocked(fetchActiveCampaignLabelIndex).mockResolvedValue({
+      productNames: new Map(),
+      variationNames: new Map(),
+    });
   });
 
   afterEach(() => {
@@ -197,7 +213,7 @@ describe('productMetaCatalogSync', () => {
         }),
       });
       vi.mocked(supabase.from).mockImplementation(mockFrom);
-      vi.mocked(buildMetaCatalogItems).mockReturnValue([
+      vi.mocked(buildProductMetaCatalogSyncItems).mockReturnValue([
         { id: 'p1', code: '001', name: 'Item' } as any,
       ]);
       vi.mocked(whatsappGraphService.syncBatchProductsToCatalog).mockResolvedValue({

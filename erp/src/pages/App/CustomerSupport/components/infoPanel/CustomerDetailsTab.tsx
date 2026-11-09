@@ -74,9 +74,9 @@ export const CustomerDetailsTab: React.FC<CustomerDetailsTabProps> = ({
             </Link>
           </div>
 
-          <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+          <p className="text-sm font-bold text-slate-900 dark:text-slate-100">
             {customer.fullName}
-          </h4>
+          </p>
 
           <div className="space-y-2 text-xs text-slate-600 dark:text-slate-300">
             <div className="flex justify-between">

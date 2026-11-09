@@ -36,7 +36,7 @@ Deno.serve(async (request) => {
     });
     const { data: release, error: releaseError } = await admin
       .from("app_release_current")
-      .select("platform,version,build_number,min_supported_build,storage_path,file_size,sha256,is_mandatory,release_notes,download_url,updated_at")
+      .select("version,build_number,storage_path,file_size,sha256,download_url")
       .eq("platform", "android")
       .maybeSingle();
 

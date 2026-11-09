@@ -111,6 +111,17 @@ export const ConversationItem: React.FC<ConversationItemProps> = ({
         {/* Linha 3: Identificadores de Status e Atendente Responsável */}
         <div className="flex items-center gap-1 mt-2">
           <div className="flex items-center gap-1.5 overflow-hidden flex-wrap">
+            {/* Status de IA / Handoff Silencioso */}
+            {conversation.aiStatus === 'needs_human' && (
+              <span
+                data-testid="badge-intervencao-necessaria"
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/80 text-amber-900 dark:text-amber-200 text-[10px] font-bold border border-amber-400 dark:border-amber-700 shadow-xs"
+              >
+                <i className="bi bi-exclamation-triangle-fill text-[9px] text-amber-600"></i>
+                Intervenção necessária
+              </span>
+            )}
+
             {/* Status da conversa */}
             {currentStatus === 'closed' ? (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-200 text-[10px] font-bold border border-emerald-300 dark:border-emerald-800">

@@ -6,6 +6,7 @@ import {
   fetchConversations,
 } from '@/pages/utils/customerSupport/customerSupportService';
 import { SortOrder } from '../components/ConversationSidebar';
+import { useConversationsRealtime, useConversationsPolling } from './conversations';
 
 interface UseCustomerSupportConversationsParams {
   agentId?: string | null;
@@ -41,66 +42,70 @@ export function useCustomerSupportConversations({
   const activeQueryKeyRef = useRef(queryKey);
   activeQueryKeyRef.current = queryKey;
 
-  const loadConversations = useCallback(async (isSilent = false) => {
-    if (isSilent && (moreRequestRef.current !== null || pendingRequestRef.current !== null)) return;
-    const requestId = ++requestIdRef.current;
-    pendingRequestRef.current = requestId;
-    if (!isSilent) {
-      moreRequestRef.current = null;
-      loadedPagesRef.current = 1;
-      setIsLoadingMore(false);
-      setIsLoadingConversations(true);
-      setConversations([]);
-      setTotalCount(0);
-    } else {
-      setIsRefreshingConversations(true);
-    }
-
-    const pagesToLoad = isSilent ? loadedPagesRef.current : 1;
-    try {
-      const pageResults = await Promise.all(
-        Array.from({ length: pagesToLoad }, (_, index) => fetchConversations(supabase, {
-          filter: folderCriteria ? 'all' : filter,
-          page: index + 1,
-          pageSize: PAGE_SIZE,
-          agentId: folderCriteria ? null : agentId,
-          criteria: folderCriteria,
-          canViewCommercialInfo,
-          sortOrder,
-        }))
-      );
-      const rows = pageResults.flatMap((result) => result.conversations);
-      const deduplicated = Array.from(new Map(rows.map((row) => [row.id, row])).values());
-      if (requestId !== requestIdRef.current || activeQueryKeyRef.current !== queryKey) return;
-      setConversations(deduplicated);
-      setTotalCount(pageResults[0]?.totalCount || 0);
-
-      if (selectedConvIdRef.current) {
-        const found = deduplicated.find((conversation) => conversation.id === selectedConvIdRef.current);
-        if (found) setSelectedConversation(found);
+  const loadConversations = useCallback(
+    async (isSilent = false) => {
+      if (isSilent && (moreRequestRef.current !== null || pendingRequestRef.current !== null)) return;
+      const requestId = ++requestIdRef.current;
+      pendingRequestRef.current = requestId;
+      if (!isSilent) {
+        moreRequestRef.current = null;
+        loadedPagesRef.current = 1;
+        setIsLoadingMore(false);
+        setIsLoadingConversations(true);
+        setConversations([]);
+        setTotalCount(0);
+      } else {
+        setIsRefreshingConversations(true);
       }
 
-      const nextCounts = await fetchConversationCounts(supabase);
-      if (requestId === requestIdRef.current && activeQueryKeyRef.current === queryKey) {
-        setCounts(nextCounts);
-        setConversationsError('');
+      const pagesToLoad = isSilent ? loadedPagesRef.current : 1;
+      try {
+        const pageResults = await Promise.all(
+          Array.from({ length: pagesToLoad }, (_, index) =>
+            fetchConversations(supabase, {
+              filter: folderCriteria ? 'all' : filter,
+              page: index + 1,
+              pageSize: PAGE_SIZE,
+              agentId: folderCriteria ? null : agentId,
+              criteria: folderCriteria,
+              canViewCommercialInfo,
+              sortOrder,
+            })
+          )
+        );
+        const rows = pageResults.flatMap((result) => result.conversations);
+        const deduplicated = Array.from(new Map(rows.map((row) => [row.id, row])).values());
+        if (requestId !== requestIdRef.current || activeQueryKeyRef.current !== queryKey) return;
+        setConversations(deduplicated);
+        setTotalCount(pageResults[0]?.totalCount || 0);
+
+        if (selectedConvIdRef.current) {
+          const found = deduplicated.find((conversation) => conversation.id === selectedConvIdRef.current);
+          if (found) setSelectedConversation(found);
+        }
+
+        const nextCounts = await fetchConversationCounts(supabase);
+        if (requestId === requestIdRef.current && activeQueryKeyRef.current === queryKey) {
+          setCounts(nextCounts);
+          setConversationsError('');
+        }
+      } catch (error) {
+        if (requestId === requestIdRef.current && activeQueryKeyRef.current === queryKey) {
+          setConversationsError(error instanceof Error ? error.message : 'Não foi possível atualizar a Inbox.');
+        }
+      } finally {
+        if (pendingRequestRef.current === requestId) pendingRequestRef.current = null;
+        if (requestId === requestIdRef.current) {
+          if (!isSilent) setIsLoadingConversations(false);
+          setIsRefreshingConversations(false);
+        }
       }
-    } catch (error) {
-      if (requestId === requestIdRef.current && activeQueryKeyRef.current === queryKey) {
-        setConversationsError(error instanceof Error ? error.message : 'Não foi possível atualizar a Inbox.');
-      }
-    } finally {
-      if (pendingRequestRef.current === requestId) pendingRequestRef.current = null;
-      if (requestId === requestIdRef.current) {
-        if (!isSilent) setIsLoadingConversations(false);
-        setIsRefreshingConversations(false);
-      }
-    }
-  }, [filter, agentId, folderCriteria, canViewCommercialInfo, sortOrder, queryKey]);
+    },
+    [filter, agentId, folderCriteria, canViewCommercialInfo, sortOrder, queryKey]
+  );
 
   const loadMoreConversations = useCallback(async () => {
     if (moreRequestRef.current !== null || isLoadingConversations || conversations.length >= totalCount) return;
-    // Paging takes priority over an older refresh that could replace its rows.
     const requestId = ++requestIdRef.current;
     pendingRequestRef.current = null;
     setIsRefreshingConversations(false);
@@ -119,8 +124,6 @@ export function useCustomerSupportConversations({
       });
       if (requestId !== requestIdRef.current || activeQueryKeyRef.current !== queryKey) return;
       if (result.conversations.length === 0) {
-        // An empty offset page carries no window-count row. Reconcile from the
-        // loaded pages instead of displaying cached rows with a total of zero.
         moreRequestRef.current = null;
         setIsLoadingMore(false);
         await loadConversations(true);
@@ -145,63 +148,29 @@ export function useCustomerSupportConversations({
         setIsLoadingMore(false);
       }
     }
-  }, [isLoadingConversations, conversations.length, totalCount, folderCriteria, filter, agentId, canViewCommercialInfo, sortOrder, queryKey, loadConversations]);
+  }, [
+    isLoadingConversations,
+    conversations.length,
+    totalCount,
+    folderCriteria,
+    filter,
+    agentId,
+    canViewCommercialInfo,
+    sortOrder,
+    queryKey,
+    loadConversations,
+  ]);
 
   useEffect(() => {
     void loadConversations();
   }, [loadConversations]);
 
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (typeof document === 'undefined' || document.visibilityState === 'visible') {
-        void loadConversations(true);
-      }
-    }, 30000);
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') void loadConversations(true);
-    };
-    window.addEventListener('focus', handleVisibilityChange);
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => {
-      clearInterval(interval);
-      window.removeEventListener('focus', handleVisibilityChange);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
+  const handleSilentReload = useCallback(() => {
+    void loadConversations(true);
   }, [loadConversations]);
 
-  useEffect(() => {
-    let active = true;
-    let channelGeneration = 0;
-    let channel: ReturnType<typeof supabase.channel> | null = null;
-    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
-    const setupChannel = () => {
-      if (!active) return;
-      const generation = ++channelGeneration;
-      const isCurrent = () => active && generation === channelGeneration;
-      if (channel) void supabase.removeChannel(channel);
-      channel = supabase
-        .channel(`whatsapp-conversations-realtime-${Date.now()}`)
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'whatsapp_conversations' }, () => {
-          if (!isCurrent()) return;
-          void loadConversations(true);
-        })
-        .subscribe((status) => {
-          if (!isCurrent()) return;
-          if (reconnectTimer) clearTimeout(reconnectTimer);
-          reconnectTimer = null;
-          if (status === 'SUBSCRIBED') void loadConversations(true);
-          if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
-            reconnectTimer = setTimeout(setupChannel, 3000);
-          }
-        });
-    };
-    setupChannel();
-    return () => {
-      active = false;
-      if (reconnectTimer) clearTimeout(reconnectTimer);
-      if (channel) void supabase.removeChannel(channel);
-    };
-  }, [loadConversations]);
+  useConversationsPolling(handleSilentReload);
+  useConversationsRealtime(handleSilentReload);
 
   return {
     conversations,

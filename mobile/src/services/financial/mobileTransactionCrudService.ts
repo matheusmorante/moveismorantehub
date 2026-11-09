@@ -1,40 +1,33 @@
 import { supabase } from '../supabaseClient';
-import { FinancialTransaction, TransactionFilterOptions } from './mobileFinanceTypes';
+import { FinancialCategory, FinancialTransaction, TransactionFilterOptions } from './mobileFinanceTypes';
 import { fetchFinancialCategories, determineResultNature } from './mobileCategoryService';
-import { matchesSearchText } from '../../../../shared-utils/searchText';
 
 export const fetchTransactionsForMonth = async (
   year: number,
   month: number,
-  filters?: TransactionFilterOptions
+  filters?: TransactionFilterOptions,
+  categoriesSource?: FinancialCategory[] | Promise<FinancialCategory[]>
 ): Promise<FinancialTransaction[]> => {
   const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
   const nextMonth = month === 12 ? 1 : month + 1;
   const nextYear = month === 12 ? year + 1 : year;
   const endDate = `${nextYear}-${String(nextMonth).padStart(2, '0')}-01`;
 
-  let query = supabase
-    .from('financial_transactions')
-    .select('*')
-    .gte('date', startDate)
-    .lt('date', endDate)
-    .order('date', { ascending: false })
-    .order('created_at', { ascending: false });
-
-  if (filters?.type && filters.type !== 'all') {
-    query = query.eq('type', filters.type);
-  }
-  if (filters?.categoryId) {
-    query = query.eq('category_id', filters.categoryId);
-  }
-  if (filters?.paymentMethod) {
-    query = query.eq('payment_method', filters.paymentMethod);
-  }
-  if (filters?.createdBy) {
-    query = query.eq('created_by', filters.createdBy);
-  }
-
-  const [categories, { data, error }] = await Promise.all([fetchFinancialCategories(), query]);
+  const categoriesPromise = categoriesSource
+    ? Promise.resolve(categoriesSource)
+    : fetchFinancialCategories();
+  const [{ data, error }, categories] = await Promise.all([
+    supabase.rpc('get_mobile_financial_transactions', {
+      p_start_date: startDate,
+      p_end_date_exclusive: endDate,
+      p_type: filters?.type && filters.type !== 'all' ? filters.type : null,
+      p_category_id: filters?.categoryId || null,
+      p_payment_method: filters?.paymentMethod || null,
+      p_created_by: filters?.createdBy || null,
+      p_search: filters?.searchQuery?.trim() || null,
+    }),
+    categoriesPromise,
+  ]);
 
   if (error) {
     console.warn('Erro ao consultar transações:', error.message);
@@ -43,7 +36,8 @@ export const fetchTransactionsForMonth = async (
 
   const categoryMap = new Map(categories.map((c) => [c.id, c.name]));
 
-  let list: FinancialTransaction[] = (data || []).map((row: any) => {
+  const rows = Array.isArray((data as any)?.rows) ? (data as any).rows : [];
+  const list: FinancialTransaction[] = rows.map((row: any) => {
     const catName =
       (row.category_id && categoryMap.get(row.category_id)) ||
       row.category_name ||
@@ -73,17 +67,6 @@ export const fetchTransactionsForMonth = async (
       updated_at: row.updated_at,
     };
   });
-
-  if (filters?.searchQuery && filters.searchQuery.trim()) {
-    const q = filters.searchQuery.toLowerCase().trim();
-    list = list.filter(
-      (t) =>
-        matchesSearchText(t.description, q) ||
-        matchesSearchText(t.category_name, q) ||
-        matchesSearchText(t.counterparty, q) ||
-        matchesSearchText(t.collaborator_name, q)
-    );
-  }
 
   return list;
 };

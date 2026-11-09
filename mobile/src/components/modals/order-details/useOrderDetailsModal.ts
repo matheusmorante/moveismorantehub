@@ -1,9 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Platform, StatusBar } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { supabase } from '../../../services/supabaseClient';
+import { useAuth } from '../../../contexts/AuthContext';
 import { loadMobileOrderDetails } from '../../../services/orderDetailsReadService';
-import { withAbortTimeout } from '../../../../../shared-utils/withAbortTimeout';
 
 const DEFAULT_ALLOWED_DELIVERY_ROLES = [
   'administrator',
@@ -29,6 +28,12 @@ interface UseOrderDetailsModalProps {
 
 export function useOrderDetailsModal({ order, userRole }: UseOrderDetailsModalProps) {
   const insets = useSafeAreaInsets();
+  const {
+    rolePermissions,
+    rolePermissionsLoaded,
+    rolePermissionsConfirmed,
+    rolePermissionsLoadFailed,
+  } = useAuth();
   const [preparingDelivery, setPreparingDelivery] = useState(false);
   const [canStartDelivery, setCanStartDelivery] = useState(false);
   const [detailedOrder, setDetailedOrder] = useState<any>(order);
@@ -58,42 +63,46 @@ export function useOrderDetailsModal({ order, userRole }: UseOrderDetailsModalPr
     return () => controller.abort();
   }, [order, detailsAttempt]);
 
-  // 2. Consulta de permissão para iniciar entrega com fallback resiliente para equipe
+  // Reutiliza a leitura confirmada da sessão ou o último valor salvo no aparelho.
   useEffect(() => {
-    let alive = true;
-    const loadPermission = async () => {
-      try {
-        const { data } = await withAbortTimeout(supabase.from('settings').select('roles:data->rolePermissions').eq('id', 'app').maybeSingle(), 'app:permissoes-entrega', 15_000);
-        if (!alive) return;
+    const hasPermissionSnapshot = rolePermissionsConfirmed || rolePermissionsLoaded;
+    if (!hasPermissionSnapshot && !rolePermissionsLoadFailed) {
+      setCanStartDelivery(false);
+      return;
+    }
 
-        const configuredRoles = (data?.roles as { startDelivery?: unknown } | null)?.startDelivery;
-        const allowedRoles =
-          Array.isArray(configuredRoles) && configuredRoles.length > 0
-            ? configuredRoles
-            : DEFAULT_ALLOWED_DELIVERY_ROLES;
+    const permissionSource = rolePermissionsConfirmed
+      ? 'server'
+      : rolePermissionsLoaded
+        ? 'cache'
+        : 'unavailable';
+    const configuredRoles =
+      permissionSource === 'unavailable'
+        ? undefined
+        : rolePermissions.startDelivery;
+    const allowedRoles =
+      Array.isArray(configuredRoles) && configuredRoles.length > 0
+        ? configuredRoles
+        : DEFAULT_ALLOWED_DELIVERY_ROLES;
 
-        const normalizedRole = String(userRole || '')
-          .trim()
-          .toLowerCase();
-        const isAdministrator = ['admin', 'administrator', 'master'].includes(normalizedRole);
-        const isDefaultRole = DEFAULT_ALLOWED_DELIVERY_ROLES.includes(normalizedRole);
-        const hasConfiguredPermission = allowedRoles.some(
-          (role: string) => String(role).trim().toLowerCase() === normalizedRole
-        );
+    const normalizedRole = String(userRole || '')
+      .trim()
+      .toLowerCase();
+    const isAdministrator = ['admin', 'administrator', 'master'].includes(normalizedRole);
+    const isDefaultRole = DEFAULT_ALLOWED_DELIVERY_ROLES.includes(normalizedRole);
+    const hasConfiguredPermission = allowedRoles.some(
+      (role: string) => String(role).trim().toLowerCase() === normalizedRole
+    );
 
-        // Qualquer usuário da equipe (estoquista, entregador, vendedor, gerente, admin) tem acesso
-        setCanStartDelivery(isAdministrator || isDefaultRole || hasConfiguredPermission || !normalizedRole);
-      } catch (err) {
-        console.warn('[useOrderDetailsModal] Falha ao verificar permissões de entrega:', err);
-        if (alive) setCanStartDelivery(true);
-      }
-    };
-
-    void loadPermission();
-    return () => {
-      alive = false;
-    };
-  }, [userRole]);
+    // Este controle afeta apenas a exibição; o servidor continua validando a operação.
+    setCanStartDelivery(isAdministrator || isDefaultRole || hasConfiguredPermission || !normalizedRole);
+  }, [
+    userRole,
+    rolePermissions,
+    rolePermissionsLoaded,
+    rolePermissionsConfirmed,
+    rolePermissionsLoadFailed,
+  ]);
 
   return {
     detailedOrder: detailedOrder || order,

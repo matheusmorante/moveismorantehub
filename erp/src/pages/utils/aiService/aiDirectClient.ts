@@ -34,17 +34,17 @@ export async function callAIBackend(endpoint: string, body: any) {
   }
 }
 
-export interface GeminiDirectOptions {
+export interface OpenAIDirectOptions {
   tier?: 'lite' | 'reasoning';
   moduleSource?: string;
   thinkingBudget?: 'low' | 'medium' | 'high';
   operation?: string;
 }
 
-export async function callGeminiDirect(
+export async function callOpenAIDirect(
   prompt: string,
   isJsonMode: boolean = true,
-  options?: GeminiDirectOptions
+  options?: OpenAIDirectOptions
 ): Promise<string> {
   const tier = options?.tier || 'lite';
   const operation = options?.operation || 'ai_service_call';
@@ -71,7 +71,7 @@ export async function callGeminiDirect(
 
   if (!res.success) {
     const modelName =
-      res.modelUsed || (tier === 'reasoning' ? 'gemini-3.8-flash' : 'gemini-3.5-flash-lite');
+      res.modelUsed || 'gpt-6-luna';
     if (
       isQuotaExceeded(res) ||
       isQuotaExceeded(res.errorMessage) ||
@@ -88,3 +88,7 @@ export async function callGeminiDirect(
 
   return res.data || '';
 }
+
+// Compatibilidade para consumidores legados; as chamadas atuais usam OpenAI.
+export type GeminiDirectOptions = OpenAIDirectOptions;
+export const callGeminiDirect = callOpenAIDirect;

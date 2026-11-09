@@ -200,46 +200,44 @@ export const metaWhatsAppService = {
 
     const formattedPhone = templateSanitizer.formatRecipientPhone(to);
 
+    const fallbackText = [
+      text,
+      '',
+      '*Responda "' + buttonTitle.toUpperCase() + '" para confirmar.*',
+    ].join(String.fromCharCode(10));
     try {
       const response = await metaHttpClient.postMessages({
-            messaging_product: 'whatsapp',
-            recipient_type: 'individual',
-            to: formattedPhone,
-            type: 'interactive',
-            interactive: {
-              type: 'button',
-              body: { text },
-              action: {
-                buttons: [
-                  {
-                    type: 'reply',
-                    reply: { id: buttonId, title: buttonTitle },
-                  },
-                ],
+        messaging_product: 'whatsapp',
+        recipient_type: 'individual',
+        to: formattedPhone,
+        type: 'interactive',
+        interactive: {
+          type: 'button',
+          body: { text },
+          action: {
+            buttons: [
+              {
+                type: 'reply',
+                reply: { id: buttonId, title: buttonTitle },
               },
-            },
-          }, 'delivery');
+            ],
+          },
+        },
+      }, 'delivery');
 
       const data = await response.json();
-      if (data.error) {
-        console.warn(
-          'Erro ao enviar mensagem interativa WhatsApp, tentando fallback de texto simples:',
-          data.error
-        );
-        return await metaWhatsAppService.sendTextMessage(
-          to,
-          `${text}\n\n*Responda "${buttonTitle.toUpperCase()}" para confirmar.*`,
-          'delivery'
-        );
-      }
-      return data;
-    } catch {
-      return await metaWhatsAppService.sendTextMessage(
-        to,
-        `${text}\n\n*Responda "${buttonTitle.toUpperCase()}" para confirmar.*`,
-        'delivery'
+      if (!data.error) return data;
+
+      console.warn(
+        'Erro ao enviar mensagem interativa WhatsApp, tentando fallback de texto simples:',
+        data.error
       );
+    } catch {
+      // Mantém o fallback quando o envio interativo falha ou seu resultado não pode ser lido.
     }
+
+    // Fora do try: uma falha ou resultado incerto deste fallback não deve disparar outro envio.
+    return await metaWhatsAppService.sendTextMessage(to, fallbackText, 'delivery');
   },
 
   /**

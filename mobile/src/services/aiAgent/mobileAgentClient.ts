@@ -1,6 +1,7 @@
 import { supabase } from '../supabaseClient';
 import { GeminiContent } from './mobileAgentTypes';
 import { withTimeout } from '../../../../shared-utils/withTimeout';
+import { buildOpenAiAgentRequest, parseOpenAiAgentResponse } from '../../../../shared-utils/openAiAgentAdapter';
 
 interface GenerateContentPayload {
   model?: string;
@@ -15,7 +16,7 @@ const interruptedError = () => Object.assign(new Error('Solicitação de IA inte
   name: 'AbortError',
 });
 
-// Cliente HTTP leve e tipado para a API oficial do Google Gemini no Mobile
+// Adaptador HTTP leve para manter o contrato do agente e usar o GPT-6 Luna no mobile.
 
 export class MobileAgentClient {
   public static async generateContent(payload: GenerateContentPayload, signal?: AbortSignal): Promise<any> {
@@ -52,7 +53,6 @@ export class MobileAgentClient {
     if (signal.aborted) throw interruptedError();
     const accessToken = data.session?.access_token;
     if (error || !accessToken) throw new Error('Sessão inválida. Entre novamente.');
-    const model = payload.model || 'gemini-3.8-flash';
     const body: Record<string, any> = {
       contents: payload.contents,
       generationConfig: {
@@ -72,20 +72,24 @@ export class MobileAgentClient {
     }
 
     const apiBase = (process.env.EXPO_PUBLIC_ERP_API_URL || 'https://morantehub.vercel.app').replace(/\/$/, '');
-    const response = await fetch(`${apiBase}/api/gemini-proxy`, {
+    const response = await fetch(`${apiBase}/api/openai-proxy`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${accessToken}`,
       },
-      body: JSON.stringify({ model, action: 'generateContent', payload: body }),
+      body: JSON.stringify({
+        action: 'responses',
+        request: buildOpenAiAgentRequest({ ...payload, ...body }),
+        moduleSource: 'mobile_agent',
+      }),
       signal,
     });
 
     if (!response.ok) {
-      throw new Error(`Erro na API Gemini (${response.status}).`);
+      throw new Error(`Erro na API OpenAI (${response.status}).`);
     }
 
-    return response.json();
+    return parseOpenAiAgentResponse(await response.json());
   }
 }

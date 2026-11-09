@@ -6,6 +6,11 @@ import {
   vehicleExpenseInstruction,
 } from './mobileAgentFinancialBatchInstruction';
 import {
+  AgentPermissionContext,
+  describeOperatorPermissionsForPrompt,
+  filterAgentToolsByPermission,
+} from '../../../../shared-utils/agentPermissionGuard';
+import {
   GeminiContent,
   GeminiPart,
   AgentExecutionResult,
@@ -13,12 +18,19 @@ import {
   AgentPageContext,
 } from './mobileAgentTypes';
 
-// Orquestrador conversacional do Agente Lizandro no App Mobile com Function Calling nativo
+// Orquestrador conversacional do Agente Lizandro no App Mobile com Function Calling nativo e controle de permissões por perfil
 
 const MAX_TOOL_ITERATIONS = 5;
 
+export interface MobileAgentRequestOptions {
+  permissionContext?: AgentPermissionContext | null;
+}
+
 export class MobileAgentService {
-  public static buildSystemInstruction(pageContext?: AgentPageContext): string {
+  public static buildSystemInstruction(
+    pageContext?: AgentPageContext,
+    permissionContext?: AgentPermissionContext | null
+  ): string {
     const now = new Date();
     const todayStr = now.toISOString().split('T')[0];
     const diasSemana = [
@@ -36,8 +48,12 @@ export class MobileAgentService {
       ? `\nCONTEXTO DA INTERFACE ATUAL NO APP: O usuario esta na tela/modulo "${pageContext.currentModule}"${pageContext.currentPage ? ` (pagina: ${pageContext.currentPage})` : ''}. Use isso para compreender o contexto.`
       : '';
 
+    const permissionSnippet = permissionContext
+      ? `\n${describeOperatorPermissionsForPrompt(permissionContext)}`
+      : '';
+
     return `Voce e Lizandro (seu nome e escrito obrigatoriamente com Z: "Lizandro" ou "Seu Lizandro", NUNCA com S), o Agente Inteligente do ERP Moveis Morante no App Mobile.
-Voce e um agente com capacidade de raciocinio, consulta e execucao atraves de ferramentas oficiais do ERP.${contextSnippet}
+Voce e um agente com capacidade de raciocinio, consulta e execucao atraves de ferramentas oficiais do ERP e App Mobile, respeitando as permissoes do perfil de acesso do usuario.${contextSnippet}${permissionSnippet}
 
 DATA DE REFERENCIA DO SISTEMA: ${todayStr} (${diaNome}).
 Use essa data para interpretar datas relativas: "hoje", "ontem", "amanha", "este mes", "semana passada".
@@ -76,53 +92,36 @@ ${vehicleExpenseInstruction}
    - Quando o usuario responder a finalidade ("loja" ou "pessoal") e a forma de pagamento ("pix", "dinheiro", "cartao", etc.):
      a) Busque as categorias com "buscarCategoriasFinanceiras" e selecione o ID real. Em uso particular, selecione obrigatoriamente a categoria "Pró-labore"; em uso empresarial, selecione a categoria operacional pertinente (por exemplo, conta de luz = "Energia", combustível empresarial = "Combustível").
      b) So chame "criarMovimentacaoFinanceira" QUANDO SOUBER A FORMA DE PAGAMENTO INFORMADA PELO USUARIO.
-3. MOVIMENTACOES FINANCEIRAS E CONFIRMACAO:
+3. FINANCEIRO COMPLETO (CAIXA, CONTAS A PAGAR, CONTAS A RECEBER E BAIXAS):
    - Ao identificar TODOS os dados (valor, descricao, tipo, categoria, finalidade E forma de pagamento dita pelo usuario):
      Chame a ferramenta "criarMovimentacaoFinanceira". O aplicativo exibira na tela o card visual oficial de confirmacao com o botao "Sim".
-     Na sua resposta ao usuario, avise que preparou a movimentacao e que ele deve clicar no botao "Sim" no card abaixo para confirmar o registro.
 ${financialBatchInstruction}
-   - Quando relatar uma entrada/recebimento: use tipo="income" e pergunte como foi recebido se nao foi dito.
-   - Quando o usuario perguntar sobre boletos ou contas a pagar: use "buscarContasAPagar".
-   - Quando perguntar sobre gastos ou saldo: use "obterResumoFinanceiro" ou "buscarMovimentacoesFinanceiras".
+   - Quando o usuario perguntar sobre boletos ou contas a pagar: use "buscarContasAPagar", "criarContaAPagar", "editarContaAPagar".
+   - Quando o usuario perguntar sobre contas a receber ou baixas: use "buscarContasAReceber", "criarContaAReceber", "editarContaAReceber" e "baixarContaFinanceira".
+   - Quando perguntar sobre gastos, saldo ou editar/excluir movimentacoes: use "obterResumoFinanceiro", "buscarMovimentacoesFinanceiras", "editarMovimentacaoFinanceira" ou "cancelarOuExcluirMovimentacaoFinanceira".
 4. ALTERACOES E CORRECOES DE MOVIMENTACOES PREPARADAS / EM CONFIRMACAO:
-   - Se o usuario pedir para alterar qualquer campo (data, valor, forma de pagamento, categoria, descricao) de uma movimentacao que foi recem-preparada ou cujo card esteja na tela (ex: "MUDA PARA DATA DE ONTEM", "Muda para 300", "Foi no dinheiro, nao Pix", "Coloca categoria X"):
-     * NUNCA DIGA "Nao consigo alterar uma movimentacao que ja foi preparada" ou "Gostaria de criar uma nova movimentacao?". O rascunho ainda nao foi salvo no banco!
-     * VOCE DEVE CHAMAR IMEDIATAMENTE "criarMovimentacaoFinanceira" reaproveitando os dados anteriores e aplicando a correcao pedida (ex: se pediu "muda para data de ontem", chame criarMovimentacaoFinanceira com data='${new Date(Date.now() - 86400000).toISOString().split('T')[0]}' e os mesmos valor, descricao, categoria, formaPagamento e finalidade).
-     * O aplicativo substitui o card na tela automaticamente com a versao corrigida.
+   - Se o usuario pedir para alterar qualquer campo (data, valor, forma de pagamento, categoria, descricao) de uma movimentacao que foi recem-preparada ou cujo card esteja na tela:
+     * VOCE DEVE CHAMAR IMEDIATAMENTE "criarMovimentacaoFinanceira" ou "editarMovimentacaoFinanceira" reaproveitando os dados anteriores e aplicando a correcao pedida (ex: data='${new Date(Date.now() - 86400000).toISOString().split('T')[0]}').
 5. REGISTRO OBRIGATORIO DE FEEDBACK DO USUARIO ("registrarFeedbackAgente"):
-   - Voce POSSUI a ferramenta oficial "registrarFeedbackAgente".
-   - Quando o usuario disser "REGISTRA ESSE FEEDBACK", ou reclamar do comportamento da IA ("Voce entendeu errado", "Nao foi isso que eu falei", "Voce colocou errado", "De novo errou", "Por que esta perguntando isso?"):
-     * NUNCA DIGA "Nao consigo registrar feedbacks" ou "Minhas funcionalidades sao para...".
-     * VOCE DEVE INVOCAR A FERRAMENTA "registrarFeedbackAgente" IMEDIATAMENTE passando:
-       - categoria: "wrong_arguments" (para data/valor/forma errados), "misunderstanding" (entendeu errado), "unnecessary_question" (pergunta desnecessaria) ou "other".
-       - queixaUsuario: resumo fiel do que o usuario reclamou.
-       - campoDivergente: campo envolvido (ex: "data", "categoria", "formaPagamento").
-       - severidade: "medium" ou "high".
-     * Responda de forma cortez confirmando que o feedback foi registrado no sistema de auditoria para a equipe aprimorar a IA.
+   - Voce POSSUI a ferramenta oficial "registrarFeedbackAgente". Quando o usuario reclamar do comportamento da IA, invoque "registrarFeedbackAgente" imediatamente.
 6. LINGUAGEM NATURAL E OBJETIVIDADE:
-   - Responda em Portugues do Brasil com clareza, objetividade e cordialidade.
-   - Formate valores monetarios como R$ 0,00.
-7. OPERACOES, PEDIDOS, ASSISTENCIAS, DEVOLUCOES E MONTAGENS (SOMENTE LEITURA):
-   - Use buscarOperacoes para consultar pedidos de venda, entregas, retiradas, assistencias, devolucoes ou montagens. Escolha o tipo correto e aplique nome do cliente, codigo, periodo e status quando informados.
-   - Para montagens, a classificacao (deposito/loja ou externa/no endereco) segue as configuracoes e regras de manuseio existentes no ERP. Nao deduza montagem apenas pelo nome do produto.
-   - Se precisar de itens, endereco, observacoes, pagamento, motivo/vinculo da devolucao ou outros detalhes, primeiro busque a operacao e depois chame obterDetalhesOperacao usando somente o ID real retornado. Nunca invente IDs.
-   - Para consulta cadastral independente de um pedido, use buscarClientes; para nome, cargo/funcoes ou papeis de acesso de colaboradores, use buscarColaboradores.
-   - Consulte os dados reais antes de responder e informe quando a busca nao retornar resultados ou falhar. Todas essas ferramentas sao somente leitura; nao altere pedidos, operacoes, clientes, colaboradores, estoque ou status.
-
-8. CONSULTA DE PRODUTOS E ESTOQUE (SOMENTE LEITURA):
-   - Voce possui ferramentas oficiais de CONSULTA do catalogo e estoque de produtos: "buscarProdutos" e "obterDetalhesProduto".
-   - Para perguntas sobre produtos, medidas/dimensoes, materiais, cores, fotos, precos ou saldos de estoque, SEMPRE consulte os dados reais via ferramenta antes de responder.
-   - Primeiro localize o produto por termo de busca se o usuario nao souber o codigo exato; para detalhes completos, utilize "obterDetalhesProduto" passando o codigo oficial de 6 digitos ou o SKU da variacao.
-   - NUNCA invente produtos, codigos, especificacoes, fotos ou estoques.
-   - PROIBICAO ABSOLUTA DE CRIACAO, EDICAO OU EXCLUSAO DE PRODUTOS:
-     * Voce NAO possui ferramentas e NAO tem permissao para cadastrar novos produtos, editar informacoes de produtos existentes, alterar precos, mexer em estoques ou excluir produtos.
-     * Se o usuario solicitar qualquer alteracao de cadastro de produto (ex: "cadastre um sofa novo", "mude o preco do produto X", "delete esse produto", "ajuste o estoque"), recuse educadamente e com clareza, orientando-o a realizar essa alteracao manualmente na tela de Cadastro de Produtos do aplicativo ou ERP.`;
+   - Responda em Portugues do Brasil com clareza, objetividade e cordialidade. Formate valores monetarios como R$ 0,00.
+7. OPERACOES, PEDIDOS DE VENDA, ORCAMENTOS, ASSISTENCIAS, DEVOLUCOES E CLIENTES:
+   - Use "buscarOperacoes" (tipos: "venda", "orcamento", "assistencia", "devolucao", "entrega", "retirada", "montagem" ou "todas") e "obterDetalhesOperacao" para consultar detalhes completos.
+   - Use "criarPedidoOperacao" e "editarPedidoOperacao" para criar ou editar pedidos de venda, orcamentos, assistencias e devolucoes quando solicitado.
+   - Use "buscarClientes", "criarOuEditarCliente" e "buscarColaboradores" para consultar ou cadastrar/editar clientes e consultar colaboradores.
+8. TUDO SOBRE PRODUTOS E ESTOQUE (CONSULTA, METADADOS, CRIACAO E EDICAO):
+   - Use "buscarProdutos", "obterDetalhesProduto" e "listarCategoriasECaracteristicasProduto" para consultar fichas tecnicas, precos, estoques, categorias e caracteristicas.
+   - Use "criarProduto" e "editarProduto" para cadastrar novos produtos ou editar precos, estoque, variacoes, dimensoes, caracteristicas tecnicas, ativacao ou lixeira.
+9. PERMISSOES POR PERFIL DE ACESSO:
+   - Todas as ferramentas verificam se o perfil de acesso do usuario logado tem permissao para a acao solicitada. Se retornar "PERMISSION_DENIED", explique educadamente qual permissao e necessaria.`;
   }
 
   public static async sendMessage(
     userMessage: string,
     history: GeminiContent[] = [],
-    pageContext?: AgentPageContext
+    pageContext?: AgentPageContext,
+    options: MobileAgentRequestOptions = {}
   ): Promise<{ result: AgentExecutionResult; updatedHistory: GeminiContent[] }> {
     const executedTools: ExecutedToolRecord[] = [];
     const conversation: GeminiContent[] = [...history];
@@ -134,8 +133,14 @@ ${financialBatchInstruction}
 
     let iterations = 0;
     const systemInstruction = {
-      parts: [{ text: this.buildSystemInstruction(pageContext) }],
+      parts: [{ text: this.buildSystemInstruction(pageContext, options.permissionContext) }],
     };
+
+    const permittedTools = filterAgentToolsByPermission(
+      mobileAgentTools,
+      options.permissionContext
+    );
+    const activeTools = permittedTools.length > 0 ? permittedTools : mobileAgentTools;
 
     while (iterations < MAX_TOOL_ITERATIONS) {
       iterations++;
@@ -143,7 +148,7 @@ ${financialBatchInstruction}
       const apiResponse = await MobileAgentClient.generateContent({
         systemInstruction,
         contents: conversation,
-        tools: mobileAgentTools,
+        tools: activeTools,
         toolConfig: { functionCallingConfig: { mode: 'AUTO' } },
         temperature: 0.1,
       });
@@ -175,7 +180,7 @@ ${financialBatchInstruction}
 
       const responseParts: GeminiPart[] = [];
       for (const call of functionCalls) {
-        const execution = await MobileToolDispatcher.execute(call);
+        const execution = await MobileToolDispatcher.execute(call, options.permissionContext);
         executedTools.push(execution.record);
         responseParts.push({ functionResponse: execution.functionResponse });
       }

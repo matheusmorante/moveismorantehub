@@ -94,7 +94,8 @@ export default function ApiUsageHeader({
         >
           <option value="all">Todos os Provedores</option>
           <option value="google">Google Maps Platform</option>
-          <option value="gemini">Google Gemini AI</option>
+          <option value="openai">OpenAI AI</option>
+          <option value="gemini">Gemini (histórico)</option>
           <option value="meta">WhatsApp / Meta</option>
           <option value="sefaz">SEFAZ Fiscal</option>
         </select>

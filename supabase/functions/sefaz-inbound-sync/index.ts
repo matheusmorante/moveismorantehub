@@ -6,6 +6,7 @@ import { extractXmlTag, extractAllXmlTags, extractDocZipEntries, parseNfeXml } f
 import { findMissingNsuRanges } from "./utils/nsuRecoveryRanges.ts";
 import { persistParsedInvoice, processNextNsuRecovery } from "./utils/nsuRecovery.ts";
 import { buildSyncStatusData } from "./utils/syncStatusPayload.ts";
+import { resolveCompanyCnpj } from "./utils/resolveCompanyCnpj.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -24,6 +25,7 @@ serve(async (req) => {
   let isAccessKeyQuery = false;
   let isRecoveryQuery = false;
   let distNsuNextAllowedSyncAt: string | null = null;
+  let confirmedStatusSnapshot: { statusUpdatedAt: string; nextAllowedSyncAt: string; statusDocsCount: number } | null = null;
 
   try {
     const supabaseClient = createClient(
@@ -37,7 +39,7 @@ serve(async (req) => {
     if (body.action === "status") {
       const { data: nsuRecord } = await supabaseClient
         .from("sefaz_nsu_control")
-        .select("*")
+        .select("status, last_sync_at, next_allowed_sync_at, last_nsu, max_nsu, last_cstat, last_xmotivo, last_docs_count, environment")
         .eq("id", "default")
         .maybeSingle();
 
@@ -70,116 +72,110 @@ serve(async (req) => {
     }
 
     // A ponte Node.js faz mTLS com o A1 guardado no próprio servidor.
-    let cnpj = requestedCnpj || Deno.env.get("SEFAZ_CNPJ") || "";
+    const cleanCnpj = await resolveCompanyCnpj(
+      supabaseClient,
+      requestedCnpj,
+      Deno.env.get("SEFAZ_CNPJ"),
+    );
 
-    if (!cnpj) {
-      const { data: settingsData, error: settingsError } = await supabaseClient
-        .from("settings")
-        .select("data")
-        .eq("id", "app")
+    // A recuperação pontual mantém a leitura própria. Só o fluxo normal troca
+    // a leitura do cursor e a reserva condicional por uma chamada curta e atômica.
+    let currentUltNsu = "0";
+    let currentMaxNsu = "0";
+    if (isAccessKeyQuery || isRecoveryQuery) {
+      const { data: nsuRecord, error: nsuError } = await supabaseClient
+        .from("sefaz_nsu_control")
+        .select("*")
+        .eq("id", "default")
         .single();
 
-      if (!settingsError && settingsData?.data) {
-        const d = settingsData.data;
-        if (!cnpj && d.companyCnpj) cnpj = d.companyCnpj;
+      if (nsuError && nsuError.code !== "PGRST116") {
+        throw new Error("Falha ao ler controle de NSU: " + nsuError.message);
       }
-    }
 
-    const cleanCnpj = cnpj.replace(/\D/g, "");
-
-    if (!cleanCnpj) {
-      throw new Error("CNPJ da empresa emitente não configurado.");
-    }
-
-    // 2. Trava de concorrência: impedir duas sincronizações simultâneas para o mesmo CNPJ
-    const { data: nsuRecord, error: nsuError } = await supabaseClient
-      .from("sefaz_nsu_control")
-      .select("*")
-      .eq("id", "default")
-      .single();
-
-    if (nsuError && nsuError.code !== "PGRST116") {
-      throw new Error("Falha ao ler controle de NSU: " + nsuError.message);
-    }
-
-    if (nsuRecord?.status === "syncing") {
-      const lastSync = nsuRecord.last_sync_at ? new Date(nsuRecord.last_sync_at).getTime() : 0;
-      // Se estiver sincronizando há menos de 3 minutos, evita corrida
-      if (Date.now() - lastSync < 180000) {
-        return new Response(
-          JSON.stringify({
-            success: false,
-            message: "Uma sincronização já está em andamento para este CNPJ.",
-          }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
-        );
+      if (nsuRecord?.status === "syncing") {
+        const lastSync = nsuRecord.last_sync_at ? new Date(nsuRecord.last_sync_at).getTime() : 0;
+        // Se estiver sincronizando há menos de 3 minutos, evita corrida
+        if (Date.now() - lastSync < 180000) {
+          return new Response(
+            JSON.stringify({
+              success: false,
+              message: "Uma sincronização já está em andamento para este CNPJ.",
+            }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
+          );
+        }
       }
-    }
 
-    // Uma consulta distNSU por hora, inclusive quando há documentos, para manter a descoberta previsível.
-    if (!isAccessKeyQuery && !isRecoveryQuery) {
-      const now = Date.now();
-      const lastSyncMs = nsuRecord?.last_sync_at ? new Date(nsuRecord.last_sync_at).getTime() : 0;
-      const storedNextAllowed = nsuRecord?.next_allowed_sync_at
-        ? new Date(nsuRecord.next_allowed_sync_at).getTime()
-        : 0;
-      const nextAllowedMs = Math.max(
-        storedNextAllowed,
-        lastSyncMs ? lastSyncMs + DIST_NSU_INTERVAL_MS : 0,
+      if (nsuRecord?.status === "rate_limited") {
+        const retryAt = new Date(new Date(nsuRecord.last_sync_at || Date.now()).getTime() + DIST_NSU_INTERVAL_MS);
+        if (retryAt.getTime() > Date.now()) {
+          return new Response(JSON.stringify({
+            success: false, code: "SEFAZ_RATE_LIMIT", retryAfter: retryAt.toISOString(),
+            message: "A SEFAZ exige aguardar uma hora antes de uma nova consulta.",
+          }), { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 });
+        }
+      }
+
+      currentUltNsu = nsuRecord?.last_nsu || "0";
+      currentMaxNsu = nsuRecord?.max_nsu || "0";
+    } else {
+      const { data: reservationRows, error: reservationError } = await supabaseClient.rpc(
+        "reserve_sefaz_nsu_sync_interval",
+        { p_cnpj: cleanCnpj, p_environment: environment },
       );
-      if (now < nextAllowedMs) {
-        const diffMinutes = Math.max(1, Math.ceil((nextAllowedMs - now) / 60000));
-        return new Response(JSON.stringify({
-          success: false,
-          code: "SEFAZ_COOLDOWN",
-          nextAllowedSyncAt: new Date(nextAllowedMs).toISOString(),
-          message: `SEFAZ consultada recentemente. Nova consulta automática permitida em aproximadamente ${diffMinutes} min.`,
-        }), { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 });
+      if (reservationError) {
+        throw new Error(`Falha ao reservar o intervalo distNSU: ${reservationError.message}`);
       }
-    }
 
-    if (nsuRecord?.status === "rate_limited") {
-      const retryAt = new Date(new Date(nsuRecord.last_sync_at || Date.now()).getTime() + 60 * 60 * 1000);
-      if (retryAt.getTime() > Date.now()) {
-        return new Response(JSON.stringify({
-          success: false, code: "SEFAZ_RATE_LIMIT", retryAfter: retryAt.toISOString(),
-          message: "A SEFAZ exige aguardar uma hora antes de uma nova consulta.",
-        }), { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 });
+      const reservation = Array.isArray(reservationRows) ? reservationRows[0] : reservationRows;
+      if (!reservation?.allowed) {
+        const nextAllowed = typeof reservation?.next_allowed_sync_at === "string"
+          ? reservation.next_allowed_sync_at
+          : new Date(Date.now() + DIST_NSU_INTERVAL_MS).toISOString();
+
+        if (reservation?.reason === "syncing") {
+          return new Response(
+            JSON.stringify({
+              success: false,
+              message: "Uma sincronização já está em andamento para este CNPJ.",
+            }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
+          );
+        }
+
+        if (reservation?.reason === "cooldown") {
+          const diffMinutes = Math.max(1, Math.ceil((new Date(nextAllowed).getTime() - Date.now()) / 60000));
+          return new Response(JSON.stringify({
+            success: false,
+            code: "SEFAZ_COOLDOWN",
+            nextAllowedSyncAt: nextAllowed,
+            message: `SEFAZ consultada recentemente. Nova consulta automática permitida em aproximadamente ${diffMinutes} min.`,
+          }), { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 });
+        }
+
+        if (reservation?.reason === "rate_limited") {
+          return new Response(JSON.stringify({
+            success: false, code: "SEFAZ_RATE_LIMIT", retryAfter: nextAllowed,
+            message: "A SEFAZ exige aguardar uma hora antes de uma nova consulta.",
+          }), { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 });
+        }
+
+        if (reservation?.reason === "reservation_conflict" || reservation?.reason === "not_found") {
+          return new Response(JSON.stringify({
+            success: false,
+            code: "SEFAZ_COOLDOWN",
+            nextAllowedSyncAt: nextAllowed,
+            message: "Outra sincronização reservou o intervalo da SEFAZ; nenhuma nova consulta foi enviada.",
+          }), { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 });
+        }
+
+        throw new Error("A reserva do intervalo distNSU retornou um estado inesperado.");
       }
-    }
 
-    let currentUltNsu = nsuRecord?.last_nsu || "0";
-    let currentMaxNsu = nsuRecord?.max_nsu || "0";
-
-    // Reservar atomicamente o intervalo antes do I/O externo; a transação do update termina antes do SOAP.
-    if (!isAccessKeyQuery && !isRecoveryQuery) {
-      const startedAt = new Date();
-      const startedAtIso = startedAt.toISOString();
-      const staleSyncCutoff = new Date(startedAt.getTime() - 180000).toISOString();
-      distNsuNextAllowedSyncAt = new Date(startedAt.getTime() + DIST_NSU_INTERVAL_MS).toISOString();
-      const { data: reservationRows, error: reservationError } = await supabaseClient
-        .from("sefaz_nsu_control")
-        .update({
-          cnpj: cleanCnpj,
-          status: "syncing",
-          last_sync_at: startedAtIso,
-          next_allowed_sync_at: distNsuNextAllowedSyncAt,
-          environment,
-        })
-        .eq("id", "default")
-        .or(`status.neq.syncing,last_sync_at.is.null,last_sync_at.lt.${staleSyncCutoff}`)
-        .or(`next_allowed_sync_at.is.null,next_allowed_sync_at.lte.${startedAtIso}`)
-        .select("id")
-        .maybeSingle();
-      if (reservationError) throw new Error(`Falha ao reservar o intervalo distNSU: ${reservationError.message}`);
-      if (!reservationRows) {
-        return new Response(JSON.stringify({
-          success: false,
-          code: "SEFAZ_COOLDOWN",
-          nextAllowedSyncAt: nsuRecord?.next_allowed_sync_at || distNsuNextAllowedSyncAt,
-          message: "Outra sincronização reservou o intervalo da SEFAZ; nenhuma nova consulta foi enviada.",
-        }), { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 });
-      }
+      currentUltNsu = reservation.last_nsu || "0";
+      currentMaxNsu = reservation.max_nsu || "0";
+      distNsuNextAllowedSyncAt = reservation.next_allowed_sync_at || null;
     }
 
     // 3. Parâmetros da consulta e URL da ponte Node.js mTLS
@@ -403,7 +399,8 @@ serve(async (req) => {
         : null;
 
       if (!isAccessKeyQuery && !isRecoveryQuery) {
-        await supabaseClient
+        const statusUpdatedAt = new Date().toISOString();
+        const { error: statusWriteError } = await supabaseClient
           .from("sefaz_nsu_control")
           .upsert({
             id: "default",
@@ -411,7 +408,7 @@ serve(async (req) => {
             last_nsu: currentUltNsu,
             max_nsu: currentMaxNsu,
             status: "idle",
-            last_sync_at: new Date().toISOString(),
+            last_sync_at: statusUpdatedAt,
             next_allowed_sync_at: cooldownUntil,
             last_cstat: cStat,
             last_xmotivo: xMotivo,
@@ -419,6 +416,19 @@ serve(async (req) => {
             environment,
             last_error: null,
           });
+        if (statusWriteError) {
+          confirmedStatusSnapshot = null;
+        } else {
+          const effectiveNextAllowed = Math.max(
+            cooldownUntil ? new Date(cooldownUntil).getTime() : 0,
+            new Date(statusUpdatedAt).getTime() + DIST_NSU_INTERVAL_MS,
+          );
+          confirmedStatusSnapshot = {
+            statusUpdatedAt,
+            nextAllowedSyncAt: new Date(effectiveNextAllowed).toISOString(),
+            statusDocsCount: totalPersisted,
+          };
+        }
       }
 
       // Se ultNSU chegou no maxNSU ou cStat 137, não há mais lotes imediatos
@@ -479,6 +489,14 @@ serve(async (req) => {
         document: consultedDocument,
         durationMs,
         message: `Sincronização real com NFeDistribuicaoDFe concluída. cStat: ${finalCStat} (${finalXMotivo}).`,
+        ...(confirmedStatusSnapshot && automaticRecovery?.success !== false
+          ? {
+              statusPersisted: true,
+              statusUpdatedAt: confirmedStatusSnapshot.statusUpdatedAt,
+              nextAllowedSyncAt: confirmedStatusSnapshot.nextAllowedSyncAt,
+              statusDocsCount: confirmedStatusSnapshot.statusDocsCount,
+            }
+          : {}),
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
     );

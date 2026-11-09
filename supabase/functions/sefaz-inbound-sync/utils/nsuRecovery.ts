@@ -18,31 +18,15 @@ export async function persistParsedInvoice(supabaseClient: any, parsed: any): Pr
   const metadataOnly = receivedFullXml
     ? { ...parsed, itens: [], xml_conteudo: null }
     : parsed;
-  const { data: existing, error: existingError } = await supabaseClient
-    .from("inbound_invoices")
-    .select("itens, xml_conteudo")
-    .eq("chave_acesso", parsed.chave_acesso)
-    .maybeSingle();
-  if (existingError) throw new Error("Falha ao conferir XML já salvo: " + existingError.message);
-
-  const existingXml = String(existing?.xml_conteudo || "");
-  const existingHasFullXml = /<(?:[a-zA-Z0-9_]+:)?(?:nfeProc|infNFe)\b/i.test(existingXml);
-  if ((Array.isArray(existing?.itens) && existing.itens.length > 0) || existingHasFullXml) {
-    return false;
-  }
-
-  // A distribuição automática guarda somente os metadados, mesmo se a SEFAZ
-  // enviar um XML completo. Preserve um resumo já salvo para manter a chave e
-  // a elegibilidade da Ciência até o operador importar o XML do Portal.
-  if (receivedFullXml && /<(?:[a-zA-Z0-9_]+:)?resNFe\b/i.test(existingXml)) {
-    metadataOnly.xml_conteudo = existingXml;
-  }
-
-  const { error } = await supabaseClient
-    .from("inbound_invoices")
-    .upsert(metadataOnly, { onConflict: "chave_acesso" });
+  const { data: persisted, error } = await supabaseClient.rpc(
+    "persist_sefaz_inbound_invoice",
+    {
+      p_invoice: metadataOnly,
+      p_received_full_xml: receivedFullXml,
+    },
+  );
   if (error) throw new Error("Falha ao salvar NF-e recebida da SEFAZ: " + error.message);
-  return true;
+  return persisted === true;
 }
 
 async function settleNsuRecoveryClaim(

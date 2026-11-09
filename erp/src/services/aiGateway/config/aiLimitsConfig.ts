@@ -25,10 +25,10 @@ export interface AiLimitsConfig {
 }
 
 export const AI_MODELS = {
-  LITE: 'gemini-3.5-flash-lite',
-  REASONING: 'gemini-3.8-flash',
-  EMBEDDING: 'gemini-embedding-2',
-  IMAGE: 'gemini-2.5-flash-image',
+  LITE: 'gpt-6-luna',
+  REASONING: 'gpt-6-luna',
+  EMBEDDING: 'text-embedding-3-small',
+  IMAGE: 'gpt-image-2',
 } as const;
 
 export const CHARACTERISTICS_AI_LIMITS = {

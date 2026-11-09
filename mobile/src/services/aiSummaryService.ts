@@ -140,7 +140,7 @@ export const generateDeliveryAISummary = async (
 
         if (!forceRefresh && savedRecord) {
           if (savedRecord.text_status === 'READY' && savedRecord.text) {
-            // Mesmo estado dos pedidos -> mesmo texto e nenhuma chamada adicional de Gemini.
+            // Mesmo estado dos pedidos -> mesmo texto e nenhuma chamada adicional ao modelo.
             summaryTextMemoryCache.set(memoryCacheKey, savedRecord.text);
             return savedRecord.text;
           }
@@ -176,10 +176,10 @@ export const generateDeliveryAISummary = async (
 
           if (canonicalPayload.orders.length > 0) {
             try {
-              const geminiPrompt = buildDeliverySummaryPrompt(smartText);
+              const prompt = buildDeliverySummaryPrompt(smartText);
               const resJson = await MobileAgentClient.generateContent({
-                model: 'gemini-3.5-flash-lite',
-                contents: [{ role: 'user', parts: [{ text: geminiPrompt }] }],
+                model: 'gpt-6-luna',
+                contents: [{ role: 'user', parts: [{ text: prompt }] }],
               });
               const aiText = resJson?.candidates?.[0]?.content?.parts?.[0]?.text;
               if (aiText && aiText.trim()) {
@@ -191,13 +191,13 @@ export const generateDeliveryAISummary = async (
                   .replace(/\s+/g, ' ');
               }
               setSummaryQuotaExceeded(false);
-            } catch (geminiErr: any) {
-              const errMsg = String(geminiErr?.message || geminiErr || '');
+            } catch (aiErr: any) {
+              const errMsg = String(aiErr?.message || aiErr || '');
               if (/429|quota|resource_exhausted/i.test(errMsg)) {
                 setSummaryQuotaExceeded(true);
               }
               console.warn(
-                'Erro ao chamar Gemini Flash para resumo (usando texto estruturado local).'
+                'Erro ao chamar GPT-6 Luna para resumo (usando texto estruturado local).'
               );
             }
           }

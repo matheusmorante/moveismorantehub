@@ -11,8 +11,6 @@ import {
 } from 'react-native';
 import {
   Plus,
-  Link2,
-  Unlink,
   Info,
   Network,
   Check,
@@ -57,6 +55,7 @@ import { FormTextInput } from '../../../../components/shared/FormTextInput';
 import { getMobileProductVariationTabs } from './productVariationTabs';
 import type { VariationTabId } from './productVariationTabs';
 import { ProductVariationSummaryCard } from './ProductVariationSummaryCard';
+import { ProductVariationDescriptionTab } from './ProductVariationDescriptionTab';
 import {
   ProductVariationEditorHeader,
   type VariationReadinessMode,
@@ -701,73 +700,16 @@ export const ProductFormVariationsTab: React.FC<Props> = ({
                         )}
 
                         {!isStockistOnly && activeVariationTab === 'descricao' && (
-                          <View style={[styles.card, dark && styles.darkCard]}>
-                            <View style={styles.cardHeader}>
-                              <View style={styles.flex1}>
-                                <Text style={[styles.sectionTitle, dark && styles.lightText]}>
-                                  Descrição da Variação
-                                </Text>
-                                <Text style={[styles.helperText, dark && styles.dimText]}>
-                                  {v.syncDescription !== false
-                                    ? 'Sincronizada com a descrição do produto pai'
-                                    : 'Descrição própria desta variação'}
-                                </Text>
-                              </View>
-                              <TouchableOpacity
-                                onPress={() => toggleVariationDescription(idx)}
-                                style={[
-                                  styles.inheritButton,
-                                  v.syncDescription !== false && styles.inheritButtonActive,
-                                ]}
-                                accessibilityRole="switch"
-                                accessibilityLabel="Sincronizar descrição com o produto pai"
-                                accessibilityState={{ checked: v.syncDescription !== false }}
-                              >
-                                {v.syncDescription !== false ? (
-                                  <Link2 size={14} color="#ffffff" />
-                                ) : (
-                                  <Unlink size={14} color="#64748b" />
-                                )}
-                                <Text
-                                  style={[
-                                    styles.inheritButtonText,
-                                    v.syncDescription !== false && styles.inheritButtonTextActive,
-                                  ]}
-                                >
-                                  {v.syncDescription !== false ? 'Sincronizado' : 'Manual'}
-                                </Text>
-                              </TouchableOpacity>
-                            </View>
-                            {v.syncDescription !== false ? (
-                              <View
-                                style={[
-                                  styles.inheritedDescription,
-                                  dark && styles.darkInheritedDescription,
-                                ]}
-                              >
-                                <Text style={[styles.descriptionText, dark && styles.dimText]}>
-                                  {String(
-                                    formData.description || 'O produto pai ainda não tem descrição.'
-                                  )}
-                                </Text>
-                              </View>
-                            ) : (
-                              <FormTextInput
-                                value={String(v.description || '')}
-                                onChangeText={(value) => updateVar(idx, 'description', value)}
-                                placeholder="Descrição específica desta variação..."
-                                placeholderTextColor="#94a3b8"
-                                multiline
-                                textAlignVertical="top"
-                                style={[
-                                  styles.descriptionInput,
-                                  dark && styles.darkInput,
-                                  dark && styles.lightText,
-                                ]}
-                                accessibilityLabel="Descrição específica da variação"
-                              />
+                          <ProductVariationDescriptionTab
+                            dark={dark}
+                            syncWithParent={v.syncDescription !== false}
+                            parentDescription={String(
+                              formData.description || 'O produto pai ainda não tem descrição.'
                             )}
-                          </View>
+                            description={String(v.description || '')}
+                            onToggleSync={() => toggleVariationDescription(idx)}
+                            onDescriptionChange={(value) => updateVar(idx, 'description', value)}
+                          />
                         )}
 
                         {!isStockistOnly && activeVariationTab === 'fotos' && (

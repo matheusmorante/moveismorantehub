@@ -69,6 +69,7 @@ export const useOrderHistory = (filters?: any) => {
     Partial<Record<string, boolean>>
   >({});
   const fiscalBadgeRefreshVersionByOrderId = useRef<Record<string, number>>({});
+  const directSendActionsInFlight = useRef(new Set<string>());
 
   const bumpFiscalBadgeRefreshVersion = (orderId: string) => {
     const nextVersion = (fiscalBadgeRefreshVersionByOrderId.current[orderId] || 0) + 1;
@@ -387,31 +388,41 @@ export const useOrderHistory = (filters?: any) => {
   };
 
   const handleAction = async (actionKey: string, order: Order) => {
-    order = await loadCompleteOrder(order);
-    if (actionKey === 'retryOrderFiscalCancellation') {
-      await operations.retryFiscalCancellation(order);
-      return;
-    }
-    if (actionKey.startsWith('retryOrderFiscalCancellation:')) {
-      await operations.retryFiscalCancellation(order, actionKey.split(':')[1]);
-      return;
-    }
+    const directSendKey =
+      actionKey === 'sendCustomerOrderDirectApi' && order.id ? String(order.id) : null;
+    if (directSendKey && directSendActionsInFlight.current.has(directSendKey)) return;
+    if (directSendKey) directSendActionsInFlight.current.add(directSendKey);
 
-    if (actionKey === 'undoReturn') {
-      pendingReturnOwner.current = null; setPendingReturnFulfillment(null);
-      pendingReturnCancellationOwner.current = order; setPendingReturnCancellation(order);
-      return;
-    }
+    try {
+      order = await loadCompleteOrder(order);
+      if (actionKey === 'retryOrderFiscalCancellation') {
+        await operations.retryFiscalCancellation(order);
+        return;
+      }
+      if (actionKey.startsWith('retryOrderFiscalCancellation:')) {
+        await operations.retryFiscalCancellation(order, actionKey.split(':')[1]);
+        return;
+      }
 
-    const actionDef = buttons.find((b) => b.key === actionKey);
-    if (actionDef && order.id) {
-      sessionStorage.setItem('order', JSON.stringify(order));
-      actionsMap[actionDef.action](order);
+      if (actionKey === 'undoReturn') {
+        pendingReturnOwner.current = null; setPendingReturnFulfillment(null);
+        pendingReturnCancellationOwner.current = order; setPendingReturnCancellation(order);
+        return;
+      }
 
-      // These actions open a new order; they do not change the source order.
-      if (actionKey === 'duplicateOrder' || actionKey === 'generateSaleFromBudget') return;
+      const actionDef = buttons.find((b) => b.key === actionKey);
+      if (actionDef && order.id) {
+        sessionStorage.setItem('order', JSON.stringify(order));
+        const actionResult = actionsMap[actionDef.action](order);
 
-      await persistOrderHistoryActionClick(actionKey, order.id, order, setOrders);
+        // These actions open a new order; they do not change the source order.
+        if (actionKey === 'duplicateOrder' || actionKey === 'generateSaleFromBudget') return;
+
+        await persistOrderHistoryActionClick(actionKey, order.id, order, setOrders);
+        if (directSendKey) await actionResult;
+      }
+    } finally {
+      if (directSendKey) directSendActionsInFlight.current.delete(directSendKey);
     }
   };
 

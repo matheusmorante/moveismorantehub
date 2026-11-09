@@ -3,11 +3,11 @@ import { StyleSheet, Text, View } from 'react-native';
 import { Volume2 } from 'lucide-react-native';
 
 interface DeliverySummaryControlsBarProps {
-  isGeminiQuotaExceeded: boolean;
+  isAiQuotaExceeded: boolean;
 }
 
 export const DeliverySummaryControlsBar: React.FC<DeliverySummaryControlsBarProps> = ({
-  isGeminiQuotaExceeded,
+  isAiQuotaExceeded,
 }) => {
   return (
     <View style={styles.controlsRow}>
@@ -16,10 +16,10 @@ export const DeliverySummaryControlsBar: React.FC<DeliverySummaryControlsBarProp
         <Text
           style={[
             styles.toggleSwitchText,
-            isGeminiQuotaExceeded && styles.toggleSwitchTextUnavailable,
+            isAiQuotaExceeded && styles.toggleSwitchTextUnavailable,
           ]}
         >
-          Gemini IA
+          IA GPT-6 Luna
         </Text>
       </View>
     </View>

@@ -37,8 +37,8 @@ const createBaseTemplate = (
   ],
   imageRules: { preserveProduct: true, generateEnvironment: true, fit: 'contain' },
   generationConfig: {
-    provider: 'gemini',
-    model: 'gemini-2.5-flash-image',
+    provider: 'openai',
+    model: 'gpt-image-2',
     referenceImageRequired: true,
   },
   createdAt: now(),

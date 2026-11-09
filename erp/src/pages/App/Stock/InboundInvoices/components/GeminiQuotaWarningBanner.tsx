@@ -1,13 +1,13 @@
 import React from 'react';
 
-interface GeminiQuotaWarningBannerProps {
+interface AiQuotaWarningBannerProps {
   readonly isUnavailable: boolean;
   readonly reason?: string;
   readonly variant?: 'header' | 'modal';
   readonly onDismiss?: () => void;
 }
 
-export const GeminiQuotaWarningBanner: React.FC<GeminiQuotaWarningBannerProps> = ({
+export const AiQuotaWarningBanner: React.FC<AiQuotaWarningBannerProps> = ({
   isUnavailable,
   reason,
   variant = 'header',
@@ -25,7 +25,7 @@ export const GeminiQuotaWarningBanner: React.FC<GeminiQuotaWarningBannerProps> =
         </div>
         <div className="flex-1 text-xs">
           <strong className="block font-black text-amber-950 dark:text-amber-100">
-            IA (Gemini) temporariamente indisponível por limite de cota
+            IA (OpenAI) temporariamente indisponível por limite de cota
           </strong>
           <p className="mt-1 leading-relaxed text-amber-800 dark:text-amber-300">
             {reason || 'A cota diária de processamento de IA foi atingida no momento.'} A leitura de
@@ -49,10 +49,10 @@ export const GeminiQuotaWarningBanner: React.FC<GeminiQuotaWarningBannerProps> =
         <div className="text-xs">
           <span className="inline-flex items-center gap-1.5 font-black text-amber-950 dark:text-amber-100 uppercase tracking-wide text-[11px]">
             <span className="inline-block h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
-            Aviso de Cota do Gemini
+            Aviso de Cota da IA OpenAI
           </span>
           <p className="mt-0.5 leading-relaxed text-amber-800 dark:text-amber-300">
-            A cota do Gemini foi atingida. A análise automática de documentos e fotos por IA está
+            A cota da OpenAI foi atingida. A análise automática de documentos e fotos por IA está
             indisponível no momento. A importação por <strong>XML</strong> continua funcionando
             normalmente.
           </p>
@@ -68,3 +68,5 @@ export const GeminiQuotaWarningBanner: React.FC<GeminiQuotaWarningBannerProps> =
     </div>
   );
 };
+
+export const GeminiQuotaWarningBanner = AiQuotaWarningBanner;

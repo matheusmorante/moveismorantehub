@@ -1,6 +1,9 @@
 import {
   ImportConfig,
 } from '../importMappingTypes';
+import type { AiUsageLimitsConfig } from '../../../../../shared-utils/aiUsageLimitSchemas';
+
+export type { AiUsageLimitsConfig };
 
 export interface OrderStatusConfig {
   id: string;
@@ -36,6 +39,57 @@ export interface CardFlagRule {
     installments: number;
     rate: number; // Porcentagem de juros
   }[];
+}
+
+export type AiSupportMode = 'automatico' | 'assistido' | 'humano';
+
+export interface AiKnowledgeArticle {
+  id: string;
+  category: 'politica_entrega' | 'politica_montagem' | 'garantia' | 'pagamentos' | 'loja_horarios' | 'faq' | 'outros';
+  title: string;
+  content: string;
+  priority: number;
+  version: number;
+  active: boolean;
+  keywords: string[];
+  updatedAt?: string;
+}
+
+export interface AiSituationRule {
+  id: string;
+  situationKey: string;
+  name: string;
+  description?: string;
+  triggerKeywords: string[];
+  mandatoryPhrases: string[];
+  preferentialPhrases: string[];
+  action: 'reply' | 'handoff_human' | 'ask_clarification';
+  priority: number;
+  enabled: boolean;
+}
+
+export interface AiWorkflowConfig {
+  id: string;
+  workflowKey: string;
+  name: string;
+  description?: string;
+  enabled: boolean;
+  steps: string[];
+  handoffTrigger?: boolean;
+}
+
+export interface WhatsAppAiAgentConfig {
+  enabled: boolean;
+  testMode: boolean;
+  testPhoneNumbers: string[];
+  supportMode?: AiSupportMode;
+  provider?: 'openai';
+  model?: 'gpt-6-luna' | string;
+  systemPrompt?: string;
+  enabledTools: string[];
+  knowledgeBase?: AiKnowledgeArticle[];
+  situationRules?: AiSituationRule[];
+  workflows?: AiWorkflowConfig[];
 }
 
 export interface AppSettings {
@@ -255,4 +309,6 @@ export interface AppSettings {
     enableBeep: boolean;
     vibrate: boolean;
   };
+  whatsappAiAgent?: WhatsAppAiAgentConfig;
+  aiUsageLimits?: AiUsageLimitsConfig;
 }

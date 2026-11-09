@@ -2,14 +2,20 @@ import { supabase } from '@/pages/utils/supabaseConfig';
 import { TABLE_NAME } from '../personMapper';
 import { PEOPLE_FETCH_PAGE_SIZE, PERSON_QUERY_COLUMNS } from './personQuery.types';
 
-export const getCurrentUserEmail = async (): Promise<string> => {
+export const getCurrentUserContext = async (): Promise<{ userId: string; email: string }> => {
   try {
     const { data } = await supabase.auth.getSession();
-    return data.session?.user?.email?.trim().toLowerCase() || '';
+    return {
+      userId: data.session?.user?.id || '',
+      email: data.session?.user?.email?.trim().toLowerCase() || '',
+    };
   } catch {
-    return '';
+    return { userId: '', email: '' };
   }
 };
+
+export const getCurrentUserEmail = async (): Promise<string> =>
+  (await getCurrentUserContext()).email;
 
 export const fetchAllPeopleRows = async (
   collectionName: string,

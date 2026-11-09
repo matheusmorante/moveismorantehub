@@ -9,7 +9,7 @@ import {
   PRE_ANALYSIS_DEBOUNCE_MS,
   type ChatMessage,
 } from '../../../services/financialAiAssistantService';
-import { GeminiLiveSession, type LiveState, type Quota } from '../../../services/geminiLiveService';
+import { OpenAiRealtimeVoiceSession, type LiveState, type Quota } from '../../../services/realtimeVoiceService';
 import type { ExecutedToolRecord } from '../../../services/aiAgent/mobileAgentTypes';
 import type { VoiceSessionState } from '../types/VoiceSessionState';
 import { startVoiceRecording, stopVoiceRecording } from '../../../services/voiceRecorderService';
@@ -22,7 +22,7 @@ import {
 } from '../../../../../shared-utils/financialVoiceFormSchemas';
 
 const stopRecordingSafely = () => withTimeout(Promise.resolve().then(() => stopVoiceRecording()).then(() => true), 5000, false, 'voz:encerrar-gravacao');
-const endLiveSafely = (session: GeminiLiveSession) => withTimeout(Promise.resolve().then(() => session.end()).then(() => true), 10_000, false, 'voz:encerrar-live');
+const endLiveSafely = (session: OpenAiRealtimeVoiceSession) => withTimeout(Promise.resolve().then(() => session.end()).then(() => true), 10_000, false, 'voz:encerrar-live');
 
 interface VoiceScope {
   userName: string;
@@ -46,10 +46,12 @@ interface UseFinancialAiVoiceSessionProps {
     isCurrent?: () => boolean,
     addVoiceAnchor?: boolean,
   ) => unknown;
+  userProfile?: any;
 }
 
 export function useFinancialAiVoiceSession({
   userName,
+  userProfile,
   mountedRef,
   scopeRef,
   operationRef,
@@ -80,7 +82,7 @@ export function useFinancialAiVoiceSession({
   const debounceTimerRef = useRef<any>(null);
   const silenceTimerRef = useRef<any>(null);
   const inactivityTimerRef = useRef<any>(null);
-  const liveSessionRef = useRef<GeminiLiveSession | null>(null);
+  const liveSessionRef = useRef<OpenAiRealtimeVoiceSession | null>(null);
   const voiceSessionIdRef = useRef<number>(0);
   const recordingOwner = useRef<{ id: number; scope: VoiceScope; revision: number } | null>(null);
   const mediaControlToken = useRef<object | null>(null);
@@ -177,7 +179,7 @@ export function useFinancialAiVoiceSession({
     });
   };
 
-  const liveIsCurrent = (session: GeminiLiveSession, scope: typeof scopeRef.current, revision: number) => mountedRef.current && liveSessionRef.current === session && scopeRef.current === scope && scope.revision === revision;
+  const liveIsCurrent = (session: OpenAiRealtimeVoiceSession, scope: typeof scopeRef.current, revision: number) => mountedRef.current && liveSessionRef.current === session && scopeRef.current === scope && scope.revision === revision;
   const handleLiveControl = async (action: 'pause' | 'resume' | 'mute' | 'end') => {
     const session = liveSessionRef.current;
     if (!session || (action !== 'end' && (mediaControlBusy.current || operationRef.current))) return false;
@@ -212,7 +214,7 @@ export function useFinancialAiVoiceSession({
       return liveStartForm.validateAndRun({ action: 'start', state: 'idle' }, async () => {
         if (!isCurrent()) return false;
         const scope = scopeRef.current, revision = scope.revision;
-        const session = new GeminiLiveSession({
+        const session = new OpenAiRealtimeVoiceSession({
           onState: state => { if (!liveIsCurrent(session, scope, revision)) return; setLiveState(state === 'ended' ? null : state); if (state === 'ended') { liveSessionRef.current = null; setLiveQuota(null); } },
           onTranscript: (role, text) => {
             if (!liveIsCurrent(session, scope, revision)) return;
@@ -228,6 +230,7 @@ export function useFinancialAiVoiceSession({
           },
           onQuota: quota => { if (!liveIsCurrent(session, scope, revision)) return; const parsed = financialLiveQuotaSchema.safeParse(quota); if (parsed.success) setLiveQuota(parsed.data); else { setMediaError('A chamada retornou uma cota inválida. Encerre e consulte novamente.'); liveSessionRef.current = null; setLiveState(null); setLiveQuota(null); void endLiveSafely(session).catch(() => undefined); } },
           onError: error => { if (liveIsCurrent(session, scope, revision)) setMediaError(error.message); },
+          permissionContext: userProfile,
         });
         liveSessionRef.current = session; setLiveState('connecting');
         try {

@@ -1,6 +1,20 @@
-// Types para o sistema de monitoramento de uso de APIs externas e controle de custos
+/**
+ * Tipagens de Domínio — Sistema de Monitoramento de APIs Externas e Controle Orçamentário
+ */
 
-export type ApiProvider = 'google' | 'gemini' | 'meta' | 'sefaz' | 'brasilapi' | 'expo' | 'other';
+// ============================================================================
+// 1. Identificadores de Provedor e Serviços
+// ============================================================================
+
+export type ApiProvider =
+  | 'google'
+  | 'gemini'
+  | 'openai'
+  | 'meta'
+  | 'sefaz'
+  | 'brasilapi'
+  | 'expo'
+  | 'other';
 
 export type ApiServiceId =
   | 'google_routes'
@@ -8,10 +22,19 @@ export type ApiServiceId =
   | 'google_geocoding'
   | 'google_route_optimization'
   | 'gemini_flash'
+  | 'gemini_antigravity'
+  | 'gemini_image'
+  | 'openai_gpt'
+  | 'openai_image'
+  | 'openai_embedding'
   | 'meta_whatsapp'
   | 'sefaz_nfe'
   | 'brasilapi_cep'
-  | string;
+  | (string & {});
+
+// ============================================================================
+// 2. Classificações, Ambientes e Status de Execução
+// ============================================================================
 
 export type ApiCriticality = 'OPTIONAL' | 'IMPORTANT' | 'CRITICAL';
 
@@ -24,6 +47,10 @@ export type ApiUsageStatus =
 
 export type ApiEnvironment = 'production' | 'development' | 'test';
 
+// ============================================================================
+// 3. Entidades de Banco de Dados (Configuração e Logs)
+// ============================================================================
+
 export interface ApiConfiguration {
   service_id: ApiServiceId;
   provider: ApiProvider;
@@ -31,15 +58,15 @@ export interface ApiConfiguration {
   metric: 'requests' | 'tokens' | 'messages' | string;
   billing_unit: string;
   monthly_limit: number;
-  warning_threshold: number; // Percentual (ex: 70)
-  critical_threshold: number; // Percentual (ex: 90)
+  warning_threshold: number; // Percentual de alerta (ex: 70)
+  critical_threshold: number; // Percentual crítico (ex: 90)
   hard_limit: number; // Percentual de bloqueio operacional (ex: 95)
   block_on_hard_limit: boolean;
   criticality: ApiCriticality;
   price_per_unit: number;
   free_allowance: number;
   currency: 'BRL' | 'USD';
-  max_monthly_budget_brl?: number; // Teto máximo financeiro mensal em R$ (ex: 30.00)
+  max_monthly_budget_brl?: number; // Teto financeiro mensal em R$ (ex: 30.00)
   circuit_breaker_max_per_minute: number;
   enabled: boolean;
   updated_at?: string;
@@ -79,6 +106,10 @@ export interface ApiUsageDaily {
   updated_at: string;
 }
 
+// ============================================================================
+// 4. Resultados de Guarda de Cota (ApiUsageGuard)
+// ============================================================================
+
 export interface GuardCheckResult {
   allowed: boolean;
   status: 'ALLOW' | 'WARNING' | 'CRITICAL' | 'BLOCKED';
@@ -86,6 +117,10 @@ export interface GuardCheckResult {
   usagePercent?: number;
   circuitBroken?: boolean;
 }
+
+// ============================================================================
+// 5. Agregações e Telemetria para Dashboards
+// ============================================================================
 
 export interface ApiServiceSummary {
   service_id: ApiServiceId;

@@ -5,7 +5,7 @@ import {
 import { AiLatencyTracker } from './AiLatencyTracker';
 
 export interface HybridDispatchResult {
-  source: 'LOCAL_FAST_PATH' | 'GEMINI_FALLBACK';
+  source: 'LOCAL_FAST_PATH' | 'OPENAI_FALLBACK';
   intent: 'create_product' | 'create_service' | 'create_order' | 'create_transaction' | 'chat';
   status: 'ready' | 'incomplete';
   summary: string;
@@ -22,7 +22,7 @@ export class AiHybridDispatcher {
   public static async dispatchIntent(
     message: string,
     context?: any,
-    geminiCaller?: (prompt: string) => Promise<any>
+    openAiCaller?: (prompt: string) => Promise<any>
   ): Promise<HybridDispatchResult> {
     const startTime = Date.now();
     const cleanMsg = message.trim();
@@ -101,16 +101,16 @@ export class AiHybridDispatcher {
       };
     }
 
-    // 3. Fallback para o Gemini quando a linguagem for complexa ou ambígua
-    if (geminiCaller) {
-      const geminiRes = await geminiCaller(cleanMsg);
+    // 3. Fallback para o GPT-6 Luna quando a linguagem for complexa ou ambígua
+    if (openAiCaller) {
+      const openAiRes = await openAiCaller(cleanMsg);
       const durationMs = Date.now() - startTime;
       return {
-        source: 'GEMINI_FALLBACK',
-        intent: geminiRes.intent || 'chat',
-        status: geminiRes.status || 'ready',
-        summary: geminiRes.summary || 'Processado com sucesso.',
-        data: geminiRes.data || {},
+        source: 'OPENAI_FALLBACK',
+        intent: openAiRes.intent || 'chat',
+        status: openAiRes.status || 'ready',
+        summary: openAiRes.summary || 'Processado com sucesso.',
+        data: openAiRes.data || {},
         e2eLatencyMs: durationMs,
         confidence: 0.85,
       };

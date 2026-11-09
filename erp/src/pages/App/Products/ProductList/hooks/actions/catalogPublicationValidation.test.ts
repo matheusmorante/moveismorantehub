@@ -6,15 +6,12 @@ vi.mock('@/pages/utils/supabaseConfig', () => ({
 }));
 import { validateCatalogPublication } from './useProductsCatalogActions';
 import { checkEcomLegibility } from '../../../domain/productLegibilityRules';
-import {
-  mapDbVariations,
-  createDefaultVariation,
-} from '@/pages/utils/productService/productVariationMapper';
 import Product from '@/pages/types/product.type';
 import {
   HML_FISCAL_TEST_ORDER_MARKER,
   TEST_PRODUCT_CATALOG_PUBLICATION_ERROR,
 } from '@/pages/utils/hmlTestData';
+import { registerCatalogVariationStatusMappingCases } from './catalogVariationStatusMappingCases';
 
 describe('Validação de Publicação no Catálogo Digital', () => {
   it('exige a característica condicional quando qualquer uma das alternativas é verdadeira', () => {
@@ -520,31 +517,4 @@ describe('Validação de Publicação no Catálogo Digital', () => {
   });
 });
 
-describe('Mapeamento seguro de status de variações (Anti-publicação indevida)', () => {
-  it('mapDbVariations define status hidden quando variação e pai não possuem status explícito', () => {
-    const rawVariations = [
-      {
-        id: 'var-1',
-        product_id: 'prod-1',
-        sku: 'MESA-01',
-        name: 'Mesa Tabaco',
-        price: 500,
-        stock: 2,
-        status: null, // Sem status
-      },
-    ];
-
-    const mapped = mapDbVariations(rawVariations, { id: 'prod-1', status: null }, 'MESA');
-    expect(mapped[0].status).toBe('hidden');
-  });
-
-  it('createDefaultVariation define status hidden quando pai não possui status', () => {
-    const mapped = createDefaultVariation(
-      { id: 'prod-1', status: null },
-      'MESA',
-      'Mesa Simples',
-      []
-    );
-    expect(mapped[0].status).toBe('hidden');
-  });
-});
+registerCatalogVariationStatusMappingCases();

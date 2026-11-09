@@ -215,6 +215,11 @@ export function buildVariationBatchRequests(options: {
       if (v.id) {
         requests.push({ method: 'DELETE', retailer_id: String(v.id), data: { id: String(v.id) } });
       }
+      const idPrefix = v.id && String(v.id).length >= 6 ? String(v.id).slice(0, 6) : '';
+      if (idPrefix) {
+        if (v.sku) requests.push({ method: 'DELETE', retailer_id: `${v.sku}-${idPrefix}`, data: { id: `${v.sku}-${idPrefix}` } });
+        if (product.code) requests.push({ method: 'DELETE', retailer_id: `${product.code}-${idPrefix}`, data: { id: `${product.code}-${idPrefix}` } });
+      }
       continue;
     }
 

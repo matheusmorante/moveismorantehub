@@ -1,4 +1,4 @@
-import { callGeminiDirect } from './aiDirectClient';
+import { callOpenAIDirect } from './aiDirectClient';
 import { aiProductCharacteristicsService } from './aiProductCharacteristicsService';
 import type {
   ProductAiCharacteristicsContext,
@@ -105,7 +105,7 @@ ${productData.promptTemplate ? `Diretriz: ${productData.promptTemplate}` : ''}
 Retorne apenas o texto da descrição, sem títulos markdown ou saudações.`;
 
     try {
-      const textResponse = await callGeminiDirect(prompt, false, {
+      const textResponse = await callOpenAIDirect(prompt, false, {
         tier: 'lite',
         moduleSource: 'products',
         operation: 'catalog_generate_description',
@@ -133,7 +133,7 @@ Retorne APENAS um objeto JSON no formato exato: {"title": "TITULO DO PRODUTO AQU
 Nenhum texto fora do JSON.`;
 
     try {
-      const textResponse = await callGeminiDirect(prompt, true, {
+      const textResponse = await callOpenAIDirect(prompt, true, {
         tier: 'lite',
         moduleSource: 'products',
         operation: 'catalog_marketplace_title',
@@ -162,7 +162,7 @@ REGRAS:
 Nenhum texto adicional fora do JSON.`;
 
     try {
-      const textResponse = await callGeminiDirect(prompt, true, {
+      const textResponse = await callOpenAIDirect(prompt, true, {
         tier: 'lite',
         moduleSource: 'products',
         operation: 'catalog_extract_color',
@@ -173,7 +173,7 @@ Nenhum texto adicional fora do JSON.`;
       }
       return null;
     } catch (error) {
-      console.warn('[aiProductCatalogService.extractProductColor] Falha na chamada do Gemini:', error);
+      console.warn('[aiProductCatalogService.extractProductColor] Falha na chamada OpenAI:', error);
       return null;
     }
   },
@@ -205,7 +205,7 @@ Formate com parágrafos curtos, emojis elegantes e liste características e medi
 Retorne apenas o texto da descrição.`;
 
     try {
-      const textResponse = await callGeminiDirect(prompt, false, {
+      const textResponse = await callOpenAIDirect(prompt, false, {
         tier: 'lite',
         moduleSource: 'products',
         operation: 'catalog_product_description',
@@ -225,7 +225,7 @@ Retorne apenas o texto da descrição.`;
 Retorne APENAS o JSON: {"name": "NOME DO COMBO"}`;
 
     try {
-      const textResponse = await callGeminiDirect(prompt, true, {
+      const textResponse = await callOpenAIDirect(prompt, true, {
         tier: 'lite',
         moduleSource: 'products',
         operation: 'catalog_combo_name',
@@ -262,7 +262,7 @@ Retorne APENAS um JSON no formato:
     };
 
     try {
-      const textResponse = await callGeminiDirect(prompt, true, {
+      const textResponse = await callOpenAIDirect(prompt, true, {
         tier: 'lite',
         moduleSource: 'products',
         operation: 'catalog_suggest_prices',
@@ -377,7 +377,7 @@ REGRAS FINAIS:
 - NUNCA escreva informações que não estejam nos dados acima.`;
 
     try {
-      const textResponse = await callGeminiDirect(prompt, false, {
+      const textResponse = await callOpenAIDirect(prompt, false, {
         tier: 'lite',
         moduleSource: 'products',
         operation: 'catalog_improve_description',
@@ -453,7 +453,7 @@ REGRAS:
 - NUNCA inclua a característica "Cor" na descrição nem na lista de características (as cores são definidas pelas variações do produto no catálogo).`;
 
     try {
-      const textResponse = await callGeminiDirect(prompt, false, {
+      const textResponse = await callOpenAIDirect(prompt, false, {
         tier: 'lite',
         moduleSource: 'products',
         operation: 'catalog_generate_description_informative',

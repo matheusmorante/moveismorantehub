@@ -16,7 +16,7 @@ import {
 } from '../../../../../shared-utils/productMetaCatalogSyncItems';
 import { withTimeout } from '../../../../../shared-utils/withTimeout';
 import { waitForMetaCatalogBatchHandles } from '../../../../../shared-utils/metaCatalogBatchStatus';
-import { getAppSettings } from '../../../services/appSettingsCache';
+import { getFreshWhatsAppBaseDescriptionForSession } from '../../../services/appSettingsCache';
 import { supabase } from '../../../services/supabaseClient';
 
 const SYNC_DEBOUNCE_MS = 400;
@@ -148,16 +148,15 @@ async function postMetaCatalogItems(
   let whatsappBaseDescription: string | undefined;
   if (includesDescriptions) {
     const settingsTimeout = { timedOut: true } as const;
-    const settings = await withTimeout(
-      getAppSettings({ forceRefresh: true }),
+    const configuredDescription = await withTimeout(
+      getFreshWhatsAppBaseDescriptionForSession(accessToken),
       DATA_TIMEOUT_MS,
       settingsTimeout,
       'mobile:meta-catalog-settings'
     );
-    if (settings === settingsTimeout) {
+    if (configuredDescription === settingsTimeout) {
       throw new Error('A leitura das configurações da descrição Meta excedeu o tempo limite.');
     }
-    const configuredDescription = settings?.channelBaseDescriptions?.whatsapp;
     whatsappBaseDescription =
       typeof configuredDescription === 'string' ? configuredDescription : undefined;
   }

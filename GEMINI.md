@@ -39,3 +39,12 @@ Qualquer alteração efetuada nos arquivos fiscais (`api/nfe/`, componentes do m
 
 * Em toda mudança de consulta, SQL/RPC ou carregamento de dados, siga as seções 24–25 de `AGENTS.md` e revise `rules/supabase/supabase-consumption.yml`: reduza requisições, trabalho do banco e bytes transferidos sem perder resultados, permissões, atualização de preços/estoque ou modo offline.
 * Diferencie volume de chamadas de egress; medições de payload não são cobrança oficial.
+
+---
+
+## 5. Automação do Computador e Testes Desktop (Agent Desktop Semântico)
+
+* Sempre que for necessário controlar, inspecionar ou verificar o computador/desktop (janelas do navegador, ERP, telas do sistema, formulários ou fluxos interativos), utilize a ferramenta `agent-desktop.cmd` (Vercel Labs) e a skill `agent-desktop`.
+* **Sem Roubar o Cursor:** Toda operação deve ocorrer obrigatoriamente pelo modo semântico headless padrão (inspeção e atuação via Árvore de Acessibilidade UI Automation do Windows). É proibido mover o ponteiro físico do mouse ou roubar o foco ativo da janela do usuário (não utilizar `--headed` sem autorização expressa).
+* **Sintaxe PowerShell:** Sempre utilize aspas simples ao passar identificadores de elemento (`agent-desktop.cmd click '@s8f3k2p9:e1'`), impedindo que o PowerShell interprete `@` como splatting.
+

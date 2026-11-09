@@ -242,7 +242,7 @@ export function ModelFormModal({ value, onClose, onSave }: Props) {
         image: result.imageUrl,
         hash: currentHash,
         generatedAt: new Date().toISOString(),
-        provider: 'gemini',
+        provider: 'openai',
       });
 
       setPreviewImage(result.imageUrl);

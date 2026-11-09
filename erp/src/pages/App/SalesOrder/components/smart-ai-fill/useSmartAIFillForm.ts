@@ -275,7 +275,7 @@ export const useSmartAIFillForm = ({
             (parsed) => {
               if (!current()) return;
               setLastParsedResult({ ...result, rawJSON: parsed });
-              toast.success('Pedido analisado com sucesso pela IA Gemini!');
+              toast.success('Pedido analisado com sucesso pelo GPT-6 Luna!');
             },
             (errors) => {
               if (current()) invalid(errors);

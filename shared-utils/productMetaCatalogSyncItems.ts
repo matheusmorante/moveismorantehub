@@ -52,14 +52,23 @@ function getVariationDeleteCodes(
 ): string[] {
   const rawSku = String(variation.sku || '').trim();
   const rawCode = String(variation.code || '').trim();
-  const generatedCode = parentCode
-    ? `${parentCode}-${String(index + 1).padStart(2, '0')}`
-    : variation.id;
+  const rawId = String(variation.id || '').trim();
+  const idPrefix = rawId && rawId.length >= 6 ? rawId.slice(0, 6) : '';
+  const cleanParentCode = String(parentCode || '').trim();
+  const generatedCode = cleanParentCode
+    ? `${cleanParentCode}-${String(index + 1).padStart(2, '0')}`
+    : rawId;
+
   return uniqueCodes([
-    getVariationCode(variation, index, parentCode),
+    getVariationCode(variation, index, cleanParentCode),
     generatedCode,
     isSlugSku(rawSku) ? '' : rawSku,
     isSlugSku(rawCode) ? '' : rawCode,
+    rawId,
+    // Padrões legados com sufixo hash/UUID da variação (ex: 000227-01-641cc6, 000253-b976c2):
+    idPrefix && rawSku ? `${rawSku}-${idPrefix}` : '',
+    idPrefix && cleanParentCode ? `${cleanParentCode}-${idPrefix}` : '',
+    idPrefix && generatedCode ? `${generatedCode}-${idPrefix}` : '',
   ]);
 }
 
@@ -81,6 +90,9 @@ export function buildProductMetaCatalogSyncItems(
   if (variations.length > 0) {
     // O produto pai da família não é vendido avulso no catálogo.
     items.push(deletedItem(product.id, product.code || product.id));
+    if (product.code && product.id && product.code !== product.id) {
+      items.push(deletedItem(product.id, product.id));
+    }
 
     const built = isParentEligible
       ? buildMetaCatalogItems(

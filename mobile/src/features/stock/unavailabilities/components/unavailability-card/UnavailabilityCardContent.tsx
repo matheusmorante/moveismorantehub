@@ -105,9 +105,9 @@ export const UnavailabilityCardContent: React.FC<UnavailabilityCardProps> = ({
           </Text>
         )}
 
-        {item.photos && item.photos.length > 0 && (
+        {item.photos_count > 0 && (
           <View style={styles.photosBadge}>
-            <Text style={styles.photosBadgeText}>📷 {item.photos.length} foto(s)</Text>
+            <Text style={styles.photosBadgeText}>📷 {item.photos_count} foto(s)</Text>
           </View>
         )}
       </View>

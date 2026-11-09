@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({
   from: vi.fn(),
   getSession: vi.fn(),
-  getAppSettings: vi.fn(),
+  getFreshWhatsAppBaseDescriptionForSession: vi.fn(),
 }));
 
 vi.mock('../../../services/supabaseClient', () => ({
@@ -14,7 +14,7 @@ vi.mock('../../../services/supabaseClient', () => ({
 }));
 
 vi.mock('../../../services/appSettingsCache', () => ({
-  getAppSettings: mocks.getAppSettings,
+  getFreshWhatsAppBaseDescriptionForSession: mocks.getFreshWhatsAppBaseDescriptionForSession,
 }));
 
 import { META_CATALOG_GLOBAL_PREFIX } from '../../../../../shared-utils/metaCatalogPayload';
@@ -65,9 +65,9 @@ describe('mobileProductMetaCatalogSyncService', () => {
       data: { session: { access_token: 'session-token' } },
       error: null,
     });
-    mocks.getAppSettings.mockResolvedValue({
-      channelBaseDescriptions: { whatsapp: 'Base institucional personalizada' },
-    });
+    mocks.getFreshWhatsAppBaseDescriptionForSession.mockResolvedValue(
+      'Base institucional personalizada'
+    );
     mocks.from.mockImplementation((table: string) => {
       if (table === 'products') return createQuery({ data: product, error: null });
       if (table === 'product_variations') {

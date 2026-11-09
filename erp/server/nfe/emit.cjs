@@ -8403,6 +8403,27 @@ async function syncRetryAuthorizedInvoiceItems(params) {
   }
 }
 
+// api/nfe/normal-sale/retryXmlValidation.ts
+async function validateStoredRetryDocumentXml(params) {
+  const { xml, accessKey, model, environment, nfeNumber, series } = params;
+  if (model === "55" && !hasResponsibleTechnicianCsrt(xml)) {
+    return "XML original sem CSRT exigido pela SEFA/PR; a retransmiss\xE3o imut\xE1vel foi bloqueada.";
+  }
+  const envelopeError = validateOrdinaryOutboundEnvelope({
+    xml,
+    accessKey,
+    model,
+    environment,
+    nfeNumber,
+    series
+  });
+  if (envelopeError) {
+    return "XML persistido n\xE3o confere com a chave e a numera\xE7\xE3o originais; retransmiss\xE3o bloqueada.";
+  }
+  await validateNfeAgainstOfficialSchema(xml);
+  return null;
+}
+
 // api/nfe/emit.ts
 var supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "https://hkoxhourxwlddgsfdgws.supabase.co";
 var supabaseServiceKey = getSupabaseSecretKey() || "";
@@ -8638,14 +8659,7 @@ async function handler(req, res) {
       if (!retryDoc)
         return res.status(404).json({ success: false, error: "Documento original n\xE3o encontrado para retransmiss\xE3o." });
       const retryXml = typeof retryDoc.xml_nfe === "string" ? retryDoc.xml_nfe : "";
-      if (String(retryDoc.modelo) === "55" && !hasResponsibleTechnicianCsrt(retryXml)) {
-        return res.status(409).json({
-          success: false,
-          ...retryResponseMetadata,
-          error: "XML original sem CSRT exigido pela SEFA/PR; a retransmiss\xE3o imut\xE1vel foi bloqueada."
-        });
-      }
-      const retryEnvelopeError = validateOrdinaryOutboundEnvelope({
+      const retryXmlError = await validateStoredRetryDocumentXml({
         xml: retryXml,
         accessKey: String(retryDoc.chave_acesso || ""),
         model: String(retryDoc.modelo),
@@ -8653,14 +8667,13 @@ async function handler(req, res) {
         nfeNumber: Number(retryDoc.numero_nfe),
         series: String(retryDoc.serie || "")
       });
-      if (retryEnvelopeError) {
+      if (retryXmlError) {
         return res.status(409).json({
           success: false,
           ...retryResponseMetadata,
-          error: "XML persistido n\xE3o confere com a chave e a numera\xE7\xE3o originais; retransmiss\xE3o bloqueada."
+          error: retryXmlError
         });
       }
-      await validateNfeAgainstOfficialSchema(retryXml);
       const pfxBase642 = process.env.NFE_CERTIFICATE_BASE64;
       if (!pfxBase642)
         return res.status(503).json({

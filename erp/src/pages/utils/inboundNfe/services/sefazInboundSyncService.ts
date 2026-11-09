@@ -11,6 +11,8 @@ export interface SefazSyncStatus {
   lastDocsCount: number;
   environment: 'production' | 'homologation';
   canSyncNow: boolean;
+  /** Distinguishes an authoritative status from the permissive fallback used after a read error. */
+  statusReadSucceeded: boolean;
 }
 
 export interface SefazSyncResult {
@@ -28,6 +30,9 @@ export interface SefazSyncResult {
   code?: string;
   retryAfter?: string;
   nextAllowedSyncAt?: string;
+  statusPersisted?: boolean;
+  statusUpdatedAt?: string;
+  statusDocsCount?: number;
 }
 
 export interface InboundManifestationResult {
@@ -61,11 +66,11 @@ export async function fetchSefazSyncStatus(): Promise<SefazSyncStatus> {
   try {
     const { data, error } = await supabase
       .from('sefaz_nsu_control')
-      .select('*')
+      .select('status, last_sync_at, next_allowed_sync_at, last_nsu, max_nsu, last_cstat, last_xmotivo, last_docs_count, environment')
       .eq('id', 'default')
       .maybeSingle();
 
-    if (error || !data) {
+    if (error) {
       return {
         status: 'idle',
         lastSyncAt: null,
@@ -77,6 +82,23 @@ export async function fetchSefazSyncStatus(): Promise<SefazSyncStatus> {
         lastDocsCount: 0,
         environment: 'production',
         canSyncNow: true,
+        statusReadSucceeded: false,
+      };
+    }
+
+    if (!data) {
+      return {
+        status: 'idle',
+        lastSyncAt: null,
+        nextAllowedSyncAt: null,
+        lastNsu: '0',
+        maxNsu: '0',
+        lastCstat: null,
+        lastXmotivo: null,
+        lastDocsCount: 0,
+        environment: 'production',
+        canSyncNow: true,
+        statusReadSucceeded: true,
       };
     }
 
@@ -105,6 +127,7 @@ export async function fetchSefazSyncStatus(): Promise<SefazSyncStatus> {
       lastDocsCount: data.last_docs_count || 0,
       environment: (data.environment as 'production' | 'homologation') || 'production',
       canSyncNow,
+      statusReadSucceeded: true,
     };
   } catch (err) {
     console.error('[sefazInboundSyncService] Erro ao buscar status:', err);
@@ -119,6 +142,7 @@ export async function fetchSefazSyncStatus(): Promise<SefazSyncStatus> {
       lastDocsCount: 0,
       environment: 'production',
       canSyncNow: true,
+      statusReadSucceeded: false,
     };
   }
 }
@@ -129,8 +153,11 @@ export async function fetchSefazSyncStatus(): Promise<SefazSyncStatus> {
  */
 export async function syncInboundInvoicesFromSefaz(options?: {
   environment?: 'production' | 'homologation';
+  precheckedStatus?: SefazSyncStatus;
 }): Promise<SefazSyncResult> {
-  const status = await fetchSefazSyncStatus();
+  const status = options?.precheckedStatus?.statusReadSucceeded
+    ? options.precheckedStatus
+    : await fetchSefazSyncStatus();
   if (!status.canSyncNow && status.nextAllowedSyncAt) {
     const nextAllowedDate = new Date(status.nextAllowedSyncAt);
     const diffMinutes = Math.max(1, Math.ceil((nextAllowedDate.getTime() - Date.now()) / 60000));

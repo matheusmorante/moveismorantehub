@@ -66,6 +66,14 @@ export interface AgentExecutionResult {
   error?: string;
 }
 
+export interface ToolExecutionResponse {
+  success: boolean;
+  data?: any;
+  error?: string;
+  code?: string;
+  message?: string;
+}
+
 export interface AgentChatMessage {
   id: string;
   role: 'user' | 'assistant';

@@ -70,7 +70,7 @@ afterEach(() => {
 });
 
 describe('classificação assistida do cadastro', () => {
-  it('seleciona categoria vazia e preenche o NCM vigente no campo', async () => {
+  it('não aplica a categoria retornada pela IA e preenche o NCM vigente no campo', async () => {
     vi.mocked(fetch).mockResolvedValue(
       response({
         category: { id: 'cat-1', name: 'Guarda-roupas' },
@@ -83,7 +83,7 @@ describe('classificação assistida do cadastro', () => {
     const { result } = mount(base, 'Guarda-roupas');
     await trigger();
     expect(supabase.auth.getSession).toHaveBeenCalled();
-    expect(result.current.form.categoryIds).toEqual(['cat-1']);
+    expect(result.current.form.categoryIds).toEqual([]);
     expect(result.current.form.fiscal?.ncm).toBe('94035000');
     expect(result.current.form.fiscal?.ncmDescription).toBe(
       'Móveis de madeira, do tipo utilizado em quartos de dormir'

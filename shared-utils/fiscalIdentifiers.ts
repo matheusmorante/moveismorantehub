@@ -34,3 +34,20 @@ export function calculateAccessKeyDigit(base43: string): number {
 export function hasValidAccessKeyDigit(key: string): boolean {
   return ACCESS_KEY_PATTERN.test(key) && Number(key[43]) === calculateAccessKeyDigit(key.slice(0, 43));
 }
+
+/** Seleciona uma chave NF-e completa reconhecida por OCR, sem corrigir caracteres lidos. */
+export function extractNfeAccessKeyFromOcrText(text: unknown): string | null {
+  const lines = String(text ?? '').toUpperCase().split(/\r?\n/).map((line) => line.trim());
+  const labelIndex = lines.findIndex((line) => /CHAVE\s+DE\s+ACESSO/.test(line));
+  const candidateBlocks = labelIndex >= 0
+    ? [lines.slice(labelIndex, labelIndex + 5).join(' ')]
+    : lines;
+
+  for (const block of candidateBlocks) {
+    const compact = block.replace(/[^A-Z0-9]/g, '');
+    const candidates = compact.match(/[0-9]{6}[A-Z0-9]{12}[0-9]{26}/g) || [];
+    const valid = candidates.find((candidate) => candidate.slice(20, 22) === '55' && hasValidAccessKeyDigit(candidate));
+    if (valid) return valid;
+  }
+  return null;
+}

@@ -7,13 +7,14 @@ import { ChatHeaderToolBar } from './chat/ChatHeaderToolBar';
 import { ChatMessageItem } from './chat/ChatMessageItem';
 import { FinancialTimelineCard } from './chat/FinancialTimelineCard';
 import { FinancialChatInputBar } from './chat/FinancialChatInputBar';
-import { GeminiLiveOrb } from './chat/GeminiLiveOrb';
+import { RealtimeVoiceOrb } from './chat/RealtimeVoiceOrb';
 import { useFinancialAiChat } from '../hooks/useFinancialAiChat';
 
 interface Props {
   categories: FinancialCategory[];
   onTransactionRegistered: () => void;
   userName?: string;
+  userProfile?: any;
   isDarkMode?: boolean;
 }
 
@@ -21,12 +22,14 @@ export const FinancialAiChatView: React.FC<Props> = ({
   categories,
   onTransactionRegistered,
   userName = 'Operador',
+  userProfile,
   isDarkMode = false,
 }) => {
   const chat = useFinancialAiChat({
     categories,
     onTransactionRegistered,
     userName,
+    userProfile,
   });
 
   const activeMessages = chat.messages.filter((m) => !m.status || m.status === 'ACTIVE');
@@ -111,7 +114,7 @@ export const FinancialAiChatView: React.FC<Props> = ({
         onStartLive={chat.handleStartLive}
       />
       {chat.liveState && (
-        <GeminiLiveOrb
+        <RealtimeVoiceOrb
           active
           paused={chat.liveState === 'paused'}
           muted={chat.liveState === 'muted'}

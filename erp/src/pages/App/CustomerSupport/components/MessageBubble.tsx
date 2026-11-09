@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { WhatsAppMessage } from '../types';
+import React, { memo, useState } from 'react';
+import type { WhatsAppMessage } from '../types';
 import { useCustomerSupportMedia } from '../hooks/useCustomerSupportMedia';
 import { MediaLoadStatus } from './chat/bubble/MediaLoadStatus';
 import {
@@ -9,7 +9,20 @@ import {
   MessageBubbleStatus,
   MessageBubbleMedia,
   MediaLightboxModal,
+  MessageBubbleQuotedPreview,
+  MessageBubbleAiSuggestionActions,
+  MessageBubbleMetaContext,
+  useMessageBubbleQuoteResolution,
+  MessageBubbleHeader,
+  MessageBubbleDirectActions,
+  MessageBubbleReactions,
+  MessageBubbleAvatar,
+  getInitials,
+  useMessageBubbleFlags,
+  isCustomerSupportAiMessage,
 } from './chat/bubble';
+
+export { getInitials, isCustomerSupportAiMessage };
 
 export interface MessageBubbleProps {
   message: WhatsAppMessage;
@@ -21,11 +34,17 @@ export interface MessageBubbleProps {
     message: WhatsAppMessage,
     capabilities: { canReply: boolean; canForward: boolean }
   ) => void;
-  onResolveReplyTarget?: (reference: { conversationId: string; messageId: string | null; apiMessageId: string | null }) => Promise<WhatsAppMessage | null>;
+  onResolveReplyTarget?: (reference: {
+    conversationId: string;
+    messageId: string | null;
+    apiMessageId: string | null;
+  }) => Promise<WhatsAppMessage | null>;
   onJumpToMessage?: (message: WhatsAppMessage) => void;
+  onReplyMessage?: (message: WhatsAppMessage) => void;
+  onForwardMessage?: (message: WhatsAppMessage) => void;
 }
 
-export const MessageBubble: React.FC<MessageBubbleProps> = ({
+export const MessageBubble: React.FC<MessageBubbleProps> = memo(({
   message,
   contactName,
   reactions = [],
@@ -34,75 +53,42 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   onSelectMessage,
   onResolveReplyTarget,
   onJumpToMessage,
+  onReplyMessage,
+  onForwardMessage,
 }) => {
   const [isMediaModalOpen, setIsMediaModalOpen] = useState(false);
-  const [resolvedQuote, setResolvedQuote] = useState<WhatsAppMessage | null>(null);
-  const [isResolvingQuote, setIsResolvingQuote] = useState(false);
-  const [quoteError, setQuoteError] = useState('');
-  const isInbound = message.direction === 'inbound';
-  const isInternalNote = message.messageType === 'internal_note';
-  const isSystemEvent = message.messageType === 'system_event';
-  const isReactionMessage = message.rawPayload?.provider_message_type === 'reaction'
-    || /^Reação .+ a uma mensagem$/u.test(message.textContent || '')
-    || message.textContent === 'Reação removida de uma mensagem';
-  const isNonChatEvent = ['system', 'request_welcome'].includes(message.rawPayload?.provider_message_type);
-  const identityNotice = message.rawPayload?.identity && typeof message.rawPayload.identity === 'object';
-  const referral = message.messageType !== 'text' && message.rawPayload?.referral && typeof message.rawPayload.referral === 'object'
-    ? message.rawPayload.referral
-    : null;
-  const referredProduct = message.messageType !== 'text' && message.rawPayload?.referred_product
-    && typeof message.rawPayload.referred_product === 'object'
-    ? message.rawPayload.referred_product
-    : null;
+
+  const {
+    isInbound,
+    isInternalNote,
+    isSystemEvent,
+    isAiMessage,
+    isSuggestion,
+    timeFormatted,
+    canReply,
+    canForward,
+  } = useMessageBubbleFlags(message);
+
   const { mediaUrl, isLoadingMedia, mediaError, retryMedia } = useCustomerSupportMedia(
-    ['image', 'document', 'audio', 'video', 'sticker', 'template'].includes(message.messageType) ? message.mediaId : null
+    ['image', 'document', 'audio', 'video', 'sticker', 'template'].includes(message.messageType)
+      ? message.mediaId
+      : null
   );
 
-  const timeFormatted = message.timestamp
-    ? new Date(message.timestamp).toLocaleTimeString('pt-BR', {
-        hour: '2-digit',
-        minute: '2-digit',
-      })
-    : '';
-
-  const quote = resolvedQuote || quotedMessage;
-  const quotePreview = quote?.textContent || quote?.mediaCaption || quote?.mediaFilename ||
-    (quote?.messageType === 'image' ? 'Foto' : quote?.messageType === 'document' ? 'Documento' : quote ? 'Mídia compartilhada' : 'Referência à mensagem anterior');
-  const quoteAuthor = quote
-    ? quote.direction === 'inbound' ? contactName || 'Cliente' : quote.authorName || 'Atendente'
-    : '';
-  const canReply = Boolean(message.apiMessageId) && message.messageType !== 'deleted' && !isReactionMessage && !isNonChatEvent;
-  const canForward = !isReactionMessage && !isNonChatEvent && (['text', 'interactive', 'location', 'contacts'].includes(message.messageType)
-    ? Boolean(message.textContent?.trim())
-    : message.messageType === 'template'
-      ? Boolean(message.textContent?.trim() || message.mediaId)
-      : ['image', 'document', 'audio', 'video', 'sticker'].includes(message.messageType) && Boolean(message.mediaId));
-  const handleQuotedMessage = async () => {
-    setQuoteError('');
-    if (quote) {
-      onJumpToMessage?.(quote);
-      return;
-    }
-    if (!onResolveReplyTarget || isResolvingQuote) return;
-    setIsResolvingQuote(true);
-    try {
-      const resolved = await onResolveReplyTarget({
-        conversationId: message.conversationId,
-        messageId: message.replyToMessageId,
-        apiMessageId: message.replyToWamid,
-      });
-      if (!resolved) {
-        setQuoteError('A mensagem citada não está disponível nesta conversa.');
-        return;
-      }
-      setResolvedQuote(resolved);
-      onJumpToMessage?.(resolved);
-    } catch (error) {
-      setQuoteError(error instanceof Error ? error.message : 'Não foi possível localizar a mensagem citada.');
-    } finally {
-      setIsResolvingQuote(false);
-    }
-  };
+  const {
+    quote,
+    quoteAuthor,
+    quotePreview,
+    isResolvingQuote,
+    quoteError,
+    handleQuotedMessage,
+  } = useMessageBubbleQuoteResolution({
+    message,
+    quotedMessage,
+    contactName,
+    onResolveReplyTarget,
+    onJumpToMessage,
+  });
 
   const handleMessageClick = (event: React.MouseEvent<HTMLDivElement>) => {
     if (!onSelectMessage || (!canReply && !canForward)) return;
@@ -121,21 +107,6 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     return <InternalNoteBubble message={message} timeFormatted={timeFormatted} />;
   }
 
-  // 3. Mensagens Padrão (Inbound e Outbound) com Avatares Laterais
-  const senderInitials = isInbound
-    ? (contactName || 'C')
-        .split(' ')
-        .filter(Boolean)
-        .slice(0, 2)
-        .map((w) => w[0].toUpperCase())
-        .join('')
-    : (message.authorName || 'M')
-        .split(' ')
-        .filter(Boolean)
-        .slice(0, 2)
-        .map((w) => w[0].toUpperCase())
-        .join('');
-
   return (
     <div
       className={`flex w-full my-1.5 items-end gap-2 ${
@@ -143,14 +114,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
       }`}
     >
       {/* Avatar do Contato (à esquerda em mensagens recebidas) */}
-      {isInbound && (
-        <div
-          title={contactName || 'Cliente'}
-          className="w-7 h-7 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 flex items-center justify-center text-[10px] font-bold shrink-0 shadow-xs border border-slate-300/50 dark:border-slate-600 mb-0.5"
-        >
-          {senderInitials || <i className="bi bi-person text-xs text-slate-400"></i>}
-        </div>
-      )}
+      {isInbound && <MessageBubbleAvatar type="inbound" name={contactName} />}
 
       <div
         onClick={handleMessageClick}
@@ -158,48 +122,42 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         className={`group/message relative max-w-[85%] sm:max-w-[72%] md:max-w-[62%] rounded-2xl px-3.5 py-2.5 shadow-xs text-xs leading-relaxed select-text transition-all ${
           isInbound
             ? 'bg-white dark:bg-[#202c33] text-slate-800 dark:text-slate-100 rounded-tl-xs border border-slate-200/50 dark:border-slate-700/50'
-            : 'bg-[#d9fdd3] dark:bg-[#005c4b] text-slate-900 dark:text-slate-100 rounded-tr-xs border border-emerald-200/60 dark:border-emerald-700/50'
-        } ${onSelectMessage && (canReply || canForward) ? 'cursor-pointer' : ''} ${isSelected ? 'ring-2 ring-emerald-600 ring-offset-2 ring-offset-[#efeae2] dark:ring-offset-[#0b141a]' : ''}`}
+            : isSuggestion
+              ? 'bg-amber-50/90 dark:bg-amber-950/40 text-slate-900 dark:text-slate-100 rounded-tr-xs border-2 border-dashed border-amber-400 dark:border-amber-600 shadow-md'
+              : 'bg-[#d9fdd3] dark:bg-[#005c4b] text-slate-900 dark:text-slate-100 rounded-tr-xs border border-emerald-200/60 dark:border-emerald-700/50'
+        } ${onSelectMessage && (canReply || canForward) ? 'cursor-pointer' : ''} ${
+          isSelected ? 'ring-2 ring-emerald-600 ring-offset-2 ring-offset-[#efeae2] dark:ring-offset-[#0b141a]' : ''
+        }`}
       >
+        <MessageBubbleDirectActions
+          message={message}
+          canReply={canReply}
+          canForward={canForward}
+          onReplyMessage={onReplyMessage}
+          onForwardMessage={onForwardMessage}
+        />
+
+        <MessageBubbleHeader
+          message={message}
+          isInbound={isInbound}
+          isSuggestion={isSuggestion}
+          isAiMessage={isAiMessage}
+        />
+
         {/* Caixa de Mensagem Respondida (Quote / Reply) */}
         {(message.replyToWamid || message.replyToMessageId) && (
-          <div className="mb-2 p-2 rounded-xl bg-black/5 dark:bg-white/10 border-l-4 border-emerald-600 dark:border-emerald-400 text-[11px] text-slate-600 dark:text-slate-300">
-            <span className="font-semibold block text-[10px] text-emerald-700 dark:text-emerald-400">
-              {quoteAuthor ? `Mensagem de ${quoteAuthor}` : 'Mensagem citada'}
-            </span>
-            <span className="truncate block opacity-80" title={quotePreview}>{quotePreview}</span>
-            <button type="button" onClick={() => void handleQuotedMessage()} disabled={isResolvingQuote}
-              className="mt-1 text-[10px] font-semibold text-emerald-700 dark:text-emerald-300 disabled:opacity-50">
-              {isResolvingQuote ? 'Localizando…' : quote ? 'Ir para a mensagem' : 'Carregar contexto citado'}
-            </button>
-            {quoteError && <span role="alert" className="block mt-1 text-[10px] text-red-600 dark:text-red-300">{quoteError}</span>}
-          </div>
+          <MessageBubbleQuotedPreview
+            quoteAuthor={quoteAuthor}
+            quotePreview={quotePreview}
+            quoteExists={Boolean(quote)}
+            isResolvingQuote={isResolvingQuote}
+            quoteError={quoteError}
+            onJumpToQuoted={() => void handleQuotedMessage()}
+          />
         )}
 
-        {(message.rawPayload?.frequently_forwarded === true || message.rawPayload?.forwarded === true) && (
-          <span className="mb-1 flex items-center gap-1 text-[10px] italic text-slate-500 dark:text-slate-300">
-            <i className="bi bi-forward-fill" aria-hidden="true" />
-            {message.rawPayload?.frequently_forwarded === true ? 'Encaminhada muitas vezes' : 'Encaminhada'}
-          </span>
-        )}
-
-        {identityNotice && (
-          <div role="note" aria-label="Aviso de segurança do WhatsApp" className="mb-2 flex items-start gap-1.5 rounded-lg bg-amber-50 px-2 py-1.5 text-[10px] text-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
-            <i className="bi bi-shield-exclamation mt-0.5" aria-hidden="true" />
-            <span>O WhatsApp incluiu uma notificação de segurança para este contato.</span>
-          </div>
-        )}
-
-        {(referral || referredProduct) && (
-          <div role="note" aria-label="Contexto da mensagem" className="mb-2 space-y-0.5 rounded-lg bg-slate-50 px-2 py-1.5 text-[10px] text-slate-600 dark:bg-slate-900/60 dark:text-slate-300">
-            {referredProduct?.product_retailer_id && <p>Produto consultado: {String(referredProduct.product_retailer_id)}</p>}
-            {referral?.headline && <p className="font-semibold">Origem: {String(referral.headline)}</p>}
-            {referral?.body && <p>{String(referral.body)}</p>}
-            {referral?.source_type && <p>Canal: {String(referral.source_type)}</p>}
-            {referral?.source_id && <p>Referência: {String(referral.source_id)}</p>}
-            {referral?.source_url && <p>Link de origem: {String(referral.source_url)}</p>}
-          </div>
-        )}
+        {/* Notificações de contexto da Meta (Encaminhada, Segurança, Catálogo Ads) */}
+        <MessageBubbleMetaContext message={message} />
 
         {/* Mídias diversas (Imagem, Documento, Áudio, Vídeo, Interativo) */}
         <MediaLoadStatus loading={isLoadingMedia} error={mediaError} onRetry={retryMedia} />
@@ -216,11 +174,12 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           </p>
         )}
 
+        {/* Ações de Aprovação para Sugestões do Copiloto Assistido */}
+        {!isInbound && isSuggestion && <MessageBubbleAiSuggestionActions message={message} />}
+
         {/* Rodapé do Balão: Horário e Indicadores de Entrega */}
         <div className="flex items-center justify-end gap-1 mt-1 text-[10px] text-slate-400 dark:text-slate-400 select-none">
           <span>{timeFormatted}</span>
-
-          {/* Checks de Entrega nas Mensagens Enviadas */}
           {!isInbound && (
             <MessageBubbleStatus
               status={message.status}
@@ -228,26 +187,18 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             />
           )}
         </div>
-        {reactions.length > 0 && (
-          <div role="list" aria-label="Reações à mensagem" className="mt-1 flex flex-wrap gap-1">
-            {reactions.map((emoji, index) => (
-              <span key={emoji + index} role="listitem" aria-label={'Reação ' + emoji}
-                className="inline-flex min-h-6 items-center rounded-full bg-white px-1.5 text-sm shadow-sm dark:bg-slate-800">
-                {emoji}
-              </span>
-            ))}
-          </div>
-        )}
+
+        {/* Reações com Emojis */}
+        <MessageBubbleReactions reactions={reactions} />
       </div>
 
-      {/* Avatar do Atendente (à direita em mensagens enviadas) */}
+      {/* Avatar do Atendente / Agente de IA (à direita em mensagens enviadas) */}
       {!isInbound && (
-        <div
-          title={message.authorName || 'Atendente'}
-          className="w-7 h-7 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[10px] font-black shrink-0 shadow-xs border border-emerald-700/40 mb-0.5"
-        >
-          {senderInitials || <i className="bi bi-person text-xs text-white"></i>}
-        </div>
+        <MessageBubbleAvatar
+          type="outbound"
+          name={message.authorName}
+          isAiMessage={isAiMessage}
+        />
       )}
 
       {/* Lightbox para Visualização de Fotos em Tamanho Real */}
@@ -258,4 +209,6 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
       />
     </div>
   );
-};
+});
+
+MessageBubble.displayName = 'MessageBubble';

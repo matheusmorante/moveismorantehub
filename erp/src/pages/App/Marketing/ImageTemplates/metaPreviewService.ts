@@ -34,10 +34,18 @@ export function mapPreviewProduct(row: Record<string, unknown>, now = Date.now()
   const end = clean(row.sale_price_end_date);
   const salePrice = sale !== null && price !== null && sale > 0 && sale < price
     && (!start || Date.parse(start) <= now) && (!end || Date.parse(end) >= now) ? sale : undefined;
+  const hasDiscount = salePrice !== undefined && price !== null && price > salePrice;
+  const discountValue = hasDiscount ? Math.max(0, Math.round((price - salePrice + Number.EPSILON) * 100) / 100) : undefined;
+  const discountPercent = hasDiscount && price > 0 ? Math.max(0, Math.round(((price - salePrice) / price) * 100)) : undefined;
+  const discount = discountPercent !== undefined ? `${discountPercent}%` : undefined;
   const fields: TemplatePreviewProduct['fields'] = {
     name: clean(row.name), brand: clean(row.brand), description: clean(row.description),
-    retailerId: clean(row.retailer_id), availability: clean(row.availability), productType: clean(row.product_type),
-    price: price ?? undefined, salePrice, currentPrice: salePrice ?? price ?? undefined,
+    retailerId: clean(row.retailer_id), availability: clean(row.availability),
+    category: clean(row.product_type), productType: clean(row.product_type),
+    price: price ?? undefined, promoPrice: salePrice, salePrice, currentPrice: salePrice ?? price ?? undefined,
+    discount, discountPercent, discountValue,
+    color: clean(row.color),
+    stockOrigin: clean(row.condition) === 'refurbished' ? 'Salvados' : 'Convencional',
   };
   for (const field of Object.keys(CATALOG_FIELDS) as (keyof typeof CATALOG_FIELDS)[]) {
     if (field.startsWith('custom_label_')) fields[field] = clean(row[field]);

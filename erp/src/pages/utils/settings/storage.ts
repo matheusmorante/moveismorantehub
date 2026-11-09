@@ -74,10 +74,42 @@ const settingsSubscribers = new Set<(settings: AppSettings) => void>();
 let settingsRevision = 0;
 let lastRemoteRevision = -1;
 let lastRemoteSnapshot: string | null = null;
+let settingsSessionRevision = 0;
+let settingsSessionUserId: string | null = null;
+let settingsSessionReady = false;
+const settingsReadsInFlight = new Map<string, Promise<any | null>>();
 const canonicalSettings = (value: unknown): string => JSON.stringify(value, (_key, entry) =>
   entry && typeof entry === 'object' && !Array.isArray(entry)
     ? Object.fromEntries(Object.entries(entry).sort(([left], [right]) => left.localeCompare(right)))
     : entry);
+
+// A single module-level listener scopes shared reads to one auth session. Keep
+// this callback synchronous: Supabase auth callbacks must not wait on Supabase.
+supabase.auth?.onAuthStateChange?.((_event, session) => {
+  settingsSessionRevision++;
+  settingsSessionUserId = session?.user?.id ?? null;
+  settingsSessionReady = true;
+  lastRemoteRevision = -1;
+  lastRemoteSnapshot = null;
+});
+
+const readSettingsOnce = (revision: number, sessionRevision: number, userId: string | null) => {
+  const key = JSON.stringify([SUPABASE_SETTINGS_TABLE, SETTINGS_ID, userId, sessionRevision, revision]);
+  const existing = settingsReadsInFlight.get(key);
+  if (existing) return existing;
+
+  const request = withTimeout(supabase
+    .from(SUPABASE_SETTINGS_TABLE)
+    .select('data')
+    .eq('id', SETTINGS_ID)
+    .single(), 15_000, null, 'configuracoes:consultar');
+  settingsReadsInFlight.set(key, request);
+  void request.then(
+    () => { if (settingsReadsInFlight.get(key) === request) settingsReadsInFlight.delete(key); },
+    () => { if (settingsReadsInFlight.get(key) === request) settingsReadsInFlight.delete(key); },
+  );
+  return request;
+};
 
 export const notifySettingsSubscribers = (settings: AppSettings) => {
   settingsRevision++;
@@ -111,13 +143,23 @@ export const subscribeToSettings = (callback: (settings: AppSettings) => void, o
 
   // Initial load from Supabase
   let active = true; const revision = settingsRevision;
-  void withTimeout(supabase
-    .from(SUPABASE_SETTINGS_TABLE)
-    .select('data')
-    .eq('id', SETTINGS_ID)
-    .single(), 15_000, null, 'configuracoes:consultar')
+  const sessionRevision = settingsSessionRevision;
+  const sessionUserId = settingsSessionUserId;
+  const sessionReady = settingsSessionReady;
+  const read = sessionReady
+    ? readSettingsOnce(revision, sessionRevision, sessionUserId)
+    : withTimeout(supabase
+      .from(SUPABASE_SETTINGS_TABLE)
+      .select('data')
+      .eq('id', SETTINGS_ID)
+      .single(), 15_000, null, 'configuracoes:consultar');
+  void read
     .then((response) => {
       if (!active) return;
+      if (sessionRevision !== settingsSessionRevision || sessionUserId !== settingsSessionUserId) {
+        options?.onRemoteLoad({ confirmed: false, message: 'A sessão mudou durante a consulta. Carregue novamente.' });
+        return;
+      }
       const { data, error } = response || {};
       if (data && !error) {
         const settingsFromCloud = data.data as any;

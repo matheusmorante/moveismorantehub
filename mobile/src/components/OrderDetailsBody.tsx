@@ -40,15 +40,15 @@ export function OrderDetailsBody({
       try {
         const { data, error } = await supabase
           .from('settings')
-          .select('data')
+          .select('delivery:data->deliveryHandlingOptions,pickup:data->pickupHandlingOptions')
           .eq('id', 'app')
           .maybeSingle();
         if (error) throw error;
-        const settings = data?.data || {};
+        const settings = data || {};
         if (!active) return;
         setHandlingOptions([
-          ...(settings.deliveryHandlingOptions || []),
-          ...(settings.pickupHandlingOptions || []),
+          ...(settings.delivery || []),
+          ...(settings.pickup || []),
         ]);
       } catch (error) {
         console.warn('[OrderDetailsBody] Falha ao carregar opções de montagem:', error);

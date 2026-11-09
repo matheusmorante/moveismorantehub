@@ -6,7 +6,6 @@ import { withSpan } from '../../../../../../../src/telemetry/tracer';
 
 export type PendingNcmSuggestion = { code: string; description: string };
 type Result = {
-  category?: { id: string; name: string } | null;
   ncm?: PendingNcmSuggestion | null;
 };
 
@@ -44,7 +43,6 @@ export function useProductJevClassification(
   const lastRequested = useRef('');
   const latestSignature = useRef('');
   const requestNumber = useRef(0);
-  const skipAutomaticCategory = useRef('');
   const timerRef = useRef<number | null>(null);
 
   const name = formData.name || '';
@@ -188,35 +186,19 @@ export function useProductJevClassification(
           }
         }
 
-        if (!categoryId && result.category?.id) {
-          const nextSignature = JSON.stringify([title, result.category.id, description, material]);
-          if (result.ncm && /^\d{8}$/.test(result.ncm.code)) {
-            skipAutomaticCategory.current = nextSignature;
-          }
-        }
-
-        if ((!categoryId && result.category?.id) || currentNcm) {
-          setFormData((prev) => ({
-            ...prev,
-            ...(!prev.categoryIds?.length && !categoryId && result.category?.id
-              ? { categoryIds: [result.category.id] }
-              : {}),
-            ...(currentNcm && !prev.fiscal?.ncm?.trim()
-              ? {
+        if (currentNcm) {
+          setFormData((prev) =>
+            prev.fiscal?.ncm?.trim()
+              ? prev
+              : {
+                  ...prev,
                   fiscal: {
                     ...prev.fiscal,
                     ncm: currentNcm.code,
                     ncmDescription: currentNcm.description,
                   },
                 }
-              : {}),
-          }));
-        }
-
-        if (!categoryId && result.category?.id) {
-          void withSpan('product.jev.category.apply', async () => undefined, {
-            module: 'Products',
-          });
+          );
         }
       } catch {
         // Classificação opcional; campo permanece editável
@@ -269,12 +251,6 @@ export function useProductJevClassification(
     // Se já tem NCM escolhido ou falta algum dos 3 campos obrigatórios, não agenda solicitação:
     if (!isOpen || !areMandatoryFieldsFilled || hasNcm || itemType === 'service') {
       if (hasNcm) setSuggestion(null);
-      return;
-    }
-
-    if (signature === skipAutomaticCategory.current) {
-      skipAutomaticCategory.current = '';
-      lastRequested.current = signature;
       return;
     }
 

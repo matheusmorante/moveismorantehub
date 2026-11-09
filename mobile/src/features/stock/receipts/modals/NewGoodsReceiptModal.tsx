@@ -18,7 +18,7 @@ import { ReceiptTotalSummary } from './ReceiptTotalSummary';
 import { ReceiptSubmissionFooter } from './ReceiptSubmissionFooter';
 import { styles } from './newGoodsReceiptModal.styles';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ArrowLeft, CalendarDays, X } from 'lucide-react-native';
+import { CalendarDays } from 'lucide-react-native';
 import {
   mobileReceiptFormSchema,
   receiptDraftFormSchema,
@@ -51,6 +51,7 @@ import {
 import { connectivityService } from '../../../../services/offline/connectivityService';
 import { fetchInboundInvoiceForMappings } from '../../../../services/stock/invoices/inboundInvoiceMappingsService';
 import { ReceiptSourceOptions, ReceiptSourcePicker } from './ReceiptSourcePicker';
+import { ReceiptHeader } from './ReceiptHeader';
 import { ReceiptSupplierField } from './ReceiptSupplierField';
 import {
   calculateMobileReceiptItems,
@@ -865,38 +866,16 @@ export const NewGoodsReceiptModal: React.FC<Props> = ({
         ]}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <View style={[styles.header, { backgroundColor: '#059669' }]}>
-          {stage === 'form' && !existingReceipt && (
-            <TouchableOpacity
-              onPress={() => void backToSources()}
-              disabled={saving}
-              accessibilityLabel="Voltar aos tipos de recebimento"
-            >
-              <ArrowLeft size={22} color="#ffffff" />
-            </TouchableOpacity>
-          )}
-          <View style={styles.headerCopy}>
-            <Text style={styles.headerTitle}>
-              Cadastro do recebimento de mercadoria
-            </Text>
-            <Text style={styles.headerSubtitle}>
-              {stage === 'source'
-                ? 'Escolha a origem'
-                : stage === 'invoice'
-                  ? 'Selecione a nota fiscal'
-                  : stage === 'purchase'
-                    ? 'Selecione o pedido de compra'
-                    : origin.kind === 'invoice' || existingReceipt?.invoice_number
-                      ? `NF-e #${origin.invoiceNumber || existingReceipt?.invoice_number || '—'}`
-                      : origin.kind === 'purchase'
-                        ? 'Pedido de compra'
-                        : 'Sem nota fiscal'}
-            </Text>
-          </View>
-          <TouchableOpacity onPress={safeClose} disabled={saving} accessibilityLabel="Fechar">
-            <X size={24} color="#ffffff" />
-          </TouchableOpacity>
-        </View>
+        <ReceiptHeader
+          stage={stage}
+          isExistingReceipt={Boolean(existingReceipt)}
+          originKind={origin.kind}
+          originInvoiceNumber={origin.invoiceNumber}
+          existingInvoiceNumber={existingReceipt?.invoice_number}
+          saving={saving}
+          onBackToSources={backToSources}
+          onRequestClose={safeClose}
+        />
 
         {stage === 'source' ? (
           <ReceiptSourceOptions

@@ -5,10 +5,38 @@ import {
   recoverNextMissingNsuFromSefaz,
   syncInboundInvoicesFromSefaz,
   SefazSyncStatus,
+  SefazSyncResult,
   InboundManifestationResult,
 } from '@/pages/utils/inboundNfe/services/sefazInboundSyncService';
 
 const NSU_RECOVERY_CHECK_INTERVAL_MS = 5 * 60 * 1000;
+const NSU_SYNC_INTERVAL_MS = 60 * 60 * 1000;
+
+const statusFromConfirmedSync = (result: SefazSyncResult): SefazSyncStatus | null => {
+  if (!result.success || result.statusPersisted !== true || !result.statusUpdatedAt) return null;
+
+  const lastSyncMs = Date.parse(result.statusUpdatedAt);
+  if (!Number.isFinite(lastSyncMs)) return null;
+  const storedNextAllowed = result.nextAllowedSyncAt ? Date.parse(result.nextAllowedSyncAt) : 0;
+  const nextAllowed = Math.max(
+    Number.isFinite(storedNextAllowed) ? storedNextAllowed : 0,
+    lastSyncMs + NSU_SYNC_INTERVAL_MS,
+  );
+
+  return {
+    status: 'idle',
+    lastSyncAt: result.statusUpdatedAt,
+    nextAllowedSyncAt: new Date(nextAllowed).toISOString(),
+    lastNsu: result.ultNSU || '0',
+    maxNsu: result.maxNSU || '0',
+    lastCstat: result.cStat || null,
+    lastXmotivo: result.xMotivo || null,
+    lastDocsCount: result.statusDocsCount ?? 0,
+    environment: result.environment || 'production',
+    canSyncNow: Date.now() >= nextAllowed,
+    statusReadSucceeded: true,
+  };
+};
 
 interface SefazSyncStatusBadgeProps {
   onSyncSuccess?: () => void;
@@ -130,13 +158,19 @@ export const SefazSyncStatusBadge: React.FC<SefazSyncStatusBadgeProps> = ({ onSy
     if (autoSyncInFlight.current) return;
     autoSyncInFlight.current = true;
     let attemptedSync = false;
+    let statusUpdatedFromResponse = false;
     try {
       const current = await fetchSefazSyncStatus();
       setStatus(current);
       if (!current.canSyncNow) return;
 
       attemptedSync = true;
-      const result = await syncInboundInvoicesFromSefaz();
+      const result = await syncInboundInvoicesFromSefaz({ precheckedStatus: current });
+      const confirmedStatus = statusFromConfirmedSync(result);
+      if (confirmedStatus) {
+        setStatus(confirmedStatus);
+        statusUpdatedFromResponse = true;
+      }
       if (result.success && (result.newDocsCount || 0) > 0) {
         onSyncSuccessRef.current?.();
       }
@@ -145,7 +179,7 @@ export const SefazSyncStatusBadge: React.FC<SefazSyncStatusBadgeProps> = ({ onSy
       console.error('[SefazSyncStatusBadge] Falha na descoberta automática:', error);
     } finally {
       autoSyncInFlight.current = false;
-      if (attemptedSync) await loadStatus();
+      if (attemptedSync && !statusUpdatedFromResponse) await loadStatus();
     }
   }, [loadStatus, requestScienceProcessing]);
 
@@ -174,15 +208,21 @@ export const SefazSyncStatusBadge: React.FC<SefazSyncStatusBadgeProps> = ({ onSy
   const handleRetry = async () => {
     if (isRetrying) return;
     setIsRetrying(true);
+    let statusUpdatedFromResponse = false;
     try {
       const res = await syncInboundInvoicesFromSefaz();
+      const confirmedStatus = statusFromConfirmedSync(res);
+      if (confirmedStatus) {
+        setStatus(confirmedStatus);
+        statusUpdatedFromResponse = true;
+      }
       if (res.success && onSyncSuccess) {
         onSyncSuccess();
       }
       if (res.success) requestScienceProcessing();
     } finally {
       setIsRetrying(false);
-      await loadStatus();
+      if (!statusUpdatedFromResponse) await loadStatus();
     }
   };
 

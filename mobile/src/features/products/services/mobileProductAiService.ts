@@ -75,11 +75,20 @@ export const sanitizeMobileProductDescription = (value: string): string =>
     .join('\n')
     .trim();
 
-const getCandidateText = (data: any) =>
-  (data?.candidates?.[0]?.content?.parts || [])
+const getCandidateText = (data: any) => {
+  if (typeof data?.output_text === 'string') return data.output_text;
+  const responseText = (data?.output || [])
+    .filter((item: any) => item?.type === 'message')
+    .flatMap((item: any) => item?.content || [])
+    .filter((item: any) => item?.type === 'output_text' && typeof item.text === 'string')
+    .map((item: any) => item.text)
+    .join('\n');
+  if (responseText) return responseText;
+  return (data?.candidates?.[0]?.content?.parts || [])
     .map((part: { text?: unknown }) => (typeof part.text === 'string' ? part.text : ''))
     .filter(Boolean)
     .join('\n');
+};
 
 export const improveMobileProductDescription = async (
   input: MobileProductDescriptionInput,
