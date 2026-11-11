@@ -79,13 +79,17 @@ export function useProductPageDisplayState({
       : product?.price;
 
   const isParentPromo = activeVariation ? activeVariation.use_parent_promo_price !== false : true;
+  const parentPromoPrice = Number(product?.promo_price) > 0 ? Number(product.promo_price) : null;
+  const variationPromoPrice =
+    Number(activeVariation?.promo_price) > 0 ? Number(activeVariation.promo_price) : null;
   const regularPromoPrice =
     activeVariation && !isParentPromo
-      ? activeVariation.promo_price
-        ? parseFloat(activeVariation.promo_price)
-        : null
-      : product?.promo_price;
-  const displayPromoPrice = regularPromoPrice;
+      ? variationPromoPrice ?? parentPromoPrice
+      : parentPromoPrice ?? variationPromoPrice;
+  const displayPromoPrice =
+    regularPromoPrice !== null && regularPromoPrice < Number(displayPrice)
+      ? regularPromoPrice
+      : null;
 
   const isParentDesc = activeVariation ? activeVariation.use_parent_description !== false : true;
   const rawDescription =
