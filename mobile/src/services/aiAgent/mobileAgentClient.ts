@@ -2,6 +2,7 @@ import { supabase } from '../supabaseClient';
 import { GeminiContent } from './mobileAgentTypes';
 import { withTimeout } from '../../../../shared-utils/withTimeout';
 import { buildOpenAiAgentRequest, parseOpenAiAgentResponse } from '../../../../shared-utils/openAiAgentAdapter';
+import { createOpenAiHttpError } from '../../../../shared-utils/openAiProviderError';
 
 interface GenerateContentPayload {
   model?: string;
@@ -87,7 +88,7 @@ export class MobileAgentClient {
     });
 
     if (!response.ok) {
-      throw new Error(`Erro na API OpenAI (${response.status}).`);
+      throw createOpenAiHttpError(response.status);
     }
 
     return parseOpenAiAgentResponse(await response.json());

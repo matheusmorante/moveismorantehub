@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { extractMessageContent } from './whatsappMessageContent.js';
 import { maybeTriggerWhatsAppAiAgent } from './whatsappAiAgentService.js';
+import { processDurableAiJob } from './whatsappAiAgent/durableAiJob.js';
 import {
   verifyMetaSignature,
   readRawWebhookBody,
@@ -23,6 +24,7 @@ import {
 export {
   extractMessageContent,
   maybeTriggerWhatsAppAiAgent,
+  processDurableAiJob,
   verifyMetaSignature,
   readRawWebhookBody,
   parseMetaStatusFailure,

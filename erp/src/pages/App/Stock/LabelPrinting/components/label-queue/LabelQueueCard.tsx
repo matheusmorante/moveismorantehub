@@ -239,6 +239,7 @@ export const LabelQueueCard: React.FC<LabelQueueCardProps> = ({
                 allowedProductKinds={['normal']}
                 variationsOnly
                 excludeCombos
+                includeTrashEligibility={false}
                 maxSuggestions={5}
                 onlyName
                 placeholder={item.isBlank ? 'Buscar produto convencional...' : 'Alterar produto da etiqueta...'}

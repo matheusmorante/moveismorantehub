@@ -51,7 +51,11 @@ describe('AiAgentTabTestChat (Chat de Testes do Agente)', () => {
     workflows: [...DEFAULT_WORKFLOWS],
     enabledTools: WHATSAPP_SAFE_TOOLS.map((t) => t.id),
     systemPrompt: DEFAULT_WHATSAPP_AI_AGENT_PROMPT,
-    isAdministrator: true,
+    supportMode: 'automatico' as const,
+    isAiAgentEnabled: false,
+    isAgentStatusKnown: true,
+    onOpenSettings: vi.fn(),
+    onBack: vi.fn(),
   };
 
   it('renderiza a interface do chat com cabeçalho, mensagem inicial e pílulas de cenários', () => {
@@ -59,8 +63,8 @@ describe('AiAgentTabTestChat (Chat de Testes do Agente)', () => {
 
     expect(screen.getByText('Lizandro — Chat de Testes do Agente')).toBeDefined();
     expect(screen.getByText('Sandbox Isolado')).toBeDefined();
-    expect(screen.getByText(/Consultas reais ao ERP · Sem envio externo/i)).toBeDefined();
-    expect(screen.getByText('Nova Conversa')).toBeDefined();
+    expect(screen.getByText(/Consultas reais ao ERP · Sem envio ao WhatsApp/i)).toBeDefined();
+    expect(screen.queryByText('Nova Conversa')).toBeNull();
     expect(screen.getByText('Salvar Teste')).toBeDefined();
 
     // Mensagem de boas-vindas do Seu Lizandro
@@ -74,15 +78,37 @@ describe('AiAgentTabTestChat (Chat de Testes do Agente)', () => {
     expect(screen.getByText('Como funciona o frete e entrega para Colombo?')).toBeDefined();
   });
 
+  it('mantém apenas o status e atalhos de navegação dentro da conversa de teste', () => {
+    const { rerender } = render(<AiAgentTabTestChat {...defaultProps} />);
+    expect(screen.getByRole('status').textContent).toBe('Desligado');
+    expect(screen.queryByRole('button', { name: /ligar atendimento de clientes por ia/i })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /configurações do agente de ia/i }));
+    fireEvent.click(screen.getByRole('button', { name: /voltar para conversas/i }));
+    expect(defaultProps.onOpenSettings).toHaveBeenCalledTimes(1);
+    expect(defaultProps.onBack).toHaveBeenCalledTimes(1);
+    rerender(<AiAgentTabTestChat {...defaultProps} isAiAgentEnabled supportMode="assistido" />);
+    expect(screen.getByText(/Modo: Assistido/i)).toBeDefined();
+    expect(screen.getByRole('status').textContent).toBe('Ligado');
+    expect(screen.queryByRole('button', { name: /desligar atendimento de clientes por ia/i })).toBeNull();
+  });
+
+  it('valida mensagem vazia antes de chamar a simulação', async () => {
+    const simulate = vi.spyOn(orchestrator, 'simulateWhatsAppAiTurn');
+    render(<AiAgentTabTestChat {...defaultProps} />);
+    fireEvent.submit(screen.getByRole('form', { name: 'Mensagem de teste' }));
+    expect(await screen.findByText('Digite uma mensagem para enviar.')).toBeDefined();
+    expect(simulate).not.toHaveBeenCalled();
+  });
+
   it('permite enviar mensagem através do input de texto e renderiza a resposta simulada com pill de diagnóstico', async () => {
     const mockSimulationResult: orchestrator.SimulationTurnResult = {
+      executed: true,
       userQuery: 'Qual o valor do frete para Colombo?',
       situation: {
-        situationKey: 'entrega_e_prazos',
+        key: 'entrega_e_prazos',
         name: 'Frete e Prazos de Entrega',
         priority: 10,
         action: 'direct_answer',
-        mandatoryPhrases: ['A taxa de entrega varia conforme a região metropolitana.'],
       },
       matchedKeywords: ['frete', 'entrega', 'colombo'],
       articlesUsed: [
@@ -90,10 +116,10 @@ describe('AiAgentTabTestChat (Chat de Testes do Agente)', () => {
           id: 'frete-politica',
           title: 'Frete e Prazos de Entrega',
           category: 'entrega',
-          content: 'Entregamos em Curitiba e Região Metropolitana.',
           priority: 10,
         },
       ],
+      workflowApplied: null,
       toolsCalled: [
         {
           name: 'consultarRegrasEntrega',
@@ -119,7 +145,7 @@ describe('AiAgentTabTestChat (Chat de Testes do Agente)', () => {
     fireEvent.click(sendBtn);
 
     // Mensagem do usuário visível
-    expect(screen.getByText('Qual o valor do frete para Colombo?')).toBeDefined();
+    await waitFor(() => expect(screen.getByText('Qual o valor do frete para Colombo?')).toBeDefined());
 
     // Aguarda a resposta do modelo
     await waitFor(() => {
@@ -136,16 +162,17 @@ describe('AiAgentTabTestChat (Chat de Testes do Agente)', () => {
 
   it('abre o drawer de diagnóstico detalhado ao clicar na pílula e permite fechá-lo', async () => {
     const mockSimulationResult: orchestrator.SimulationTurnResult = {
+      executed: true,
       userQuery: 'Vocês têm guarda-roupa 6 portas?',
       situation: {
-        situationKey: 'consulta_produto',
+        key: 'consulta_produto',
         name: 'Consulta de Produtos e Catálogo',
         priority: 10,
         action: 'direct_answer',
-        mandatoryPhrases: ['Temos diversas opções de guarda-roupas de qualidade.'],
       },
       matchedKeywords: ['guarda-roupa', 'portas'],
       articlesUsed: [],
+      workflowApplied: null,
       toolsCalled: [
         {
           name: 'buscarProdutosNoCatalogo',
@@ -203,10 +230,12 @@ describe('AiAgentTabTestChat (Chat de Testes do Agente)', () => {
 
   it('permite avaliar resposta com positivo (thumbs up) e negativo (thumbs down) com comentário', async () => {
     const mockSimulationResult: orchestrator.SimulationTurnResult = {
+      executed: true,
       userQuery: 'Quero desconto',
       situation: null,
       matchedKeywords: [],
       articlesUsed: [],
+      workflowApplied: null,
       toolsCalled: [],
       aiResponseText: 'Posso verificar com a gerência.',
       mandatoryPhrasesEnforced: [],
@@ -234,62 +263,34 @@ describe('AiAgentTabTestChat (Chat de Testes do Agente)', () => {
     const feedbackInput = screen.getByPlaceholderText(
       /Ex: Não informou a taxa de entrega corretamente.../i
     );
+    const saveFeedbackBtn = screen.getByRole('button', { name: 'Salvar' });
+    fireEvent.click(saveFeedbackBtn);
+    expect(await screen.findByText('Descreva a falha antes de salvar.')).toBeDefined();
+
     fireEvent.change(feedbackInput, {
       target: { value: 'Deveria ter informado a política de 10x sem juros.' },
     });
 
-    const saveFeedbackBtn = screen.getByRole('button', { name: 'Salvar' });
     fireEvent.click(saveFeedbackBtn);
 
     // Comentário exibido
-    expect(
+    await waitFor(() => expect(
       screen.getByText(/Observação registrada: “Deveria ter informado a política de 10x sem juros.”/i)
-    ).toBeDefined();
+    ).toBeDefined());
 
     // Thumbs up
     const thumbsUpBtn = screen.getByTitle('Avaliar como resposta correta');
     fireEvent.click(thumbsUpBtn);
   });
 
-  it('reinicia a sessão ao clicar em "Nova Conversa"', async () => {
-    const mockSimulationResult: orchestrator.SimulationTurnResult = {
-      userQuery: 'Oi',
-      situation: null,
-      matchedKeywords: [],
-      articlesUsed: [],
-      toolsCalled: [],
-      aiResponseText: 'Olá! Como posso ajudar?',
-      mandatoryPhrasesEnforced: [],
-      executionTimeMs: 150,
-    };
-
-    vi.spyOn(orchestrator, 'simulateWhatsAppAiTurn').mockResolvedValueOnce(mockSimulationResult);
-
-    render(<AiAgentTabTestChat {...defaultProps} />);
-
-    const input = screen.getByPlaceholderText(/Digite uma mensagem para o Lizandro/i);
-    fireEvent.change(input, { target: { value: 'Oi' } });
-    fireEvent.click(screen.getByRole('button', { name: /Enviar/i }));
-
-    await waitFor(() => {
-      expect(screen.getByText('Olá! Como posso ajudar?')).toBeDefined();
-    });
-
-    // Clica em Nova Conversa
-    fireEvent.click(screen.getByText('Nova Conversa'));
-
-    expect(
-      screen.getByText(/Nova conversa iniciada. O contexto anterior foi reiniciado/i)
-    ).toBeDefined();
-    expect(screen.queryByText('Olá! Como posso ajudar?')).toBeNull();
-  });
-
   it('salva o caso de teste em localStorage ao clicar em "Salvar Teste"', async () => {
     const mockSimulationResult: orchestrator.SimulationTurnResult = {
+      executed: true,
       userQuery: 'Qual o valor do frete?',
       situation: null,
       matchedKeywords: [],
       articlesUsed: [],
+      workflowApplied: null,
       toolsCalled: [],
       aiResponseText: 'Entregamos em Curitiba e Região.',
       mandatoryPhrasesEnforced: [],
@@ -326,10 +327,12 @@ describe('AiAgentTabTestChat (Chat de Testes do Agente)', () => {
 
     // Turn 1
     mockSimulate.mockResolvedValueOnce({
+      executed: true,
       userQuery: 'Quero um sofá',
       situation: null,
       matchedKeywords: [],
       articlesUsed: [],
+      workflowApplied: null,
       toolsCalled: [],
       aiResponseText: 'Temos sofás retráteis e de canto. Qual você prefere?',
       mandatoryPhrasesEnforced: [],
@@ -350,10 +353,12 @@ describe('AiAgentTabTestChat (Chat de Testes do Agente)', () => {
 
     // Turn 2
     mockSimulate.mockResolvedValueOnce({
+      executed: true,
       userQuery: 'Retrátil na cor cinza',
       situation: null,
       matchedKeywords: [],
       articlesUsed: [],
+      workflowApplied: null,
       toolsCalled: [],
       aiResponseText: 'O modelo Madri retrátil cinza está disponível por R$ 1.890,00.',
       mandatoryPhrasesEnforced: [],
@@ -386,7 +391,7 @@ describe('AiAgentTabTestChat (Chat de Testes do Agente)', () => {
 
   it('trata erros de simulação graciosamente sem travar a interface', async () => {
     vi.spyOn(orchestrator, 'simulateWhatsAppAiTurn').mockRejectedValueOnce(
-      new Error('Erro de conexão com a API do Gemini (503 Service Unavailable)')
+      new Error('Erro de conexão com a API da OpenAI (503 Service Unavailable)')
     );
 
     render(<AiAgentTabTestChat {...defaultProps} />);
@@ -398,7 +403,7 @@ describe('AiAgentTabTestChat (Chat de Testes do Agente)', () => {
     await waitFor(() => {
       expect(
         screen.getByText(
-          /Erro na simulação do agente: Erro de conexão com a API do Gemini \(503 Service Unavailable\)/i
+          /Erro na simulação do agente: Erro de conexão com a API da OpenAI \(503 Service Unavailable\)/i
         )
       ).toBeDefined();
     });

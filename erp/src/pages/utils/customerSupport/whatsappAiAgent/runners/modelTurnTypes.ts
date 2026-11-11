@@ -32,5 +32,6 @@ export interface RunAiTurnResult {
   fallbackReason: string | null;
   errorInfo?: AiModelErrorInfo;
   quotaBlocked?: boolean;
+  handoffConfirmed?: boolean;
   reservationId?: string;
 }

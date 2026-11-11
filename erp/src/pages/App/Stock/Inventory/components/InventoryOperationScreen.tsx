@@ -191,11 +191,6 @@ export const InventoryOperationScreen: React.FC<InventoryOperationScreenProps> =
   };
 
   const handleQrScan = async (rawCode: string) => {
-    try {
-      await ensureOfflineInventoryCatalogSynced();
-    } catch (error) {
-      console.warn('[Inventory] Índice offline indisponível; usando os itens da sessão:', error);
-    }
     let directScopedItem = scannerItems.find((candidate) =>
       matchScannedProductItem(candidate, rawCode)
     );
@@ -203,6 +198,13 @@ export const InventoryOperationScreen: React.FC<InventoryOperationScreenProps> =
       !directScopedItem && isSupplierScanner
         ? supplierItems.find((candidate) => matchScannedProductItem(candidate, rawCode))
         : undefined;
+    if (!directScopedItem && !directOtherItem) {
+      try {
+        await ensureOfflineInventoryCatalogSynced();
+      } catch (error) {
+        console.warn('[Inventory] Índice offline indisponível; usando os itens da sessão:', error);
+      }
+    }
     let catalogItem: OfflineInventoryMatch | null = null;
     if (!directScopedItem && !directOtherItem) {
       try {

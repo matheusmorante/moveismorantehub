@@ -261,7 +261,7 @@ describe('sincronização do catálogo local de inventário', () => {
     expect(state.selections).toContainEqual({
       table: 'people',
       columns:
-        'id, person_type, full_name, social_name, nickname, email, position, address, active, deleted, updated_at',
+        'id, person_type, full_name, social_name, nickname, email, position, address, deleted, updated_at',
     });
     expect(state.selections).toContainEqual({
       table: 'people',

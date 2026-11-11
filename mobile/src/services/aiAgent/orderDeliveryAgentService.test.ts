@@ -71,7 +71,10 @@ describe('consulta de pedidos do assistente', () => {
     });
 
     await expect(
-      getOrderDeliveryDetails('11111111-1111-4111-8111-111111111111')
+      getOrderDeliveryDetails(
+        '11111111-1111-4111-8111-111111111111',
+        { logisticsScoped: true }
+      )
     ).rejects.toThrow(/não possui rota de entrega ou montagem vinculada ao seu escopo/);
 
     setActiveAgentPermissionContext(null);

@@ -1,17 +1,28 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { useController, useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import { toast } from 'react-toastify';
 import type {
   AiSituationRule,
   AiKnowledgeArticle,
   AiWorkflowConfig,
-} from '../../../../../../../shared-utils/whatsappAiAgentSchemas';
+} from '../../../../../../../../shared-utils/whatsappAiAgentSchemas';
 import {
   simulateWhatsAppAiTurn,
+  createSimulatorOpenAiFetch,
   type SimulationTurnResult,
 } from '@/pages/utils/customerSupport/whatsappAiAgent/whatsappAiAgentOrchestrator';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { getSettings } from '@/pages/utils/settings';
 import type { TestChatMessage } from './TestChatMessageBubble';
+
+const testMessageSchema = z.object({
+  message: z.string().trim().min(1, 'Digite uma mensagem para enviar.'),
+});
+const feedbackSchema = z.object({
+  comment: z.string().trim().min(1, 'Descreva a falha antes de salvar.'),
+});
 
 interface UseAiAgentTestChatParams {
   rules: AiSituationRule[];
@@ -37,14 +48,34 @@ export function useAiAgentTestChat({
     },
   ]);
 
-  const [inputText, setInputText] = useState('');
+  const messageForm = useForm<z.infer<typeof testMessageSchema>>({
+    resolver: zodResolver(testMessageSchema),
+    defaultValues: { message: '' },
+  });
+  const { field: messageField, fieldState: messageFieldState } = useController({
+    control: messageForm.control,
+    name: 'message',
+  });
+  const messageInputRef = messageField.ref;
+  const feedbackForm = useForm<z.infer<typeof feedbackSchema>>({
+    resolver: zodResolver(feedbackSchema),
+    defaultValues: { comment: '' },
+  });
+  const { field: feedbackField, fieldState: feedbackFieldState } = useController({
+    control: feedbackForm.control,
+    name: 'comment',
+  });
   const [isGenerating, setIsGenerating] = useState(false);
   const [selectedDiagnostic, setSelectedDiagnostic] = useState<SimulationTurnResult | null>(null);
   const [feedbackInputId, setFeedbackInputId] = useState<string | null>(null);
-  const [feedbackComment, setFeedbackComment] = useState('');
 
   const chatContainerRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const sending = useRef(false);
+  const setInputRef = useCallback((element: HTMLInputElement | null) => {
+    inputRef.current = element;
+    messageInputRef(element);
+  }, [messageInputRef]);
 
   // Auto-scroll para a última mensagem
   useEffect(() => {
@@ -53,85 +84,70 @@ export function useAiAgentTestChat({
     }
   }, [messages, isGenerating]);
 
-  const handleSendMessage = async (textToSend?: string) => {
-    const text = (textToSend ?? inputText).trim();
-    if (!text || isGenerating) return;
-
-    const userMessageId = `usr_${Date.now()}`;
-    const newUserMessage: TestChatMessage = {
-      id: userMessageId,
-      role: 'user',
-      text,
-      timestamp: new Date(),
-    };
-
-    const nextMessages = [...messages, newUserMessage];
-    setMessages(nextMessages);
-    setInputText('');
-    setIsGenerating(true);
-
-    try {
-      const currentSettings = getSettings();
-      // Formata histórico anterior para a simulação multi-turnos
-      const historyTurns = nextMessages
-        .filter((m) => m.id !== 'welcome-msg')
-        .map((m) => ({
-          role: m.role,
-          text: m.text,
-        }));
-
-      const simulationResult = await simulateWhatsAppAiTurn(
-        supabase,
+  const handleSendMessage = (textToSend?: string) => {
+    if (isGenerating || sending.current) return;
+    if (textToSend !== undefined) messageForm.setValue('message', textToSend);
+    sending.current = true;
+    void messageForm.handleSubmit(async ({ message: text }) => {
+      const userMessageId = `usr_${Date.now()}`;
+      const newUserMessage: TestChatMessage = {
+        id: userMessageId,
+        role: 'user',
         text,
-        {
-          enabled: true,
-          testMode: true,
-          testPhoneNumbers: ['5541999998888'],
-          systemPrompt,
-          enabledTools,
-          knowledgeBase,
-          situationRules: rules,
-          workflows,
-        },
-        currentSettings,
-        {},
-        historyTurns
-      );
-
-      const aiMessage: TestChatMessage = {
-        id: `ai_${Date.now()}`,
-        role: 'model',
-        text: simulationResult.aiResponseText || 'Não foi possível gerar a resposta no momento.',
-        timestamp: new Date(),
-        diagnostic: simulationResult,
-      };
-
-      setMessages((prev) => [...prev, aiMessage]);
-    } catch (err: any) {
-      const errMessage: TestChatMessage = {
-        id: `ai_err_${Date.now()}`,
-        role: 'model',
-        text: `Erro na simulação do agente: ${err?.message || 'Falha de comunicação com o modelo.'}`,
         timestamp: new Date(),
       };
-      setMessages((prev) => [...prev, errMessage]);
-    } finally {
-      setIsGenerating(false);
-      setTimeout(() => inputRef.current?.focus(), 50);
-    }
-  };
 
-  const handleNewConversation = () => {
-    setMessages([
-      {
-        id: `welcome-${Date.now()}`,
-        role: 'model',
-        text: 'Nova conversa iniciada. O contexto anterior foi reiniciado. Como posso te ajudar?',
-        timestamp: new Date(),
-      },
-    ]);
-    setSelectedDiagnostic(null);
-    toast.info('Sessão de testes reiniciada.');
+      const nextMessages = [...messages, newUserMessage];
+      setMessages(nextMessages);
+      messageForm.reset({ message: '' });
+      setIsGenerating(true);
+
+      try {
+        const currentSettings = getSettings();
+        const historyTurns = nextMessages
+          .filter((m) => m.id !== 'welcome-msg')
+          .map((m) => ({ role: m.role, text: m.text }));
+
+        const simulationResult = await simulateWhatsAppAiTurn(
+          supabase,
+          text,
+          {
+            enabled: true,
+            testMode: true,
+            testPhoneNumbers: ['5541999998888'],
+            systemPrompt,
+            enabledTools,
+            knowledgeBase,
+            situationRules: rules,
+            workflows,
+          },
+          currentSettings,
+          { fetchOpenAi: createSimulatorOpenAiFetch(supabase) },
+          historyTurns
+        );
+
+        const aiMessage: TestChatMessage = {
+          id: `ai_${Date.now()}`,
+          role: 'model',
+          text: simulationResult.aiResponseText || 'Não foi possível gerar a resposta no momento.',
+          timestamp: new Date(),
+          diagnostic: simulationResult,
+        };
+
+        setMessages((prev) => [...prev, aiMessage]);
+      } catch (err: any) {
+        const errMessage: TestChatMessage = {
+          id: `ai_err_${Date.now()}`,
+          role: 'model',
+          text: `Erro na simulação do agente: ${err?.message || 'Falha de comunicação com o modelo.'}`,
+          timestamp: new Date(),
+        };
+        setMessages((prev) => [...prev, errMessage]);
+      } finally {
+        setIsGenerating(false);
+        setTimeout(() => inputRef.current?.focus(), 50);
+      }
+    })().finally(() => { sending.current = false; });
   };
 
   const handleRateMessage = (messageId: string, rating: 'correct' | 'incorrect') => {
@@ -145,7 +161,7 @@ export function useAiAgentTestChat({
     );
     if (rating === 'incorrect') {
       setFeedbackInputId(messageId);
-      setFeedbackComment('');
+      feedbackForm.reset({ comment: '' });
     } else {
       setFeedbackInputId(null);
       toast.success('Resposta avaliada como correta!');
@@ -153,16 +169,13 @@ export function useAiAgentTestChat({
   };
 
   const handleSaveFeedbackComment = (messageId: string) => {
-    setMessages((prev) =>
-      prev.map((m) => {
-        if (m.id === messageId) {
-          return { ...m, ratingComment: feedbackComment.trim() };
-        }
-        return m;
-      })
-    );
-    setFeedbackInputId(null);
-    toast.success('Comentário de avaliação registrado!');
+    void feedbackForm.handleSubmit(({ comment }) => {
+      setMessages((prev) =>
+        prev.map((m) => m.id === messageId ? { ...m, ratingComment: comment } : m)
+      );
+      setFeedbackInputId(null);
+      toast.success('Comentário de avaliação registrado!');
+    })();
   };
 
   const handleSaveTestCase = () => {
@@ -190,18 +203,20 @@ export function useAiAgentTestChat({
 
   return {
     messages,
-    inputText,
-    setInputText,
+    inputText: messageField.value,
+    setInputText: messageField.onChange,
+    messageError: messageFieldState.error?.message,
     isGenerating,
     selectedDiagnostic,
     setSelectedDiagnostic,
     feedbackInputId,
-    feedbackComment,
-    setFeedbackComment,
+    feedbackComment: feedbackField.value,
+    setFeedbackComment: feedbackField.onChange,
+    feedbackInputRef: feedbackField.ref,
+    feedbackError: feedbackFieldState.error?.message,
     chatContainerRef,
-    inputRef,
+    inputRef: setInputRef,
     handleSendMessage,
-    handleNewConversation,
     handleRateMessage,
     handleSaveFeedbackComment,
     handleSaveTestCase,

@@ -254,12 +254,6 @@ export const mobileNavMenuItems: any[] = [
     bg: 'bg-pink-50 dark:bg-pink-900/20',
     links: [
       {
-        to: '/marketing/posts',
-        icon: 'bi-instagram',
-        iconColor: 'text-pink-500',
-        label: 'Gerador de Prompt para Posts',
-      },
-      {
         to: '/marketing/site-elements',
         icon: 'bi-images',
         iconColor: 'text-pink-500',
@@ -270,18 +264,6 @@ export const mobileNavMenuItems: any[] = [
         icon: 'bi-image',
         iconColor: 'text-pink-500',
         label: 'Modelos de imagem',
-      },
-      {
-        to: '/products/meta-catalog',
-        icon: 'bi-meta',
-        iconColor: 'text-blue-600',
-        label: 'Catálogo Meta',
-      },
-      {
-        to: '/registrations/whatsapp-marketplace',
-        icon: 'bi-whatsapp',
-        iconColor: 'text-green-500',
-        label: 'Marketplace WhatsApp',
       },
       {
         to: '/estoque/etiquetas?category=logos',

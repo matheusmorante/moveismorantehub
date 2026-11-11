@@ -1,6 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mocks = vi.hoisted(() => ({ fetchCategories: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  fetchCategories: vi.fn(),
+  createProduct: vi.fn(),
+  updateProduct: vi.fn(),
+  listProductMetadata: vi.fn(),
+}));
 
 vi.mock('../financial/mobileCategoryService', () => ({
   fetchFinancialCategories: mocks.fetchCategories,
@@ -16,8 +21,14 @@ vi.mock('./orderDeliveryAgentService', () => ({
   getOrderDeliveryDetails: vi.fn(),
   searchOrdersAndDeliveries: vi.fn(),
 }));
+vi.mock('../../../../shared-utils/agentProductOperations', () => ({
+  createProductForAgent: mocks.createProduct,
+  updateProductForAgent: mocks.updateProduct,
+  listProductCategoriesAndCharacteristicsForAgent: mocks.listProductMetadata,
+}));
 
 import { mobileAgentTools } from './mobileAgentTools';
+import { MobileToolDispatcher } from './mobileToolDispatcher';
 
 describe('criarMovimentacaoFinanceira', () => {
   beforeEach(() => {
@@ -53,5 +64,34 @@ describe('criarMovimentacaoFinanceira', () => {
     });
 
     expect(result).toMatchObject({ success: false, code: 'PERSONAL_CATEGORY_REQUIRED' });
+  });
+
+  it('despacha a criação de produto com perfil autorizado e encaminha o contexto ao handler', async () => {
+    mocks.createProduct.mockResolvedValueOnce({
+      success: true,
+      data: { codigo: '000999', nome: 'Sofá Retrátil' },
+    });
+    const permissionContext = { role: 'administrator', enforced: true };
+
+    const result = await MobileToolDispatcher.execute(
+      {
+        name: 'criarProduto',
+        args: {
+          nome: 'Sofá Retrátil',
+          categoria: 'Sofás',
+          marca: 'Morante',
+          precoVenda: 2990,
+          estoque: 2,
+        },
+      },
+      permissionContext
+    );
+
+    expect(result.record.result.success).toBe(true);
+    expect(mocks.createProduct).toHaveBeenCalledWith(
+      {},
+      expect.objectContaining({ nome: 'Sofá Retrátil', precoVenda: 2990 }),
+      true
+    );
   });
 });

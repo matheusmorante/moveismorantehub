@@ -162,6 +162,9 @@ export const VariationCompositionItemsTab: React.FC<VariationCompositionItemsTab
                           onSelect={(p, v) => handleSelectProduct(idx, p, v)}
                           clearOnSelect={false}
                           excludeCombos={true}
+                          filterCombosOnServer={true}
+                          compactComponentProjection={true}
+                          includeTrashEligibility={false}
                           placeholder="Buscar produto (mesmo fornecedor)"
                           inputClassName="w-full border-b border-slate-300 dark:border-slate-700 bg-transparent px-0 py-1 text-xs font-medium outline-none focus:border-blue-500 transition-colors"
                         />

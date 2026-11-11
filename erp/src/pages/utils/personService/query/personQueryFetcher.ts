@@ -19,12 +19,13 @@ export const getCurrentUserEmail = async (): Promise<string> =>
 
 export const fetchAllPeopleRows = async (
   collectionName: string,
-  includeDeleted: boolean
+  includeDeleted: boolean,
+  columns = PERSON_QUERY_COLUMNS
 ): Promise<any[]> => {
   const allRows: any[] = [];
 
   for (let firstRow = 0; ; firstRow += PEOPLE_FETCH_PAGE_SIZE) {
-    let query = supabase.from(TABLE_NAME).select(PERSON_QUERY_COLUMNS);
+    let query = supabase.from(TABLE_NAME).select(columns);
 
     if (includeDeleted) {
       query = query.eq('deleted', true);

@@ -262,11 +262,13 @@ export default function AIChatAssistant({
     const isCurrent = () => mountedRef.current && scopeRef.current === request.scope && !request.controller.signal.aborted;
     let toolDispatched = false;
     let success = false;
+    let clearedInput = false;
     if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
     recognitionRef.current?.stop(); setIsListening(false);
     try {
       await inputForm.validateAndRun({ text: originalInput, history: geminiHistory, pageContext: getAgentPageContext(location.pathname) }, async parsed => {
         if (!isCurrent()) return false;
+        if (inputRef.current === originalInput) { updateInput(''); clearedInput = true; }
         const nextMessages: ChatMessage[] = [...messages, { id: crypto.randomUUID(), role: 'user', content: parsed.text, timestamp: new Date() }];
         setMessages(nextMessages);
         const expired = Symbol('expired');
@@ -284,7 +286,6 @@ export default function AIChatAssistant({
         const response = receipt.data;
         const completed: ChatMessage[] = [...nextMessages, { id: crypto.randomUUID(), role: 'assistant', content: response.result.answer, timestamp: new Date(), executedTools: response.result.executedTools }];
         setGeminiHistory(response.updatedHistory); setMessages(completed);
-        if (inputRef.current === originalInput) updateInput('');
         success = true;
         await persistHistory(completed, response.updatedHistory, isCurrent);
         if (isCurrent()) speak(response.result.answer);
@@ -295,6 +296,7 @@ export default function AIChatAssistant({
       const knownFailure = failure instanceof Error && 'knownFailure' in failure && failure.knownFailure === true;
       if (!knownFailure) uncertainTextsRef.current.add(fingerprint);
       if (mountedRef.current) {
+        if (clearedInput && !inputRef.current) updateInput(originalInput);
         updateCallMode(false);
         const message = failure instanceof Error ? failure.message : 'Não foi possível confirmar a resposta do assistente.';
         showError(knownFailure ? message : `${message} Confira o resultado das ações no ERP antes de repetir esta mensagem.`);

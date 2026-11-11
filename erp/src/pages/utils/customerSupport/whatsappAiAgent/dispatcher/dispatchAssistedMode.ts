@@ -22,10 +22,11 @@ export async function dispatchAssistedMode(
     now,
     modelEffective,
     fallbackReason,
+    durableJob,
   } = params;
 
   const sendAt = now.toISOString();
-  const suggestionMessageId = `ai_sug_${Date.now()}`;
+  const suggestionMessageId = durableJob ? `ai_sug_${inbound.wamid}` : `ai_sug_${Date.now()}`;
   const rawPayload = buildAiMessagePayload({
     isSuggestion: true,
     authorName: 'Lizandro (Sugestão IA)',
@@ -50,6 +51,7 @@ export async function dispatchAssistedMode(
     rawPayload,
     sendAt,
     syncConversationLastMessage: false,
+    idempotent: !!durableJob,
   });
 
   markMessageProcessed(inbound.wamid);

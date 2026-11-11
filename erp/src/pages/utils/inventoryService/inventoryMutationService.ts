@@ -130,6 +130,12 @@ export const deleteInventoryMove = async (
     // Atualizar estado em memória
     removeMoveFromState(id);
 
+    // Inventário em andamento sem produto é apenas um marcador; não há saldo a recalcular.
+    if (!move.productId) {
+      notifyInventoryMoveMutation();
+      return;
+    }
+
     if (await recalculateInventoryAuditBalance(move.productId)) {
       notifyInventoryMoveMutation();
       return;

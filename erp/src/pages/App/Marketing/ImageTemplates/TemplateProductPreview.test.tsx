@@ -31,21 +31,26 @@ function Owner({ requiredImageCount = 1 }: { requiredImageCount?: number }) {
 beforeEach(() => {
   mocks.groups.mockReset().mockResolvedValue([{ id: 'cat-1', name: 'Móveis' }]);
   mocks.list.mockReset().mockResolvedValue({ rows: [
-    { id: 'p1', name: 'Sofá', code: '101', active: true }, { id: 'p2', name: 'Mesa', code: '102', active: true },
+    option(first), option(second),
   ], total: 2 });
   mocks.read.mockReset().mockImplementation(async (id: string) => id === 'p1' ? first : second);
 });
 afterEach(cleanup);
 
-it('seleciona produto e variação do ERP e pesquisa após três caracteres', async () => {
+const option = (source: typeof first) => ({ id: source.id, name: source.name, code: source.code, active: true,
+  previewSource: source, variationOptions: source.variations.map((variation) => ({ id: variation.id, name: variation.name,
+    sku: variation.sku, active: variation.active !== false })) });
+
+it('seleciona a variação diretamente na prévia e pesquisa após três caracteres', async () => {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(<QueryClientProvider client={client}><Owner /></QueryClientProvider>);
-  const variation = await screen.findByRole<HTMLSelectElement>('combobox', { name: 'Variação' });
+  const selection = await screen.findByRole<HTMLSelectElement>('combobox', { name: 'Prévia de um produto' });
+  await waitFor(() => expect(selection.value).toBe(JSON.stringify(['p1', 'v1'])));
   await waitFor(() => expect(screen.getByTestId('preview').textContent).toContain('90'));
-  fireEvent.change(variation, { target: { value: 'v2' } });
+  fireEvent.change(selection, { target: { value: JSON.stringify(['p1', 'v2']) } });
   expect(screen.getByTestId('preview').textContent).toContain('150');
   expect(screen.getByTestId('preview').textContent).toContain('cinza.jpg');
-  fireEvent.change(screen.getByRole('combobox', { name: 'Prévia de um produto' }), { target: { value: 'p2' } });
+  fireEvent.change(selection, { target: { value: JSON.stringify(['p2', '']) } });
   await waitFor(() => expect(screen.getByTestId('preview').textContent).toContain('mesa.jpg'));
   expect(screen.getByTestId('preview').textContent).toContain('300');
 
@@ -59,20 +64,25 @@ it('seleciona produto e variação do ERP e pesquisa após três caracteres', as
 it('solicita fotos até o índice máximo usado pelas camadas do formato', async () => {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(<QueryClientProvider client={client}><Owner requiredImageCount={12} /></QueryClientProvider>);
-  await screen.findByRole('combobox', { name: 'Variação' });
+  await screen.findByRole('combobox', { name: 'Prévia de um produto' });
   await waitFor(() => expect(mocks.read).toHaveBeenCalledWith('p1', expect.any(AbortSignal), 12));
 });
 
 it('filtra os produtos da prévia por categoria do ERP', async () => {
   mocks.list.mockReset().mockImplementation(async (_page: number, _search: string, _signal: AbortSignal, categoryId?: string) =>
-    categoryId ? { rows: [{ id: 'p2', name: 'Mesa', code: '102', active: true }], total: 1 }
-      : { rows: [{ id: 'p1', name: 'Sofá', code: '101', active: true }, { id: 'p2', name: 'Mesa', code: '102', active: true }], total: 2 });
+    categoryId ? { rows: [option(second)], total: 1 }
+      : { rows: [option(first), option(second)], total: 2 });
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(<QueryClientProvider client={client}><Owner /></QueryClientProvider>);
   const group = await screen.findByRole<HTMLSelectElement>('combobox', { name: 'Conjunto de produtos' });
-  await screen.findByRole('combobox', { name: 'Variação' });
+  const productSelect = await screen.findByRole<HTMLSelectElement>('combobox', { name: 'Prévia de um produto' });
   fireEvent.change(group, { target: { value: 'cat-1' } });
   await waitFor(() => expect(mocks.list).toHaveBeenCalledWith(1, '', expect.any(AbortSignal), 'cat-1'));
-  await waitFor(() => expect((screen.getByRole('combobox', { name: 'Prévia de um produto' }) as HTMLSelectElement).value).toBe('p2'));
+  await waitFor(() => expect(productSelect.value).toBe(JSON.stringify(['p1', 'v1'])));
+  await waitFor(() => expect(screen.getByTestId('preview').textContent).toContain('azul.jpg'));
+  fireEvent.change(productSelect, { target: { value: JSON.stringify(['p2', '']) } });
   await waitFor(() => expect(screen.getByTestId('preview').textContent).toContain('mesa.jpg'));
+  fireEvent.change(group, { target: { value: '' } });
+  await waitFor(() => expect(productSelect.value).toBe(JSON.stringify(['p2', ''])));
+  expect(screen.getByTestId('preview').textContent).toContain('mesa.jpg');
 });

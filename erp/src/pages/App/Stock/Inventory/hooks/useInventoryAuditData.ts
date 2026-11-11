@@ -1,7 +1,11 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import type Product from '@/pages/types/product.type';
 import type Person from '@/pages/types/person.type';
-import { fetchPersons } from '@/pages/utils/personService';
+import {
+  searchInventoryAuditEmployees,
+  syncMissingEmployeesFromProfiles,
+} from '@/pages/utils/personService';
+import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
 import {
   ensureOfflineInventoryCatalogSynced,
   getOfflineInventoryCatalogProducts,
@@ -14,17 +18,20 @@ export const useInventoryAuditData = (isOpen: boolean) => {
   const [suppliers, setSuppliers] = useState<Person[]>([]);
   const [employees, setEmployees] = useState<Person[]>([]);
   const [catalogSyncedAt, setCatalogSyncedAt] = useState<string | null>(null);
+  const employeeSyncPromise = useRef<Promise<unknown>>(Promise.resolve());
 
   useEffect(() => {
     if (!isOpen) return;
     let active = true;
-    void fetchPersons('employees')
-      .then((rows) => {
-        if (active) setEmployees(rows);
-      })
-      .catch((error: unknown) =>
-        console.warn('Não foi possível atualizar responsáveis do inventário:', error)
-      );
+    setEmployees([]);
+    employeeSyncPromise.current = withTimeout(
+      syncMissingEmployeesFromProfiles(),
+      15_000,
+      false,
+      'inventario:sincronizar-responsaveis'
+    ).catch((error: unknown) => {
+      if (active) console.warn('Não foi possível atualizar responsáveis do inventário:', error);
+    });
     void (async () => {
       const loadIndex = async () => {
         const [catalogProducts, catalogSuppliers] = await Promise.all([
@@ -45,6 +52,23 @@ export const useInventoryAuditData = (isOpen: boolean) => {
       active = false;
     };
   }, [isOpen]);
+
+  const searchEmployees = useCallback(
+    async (search: string, signal: AbortSignal) => {
+      await employeeSyncPromise.current;
+      if (signal.aborted) return [];
+      return searchInventoryAuditEmployees(search, signal);
+    },
+    []
+  );
+
+  const rememberEmployee = useCallback((employee: Person) => {
+    setEmployees((current) => {
+      const existingIndex = current.findIndex((item) => String(item.id) === String(employee.id));
+      if (existingIndex < 0) return [...current, employee];
+      return current.map((item, index) => index === existingIndex ? employee : item);
+    });
+  }, []);
 
   const getSupplierNames = useCallback(
     (product: Product) => {
@@ -68,5 +92,13 @@ export const useInventoryAuditData = (isOpen: boolean) => {
     [suppliers]
   );
 
-  return { allProducts, suppliers, employees, getSupplierNames, catalogSyncedAt };
+  return {
+    allProducts,
+    suppliers,
+    employees,
+    getSupplierNames,
+    catalogSyncedAt,
+    searchEmployees,
+    rememberEmployee,
+  };
 };

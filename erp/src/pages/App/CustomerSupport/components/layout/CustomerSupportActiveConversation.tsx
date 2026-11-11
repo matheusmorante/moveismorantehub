@@ -6,6 +6,7 @@ import type {
   CustomerSupportSendResult,
 } from '@/pages/utils/customerSupport/customerSupportService';
 import { ChatArea } from '../ChatArea';
+import type { ChatAreaProps } from '../chat/chatAreaTypes';
 import { CustomerInfoPanel } from '../CustomerInfoPanel';
 import { ActivityTimelineDrawer } from '../ActivityTimelineDrawer';
 
@@ -13,7 +14,7 @@ interface CustomerSupportActiveConversationProps {
   selectedConversation: WhatsAppConversation;
   agents: any[];
   isLoadingAgents: boolean;
-  agentsError: string;
+  agentsError: ChatAreaProps['agentsError'];
   reloadAgents: () => void;
   messages: WhatsAppMessage[];
   isLoadingMessages: boolean;
@@ -28,11 +29,11 @@ interface CustomerSupportActiveConversationProps {
   isTimelineOpen: boolean;
   onToggleTimeline: () => void;
   onCloseTimeline: () => void;
-  onToggleArchive: (conversation: WhatsAppConversation) => Promise<void>;
-  onToggleReadStatus: (conversation: WhatsAppConversation) => Promise<void>;
-  onAssign: (conversationId: string, assignedTo: string | null) => Promise<void>;
-  onUpdateStatus: (conversationId: string, status: any) => Promise<void>;
-  onUpdateAiStatus: (conversationId: string, status: any) => Promise<void>;
+  onToggleArchive: ChatAreaProps['onToggleArchive'];
+  onToggleReadStatus: NonNullable<ChatAreaProps['onToggleReadStatus']>;
+  onAssign: NonNullable<ChatAreaProps['onAssign']>;
+  onUpdateStatus: NonNullable<ChatAreaProps['onUpdateStatus']>;
+  onUpdateAiStatus: NonNullable<ChatAreaProps['onUpdateAiStatus']>;
   onAddInternalNote: (text: string) => Promise<boolean | void>;
   onSendCustomerMessage: (input: CustomerSupportSendInput) => Promise<CustomerSupportSendResult>;
   onRefreshMessages: () => Promise<void> | void;
@@ -43,7 +44,7 @@ interface CustomerSupportActiveConversationProps {
   clearJumpToMessage: () => void;
   shareOrderRequest: { conversationId: string; requestId: string; record: SupportOrderSummary } | null;
   onShareOrderRequestHandled: (requestId: string) => void;
-  onConversationUpdated: (updated: WhatsAppConversation) => void;
+  onConversationUpdated: (updated: Partial<WhatsAppConversation>) => void;
   onShareBudget: (record: SupportOrderSummary) => void;
   onJumpToMessageFromPanel: (message: WhatsAppMessage) => void;
   activityRefreshKey: string;

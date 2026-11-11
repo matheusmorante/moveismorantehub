@@ -5,9 +5,12 @@ import {
   triggerLocalNotification,
   initPushTokenListeners,
 } from '../services/notificationService';
-import { isIdentifiedTestArtifact } from '../../../shared-utils/testArtifactPolicy';
 import { fetchAppNotificationSummaries } from '../services/appNotificationQuery';
 import { AppState } from 'react-native';
+import {
+  APP_NOTIFICATION_REALTIME_EVENT,
+  APP_NOTIFICATION_REALTIME_TOPIC,
+} from '../../../shared-utils/appNotificationRealtime';
 
 interface NotificationContextProps {
   notifications: any[];
@@ -72,15 +75,15 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
 
     fetchNotifications();
 
-    // Listener Realtime
+    // Broadcast compacto evita transportar order_data; o pedido completo é lido ao abrir.
     const notifChannel = supabase
-      .channel('realtime-app-notifications')
+      .channel(APP_NOTIFICATION_REALTIME_TOPIC, { config: { private: true } })
       .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'app_notifications' },
-        async (payload) => {
-          const newNotif = payload.new;
-          if (signedOut.current || !newNotif || isIdentifiedTestArtifact(newNotif.order_data)) return;
+        'broadcast',
+        { event: APP_NOTIFICATION_REALTIME_EVENT },
+        ({ payload }) => {
+          const newNotif = payload;
+          if (signedOut.current || !newNotif?.id) return;
 
           if (seen.current.has(String(newNotif.id))) return;
           seen.current.add(String(newNotif.id));

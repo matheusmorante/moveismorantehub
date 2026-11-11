@@ -7,6 +7,7 @@ export const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-
 export type SendPayload = {
   conversationId: string;
   message: string;
+  aiSuggestionMessageId?: string;
   replyToWamid?: string;
   forwarded?: boolean;
   contact?: { name: string; phone: string };

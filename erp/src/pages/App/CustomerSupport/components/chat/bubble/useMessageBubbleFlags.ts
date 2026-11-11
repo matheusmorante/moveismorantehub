@@ -21,7 +21,8 @@ export function useMessageBubbleFlags(message: WhatsAppMessage) {
       /^Reação .+ a uma mensagem$/u.test(message.textContent || '') ||
       message.textContent === 'Reação removida de uma mensagem';
     const isAiMessage = isCustomerSupportAiMessage(message);
-    const isSuggestion = message.status === 'suggested' || message.rawPayload?.is_suggestion === true;
+    const isSuggestion = message.rawPayload?.accepted_ai_suggestion !== true &&
+      (message.status === 'suggested' || message.rawPayload?.is_suggestion === true);
     const isNonChatEvent = ['system', 'request_welcome'].includes(message.rawPayload?.provider_message_type);
 
     const timeFormatted = message.timestamp

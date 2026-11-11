@@ -23,6 +23,22 @@ export {
   sanitizeRawDbProductForAgent,
 };
 
+const AGENT_PRODUCT_METADATA_PAGE_SIZE = 200;
+
+const fetchAllAgentProductMetadata = async (buildPageQuery: (from: number, to: number) => any) => {
+  const rows: any[] = [];
+  for (let from = 0; ; from += AGENT_PRODUCT_METADATA_PAGE_SIZE) {
+    const { data, error } = await buildPageQuery(
+      from,
+      from + AGENT_PRODUCT_METADATA_PAGE_SIZE - 1
+    );
+    if (error) throw error;
+    const page = Array.isArray(data) ? data : [];
+    rows.push(...page);
+    if (page.length < AGENT_PRODUCT_METADATA_PAGE_SIZE) return rows;
+  }
+};
+
 export async function listProductCategoriesAndCharacteristicsForAgent(supabase: any): Promise<{
   success: boolean;
   data?: {
@@ -39,51 +55,40 @@ export async function listProductCategoriesAndCharacteristicsForAgent(supabase: 
   code?: string;
 }> {
   try {
-    let categorias: Array<{ nome: string; ambiente: boolean; ativo: boolean }> = [];
-    try {
-      const { data: catRows } = await supabase
-        .from('categories')
-        .select('name, is_environment, active')
-        .order('name', { ascending: true })
-        .limit(200);
-      if (Array.isArray(catRows)) {
-        categorias = catRows
-          .filter((c: any) => c?.name)
-          .map((c: any) => ({
-            nome: String(c.name),
-            ambiente: Boolean(c.is_environment),
-            ativo: c.active !== false,
-          }));
-      }
-    } catch {
-      // fallback silencioso
-    }
+    const [categoryRows, characteristicRows] = await Promise.all([
+      fetchAllAgentProductMetadata((from, to) =>
+        supabase
+          .from('categories')
+          .select('name, is_environment, active')
+          .order('name', { ascending: true })
+          .range(from, to)
+      ),
+      fetchAllAgentProductMetadata((from, to) =>
+        supabase
+          .from('product_characteristics')
+          .select('name, group_name, field_type, options')
+          .order('name', { ascending: true })
+          .range(from, to)
+      ),
+    ]);
 
-    let caracteristicas: Array<{
-      nome: string;
-      grupo?: string;
-      tipo?: string;
-      opcoes?: string[];
-    }> = [];
-    try {
-      const { data: charRows } = await supabase
-        .from('product_characteristics')
-        .select('name, group_name, field_type, options')
-        .order('name', { ascending: true })
-        .limit(200);
-      if (Array.isArray(charRows)) {
-        caracteristicas = charRows
-          .filter((ch: any) => ch?.name)
-          .map((ch: any) => ({
-            nome: String(ch.name),
-            grupo: ch.group_name ? String(ch.group_name) : undefined,
-            tipo: ch.field_type ? String(ch.field_type) : undefined,
-            opcoes: Array.isArray(ch.options) ? ch.options.map(String) : undefined,
-          }));
-      }
-    } catch {
-      // fallback silencioso
-    }
+    const categorias = categoryRows
+      .filter((category: any) => category?.name)
+      .map((category: any) => ({
+        nome: String(category.name),
+        ambiente: Boolean(category.is_environment),
+        ativo: category.active !== false,
+      }));
+    const caracteristicas = characteristicRows
+      .filter((characteristic: any) => characteristic?.name)
+      .map((characteristic: any) => ({
+        nome: String(characteristic.name),
+        grupo: characteristic.group_name ? String(characteristic.group_name) : undefined,
+        tipo: characteristic.field_type ? String(characteristic.field_type) : undefined,
+        opcoes: Array.isArray(characteristic.options)
+          ? characteristic.options.map(String)
+          : undefined,
+      }));
 
     return {
       success: true,
@@ -97,7 +102,7 @@ export async function listProductCategoriesAndCharacteristicsForAgent(supabase: 
     return {
       success: false,
       code: 'PRODUCT_METADATA_ERROR',
-      error: err?.message || 'Erro ao listar categorias e características de produtos.',
+      error: 'Não consegui carregar categorias e características agora. Tente novamente mais tarde.',
     };
   }
 }
@@ -124,7 +129,8 @@ async function resolveNextSequentialCode(supabase: any): Promise<string> {
 
 export async function createProductForAgent(
   supabase: any,
-  args: AgentCreateProductInput
+  args: AgentCreateProductInput,
+  canViewCost?: boolean
 ): Promise<{
   success: boolean;
   data?: SanitizedProductDetailForAgent;
@@ -283,7 +289,7 @@ export async function createProductForAgent(
     const sanitized = sanitizeRawDbProductForAgent({
       ...createdProduct,
       product_variations: insertedVars.length > 0 ? insertedVars : variationsToInsert,
-    });
+    }, canViewCost);
 
     return {
       success: true,
@@ -301,7 +307,8 @@ export async function createProductForAgent(
 
 export async function updateProductForAgent(
   supabase: any,
-  args: AgentUpdateProductInput
+  args: AgentUpdateProductInput,
+  canViewCost?: boolean
 ): Promise<{
   success: boolean;
   data?: SanitizedProductDetailForAgent;
@@ -576,7 +583,7 @@ export async function updateProductForAgent(
     const sanitized = sanitizeRawDbProductForAgent({
       ...updatedRow,
       product_variations: currentVars,
-    });
+    }, canViewCost);
 
     return {
       success: true,

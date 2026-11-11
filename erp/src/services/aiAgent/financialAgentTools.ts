@@ -5,6 +5,7 @@ import {
   normalizeFinancialPaymentMethod,
   normalizeFinancialDate,
   validateTransactionCategoryAndPurpose,
+  validateAgentDateRange,
 } from '../../../../shared-utils/agentFinancialOperations';
 import { financialPayableReceivableTools } from './financialPayableReceivableTools';
 import type { ToolExecutionResponse } from './geminiAgentTypes';
@@ -51,6 +52,8 @@ export const financialAgentTools = {
     limite?: number;
   }): Promise<ToolExecutionResponse> {
     try {
+      const rangeError = validateAgentDateRange(args.dataInicio, args.dataFim);
+      if (rangeError) return { success: false, code: 'INVALID_DATE_RANGE', error: rangeError };
       const limit = Math.min(Math.max(args.limite || 10, 1), 30);
       const { data, error } = await supabase.rpc('get_finance_assistant_movements', {
         p_search: args.termo?.trim() ? args.termo : null,
@@ -96,6 +99,8 @@ export const financialAgentTools = {
     dataFim?: string;
   }): Promise<ToolExecutionResponse> {
     try {
+      const rangeError = validateAgentDateRange(args.dataInicio, args.dataFim);
+      if (rangeError) return { success: false, code: 'INVALID_DATE_RANGE', error: rangeError };
       const summary = await financeService.getFinancialSummary(args.dataInicio, args.dataFim);
       return {
         success: true,

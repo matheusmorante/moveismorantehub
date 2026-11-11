@@ -28,7 +28,11 @@ export async function recordHandoffToHuman(
   const { conversationId, reason, isSilent = true, isSimulation = false } = options;
 
   // Guarda de isolamento: no ambiente de simulação/testes não altera registros reais do PostgreSQL
-  if (!conversationId || isSimulation || conversationId.startsWith('simulated_')) {
+  if (!conversationId) {
+    return { success: false, silentHandoff: isSilent, motivo: reason,
+      mensagem: 'Falha ao registrar intervenção humana.', erro: 'Conversa não identificada.' };
+  }
+  if (isSimulation || conversationId.startsWith('simulated_')) {
     return {
       success: true,
       simulated: true,
@@ -41,51 +45,10 @@ export async function recordHandoffToHuman(
   }
 
   try {
-    const { data: currentConv } = await supabase
-      .from('whatsapp_conversations')
-      .select('tags, internal_notes, ai_status')
-      .eq('id', conversationId)
-      .maybeSingle();
-
-    const tags = Array.isArray(currentConv?.tags) ? currentConv.tags : [];
-    const newTags = Array.from(new Set([...tags, 'atendimento_humano', 'intervencao_necessaria', 'aguardando_atendente']));
-
-    const nowIso = new Date().toISOString();
-    const dateStr = new Date().toLocaleDateString('pt-BR');
-    const timeStr = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-    const noteLine = `[${dateStr} ${timeStr}] Intervenção humana necessária: ${reason}`;
-    const updatedNotes = [currentConv?.internal_notes, noteLine].filter(Boolean).join('\n');
-
-    // 1. Atualiza estado da IA na conversa no banco
-    await supabase
-      .from('whatsapp_conversations')
-      .update({
-        ai_status: 'needs_human',
-        ai_handoff_reason: reason,
-        ai_handoff_at: nowIso,
-        tags: newTags,
-        internal_notes: updatedNotes,
-        updated_at: nowIso,
-      })
-      .eq('id', conversationId);
-
-    // 2. Grava nota interna em whatsapp_messages visível exclusivamente para atendentes
-    await supabase.from('whatsapp_messages').insert({
-      conversation_id: conversationId,
-      direction: 'outbound',
-      message_type: 'internal_note',
-      text_content: `⚠️ Intervenção humana necessária: ${reason}\nAviso interno — não enviado ao cliente.`,
-      status: 'delivered',
-      raw_payload: {
-        origin: 'customer_support_ai_agent',
-        is_internal_note: true,
-        author_name: 'Lizandro (IA)',
-        author_role: 'Assistente IA',
-        silent_handoff: isSilent,
-        handoff_reason: reason,
-      },
-      timestamp: nowIso,
+    const { data, error } = await supabase.rpc('customer_support_record_ai_handoff', {
+      p_conversation_id: conversationId, p_reason: reason, p_silent: isSilent,
     });
+    if (error || data !== true) throw new Error('conversation_handoff_unconfirmed');
 
     return {
       success: true,
@@ -101,7 +64,7 @@ export async function recordHandoffToHuman(
       silentHandoff: isSilent,
       motivo: reason,
       mensagem: 'Falha ao registrar intervenção humana.',
-      erro: 'Não foi possível transferir para atendente humano automaticamente no momento: ' + (err?.message || err),
+      erro: 'Não foi possível confirmar a transferência para atendente humano. Verifique a conversa no painel antes de continuar.',
     };
   }
 }

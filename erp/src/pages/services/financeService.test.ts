@@ -59,17 +59,19 @@ describe('finance list services', () => {
     });
   });
 
-  it('paginates payables beyond the PostgREST page cap and preserves the status filter', async () => {
-    const firstPage = Array.from({ length: 500 }, (_, index) => ({ id: `payable-${index}` }));
-    const lastPayable = { id: 'payable-after-first-page' };
-    mocks.pages = [firstPage, [lastPayable]];
+  it('loads one fixed server page of payables with status and search filters', async () => {
+    const items = [{ id: 'payable-1' }];
+    mocks.rpc.mockResolvedValueOnce({ data: { items, total_count: 501 }, error: null });
 
-    const rows = await financeService.getPayables('pending');
+    const result = await financeService.getPayables('pending', 'cafe energia', 2);
 
-    expect(rows).toHaveLength(501);
-    expect(rows.at(-1)).toEqual(lastPayable);
-    expect(mocks.rangeCalls).toEqual([[0, 499], [500, 999]]);
-    expect(mocks.statusFilters).toEqual(['pending', 'pending']);
+    expect(result).toEqual({ items, total_count: 501 });
+    expect(mocks.rpc).toHaveBeenCalledWith('get_finance_payables_page', {
+      p_status: 'pending',
+      p_search: 'cafe energia',
+      p_page: 2,
+    });
+    expect(mocks.from).not.toHaveBeenCalled();
   });
 
   it('propagates query errors from receivables instead of returning a partial list', async () => {

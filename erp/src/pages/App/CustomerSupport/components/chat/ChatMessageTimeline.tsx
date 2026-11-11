@@ -1,5 +1,6 @@
 import React from 'react';
 import type { WhatsAppMessage } from '../../types';
+import type { CustomerSupportSendResult } from '@/pages/utils/customerSupport/customerSupportService';
 import { MessageBubble } from '../MessageBubble';
 import { useCustomerSupportMessageSearch } from '../../hooks/useCustomerSupportMessageSearch';
 import {
@@ -30,6 +31,8 @@ interface ChatMessageTimelineProps {
   ) => void;
   onResolveReplyTarget?: (reference: { conversationId: string; messageId: string | null; apiMessageId: string | null }) => Promise<WhatsAppMessage | null>;
   onJumpToMessage?: (message: WhatsAppMessage) => void;
+  onApproveAiSuggestion?: (message: WhatsAppMessage) => Promise<CustomerSupportSendResult>;
+  aiSuggestionAuthorName?: string;
   jumpToMessageId?: string | null;
   onJumpComplete?: () => void;
   error?: string;
@@ -51,6 +54,8 @@ export const ChatMessageTimeline: React.FC<ChatMessageTimelineProps> = ({
   onSelectMessage,
   onResolveReplyTarget,
   onJumpToMessage,
+  onApproveAiSuggestion,
+  aiSuggestionAuthorName,
   jumpToMessageId = null,
   onJumpComplete,
 }) => {
@@ -154,6 +159,8 @@ export const ChatMessageTimeline: React.FC<ChatMessageTimelineProps> = ({
                   onSelectMessage={onSelectMessage}
                   onResolveReplyTarget={onResolveReplyTarget}
                   onJumpToMessage={onJumpToMessage}
+                  onApproveAiSuggestion={onApproveAiSuggestion}
+                  aiSuggestionAuthorName={aiSuggestionAuthorName}
                 />
               </div>
             ))}

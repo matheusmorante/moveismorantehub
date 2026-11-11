@@ -3,6 +3,7 @@ import { useAuth } from '@/context/AuthContext';
 import { canPerform } from '@/pages/utils/permissionService';
 import { getProfileRoles } from '@/pages/utils/accessRoles';
 import { supabase } from '@/pages/utils/supabaseConfig';
+import { useWhatsAppAiAgentSwitch } from './useWhatsAppAiAgentSwitch';
 import {
   useCustomerSupportConversations,
   useCustomerSupportMessages,
@@ -15,7 +16,8 @@ import { useCustomerSupportPageActions } from './pageController/useCustomerSuppo
 import { useCustomerSupportSelectionAndFilters } from './pageController/useCustomerSupportSelectionAndFilters';
 
 export function useCustomerSupportPageController() {
-  const { user, profile } = useAuth();
+  const { user, profile, isAdministrator } = useAuth();
+  const { aiAgentConfig, isAiAgentEnabled, isAgentStatusKnown, isTogglingAiAgent, handleToggleAiAgent } = useWhatsAppAiAgentSwitch(isAdministrator);
   const [isInfoPanelOpen, setIsInfoPanelOpen] = useState(false);
   const [isTimelineOpen, setIsTimelineOpen] = useState(false);
   const [isAiAgentModalOpen, setIsAiAgentModalOpen] = useState(false);
@@ -103,7 +105,7 @@ export function useCustomerSupportPageController() {
     jumpToMessageId,
     clearJumpToMessage,
   } = useCustomerSupportMessages({
-    conversationId: selectedConversation?.id || null,
+    selectedConversation,
   });
 
   const currentUserName = profile?.full_name || user?.email || 'Atendente';
@@ -173,6 +175,12 @@ export function useCustomerSupportPageController() {
     setIsTimelineOpen,
     isAiAgentModalOpen,
     setIsAiAgentModalOpen,
+    aiAgentConfig,
+    isAiAgentEnabled,
+    isAgentStatusKnown,
+    isAdministrator,
+    isTogglingAiAgent,
+    handleToggleAiAgent,
     shareOrderRequest,
     agents,
     isLoadingAgents,

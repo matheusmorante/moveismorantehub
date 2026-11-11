@@ -384,13 +384,13 @@ export function QuickRegisterVariationModal({
                   <p className="text-[11px] font-black uppercase tracking-wider text-slate-500">Como deseja cadastrar?</p>
                   <div className="grid gap-2 sm:grid-cols-3">
                     <button type="button" onClick={() => setMode('SIMPLE')} aria-pressed={mode === 'SIMPLE'} className={`rounded-2xl border p-3 text-left transition-colors ${mode === 'SIMPLE' ? 'border-indigo-600 bg-indigo-50 text-indigo-800 dark:bg-indigo-950/40 dark:text-indigo-200' : 'border-slate-200 text-slate-600 dark:border-slate-700 dark:text-slate-300'}`}>
-                      <span className="block text-xs font-black">Produto simples</span><span className="mt-1 block text-[10px]">Produto independente, com uma variação.</span>
+                      <span className="block text-xs font-black">Novo produto simples</span><span className="mt-1 block text-[10px]">Produto independente, com uma variação.</span>
                     </button>
                     <button type="button" onClick={() => setMode('EXISTING_PARENT')} aria-pressed={mode === 'EXISTING_PARENT'} className={`rounded-2xl border p-3 text-left transition-colors ${mode === 'EXISTING_PARENT' ? 'border-indigo-600 bg-indigo-50 text-indigo-800 dark:bg-indigo-950/40 dark:text-indigo-200' : 'border-slate-200 text-slate-600 dark:border-slate-700 dark:text-slate-300'}`}>
-                      <span className="block text-xs font-black">Variação de produto existente</span><span className="mt-1 block text-[10px]">Herda os dados globais do produto pai.</span>
+                      <span className="block text-xs font-black">Nova variação de um produto existente</span><span className="mt-1 block text-[10px]">Herda os dados globais do produto pai.</span>
                     </button>
                     <button type="button" onClick={() => setMode('COMPOSITION')} aria-pressed={mode === 'COMPOSITION'} className={`rounded-2xl border p-3 text-left transition-colors ${mode === 'COMPOSITION' ? 'border-indigo-600 bg-indigo-50 text-indigo-800 dark:bg-indigo-950/40 dark:text-indigo-200' : 'border-slate-200 text-slate-600 dark:border-slate-700 dark:text-slate-300'}`}>
-                      <span className="block text-xs font-black">Produto composto</span><span className="mt-1 block text-[10px]">Selecione os componentes e suas quantidades.</span>
+                      <span className="block text-xs font-black">Novo produto composto</span><span className="mt-1 block text-[10px]">Selecione os componentes e suas quantidades.</span>
                     </button>
                   </div>
                 </div>

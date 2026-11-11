@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { isLayerVisible, type ImageLayout, type TemplatePreviewProduct } from '../../../../../../shared-utils/catalogImageTemplate';
+import { isTemplateLayerVisible, type ImageLayout, type TemplatePreviewProduct } from '../../../../../../shared-utils/catalogImageTemplate';
 import { assetSource, imageTemplateError, readTemplateAssets, type TemplateAsset } from './imageTemplateService';
 
 export function useTemplateAssets(layout: ImageLayout, product: TemplatePreviewProduct | null, pending: ReadonlyMap<string, TemplateAsset>) {
@@ -7,7 +7,7 @@ export function useTemplateAssets(layout: ImageLayout, product: TemplatePreviewP
   const [error, setError] = useState('');
   const [attempt, setAttempt] = useState(0);
   const missing = [...new Set(layout.layers.flatMap((layer) => layer.type === 'image' && layer.assetId
-    && isLayerVisible(layer, product) && !pending.has(layer.assetId) && !stored.has(layer.assetId) ? [layer.assetId] : []))].sort().join(',');
+    && isTemplateLayerVisible(layout, layer, product) && !pending.has(layer.assetId) && !stored.has(layer.assetId) ? [layer.assetId] : []))].sort().join(',');
 
   useEffect(() => {
     setError('');

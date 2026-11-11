@@ -1,15 +1,15 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '@/pages/utils/supabaseConfig';
 
 type Agent = {
   id: string;
   name: string;
-  created_at: string;
   last_seen_at: string | null;
   mine: boolean;
 };
 
 const agentApi = '/api/label-print-agents';
+const REMOTE_AGENT_LIST_REFRESH_INTERVAL_MS = 30_000;
 const localAgent = 'http://127.0.0.1:40405';
 type LocalAgentState = 'checking' | 'offline' | 'ready' | 'paired';
 
@@ -41,27 +41,32 @@ export const LabelPrintAgentPanel: React.FC = () => {
   const [localState, setLocalState] = useState<LocalAgentState>('checking');
   const [workingId, setWorkingId] = useState('');
   const [message, setMessage] = useState('');
+  const agentListVersion = useRef(0);
   const mobile = window.location.pathname === '/mobile/etiquetas' ||
     (typeof window.matchMedia === 'function' && window.matchMedia('(pointer: coarse)').matches);
 
   const refresh = useCallback(async () => {
     if (mobile) return;
+    const version = agentListVersion.current;
     try {
       const token = await accessToken();
       const data = await responseJson(await fetch(agentApi, { headers: { Authorization: `Bearer ${token}` } }));
+      if (version !== agentListVersion.current) return;
       setAgents(Array.isArray(data.agents) ? data.agents : []);
       setMessage('');
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Não foi possível consultar as estações.');
+      if (version === agentListVersion.current) {
+        setMessage(error instanceof Error ? error.message : 'Não foi possível consultar as estações.');
+      }
     } finally {
-      setLoading(false);
+      if (version === agentListVersion.current) setLoading(false);
     }
   }, [mobile]);
 
   useEffect(() => {
     if (mobile) return;
     void refresh();
-    const timer = window.setInterval(() => void refresh(), 15_000);
+    const timer = window.setInterval(() => void refresh(), REMOTE_AGENT_LIST_REFRESH_INTERVAL_MS);
     return () => window.clearInterval(timer);
   }, [mobile, refresh]);
 
@@ -142,8 +147,9 @@ export const LabelPrintAgentPanel: React.FC = () => {
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ action: 'revoke', id }),
       }));
+      agentListVersion.current += 1;
+      setAgents((current) => current.filter((agent) => agent.id !== id));
       setMessage('Estação desconectada.');
-      await refresh();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Não foi possível desconectar a estação.');
     } finally {

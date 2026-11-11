@@ -12,6 +12,7 @@ import { retrieveRelevantKnowledge } from '@/pages/utils/customerSupport/whatsap
 import { findApplicableWorkflow } from '@/pages/utils/customerSupport/whatsappAiAgent/whatsappAiWorkflowEngine';
 import {
   simulateWhatsAppAiTurn,
+  createSimulatorOpenAiFetch,
   type SimulationTurnResult,
 } from '@/pages/utils/customerSupport/whatsappAiAgent/whatsappAiAgentOrchestrator';
 import { supabase } from '@/pages/utils/supabaseConfig';
@@ -96,7 +97,8 @@ export const AiAgentTabSimulator: React.FC<AiAgentTabSimulatorProps> = memo(({
           situationRules: rules,
           workflows,
         },
-        currentSettings
+        currentSettings,
+        { fetchOpenAi: createSimulatorOpenAiFetch(supabase) }
       );
       setRealResult(res);
     } catch (err: any) {

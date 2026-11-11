@@ -1,10 +1,12 @@
 import { createClient } from '@supabase/supabase-js';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { timingSafeEqual } from 'node:crypto';
 import processor from '../server/customer-support/whatsapp-processor.cjs';
 
 const {
   parseMetaStatusFailure,
   processWhatsAppWebhookPayload,
+  processDurableAiJob,
   readRawWebhookBody,
   verifyMetaSignature,
 } = processor;
@@ -46,6 +48,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'OPTIONS') return res.status(200).end();
 
   const operation = req.query.operation as string | undefined;
+  if (operation === 'ai-recovery') {
+    if (req.method !== 'GET') return res.status(405).end();
+    const secret = process.env.CRON_SECRET?.trim() || '';
+    if (!secret || !supabaseServiceKey) return res.status(503).json({ error: 'Recuperação indisponível.' });
+    const received = Buffer.from(String(req.headers.authorization || ''));
+    const expected = Buffer.from(`Bearer ${secret}`);
+    if (received.length !== expected.length || !timingSafeEqual(received, expected)) return res.status(401).end();
+    try {
+      const supabase = createClient(supabaseUrl, supabaseServiceKey, { auth: { persistSession: false, autoRefreshToken: false } });
+      return res.status(200).json({ processed: await processDurableAiJob(supabase) });
+    } catch {
+      return res.status(503).json({ error: 'Não foi possível recuperar o atendimento pendente.' });
+    }
+  }
   if (operation === 'dispatch') {
     const dispatchModule = await import('../../api/whatsapp-dispatch.js');
     const handleTestDispatch = resolveSharedHandler(dispatchModule, 'createWhatsAppTestDispatchHandler');

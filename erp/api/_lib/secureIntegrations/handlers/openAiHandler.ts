@@ -68,11 +68,20 @@ export async function handleOpenAi(req: VercelRequest, res: VercelResponse): Pro
     typeof body.moduleSource === 'string' && /^[a-z0-9_.:-]{1,80}$/i.test(body.moduleSource)
       ? body.moduleSource
       : 'openai_proxy';
+  const isSupportSimulator = moduleSource === 'whatsapp_ai_simulator' && isResponses;
+  if (isSupportSimulator) {
+    const requestedOutput = Number(requestBody.max_output_tokens);
+    requestBody = { ...requestBody, max_output_tokens: Number.isInteger(requestedOutput) && requestedOutput > 0
+      ? Math.min(requestedOutput, 2048) : 2048 };
+  }
+  const estimatedTokens = isSupportSimulator
+    ? new TextEncoder().encode(JSON.stringify(requestBody)).length * 2 + 3072
+    : isEmbeddings ? 1000 : 1500;
   const quota = await checkAiQuotaOrReject(
     context.userDb,
     'openai',
     'openai_gpt',
-    isEmbeddings ? 1000 : 1500,
+    estimatedTokens,
     moduleSource,
     res
   );
@@ -80,6 +89,7 @@ export async function handleOpenAi(req: VercelRequest, res: VercelResponse): Pro
 
   const reservationId = quota.reservationId;
   let committed = false;
+  let upstreamResponseReceived = false;
   const startTime = Date.now();
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 45_000);
@@ -95,16 +105,24 @@ export async function handleOpenAi(req: VercelRequest, res: VercelResponse): Pro
       body: JSON.stringify(upstreamBody),
       signal: controller.signal,
     });
+    upstreamResponseReceived = true;
     const data = await response.json().catch(() => ({}));
 
     // Registro atômico de tokens e custos em BRL
     const usage = (data as any)?.usage;
+    if (isSupportSimulator && response.ok && (!Number.isFinite(usage?.input_tokens) || !Number.isFinite(usage?.output_tokens))) {
+      return res.status(502).json({ error: 'O consumo da chamada não foi confirmado.' });
+    }
+    if (isSupportSimulator && !response.ok && response.status >= 500) {
+      return res.status(response.status).json(data);
+    }
     const promptTokens = Number(usage?.input_tokens ?? usage?.prompt_tokens ?? 0);
     const completionTokens = Number(usage?.output_tokens ?? usage?.completion_tokens ?? 0);
     const totalTokens = Number(usage?.total_tokens || 0) || promptTokens + completionTokens;
-    const cachedTokens = Number(usage?.prompt_tokens_details?.cached_tokens ?? usage?.cached_tokens ?? 0);
+    const cachedTokens = Number(usage?.input_tokens_details?.cached_tokens ?? usage?.prompt_tokens_details?.cached_tokens ?? usage?.cached_tokens ?? 0);
 
-    recordAiUsageTokensSafe(context.userDb, {
+    committed = true;
+    const usageRecorded = await recordAiUsageTokensSafe(context.userDb, {
       provider: 'openai',
       service: 'openai_gpt',
       operation: endpoint,
@@ -117,15 +135,22 @@ export async function handleOpenAi(req: VercelRequest, res: VercelResponse): Pro
       reservationId,
       cachedTokens,
     });
-    committed = true;
+
+    if (!usageRecorded) {
+      return res.status(502).json({
+        error: 'A resposta foi gerada, mas o registro de consumo não foi confirmado. Confira o histórico antes de repetir.',
+      });
+    }
 
     return res.status(response.status).json(isAgentCompat ? parseOpenAiAgentResponse(data) : data);
   } catch {
     return res.status(controller.signal.aborted ? 504 : 502).json({ error: 'Não foi possível consultar a OpenAI.' });
   } finally {
     clearTimeout(timeout);
-    if (!committed && reservationId) {
-      releaseAiReservationSafe(context.userDb, reservationId);
+    // Uma falha de rede não confirma que a OpenAI deixou de processar a
+    // solicitação do simulador. Preserve a reserva enquanto o custo é incerto.
+    if (!isSupportSimulator && !upstreamResponseReceived && !committed && reservationId) {
+      await releaseAiReservationSafe(context.userDb, reservationId);
     }
   }
 }

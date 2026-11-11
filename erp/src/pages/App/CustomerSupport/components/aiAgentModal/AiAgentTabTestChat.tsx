@@ -20,7 +20,11 @@ export interface AiAgentTabTestChatProps {
   workflows: AiWorkflowConfig[];
   enabledTools?: string[];
   systemPrompt?: string;
-  isAdministrator: boolean;
+  supportMode: 'automatico' | 'assistido' | 'humano';
+  isAiAgentEnabled: boolean;
+  isAgentStatusKnown: boolean;
+  onOpenSettings: () => void;
+  onBack: () => void;
 }
 
 export type { TestChatMessage };
@@ -31,21 +35,28 @@ export const AiAgentTabTestChat: React.FC<AiAgentTabTestChatProps> = memo(({
   workflows,
   enabledTools = [],
   systemPrompt,
+  supportMode,
+  isAiAgentEnabled,
+  isAgentStatusKnown,
+  onOpenSettings,
+  onBack,
 }) => {
   const {
     messages,
     inputText,
     setInputText,
+    messageError,
     isGenerating,
     selectedDiagnostic,
     setSelectedDiagnostic,
     feedbackInputId,
     feedbackComment,
     setFeedbackComment,
+    feedbackInputRef,
+    feedbackError,
     chatContainerRef,
     inputRef,
     handleSendMessage,
-    handleNewConversation,
     handleRateMessage,
     handleSaveFeedbackComment,
     handleSaveTestCase,
@@ -58,11 +69,15 @@ export const AiAgentTabTestChat: React.FC<AiAgentTabTestChatProps> = memo(({
   });
 
   return (
-    <div className="flex flex-col h-[68vh] min-h-[500px] bg-slate-100 dark:bg-slate-950 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden relative">
+    <div className="flex flex-col w-full h-full min-h-0 min-w-0 bg-slate-100 dark:bg-slate-950 overflow-hidden relative">
       {/* Barra Superior do Chat */}
       <TestChatHeader
         onSaveTestCase={handleSaveTestCase}
-        onNewConversation={handleNewConversation}
+        onBack={onBack}
+        onOpenSettings={onOpenSettings}
+        supportMode={supportMode}
+        isAiAgentEnabled={isAiAgentEnabled}
+        isAgentStatusKnown={isAgentStatusKnown}
       />
 
       {/* Área Rolável de Mensagens (Visual WhatsApp) */}
@@ -79,6 +94,8 @@ export const AiAgentTabTestChat: React.FC<AiAgentTabTestChatProps> = memo(({
             feedbackInputId={feedbackInputId}
             feedbackComment={feedbackComment}
             setFeedbackComment={setFeedbackComment}
+            feedbackInputRef={feedbackInputRef}
+            feedbackError={feedbackError}
             onSaveFeedbackComment={handleSaveFeedbackComment}
           />
         ))}
@@ -105,6 +122,7 @@ export const AiAgentTabTestChat: React.FC<AiAgentTabTestChatProps> = memo(({
         inputRef={inputRef}
         inputText={inputText}
         setInputText={setInputText}
+        error={messageError}
         isGenerating={isGenerating}
         onSendMessage={() => handleSendMessage()}
       />

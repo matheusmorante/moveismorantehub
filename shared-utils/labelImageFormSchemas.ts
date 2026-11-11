@@ -2,7 +2,10 @@ import { z } from 'zod';
 import { imageFilesFormSchema } from './fileFormSchemas';
 import { labelAssetFormSchema } from './labelDesignFormSchemas';
 
-export const labelImageQueryFormSchema = z.object({ sort: z.enum(['newest', 'oldest']) });
+export const labelImageQueryFormSchema = z.object({
+  sort: z.enum(['newest', 'oldest']),
+  page: z.number().int().nonnegative().default(0),
+});
 export const labelImageUploadFormSchema = imageFilesFormSchema.extend({ name: labelAssetFormSchema.shape.name, category: z.enum(['identificacao', 'precos', 'logos', 'posts']) });
 export const labelImageCreateFormSchema = labelAssetFormSchema.extend({ category: z.enum(['identificacao', 'precos', 'logos', 'posts']) });
 const imageId = z.number().int().positive('Imagem não identificada.');

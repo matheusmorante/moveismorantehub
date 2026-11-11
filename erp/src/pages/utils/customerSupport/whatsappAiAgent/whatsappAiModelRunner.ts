@@ -11,10 +11,6 @@ import {
   type RunAiTurnWithFallbackOptions,
   type RunAiTurnResult,
 } from './runners/modelTurnTypes.js';
-import {
-  checkAndReserveAiQuota,
-  releaseAiQuotaReservation,
-} from './runners/quotaReservationGuard.js';
 
 export {
   type AiModelErrorType,
@@ -49,20 +45,7 @@ export async function runAiTurnWithFallback(
   const apiKey = openAiApiKey?.trim();
   if (!apiKey) throw new Error('OPENAI_API_KEY não configurada para o agente de atendimento.');
 
-  const quotaCheck = await checkAndReserveAiQuota(
-    supabase,
-    'openai',
-    model,
-    toolContext
-  );
-
-  if (quotaCheck.blocked && quotaCheck.blockedResult) {
-    return quotaCheck.blockedResult;
-  }
-
-  let reservationCommitted = false;
-  try {
-    const result = await executeOpenAiTurnLoop({
+  const result = await executeOpenAiTurnLoop({
       fetchOpenAi,
       apiKey,
       model,
@@ -72,20 +55,14 @@ export async function runAiTurnWithFallback(
       supabase,
       toolContext: toolContext || {},
       onToolExecuted,
-      reservationId: quotaCheck.reservationId,
     });
-    reservationCommitted = result.reservationCommitted;
-    return {
+  if (result.quotaBlockedResult) return result.quotaBlockedResult;
+  return {
       text: result.text,
       toolsCalled: result.toolsCalled,
       modelRequested: modelToUse || model,
       modelEffective: model,
       fallbackReason: null,
-      reservationId: quotaCheck.reservationId,
+      handoffConfirmed: result.handoffConfirmed,
     };
-  } finally {
-    if (!reservationCommitted) {
-      await releaseAiQuotaReservation(supabase, quotaCheck.reservationId);
-    }
-  }
 }

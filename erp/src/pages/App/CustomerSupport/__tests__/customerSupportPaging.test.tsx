@@ -3,6 +3,7 @@ import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useCustomerSupportConversations } from '../hooks/useCustomerSupportConversations';
 import { useCustomerSupportMessages } from '../hooks/useCustomerSupportMessages';
+import { useCustomerSupportPageController } from '../hooks/useCustomerSupportPageController';
 import type { WhatsAppConversation, WhatsAppMessage } from '../types';
 
 const mocks = vi.hoisted(() => ({ fetchConversations: vi.fn(), fetchConversationCounts: vi.fn(),
@@ -23,6 +24,23 @@ vi.mock('@/pages/utils/supabaseConfig', () => ({ supabase: {
     return this;
   }, subscribe() { return this; } }), removeChannel: vi.fn(),
 } }));
+vi.mock('@/context/AuthContext', () => ({
+  useAuth: () => ({ user: { id: 'operator' }, profile: { role: 'administrator' }, isAdministrator: true }),
+}));
+vi.mock('@/pages/utils/permissionService', () => ({ canPerform: () => true }));
+vi.mock('@/pages/utils/accessRoles', () => ({ getProfileRoles: () => ['administrator'] }));
+vi.mock('../hooks/useWhatsAppAiAgentSwitch', () => ({
+  useWhatsAppAiAgentSwitch: () => ({ isAiAgentEnabled: false, isAgentStatusKnown: true, isTogglingAiAgent: false, handleToggleAiAgent: vi.fn() }),
+}));
+vi.mock('../hooks/useCustomerSupportPanelLayout', () => ({
+  useCustomerSupportPanelLayout: () => ({ isMobileViewport: false, setIsMobileInboxOpen: vi.fn(), setIsConversationSidebarOpen: vi.fn() }),
+}));
+vi.mock('../hooks/useCustomerSupportAgents', () => ({
+  useCustomerSupportAgents: () => ({ activeAgentId: null, setActiveAgentId: vi.fn(), agents: [], reloadAgents: vi.fn() }),
+}));
+vi.mock('../hooks/pageController/useCustomerSupportFolderManagement', () => ({
+  useCustomerSupportFolderManagement: () => ({ folders: [], selectedFolder: null, handleDeleteFolder: vi.fn() }),
+}));
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -45,6 +63,20 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.resetAllMocks(); });
 
 describe('Paginação da Inbox', () => {
+  it('carrega as mensagens da conversa selecionada e limpa o histórico ao voltar ao teste de IA', async () => {
+    mocks.fetchConversationMessages.mockResolvedValueOnce(
+      messages(2, 'cliente').map((message) => ({ ...message, conversationId: 'cliente-a' }))
+    );
+    const { result } = renderHook(() => useCustomerSupportPageController());
+    await waitFor(() => expect(result.current.isLoadingConversations).toBe(false));
+    const selected = conversation('cliente-a');
+    act(() => result.current.handleSelectConversation(selected));
+    await waitFor(() => expect(mocks.fetchConversationMessages).toHaveBeenCalledWith(expect.anything(), 'cliente-a', 80));
+    await waitFor(() => expect(result.current.messages.map((message) => message.id)).toEqual(['cliente-0', 'cliente-1']));
+    act(() => result.current.setSelectedConversation(null));
+    await waitFor(() => expect(result.current.messages).toHaveLength(0));
+  });
+
   it('resolve citações só na conversa ativa e injeta a origem na timeline ao saltar', async () => {
     const source = { id: 'source', conversationId: 'a', timestamp: '2026-10-21T11:00:00Z' } as WhatsAppMessage;
     mocks.fetchConversationReplyTarget.mockResolvedValue(source);

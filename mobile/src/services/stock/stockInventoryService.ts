@@ -14,7 +14,9 @@ export {
 
 export {
   fetchInventorySessions,
+  fetchInventorySessionsWithStatus,
   getNextInventoryCode,
+  getNextInventoryCodes,
   fetchInventorySessionDetails,
 } from './inventory/inventorySessionQueryService';
 

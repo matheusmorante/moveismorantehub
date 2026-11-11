@@ -7,8 +7,7 @@ export type AiAgentTabKey =
   | 'fluxos'
   | 'ferramentas'
   | 'limites_cotas'
-  | 'prompt'
-  | 'chat_testes';
+  | 'prompt';
 
 export interface TabItem {
   key: AiAgentTabKey;
@@ -48,7 +47,6 @@ export const AiAgentModalTabs: React.FC<AiAgentModalTabsProps> = memo(({
     { key: 'ferramentas', label: 'Ferramentas ERP', icon: 'bi-tools' },
     { key: 'limites_cotas', label: 'Limites & Cotas', icon: 'bi-shield-check' },
     { key: 'prompt', label: 'Instruções', icon: 'bi-chat-square-text' },
-    { key: 'chat_testes', label: 'Chat de Testes', icon: 'bi-chat-dots-fill' },
   ];
 
   return (

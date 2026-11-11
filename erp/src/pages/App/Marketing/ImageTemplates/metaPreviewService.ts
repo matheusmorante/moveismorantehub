@@ -42,7 +42,7 @@ export function mapPreviewProduct(row: Record<string, unknown>, now = Date.now()
     name: clean(row.name), brand: clean(row.brand), description: clean(row.description),
     retailerId: clean(row.retailer_id), availability: clean(row.availability),
     category: clean(row.product_type), productType: clean(row.product_type),
-    price: price ?? undefined, promoPrice: salePrice, salePrice, currentPrice: salePrice ?? price ?? undefined,
+    price: hasDiscount ? price ?? undefined : undefined, promoPrice: salePrice, salePrice, currentPrice: salePrice ?? price ?? undefined,
     discount, discountPercent, discountValue,
     color: clean(row.color),
     stockOrigin: clean(row.condition) === 'refurbished' ? 'Salvados' : 'Convencional',

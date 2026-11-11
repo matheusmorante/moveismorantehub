@@ -1,8 +1,11 @@
 import { fetchMobileProductsPage } from '../../features/products/services/mobileProductFetchService';
 import { supabase } from '../supabaseClient';
 import { isTestProduct } from '../../../../shared-utils/isTestProduct';
-import { buildPostgrestAccentInsensitivePattern } from '../../../../shared-utils/searchText';
-import { canAgentViewProductCost } from '../../../../shared-utils/agentPermissionGuard';
+import {
+  canAgentViewProductCost,
+  type AgentPermissionContext,
+} from '../../../../shared-utils/agentPermissionGuard';
+import { classifyAgentProductMatch } from '../../../../shared-utils/agentProductSearch';
 
 export interface MobileProductSummaryForAgent {
   codigo: string;
@@ -10,6 +13,7 @@ export interface MobileProductSummaryForAgent {
   nome: string;
   categoria: string;
   marca: string;
+  linha?: string;
   condicao: string;
   preco: number;
   precoPromocional?: number;
@@ -97,7 +101,7 @@ export async function searchMobileProducts(input: {
   apenasAtivos?: boolean;
   naLixeira?: boolean;
   limite?: number;
-}): Promise<MobileProductSummaryForAgent[]> {
+}, permissionContext?: AgentPermissionContext | null): Promise<MobileProductSummaryForAgent[]> {
   const limit = normalizeLimit(input.limite);
   const statusFilter = input.naLixeira
     ? 'deleted'
@@ -112,12 +116,32 @@ export async function searchMobileProducts(input: {
     statusFilter: statusFilter as any,
     includeDeactivated: input.apenasAtivos === false || Boolean(input.naLixeira),
     summaryOnly: true,
+    agentSearchMode: true,
     throwOnError: true,
   });
 
-  const allowCost = canAgentViewProductCost();
+  const allowCost = permissionContext === undefined
+    ? canAgentViewProductCost()
+    : permissionContext === null
+      ? false
+      : canAgentViewProductCost(permissionContext);
 
-  return (data || []).map((p: any) => {
+  return (data || [])
+    .filter((p: any) => {
+      if (!searchTerm) return true;
+      const match = classifyAgentProductMatch(
+        {
+          ...p,
+          description: [
+            p.description,
+            ...(Array.isArray(p.allVariations) ? p.allVariations.map((variation: any) => variation.sku) : []),
+          ].filter(Boolean).join(' '),
+        },
+        searchTerm
+      );
+      return match === 'corresponding';
+    })
+    .map((p: any) => {
     const parentCode = p.code || p.sku || '';
     const variations = p.allVariations || p.product_variations || [];
     const skus = variations.map((v: any) => v.sku).filter(Boolean);
@@ -128,6 +152,7 @@ export async function searchMobileProducts(input: {
       nome: p.name || p.title || p.description || '',
       categoria: p.category || 'Sem Categoria',
       marca: p.brand || '',
+      linha: p.line || '',
       condicao: p.condition || 'novo',
       preco: Number(p.unitPrice ?? p.price ?? 0),
       precoPromocional: p.promoPrice ? Number(p.promoPrice) : undefined,
@@ -142,19 +167,23 @@ export async function searchMobileProducts(input: {
 }
 
 export async function getMobileProductDetails(
-  codigoOuSku: string
+  codigoOuSku: string,
+  permissionContext?: AgentPermissionContext | null
 ): Promise<MobileProductDetailForAgent | null> {
   const target = codigoOuSku.trim();
   if (!target) return null;
   if (!/^[a-z\d_-]+$/i.test(target))
     throw new Error('O código ou SKU do produto contém caracteres inválidos.');
+  const exactCode = /^\d{1,6}$/.test(target) ? target.padStart(6, '0') : target;
+  const detailsColumns =
+    'id,code,sku,name,title,description,category,brand,line,condition,unit_price,price,promo_price,cost_price,freight_cost,stock,min_stock,unit,active,deleted,width,height,depth,weight,pkg_width,pkg_height,pkg_depth,extra_dimensions,images,has_variations,technical_specs,fiscal,material,colors,main_differential,not_included,product_variations(id,sku,name,unit_price,price,promo_price,cost_price,stock,active,attributes,images,image_url,height,width,depth,weight)';
 
   // 1. Consulta pelo código ou SKU do produto pai
   let { data, error } = await supabase
     .from('products')
-    .select('*, product_variations(*)')
+    .select(detailsColumns)
     .eq('deleted', false)
-    .or(`code.eq.${target},sku.eq.${target}`)
+    .or(`code.eq.${exactCode},sku.eq.${target}`)
     .maybeSingle();
   if (error) throw error;
 
@@ -170,7 +199,7 @@ export async function getMobileProductDetails(
     if (varData?.product_id) {
       const { data: parentData, error: parentError } = await supabase
         .from('products')
-        .select('*, product_variations(*)')
+        .select(detailsColumns)
         .eq('id', varData.product_id)
         .eq('deleted', false)
         .maybeSingle();
@@ -180,24 +209,13 @@ export async function getMobileProductDetails(
     }
   }
 
-  // 3. Fallback para códigos com padding (ex: "10" -> "000010")
-  if (!data && !error && target.length >= 3) {
-    const padded = target.padStart(6, '0');
-    const { data: fallbackData, error: fallbackError } = await supabase
-      .from('products')
-      .select('*, product_variations(*)')
-      .eq('deleted', false)
-      .or(`code.eq.${padded},sku.imatch.${buildPostgrestAccentInsensitivePattern(target)}`)
-      .limit(1)
-      .maybeSingle();
-    if (fallbackError) throw fallbackError;
-
-    data = fallbackData;
-  }
-
   if (!data || isTestProduct(data)) return null;
 
-  const allowCost = canAgentViewProductCost();
+  const allowCost = permissionContext === undefined
+    ? canAgentViewProductCost()
+    : permissionContext === null
+      ? false
+      : canAgentViewProductCost(permissionContext);
   const rawVars = data.product_variations || [];
   const parentCode = data.code || data.sku || '';
 

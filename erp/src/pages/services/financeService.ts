@@ -41,6 +41,16 @@ export interface FinancialTransactionPage {
   expense_total: number;
 }
 
+export interface FinancePayablesPage {
+  items: AccountPayable[];
+  total_count: number;
+}
+
+export interface FinanceReceivablesPage {
+  items: AccountReceivable[];
+  total_count: number;
+}
+
 const fetchAllFinancePages = async <T>(buildQuery: (from: number, to: number) => any) => {
   const rows: T[] = [];
   for (let from = 0; ; from += FINANCE_LIST_PAGE_SIZE) {
@@ -142,16 +152,30 @@ export const financeService = {
   },
 
   // --- Contas a Pagar ---
-  async getPayables(status?: string) {
-    return fetchAllFinancePages<AccountPayable>((from, to) => {
-      let query = supabase
-        .from('accounts_payable')
-        .select('*, financial_categories(name)')
-        .order('due_date', { ascending: true })
-        .order('id', { ascending: true });
-      if (status) query = query.eq('status', status);
-      return query.range(from, to);
+  async getPayables(status?: string, search?: string, page = 1): Promise<FinancePayablesPage> {
+    const safePage = Math.max(1, Math.floor(Number.isFinite(page) ? page : 1));
+    const { data, error } = await supabase.rpc('get_finance_payables_page', {
+      p_status: status || null,
+      p_search: search?.trim() || null,
+      p_page: safePage,
     });
+    if (error) throw error;
+
+    if (!data || typeof data !== 'object') throw { uncertain: true };
+    const response = data as { items?: unknown; total_count?: unknown };
+    if (!Array.isArray(response.items)
+      || response.items.length > 15
+      || typeof response.total_count !== 'number'
+      || !Number.isInteger(response.total_count)
+      || (response.total_count as number) < response.items.length
+      || response.items.some((row) => !row || typeof row !== 'object' || !('id' in row) || typeof row.id !== 'string')) {
+      throw { uncertain: true };
+    }
+
+    return {
+      items: response.items as AccountPayable[],
+      total_count: response.total_count as number,
+    };
   },
 
   async createPayable(payable: Omit<AccountPayable, 'id' | 'created_at' | 'updated_at'>) {
@@ -231,6 +255,32 @@ export const financeService = {
       if (status) query = query.eq('status', status);
       return query.range(from, to);
     });
+  },
+
+  async getReceivablesPage(status?: string, search?: string, page = 1): Promise<FinanceReceivablesPage> {
+    const safePage = Math.max(1, Math.floor(Number.isFinite(page) ? page : 1));
+    const { data, error } = await supabase.rpc('get_finance_receivables_page', {
+      p_status: status || null,
+      p_search: search?.trim() || null,
+      p_page: safePage,
+    });
+    if (error) throw error;
+
+    if (!data || typeof data !== 'object') throw { uncertain: true };
+    const response = data as { items?: unknown; total_count?: unknown };
+    if (!Array.isArray(response.items)
+      || response.items.length > 15
+      || typeof response.total_count !== 'number'
+      || !Number.isInteger(response.total_count)
+      || (response.total_count as number) < response.items.length
+      || response.items.some((row) => !row || typeof row !== 'object' || !('id' in row) || typeof row.id !== 'string')) {
+      throw { uncertain: true };
+    }
+
+    return {
+      items: response.items as AccountReceivable[],
+      total_count: response.total_count as number,
+    };
   },
 
   async createReceivable(receivable: Omit<AccountReceivable, 'id' | 'created_at' | 'updated_at'>) {
@@ -419,19 +469,25 @@ export const financeService = {
   },
 
   async getFinancialSummary(startDate?: string, endDate?: string) {
-    const txs = await this.getReportTransactions(startDate, endDate);
-    let totalIncome = 0;
-    let totalExpense = 0;
-    (txs || []).forEach((t: any) => {
-      const val = Number(t.amount) || 0;
-      if (t.type === 'income') totalIncome += val;
-      else if (t.type === 'expense') totalExpense += val;
+    const { data, error } = await supabase.rpc('get_financial_assistant_summary', {
+      p_start_date: startDate || null,
+      p_end_date: endDate || null,
     });
+    if (error) throw error;
+
+    const summary = data as {
+      total_income?: unknown;
+      total_expense?: unknown;
+      balance?: unknown;
+      count?: unknown;
+    } | null;
+    const totalIncome = Number(summary?.total_income) || 0;
+    const totalExpense = Number(summary?.total_expense) || 0;
     return {
       totalIncome,
       totalExpense,
-      balance: totalIncome - totalExpense,
-      count: (txs || []).length,
+      balance: Number(summary?.balance) || 0,
+      count: Number(summary?.count) || 0,
     };
   },
 

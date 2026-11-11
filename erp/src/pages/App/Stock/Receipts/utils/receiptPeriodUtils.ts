@@ -11,6 +11,54 @@ export interface ParsedDateInfo {
   readonly dateOnly: string; // YYYY-MM-DD
 }
 
+export interface ReceiptPeriodDateRange {
+  readonly startDate?: string;
+  readonly endDate?: string;
+}
+
+const formatLocalDate = (date: Date): string =>
+  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+
+/**
+ * Converte o filtro já visível na tela para limites de dia que podem ser
+ * aplicados antes da paginação no servidor. As datas seguem o calendário local
+ * usado pelos filtros atuais.
+ */
+export const getReceiptPeriodDateRange = (
+  period: ReceiptPeriod,
+  customStartDate?: string,
+  customEndDate?: string,
+  referenceDate: Date = new Date()
+): ReceiptPeriodDateRange => {
+  if (period === 'all') return {};
+
+  if (period === 'custom') {
+    return {
+      startDate: customStartDate || undefined,
+      endDate: customEndDate || undefined,
+    };
+  }
+
+  if (period === 'this_month') {
+    return {
+      startDate: formatLocalDate(new Date(referenceDate.getFullYear(), referenceDate.getMonth(), 1)),
+      endDate: formatLocalDate(new Date(referenceDate.getFullYear(), referenceDate.getMonth() + 1, 0)),
+    };
+  }
+
+  if (period === 'last_month') {
+    return {
+      startDate: formatLocalDate(new Date(referenceDate.getFullYear(), referenceDate.getMonth() - 1, 1)),
+      endDate: formatLocalDate(new Date(referenceDate.getFullYear(), referenceDate.getMonth(), 0)),
+    };
+  }
+
+  return {
+    startDate: `${referenceDate.getFullYear()}-01-01`,
+    endDate: `${referenceDate.getFullYear()}-12-31`,
+  };
+};
+
 /**
  * Realiza o parsing seguro de uma string de data (ISO ou YYYY-MM-DD)
  * evitando problemas comuns de fuso horário ao priorizar regex de prefixo YYYY-MM-DD.

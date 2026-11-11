@@ -5,6 +5,7 @@ import {
   canAgentViewProductCost,
   filterAgentToolsByPermission,
 } from '../../../../../shared-utils/agentPermissionGuard';
+import { getAgentOperationSearchTypes } from '../../../../../shared-utils/agentOperationPermissions';
 import {
   createOrderOperationForAgent,
   updateOrderOperationForAgent,
@@ -132,21 +133,23 @@ describe('Extended Agent Tools & Profile Permission Guard (ERP & Mobile Parity)'
           return {
             select: () => ({
               eq: () => ({
-                maybeSingle: () =>
-                  Promise.resolve({
-                    data: insertedOrders[0] || {
-                      id: 'ord-uuid-1',
-                      status: 'draft',
-                      order_data: {
-                        orderNumber: '123456',
-                        orderType: 'budget',
-                        customerData: { fullName: 'Ana Paula' },
-                        items: [],
-                        payments: [],
+                or: () => ({
+                  maybeSingle: () =>
+                    Promise.resolve({
+                      data: insertedOrders[0] || {
+                        id: 'ord-uuid-1',
+                        status: 'draft',
+                        order_data: {
+                          orderNumber: '123456',
+                          orderType: 'budget',
+                          customerData: { fullName: 'Ana Paula' },
+                          items: [],
+                          payments: [],
+                        },
                       },
-                    },
-                    error: null,
-                  }),
+                      error: null,
+                    }),
+                }),
               }),
             }),
             insert: (rows: any[]) => {
@@ -305,7 +308,7 @@ describe('Extended Agent Tools & Profile Permission Guard (ERP & Mobile Parity)'
           return {
             select: () => ({
               order: () => ({
-                limit: () =>
+                range: () =>
                   Promise.resolve({
                     data: [{ name: 'Sofás', is_environment: false, active: true }],
                   }),
@@ -317,7 +320,7 @@ describe('Extended Agent Tools & Profile Permission Guard (ERP & Mobile Parity)'
           return {
             select: () => ({
               order: () => ({
-                limit: () =>
+                range: () =>
                   Promise.resolve({
                     data: [
                       {
@@ -451,6 +454,54 @@ describe('Extended Agent Tools & Profile Permission Guard (ERP & Mobile Parity)'
     expect((trashed.data as any).id).toBeUndefined();
   });
 
+  it('pagina categorias e características no servidor e não simula sucesso quando uma página falha', async () => {
+    const rangeCalls = new Map<string, number[]>();
+    const mockSupabase = {
+      from: (table: string) => ({
+        select: () => ({
+          order: () => ({
+            range: vi.fn((from: number, _to: number) => {
+              const calls = rangeCalls.get(table) || [];
+              calls.push(from);
+              rangeCalls.set(table, calls);
+              if (table === 'categories') {
+                return Promise.resolve({
+                  data: from === 0
+                    ? Array.from({ length: 200 }, (_, index) => ({ name: `Categoria ${index}` }))
+                    : [{ name: 'Categoria 200' }],
+                  error: null,
+                });
+              }
+              return Promise.resolve({
+                data: [{ name: 'Material', group_name: 'Estrutura' }],
+                error: null,
+              });
+            }),
+          }),
+        }),
+      }),
+    };
+
+    const result = await listProductCategoriesAndCharacteristicsForAgent(mockSupabase);
+    expect(result.success).toBe(true);
+    expect(result.data?.categorias).toHaveLength(201);
+    expect(rangeCalls.get('categories')).toEqual([0, 200]);
+    expect(rangeCalls.get('product_characteristics')).toEqual([0]);
+
+    const failingSupabase = {
+      from: () => ({
+        select: () => ({
+          order: () => ({
+            range: () => Promise.resolve({ data: null, error: new Error('db internal') }),
+          }),
+        }),
+      }),
+    };
+    const failure = await listProductCategoriesAndCharacteristicsForAgent(failingSupabase);
+    expect(failure.success).toBe(false);
+    expect(failure.code).toBe('PRODUCT_METADATA_ERROR');
+  });
+
   it('impede vazamento de preço de custo (viewProductCost) e bloqueia tentativas indevidas com fail-closed', () => {
     // 1. Entregador (deliverer): pode consultar entregas, mas não criar pedidos nem produtos nem financeiro
     const delivererCtx = { role: 'deliverer', enforced: true };
@@ -503,7 +554,8 @@ describe('Extended Agent Tools & Profile Permission Guard (ERP & Mobile Parity)'
     const delivererCtx = { role: 'deliverer', enforced: true };
 
     // Bloqueia buscarOperacoes geral e vendas
-    expect(checkAgentToolPermission('buscarOperacoes', { tipo: 'todas' }, delivererCtx).allowed).toBe(false);
+    expect(checkAgentToolPermission('buscarOperacoes', { tipo: 'todas' }, delivererCtx).allowed).toBe(true);
+    expect(getAgentOperationSearchTypes('todas', delivererCtx)).toEqual(['entrega', 'retirada', 'montagem']);
     expect(checkAgentToolPermission('buscarOperacoes', { tipo: 'venda' }, delivererCtx).allowed).toBe(false);
     expect(checkAgentToolPermission('buscarOperacoes', { tipo: 'orcamento' }, delivererCtx).allowed).toBe(false);
 

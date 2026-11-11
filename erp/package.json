@@ -8,6 +8,7 @@
         "@aws-sdk/s3-request-presigner": "^3.1095.0",
         "@hello-pangea/dnd": "^18.0.1",
         "@hookform/resolvers": "5.9.1",
+        "@huggingface/transformers": "^4.3.2",
         "@modelcontextprotocol/sdk": "^1.30.0",
         "@supabase/supabase-js": "^2.115.0",
         "@tanstack/react-query": "^5.104.1",

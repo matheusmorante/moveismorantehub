@@ -16,6 +16,8 @@ interface InventoryScopeConfigFormProps {
   readonly responsibleError: boolean;
   readonly setResponsibleError: (val: boolean) => void;
   readonly employees: readonly Person[];
+  readonly searchEmployees?: (search: string, signal: AbortSignal) => Promise<Person[]>;
+  readonly rememberEmployee?: (employee: Person) => void;
 }
 
 export const InventoryScopeConfigForm: React.FC<InventoryScopeConfigFormProps> = ({
@@ -28,6 +30,8 @@ export const InventoryScopeConfigForm: React.FC<InventoryScopeConfigFormProps> =
   responsibleError,
   setResponsibleError,
   employees,
+  searchEmployees,
+  rememberEmployee,
 }) => {
   const [productSearch, setProductSearch] = useState('');
   const [debouncedProductSearch, setDebouncedProductSearch] = useState('');
@@ -65,6 +69,8 @@ export const InventoryScopeConfigForm: React.FC<InventoryScopeConfigFormProps> =
           </label>
           <InventoryResponsibleSelect
             employees={employees}
+            searchEmployees={searchEmployees || (async () => [])}
+            rememberEmployee={rememberEmployee || (() => undefined)}
             value={selectedResponsibleId}
             hasError={responsibleError}
             onChange={(val) => {

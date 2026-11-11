@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react';
 import tsconfigPaths from 'vite-tsconfig-paths';
 import legacy from '@vitejs/plugin-legacy';
 import path from 'path';
+import { segmentationBigIntCompatibility } from './vite-segmentation-compat';
 
 const rewriteMobileLabelsEntry = (url?: string) => {
   if (!url) return url;
@@ -50,6 +51,7 @@ export default defineConfig({
     }),
   },
   plugins: [
+    segmentationBigIntCompatibility,
     react(), 
     tsconfigPaths(),
     mobileLabelsEntryPlugin,

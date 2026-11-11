@@ -35,7 +35,16 @@ export const InventoryScreen: React.FC<Props> = ({
   userProfile,
   renderHeader,
 }) => {
-  const { sessions, loading, loadingMore, loadMore, reload } = useInventory(userProfile?.id);
+  const {
+    sessions,
+    loading,
+    loadingMore,
+    isOnline,
+    usesCachedResults,
+    loadMore,
+    reload,
+    reloadForPeriod,
+  } = useInventory(userProfile?.id);
   const listRef = useRef<FlatList<any>>(null);
   const menuAnchorRef = useRef<View>(null);
   const { width: viewportWidth } = useWindowDimensions();
@@ -75,10 +84,11 @@ export const InventoryScreen: React.FC<Props> = ({
   );
 
   const handleCyclePeriod = () => {
-    setPeriodDays(
-      periodDays === 30 ? 90 : periodDays === 90 ? 365 : periodDays === 365 ? 0 : 30
-    );
+    const nextPeriodDays =
+      periodDays === 30 ? 90 : periodDays === 90 ? 365 : periodDays === 365 ? 0 : 30;
+    setPeriodDays(nextPeriodDays);
     setCurrentPage(1);
+    reloadForPeriod(nextPeriodDays);
   };
 
   const handlePageChange = (page: number) => {
@@ -152,6 +162,8 @@ export const InventoryScreen: React.FC<Props> = ({
               <InventoryScreenPageHeader
                 isDarkMode={isDarkMode}
                 periodDays={periodDays}
+                isOnline={isOnline}
+                usesCachedResults={usesCachedResults}
                 onCyclePeriod={handleCyclePeriod}
               />
             );

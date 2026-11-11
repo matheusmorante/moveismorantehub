@@ -2,7 +2,7 @@ import { supabase } from '@/pages/utils/supabaseConfig';
 import { withAbortTimeout } from '../../../../../../shared-utils/withAbortTimeout';
 import { withTimeout } from '../../../../../../shared-utils/withTimeout';
 import {
-  deleteImageTemplateSchema, imageTemplateFormSchema, imageTemplateMetadataSchema, templateAssetIds,
+  deleteImageTemplateSchema, imageTemplateFormSchema, imageTemplateMetadataSchema, normalizeLegacyCatalogLayers, templateAssetIds,
   type DeleteImageTemplateValues, type ImageTemplateFormValues,
   type ImageTemplateTestArtifact,
 } from '../../../../../../shared-utils/catalogImageTemplate';
@@ -24,7 +24,7 @@ export interface ImageTemplateSummary {
   updated_at: string;
   test_artifact?: ImageTemplateTestArtifact | null;
 }
-export type SavedImageTemplate = ImageTemplateSummary & ImageTemplateFormValues;
+export type SavedImageTemplate = ImageTemplateSummary & ImageTemplateFormValues & { needsDesignMigration?: boolean };
 export type TemplateAsset = { id: string; webp_base64: string };
 export const assetSource = (asset: TemplateAsset) => `data:image/webp;base64,${asset.webp_base64}`;
 
@@ -48,6 +48,15 @@ export async function listImageTemplates(page: number, criteria: TemplateListQue
   return { rows: (result.data || []) as ImageTemplateSummary[], total: result.count ?? 0 };
 }
 
+export async function countImageTemplates(signal: AbortSignal) {
+  let query = supabase.from('catalog_image_template_list').select('id', { count: 'exact', head: true });
+  const context = imageTemplateTestContext();
+  if (context) query = query.eq('test_artifact->>runId', context.runId).eq('test_artifact->>ownerId', context.ownerId);
+  const result = await withAbortTimeout(query, 'modelos-de-imagem:contagem', TIMEOUT, signal);
+  if (result.error) throw result.error;
+  return result.count ?? 0;
+}
+
 export async function readImageTemplate(id: string, signal: AbortSignal): Promise<SavedImageTemplate> {
   const query = supabase.from(TABLE).select(`${SUMMARY},design`).eq('id', id);
   applyImageTemplateTestScope((column, value) => { query.eq(column, value); });
@@ -55,9 +64,12 @@ export async function readImageTemplate(id: string, signal: AbortSignal): Promis
     'modelos-de-imagem:detalhe', TIMEOUT, signal);
   if (result.error) throw result.error;
   if (!result.data) throw new Error('Modelo removido ou indisponível. Atualize a lista.');
-  const parsed = imageTemplateFormSchema.safeParse(result.data);
+  const design = normalizeLegacyCatalogLayers(result.data.design);
+  const parsed = imageTemplateFormSchema.safeParse({ ...result.data,
+    design });
   if (!parsed.success) throw new Error('O conteúdo deste modelo é inválido.');
-  return { ...result.data as ImageTemplateSummary, ...parsed.data, test_artifact: parsed.data.design.testArtifact ?? null };
+  return { ...result.data as ImageTemplateSummary, ...parsed.data, test_artifact: parsed.data.design.testArtifact ?? null,
+    needsDesignMigration: JSON.stringify(design) !== JSON.stringify(result.data.design) };
 }
 
 export async function readTemplateAssets(ids: string[], signal: AbortSignal) {

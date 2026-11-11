@@ -23,8 +23,8 @@ export const MessageBubbleHeader: React.FC<MessageBubbleHeaderProps> = ({
           <i className="bi bi-robot text-xs text-amber-600 dark:text-amber-400" aria-hidden="true" />
           <span>Sugestão da IA (Lizandro)</span>
         </div>
-        <span className="px-1.5 py-0.2 rounded-full bg-amber-200 dark:bg-amber-900/80 text-[9px] font-bold text-amber-800 dark:text-amber-200 uppercase tracking-wider">
-          Aguardando Aprovação
+        <span className="px-1.5 py-0.2 rounded-full bg-orange-200 dark:bg-orange-900/80 text-[9px] font-bold text-orange-800 dark:text-orange-200 uppercase tracking-wider">
+          {message.status === 'sending' ? 'Enviando' : 'Aguardando aprovação'}
         </span>
       </div>
     );

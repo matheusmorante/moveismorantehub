@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { requestConfirmation } from '@/components/shared/confirmationService';
 import Person from '@/pages/types/person.type';
 import {
@@ -8,13 +8,23 @@ import {
   unreverseGoodsReceipt,
   subscribeToGoodsReceipts,
 } from '@/pages/utils/goodsReceiptService';
+import type {
+  FetchGoodsReceiptsOptions,
+  GoodsReceiptSubscriptionResult,
+} from '@/pages/utils/goodsReceiptService';
 import { subscribeToPeople } from '@/pages/utils/personService';
 import { toast } from 'react-toastify';
 import { ReceiptPeriod } from '../types/receiptPeriodFilter.types';
-import { filterReceiptsByPeriod } from '../utils/receiptPeriodUtils';
+import { getReceiptPeriodDateRange } from '../utils/receiptPeriodUtils';
 
 export interface UseReceiptsReturn {
   receipts: GoodsReceipt[];
+  currentPage: number;
+  setCurrentPage: (page: number) => void;
+  totalItems: number;
+  totalPages: number;
+  isLoading: boolean;
+  isFromCache: boolean;
   suppliers: Person[];
   selectedSupplierId: string;
   selectedSupplier?: Person;
@@ -61,7 +71,16 @@ export interface UseReceiptsReturn {
  * Hook orquestrador para gerenciamento do fluxo de recebimentos de mercadoria em estoque.
  */
 export const useReceipts = (): UseReceiptsReturn => {
-  const [receipts, setReceipts] = useState<GoodsReceipt[]>([]);
+  const [receiptPage, setReceiptPage] = useState<GoodsReceiptSubscriptionResult>({
+    items: [],
+    totalCount: 0,
+    page: 1,
+    pageSize: 15,
+    totalPages: 0,
+    isFromCache: false,
+  });
+  const [currentPage, setCurrentPage] = useState(1);
+  const [isLoading, setIsLoading] = useState(true);
   const [suppliers, setSuppliers] = useState<Person[]>([]);
   const [selectedSupplierId, setSelectedSupplierId] = useState('');
 
@@ -90,7 +109,75 @@ export const useReceipts = (): UseReceiptsReturn => {
   const [unreverseCandidate, setUnreverseCandidate] = useState<GoodsReceipt | null>(null);
   const [isUnreversing, setIsUnreversing] = useState(false);
 
-  useEffect(() => subscribeToGoodsReceipts(setReceipts), []);
+  const selectedSupplier = useMemo(
+    () => suppliers.find((s) => s.id === selectedSupplierId),
+    [suppliers, selectedSupplierId]
+  );
+  const dateRange = useMemo(
+    () => getReceiptPeriodDateRange(period, customStartDate, customEndDate),
+    [period, customStartDate, customEndDate]
+  );
+  const queryOptions = useMemo<FetchGoodsReceiptsOptions>(
+    () => ({
+      page: currentPage,
+      pageSize: 15,
+      supplierId: selectedSupplierId || undefined,
+      supplierName: selectedSupplier ? selectedSupplier.fullName : undefined,
+      startDate: dateRange.startDate,
+      endDate: dateRange.endDate,
+    }),
+    [
+      currentPage,
+      selectedSupplierId,
+      selectedSupplier?.fullName,
+      dateRange.startDate,
+      dateRange.endDate,
+    ]
+  );
+  const queryKey = JSON.stringify([
+    queryOptions.page,
+    queryOptions.supplierId ?? null,
+    queryOptions.supplierName ?? null,
+    queryOptions.startDate ?? null,
+    queryOptions.endDate ?? null,
+    queryOptions.searchTerm?.trim() ?? '',
+    queryOptions.status ?? null,
+  ]);
+  const queryKeyRef = useRef(queryKey);
+  const queryOptionsRef = useRef(queryOptions);
+  queryOptionsRef.current = queryOptions;
+  const currentPageRef = useRef(currentPage);
+  currentPageRef.current = currentPage;
+  const subscriptionRef = useRef<ReturnType<typeof subscribeToGoodsReceipts> | null>(null);
+
+  useEffect(() => {
+    const subscription = subscribeToGoodsReceipts((result) => {
+      setReceiptPage(result);
+      setIsLoading(false);
+      if (result.page !== currentPageRef.current) setCurrentPage(result.page);
+    }, queryOptionsRef.current);
+    subscriptionRef.current = subscription;
+
+    return () => {
+      subscription.unsubscribe();
+      subscriptionRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (queryKey === queryKeyRef.current) return;
+    queryKeyRef.current = queryKey;
+    setIsLoading(true);
+    setReceiptPage({
+      items: [],
+      totalCount: 0,
+      page: queryOptions.page ?? 1,
+      pageSize: 15,
+      totalPages: 0,
+      isFromCache: false,
+    });
+    subscriptionRef.current?.updateQuery(queryOptions);
+  }, [queryKey, queryOptions]);
 
   useEffect(() => {
     return subscribeToPeople('suppliers', (data) =>
@@ -99,13 +186,22 @@ export const useReceipts = (): UseReceiptsReturn => {
   }, []);
 
   const handleSelectSupplier = useCallback((id: string) => {
+    setCurrentPage(1);
     setSelectedSupplierId(id);
   }, []);
 
-  const selectedSupplier = useMemo(
-    () => suppliers.find((s) => s.id === selectedSupplierId),
-    [suppliers, selectedSupplierId]
-  );
+  const handlePeriodChange = useCallback((nextPeriod: ReceiptPeriod) => {
+    setCurrentPage(1);
+    setPeriod(nextPeriod);
+  }, []);
+  const handleCustomStartDateChange = useCallback((date: string) => {
+    setCurrentPage(1);
+    setCustomStartDate(date);
+  }, []);
+  const handleCustomEndDateChange = useCallback((date: string) => {
+    setCurrentPage(1);
+    setCustomEndDate(date);
+  }, []);
 
   const handleOpenNew = useCallback(() => {
     setSelectedReceipt(null);
@@ -205,27 +301,17 @@ export const useReceipts = (): UseReceiptsReturn => {
     }
   }, [unreverseCandidate]);
 
-  // Filtra por fornecedor (se selecionado) e por período
-  const filteredReceipts = useMemo(() => {
-    let list = receipts;
-
-    if (selectedSupplierId) {
-      list = list.filter((rcpt) => {
-        if (rcpt.supplierId && rcpt.supplierId === selectedSupplierId) return true;
-        if (selectedSupplier && rcpt.supplierName) {
-          const sName = selectedSupplier.fullName.toLowerCase();
-          const rName = rcpt.supplierName.toLowerCase();
-          return rName.includes(sName) || sName.includes(rName);
-        }
-        return false;
-      });
-    }
-
-    return filterReceiptsByPeriod(list, period, customStartDate, customEndDate);
-  }, [receipts, selectedSupplierId, selectedSupplier, period, customStartDate, customEndDate]);
+  const receipts = receiptPage.items;
+  const filteredReceipts = receipts;
 
   return {
     receipts,
+    currentPage,
+    setCurrentPage,
+    totalItems: receiptPage.totalCount,
+    totalPages: receiptPage.totalPages,
+    isLoading,
+    isFromCache: receiptPage.isFromCache,
     suppliers,
     selectedSupplierId,
     selectedSupplier,
@@ -233,11 +319,11 @@ export const useReceipts = (): UseReceiptsReturn => {
     filteredReceipts,
     supplierReceipts: filteredReceipts,
     period,
-    setPeriod,
+    setPeriod: handlePeriodChange,
     customStartDate,
-    setCustomStartDate,
+    setCustomStartDate: handleCustomStartDateChange,
     customEndDate,
-    setCustomEndDate,
+    setCustomEndDate: handleCustomEndDateChange,
     isFormOpen,
     setIsFormOpen,
     isCopyingReceipt,

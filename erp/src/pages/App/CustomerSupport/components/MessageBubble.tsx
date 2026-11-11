@@ -1,5 +1,6 @@
 import React, { memo, useState } from 'react';
 import type { WhatsAppMessage } from '../types';
+import type { CustomerSupportSendResult } from '@/pages/utils/customerSupport/customerSupportService';
 import { useCustomerSupportMedia } from '../hooks/useCustomerSupportMedia';
 import { MediaLoadStatus } from './chat/bubble/MediaLoadStatus';
 import {
@@ -42,6 +43,8 @@ export interface MessageBubbleProps {
   onJumpToMessage?: (message: WhatsAppMessage) => void;
   onReplyMessage?: (message: WhatsAppMessage) => void;
   onForwardMessage?: (message: WhatsAppMessage) => void;
+  onApproveAiSuggestion?: (message: WhatsAppMessage) => Promise<CustomerSupportSendResult>;
+  aiSuggestionAuthorName?: string;
 }
 
 export const MessageBubble: React.FC<MessageBubbleProps> = memo(({
@@ -55,8 +58,27 @@ export const MessageBubble: React.FC<MessageBubbleProps> = memo(({
   onJumpToMessage,
   onReplyMessage,
   onForwardMessage,
+  onApproveAiSuggestion,
+  aiSuggestionAuthorName,
 }) => {
   const [isMediaModalOpen, setIsMediaModalOpen] = useState(false);
+  const [acceptedAiSuggestionLocally, setAcceptedAiSuggestionLocally] = useState(false);
+  const [acceptedAiSuggestionWarning, setAcceptedAiSuggestionWarning] = useState('');
+  const isPersistedAiSuggestionAccepted = message.rawPayload?.accepted_ai_suggestion === true;
+  const displayMessage = acceptedAiSuggestionLocally && !isPersistedAiSuggestionAccepted
+    ? {
+        ...message,
+        status: 'sent' as const,
+        authorName: aiSuggestionAuthorName || 'Atendente',
+        rawPayload: {
+          ...message.rawPayload,
+          origin: 'customer_support_composer',
+          is_ai: false,
+          is_suggestion: false,
+          accepted_ai_suggestion: true,
+        },
+      }
+    : message;
 
   const {
     isInbound,
@@ -67,11 +89,11 @@ export const MessageBubble: React.FC<MessageBubbleProps> = memo(({
     timeFormatted,
     canReply,
     canForward,
-  } = useMessageBubbleFlags(message);
+  } = useMessageBubbleFlags(displayMessage);
 
   const { mediaUrl, isLoadingMedia, mediaError, retryMedia } = useCustomerSupportMedia(
-    ['image', 'document', 'audio', 'video', 'sticker', 'template'].includes(message.messageType)
-      ? message.mediaId
+    ['image', 'document', 'audio', 'video', 'sticker', 'template'].includes(displayMessage.messageType)
+      ? displayMessage.mediaId
       : null
   );
 
@@ -83,7 +105,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = memo(({
     quoteError,
     handleQuotedMessage,
   } = useMessageBubbleQuoteResolution({
-    message,
+    message: displayMessage,
     quotedMessage,
     contactName,
     onResolveReplyTarget,
@@ -123,14 +145,14 @@ export const MessageBubble: React.FC<MessageBubbleProps> = memo(({
           isInbound
             ? 'bg-white dark:bg-[#202c33] text-slate-800 dark:text-slate-100 rounded-tl-xs border border-slate-200/50 dark:border-slate-700/50'
             : isSuggestion
-              ? 'bg-amber-50/90 dark:bg-amber-950/40 text-slate-900 dark:text-slate-100 rounded-tr-xs border-2 border-dashed border-amber-400 dark:border-amber-600 shadow-md'
+              ? 'bg-orange-50/95 dark:bg-orange-950/40 text-slate-900 dark:text-slate-100 rounded-tr-xs border-2 border-dashed border-orange-400 dark:border-orange-600 shadow-md'
               : 'bg-[#d9fdd3] dark:bg-[#005c4b] text-slate-900 dark:text-slate-100 rounded-tr-xs border border-emerald-200/60 dark:border-emerald-700/50'
         } ${onSelectMessage && (canReply || canForward) ? 'cursor-pointer' : ''} ${
           isSelected ? 'ring-2 ring-emerald-600 ring-offset-2 ring-offset-[#efeae2] dark:ring-offset-[#0b141a]' : ''
         }`}
       >
         <MessageBubbleDirectActions
-          message={message}
+          message={displayMessage}
           canReply={canReply}
           canForward={canForward}
           onReplyMessage={onReplyMessage}
@@ -138,14 +160,14 @@ export const MessageBubble: React.FC<MessageBubbleProps> = memo(({
         />
 
         <MessageBubbleHeader
-          message={message}
+          message={displayMessage}
           isInbound={isInbound}
           isSuggestion={isSuggestion}
           isAiMessage={isAiMessage}
         />
 
         {/* Caixa de Mensagem Respondida (Quote / Reply) */}
-        {(message.replyToWamid || message.replyToMessageId) && (
+        {(displayMessage.replyToWamid || displayMessage.replyToMessageId) && (
           <MessageBubbleQuotedPreview
             quoteAuthor={quoteAuthor}
             quotePreview={quotePreview}
@@ -157,33 +179,51 @@ export const MessageBubble: React.FC<MessageBubbleProps> = memo(({
         )}
 
         {/* Notificações de contexto da Meta (Encaminhada, Segurança, Catálogo Ads) */}
-        <MessageBubbleMetaContext message={message} />
+        <MessageBubbleMetaContext message={displayMessage} />
 
         {/* Mídias diversas (Imagem, Documento, Áudio, Vídeo, Interativo) */}
         <MediaLoadStatus loading={isLoadingMedia} error={mediaError} onRetry={retryMedia} />
         <MessageBubbleMedia
-          message={message}
+          message={displayMessage}
           mediaUrl={mediaUrl}
           onOpenLightbox={() => setIsMediaModalOpen(true)}
         />
 
         {/* Texto Padrão */}
-        {message.messageType === 'text' && (
+        {displayMessage.messageType === 'text' && (
           <p className="whitespace-pre-wrap break-words font-normal leading-relaxed text-[13px]">
-            {message.textContent ? renderFormattedText(message.textContent) : ''}
+            {displayMessage.textContent ? renderFormattedText(displayMessage.textContent) : ''}
           </p>
         )}
 
         {/* Ações de Aprovação para Sugestões do Copiloto Assistido */}
-        {!isInbound && isSuggestion && <MessageBubbleAiSuggestionActions message={message} />}
+        {!isInbound && isSuggestion && displayMessage.status === 'suggested' && onApproveAiSuggestion && (
+          <MessageBubbleAiSuggestionActions
+            message={message}
+            onApprove={onApproveAiSuggestion}
+            onAccepted={(result) => {
+              setAcceptedAiSuggestionLocally(true);
+              setAcceptedAiSuggestionWarning(result.warning || '');
+            }}
+          />
+        )}
+
+        {displayMessage.rawPayload?.accepted_ai_suggestion === true && (
+          <div className="mt-1 flex flex-col items-end gap-0.5 text-[10px] leading-tight text-amber-700 dark:text-amber-300">
+            <span><i className="bi bi-stars mr-1" aria-hidden="true" />Escrito por sugestão de IA</span>
+            {acceptedAiSuggestionWarning && (
+              <span role="status" className="max-w-64 text-right text-slate-500 dark:text-slate-400">{acceptedAiSuggestionWarning}</span>
+            )}
+          </div>
+        )}
 
         {/* Rodapé do Balão: Horário e Indicadores de Entrega */}
         <div className="flex items-center justify-end gap-1 mt-1 text-[10px] text-slate-400 dark:text-slate-400 select-none">
           <span>{timeFormatted}</span>
           {!isInbound && (
             <MessageBubbleStatus
-              status={message.status}
-              failureReason={message.failureReason}
+              status={displayMessage.status}
+              failureReason={displayMessage.failureReason}
             />
           )}
         </div>
@@ -196,7 +236,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = memo(({
       {!isInbound && (
         <MessageBubbleAvatar
           type="outbound"
-          name={message.authorName}
+          name={displayMessage.authorName}
           isAiMessage={isAiMessage}
         />
       )}

@@ -1,10 +1,13 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { financeService } from '@/pages/services/financeService';
+import type { FinanceReceivablesPage } from '@/pages/services/financeService';
 import { AccountReceivable } from '../../../types/finance.type';
-import { normalizeSearchTerm } from '@/pages/utils/textUtils';
+import { matchesSearchText, normalizeSearchTerm } from '@/pages/utils/textUtils';
 import ReceivableModal from './ReceivableModal';
 import { ERPListPagination } from '@/components/shared/ERPListPagination';
-import { matchesSearchText } from '@/pages/utils/textUtils';
+import { withTimeout } from '../../../../../../shared-utils/withTimeout';
+
+const RECEIVABLES_PAGE_SIZE = 15;
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
@@ -18,25 +21,65 @@ const formatToBRDate = (dateString: string) => {
 
 export default function Receivables() {
   const [receivables, setReceivables] = useState<AccountReceivable[]>([]);
+  const [totalReceivables, setTotalReceivables] = useState(0);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const requestId = useRef(0);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedReceivable, setSelectedReceivable] = useState<AccountReceivable | null>(null);
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(15);
+
+  useEffect(() => {
+    const nextSearch = search.trim();
+    if (!nextSearch) {
+      setDebouncedSearch('');
+      setPage(1);
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      setDebouncedSearch(nextSearch);
+      setPage(1);
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [search]);
 
   const fetchReceivables = useCallback(async () => {
     const currentRequestId = ++requestId.current;
     setLoading(true);
     setLoadError(null);
     try {
-      const data = await financeService.getReceivables(
-        statusFilter !== 'all' ? statusFilter : undefined
+      const legacyPageLoader = (financeService as unknown as {
+        getReceivablesPage?: (status?: string, search?: string, page?: number) => Promise<FinanceReceivablesPage>;
+      }).getReceivablesPage;
+      const request = legacyPageLoader
+        ? legacyPageLoader(statusFilter !== 'all' ? statusFilter : undefined, debouncedSearch, page)
+        : financeService.getReceivables(statusFilter !== 'all' ? statusFilter : undefined);
+      const response = await withTimeout<FinanceReceivablesPage | AccountReceivable[] | null>(
+        request,
+        15_000,
+        null,
+        'financeiro:contas-a-receber:list'
       );
-      if (currentRequestId === requestId.current) setReceivables(data || []);
+      if (response === null) throw new Error('Tempo limite ao carregar contas a receber.');
+      if (currentRequestId === requestId.current) {
+        if (Array.isArray(response)) {
+          // Compatibility for older service implementations; the current ERP service returns a server page.
+          const query = normalizeSearchTerm(debouncedSearch);
+          const filteredRows = (response as AccountReceivable[]).filter((receivable) =>
+            matchesSearchText(receivable.description || '', query)
+            || matchesSearchText(receivable.customer_name || '', query)
+          );
+          setReceivables(filteredRows.slice((page - 1) * RECEIVABLES_PAGE_SIZE, page * RECEIVABLES_PAGE_SIZE));
+          setTotalReceivables(filteredRows.length);
+        } else {
+          const pageResult = response as FinanceReceivablesPage;
+          setReceivables(pageResult.items);
+          setTotalReceivables(pageResult.total_count);
+        }
+      }
     } catch {
       if (currentRequestId === requestId.current) {
         setLoadError('Não foi possível carregar as contas a receber. Tente novamente.');
@@ -44,7 +87,7 @@ export default function Receivables() {
     } finally {
       if (currentRequestId === requestId.current) setLoading(false);
     }
-  }, [statusFilter]);
+  }, [debouncedSearch, page, statusFilter]);
 
   useEffect(() => {
     void fetchReceivables();
@@ -98,15 +141,6 @@ export default function Receivables() {
     }
   };
 
-  const normSearch = normalizeSearchTerm(search);
-  const filtered = receivables.filter(
-    (r) =>
-      matchesSearchText(r.description || '', normSearch) ||
-      matchesSearchText(r.customer_name || '', normSearch)
-  );
-  const safePage = Math.min(page, Math.max(1, Math.ceil(filtered.length / pageSize)));
-  const visible = filtered.slice((safePage - 1) * pageSize, safePage * pageSize);
-
   return (
     <div className="flex flex-col h-[calc(100vh-64px)] xl:h-[calc(100vh-80px)] overflow-hidden bg-slate-50 dark:bg-slate-950 transition-colors duration-300">
       <div className="flex-1 flex flex-col min-w-0 overflow-y-auto overflow-x-hidden p-4 md:p-10">
@@ -144,7 +178,7 @@ export default function Receivables() {
                 type="text"
                 placeholder="Buscar por descrição ou cliente..."
                 value={search}
-                onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+                onChange={(e) => setSearch(e.target.value)}
                 className="w-full pl-12 pr-4 py-3 bg-slate-50 dark:bg-slate-950 border-none rounded-2xl text-sm outline-none focus:ring-2 focus:ring-emerald-500 transition-all dark:text-slate-200"
               />
             </div>
@@ -195,7 +229,7 @@ export default function Receivables() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
-                {visible.map((receivable) => (
+                {receivables.map((receivable) => (
                   <tr
                     key={receivable.id}
                     className="hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-colors group"
@@ -241,9 +275,10 @@ export default function Receivables() {
             </table>
           </div>
 
-          <ERPListPagination ariaLabel="Paginação de contas a receber" page={page} pageSize={pageSize}
-            totalItems={filtered.length} onPageChange={setPage} onPageSizeChange={(size) => { setPage(1); setPageSize(size); }}
-            preferenceKey="finance-receivables" itemLabel="contas" loading={loading} className="px-4 py-3" />
+          <ERPListPagination ariaLabel="Paginação de contas a receber" page={page}
+            pageSize={RECEIVABLES_PAGE_SIZE} fixedPageSize={RECEIVABLES_PAGE_SIZE}
+            totalItems={totalReceivables} onPageChange={setPage}
+            itemLabel="contas" loading={loading} className="px-4 py-3" />
 
           {loadError && (
             <div
@@ -271,7 +306,7 @@ export default function Receivables() {
             </div>
           )}
 
-          {filtered.length === 0 && !loading && !loadError && (
+          {totalReceivables === 0 && !loading && !loadError && (
             <div className="p-20 flex flex-col items-center justify-center text-center flex-1">
               <div className="w-20 h-20 bg-slate-50 dark:bg-slate-900 rounded-[2rem] flex items-center justify-center text-slate-200 dark:text-slate-800 mb-6 border border-slate-100 dark:border-slate-800">
                 <i className="bi bi-check-circle text-4xl"></i>

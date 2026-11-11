@@ -107,6 +107,18 @@ export const InventoryScopeScreenContent: React.FC<Props> = ({
 
   useEffect(() => connectivityService.subscribe(setIsOnline), []);
 
+  const retryCatalogSync = useCallback(() => {
+    clearInventoryScopeCache();
+    setReloadToken((current) => current + 1);
+  }, []);
+
+  const wasOnline = useRef(isOnline);
+  useEffect(() => {
+    const reconnected = isOnline && !wasOnline.current;
+    wasOnline.current = isOnline;
+    if (reconnected) retryCatalogSync();
+  }, [isOnline, retryCatalogSync]);
+
   useEffect(() => {
     let active = true;
     void (async () => {
@@ -115,10 +127,8 @@ export const InventoryScopeScreenContent: React.FC<Props> = ({
       setCopyError(null);
       setCopySelectionLocked(false);
       try {
-        const [supplierData, responsibleData] = await Promise.all([
-          fetchInventoryScopeSuppliers(),
-          fetchInventoryScopeEmployees(userProfile?.email),
-        ]);
+        const responsibleData = await fetchInventoryScopeEmployees(userProfile?.email);
+        const supplierData = await fetchInventoryScopeSuppliers({ catalogSyncAlreadyChecked: true });
         if (active) {
           setSuppliers(supplierData as ScopeSupplier[]);
           setEmployees(responsibleData.employees as ScopeEmployee[]);
@@ -167,11 +177,6 @@ export const InventoryScopeScreenContent: React.FC<Props> = ({
       active = false;
     };
   }, [reloadToken, copiedItems, userProfile?.email, userProfile?.id]);
-
-  const retryCatalogSync = () => {
-    clearInventoryScopeCache();
-    setReloadToken((current) => current + 1);
-  };
 
   const bg = isDarkMode ? '#0f172a' : '#f8fafc';
   const surface = isDarkMode ? '#1e293b' : '#ffffff';
@@ -387,6 +392,7 @@ export const InventoryScopeScreenContent: React.FC<Props> = ({
               employees={employees}
               selectedId={responsibleId}
               isSynced={Boolean(employeesSyncedAt)}
+              isOffline={!isOnline}
               hasError={responsibleError}
               onRetrySync={retryCatalogSync}
               onSelect={(employee) => {

@@ -102,6 +102,7 @@ export const InventoryMovesHistory = ({
                 }}
                 onSelect={handleSelectProduct}
                 variationsOnly
+                includeTrashEligibility={false}
                 placeholder="Buscar produto..."
                 className="w-full"
               />

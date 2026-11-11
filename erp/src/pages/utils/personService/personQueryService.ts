@@ -4,8 +4,17 @@ import { TABLE_NAME, mapFromDB } from './personMapper';
 import { syncMissingEmployeesFromProfiles } from './personSyncService';
 import type { TestArtifactIdentity } from '../../../../../shared-utils/testArtifactPolicy';
 import { isTestOperatorVisibleToUser } from '../../../../../shared-utils/testOperatorVisibility';
-import { buildNormalizedWordsRegex } from '../../../../../shared-utils/searchText';
 import {
+  buildNormalizedWordsRegex,
+  buildPostgrestAccentInsensitiveOrFilter,
+  matchesSearchText,
+} from '../../../../../shared-utils/searchText';
+import {
+  filterInventoryResponsibleCandidates,
+  getInventoryResponsibleDisplayName,
+} from '../../../../../shared-utils/inventoryResponsible';
+import {
+  INVENTORY_AUDIT_EMPLOYEE_QUERY_COLUMNS,
   PERSON_QUERY_COLUMNS,
   type FetchPersonsOptions,
   isTestPerson,
@@ -266,6 +275,77 @@ export const fetchPersons = async (
     if (options.throwOnError) throw e;
     return [];
   }
+};
+
+/** Loads only the employee fields used by the ERP inventory-responsible selector. */
+export const fetchInventoryAuditEmployees = async (): Promise<Person[]> => {
+  try {
+    await syncMissingEmployeesFromProfiles();
+
+    const rows = await fetchAllPeopleRows(
+      'employees',
+      false,
+      INVENTORY_AUDIT_EMPLOYEE_QUERY_COLUMNS
+    );
+    const currentUserEmail = await getCurrentUserEmail();
+    return mapAndSortPeople('employees', rows, false, currentUserEmail);
+  } catch (e) {
+    console.error('Erro ao buscar responsáveis do inventário em personService:', e);
+    return [];
+  }
+};
+
+const mapInventoryAuditCandidates = (rows: any[], currentUserEmail: string): Person[] =>
+  filterInventoryResponsibleCandidates(
+    rows
+      .map(mapFromDB)
+      .filter((person) => !isTestPerson(person))
+      .filter((person) => isTestOperatorVisibleToUser(person, currentUserEmail))
+  );
+
+/** Searches matching names on the server, then applies legacy role aliases and deduplication before showing five. */
+export const searchInventoryAuditEmployees = async (
+  search: string,
+  signal?: AbortSignal
+): Promise<Person[]> => {
+  const queryText = search.trim();
+  if (queryText.replace(/\s+/g, '').length < 3) return [];
+
+  const searchFilter = buildPostgrestAccentInsensitiveOrFilter(
+    ['full_name', 'social_name', 'nickname'],
+    queryText
+  );
+  if (!searchFilter) return [];
+
+  const rows: any[] = [];
+  for (let firstRow = 0; ; firstRow += PEOPLE_FETCH_PAGE_SIZE) {
+    if (signal?.aborted) return [];
+
+    let pageQuery = supabase
+      .from(TABLE_NAME)
+      .select(INVENTORY_AUDIT_EMPLOYEE_QUERY_COLUMNS)
+      .or('deleted.eq.false,deleted.is.null')
+      .or('person_type.ilike.employees,and(position.not.is.null,position.neq."")')
+      .or(searchFilter)
+      .order('full_name', { ascending: true })
+      .order('id', { ascending: true })
+      .range(firstRow, firstRow + PEOPLE_FETCH_PAGE_SIZE - 1);
+    if (signal) pageQuery = pageQuery.abortSignal(signal);
+
+    const { data, error } = await pageQuery;
+
+    if (error) throw error;
+    const page = data || [];
+    rows.push(...page);
+    if (page.length < PEOPLE_FETCH_PAGE_SIZE) break;
+  }
+
+  if (signal?.aborted) return [];
+  const candidates = mapInventoryAuditCandidates(rows, await getCurrentUserEmail());
+  return candidates
+    .filter((employee) => matchesSearchText(getInventoryResponsibleDisplayName(employee), queryText))
+    .sort((left, right) => (left.fullName || '').localeCompare(right.fullName || ''))
+    .slice(0, 5);
 };
 
 export const fetchPersonById = (id: string): Promise<Person | null> => {

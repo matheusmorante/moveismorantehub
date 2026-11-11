@@ -3,6 +3,7 @@ import { GeminiToolDispatcher } from './geminiToolDispatcher';
 import { GeminiClient } from './geminiClient';
 import { withTimeout } from '../../../../shared-utils/withTimeout';
 import { agentContentSchema } from '../../../../shared-utils/agentChatFormSchemas';
+import { createAgentToolCallGuard } from '../../../../shared-utils/agentToolCallGuard';
 import {
   AgentPermissionContext,
   describeOperatorPermissionsForPrompt,
@@ -189,7 +190,8 @@ SUAS REGRAS FUNDAMENTAIS:
         erpAgentTools,
         options.permissionContext
       );
-      const activeTools = permittedTools.length > 0 ? permittedTools : erpAgentTools;
+      const activeTools = permittedTools;
+      const toolCallGuard = createAgentToolCallGuard();
 
       while (iterations < MAX_TOOL_ITERATIONS) {
         iterations++;
@@ -246,22 +248,66 @@ SUAS REGRAS FUNDAMENTAIS:
         }
 
         const responseParts: GeminiPart[] = [];
+        let executedInRound = 0;
+        let budgetExceeded = false;
         for (const call of functionCalls) {
           checkCurrent();
           toolDispatched = true;
           options.onToolDispatch?.();
-          const execution = await wait(
-            () => GeminiToolDispatcher.execute(call, options.permissionContext),
-            20_000
+          const guarded = await toolCallGuard.run(call.name, call.args || {}, () =>
+            wait(
+              () => GeminiToolDispatcher.execute(call, options.permissionContext),
+              20_000
+            )
           );
-          executedTools.push(execution.record);
-          responseParts.push({ functionResponse: execution.functionResponse });
+          if (guarded.status === 'limit') {
+            budgetExceeded = true;
+            responseParts.push({
+              functionResponse: {
+                name: call.name,
+                response: {
+                  output: {
+                    success: false,
+                    code: 'TOOL_CALL_LIMIT',
+                    message: 'Não consegui concluir a consulta com segurança em uma única mensagem.',
+                  },
+                },
+              },
+            });
+            continue;
+          }
+          if (guarded.status === 'executed' && guarded.value) {
+            executedInRound += 1;
+            executedTools.push(guarded.value.record);
+          }
+          if (guarded.value) {
+            responseParts.push({ functionResponse: guarded.value.functionResponse });
+          }
         }
 
         conversation.push({
           role: 'user',
           parts: responseParts,
         });
+
+        if (budgetExceeded) {
+          return {
+            result: {
+              answer: 'Não consegui concluir essa consulta agora. Tente pedir uma informação mais específica ou posso encaminhar para a equipe.',
+              executedTools,
+            },
+            updatedHistory: conversation,
+          };
+        }
+        if (executedInRound === 0) {
+          return {
+            result: {
+              answer: 'Já consultei essas mesmas informações nesta mensagem. Se ainda precisar, diga qual detalhe quer verificar.',
+              executedTools,
+            },
+            updatedHistory: conversation,
+          };
+        }
       }
 
       return {

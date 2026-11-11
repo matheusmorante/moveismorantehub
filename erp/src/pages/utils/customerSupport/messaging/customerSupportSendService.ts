@@ -12,6 +12,7 @@ export class CustomerSupportSendError extends Error {
 
 export interface CustomerSupportSendInput {
   message: string;
+  aiSuggestionMessageId?: string;
   file?: File;
   contact?: { name: string; phone: string };
   catalogSelection?: ProductCatalogSendSelection;
@@ -80,6 +81,7 @@ export async function sendCustomerSupportMessage(
       body = JSON.stringify({
         conversationId: parsed.data.conversationId,
         message: parsed.data.message,
+        ...(input.aiSuggestionMessageId ? { aiSuggestionMessageId: input.aiSuggestionMessageId } : {}),
         ...(parsed.data.replyToWamid ? { replyToWamid: parsed.data.replyToWamid } : {}),
         ...(parsed.data.forwarded ? { forwarded: true } : {}),
         ...(input.contact ? { contact: input.contact } : {}),

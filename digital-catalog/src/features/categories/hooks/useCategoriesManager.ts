@@ -11,12 +11,17 @@ import { withTimeout } from '../../../../../shared-utils/withTimeout';
 import { supabase } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
 import { useConfirmDialog } from '@/components/providers/confirm-dialog-provider';
-import { CategoryFormData, CategoryItem, CategoryLink } from '../types/categoryManager.types';
+import {
+  CategoryFormData,
+  CategoryItem,
+  CategoryLink,
+  CategoryManagerData,
+} from '../types/categoryManager.types';
 import { generateSlug } from '../utils/slugUtils';
 
 export interface UseCategoriesManagerProps {
   readonly isOpen: boolean;
-  readonly onSuccess?: () => void | Promise<void>;
+  readonly onSuccess?: (data?: CategoryManagerData) => void | Promise<void>;
 }
 
 export function useCategoriesManager({ isOpen, onSuccess }: UseCategoriesManagerProps) {
@@ -102,16 +107,24 @@ export function useCategoriesManager({ isOpen, onSuccess }: UseCategoriesManager
     return result;
   };
 
-  async function fetchData(generation = context.current.generation) {
+  async function fetchData(
+    generation = context.current.generation
+  ): Promise<CategoryManagerData | null> {
     const sequence = ++querySequence.current;
     setLoading(true);
     setDataReady(false);
     try {
       const [catRes, relRes] = await Promise.all([
-        request(supabase.from('categories').select('*').order('name'), generation),
-        request(supabase.from('category_relationships').select('*'), generation),
+        request(
+          supabase.from('categories').select('id, name, slug, type').order('name'),
+          generation
+        ),
+        request(
+          supabase.from('category_relationships').select('parent_id, child_id'),
+          generation
+        ),
       ]);
-      if (!isCurrent(generation) || querySequence.current !== sequence) return false;
+      if (!isCurrent(generation) || querySequence.current !== sequence) return null;
       if (catRes.error) throw catRes.error;
       if (relRes.error) throw relRes.error;
       if (!Array.isArray(catRes.data) || !Array.isArray(relRes.data)) {
@@ -120,10 +133,10 @@ export function useCategoriesManager({ isOpen, onSuccess }: UseCategoriesManager
       setCategories(catRes.data || []);
       setRelationships(relRes.data || []);
       setDataReady(true);
-      return true;
+      return { categories: catRes.data, relationships: relRes.data };
     } catch (error) {
       if (querySequence.current === sequence) showError(error, generation);
-      return false;
+      return null;
     } finally {
       if (isCurrent(generation) && querySequence.current === sequence) setLoading(false);
     }
@@ -161,10 +174,10 @@ export function useCategoriesManager({ isOpen, onSuccess }: UseCategoriesManager
   };
 
   const refreshOwner = async (generation: number) => {
-    await fetchData(generation);
+    const data = await fetchData(generation);
     if (isCurrent(generation) && onSuccess) {
       const notified = await withTimeout(
-        Promise.resolve(onSuccess()).then(() => true),
+        Promise.resolve(onSuccess(data ?? undefined)).then(() => true),
         20_000,
         false,
         'Atualização das categorias no produto'
@@ -195,12 +208,15 @@ export function useCategoriesManager({ isOpen, onSuccess }: UseCategoriesManager
                   .from('categories')
                   .update(itemData)
                   .eq('id', itemId)
-                  .select(),
+                  .select('id, name, slug, type'),
                 generation,
                 true
               )
             : await request(
-                supabase.from('categories').insert([itemData]).select(),
+                supabase
+                  .from('categories')
+                  .insert([itemData])
+                  .select('id, name, slug, type'),
                 generation,
                 true
               );

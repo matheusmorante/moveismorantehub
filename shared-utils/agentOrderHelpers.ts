@@ -271,8 +271,13 @@ export async function resolveOrderItems(
 export const ORDER_ROW_COLUMNS =
   'id, order_number, order_index, order_type, status, customer_name, customer_id, seller_name, total_amount, scheduled_date, scheduled_start_time, scheduled_end_time, delivery_method, order_data, items, linked_order_id, return_order_id, deleted';
 
+export const normalizeAgentOrderIdentifier = (value: string): string | null => {
+  const clean = value.trim().replace(/^#/, '');
+  return /^[a-z\d_-]{1,64}$/i.test(clean) ? clean : null;
+};
+
 export async function findOrderRowByIdOrNumber(supabase: any, idOrNumber: string) {
-  const clean = idOrNumber.trim().replace(/^#/, '');
+  const clean = normalizeAgentOrderIdentifier(idOrNumber);
   if (!clean) return null;
 
   const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(clean);
@@ -281,13 +286,15 @@ export async function findOrderRowByIdOrNumber(supabase: any, idOrNumber: string
       .from('orders')
       .select(ORDER_ROW_COLUMNS)
       .eq('id', clean)
+      .or('deleted.is.null,deleted.eq.false')
       .maybeSingle();
     if (error) throw error;
     if (data && !isIdentifiedTestArtifact(data)) return data;
+    return null;
   }
 
-  const numericCode = Number(clean);
-  const filterExpr = Number.isFinite(numericCode)
+  const numericCode = /^\d+$/.test(clean) ? Number(clean) : null;
+  const filterExpr = numericCode !== null && Number.isSafeInteger(numericCode)
     ? `order_number.eq.${clean},order_index.eq.${numericCode}`
     : `order_number.eq.${clean}`;
 
@@ -296,7 +303,6 @@ export async function findOrderRowByIdOrNumber(supabase: any, idOrNumber: string
     .select(ORDER_ROW_COLUMNS)
     .or('deleted.is.null,deleted.eq.false')
     .or(filterExpr)
-    .limit(1)
     .maybeSingle();
   if (error) throw error;
   if (!data || isIdentifiedTestArtifact(data)) return null;

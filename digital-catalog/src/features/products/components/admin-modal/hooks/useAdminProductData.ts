@@ -13,6 +13,7 @@ import {
   StoreCategory,
   TempVariation,
 } from '../types';
+import type { CategoryManagerData } from '@/features/categories/types/categoryManager.types';
 import { parseLegacyMeasures } from '../utils/measuresUtils';
 import { calculateInitialDiscounts } from '../utils/priceCalculations';
 
@@ -51,9 +52,15 @@ export function useAdminProductData({
 
   const isLoaded = useRef(false);
 
-  const fetchCategories = async () => {
+  const fetchCategories = async (managerData?: CategoryManagerData) => {
+    if (managerData) {
+      setCategories([...managerData.categories] as StoreCategory[]);
+      setCategoryRelationships([...managerData.relationships]);
+      return;
+    }
+
     const [categoriesResult, relationshipsResult] = await Promise.all([
-      supabase.from('categories').select('*').order('name'),
+      supabase.from('categories').select('id, name, type').order('name'),
       supabase.from('category_relationships').select('parent_id, child_id'),
     ]);
     setCategories((categoriesResult.data || []) as StoreCategory[]);

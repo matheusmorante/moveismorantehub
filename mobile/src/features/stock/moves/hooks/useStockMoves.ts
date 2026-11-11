@@ -1,11 +1,19 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { StockMove } from '../../types/stock.types';
 import * as stockService from '../../../../services/stockService';
+import { connectivityService } from '../../../../services/offline/connectivityService';
 import {
   isInventoryAuditMarker,
   getCleanObservation as getCanonicalCleanObservation,
   calculateInventoryTimelineBalance,
 } from '../domain/inventoryTimelineBalance';
+
+interface StockMovesQuery {
+  page: number;
+  productId?: string;
+  period: { startDate: string; endDate: string };
+  variationId?: string;
+}
 
 export const useStockMoves = () => {
   const [moves, setMoves] = useState<StockMove[]>([]);
@@ -19,9 +27,34 @@ export const useStockMoves = () => {
   const [period, setPeriod] = useState<{ startDate: string; endDate: string }>(() =>
     getPeriodRange('Este Mês')
   );
+  const [isOnline, setIsOnline] = useState(() => connectivityService.connected);
+  const requestSequenceRef = useRef(0);
+  const latestQueryRef = useRef<StockMovesQuery>({
+    page: 0,
+    period,
+  });
+  const wasOnlineRef = useRef(connectivityService.connected);
 
   const loadMoves = useCallback(
     async (pageNum = 0, pId?: string, selectedPeriod = period, vId = variationId) => {
+      const query: StockMovesQuery = {
+        page: pageNum,
+        productId: pId,
+        period: selectedPeriod,
+        variationId: vId,
+      };
+      latestQueryRef.current = query;
+      const requestSequence = ++requestSequenceRef.current;
+
+      if (!connectivityService.connected) {
+        setLoading(false);
+        setMoves([]);
+        setPage(pageNum);
+        setCurrentStock(null);
+        setError('Sem conexão. O histórico de movimentações precisa de internet.');
+        return;
+      }
+
       setLoading(true);
       setError('');
 
@@ -33,6 +66,8 @@ export const useStockMoves = () => {
           selectedPeriod.startDate,
           selectedPeriod.endDate
         );
+
+        if (requestSequence !== requestSequenceRef.current) return;
 
         // Ignora marcadores de inventário com quantidade zero (idêntico ao ERP)
         const rawRows = data.filter(
@@ -97,21 +132,21 @@ export const useStockMoves = () => {
 
         if (pId) {
           const timelineBal = calculateInventoryTimelineBalance(formattedData);
-          if (timelineBal !== null) {
-            setCurrentStock(timelineBal);
-          }
+          if (timelineBal !== null) setCurrentStock(timelineBal);
         } else {
           setCurrentStock(null);
         }
       } catch (err) {
+        if (requestSequence !== requestSequenceRef.current) return;
         console.error('Failed to fetch stock moves:', err);
         setMoves([]);
         setTotalPages(1);
+        setCurrentStock(null);
         setError(
           err instanceof Error ? err.message : 'Não foi possível carregar as movimentações.'
         );
       } finally {
-        setLoading(false);
+        if (requestSequence === requestSequenceRef.current) setLoading(false);
       }
     },
     [period, variationId]
@@ -140,10 +175,25 @@ export const useStockMoves = () => {
     void loadMoves(0, productId, period, variationId);
   }, [loadMoves, productId, period, variationId]);
 
+  useEffect(
+    () =>
+      connectivityService.subscribe((online) => {
+        setIsOnline(online);
+        const wasOnline = wasOnlineRef.current;
+        wasOnlineRef.current = online;
+        if (wasOnline === online) return;
+
+        const query = latestQueryRef.current;
+        void loadMoves(query.page, query.productId, query.period, query.variationId);
+      }),
+    [loadMoves]
+  );
+
   return {
     moves,
     loading,
     error,
+    isOnline,
     page,
     totalPages,
     goToPage,

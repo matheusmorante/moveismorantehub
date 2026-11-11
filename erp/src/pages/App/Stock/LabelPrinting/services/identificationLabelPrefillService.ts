@@ -22,7 +22,7 @@ export async function prepareIdentificationLabelProductsForReceipt(
   const response = await withTimeout(
     supabase
       .from('goods_receipts')
-      .select('id, status, is_draft, items, goods_receipt_items(item_index, product_id, variation_id, quantity, item_snapshot)')
+      .select('id, status, is_draft, goods_receipt_items(item_index, product_id, variation_id, quantity, item_snapshot)')
       .eq('id', id)
       .maybeSingle(),
     10000,
@@ -37,9 +37,30 @@ export async function prepareIdentificationLabelProductsForReceipt(
   }
 
   const persistedItems = response.data.goods_receipt_items;
-  const items = Array.isArray(persistedItems) && persistedItems.length > 0
-    ? [...persistedItems].sort((left: any, right: any) => Number(left.item_index || 0) - Number(right.item_index || 0))
-    : Array.isArray(response.data.items) ? response.data.items : [];
+  let items: any[];
+  if (Array.isArray(persistedItems) && persistedItems.length > 0) {
+    items = [...persistedItems].sort(
+      (left: any, right: any) => Number(left.item_index || 0) - Number(right.item_index || 0)
+    );
+  } else {
+    const legacyResponse = await withTimeout(
+      supabase
+        .from('goods_receipts')
+        .select('items')
+        .eq('id', id)
+        .maybeSingle(),
+      10000,
+      null,
+      'etiquetas:carregar-itens-legados'
+    );
+    if (!legacyResponse) {
+      throw new Error('A consulta dos itens antigos do recebimento excedeu o prazo.');
+    }
+    if (legacyResponse.error) {
+      throw new Error('Não foi possível carregar os itens antigos do recebimento para as etiquetas.');
+    }
+    items = Array.isArray(legacyResponse.data?.items) ? legacyResponse.data.items : [];
+  }
   const references = items.map((item: Record<string, any>) => {
     const snapshot = item.item_snapshot && typeof item.item_snapshot === 'object'
       ? item.item_snapshot

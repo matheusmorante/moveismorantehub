@@ -23,6 +23,8 @@ interface InventoryScopeModalProps {
   readonly allProducts: readonly Product[];
   readonly suppliers: readonly Person[];
   readonly employees: readonly Person[];
+  readonly searchEmployees?: (search: string, signal: AbortSignal) => Promise<Person[]>;
+  readonly rememberEmployee?: (employee: Person) => void;
   readonly catalogSyncedAt?: string | null;
   readonly copiedItems?: readonly InventorySnapshotItem[] | null;
   readonly onCancel: () => void;
@@ -33,6 +35,8 @@ export const InventoryScopeModal: React.FC<InventoryScopeModalProps> = ({
   allProducts,
   suppliers,
   employees,
+  searchEmployees,
+  rememberEmployee,
   catalogSyncedAt,
   copiedItems,
   onCancel,
@@ -236,6 +240,8 @@ export const InventoryScopeModal: React.FC<InventoryScopeModalProps> = ({
                 responsibleError={responsibleError}
                 setResponsibleError={(value) => { if (!locked.current) setResponsibleError(value); }}
                 employees={employees}
+                searchEmployees={searchEmployees}
+                rememberEmployee={rememberEmployee}
               />
             )}
           </fieldset>

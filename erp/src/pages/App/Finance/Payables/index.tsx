@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { financeService } from '@/pages/services/financeService';
+import type { FinancePayablesPage } from '@/pages/services/financeService';
 import { AccountPayable } from '../../../types/finance.type';
-import { normalizeSearchTerm } from '@/pages/utils/textUtils';
+import { normalizeSearchTerm, matchesSearchText } from '@/pages/utils/textUtils';
 import PayableModal from './PayableModal';
 import { ERPListPagination } from '@/components/shared/ERPListPagination';
-import { matchesSearchText } from '@/pages/utils/textUtils';
+
+const PAYABLES_PAGE_SIZE = 15;
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
@@ -18,25 +20,58 @@ const formatToBRDate = (dateString: string) => {
 
 export default function Payables() {
   const [payables, setPayables] = useState<AccountPayable[]>([]);
+  const [totalPayables, setTotalPayables] = useState(0);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const requestId = useRef(0);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedPayable, setSelectedPayable] = useState<AccountPayable | null>(null);
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(15);
+
+  useEffect(() => {
+    const nextSearch = search.trim();
+    if (!nextSearch) {
+      setDebouncedSearch('');
+      setPage(1);
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      setDebouncedSearch(nextSearch);
+      setPage(1);
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [search]);
 
   const fetchPayables = useCallback(async () => {
     const currentRequestId = ++requestId.current;
     setLoading(true);
     setLoadError(null);
     try {
-      const data = await financeService.getPayables(
-        statusFilter !== 'all' ? statusFilter : undefined
+      const response: unknown = await financeService.getPayables(
+        statusFilter !== 'all' ? statusFilter : undefined,
+        debouncedSearch,
+        page
       );
-      if (currentRequestId === requestId.current) setPayables(data || []);
+      if (currentRequestId === requestId.current) {
+        if (Array.isArray(response)) {
+          // Compatibility for callers/mocks that still return the former full-list shape.
+          const legacyRows = response as AccountPayable[];
+          const query = normalizeSearchTerm(debouncedSearch);
+          const filteredRows = legacyRows.filter((payable) =>
+            matchesSearchText(payable.description || '', query)
+            || matchesSearchText(payable.supplier_name || '', query)
+          );
+          setPayables(filteredRows.slice((page - 1) * PAYABLES_PAGE_SIZE, page * PAYABLES_PAGE_SIZE));
+          setTotalPayables(filteredRows.length);
+        } else {
+          const pageResult = response as FinancePayablesPage;
+          setPayables(pageResult.items);
+          setTotalPayables(pageResult.total_count);
+        }
+      }
     } catch {
       if (currentRequestId === requestId.current) {
         setLoadError('Não foi possível carregar as contas a pagar. Tente novamente.');
@@ -44,7 +79,7 @@ export default function Payables() {
     } finally {
       if (currentRequestId === requestId.current) setLoading(false);
     }
-  }, [statusFilter]);
+  }, [debouncedSearch, page, statusFilter]);
 
   useEffect(() => {
     void fetchPayables();
@@ -98,14 +133,7 @@ export default function Payables() {
     }
   };
 
-  const normSearch = normalizeSearchTerm(search);
-  const filtered = payables.filter(
-    (p) =>
-      matchesSearchText(p.description || '', normSearch) ||
-      matchesSearchText(p.supplier_name || '', normSearch)
-  );
-  const safePage = Math.min(page, Math.max(1, Math.ceil(filtered.length / pageSize)));
-  const visible = filtered.slice((safePage - 1) * pageSize, safePage * pageSize);
+  const visible = payables;
 
   return (
     <div className="flex flex-col h-[calc(100vh-64px)] xl:h-[calc(100vh-80px)] overflow-hidden bg-slate-50 dark:bg-slate-950 transition-colors duration-300">
@@ -144,7 +172,7 @@ export default function Payables() {
                 type="text"
                 placeholder="Buscar por descrição ou credor..."
                 value={search}
-                onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+                onChange={(e) => setSearch(e.target.value)}
                 className="w-full pl-12 pr-4 py-3 bg-slate-50 dark:bg-slate-950 border-none rounded-2xl text-sm outline-none focus:ring-2 focus:ring-rose-500 transition-all dark:text-slate-200"
               />
             </div>
@@ -241,9 +269,10 @@ export default function Payables() {
             </table>
           </div>
 
-          <ERPListPagination ariaLabel="Paginação de contas a pagar" page={page} pageSize={pageSize}
-            totalItems={filtered.length} onPageChange={setPage} onPageSizeChange={(size) => { setPage(1); setPageSize(size); }}
-            preferenceKey="finance-payables" itemLabel="contas" loading={loading} className="px-4 py-3" />
+          <ERPListPagination ariaLabel="Paginação de contas a pagar" page={page}
+            pageSize={PAYABLES_PAGE_SIZE} fixedPageSize={PAYABLES_PAGE_SIZE}
+            totalItems={totalPayables} onPageChange={setPage}
+            itemLabel="contas" loading={loading} className="px-4 py-3" />
 
           {loadError && (
             <div
@@ -271,7 +300,7 @@ export default function Payables() {
             </div>
           )}
 
-          {filtered.length === 0 && !loading && !loadError && (
+          {totalPayables === 0 && !loading && !loadError && (
             <div className="p-20 flex flex-col items-center justify-center text-center flex-1">
               <div className="w-20 h-20 bg-slate-50 dark:bg-slate-900 rounded-[2rem] flex items-center justify-center text-slate-200 dark:text-slate-800 mb-6 border border-slate-100 dark:border-slate-800">
                 <i className="bi bi-check-circle text-4xl"></i>

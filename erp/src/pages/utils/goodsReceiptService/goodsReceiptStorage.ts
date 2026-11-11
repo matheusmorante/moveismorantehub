@@ -46,54 +46,89 @@ export const removeReceiptListener = (callback: (receipts: GoodsReceipt[]) => vo
 const isValidUuid = (val?: string) =>
   Boolean(val && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val));
 
+const RECEIPT_INDEX_BATCH_SIZE = 5;
+
+const chunkReceiptIds = (ids: string[]) => {
+  const chunks: string[][] = [];
+  for (let offset = 0; offset < ids.length; offset += RECEIPT_INDEX_BATCH_SIZE) {
+    chunks.push(ids.slice(offset, offset + RECEIPT_INDEX_BATCH_SIZE));
+  }
+  return chunks;
+};
+
+const normalizeReceiptId = (id: string) => id.toLowerCase();
+
 /**
  * Garante que todos os recebimentos possuam um receiptIndex válido sequencial.
  * Atua como auto-cura transparente para registros legados ou criados sem código.
  */
 export const ensureReceiptIndexes = async (items: GoodsReceipt[]): Promise<GoodsReceipt[]> => {
-  let needsSave = false;
-  const list = await Promise.all(
-    items.map(async (item) => {
-      if (isTestGoodsReceipt(item) || getGoodsReceiptIndex(item) || !isValidUuid(item.id))
-        return item;
+  const candidateIds = Array.from(
+    new Set(
+      items
+        .filter((item) => !isTestGoodsReceipt(item) && !getGoodsReceiptIndex(item) && isValidUuid(item.id))
+        .map((item) => normalizeReceiptId(item.id))
+    )
+  );
+  const confirmedIndexes = new Map<string, number>();
+  const fallbackIds: string[] = [];
 
-      try {
-        const { data, error } = await supabase
-          .from('goods_receipts')
-          .update({ receipt_index: null })
-          .eq('id', item.id)
-          .is('receipt_index', null)
-          .select('receipt_index');
-        if (error) return item;
+  for (const idBatch of chunkReceiptIds(candidateIds)) {
+    try {
+      const { data, error } = await supabase
+        .from('goods_receipts')
+        .update({ receipt_index: null })
+        .in('id', idBatch)
+        .is('receipt_index', null)
+        .select('id, receipt_index');
+      if (error) continue;
 
-        const assignedIndex = Number(data?.[0]?.receipt_index);
+      const confirmedBatch = new Set<string>();
+      (data || []).forEach((row) => {
+        const id = normalizeReceiptId(String(row.id));
+        const assignedIndex = Number(row.receipt_index);
         if (getGoodsReceiptIndex({ receiptIndex: assignedIndex })) {
-          needsSave = true;
-          return { ...item, receiptIndex: assignedIndex };
+          confirmedIndexes.set(id, assignedIndex);
+          confirmedBatch.add(id);
         }
+      });
 
-        const { data: currentRows, error: readError } = await supabase
-          .from('goods_receipts')
-          .select('receipt_index')
-          .eq('id', item.id);
-        const currentIndex = Number(currentRows?.[0]?.receipt_index);
-        if (!readError && getGoodsReceiptIndex({ receiptIndex: currentIndex })) {
-          needsSave = true;
-          return { ...item, receiptIndex: currentIndex };
+      fallbackIds.push(...idBatch.filter((id) => !confirmedBatch.has(id)));
+    } catch {
+      /* Mantém os itens do bloco como estão; uma carga posterior pode tentar novamente. */
+    }
+  }
+
+  for (const idBatch of chunkReceiptIds(fallbackIds)) {
+    try {
+      const { data, error } = await supabase
+        .from('goods_receipts')
+        .select('id, receipt_index')
+        .in('id', idBatch);
+      if (error) continue;
+
+      (data || []).forEach((row) => {
+        const id = normalizeReceiptId(String(row.id));
+        const currentIndex = Number(row.receipt_index);
+        if (getGoodsReceiptIndex({ receiptIndex: currentIndex })) {
+          confirmedIndexes.set(id, currentIndex);
         }
-      } catch {
-        /* Deixa o código pendente quando o banco não puder reservá-lo. */
-      }
+      });
+    } catch {
+      /* Mantém os itens do bloco como estão; uma carga posterior pode tentar novamente. */
+    }
+  }
 
-      return item;
+  const result = items
+    .map((item) => {
+      const confirmedIndex = confirmedIndexes.get(normalizeReceiptId(item.id));
+      return confirmedIndex ? { ...item, receiptIndex: confirmedIndex } : item;
     })
-  );
-
-  const result = list.sort(
-    (a, b) =>
-      new Date(b.updatedAt || b.receivedAt).getTime() -
-      new Date(a.updatedAt || a.receivedAt).getTime()
-  );
-  if (needsSave) saveStoredReceipts(result);
+    .sort(
+      (a, b) =>
+        new Date(b.updatedAt || b.receivedAt).getTime() -
+        new Date(a.updatedAt || a.receivedAt).getTime()
+    );
+  if (confirmedIndexes.size > 0) saveStoredReceipts(result);
   return result;
 };

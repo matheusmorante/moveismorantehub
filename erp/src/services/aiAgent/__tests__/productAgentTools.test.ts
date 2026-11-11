@@ -190,17 +190,6 @@ describe(`[${testRunId}] productAgentTools - Consulta e Ficha Técnica de Produt
   });
 
   it('obterDetalhesProduto: deve falhar amigavelmente se produto não for encontrado', async () => {
-    const mockSelect = {
-      eq: vi.fn().mockReturnValue({
-        or: vi.fn().mockReturnValue({
-          maybeSingle: vi.fn().mockResolvedValue({
-            data: null,
-            error: null,
-          }),
-        }),
-      }),
-    };
-
     (supabase.from as any).mockImplementation((table: string) => {
       if (table === 'product_variations') {
         return {
@@ -244,14 +233,14 @@ describe(`[${testRunId}] productAgentTools - Consulta e Ficha Técnica de Produt
     const dispatch1 = await GeminiToolDispatcher.execute({
       name: 'buscarProdutos',
       args: { termo: 'Sofá' },
-    });
+    }, { role: 'administrator', enforced: true });
     expect(dispatch1.record.name).toBe('buscarProdutos');
     expect(dispatch1.record.label).toBe('Pesquisando produtos no catálogo');
 
     const dispatch2 = await GeminiToolDispatcher.execute({
       name: 'obterDetalhesProduto',
       args: { codigoOuSku: '100010' },
-    });
+    }, { role: 'administrator', enforced: true });
     expect(dispatch2.record.name).toBe('obterDetalhesProduto');
     expect(dispatch2.record.label).toBe('Carregando detalhes e ficha técnica do produto');
   });

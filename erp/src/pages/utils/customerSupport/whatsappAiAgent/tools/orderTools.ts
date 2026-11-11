@@ -1,5 +1,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { extractDigits, getPhoneLookupCandidates } from '../../phoneUtils.js';
+import {
+  extractDigits,
+  getPhoneLookupCandidates,
+  parseBrazilianPhone,
+} from '../../phoneUtils.js';
 import type { SafeToolContext } from './types.js';
 
 export async function handleConsultarMeusPedidos(
@@ -7,29 +11,91 @@ export async function handleConsultarMeusPedidos(
   _args: Record<string, any>,
   context: SafeToolContext
 ): Promise<Record<string, any>> {
-  const phoneCandidates: string[] = getPhoneLookupCandidates(context.contactPhone);
-  phoneCandidates.push(extractDigits(context.contactPhone));
+  let customerId = context.customerId || null;
+  if (!customerId) {
+    const candidates = Array.from(
+      new Set(getPhoneLookupCandidates(context.contactPhone).map(extractDigits).filter((item) => item.length >= 8))
+    ).slice(0, 6);
+    if (!candidates.length) {
+      return {
+        success: true,
+        pedidos: [],
+        mensagem: 'Não consegui confirmar o cadastro do cliente por este telefone. Posso encaminhar para nossa equipe verificar.',
+      };
+    }
 
-  let query = supabase
+    const phoneFilter = candidates.map((digits) => `phone.ilike.%${digits}%`).join(',');
+    const { data: people, error: peopleError } = await supabase
+      .from('people')
+      .select('id, phone')
+      .eq('person_type', 'customers')
+      .or('deleted.is.null,deleted.eq.false')
+      .or(phoneFilter)
+      .limit(21);
+
+    if (peopleError) {
+      return {
+        success: false,
+        code: 'DATABASE_ERROR',
+        mensagem: 'Não consegui consultar seus pedidos agora. Tente novamente mais tarde ou posso encaminhar para nossa equipe.',
+      };
+    }
+    if ((people || []).length > 20) {
+      return {
+        success: true,
+        pedidos: [],
+        mensagem:
+          'Encontrei muitos cadastros relacionados a este telefone e não consigo confirmar quais pedidos são seus. Posso encaminhar para nossa equipe verificar.',
+      };
+    }
+
+    const targetDigits = extractDigits(context.contactPhone);
+    const target = parseBrazilianPhone(context.contactPhone);
+    const exactMatches = (people || []).filter((person: any) => {
+      const phone = String(person.phone || '');
+      const digits = extractDigits(phone);
+      if (!digits) return false;
+      const parsed = parseBrazilianPhone(phone);
+      if (target.isBrazilian && parsed.isBrazilian && target.ddd && parsed.ddd) {
+        return target.ddd === parsed.ddd && target.number.slice(-8) === parsed.number.slice(-8);
+      }
+      return digits === targetDigits;
+    });
+    const uniqueCustomerIds = Array.from(
+      new Set(exactMatches.map((person: any) => String(person.id || '')).filter(Boolean))
+    );
+    if (uniqueCustomerIds.length !== 1) {
+      return {
+        success: true,
+        pedidos: [],
+        mensagem:
+          uniqueCustomerIds.length > 1
+            ? 'Encontrei mais de um cadastro associado a este telefone e não consigo confirmar quais pedidos são seus. Posso encaminhar para nossa equipe verificar.'
+            : 'Não encontrei um cadastro de cliente vinculado a este telefone. Posso encaminhar para nossa equipe verificar.',
+      };
+    }
+    customerId = uniqueCustomerIds[0];
+  }
+
+  const { data: rows, error } = await supabase
     .from('orders')
     .select(
       'id, order_number, order_index, status, order_type, customer_name, total_amount, scheduled_date, delivery_method, delivery_status, items, order_data'
     )
-    .or('deleted.is.null,deleted.eq.false');
-
-  if (context.customerId) {
-    query = query.eq('customer_id', context.customerId);
-  } else {
-    // Busca com segurança por telefone do cliente
-    const phoneExpr = phoneCandidates.slice(0, 4).map((p) => `customer_name.ilike.%${p}%`).join(',');
-    query = query.or(phoneExpr);
-  }
-
-  const { data: rows, error } = await query
+    .or('deleted.is.null,deleted.eq.false')
+    .eq('customer_id', customerId)
     .order('created_at', { ascending: false })
     .limit(5);
 
-  if (error || !rows || rows.length === 0) {
+  if (error) {
+    return {
+      success: false,
+      code: 'DATABASE_ERROR',
+      mensagem: 'Não consegui consultar seus pedidos agora. Tente novamente mais tarde ou posso encaminhar para nossa equipe.',
+    };
+  }
+
+  if (!rows || rows.length === 0) {
     return {
       success: true,
       pedidos: [],

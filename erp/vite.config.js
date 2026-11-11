@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react';
 import tsconfigPaths from 'vite-tsconfig-paths';
 import legacy from '@vitejs/plugin-legacy';
 import path from 'path';
+import { segmentationBigIntCompatibility } from './vite-segmentation-compat';
 // https://vitejs.dev/config/
 export default defineConfig({
     // The official dev launcher injects Vercel Development. Do not fill missing
@@ -24,6 +25,7 @@ export default defineConfig({
         }),
     },
     plugins: [
+        segmentationBigIntCompatibility,
         react(),
         tsconfigPaths(),
         legacy({

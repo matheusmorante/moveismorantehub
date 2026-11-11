@@ -123,7 +123,6 @@ export const compactCatalogSnapshot = (next: OfflineInventoryCatalog): OfflineIn
     'position',
     'role',
     'roles',
-    'active',
     'deleted',
     'updated_at',
   ]),

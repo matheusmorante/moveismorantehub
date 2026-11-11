@@ -36,17 +36,6 @@ export function useChatComposerInputState({
   }, [replyTarget?.id, composerMode]);
 
   useEffect(() => {
-    const handleUseSuggestion = (e: any) => {
-      if (e.detail?.text) {
-        setDraftValue('message', e.detail.text, { shouldDirty: true, shouldValidate: true });
-        textareaRef.current?.focus();
-      }
-    };
-    window.addEventListener('customer_support_use_ai_suggestion', handleUseSuggestion);
-    return () => window.removeEventListener('customer_support_use_ai_suggestion', handleUseSuggestion);
-  }, [setDraftValue]);
-
-  useEffect(() => {
     const textarea = textareaRef.current;
     if (!textarea) return;
     textarea.style.height = 'auto';

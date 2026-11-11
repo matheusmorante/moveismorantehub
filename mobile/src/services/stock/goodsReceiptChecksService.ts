@@ -109,25 +109,6 @@ export const syncPendingGoodsReceipts = async (
     try {
       const tableRef = supabase.from('goods_receipts') as any;
       if (typeof tableRef.select === 'function' && typeof tableRef.update === 'function') {
-        // Verifica conflito de estorno no servidor antes de aplicar a conferência
-        let existingStatus: string | null = null;
-        try {
-          const selectChain = tableRef.select('id, status');
-          if (typeof selectChain?.eq === 'function') {
-            const eqChain = selectChain.eq('id', item.receiptId);
-            if (typeof eqChain?.maybeSingle === 'function') {
-              const { data: currentRow } = await eqChain.maybeSingle();
-              existingStatus = currentRow?.status || null;
-            }
-          }
-        } catch {}
-
-        if (existingStatus === 'estornado') {
-          // Recebimento estornado no servidor não deve ser sobrescrito como 'received'
-          syncedCount++;
-          continue;
-        }
-
         const updatePayload: Record<string, unknown> = {
           status: 'received',
           is_draft: false,
@@ -138,10 +119,40 @@ export const syncPendingGoodsReceipts = async (
         }
 
         const updateChain = tableRef.update(updatePayload);
-        const { error } =
-          typeof updateChain?.eq === 'function'
-            ? await updateChain.eq('id', item.receiptId)
-            : { error: null };
+        if (typeof updateChain?.eq !== 'function') {
+          remaining.push(item);
+          continue;
+        }
+
+        let updateResult: { error: unknown };
+        if (typeof updateChain?.or === 'function') {
+          // Keep NULL legacy statuses eligible, but never overwrite a concurrent reversal.
+          updateResult = await updateChain
+            .eq('id', item.receiptId)
+            .or('status.is.null,status.neq.estornado');
+        } else {
+          // Lightweight adapters without PostgREST OR filters retain the prior guarded flow.
+          let existingStatus: string | null = null;
+          try {
+            const selectChain = tableRef.select('id, status');
+            if (typeof selectChain?.eq === 'function') {
+              const eqChain = selectChain.eq('id', item.receiptId);
+              if (typeof eqChain?.maybeSingle === 'function') {
+                const { data: currentRow } = await eqChain.maybeSingle();
+                existingStatus = currentRow?.status || null;
+              }
+            }
+          } catch {}
+
+          if (existingStatus === 'estornado') {
+            syncedCount++;
+            continue;
+          }
+
+          updateResult = await tableRef.update(updatePayload).eq('id', item.receiptId);
+        }
+
+        const { error } = updateResult;
 
         if (!error) {
           syncedCount++;

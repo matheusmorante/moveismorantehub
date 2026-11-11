@@ -76,7 +76,7 @@ describe('GeminiAgentService - Agente Conversacional & Loop de Tool Calling', ()
     });
 
     let callStep = 0;
-    setGeminiCustomTransport(async (req) => {
+    setGeminiCustomTransport(async (_req) => {
       callStep++;
       if (callStep === 1) {
         // Primeiro passo do Gemini: consultar categorias
@@ -142,7 +142,10 @@ describe('GeminiAgentService - Agente Conversacional & Loop de Tool Calling', ()
     });
 
     const { result, updatedHistory } = await GeminiAgentService.sendMessage(
-      'Paguei 230 de gasolina da Fiorino hoje no Pix'
+      'Paguei 230 de gasolina da Fiorino hoje no Pix',
+      [],
+      undefined,
+      { permissionContext: { role: 'administrator', enforced: true } }
     );
 
     expect(result.executedTools).toHaveLength(2);
@@ -164,8 +167,8 @@ describe('GeminiAgentService - Agente Conversacional & Loop de Tool Calling', ()
     expect(updatedHistory).toHaveLength(6);
   });
 
-  it('deve respeitar a proteção contra loop infinito (máximo 5 iterações)', async () => {
-    // Simula modelo que fica em loop chamando tool repetidamente
+  it('deve encerrar chamadas repetidas sem consumir todo o limite de iterações', async () => {
+    // Simula modelo que insiste na mesma consulta e deve receber o resultado em cache.
     setGeminiCustomTransport(async () => ({
       candidates: [
         {
@@ -189,8 +192,14 @@ describe('GeminiAgentService - Agente Conversacional & Loop de Tool Calling', ()
       data: [],
     });
 
-    const { result } = await GeminiAgentService.sendMessage('Loop infinito');
-    expect(result.answer).toContain('limite de iterações atingido');
-    expect(result.executedTools.length).toBe(5);
+    const { result } = await GeminiAgentService.sendMessage(
+      'Loop infinito',
+      [],
+      undefined,
+      { permissionContext: { role: 'administrator', enforced: true } }
+    );
+    expect(result.answer).toContain('Já consultei essas mesmas informações');
+    expect(result.executedTools.length).toBe(1);
+    expect(financialAgentTools.buscarCategoriasFinanceiras).toHaveBeenCalledTimes(1);
   });
 });

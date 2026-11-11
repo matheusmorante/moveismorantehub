@@ -49,6 +49,12 @@ export default function ReceiptsPage() {
     selectedSupplierId,
     setSelectedSupplierId,
     filteredReceipts,
+    currentPage,
+    setCurrentPage,
+    totalItems,
+    totalPages,
+    isLoading,
+    isFromCache,
     period,
     setPeriod,
     customStartDate,
@@ -173,22 +179,7 @@ export default function ReceiptsPage() {
   };
 
   const selectedSupplier = suppliers.find((p) => p.id === selectedSupplierId);
-
-  const [itemsPerPage, setItemsPerPage] = useState(15);
-  const [currentPage, setCurrentPage] = useState(1);
-
-  // Reinicia página ao mudar filtro de período ou fornecedor
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [period, selectedSupplierId, customStartDate, customEndDate]);
-
-  const totalItems = filteredReceipts.length;
-  const totalPages = Math.ceil(totalItems / itemsPerPage);
-
-  const paginatedReceipts = React.useMemo(() => {
-    const start = (currentPage - 1) * itemsPerPage;
-    return filteredReceipts.slice(start, start + itemsPerPage);
-  }, [filteredReceipts, currentPage, itemsPerPage]);
+  const paginatedReceipts = filteredReceipts;
 
   return (
     <div className="flex flex-col">
@@ -212,6 +203,14 @@ export default function ReceiptsPage() {
       />
 
       <section>
+        {!focusedReceipt && isFromCache && (
+          <div
+            role="status"
+            className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-100"
+          >
+            Exibindo recebimentos salvos neste navegador. Eles podem não incluir as atualizações mais recentes; a lista será atualizada assim que o servidor puder ser consultado.
+          </div>
+        )}
         {focusedReceipt ? (
           <div className="px-4 py-4">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 dark:border-blue-900 dark:bg-blue-950/40">
@@ -240,7 +239,7 @@ export default function ReceiptsPage() {
               />
             </div>
           </div>
-        ) : filteredReceipts.length === 0 ? (
+        ) : totalItems === 0 && !isLoading ? (
           <div className="rounded-[2rem] border border-slate-100 bg-white p-12 text-center shadow-xl dark:border-slate-800 dark:bg-slate-900">
             <i className="bi bi-box2-heart text-3xl text-slate-300 dark:text-slate-600" />
             <p className="mt-3 text-sm font-bold text-slate-600 dark:text-slate-300">
@@ -260,6 +259,10 @@ export default function ReceiptsPage() {
                 <i className="bi bi-x-circle" /> Limpar filtro de fornecedor
               </button>
             )}
+          </div>
+        ) : filteredReceipts.length === 0 ? (
+          <div role="status" className="rounded-xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">
+            Atualizando a página de recebimentos…
           </div>
         ) : (
           <>
@@ -297,21 +300,17 @@ export default function ReceiptsPage() {
                 ))}
               </div>
             </div>
-
-            {/* Controles de Paginação (Tabela e Cards, telas desktop e mobile) */}
-            <ReceiptsPagination
-              currentPage={currentPage}
-              totalPages={totalPages}
-              totalItems={totalItems}
-              itemsPerPage={itemsPerPage}
-              onPageChange={setCurrentPage}
-              onPageSizeChange={(size) => {
-                setCurrentPage(1);
-                setItemsPerPage(size);
-              }}
-              bare
-            />
           </>
+        )}
+        {!focusedReceipt && totalItems > 0 && (
+          <ReceiptsPagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={totalItems}
+            onPageChange={setCurrentPage}
+            loading={isLoading}
+            bare
+          />
         )}
       </section>
 

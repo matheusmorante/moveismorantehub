@@ -21,17 +21,21 @@ export function buildDefaultAiAgentFormValues(
     provider: 'openai',
     model: 'gpt-6-luna',
     systemPrompt: config?.systemPrompt || DEFAULT_WHATSAPP_AI_AGENT_PROMPT,
-    enabledTools: config?.enabledTools?.length
+    enabledTools: config?.enabledTools
       ? [...config.enabledTools]
       : WHATSAPP_SAFE_TOOLS.map((t) => t.id),
     knowledgeBase: config?.knowledgeBase?.length
       ? [...config.knowledgeBase]
       : [...DEFAULT_KNOWLEDGE_ARTICLES],
-    situationRules: config?.situationRules?.length
-      ? [...config.situationRules]
-      : [...DEFAULT_SITUATION_RULES],
-    workflows: config?.workflows?.length
-      ? [...config.workflows]
-      : [...DEFAULT_WORKFLOWS],
+    situationRules: (config?.situationRules?.length
+      ? config.situationRules
+      : DEFAULT_SITUATION_RULES).map((rule) => ({ ...rule, description: rule.description ?? '' })),
+    workflows: (config?.workflows?.length
+      ? config.workflows
+      : DEFAULT_WORKFLOWS).map((workflow) => ({
+        ...workflow,
+        description: workflow.description ?? '',
+        handoffTrigger: workflow.handoffTrigger ?? false,
+      })),
   };
 }

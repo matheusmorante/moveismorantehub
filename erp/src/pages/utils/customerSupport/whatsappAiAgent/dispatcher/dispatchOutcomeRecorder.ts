@@ -6,17 +6,23 @@ export async function recordDispatchOutcomeSafe(
   status: 'sent' | 'failed' | 'uncertain',
   apiMessageId: string | null,
   errorMessage: string | null
-): Promise<void> {
-  if (!dispatchId || typeof supabase?.rpc !== 'function') return;
+): Promise<boolean> {
+  if (!dispatchId || typeof supabase?.rpc !== 'function') return false;
   try {
-    await supabase.rpc('customer_support_record_ai_dispatch_outcome', {
+    const { data, error } = await supabase.rpc('customer_support_record_ai_dispatch_outcome', {
       p_dispatch_id: dispatchId,
       p_status: status,
       p_api_message_id: apiMessageId,
       p_error_message: errorMessage,
     });
+    if (error || data !== true) {
+      console.error('[AI Dispatcher] O resultado do despacho não foi persistido:', error?.message || 'registro ausente');
+      return false;
+    }
+    return true;
   } catch (err) {
     console.warn('[AI Dispatcher] Falha ao registrar desfecho do despacho:', err);
+    return false;
   }
 }
 
@@ -31,9 +37,10 @@ export async function persistOutboundMessageAndSyncConversation(
     rawPayload: Record<string, any>;
     sendAt: string;
     syncConversationLastMessage?: boolean;
+    idempotent?: boolean;
   }
 ): Promise<void> {
-  await supabase.from('whatsapp_messages').insert({
+  const message = {
     conversation_id: params.conversationId,
     api_message_id: params.apiMessageId,
     direction: 'outbound',
@@ -43,10 +50,16 @@ export async function persistOutboundMessageAndSyncConversation(
     status: params.status,
     raw_payload: params.rawPayload,
     timestamp: params.sendAt,
-  });
+  };
+  const table = supabase.from('whatsapp_messages');
+  const { error: insertError } = params.idempotent
+    ? await table.upsert(message, { onConflict: 'api_message_id', ignoreDuplicates: true })
+    : await table.insert(message);
+
+  if (insertError) throw new Error('Falha ao persistir a mensagem gerada pelo agente.');
 
   if (params.syncConversationLastMessage) {
-    await supabase
+    let update = supabase
       .from('whatsapp_conversations')
       .update({
         last_message_text: params.textContent,
@@ -54,5 +67,8 @@ export async function persistOutboundMessageAndSyncConversation(
         updated_at: params.sendAt,
       })
       .eq('id', params.conversationId);
+    if (params.idempotent) update = update.lte('last_message_at', params.sendAt);
+    const { error: conversationError } = await update;
+    if (conversationError) throw new Error('Falha ao atualizar a última mensagem da conversa.');
   }
 }

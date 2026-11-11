@@ -204,6 +204,18 @@ export const resolveRequiredActionsForTool = (
       if (tipo === 'montagem') {
         return ['viewAssemblyList', 'viewDeliverySchedule', 'viewOrders', 'createEditOrders'];
       }
+      if (tipo === 'todas') {
+        return [
+          'viewOrders',
+          'createEditOrders',
+          'viewBudgets',
+          'viewAssistanceOrders',
+          'viewReturns',
+          'viewDeliverySchedule',
+          'startDelivery',
+          'viewAssemblyList',
+        ];
+      }
       return ['viewOrders', 'createEditOrders'];
     }
 
@@ -350,6 +362,16 @@ export const filterAgentToolsByPermission = <T extends { name: string }>(
   tools: Array<{ functionDeclarations: T[] }>,
   context?: AgentPermissionContext | null
 ): Array<{ functionDeclarations: T[] }> => {
+  if (!context) {
+    return tools
+      .map((toolGroup) => ({
+        ...toolGroup,
+        functionDeclarations: toolGroup.functionDeclarations.filter(
+          (decl) => decl.name === 'registrarFeedbackAgente'
+        ),
+      }))
+      .filter((toolGroup) => toolGroup.functionDeclarations.length > 0);
+  }
   return tools
     .map((toolGroup) => ({
       ...toolGroup,

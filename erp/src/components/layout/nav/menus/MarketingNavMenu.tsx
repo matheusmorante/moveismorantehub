@@ -20,15 +20,6 @@ export const MarketingNavMenu: React.FC<Required<NavMenuProps>> = ({
       label="Marketing"
     >
       <DropdownGroup title="Criação" />
-      {permissions.canViewMarketingPosts && (
-        <DropdownItem
-          to="/marketing/posts"
-          icon="bi-instagram"
-          title="Gerador de prompt"
-          description="Criar ideias de posts"
-          onClick={close}
-        />
-      )}
       {permissions.canManageSiteElements && (
         <DropdownItem
           to="/marketing/site-elements"
@@ -44,24 +35,6 @@ export const MarketingNavMenu: React.FC<Required<NavMenuProps>> = ({
           icon="bi-image"
           title="Modelos de imagem"
           description="Posts com produtos do ERP"
-          onClick={close}
-        />
-      )}
-      {permissions.canViewMetaCatalog && (
-        <DropdownItem
-          to="/products/meta-catalog"
-          icon="bi-meta"
-          title="Catálogo Meta"
-          description="Integração de feed"
-          onClick={close}
-        />
-      )}
-      {permissions.canViewWhatsAppMarketplace && (
-        <DropdownItem
-          to="/registrations/whatsapp-marketplace"
-          icon="bi-whatsapp"
-          title="Marketplace WhatsApp"
-          description="Catálogo do WhatsApp"
           onClick={close}
         />
       )}

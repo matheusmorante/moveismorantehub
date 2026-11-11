@@ -51,6 +51,10 @@ export interface FetchGoodsReceiptsOptions {
   pageSize?: number;
   searchTerm?: string;
   status?: GoodsReceiptStatus;
+  supplierId?: string;
+  supplierName?: string;
+  startDate?: string;
+  endDate?: string;
 }
 
 export interface FetchGoodsReceiptsResult {
@@ -59,4 +63,8 @@ export interface FetchGoodsReceiptsResult {
   page: number;
   pageSize: number;
   totalPages: number;
+}
+
+export interface GoodsReceiptSubscriptionResult extends FetchGoodsReceiptsResult {
+  isFromCache: boolean;
 }

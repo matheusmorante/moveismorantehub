@@ -14,6 +14,7 @@ interface Props {
   employees: ScopeEmployee[];
   selectedId: string;
   isSynced: boolean;
+  isOffline?: boolean;
   hasError?: boolean;
   onRetrySync?: () => void;
   onSelect: (employee: ScopeEmployee | null) => void;
@@ -24,6 +25,7 @@ export const InventoryResponsibleSelector: React.FC<Props> = ({
   employees,
   selectedId,
   isSynced,
+  isOffline = false,
   hasError = false,
   onRetrySync,
   onSelect,
@@ -42,9 +44,10 @@ export const InventoryResponsibleSelector: React.FC<Props> = ({
   const selectionGreen = isDarkMode ? '#4ade80' : '#16a34a';
   const inputColor = hasError ? '#f43f5e' : text;
   const inputBorderColor = hasError ? inputColor : selected ? selectionGreen : border;
-  const filteredEmployees = eligibleEmployees.filter((employee) =>
+  const matchingEmployees = eligibleEmployees.filter((employee) =>
     matchesSearchText(getInventoryResponsibleDisplayName(employee), query)
   );
+  const filteredEmployees = matchingEmployees.slice(0, 5);
 
   return (
     <View style={styles.fieldContainer}>
@@ -64,7 +67,7 @@ export const InventoryResponsibleSelector: React.FC<Props> = ({
             setQuery(value);
             if (selected && value !== selectedName) onSelect(null);
           }}
-          placeholder="Buscar responsável (digite 2+ letras)"
+          placeholder="Buscar responsável (digite 3+ letras)"
           placeholderTextColor={muted}
           autoCapitalize="none"
           focusedBorderBottomColor={hasError ? '#f43f5e' : selected ? selectionGreen : undefined}
@@ -80,6 +83,11 @@ export const InventoryResponsibleSelector: React.FC<Props> = ({
           </View>
         ) : null}
       </View>
+      {isOffline ? (
+        <Text style={[styles.status, { color: muted }]}>
+          Sem conexão: a busca usa a lista salva neste dispositivo.
+        </Text>
+      ) : null}
       {hasError ? (
         <Text accessibilityRole="alert" style={styles.error}>
           Selecione um responsável pelo inventário.
@@ -105,31 +113,42 @@ export const InventoryResponsibleSelector: React.FC<Props> = ({
           ) : null}
         </>
       ) : isOpen ? (
-        query.trim().length < 2 ? (
-          <Text style={[styles.status, { color: muted }]}>Digite pelo menos 2 letras para buscar.</Text>
+        query.trim().replace(/\s+/g, '').length < 3 ? (
+          <Text style={[styles.status, { color: muted }]}>Digite pelo menos 3 caracteres para buscar.</Text>
         ) : filteredEmployees.length ? (
-          <ScrollView style={styles.options} keyboardShouldPersistTaps="handled">
-            {filteredEmployees.map((employee) => (
-              <TouchableOpacity
-                key={employee.id}
-                accessibilityRole="button"
-                accessibilityLabel={`Selecionar ${getInventoryResponsibleDisplayName(employee)}`}
-                testID={`inventory-responsible-option-${employee.id}`}
-                style={[styles.option, { borderBottomColor: border }]}
-                onPress={() => {
-                  onSelect(employee);
-                  setQuery('');
-                  setIsOpen(false);
-                }}
-              >
-                <Text style={[styles.optionName, { color: text }]}>
-                  {getInventoryResponsibleDisplayName(employee)}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
+          <>
+            <ScrollView style={styles.options} keyboardShouldPersistTaps="handled">
+              {filteredEmployees.map((employee) => (
+                <TouchableOpacity
+                  key={employee.id}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Selecionar ${getInventoryResponsibleDisplayName(employee)}`}
+                  testID={`inventory-responsible-option-${employee.id}`}
+                  style={[styles.option, { borderBottomColor: border }]}
+                  onPress={() => {
+                    onSelect(employee);
+                    setQuery('');
+                    setIsOpen(false);
+                  }}
+                >
+                  <Text style={[styles.optionName, { color: text }]}>
+                    {getInventoryResponsibleDisplayName(employee)}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            {matchingEmployees.length > 5 ? (
+              <Text style={[styles.status, { color: muted }]}>
+                Mostrando os cinco primeiros. Acrescente letras para refinar.
+              </Text>
+            ) : null}
+          </>
         ) : (
-          <Text style={[styles.status, { color: muted }]}>Nenhum responsável encontrado.</Text>
+          <Text style={[styles.status, { color: muted }]}>
+            {isOffline
+              ? 'Sem conexão: nenhum resultado na lista salva neste dispositivo.'
+              : 'Nenhum responsável encontrado.'}
+          </Text>
         )
       ) : null}
     </View>

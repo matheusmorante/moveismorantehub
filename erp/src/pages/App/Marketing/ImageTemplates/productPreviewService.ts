@@ -20,7 +20,11 @@ const DETAILS = 'id,name,description,code,brand,category,unit_price,price,promo_
   + 'product_variations(id,product_id,name,sku,stock,price,promo_price,use_parent_price,use_parent_promo_price,use_parent_name,use_parent_description,description,active,status,image_url,attributes,merged_to_variation_id),'
   + 'product_images(image_url,is_main),category_details:categories!products_category_id_fkey(id,name),opportunity_details:opportunities!products_opportunity_id_fkey(id,name)';
 
-export interface PreviewProductOption { id: string; name: string; code: string; active: boolean }
+export interface PreviewVariationOption { id: string; name: string; sku: string; active: boolean }
+export interface PreviewProductOption {
+  id: string; name: string; code: string; active: boolean; previewSource: PreviewProductSource;
+  variationOptions: PreviewVariationOption[];
+}
 export type PreviewVariation = Variation & { priceKnown: boolean; stockKnown: boolean };
 export interface PreviewProductSource {
   id: string; name: string; description: string; code: string; brand: string; category: string;
@@ -169,7 +173,7 @@ export function mapPreviewProduct(source: PreviewProductSource, variationId = ''
       category: source.category || undefined,
       productType: source.category || undefined,
       availability: stock === undefined || source.itemType === 'composition' ? undefined : stock > 0 ? 'Em estoque' : 'Sem estoque',
-      price: regularPrice,
+      price: hasDiscount ? regularPrice : undefined,
       promoPrice,
       salePrice: promoPrice,
       currentPrice,
@@ -190,8 +194,13 @@ export function mapPreviewProduct(source: PreviewProductSource, variationId = ''
 export async function listPreviewProducts(page: number, search: string, signal: AbortSignal, categoryId?: string) {
   if (search && search.replace(/[^\p{L}\p{N}]/gu, '').length < PRODUCT_LIST_SEARCH_MIN_LENGTH) return { rows: [], total: 0 };
   const offset = (page - 1) * PREVIEW_PRODUCT_PAGE_SIZE;
-  let query = supabase.from('products').select('id,name,description,code,active', { count: 'exact' })
-    .eq('deleted', false).not('is_draft', 'is', true).filter('status', 'isdistinct', 'draft')
+  let query = supabase.from('products').select('id,name,description,code,brand,category,unit_price,price,promo_price,stock,'
+    + 'item_type,product_kind,condition,is_salvado,technical_values:technical_specs->technicalValues,active,'
+    + 'product_images(image_url,is_main),category_details:categories!products_category_id_fkey(name),'
+    + 'opportunity_details:opportunities!products_opportunity_id_fkey(name),'
+    + 'product_variations(id,product_id,name,sku,active,merged_to_variation_id)',
+  { count: 'exact' })
+    .eq('deleted', false).not('is_draft', 'is', true).eq('status', 'published').is('deleted_at', null)
     .filter('item_type', 'isdistinct', 'service');
   if (categoryId) query = query.eq('category_id', categoryId);
   if (search) {
@@ -206,17 +215,29 @@ export async function listPreviewProducts(page: number, search: string, signal: 
     query = query.or(buildProductParentSearchFilter(terms, ids));
   }
   const result = await withAbortTimeout(query.order('name', { ascending: true, nullsFirst: false }).order('id')
+    .order('is_main', { referencedTable: 'product_images', ascending: false, nullsFirst: false })
+    .order('id', { referencedTable: 'product_images', ascending: true })
+    .order('sku', { referencedTable: 'product_variations', ascending: true })
+    .limit(1, { referencedTable: 'product_images' })
     .range(offset, offset + PREVIEW_PRODUCT_PAGE_SIZE - 1), 'modelos-de-imagem:produtos', TIMEOUT, signal);
   if (result.error) throw result.error;
-  return { rows: (result.data ?? []).map((row: { id: string; name: string | null; description: string | null; code: string | null; active: boolean | null }) => ({
-    id: row.id, name: text(row.name) || text(row.description) || 'Produto', code: text(row.code), active: row.active === true,
-  })), total: result.count ?? 0 };
+  return { rows: (result.data ?? []).map((row: Record<string, any>) => {
+    const previewSource = mapProductPreviewSource({ ...row, product_variations: undefined });
+    const variationOptions: PreviewVariationOption[] = (Array.isArray(row.product_variations) ? row.product_variations : [])
+      .filter((variation: Record<string, unknown>) => variation.id && !variation.merged_to_variation_id)
+      .map((variation: Record<string, unknown>) => ({
+        id: String(variation.id), name: text(variation.name), sku: normalizeProductVariationSku(text(variation.sku)) || text(variation.sku),
+        active: variation.active !== false,
+      }));
+    return { id: previewSource.id, name: previewSource.name, code: previewSource.code,
+      active: row.active === true, previewSource, variationOptions };
+  }), total: result.count ?? 0 };
 }
 
 export async function readPreviewProduct(id: string, signal: AbortSignal, requiredImageCount = 1) {
   const imageLimit = Math.min(MAX_PARENT_PRODUCT_IMAGES, Math.max(1, Math.floor(requiredImageCount)));
   const result = await withAbortTimeout(supabase.from('products').select(DETAILS).eq('id', id).eq('deleted', false)
-    .not('is_draft', 'is', true).filter('status', 'isdistinct', 'draft').filter('item_type', 'isdistinct', 'service')
+    .not('is_draft', 'is', true).eq('status', 'published').is('deleted_at', null).filter('item_type', 'isdistinct', 'service')
     .order('is_main', { referencedTable: 'product_images', ascending: false, nullsFirst: false })
     .order('id', { referencedTable: 'product_images', ascending: true })
     .limit(imageLimit, { referencedTable: 'product_images' })

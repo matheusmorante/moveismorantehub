@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { toast } from 'react-toastify';
 import LabelImageModal from '../modals/LabelImageModal';
 import { createLabelImage, deleteLabelImage, fetchLabelImages } from '../services/labelImageService';
+import type { LabelImagePage } from '../types/LabelImage.types';
 import { LabelImageUnconfirmedError } from '../../../../../../../shared-utils/labelImageFormSchemas';
 
 vi.mock('react-toastify', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
@@ -12,6 +13,7 @@ vi.mock('../services/labelImageService', () => ({ createLabelImage: vi.fn(), del
 
 const existing = { id: 1, name: 'ANTIGA', image: '/antiga.svg', category: 'categoria-historica' };
 const created = { id: 2, name: 'MDF', image: 'data:image/png;base64,AA', category: 'logos' };
+const pageResult = (rows: LabelImagePage['rows'], totalCount = rows.length): LabelImagePage => ({ rows, totalCount });
 function deferred<T>() {
   let resolve!: (value: T) => void;
   const promise = new Promise<T>((done) => { resolve = done; });
@@ -47,7 +49,7 @@ beforeEach(() => {
   vi.stubGlobal('FileReader', Reader);
   vi.spyOn(window, 'confirm').mockReturnValue(true);
   vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-  vi.mocked(fetchLabelImages).mockResolvedValue([existing]);
+  vi.mocked(fetchLabelImages).mockResolvedValue(pageResult([existing]));
   vi.mocked(createLabelImage).mockResolvedValue(created);
   vi.mocked(deleteLabelImage).mockResolvedValue(undefined);
 });
@@ -59,7 +61,7 @@ describe('biblioteca de etiquetas com resolver real', () => {
     expect(fetchLabelImages).not.toHaveBeenCalled();
     view.rerender(<StrictMode><LabelImageModal {...p} /></StrictMode>);
     await waitFor(() => expect(upload().disabled).toBe(false));
-    expect(fetchLabelImages).toHaveBeenCalledWith({ sort: 'newest' });
+    expect(fetchLabelImages).toHaveBeenCalledWith({ sort: 'newest', page: 0 });
     expect(select()).toBeTruthy(); expect(screen.queryByRole('status')).toBeNull();
   });
 
@@ -74,25 +76,25 @@ describe('biblioteca de etiquetas com resolver real', () => {
   });
 
   it('libera consulta expirada e ignora a resposta anterior depois da recarga', async () => {
-    const pending = deferred<typeof existing[]>();
+    const pending = deferred<LabelImagePage>();
     vi.mocked(fetchLabelImages).mockReturnValueOnce(pending.promise);
     vi.useFakeTimers(); render(<LabelImageModal {...props()} />);
     await act(async () => { await vi.advanceTimersByTimeAsync(15_000); });
     expect(screen.getByRole('alert').textContent).toContain('carregar');
     await act(async () => { fireEvent.click(screen.getByText('Recarregar biblioteca')); });
     expect(upload().disabled).toBe(false);
-    await act(async () => { pending.resolve([{ ...existing, name: 'OBSOLETA' }]); });
+    await act(async () => { pending.resolve(pageResult([{ ...existing, name: 'OBSOLETA' }])); });
     expect(screen.queryByRole('button', { name: 'Selecionar imagem OBSOLETA' })).toBeNull();
     expect(select()).toBeTruthy();
   });
 
   it('descarta consulta de uma categoria/abertura anterior', async () => {
-    const pending = deferred<typeof existing[]>(); vi.mocked(fetchLabelImages).mockReturnValueOnce(pending.promise);
+    const pending = deferred<LabelImagePage>(); vi.mocked(fetchLabelImages).mockReturnValueOnce(pending.promise);
     const p = props(); const view = render(<LabelImageModal {...p} />);
     await waitFor(() => expect(fetchLabelImages).toHaveBeenCalledTimes(1));
     view.rerender(<LabelImageModal {...p} currentCategory="precos" />);
     await waitFor(() => expect(upload().disabled).toBe(false));
-    await act(async () => { pending.resolve([{ ...existing, name: 'OBSOLETA' }]); });
+    await act(async () => { pending.resolve(pageResult([{ ...existing, name: 'OBSOLETA' }])); });
     expect(select()).toBeTruthy(); expect(screen.queryByAltText('OBSOLETA')).toBeNull();
   });
 
@@ -169,7 +171,7 @@ describe('biblioteca de etiquetas com resolver real', () => {
   });
 
   it('valida o ID antes da confirmação/exclusão e respeita desistência do operador', async () => {
-    vi.mocked(fetchLabelImages).mockResolvedValueOnce([{ ...existing, id: 0 }]); const view = await open();
+    vi.mocked(fetchLabelImages).mockResolvedValueOnce(pageResult([{ ...existing, id: 0 }])); const view = await open();
     fireEvent.click(screen.getByLabelText('Excluir ANTIGA'));
     await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('identificada'));
     expect(window.confirm).not.toHaveBeenCalled(); expect(deleteLabelImage).not.toHaveBeenCalled();
@@ -212,7 +214,7 @@ describe('biblioteca de etiquetas com resolver real', () => {
   });
 
   it('seleção inválida impede o callback e falha do callback fica visível', async () => {
-    vi.mocked(fetchLabelImages).mockResolvedValueOnce([{ ...existing, image: '' }]); const view = await open();
+    vi.mocked(fetchLabelImages).mockResolvedValueOnce(pageResult([{ ...existing, image: '' }])); const view = await open();
     fireEvent.click(select()); await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('indisponível')); expect(view.onSelect).not.toHaveBeenCalled();
     view.unmount(); const onSelect = vi.fn().mockRejectedValueOnce(new Error('Não foi possível adicionar à fila.')); await open({ onSelect });
     fireEvent.click(select()); await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('fila')); expect(upload().disabled).toBe(false);

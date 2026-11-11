@@ -28,6 +28,7 @@ describe('Central de Atendimento WhatsApp — Concorrência Distribuída, Fila e
 
   const sampleConfig = {
     enabled: true,
+    testMode: true,
     supportMode: 'automatico' as const,
     provider: 'openai' as const,
     model: 'gpt-6-luna',
@@ -89,6 +90,8 @@ describe('Central de Atendimento WhatsApp — Concorrência Distribuída, Fila e
             eq: vi.fn().mockReturnThis(),
             gt: vi.fn().mockReturnThis(),
             order: vi.fn().mockReturnThis(),
+            then: (resolve: (value: any) => unknown, reject: (reason: any) => unknown) =>
+              Promise.resolve({ data: overrides?.pendingMessages || [], error: null }).then(resolve, reject),
             limit: vi.fn().mockResolvedValue({
               data: overrides?.pendingMessages || [
                 {
@@ -135,9 +138,15 @@ describe('Central de Atendimento WhatsApp — Concorrência Distribuída, Fila e
         if (fn === 'customer_support_record_ai_dispatch_outcome') {
           return Promise.resolve({ data: true, error: null });
         }
+        if (fn === 'customer_support_reserve_ai_quota') {
+          return Promise.resolve({ data: { allowed: true, reservation_id: 'reservation' }, error: null });
+        }
+        if (fn === 'record_ai_token_usage') {
+          return Promise.resolve({ data: { log_id: 'log', reservation_committed: true }, error: null });
+        }
         return Promise.resolve({ data: null, error: null });
       }),
-    };
+    } as any;
   };
 
   beforeEach(() => {
@@ -149,10 +158,10 @@ describe('Central de Atendimento WhatsApp — Concorrência Distribuída, Fila e
   it('1. descarta imediatamente webhook concorrente com o mesmo wamid por idempotência', async () => {
     const mockSupabase = createMockSupabase();
 
-    const fetchGemini = vi.fn().mockResolvedValue({
+    const fetchOpenAi = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({
-        candidates: [{ content: { parts: [{ text: 'Olá! Como posso ajudar?' }] } }],
+        output_text: 'Olá! Como posso ajudar?', output: [], usage: { input_tokens: 10, output_tokens: 10 },
       }),
     });
 
@@ -162,9 +171,9 @@ describe('Central de Atendimento WhatsApp — Concorrência Distribuída, Fila e
     });
 
     const deps: WhatsAppAiAgentDependencies = {
-      fetchGemini,
+      fetchOpenAi,
       fetchMeta,
-      geminiApiKey: 'test-key',
+      openAiApiKey: 'test-key',
     };
 
     // Primeiro webhook dispara
@@ -278,14 +287,21 @@ describe('Central de Atendimento WhatsApp — Concorrência Distribuída, Fila e
         if (fn === 'customer_support_record_ai_dispatch_outcome') {
           return { data: true, error: null };
         }
+        if (fn === 'customer_support_reserve_ai_quota') {
+          return { data: { allowed: true, reservation_id: 'reservation' }, error: null };
+        }
+        if (fn === 'record_ai_token_usage') {
+          return { data: { log_id: 'log', reservation_committed: true }, error: null };
+        }
         return { data: null, error: null };
       },
     });
 
-    const fetchGemini = vi.fn().mockResolvedValue({
+    const fetchOpenAi = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({
-        candidates: [{ content: { parts: [{ text: 'O sofá retrátil custa R$ 1.890,00 à vista.' }] } }],
+        output_text: 'O sofá retrátil custa R$ 1.890,00 à vista.', output: [],
+        usage: { input_tokens: 10, output_tokens: 10 },
       }),
     });
 
@@ -300,12 +316,14 @@ describe('Central de Atendimento WhatsApp — Concorrência Distribuída, Fila e
       { id: baseInbound.conversationId, tags: [], is_archived: false, assigned_to: null },
       sampleConfig,
       { whatsappConfig: { accessToken: 'meta-token-test', phoneNumberId: 'phone.biz.001' } },
-      { fetchGemini, fetchMeta, geminiApiKey: 'test-key' },
+      { fetchOpenAi, fetchMeta, openAiApiKey: 'test-key' },
       { turnId: 'turn-chain-1', lockToken: 'tok-1' }
     );
 
-    expect(res.executed).toBe(true);
-    expect(completeCallCount).toBeGreaterThanOrEqual(1);
+    expect(res.reason).toBe('automatic_sent');
+    expect(completeCallCount).toBe(2);
+    expect(fetchMeta).toHaveBeenCalledTimes(2);
+    expect(JSON.parse(String(fetchMeta.mock.calls[1][1].body)).to).toBe(baseInbound.from);
   });
 
   // 4. Timeout após envio à Meta (resultado incerto registrado no PostgreSQL)
@@ -390,7 +408,7 @@ describe('Central de Atendimento WhatsApp — Concorrência Distribuída, Fila e
   });
 
   // 6. Classificação e Fallback estruturado de modelos
-  it('6. diferencia categoricamente esgotamento financeiro de quota de rate limit temporário e executa failover seguro', async () => {
+  it('6. classifica os erros e não troca para Gemini após falha da OpenAI', async () => {
     // 6.1 Quota financeira esgotada
     const quotaErr = {
       statusCode: 429,
@@ -430,7 +448,7 @@ describe('Central de Atendimento WhatsApp — Concorrência Distribuída, Fila e
     const classifiedAuth = classifyAiModelError(authErr);
     expect(classifiedAuth.type).toBe('auth_error');
 
-    // 6.5 Executa failover para Gemini Flash com registro do motivo
+    // 6.5 O atendimento permanece na OpenAI e propaga a falha para a recuperação.
     const mockFetchOpenAiFail = vi.fn().mockResolvedValue({
       ok: false,
       status: 429,
@@ -446,7 +464,7 @@ describe('Central de Atendimento WhatsApp — Concorrência Distribuída, Fila e
       }),
     });
 
-    const result = await runAiTurnWithFallback({
+    await expect(runAiTurnWithFallback({
       modelToUse: 'gpt-6-luna',
       shouldUseOpenAi: true,
       openAiApiKey: 'sk-test',
@@ -457,13 +475,11 @@ describe('Central de Atendimento WhatsApp — Concorrência Distribuída, Fila e
       historyForOpenAi: [],
       contentsForGemini: [],
       toolsDeclarations: [],
-      supabase: {} as any,
+      supabase: { rpc: vi.fn(async (name: string) => name === 'customer_support_reserve_ai_quota'
+        ? { data: { allowed: true, reservation_id: 'reservation' }, error: null }
+        : { data: true, error: null }) } as any,
       toolContext: { conversationId: 'c1', customerId: null, contactPhone: '+5511999990001', settings: {} },
-    });
-
-    expect(result.text).toBe('Resposta gerada via Gemini Flash após failover.');
-    expect(result.modelRequested).toBe('gpt-6-luna');
-    expect(result.modelEffective).toBe('gemini-3.8-flash');
-    expect(result.fallbackReason).toContain('quota_exhausted');
+    })).rejects.toThrow('You have no credits remaining');
+    expect(mockFetchGeminiSuccess).not.toHaveBeenCalled();
   });
 });

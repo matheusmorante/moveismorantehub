@@ -10,12 +10,19 @@ import {
   type CreateAgentOrderOperationInput,
   type UpdateAgentOrderOperationInput,
   type UpsertAgentCustomerInput,
+  normalizeAgentOrderIdentifier,
 } from '../../../../shared-utils/agentOrderAndPeopleOperations';
 import {
   getActiveAgentPermissionContext,
   hasAgentActionPermission,
   isPermissionContextEnforced,
+  type AgentPermissionContext,
 } from '../../../../shared-utils/agentPermissionGuard';
+import {
+  canAgentViewOperationRow,
+  getAgentOperationSearchTypes,
+  type AgentOperationSearchType,
+} from '../../../../shared-utils/agentOperationPermissions';
 import type { ToolExecutionResponse } from './geminiAgentTypes';
 
 export type ErpOperationKind =
@@ -52,7 +59,10 @@ const normalizeText = (value: unknown): string =>
 const asRecord = (value: unknown): Record<string, any> =>
   value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, any>) : {};
 
-function toErpOperationSummary(row: Record<string, any>) {
+function toErpOperationSummary(
+  row: Record<string, any>,
+  options: { redactFinancials?: boolean } = {}
+) {
   const data = asRecord(row.order_data);
   const customer = asRecord(data.customerData);
   const shipping = asRecord(data.shipping);
@@ -72,9 +82,9 @@ function toErpOperationSummary(row: Record<string, any>) {
     tipo: kindLabels[kind] || kind,
     status: String(row.status ?? data.status ?? 'pending'),
     cliente: String(row.customer_name || customer.fullName || ''),
-    valorTotal: Number(
-      row.total_value ?? row.total_amount ?? data.paymentsSummary?.totalOrderValue ?? 0
-    ),
+    valorTotal: options.redactFinancials
+      ? undefined
+      : Number(row.total_value ?? row.total_amount ?? data.paymentsSummary?.totalOrderValue ?? 0),
     agendamento: {
       data: rawDate ? String(rawDate).slice(0, 10) : null,
       inicio: row.scheduled_start_time || scheduling.startTime || scheduling.time || null,
@@ -100,7 +110,10 @@ function toErpOperationSummary(row: Record<string, any>) {
   };
 }
 
-export async function searchErpOperations(input: ErpOrderOperationSearchInput) {
+export async function searchErpOperations(
+  input: ErpOrderOperationSearchInput,
+  permissionContext: AgentPermissionContext | null = getActiveAgentPermissionContext()
+) {
   const isDate = (value?: string) => !value || /^\d{4}-\d{2}-\d{2}$/.test(value);
   if (!isDate(input.dataInicio) || !isDate(input.dataFim)) {
     throw new Error('As datas da operação devem estar no formato AAAA-MM-DD.');
@@ -109,22 +122,49 @@ export async function searchErpOperations(input: ErpOrderOperationSearchInput) {
     throw new Error('A data inicial não pode ser posterior à data final.');
   }
   const selectedLimit = normalizeLimit(input.limite);
-  const selected = await withAbortTimeout(
-    supabase.rpc('search_order_operation_ids', {
-      p_filters: input,
-      p_limit: selectedLimit,
-    }),
-    'assistente-erp:pesquisar-operacoes',
-    15_000
+  const searchTypes = getAgentOperationSearchTypes(input.tipo || 'todas', permissionContext);
+  if (searchTypes.length === 0) {
+    throw new Error('Seu perfil não tem permissão para consultar este tipo de operação.');
+  }
+  const selections = await Promise.all(
+    searchTypes.map(async (tipo) => {
+      const selected = await withAbortTimeout(
+        supabase.rpc('search_order_operation_ids', {
+          p_filters: { ...input, tipo },
+          p_limit: selectedLimit,
+        }),
+        'assistente-erp:pesquisar-operacoes',
+        15_000
+      );
+      if (selected.error) throw selected.error;
+      const ids = selected.data?.ids;
+      if (
+        !Array.isArray(ids) ||
+        ids.length > selectedLimit ||
+        ids.some((id: unknown) => typeof id !== 'string')
+      ) {
+        throw new Error('A consulta de operações retornou resultados inválidos.');
+      }
+      return { tipo, ids: ids as string[] };
+    })
   );
-  if (selected.error) throw selected.error;
-  const ids = selected.data?.ids;
-  if (
-    !Array.isArray(ids) ||
-    ids.length > selectedLimit ||
-    ids.some((id: unknown) => typeof id !== 'string')
-  ) {
-    throw new Error('A consulta de operações retornou resultados inválidos.');
+  const ids: string[] = [];
+  const filtersById = new Map<string, Set<AgentOperationSearchType>>();
+  for (let index = 0; ids.length < selectedLimit; index += 1) {
+    let added = false;
+    for (const selection of selections) {
+      const id = selection.ids[index];
+      if (!id) continue;
+      const filters = filtersById.get(id) || new Set<AgentOperationSearchType>();
+      filters.add(selection.tipo);
+      filtersById.set(id, filters);
+      if (!ids.includes(id)) {
+        ids.push(id);
+        added = true;
+      }
+      if (ids.length >= selectedLimit) break;
+    }
+    if (!added) break;
   }
   if (!ids.length) return [];
   const { data, error } = await withAbortTimeout(
@@ -141,15 +181,50 @@ export async function searchErpOperations(input: ErpOrderOperationSearchInput) {
   const byId = new Map((data || []).map((row: any) => [String(row.id), row]));
   return ids.flatMap((id: string) => {
     const row: any = byId.get(id);
-    return row ? [toErpOperationSummary(row)] : [];
+    if (!row) return [];
+    const data = asRecord(row.order_data);
+    const kind = normalizeText(data.orderType || data.order_type || row.order_type || 'sale');
+    const deliveryMethod = String(
+      row.delivery_method || asRecord(data.shipping).deliveryMethod || data.deliveryMethod || ''
+    );
+    const matchingFilter = Array.from(filtersById.get(id) || []).find((filter) => {
+      if (filter === 'todas') return canAgentViewOperationRow(kind, permissionContext);
+      if (filter === 'venda') return ['sale', 'venda'].includes(kind);
+      if (filter === 'orcamento') return ['budget', 'orcamento'].includes(kind);
+      if (filter === 'assistencia') return ['assistance', 'assistencia'].includes(kind);
+      if (filter === 'devolucao') return ['return', 'devolucao'].includes(kind);
+      if (filter === 'entrega' || filter === 'retirada' || filter === 'montagem') {
+        return canAgentViewOperationRow(kind, permissionContext, {
+          logisticsFilter: filter,
+          deliveryMethod,
+        });
+      }
+      return false;
+    });
+    if (!matchingFilter || !canAgentViewOperationRow(kind, permissionContext, {
+      logisticsFilter:
+        matchingFilter === 'entrega' || matchingFilter === 'retirada' || matchingFilter === 'montagem'
+          ? matchingFilter
+          : undefined,
+      deliveryMethod,
+    })) return [];
+
+    const redactFinancials =
+      isPermissionContextEnforced(permissionContext) &&
+      !hasAgentActionPermission('viewOrders', permissionContext) &&
+      !hasAgentActionPermission('createEditOrders', permissionContext);
+    return [toErpOperationSummary(row, { redactFinancials })];
   });
 }
 
 export async function getErpOperationDetails(
-  orderIdOrNumber: string
+  orderIdOrNumber: string,
+  options: { logisticsScoped?: boolean } = {},
+  permissionContext: AgentPermissionContext | null = getActiveAgentPermissionContext()
 ): Promise<Record<string, unknown> | null> {
-  const cleanTarget = orderIdOrNumber.trim().replace(/^#/, '');
-  let { data: row, error } = await supabase
+  const cleanTarget = normalizeAgentOrderIdentifier(orderIdOrNumber);
+  if (!cleanTarget) throw new Error('Informe um ID ou número de operação completo e válido.');
+  const initialResult = await supabase
     .from('orders')
     .select(
       'id, order_number, order_index, status, order_type, customer_name, total_amount, created_at, updated_at, scheduled_date, scheduled_start_time, scheduled_end_time, delivery_method, delivery_status, order_data, items'
@@ -157,11 +232,12 @@ export async function getErpOperationDetails(
     .eq('id', cleanTarget)
     .or('deleted.is.null,deleted.eq.false')
     .maybeSingle();
-  if (error) throw error;
+  let row = initialResult.data;
+  if (initialResult.error) throw initialResult.error;
 
   if (!row && cleanTarget && !/^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(cleanTarget)) {
-    const num = Number(cleanTarget);
-    const expr = Number.isFinite(num)
+    const num = /^\d+$/.test(cleanTarget) ? Number(cleanTarget) : null;
+    const expr = num !== null && Number.isSafeInteger(num)
       ? `order_number.eq.${cleanTarget},order_index.eq.${num}`
       : `order_number.eq.${cleanTarget}`;
     const fallback = await supabase
@@ -171,11 +247,9 @@ export async function getErpOperationDetails(
       )
       .or('deleted.is.null,deleted.eq.false')
       .or(expr)
-      .limit(1)
       .maybeSingle();
-    if (!fallback.error && fallback.data) {
-      row = fallback.data;
-    }
+    if (fallback.error) throw fallback.error;
+    row = fallback.data;
   }
 
   if (!row || isIdentifiedTestArtifact(row)) return null;
@@ -186,32 +260,17 @@ export async function getErpOperationDetails(
   const scheduling = asRecord(shipping.scheduling || data.schedule || data.scheduling);
   const kind = normalizeText(data.orderType || data.order_type || row.order_type || 'sale');
 
-  const permCtx = getActiveAgentPermissionContext();
-  if (isPermissionContextEnforced(permCtx)) {
-    if (
-      kind === 'budget' &&
-      !hasAgentActionPermission('viewBudgets', permCtx) &&
-      !hasAgentActionPermission('createEditOrders', permCtx) &&
-      !hasAgentActionPermission('viewOrders', permCtx)
-    ) {
-      throw new Error('Seu perfil de acesso não tem permissão para visualizar detalhes de orçamentos.');
-    }
-    if (
-      kind === 'return' &&
-      !hasAgentActionPermission('viewReturns', permCtx) &&
-      !hasAgentActionPermission('createEditOrders', permCtx) &&
-      !hasAgentActionPermission('viewOrders', permCtx)
-    ) {
-      throw new Error('Seu perfil de acesso não tem permissão para visualizar detalhes de devoluções.');
-    }
-    if (
-      kind === 'assistance' &&
-      !hasAgentActionPermission('viewAssistanceOrders', permCtx) &&
-      !hasAgentActionPermission('createEditOrders', permCtx) &&
-      !hasAgentActionPermission('viewOrders', permCtx)
-    ) {
-      throw new Error('Seu perfil de acesso não tem permissão para visualizar detalhes de assistências técnicas.');
-    }
+  const permCtx = permissionContext;
+  const deliveryMethod = String(
+    row.delivery_method || shipping.deliveryMethod || data.deliveryMethod || ''
+  );
+  const logisticsFilter = options.logisticsScoped
+    ? /pickup|retirada/i.test(deliveryMethod)
+      ? 'retirada'
+      : 'entrega'
+    : undefined;
+  if (!canAgentViewOperationRow(kind, permCtx, { logisticsFilter, deliveryMethod })) {
+    throw new Error('Seu perfil de acesso não tem permissão para visualizar esta operação.');
   }
 
   const isLogisticsOnly =
@@ -233,6 +292,15 @@ export async function getErpOperationDetails(
     }
   }
 
+  const visibleItems = (Array.isArray(data.items) ? data.items : Array.isArray(row.items) ? row.items : [])
+    .map((item: any) => isLogisticsOnly
+      ? {
+          nome: item?.name || item?.productName || item?.product_title || item?.description || '',
+          quantidade: item?.quantity ?? item?.qty ?? null,
+          manuseio: item?.handlingType || item?.handling || null,
+        }
+      : item
+    );
   const valorTotal = isLogisticsOnly
     ? undefined
     : Number(row.total_amount ?? data.paymentsSummary?.totalOrderValue ?? 0);
@@ -261,12 +329,12 @@ export async function getErpOperationDetails(
     entrega: {
       modalidade: row.delivery_method || shipping.deliveryMethod || data.deliveryMethod || null,
       status: row.delivery_status || data.deliveryStatus || null,
-      observacoes: data.deliveryObservations || data.observations || null,
+      observacoes: data.deliveryObservations || (isLogisticsOnly ? null : data.observations) || null,
     },
-    itens: Array.isArray(data.items) ? data.items : Array.isArray(row.items) ? row.items : [],
+    itens: visibleItems,
     itensAssistencia: Array.isArray(data.assistanceItems) ? data.assistanceItems : [],
     pagamentos,
-    observacoes: data.observations || data.notes || null,
+    observacoes: isLogisticsOnly ? null : data.observations || data.notes || null,
     devolucao:
       kind === 'return'
         ? {
@@ -279,9 +347,12 @@ export async function getErpOperationDetails(
 }
 
 export const orderAndPeopleAgentTools = {
-  async buscarOperacoes(args: ErpOrderOperationSearchInput): Promise<ToolExecutionResponse> {
+  async buscarOperacoes(
+    args: ErpOrderOperationSearchInput,
+    permissionContext?: AgentPermissionContext | null
+  ): Promise<ToolExecutionResponse> {
     try {
-      const operations = await searchErpOperations(args);
+      const operations = await searchErpOperations(args, permissionContext);
       return {
         success: true,
         data: operations,
@@ -296,8 +367,11 @@ export const orderAndPeopleAgentTools = {
     }
   },
 
-  async obterDetalhesOperacao(args: { operacaoId: string }): Promise<ToolExecutionResponse> {
-    if (!args?.operacaoId?.trim()) {
+  async obterDetalhesOperacao(
+    args: { operacaoId: string },
+    permissionContext?: AgentPermissionContext | null
+  ): Promise<ToolExecutionResponse> {
+    if (!args?.operacaoId?.trim() || !normalizeAgentOrderIdentifier(args.operacaoId)) {
       return {
         success: false,
         code: 'INVALID_OPERATION_ID',
@@ -305,7 +379,7 @@ export const orderAndPeopleAgentTools = {
       };
     }
     try {
-      const operation = await getErpOperationDetails(args.operacaoId);
+      const operation = await getErpOperationDetails(args.operacaoId, {}, permissionContext);
       if (!operation) {
         return {
           success: false,
@@ -328,10 +402,11 @@ export const orderAndPeopleAgentTools = {
   },
 
   async buscarPedidosEntregas(
-    args: Omit<ErpOrderOperationSearchInput, 'tipo'>
+    args: Omit<ErpOrderOperationSearchInput, 'tipo'>,
+    permissionContext?: AgentPermissionContext | null
   ): Promise<ToolExecutionResponse> {
     try {
-      const orders = await searchErpOperations({ ...args, tipo: 'entrega' });
+      const orders = await searchErpOperations({ ...args, tipo: 'entrega' }, permissionContext);
       return {
         success: true,
         data: orders,
@@ -346,8 +421,11 @@ export const orderAndPeopleAgentTools = {
     }
   },
 
-  async obterDetalhesPedidoEntrega(args: { pedidoId: string }): Promise<ToolExecutionResponse> {
-    if (!args?.pedidoId?.trim()) {
+  async obterDetalhesPedidoEntrega(
+    args: { pedidoId: string },
+    permissionContext?: AgentPermissionContext | null
+  ): Promise<ToolExecutionResponse> {
+    if (!args?.pedidoId?.trim() || !normalizeAgentOrderIdentifier(args.pedidoId)) {
       return {
         success: false,
         code: 'INVALID_ORDER_ID',
@@ -355,7 +433,11 @@ export const orderAndPeopleAgentTools = {
       };
     }
     try {
-      const order = await getErpOperationDetails(args.pedidoId);
+      const order = await getErpOperationDetails(
+        args.pedidoId,
+        { logisticsScoped: true },
+        permissionContext
+      );
       if (!order) {
         return {
           success: false,

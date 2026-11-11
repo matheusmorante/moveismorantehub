@@ -71,6 +71,25 @@ export const normalizeFinancialDate = (rawDate?: string | null): string => {
   return new Date().toISOString().split('T')[0];
 };
 
+export const validateAgentDateRange = (
+  startDate?: string | null,
+  endDate?: string | null
+): string | null => {
+  const isCalendarDate = (value?: string | null): boolean => {
+    if (!value) return true;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+    const date = new Date(`${value}T00:00:00.000Z`);
+    return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value;
+  };
+  if (!isCalendarDate(startDate) || !isCalendarDate(endDate)) {
+    return 'As datas devem usar o formato AAAA-MM-DD e representar datas válidas.';
+  }
+  if (startDate && endDate && startDate > endDate) {
+    return 'A data inicial não pode ser posterior à data final.';
+  }
+  return null;
+};
+
 export const validateTransactionCategoryAndPurpose = (
   category: AgentFinancialCategoryLike | undefined,
   tipo: 'income' | 'expense',

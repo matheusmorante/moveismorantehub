@@ -88,6 +88,9 @@ export function createWhatsAppSupportSendHandler(dependencies: { fetchMeta?: typ
         if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new RequestBodyError('Solicitação inválida.', 400);
         const conversationId = typeof parsed.conversationId === 'string' ? parsed.conversationId.trim() : '';
         const message = typeof parsed.message === 'string' ? parsed.message : '';
+        const aiSuggestionMessageId = typeof parsed.aiSuggestionMessageId === 'string'
+          ? parsed.aiSuggestionMessageId.trim()
+          : '';
         const replyToWamid = typeof parsed.replyToWamid === 'string' ? parsed.replyToWamid.trim() : '';
         const forwarded = parsed.forwarded === true;
         const contact = parsed.contact && typeof parsed.contact === 'object' && !Array.isArray(parsed.contact)
@@ -95,6 +98,9 @@ export function createWhatsAppSupportSendHandler(dependencies: { fetchMeta?: typ
           : undefined;
         const catalogSelection = parsed.catalogSelection;
         if (!UUID_PATTERN.test(conversationId)) throw new RequestBodyError('Conversa inválida.', 400);
+        if (aiSuggestionMessageId && !UUID_PATTERN.test(aiSuggestionMessageId)) {
+          throw new RequestBodyError('Sugestão da IA inválida.', 400);
+        }
         let normalizedContact: SendPayload['contact'];
         if (contact) {
           const name = typeof contact.name === 'string' ? contact.name.trim() : '';
@@ -117,6 +123,7 @@ export function createWhatsAppSupportSendHandler(dependencies: { fetchMeta?: typ
         payload = {
           conversationId: sendInput.data.conversationId,
           message: sendInput.data.message,
+          ...(aiSuggestionMessageId ? { aiSuggestionMessageId } : {}),
           ...(sendInput.data.replyToWamid ? { replyToWamid: sendInput.data.replyToWamid } : {}),
           ...(sendInput.data.forwarded ? { forwarded: true } : {}),
           ...(normalizedContact ? { contact: normalizedContact } : {}),
@@ -161,6 +168,33 @@ export function createWhatsAppSupportSendHandler(dependencies: { fetchMeta?: typ
       const conversation = conversationResult.data;
       if (!conversation) return responseJson(res, 404, { error: 'Conversa não encontrada.' });
       if (conversation.is_archived) return responseJson(res, 409, { error: 'Reabra o atendimento antes de enviar uma mensagem.' });
+
+      let aiSuggestionRawPayload: Record<string, any> | null = null;
+      if (payload.aiSuggestionMessageId) {
+        if (payload.file || payload.contact || payload.catalogSelection || payload.forwarded) {
+          return responseJson(res, 400, { error: 'Uma sugestão da IA só pode ser aprovada como mensagem de texto.' });
+        }
+        const suggestionResult = await withTimeout<any>(context.userDb
+          .from('whatsapp_messages')
+          .select('id,status,direction,message_type,text_content,raw_payload,reply_to_wamid')
+          .eq('id', payload.aiSuggestionMessageId)
+          .eq('conversation_id', payload.conversationId)
+          .maybeSingle(), 12_000);
+        if (suggestionResult.error) return responseJson(res, 503, { error: 'Não foi possível validar a sugestão da IA.' });
+        const suggestion = suggestionResult.data;
+        if (
+          !suggestion || suggestion.status !== 'suggested' || suggestion.direction !== 'outbound' ||
+          suggestion.message_type !== 'text' || suggestion.raw_payload?.is_suggestion !== true ||
+          String(suggestion.text_content || '').trim() !== message
+        ) {
+          return responseJson(res, 409, { error: 'Esta sugestão já foi aprovada ou não está mais disponível.' });
+        }
+        if (payload.replyToWamid && payload.replyToWamid !== suggestion.reply_to_wamid) {
+          return responseJson(res, 400, { error: 'A referência da sugestão não corresponde à conversa.' });
+        }
+        if (suggestion.reply_to_wamid) payload.replyToWamid = String(suggestion.reply_to_wamid);
+        aiSuggestionRawPayload = suggestion.raw_payload;
+      }
 
       let replyToMessageId: string | null = null;
       if (payload.replyToWamid) {
@@ -326,6 +360,19 @@ export function createWhatsAppSupportSendHandler(dependencies: { fetchMeta?: typ
 
       if (payload.replyToWamid) graphPayload.context = { message_id: payload.replyToWamid };
 
+      if (payload.aiSuggestionMessageId) {
+        const claimResult = await withTimeout<any>(adminDb.from('whatsapp_messages')
+          .update({ status: 'sending' })
+          .eq('id', payload.aiSuggestionMessageId)
+          .eq('conversation_id', payload.conversationId)
+          .eq('status', 'suggested')
+          .contains('raw_payload', { is_suggestion: true })
+          .select('id')
+          .maybeSingle(), 12_000);
+        if (claimResult.error) return responseJson(res, 503, { error: 'Não foi possível reservar esta sugestão para envio.' });
+        if (!claimResult.data) return responseJson(res, 409, { error: 'Esta sugestão já está sendo enviada ou foi aprovada.' });
+      }
+
       const sendController = new AbortController();
       const sendTimeout = setTimeout(() => sendController.abort(), 25_000);
       let graphResponse: Response;
@@ -346,12 +393,21 @@ export function createWhatsAppSupportSendHandler(dependencies: { fetchMeta?: typ
       }
 
       const graphData = await graphResponse.json().catch(() => ({})) as Record<string, any>;
-      if (!graphResponse.ok) return responseJson(res, 502, {
-        error: nativeProducts
-          ? 'A Meta recusou o card nativo. Confira a conexão do canal, o catálogo vinculado e se os produtos estão sincronizados e publicados.'
-          : metaErrorMessage(graphData),
-        ...(graphResponse.status >= 500 ? { outcomeUncertain: true } : {}),
-      });
+      if (!graphResponse.ok) {
+        if (payload.aiSuggestionMessageId && graphResponse.status < 500) {
+          await withTimeout(adminDb.from('whatsapp_messages')
+            .update({ status: 'suggested' })
+            .eq('id', payload.aiSuggestionMessageId)
+            .eq('conversation_id', payload.conversationId)
+            .eq('status', 'sending'), 12_000).catch(() => undefined);
+        }
+        return responseJson(res, 502, {
+          error: nativeProducts
+            ? 'A Meta recusou o card nativo. Confira a conexão do canal, o catálogo vinculado e se os produtos estão sincronizados e publicados.'
+            : metaErrorMessage(graphData),
+          ...(graphResponse.status >= 500 ? { outcomeUncertain: true } : {}),
+        });
+      }
       const apiMessageId = typeof graphData.messages?.[0]?.id === 'string' ? graphData.messages[0].id : '';
       if (!apiMessageId) {
         return responseJson(res, 502, {
@@ -363,28 +419,62 @@ export function createWhatsAppSupportSendHandler(dependencies: { fetchMeta?: typ
       const profileResult = await withTimeout(context.userDb.from('profiles').select('full_name').eq('id', context.userId).maybeSingle(), 8_000).catch(() => null);
       const authorName = String(profileResult?.data?.full_name || 'Atendente').slice(0, 100);
       try {
-        const insertResult = await withTimeout(adminDb.from('whatsapp_messages').insert({
-          conversation_id: payload.conversationId,
-          api_message_id: apiMessageId,
-          direction: 'outbound',
-          message_type: messageType,
-          text_content: storedText,
-          media_id: mediaId,
-          media_mime_type: mediaMimeType,
-          media_filename: mediaFilename,
-          media_caption: payload.file ? message || null : null,
-          reply_to_message_id: replyToMessageId,
-          reply_to_wamid: payload.replyToWamid || null,
-          status: 'sent',
-          raw_payload: {
+        const sentRawPayload = payload.aiSuggestionMessageId
+          ? {
+              ...aiSuggestionRawPayload,
+              author_id: context.userId,
+              author_name: authorName,
+              origin: 'customer_support_composer',
+              is_ai: false,
+              is_suggestion: false,
+              accepted_ai_suggestion: true,
+            }
+          : {
             author_id: context.userId,
             author_name: authorName,
             origin: payload.forwarded ? 'customer_support_forward' : 'customer_support_composer',
             ...(payload.forwarded ? { forwarded: true } : {}),
-          },
-          timestamp: sendAt,
-        }), 12_000);
-        if (insertResult.error) throw new Error('insert failed');
+          };
+        const messagePersistence = payload.aiSuggestionMessageId
+          ? await withTimeout(adminDb.from('whatsapp_messages').update({
+              api_message_id: apiMessageId,
+              direction: 'outbound',
+              message_type: messageType,
+              text_content: storedText,
+              media_id: mediaId,
+              media_mime_type: mediaMimeType,
+              media_filename: mediaFilename,
+              media_caption: payload.file ? message || null : null,
+              reply_to_message_id: replyToMessageId,
+              reply_to_wamid: payload.replyToWamid || null,
+              status: 'sent',
+              raw_payload: sentRawPayload,
+              timestamp: sendAt,
+            })
+              .eq('id', payload.aiSuggestionMessageId)
+              .eq('conversation_id', payload.conversationId)
+              .eq('status', 'sending')
+              .select('id')
+              .maybeSingle(), 12_000)
+          : await withTimeout(adminDb.from('whatsapp_messages').insert({
+              conversation_id: payload.conversationId,
+              api_message_id: apiMessageId,
+              direction: 'outbound',
+              message_type: messageType,
+              text_content: storedText,
+              media_id: mediaId,
+              media_mime_type: mediaMimeType,
+              media_filename: mediaFilename,
+              media_caption: payload.file ? message || null : null,
+              reply_to_message_id: replyToMessageId,
+              reply_to_wamid: payload.replyToWamid || null,
+              status: 'sent',
+              raw_payload: sentRawPayload,
+              timestamp: sendAt,
+            }), 12_000);
+        if (messagePersistence.error || (payload.aiSuggestionMessageId && !messagePersistence.data)) {
+          throw new Error('message persistence failed');
+        }
         const conversationUpdate = await withTimeout(adminDb.from('whatsapp_conversations').update({
           last_message_text: storedText,
           last_message_at: sendAt,

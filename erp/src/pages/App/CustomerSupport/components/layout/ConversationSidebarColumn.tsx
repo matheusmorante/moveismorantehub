@@ -1,15 +1,16 @@
 import React from 'react';
 import type { WhatsAppConversation, ConversationFilter, WhatsAppMessage } from '../../types';
-import { ConversationSidebar } from '../ConversationSidebar';
+import { ConversationSidebar, type SortOrder } from '../ConversationSidebar';
 import { CustomerSupportResizeHandle } from '../CustomerSupportResizeHandle';
 import { CUSTOMER_SUPPORT_LAYOUT_DEFAULTS } from '../../customerSupportLayoutPreferences';
 
 interface ConversationSidebarColumnProps {
-  conversationPanelRef: React.RefObject<HTMLDivElement | null>;
-  supportLayoutRef: React.RefObject<HTMLDivElement | null>;
-  inboxPanelRef: React.RefObject<HTMLDivElement | null>;
+  conversationPanelRef: React.RefObject<HTMLDivElement>;
+  supportLayoutRef: React.RefObject<HTMLDivElement>;
+  inboxPanelRef: React.RefObject<HTMLDivElement>;
   isMobileViewport: boolean;
   selectedConversation: WhatsAppConversation | null;
+  isAiAgentChatOpen?: boolean;
   isConversationSidebarOpen: boolean;
   conversationPanelStyle: React.CSSProperties;
   conversations: WhatsAppConversation[];
@@ -19,7 +20,7 @@ interface ConversationSidebarColumnProps {
   totalCount: number;
   hasMoreConversations: boolean;
   isLoadingMore: boolean;
-  sortOrder: 'recent' | 'waiting' | 'oldest';
+  sortOrder: SortOrder;
   currentUserId?: string;
   canViewCommercialInfo: boolean;
   conversationSidebarWidth: number;
@@ -27,7 +28,7 @@ interface ConversationSidebarColumnProps {
   onJumpToMessage: (message: WhatsAppMessage) => void;
   onFilterChange: (filter: ConversationFilter) => void;
   onRefresh: () => void;
-  onLoadMore: () => void;
+  onLoadMore: () => Promise<void>;
   onToggleConversationSidebar: () => void;
   setConversationSidebarWidth: (width: number) => void;
   setIsConversationSidebarOpen: (open: boolean | ((prev: boolean) => boolean)) => void;
@@ -40,6 +41,7 @@ export const ConversationSidebarColumn: React.FC<ConversationSidebarColumnProps>
   inboxPanelRef,
   isMobileViewport,
   selectedConversation,
+  isAiAgentChatOpen = false,
   isConversationSidebarOpen,
   conversationPanelStyle,
   conversations,
@@ -63,15 +65,17 @@ export const ConversationSidebarColumn: React.FC<ConversationSidebarColumnProps>
   setIsConversationSidebarOpen,
   setIsDraggingSupportPanel,
 }) => {
+  const hasOpenChat = Boolean(selectedConversation) || isAiAgentChatOpen;
+
   return (
     <>
       <div
         ref={conversationPanelRef}
         id="customer-support-conversations-panel"
         data-testid="customer-support-conversations-panel"
-        aria-hidden={isMobileViewport ? Boolean(selectedConversation) : !isConversationSidebarOpen}
+        aria-hidden={isMobileViewport ? hasOpenChat : !isConversationSidebarOpen}
         className={`relative h-full shrink-0 overflow-hidden ${
-          isMobileViewport && Boolean(selectedConversation) ? 'hidden' : 'flex'
+          isMobileViewport && hasOpenChat ? 'hidden' : 'flex'
         }`}
         style={conversationPanelStyle}
       >
@@ -88,7 +92,7 @@ export const ConversationSidebarColumn: React.FC<ConversationSidebarColumnProps>
           sortOrder={sortOrder}
           hasMore={hasMoreConversations}
           isLoadingMore={isLoadingMore}
-          error={conversationsError}
+          error={conversationsError ?? undefined}
           totalCount={totalCount}
           onLoadMore={onLoadMore}
           canViewCommercialInfo={canViewCommercialInfo}

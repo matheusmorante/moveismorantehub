@@ -31,7 +31,17 @@ export async function dispatchAutomaticMode(
     turnId,
     modelEffective,
     fallbackReason,
+    durableJob,
   } = params;
+
+  if (durableJob) {
+    const { data, error } = await supabase.rpc('customer_support_stage_ai_job', {
+      p_job_id: durableJob.id, p_lock_token: durableJob.token,
+      p_payload: { aiResponseText, toolsUsed, situationKey, matchedKeywords, enforcedPhrases,
+        relevantArticleIds, workflowKey, executionTimeMs, modelEffective, fallbackReason },
+    });
+    if (error || data !== true) throw new Error('Não foi possível salvar a resposta antes do envio.');
+  }
 
   // 1. Idempotência estrita de despacho no PostgreSQL
   const idempotency = await prepareDispatchIdempotency(supabase, {
@@ -57,21 +67,26 @@ export async function dispatchAutomaticMode(
     '';
 
   if (!phoneNumberId || !accessToken) {
+    let outcomeRecorded = false;
     if (dispatchId) {
-      await supabase.rpc('customer_support_record_ai_dispatch_outcome', {
-        p_dispatch_id: dispatchId,
-        p_status: 'failed',
-        p_api_message_id: null,
-        p_error_message: 'channel_credentials_missing',
-      });
+      outcomeRecorded = await recordDispatchOutcomeSafe(
+        supabase, dispatchId, 'failed', null, 'channel_credentials_missing'
+      );
     }
     markMessageProcessed(inbound.wamid);
     return {
       executed: false,
-      reason: 'channel_credentials_missing',
+      reason: outcomeRecorded ? 'channel_credentials_missing' : 'channel_credentials_missing_state_unrecorded',
       toolsUsed,
       situationDetected: situationKey,
     };
+  }
+
+  if (durableJob) {
+    const { data, error } = await supabase.rpc('customer_support_mark_ai_job_sending', {
+      p_job_id: durableJob.id, p_lock_token: durableJob.token, p_dispatch_id: dispatchId,
+    });
+    if (error || data !== true) throw new Error('Não foi possível confirmar o início do envio.');
   }
 
   const sendResult = await sendMetaTextMessage({
@@ -84,7 +99,7 @@ export async function dispatchAutomaticMode(
   });
 
   if (!sendResult.ok) {
-    await recordDispatchOutcomeSafe(
+    const outcomeRecorded = await recordDispatchOutcomeSafe(
       supabase,
       dispatchId,
       sendResult.status,
@@ -94,7 +109,9 @@ export async function dispatchAutomaticMode(
     markMessageProcessed(inbound.wamid);
     return {
       executed: false,
-      reason: sendResult.status === 'uncertain' ? 'meta_api_network_error_outcome_uncertain' : 'meta_api_rejected',
+      reason: !outcomeRecorded
+        ? 'meta_api_result_state_unrecorded'
+        : sendResult.status === 'uncertain' ? 'meta_api_network_error_outcome_uncertain' : 'meta_api_rejected',
       error: sendResult.error,
       toolsUsed,
       situationDetected: situationKey,
@@ -102,7 +119,6 @@ export async function dispatchAutomaticMode(
   }
 
   const apiMessageId = sendResult.apiMessageId || `ai_out_${Date.now()}`;
-  await recordDispatchOutcomeSafe(supabase, dispatchId, 'sent', apiMessageId, null);
 
   // 3. Persiste mensagem enviada e atualiza última mensagem da conversa
   const rawPayload = buildAiMessagePayload({
@@ -121,18 +137,38 @@ export async function dispatchAutomaticMode(
 
   const sendAt = now.toISOString();
 
-  await persistOutboundMessageAndSyncConversation(supabase, {
-    conversationId: inbound.conversationId,
-    apiMessageId,
-    replyToWamid: inbound.wamid,
-    textContent: aiResponseText,
-    status: 'sent',
-    rawPayload,
-    sendAt,
-    syncConversationLastMessage: true,
-  });
+  const outcomeRecorded = await recordDispatchOutcomeSafe(supabase, dispatchId, 'sent', apiMessageId, null);
+  let messagePersisted = false;
+  try {
+    await persistOutboundMessageAndSyncConversation(supabase, {
+      conversationId: inbound.conversationId,
+      apiMessageId,
+      replyToWamid: inbound.wamid,
+      textContent: aiResponseText,
+      status: 'sent',
+      rawPayload,
+      sendAt,
+      syncConversationLastMessage: true,
+      idempotent: !!durableJob,
+    });
+    messagePersisted = true;
+  } catch (persistError) {
+    console.error('[AI Dispatcher] A mensagem foi enviada, mas não foi persistida:', persistError);
+  }
 
   markMessageProcessed(inbound.wamid);
+
+  if (!outcomeRecorded || !messagePersisted) {
+    return {
+      executed: true,
+      reason: 'automatic_sent_persistence_incomplete',
+      error: 'A resposta foi enviada ao cliente, mas o registro do envio ficou incompleto. Não reenvie manualmente sem conferir a conversa.',
+      apiMessageId,
+      toolsUsed,
+      situationDetected: situationKey,
+      supportMode: 'automatico',
+    };
+  }
 
   return {
     executed: true,

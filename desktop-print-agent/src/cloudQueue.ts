@@ -1,10 +1,19 @@
 import { clearAgentCredential, loadAgentCredential } from './agentCredentials';
 import { printCloudLabelJob } from './cloudLabelPrinter';
 
-const POLL_INTERVAL_MS = 3_000;
+const POLL_INTERVAL_MS = 5_000;
 const REQUEST_TIMEOUT_MS = 20_000;
+const TRANSIENT_CLAIM_RETRY_INTERVALS_MS = [6_000, 12_000, 15_000] as const;
 let workerStarted = false;
 let polling = false;
+let consecutiveTransientClaimFailures = 0;
+
+function nextTransientClaimRetryIntervalMs(): number {
+  const lastIndex = TRANSIENT_CLAIM_RETRY_INTERVALS_MS.length - 1;
+  const interval = TRANSIENT_CLAIM_RETRY_INTERVALS_MS[Math.min(consecutiveTransientClaimFailures, lastIndex)];
+  consecutiveTransientClaimFailures = Math.min(consecutiveTransientClaimFailures + 1, lastIndex);
+  return interval;
+}
 
 async function request(url: string, token: string, body: unknown): Promise<Response> {
   const controller = new AbortController();
@@ -24,17 +33,36 @@ async function request(url: string, token: string, body: unknown): Promise<Respo
 async function tick(): Promise<void> {
   if (polling) return;
   polling = true;
+  let nextPollIntervalMs = POLL_INTERVAL_MS;
   try {
     const credential = await loadAgentCredential();
-    if (!credential) return;
+    if (!credential) {
+      consecutiveTransientClaimFailures = 0;
+      return;
+    }
     const endpoint = `${credential.apiBaseUrl}/label-print-agent/jobs`;
-    const claimResponse = await request(endpoint, credential.token, { action: 'claim' });
+    let claimResponse: Response;
+    try {
+      claimResponse = await request(endpoint, credential.token, { action: 'claim' });
+    } catch (error) {
+      nextPollIntervalMs = nextTransientClaimRetryIntervalMs();
+      throw error;
+    }
     if (claimResponse.status === 401 || claimResponse.status === 403) {
+      consecutiveTransientClaimFailures = 0;
       clearAgentCredential();
       console.warn('[CloudQueue] Esta estação foi desconectada da conta.');
       return;
     }
-    if (!claimResponse.ok) throw new Error(`Fila indisponível (${claimResponse.status}).`);
+    if (!claimResponse.ok) {
+      if (claimResponse.status === 429 || claimResponse.status >= 500) {
+        nextPollIntervalMs = nextTransientClaimRetryIntervalMs();
+      } else {
+        consecutiveTransientClaimFailures = 0;
+      }
+      throw new Error(`Fila indisponível (${claimResponse.status}).`);
+    }
+    consecutiveTransientClaimFailures = 0;
     const payload = await claimResponse.json() as { job?: any | null };
     const job = payload.job;
     if (!job) return;
@@ -61,7 +89,7 @@ async function tick(): Promise<void> {
     console.warn('[CloudQueue] Não foi possível consultar a fila:', message);
   } finally {
     polling = false;
-    setTimeout(() => void tick(), POLL_INTERVAL_MS);
+    setTimeout(() => void tick(), nextPollIntervalMs);
   }
 }
 

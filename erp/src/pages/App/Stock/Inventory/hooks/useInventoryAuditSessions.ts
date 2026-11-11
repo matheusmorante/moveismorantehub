@@ -1,18 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type InventoryMove from '@/pages/types/inventoryMove.type';
 import {
   deleteInventoryMove,
-  getNextInventoryCode,
-  subscribeToInventoryMoves,
+  getNextInventoryCodes,
+  subscribeToInventoryMoveMutations,
   reverseInventoryMove,
   unreverseInventoryMove,
 } from '@/pages/utils/inventoryService';
 import { toast } from 'react-toastify';
 import type { InventoryAuditSession } from '../types/inventoryAudit.types';
-import { sumInventoryCountedQuantities } from '../../../../../../../shared-utils/inventorySupplierStages';
-import { readSnapshot } from '../utils/inventorySnapshotUtils';
 import { supabase } from '@/pages/utils/supabaseConfig';
-import { mapInventoryMoveFromDB } from '@/pages/utils/inventoryService/inventoryMapper';
 import { requestConfirmation } from '@/components/shared/confirmationService';
 import {
   deleteWebInventoryDraft,
@@ -22,10 +18,18 @@ import {
   type WebInventoryDraft,
 } from '../services/inventoryLocalDrafts';
 import { listReservedLocalInventoryCodes } from '../services/listReservedLocalInventoryCodes';
+import {
+  fetchInventoryAuditSessionPage,
+  mapWebInventoryDraftToSession,
+  type InventoryAuditSessionPageEntry,
+} from '../services/inventoryAuditSessionQuery';
 
 export const useInventoryAuditSessions = () => {
-  const [moves, setMoves] = useState<InventoryMove[]>([]);
+  const [sessionEntries, setSessionEntries] = useState<readonly InventoryAuditSessionPageEntry[]>([]);
+  const [totalItems, setTotalItems] = useState(0);
+  const [reservedInventoryCodes, setReservedInventoryCodes] = useState<string[]>([]);
   const [localDrafts, setLocalDrafts] = useState<WebInventoryDraft[]>([]);
+  const [localDraftsLoaded, setLocalDraftsLoaded] = useState(false);
   const [loading, setLoading] = useState(true);
   const [activeSession, setActiveSession] = useState<InventoryAuditSession | null>(null);
   const [menuPos, setMenuPos] = useState<{ top?: number; bottom?: number; right: number } | null>(
@@ -35,10 +39,37 @@ export const useInventoryAuditSessions = () => {
     session: InventoryAuditSession;
     type: 'reverse' | 'apply';
   } | null>(null);
-  const [periodDays, setPeriodDays] = useState(30);
+  const [periodDays, setPeriodDaysState] = useState(30);
+  const [periodAnchorMs, setPeriodAnchorMs] = useState(() => Date.now());
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(15);
+  const [refreshVersion, setRefreshVersion] = useState(0);
   const repairingDraftCodes = useRef(false);
+  const suppressInventoryRefresh = useRef(false);
+  const suppressLocalDraftRefresh = useRef(false);
+
+  const periodStart = useMemo(
+    () =>
+      periodDays === 0
+        ? null
+        : new Date(periodAnchorMs - periodDays * 24 * 60 * 60 * 1000).toISOString(),
+    [periodAnchorMs, periodDays]
+  );
+  const periodStartMs = periodStart ? Date.parse(periodStart) : null;
+  const eligibleLocalDrafts = useMemo(
+    () =>
+      periodStartMs === null
+        ? localDrafts
+        : localDrafts.filter((draft) => Date.parse(draft.date) >= periodStartMs),
+    [localDrafts, periodStartMs]
+  );
+  const eligibleLocalDraftsRef = useRef(eligibleLocalDrafts);
+  eligibleLocalDraftsRef.current = eligibleLocalDrafts;
+  const localDraftsRef = useRef(localDrafts);
+  localDraftsRef.current = localDrafts;
+  const localDraftsQueryKey = useMemo(
+    () => JSON.stringify(localDrafts.map(({ id, date }) => [id, date])),
+    [localDrafts]
+  );
 
   useEffect(() => {
     if (!activeSession) return;
@@ -60,70 +91,91 @@ export const useInventoryAuditSessions = () => {
     };
   }, [activeSession]);
 
-  useEffect(() => {
-    return subscribeToInventoryMoves((data) => {
-      setMoves(data);
-      setLoading(false);
-    });
-  }, []);
+  useEffect(
+    () =>
+      subscribeToInventoryMoveMutations(() => {
+        if (!suppressInventoryRefresh.current) {
+          setRefreshVersion((current) => current + 1);
+        }
+      }),
+    []
+  );
 
   useEffect(() => {
-    if (!localDrafts.length || repairingDraftCodes.current) return;
+    if (!localDraftsLoaded || !localDrafts.length || repairingDraftCodes.current) return;
     let cancelled = false;
 
     const repairDuplicateCodes = async () => {
       repairingDraftCodes.current = true;
       try {
         const reservedCodes = new Set<string>();
-        moves
-          .filter((move) => move.label?.startsWith('Inventário #'))
-          .forEach((move) => {
-            const snapshot = readSnapshot(move);
-            const code = String(
-              snapshot?.inventoryCode || move.label?.replace(/^Inventário #/, '') || ''
-            ).trim();
-            if (code) reservedCodes.add(code);
-          });
+        reservedInventoryCodes.forEach((code) => {
+          const normalizedCode = String(code || '').trim();
+          if (normalizedCode) reservedCodes.add(normalizedCode);
+        });
 
         localDrafts
           .filter((draft) => draft.status === 'pending_sync')
           .forEach((draft) => reservedCodes.add(draft.code));
 
-        const draftsToRepair = localDrafts
+        const inProgressDrafts = localDrafts
           .filter((draft) => draft.status === 'in_progress')
           .sort((left, right) => new Date(left.date).getTime() - new Date(right.date).getTime());
 
+        const draftsToRepair: WebInventoryDraft[] = [];
         let repaired = false;
-        for (const draft of draftsToRepair) {
+        for (const draft of inProgressDrafts) {
           const currentCode = draft.code.trim();
           if (currentCode && !reservedCodes.has(currentCode)) {
             reservedCodes.add(currentCode);
             continue;
           }
+          draftsToRepair.push(draft);
+        }
 
-          let nextCode: string;
+        if (draftsToRepair.length) {
+          let allReservedCodes: string[] = [];
+          let canReserveRemotely = true;
           try {
-            const localReservedCodes = await listReservedLocalInventoryCodes(draft.id);
-            const allReservedCodes = [...new Set([
+            const localReservedCodes = await listReservedLocalInventoryCodes(draftsToRepair[0].id);
+            allReservedCodes = [...new Set([
               ...localReservedCodes,
               ...[...reservedCodes]
                 .map((code) => code.trim())
                 .filter((code) => /^\d{1,6}$/.test(code))
                 .map((code) => code.padStart(6, '0')),
             ])];
-            nextCode = await getNextInventoryCode(allReservedCodes);
+            canReserveRemotely = allReservedCodes.length <= 1000;
           } catch {
-            nextCode = `LOCAL-${draft.id.replace(/-/g, '')}`;
-            while (reservedCodes.has(nextCode)) nextCode += 'X';
+            canReserveRemotely = false;
           }
 
-          await saveWebInventoryDraft({
-            ...draft,
-            code: nextCode,
-            updatedAt: new Date().toISOString(),
-          });
-          reservedCodes.add(nextCode);
-          repaired = true;
+          for (let offset = 0; offset < draftsToRepair.length; offset += 1000) {
+            const batch = draftsToRepair.slice(offset, offset + 1000);
+            let nextCodes: string[];
+            try {
+              if (!canReserveRemotely) throw new Error('A reserva remota não está disponível.');
+              nextCodes = await getNextInventoryCodes(allReservedCodes, batch.length);
+            } catch {
+              nextCodes = batch.map((draft) => {
+                let localCode = `LOCAL-${draft.id.replace(/-/g, '')}`;
+                while (reservedCodes.has(localCode)) localCode += 'X';
+                reservedCodes.add(localCode);
+                return localCode;
+              });
+            }
+
+            for (const [index, draft] of batch.entries()) {
+              const nextCode = nextCodes[index];
+              await saveWebInventoryDraft({
+                ...draft,
+                code: nextCode,
+                updatedAt: new Date().toISOString(),
+              });
+              reservedCodes.add(nextCode);
+              repaired = true;
+            }
+          }
         }
 
         if (repaired && !cancelled) setLocalDrafts(await listWebInventoryDrafts());
@@ -138,23 +190,106 @@ export const useInventoryAuditSessions = () => {
     return () => {
       cancelled = true;
     };
-  }, [localDrafts, moves]);
+  }, [localDrafts, localDraftsLoaded, reservedInventoryCodes]);
 
   useEffect(() => {
-    const refresh = () => {
-      void listWebInventoryDrafts()
-        .then((drafts) => {
-          setLocalDrafts(drafts);
-          setLoading(false);
-        })
-        .catch((error) => {
+    let cancelled = false;
+    let refreshTimer: number | undefined;
+
+    const loadDrafts = async () => {
+      try {
+        const drafts = await listWebInventoryDrafts();
+        if (cancelled) return;
+        setLocalDrafts(drafts);
+      } catch (error) {
+        if (!cancelled) {
           console.error('Falha ao listar inventários locais:', error);
-          setLoading(false);
-        });
+          setLocalDrafts([]);
+        }
+      } finally {
+        if (!cancelled) setLocalDraftsLoaded(true);
+      }
     };
-    refresh();
-    return subscribeWebInventoryDrafts(refresh);
+
+    const refresh = () => {
+      if (suppressLocalDraftRefresh.current) return;
+      if (refreshTimer !== undefined) window.clearTimeout(refreshTimer);
+      refreshTimer = window.setTimeout(() => {
+        refreshTimer = undefined;
+        void loadDrafts();
+      }, 100);
+    };
+
+    void loadDrafts();
+    const unsubscribe = subscribeWebInventoryDrafts(refresh);
+    return () => {
+      cancelled = true;
+      if (refreshTimer !== undefined) window.clearTimeout(refreshTimer);
+      unsubscribe();
+    };
   }, []);
+
+  useEffect(() => {
+    if (!localDraftsLoaded) return;
+    let cancelled = false;
+    let timedOut = false;
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, 15_000);
+
+    setLoading(true);
+    void fetchInventoryAuditSessionPage({
+      page,
+      periodStart,
+      localDrafts: localDraftsRef.current,
+      signal: controller.signal,
+    })
+      .then((result) => {
+        if (cancelled) return;
+        setSessionEntries(result.entries);
+        setTotalItems(result.totalItems);
+        setReservedInventoryCodes((current) => {
+          const next = [...result.reservedCodes];
+          return current.length === next.length && current.every((code, index) => code === next[index])
+            ? current
+            : next;
+        });
+        setLoading(false);
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        if (timedOut) {
+          console.warn('A consulta das sessões de inventário excedeu 15 segundos.');
+        } else {
+          console.error('Erro ao buscar sessões de inventário:', error);
+        }
+        const localSessions = eligibleLocalDraftsRef.current
+          .map(mapWebInventoryDraftToSession)
+          .sort((left, right) => new Date(right.date).getTime() - new Date(left.date).getTime());
+        const start = (page - 1) * 15;
+        setSessionEntries(
+          localSessions.slice(start, start + 15).map((session) => ({ kind: 'local', id: session.id }))
+        );
+        setTotalItems(localSessions.length);
+        setReservedInventoryCodes([]);
+        setLoading(false);
+      })
+      .finally(() => window.clearTimeout(timeoutId));
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeoutId);
+      controller.abort();
+    };
+  }, [
+    localDraftsLoaded,
+    localDraftsQueryKey,
+    page,
+    periodStart,
+    refreshVersion,
+  ]);
 
   const handleOpenMenu = (
     e: React.MouseEvent<HTMLButtonElement>,
@@ -186,14 +321,28 @@ export const useInventoryAuditSessions = () => {
       confirmLabel: 'Excluir contagem',
       type: 'danger',
     })) return;
+    let remoteMarkerDeleted = false;
+    let localDraftDeleted = false;
+    suppressInventoryRefresh.current = true;
+    suppressLocalDraftRefresh.current = true;
     try {
-      if (session.markerMoveId) await deleteInventoryMove(session.markerMoveId, false, true);
+      if (session.markerMoveId) {
+        await deleteInventoryMove(session.markerMoveId, false, true);
+        remoteMarkerDeleted = true;
+      }
       await deleteWebInventoryDraft(session.id);
+      localDraftDeleted = true;
+      setLocalDrafts(await listWebInventoryDrafts());
       toast.success('Contagem em andamento excluída.');
     } catch (error: unknown) {
       console.error('Erro ao excluir contagem:', error);
       toast.error('Não foi possível excluir a contagem.');
     } finally {
+      suppressInventoryRefresh.current = false;
+      suppressLocalDraftRefresh.current = false;
+      if (remoteMarkerDeleted || localDraftDeleted) {
+        setRefreshVersion((current) => current + 1);
+      }
       setActiveSession(null);
       setMenuPos(null);
     }
@@ -202,11 +351,13 @@ export const useInventoryAuditSessions = () => {
   const handleToggleAdjustments = async () => {
     if (!confirmAction) return;
     const { session, type } = confirmAction;
+    let shouldRefreshSessions = false;
+    suppressInventoryRefresh.current = true;
 
     try {
       const { data: auditMoves, error: fetchError } = await supabase
         .from('inventory_moves')
-        .select('*')
+        .select('id, observation, reason')
         .or(`order_id.eq.${session.id},related_entity_id.eq.${session.id}`)
         .like('label', 'Ajuste lançado pelo inventário #%');
       if (fetchError) throw fetchError;
@@ -215,6 +366,7 @@ export const useInventoryAuditSessions = () => {
           `Nenhuma movimentação de ajuste foi encontrada para o inventário #${session.inventoryCode}.`
         );
       }
+      shouldRefreshSessions = true;
 
       for (const move of auditMoves) {
         let observationStatus = '';
@@ -235,7 +387,7 @@ export const useInventoryAuditSessions = () => {
 
       const { data: verifiedMoves, error: verifyError } = await supabase
         .from('inventory_moves')
-        .select('*')
+        .select('observation, reason')
         .or(`order_id.eq.${session.id},related_entity_id.eq.${session.id}`)
         .like('label', 'Ajuste lançado pelo inventário #%');
       if (verifyError) throw verifyError;
@@ -254,11 +406,6 @@ export const useInventoryAuditSessions = () => {
       if (!verifiedMoves?.length || !allInExpectedState) {
         throw new Error('O status das movimentações não foi confirmado após a operação.');
       }
-      const verifiedAuditMoves = verifiedMoves.map(mapInventoryMoveFromDB);
-      setMoves((current) => {
-        const verifiedIds = new Set(verifiedAuditMoves.map((move) => move.id));
-        return [...current.filter((move) => !verifiedIds.has(move.id)), ...verifiedAuditMoves];
-      });
       toast.success(
         type === 'reverse' ? 'Inventário estornado com sucesso!' : 'Ajustes aplicados com sucesso!'
       );
@@ -266,83 +413,38 @@ export const useInventoryAuditSessions = () => {
       console.error('Erro ao processar movimentações:', error);
       toast.error('Ocorreu um erro ao processar sua solicitação.');
     } finally {
+      suppressInventoryRefresh.current = false;
+      if (shouldRefreshSessions) {
+        setRefreshVersion((current) => current + 1);
+      }
       setConfirmAction(null);
     }
   };
 
-  const allSessions = useMemo(() => {
-    const remoteSessions = moves
-      .filter((move) => move.label?.startsWith('Inventário #'))
-      .map((marker): InventoryAuditSession | null => {
-        const snapshot = readSnapshot(marker);
-        if (!snapshot || !snapshot.items.length) return null;
-        const auditMoves = moves.filter(
-          (move) =>
-            move.relatedEntityId === marker.relatedEntityId &&
-            move.label?.startsWith('Ajuste lançado pelo inventário #')
-        );
-        const adjustmentsCount = auditMoves.length;
-        const reversedCount = auditMoves.filter((m) => m.status === 'reversed').length;
-
-        return {
-          id: marker.relatedEntityId || marker.id || marker.date,
-          inventoryCode: snapshot.inventoryCode,
-          date: marker.date,
-          status: snapshot.status,
-          items: snapshot.items,
-          productsCount: snapshot.items.filter((item) => typeof item.physicalCount === 'number').length,
-          countedQuantityTotal: sumInventoryCountedQuantities(snapshot.items),
-          adjustmentsCount,
-          reversedCount,
-          hasStages: snapshot.hasStages,
-          responsibleId: snapshot.responsibleId,
-          responsibleName: snapshot.responsibleName,
-          markerMoveId: marker.id,
-        };
-      })
-      .filter((s): s is InventoryAuditSession => s !== null);
-    const completedRemoteIds = new Set(
-      remoteSessions
-        .filter((session) => session.status === 'completed')
-        .map((session) => session.id)
-    );
-    const localIds = new Set(localDrafts.map((draft) => draft.id));
-    const localSessions: InventoryAuditSession[] = localDrafts
-      .filter((draft) => !completedRemoteIds.has(draft.id))
-      .map((draft) => ({
-        id: draft.id,
-        inventoryCode: draft.code,
-        date: draft.date,
-        status: draft.status === 'pending_sync' ? 'pending' : 'in_progress',
-        items: draft.items,
-        productsCount: draft.items.filter((item) => item.physicalCount !== null).length,
-        countedQuantityTotal: sumInventoryCountedQuantities(draft.items),
-        adjustmentsCount: 0,
-        reversedCount: 0,
-        hasStages: draft.hasStages,
-        responsibleId: draft.responsibleId,
-        responsibleName: draft.responsibleName,
-      }));
-    return [
-      ...localSessions,
-      ...remoteSessions.filter(
-        (session) => session.status === 'completed' || !localIds.has(session.id)
-      ),
-    ].sort((left, right) => new Date(right.date).getTime() - new Date(left.date).getTime());
-  }, [moves, localDrafts]);
-
-  const filteredSessions = useMemo(() => {
-    if (periodDays === 0) return allSessions;
-    const cutoff = Date.now() - periodDays * 24 * 60 * 60 * 1000;
-    return allSessions.filter((session) => new Date(session.date).getTime() >= cutoff);
-  }, [allSessions, periodDays]);
-
-  const pageCount = Math.max(1, Math.ceil(filteredSessions.length / pageSize));
-  const sessions = filteredSessions.slice((page - 1) * pageSize, page * pageSize);
+  const localDraftsById = useMemo(
+    () => new Map(eligibleLocalDrafts.map((draft) => [draft.id, draft])),
+    [eligibleLocalDrafts]
+  );
+  const sessions = useMemo(
+    () =>
+      sessionEntries.flatMap((entry) => {
+        if (entry.kind === 'remote') return [entry.session];
+        const draft = localDraftsById.get(entry.id);
+        return draft ? [mapWebInventoryDraftToSession(draft)] : [];
+      }),
+    [localDraftsById, sessionEntries]
+  );
+  const pageCount = Math.max(1, Math.ceil(totalItems / 15));
 
   useEffect(() => {
+    if (page > pageCount) setPage(pageCount);
+  }, [page, pageCount]);
+
+  const setPeriodDays = (days: number) => {
     setPage(1);
-  }, [periodDays, allSessions.length]);
+    setPeriodAnchorMs(Date.now());
+    setPeriodDaysState(days);
+  };
 
   return {
     sessions,
@@ -351,9 +453,8 @@ export const useInventoryAuditSessions = () => {
     page,
     setPage,
     pageCount,
-    totalItems: filteredSessions.length,
-    itemsPerPage: pageSize,
-    setItemsPerPage: setPageSize,
+    totalItems,
+    itemsPerPage: 15,
     loading,
     activeSession,
     menuPos,

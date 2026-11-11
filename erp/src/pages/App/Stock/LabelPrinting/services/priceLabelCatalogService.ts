@@ -77,7 +77,9 @@ export async function searchProductsForLabelResult(searchTerm: string): Promise<
   } catch { error = new Error('Não foi possível ler os produtos salvos neste computador.'); }
 
   try {
-    let query = supabase.from('products').select('*, product_images(*)')
+    let query = supabase.from('products').select(
+      'id, name, description, code, unit_price, price, promo_price, deleted, images, product_images(image_url)'
+    )
       .eq('deleted', false).order('created_at', { ascending: false }).limit(40);
     if (term) {
       const regex = quoteFilter(`.*${buildAccentInsensitiveRegex(term)}.*`), like = quoteFilter(likePattern(term));

@@ -9,7 +9,7 @@ import {
   deleteLabelImage,
   fetchLabelImages,
 } from '../services/labelImageService';
-import type { LabelImage } from '../types/LabelImage.types';
+import { LABEL_IMAGE_PAGE_SIZE, type LabelImage } from '../types/LabelImage.types';
 import { requestConfirmation } from '@/components/shared/confirmationService';
 export type { LabelImage } from '../types/LabelImage.types';
 
@@ -29,14 +29,16 @@ const LabelImageLibrary: React.FC<LabelImageModalProps> = ({
   currentCategory,
 }) => {
   const [images, setImages] = useState<readonly LabelImage[]>([]);
+  const [page, setPage] = useState(0), [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true), [busy, setBusy] = useState('');
   const [error, setError] = useState(''), [queryError, setQueryError] = useState('');
   const [blocked, setBlocked] = useState(false);
   const uploadForm = useZodForm(labelImageUploadFormSchema, { files: [], name: '', category: currentCategory ?? 'logos' });
   const deleteForm = useZodForm(labelImageDeleteFormSchema, { id: 0 });
   const selectForm = useZodForm(labelImageSelectionFormSchema, { id: 0, image: '' });
-  const { validateValues: validateQuery } = useZodForm(labelImageQueryFormSchema, { sort: 'newest' });
+  const { validateValues: validateQuery } = useZodForm(labelImageQueryFormSchema, { sort: 'newest', page: 0 });
   const mounted = useRef(false), locked = useRef(false), querying = useRef(false), replayBlocked = useRef(false), request = useRef(0);
+  const pageRef = useRef(0);
   const readerRef = useRef<FileReader | null>(null);
   const uploading = busy === 'upload';
   const disabled = Boolean(busy) || loading || blocked || Boolean(queryError);
@@ -44,19 +46,36 @@ const LabelImageLibrary: React.FC<LabelImageModalProps> = ({
   const fail = (message: string) => { if (mounted.current) { setError(message); toast.error(message); } };
   const invalid = (errors: Parameters<typeof flattenFormErrors>[0]) => fail(Object.values(flattenFormErrors(errors))[0] || 'Confira os dados da imagem.');
 
-  const fetchImages = useCallback(async () => {
+  const fetchImages = useCallback(async (requestedPage = pageRef.current) => {
     if (querying.current || locked.current) return false;
     querying.current = true; const revision = ++request.current;
     const current = () => mounted.current && revision === request.current;
     setLoading(true); setQueryError('');
     try {
-      const values = await validateQuery({ sort: 'newest' });
+      const values = await validateQuery({ sort: 'newest', page: requestedPage });
       if (!current()) return false;
       if (!values) throw new Error('Consulta inválida.');
-      const result = await withTimeout(fetchLabelImages(values).then((rows) => ({ rows })), 15_000, null, 'etiquetas:biblioteca');
+      const loadPage = (targetPage: number) => withTimeout(
+        fetchLabelImages({ ...values, page: targetPage }).then((pageResult) => ({ pageResult })),
+        15_000,
+        null,
+        'etiquetas:biblioteca',
+      );
+      let resolvedPage = requestedPage;
+      let result = await loadPage(resolvedPage);
       if (!current()) return false;
       if (!result) throw new Error('Consulta sem confirmação.');
-      setImages(result.rows); return true;
+      const pageCount = Math.ceil(result.pageResult.totalCount / LABEL_IMAGE_PAGE_SIZE);
+      if (pageCount === 0) {
+        resolvedPage = 0;
+      } else if (resolvedPage >= pageCount) {
+        resolvedPage = pageCount - 1;
+        result = await loadPage(resolvedPage);
+        if (!current()) return false;
+        if (!result) throw new Error('Consulta sem confirmação.');
+      }
+      setImages(result.pageResult.rows); setTotalCount(result.pageResult.totalCount);
+      pageRef.current = resolvedPage; setPage(resolvedPage); return true;
     } catch { if (current()) setQueryError('Não foi possível carregar a biblioteca. Tente novamente.'); return false; }
     finally { if (current()) { querying.current = false; setLoading(false); } }
   }, [validateQuery]);
@@ -83,6 +102,7 @@ const LabelImageLibrary: React.FC<LabelImageModalProps> = ({
   const handleUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const input = event.target, file = input.files?.[0];
     if (!file) return;
+    let uploaded = false;
     try { await runMutation('upload', () => uploadForm.validateAndRun({ files: [file], name: file.name.replace(/\.[^.]+$/, '').toUpperCase(), category: currentCategory ?? 'logos' }, async (values) => {
       if (!mounted.current) return;
       const reader = new FileReader(); readerRef.current = reader;
@@ -99,13 +119,22 @@ const LabelImageLibrary: React.FC<LabelImageModalProps> = ({
         const result = await withTimeout(createLabelImage({ name: values.name, image: readResult.image, category: values.category }).then((image) => ({ image })), 20_000, null, 'etiquetas:salvar-imagem');
         if (!mounted.current) return;
         if (!result?.image?.id) throw { uncertain: true };
-        setImages((previous) => [result.image, ...previous]); toast.success('Imagem adicionada com sucesso!');
+        if (pageRef.current === 0) {
+          setImages((previous) => [result.image, ...previous].slice(0, LABEL_IMAGE_PAGE_SIZE));
+          setTotalCount((previous) => previous + 1);
+        } else uploaded = true;
+        toast.success('Imagem adicionada com sucesso!');
       } finally { reader.abort(); reader.onload = null; reader.onerror = null; reader.onabort = null; if (readerRef.current === reader) readerRef.current = null; }
-    }, invalid)); } finally { input.value = ''; }
+    }, invalid));
+      if (uploaded && mounted.current) await fetchImages(0);
+    } finally { input.value = ''; }
   };
 
   const handleDelete = async (event: React.MouseEvent, id: number) => {
     event.stopPropagation();
+    const pageCount = Math.ceil(totalCount / LABEL_IMAGE_PAGE_SIZE);
+    const refreshPage = page < pageCount - 1 ? page : page > 0 && images.length === 1 ? page - 1 : null;
+    let deleted = false;
     await runMutation('delete', () => deleteForm.validateAndRun({ id }, async (values) => {
       if (!mounted.current || !await requestConfirmation({
         title: 'Excluir imagem permanentemente?',
@@ -116,8 +145,11 @@ const LabelImageLibrary: React.FC<LabelImageModalProps> = ({
       const result = await withTimeout(deleteLabelImage(values.id).then(() => ({ done: true })), 20_000, null, 'etiquetas:excluir-imagem');
       if (!mounted.current) return;
       if (!result) throw { uncertain: true };
-      setImages((previous) => previous.filter((image) => image.id !== values.id)); toast.success('Imagem removida com sucesso.');
+      setImages((previous) => previous.filter((image) => image.id !== values.id));
+      setTotalCount((previous) => Math.max(0, previous - 1));
+      deleted = true; toast.success('Imagem removida com sucesso.');
     }, invalid));
+    if (deleted && refreshPage !== null && mounted.current) await fetchImages(refreshPage);
   };
 
   const handleSelect = async (image: LabelImage) => runMutation('select', () => selectForm.validateAndRun({ id: image.id, image: image.image }, async (values) => {
@@ -268,6 +300,29 @@ const LabelImageLibrary: React.FC<LabelImageModalProps> = ({
               ))
             )}
           </div>
+          {totalCount > 0 && (
+            <nav aria-label="Páginas da biblioteca de imagens" className="mt-8 flex items-center justify-center gap-4">
+              <button
+                type="button"
+                disabled={loading || Boolean(busy) || Boolean(queryError) || page === 0}
+                onClick={() => void fetchImages(page - 1)}
+                className="rounded-xl border border-slate-200 px-4 py-2 text-sm text-slate-600 disabled:opacity-50"
+              >
+                Anterior
+              </button>
+              <span aria-live="polite" className="text-sm text-slate-500">
+                Página {page + 1} de {Math.max(1, Math.ceil(totalCount / LABEL_IMAGE_PAGE_SIZE))}
+              </span>
+              <button
+                type="button"
+                disabled={loading || Boolean(busy) || Boolean(queryError) || page + 1 >= Math.ceil(totalCount / LABEL_IMAGE_PAGE_SIZE)}
+                onClick={() => void fetchImages(page + 1)}
+                className="rounded-xl border border-slate-200 px-4 py-2 text-sm text-slate-600 disabled:opacity-50"
+              >
+                Próxima
+              </button>
+            </nav>
+          )}
         </div>
 
         <footer className="px-10 py-6 bg-slate-50 dark:bg-slate-800/50 flex items-center justify-between shrink-0">

@@ -30,9 +30,9 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 ));
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
-// erp/node_modules/@supabase/supabase-js/dist/tracingRegistry.cjs
+// node_modules/@supabase/supabase-js/dist/tracingRegistry.cjs
 var require_tracingRegistry = __commonJS({
-  "erp/node_modules/@supabase/supabase-js/dist/tracingRegistry.cjs"(exports2) {
+  "node_modules/@supabase/supabase-js/dist/tracingRegistry.cjs"(exports2) {
     var EXTRACTOR_KEY = Symbol.for("@supabase/supabase-js.traceContextExtractor");
     function registerTraceContextExtractor(extractor) {
       globalThis[EXTRACTOR_KEY] = extractor;
@@ -55,9 +55,9 @@ var require_tracingRegistry = __commonJS({
   }
 });
 
-// erp/node_modules/@supabase/supabase-js/dist/index.cjs
+// node_modules/@supabase/supabase-js/dist/index.cjs
 var require_dist = __commonJS({
-  "erp/node_modules/@supabase/supabase-js/dist/index.cjs"(exports2) {
+  "node_modules/@supabase/supabase-js/dist/index.cjs"(exports2) {
     var require_tracingRegistry2 = require_tracingRegistry();
     var _supabase_functions_js = require("@supabase/functions-js");
     var _supabase_postgrest_js = require("@supabase/postgrest-js");
@@ -790,7 +790,7 @@ var require_dist = __commonJS({
         }
       }
     };
-    var createClient2 = (supabaseUrl, supabaseKey, options) => {
+    var createClient3 = (supabaseUrl, supabaseKey, options) => {
       return new SupabaseClient(supabaseUrl, supabaseKey, options);
     };
     function shouldShowDeprecationWarning() {
@@ -847,7 +847,7 @@ var require_dist = __commonJS({
       }
     });
     exports2.SupabaseClient = SupabaseClient;
-    exports2.createClient = createClient2;
+    exports2.createClient = createClient3;
     Object.keys(_supabase_auth_js).forEach(function(k) {
       if (k !== "default" && !Object.prototype.hasOwnProperty.call(exports2, k)) Object.defineProperty(exports2, k, {
         enumerable: true,
@@ -867,7 +867,7 @@ var require_dist = __commonJS({
   }
 });
 
-// erp/api/secure-integrations.ts
+// api/secure-integrations.ts
 var secure_integrations_exports = {};
 __export(secure_integrations_exports, {
   checkAiQuotaOrReject: () => checkAiQuotaOrReject,
@@ -882,7 +882,7 @@ __export(secure_integrations_exports, {
 });
 module.exports = __toCommonJS(secure_integrations_exports);
 
-// erp/api/_lib/secureIntegrations/types.ts
+// api/_lib/secureIntegrations/types.ts
 var MAX_META_REQUEST_BYTES = 1e6;
 var MAX_OPENAI_REQUEST_BYTES = 4e6;
 var MAX_ROUTE_REQUEST_BYTES = 16e3;
@@ -898,7 +898,7 @@ function getOperation(req) {
   return Array.isArray(value) ? String(value[0] || "") : String(value || "");
 }
 
-// erp/api/_lib/authenticatedErpRequest.ts
+// api/_lib/authenticatedErpRequest.ts
 var import_supabase_js = __toESM(require_dist(), 1);
 var DEFAULT_PERMISSION_ROLES = {
   createEditOrders: ["manager"],
@@ -968,7 +968,7 @@ function hasErpPermission(context, permission) {
   return context.roles.some((role) => allowedRoles.includes(role));
 }
 
-// erp/server/secure-api/verifyMetaAppCredentials.ts
+// server/secure-api/verifyMetaAppCredentials.ts
 var import_node_crypto = require("node:crypto");
 function getGraphErrorDetails(body) {
   const graphError = body && typeof body === "object" && !Array.isArray(body) ? body.error : void 0;
@@ -1050,7 +1050,7 @@ async function verifyMetaAppCredentials({
   return { valid: true };
 }
 
-// erp/server/secure-api/verifyWhatsAppWebhookSubscription.ts
+// server/secure-api/verifyWhatsAppWebhookSubscription.ts
 var import_node_crypto2 = require("node:crypto");
 function isRecord(value) {
   return !!value && typeof value === "object" && !Array.isArray(value);
@@ -1120,7 +1120,7 @@ async function verifyWhatsAppWebhookSubscription({
   return { valid: false, reason: "pagination_limit_exceeded" };
 }
 
-// erp/server/secure-api/ensureWhatsAppEchoWebhookSubscription.ts
+// server/secure-api/ensureWhatsAppEchoWebhookSubscription.ts
 var import_node_crypto3 = require("node:crypto");
 function isRecord2(value) {
   return !!value && typeof value === "object" && !Array.isArray(value);
@@ -1235,10 +1235,10 @@ async function ensureWhatsAppEchoWebhookSubscription({
   return { valid: true, changed: true, fields: verifiedFields };
 }
 
-// shared-utils/metaCatalogIds.ts
+// ../shared-utils/metaCatalogIds.ts
 var META_ADS_CREATIVE_CATALOG_ID = "3884846918337684";
 
-// erp/src/pages/utils/metaService/metaGraphProxyPolicy.ts
+// src/pages/utils/metaService/metaGraphProxyPolicy.ts
 var numericId = (value) => {
   const normalized = typeof value === "string" ? value.trim() : "";
   if (!/^\d{1,32}$/.test(normalized)) throw new Error("Identificador Meta inv\xE1lido.");
@@ -1432,7 +1432,7 @@ function planMetaGraphRequest(input, settings) {
   }
 }
 
-// erp/api/_lib/secureIntegrations/handlers/metaGraphHandler.ts
+// api/_lib/secureIntegrations/handlers/metaGraphHandler.ts
 function getMetaGraphSettings(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};
   const config = value;
@@ -1691,16 +1691,31 @@ async function handleMetaGraph(req, res) {
   }
 }
 
-// erp/api/_lib/secureIntegrations/aiQuotaBridge.ts
-async function checkAiQuotaOrReject(userDb, provider, service, estimatedTokens, moduleSource, res) {
-  if (typeof userDb?.rpc !== "function") return { allowed: true };
+// api/_lib/secureIntegrations/aiQuotaBridge.ts
+var import_supabase_js2 = __toESM(require_dist(), 1);
+var quotaServiceDb = null;
+function getQuotaServiceDb() {
+  if (quotaServiceDb) return quotaServiceDb;
+  const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "";
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY || process.env.SERVICE_ROLE_KEY || "";
+  if (!supabaseUrl || !serviceRoleKey) throw new Error("Credenciais internas de banco indispon\xEDveis.");
+  quotaServiceDb = (0, import_supabase_js2.createClient)(supabaseUrl, serviceRoleKey, {
+    auth: { persistSession: false, autoRefreshToken: false }
+  });
+  return quotaServiceDb;
+}
+async function checkAiQuotaOrReject(_userDb, provider, service, estimatedTokens, moduleSource, res) {
   try {
-    const { data: quotaCheck } = await userDb.rpc("check_and_reserve_ai_quota", {
+    const quotaFunction = moduleSource === "whatsapp_ai_simulator" ? "customer_support_reserve_ai_quota" : "check_and_reserve_ai_quota";
+    const { data: quotaCheck, error } = await getQuotaServiceDb().rpc(quotaFunction, {
       p_provider: provider,
       p_service: service,
       p_estimated_tokens: estimatedTokens,
       p_module_source: moduleSource
     });
+    if (error || !quotaCheck || typeof quotaCheck.allowed !== "boolean") {
+      throw new Error(error?.message || "Resposta inv\xE1lida da reserva de cota.");
+    }
     if (quotaCheck && !quotaCheck.allowed) {
       res.status(429).json({
         error: quotaCheck.reason || "Limite de cota de IA excedido para este per\xEDodo.",
@@ -1709,41 +1724,57 @@ async function checkAiQuotaOrReject(userDb, provider, service, estimatedTokens, 
       });
       return { allowed: false, quotaCheck };
     }
+    if (!quotaCheck.reservation_id) {
+      throw new Error("A reserva de cota n\xE3o foi confirmada.");
+    }
     return {
       allowed: true,
-      reservationId: quotaCheck?.reservation_id || void 0,
+      reservationId: quotaCheck.reservation_id || void 0,
       quotaCheck
     };
   } catch (quotaErr) {
-    console.warn("[secure-integrations] Falha n\xE3o bloqueante ao consultar quota no banco:", quotaErr);
+    console.error("[secure-integrations] N\xE3o foi poss\xEDvel reservar a cota de IA:", quotaErr);
+    res.status(503).json({ error: "N\xE3o foi poss\xEDvel validar a cota de IA. Tente novamente." });
+    return { allowed: false };
   }
-  return { allowed: true };
 }
-function releaseAiReservationSafe(userDb, reservationId) {
-  if (!reservationId || typeof userDb?.rpc !== "function") return;
-  void Promise.resolve().then(() => userDb.rpc("release_ai_reservation", { p_reservation_id: reservationId })).catch(() => {
-  });
+async function releaseAiReservationSafe(_userDb, reservationId) {
+  if (!reservationId) return;
+  try {
+    const { error } = await getQuotaServiceDb().rpc("release_ai_reservation", { p_reservation_id: reservationId });
+    if (error) console.error("[secure-integrations] N\xE3o foi poss\xEDvel liberar a reserva de IA:", error.message);
+  } catch (error) {
+    console.error("[secure-integrations] N\xE3o foi poss\xEDvel liberar a reserva de IA:", error);
+  }
 }
-function recordAiUsageTokensSafe(userDb, params) {
-  if (typeof userDb?.rpc !== "function") return;
-  void Promise.resolve().then(() => userDb.rpc("record_ai_token_usage", {
-    p_provider: params.provider,
-    p_service: params.service,
-    p_operation: params.operation,
-    p_prompt_tokens: params.promptTokens,
-    p_completion_tokens: params.completionTokens,
-    p_total_tokens: params.totalTokens,
-    p_module_source: params.moduleSource,
-    p_environment: process.env.VERCEL_ENV || "production",
-    p_response_time_ms: params.responseTimeMs,
-    p_status: params.ok ? "SUCCESS" : "ERROR",
-    p_reservation_id: params.reservationId || null,
-    p_cached_tokens: params.cachedTokens || 0
-  })).catch(() => {
-  });
+async function recordAiUsageTokensSafe(_userDb, params) {
+  try {
+    const { error } = await getQuotaServiceDb().rpc("record_ai_token_usage", {
+      p_provider: params.provider,
+      p_service: params.service,
+      p_operation: params.operation,
+      p_prompt_tokens: params.promptTokens,
+      p_completion_tokens: params.completionTokens,
+      p_total_tokens: params.totalTokens,
+      p_module_source: params.moduleSource,
+      p_environment: process.env.VERCEL_ENV || "production",
+      p_response_time_ms: params.responseTimeMs,
+      p_status: params.ok ? "SUCCESS" : "ERROR",
+      p_reservation_id: params.reservationId || null,
+      p_cached_tokens: params.cachedTokens || 0
+    });
+    if (error) {
+      console.error("[secure-integrations] N\xE3o foi poss\xEDvel registrar o consumo de IA:", error.message);
+      return false;
+    }
+    return true;
+  } catch (error) {
+    console.error("[secure-integrations] N\xE3o foi poss\xEDvel registrar o consumo de IA:", error);
+    return false;
+  }
 }
 
-// shared-utils/openAiAgentAdapter.ts
+// ../shared-utils/openAiAgentAdapter.ts
 var schemaTypes = {
   OBJECT: "object",
   STRING: "string",
@@ -1872,7 +1903,7 @@ function parseOpenAiAgentResponse(response) {
   };
 }
 
-// erp/api/_lib/secureIntegrations/handlers/openAiHandler.ts
+// api/_lib/secureIntegrations/handlers/openAiHandler.ts
 async function handleOpenAi(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "M\xE9todo n\xE3o permitido." });
   const openAiApiKey = process.env.OPENAI_API_KEY?.trim();
@@ -1920,17 +1951,24 @@ async function handleOpenAi(req, res) {
     return res.status(400).json({ error: "Campo n\xE3o permitido na solicita\xE7\xE3o OpenAI." });
   }
   const moduleSource = typeof body.moduleSource === "string" && /^[a-z0-9_.:-]{1,80}$/i.test(body.moduleSource) ? body.moduleSource : "openai_proxy";
+  const isSupportSimulator = moduleSource === "whatsapp_ai_simulator" && isResponses;
+  if (isSupportSimulator) {
+    const requestedOutput = Number(requestBody.max_output_tokens);
+    requestBody = { ...requestBody, max_output_tokens: Number.isInteger(requestedOutput) && requestedOutput > 0 ? Math.min(requestedOutput, 2048) : 2048 };
+  }
+  const estimatedTokens = isSupportSimulator ? new TextEncoder().encode(JSON.stringify(requestBody)).length * 2 + 3072 : isEmbeddings ? 1e3 : 1500;
   const quota = await checkAiQuotaOrReject(
     context.userDb,
     "openai",
     "openai_gpt",
-    isEmbeddings ? 1e3 : 1500,
+    estimatedTokens,
     moduleSource,
     res
   );
   if (!quota.allowed) return;
   const reservationId = quota.reservationId;
   let committed = false;
+  let upstreamResponseReceived = false;
   const startTime = Date.now();
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 45e3);
@@ -1946,13 +1984,21 @@ async function handleOpenAi(req, res) {
       body: JSON.stringify(upstreamBody),
       signal: controller.signal
     });
+    upstreamResponseReceived = true;
     const data = await response.json().catch(() => ({}));
     const usage = data?.usage;
+    if (isSupportSimulator && response.ok && (!Number.isFinite(usage?.input_tokens) || !Number.isFinite(usage?.output_tokens))) {
+      return res.status(502).json({ error: "O consumo da chamada n\xE3o foi confirmado." });
+    }
+    if (isSupportSimulator && !response.ok && response.status >= 500) {
+      return res.status(response.status).json(data);
+    }
     const promptTokens = Number(usage?.input_tokens ?? usage?.prompt_tokens ?? 0);
     const completionTokens = Number(usage?.output_tokens ?? usage?.completion_tokens ?? 0);
     const totalTokens = Number(usage?.total_tokens || 0) || promptTokens + completionTokens;
-    const cachedTokens = Number(usage?.prompt_tokens_details?.cached_tokens ?? usage?.cached_tokens ?? 0);
-    recordAiUsageTokensSafe(context.userDb, {
+    const cachedTokens = Number(usage?.input_tokens_details?.cached_tokens ?? usage?.prompt_tokens_details?.cached_tokens ?? usage?.cached_tokens ?? 0);
+    committed = true;
+    const usageRecorded = await recordAiUsageTokensSafe(context.userDb, {
       provider: "openai",
       service: "openai_gpt",
       operation: endpoint,
@@ -1965,19 +2011,23 @@ async function handleOpenAi(req, res) {
       reservationId,
       cachedTokens
     });
-    committed = true;
+    if (!usageRecorded) {
+      return res.status(502).json({
+        error: "A resposta foi gerada, mas o registro de consumo n\xE3o foi confirmado. Confira o hist\xF3rico antes de repetir."
+      });
+    }
     return res.status(response.status).json(isAgentCompat ? parseOpenAiAgentResponse(data) : data);
   } catch {
     return res.status(controller.signal.aborted ? 504 : 502).json({ error: "N\xE3o foi poss\xEDvel consultar a OpenAI." });
   } finally {
     clearTimeout(timeout);
-    if (!committed && reservationId) {
-      releaseAiReservationSafe(context.userDb, reservationId);
+    if (!isSupportSimulator && !upstreamResponseReceived && !committed && reservationId) {
+      await releaseAiReservationSafe(context.userDb, reservationId);
     }
   }
 }
 
-// erp/api/_lib/secureIntegrations/handlers/geminiHandler.ts
+// api/_lib/secureIntegrations/handlers/geminiHandler.ts
 async function handleGemini(req, res) {
   if (req.method === "OPTIONS") return res.status(200).end();
   if (req.method !== "POST") return res.status(405).json({ error: "M\xE9todo n\xE3o permitido." });
@@ -1993,7 +2043,7 @@ async function handleGemini(req, res) {
   return handleOpenAi(req, res);
 }
 
-// erp/api/_lib/secureIntegrations/handlers/googleRoutesHandler.ts
+// api/_lib/secureIntegrations/handlers/googleRoutesHandler.ts
 function validPoint(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const point = value;
@@ -2045,7 +2095,7 @@ async function handleGoogleRoutes(req, res) {
   }
 }
 
-// erp/api/secure-integrations.ts
+// api/secure-integrations.ts
 var operations = {
   "meta-graph": handleMetaGraph,
   "gemini-proxy": handleGemini,

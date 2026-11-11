@@ -17,31 +17,37 @@ describe('labelImageService', () => {
     const images = [{ id: 1, name: 'Logo', image: 'data:image/png;base64,AA', category: 'logos' }];
     const query = {
       select: vi.fn().mockReturnThis(),
-      order: vi.fn().mockResolvedValue({ data: images, error: null }),
+      order: vi.fn().mockReturnThis(),
+      range: vi.fn().mockResolvedValue({ data: images, error: null, count: 1 }),
     };
     vi.mocked(supabase.from).mockReturnValue(query as never);
 
-    await expect(fetchLabelImages()).resolves.toEqual(images);
+    await expect(fetchLabelImages()).resolves.toEqual({ rows: images, totalCount: 1 });
     expect(supabase.from).toHaveBeenCalledWith('label_images');
+    expect(query.select).toHaveBeenCalledWith('id,name,image,category', { count: 'exact' });
     expect(query.order).toHaveBeenCalledWith('created_at', { ascending: false });
+    expect(query.order).toHaveBeenCalledWith('id', { ascending: false });
+    expect(query.range).toHaveBeenCalledWith(0, 14);
   });
 
-  it('aplica a ordenação parseada e preserva categorias históricas e metadata', async () => {
-    const images = [{ id: 3, name: '  Antiga  ', image: '/legacy.svg', category: 'legacy-category', metadata: { sequence: 0, active: false } }];
-    const query = { select: vi.fn().mockReturnThis(), order: vi.fn().mockResolvedValue({ data: images, error: null }) };
+  it('aplica a ordenação parseada e preserva categorias históricas', async () => {
+    const images = [{ id: 3, name: '  Antiga  ', image: '/legacy.svg', category: 'legacy-category' }];
+    const query = { select: vi.fn().mockReturnThis(), order: vi.fn().mockReturnThis(), range: vi.fn().mockResolvedValue({ data: images, error: null, count: 1 }) };
     vi.mocked(supabase.from).mockReturnValue(query as never);
-    await expect(fetchLabelImages({ sort: 'oldest' })).resolves.toEqual([{ ...images[0], name: 'Antiga' }]);
+    await expect(fetchLabelImages({ sort: 'oldest' })).resolves.toEqual({ rows: [{ ...images[0], name: 'Antiga' }], totalCount: 1 });
     expect(query.order).toHaveBeenCalledWith('created_at', { ascending: true });
+    expect(query.order).toHaveBeenCalledWith('id', { ascending: true });
+    expect(query.range).toHaveBeenCalledWith(0, 14);
   });
 
   it('rejeita consulta inválida antes do I/O e não transforma retorno malformado em biblioteca vazia', async () => {
     await expect(fetchLabelImages({ sort: 'invalid' } as never)).rejects.toThrow(); expect(supabase.from).not.toHaveBeenCalled();
-    const query = { select: vi.fn().mockReturnThis(), order: vi.fn() };
+    const query = { select: vi.fn().mockReturnThis(), order: vi.fn().mockReturnThis(), range: vi.fn() };
     vi.mocked(supabase.from).mockReturnValue(query as never);
     for (const data of [null, {}, [{ id: 0, name: 'Logo', image: '/logo.svg', category: 'logos' }]]) {
-      query.order.mockResolvedValueOnce({ data, error: null }); await expect(fetchLabelImages()).rejects.toThrow();
+      query.range.mockResolvedValueOnce({ data, error: null, count: 1 }); await expect(fetchLabelImages()).rejects.toThrow();
     }
-    query.order.mockResolvedValueOnce({ data: [], error: null }); await expect(fetchLabelImages()).resolves.toEqual([]);
+    query.range.mockResolvedValueOnce({ data: [], error: null, count: 0 }); await expect(fetchLabelImages()).resolves.toEqual({ rows: [], totalCount: 0 });
   });
 
   it('cria uma imagem e devolve o registro inserido', async () => {

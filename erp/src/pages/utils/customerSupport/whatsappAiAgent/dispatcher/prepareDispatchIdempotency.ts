@@ -16,13 +16,16 @@ export async function prepareDispatchIdempotency(
     turnId?: string;
     aiResponseText: string;
     toolsUsed: string[];
-    situationKey: string;
+    situationKey: string | null;
   }
 ): Promise<PrepareDispatchIdempotencyResult> {
   const { conversationId, wamid, turnId, aiResponseText, toolsUsed, situationKey } = params;
 
   if (typeof supabase?.rpc !== 'function') {
-    return { allowed: true };
+    return {
+      allowed: false,
+      earlyResult: { executed: false, reason: 'dispatch_idempotency_unavailable', toolsUsed },
+    };
   }
 
   const idempotencyKey = `ai_dispatch:${conversationId}:${wamid || 'nowamid'}`;
@@ -41,7 +44,10 @@ export async function prepareDispatchIdempotency(
 
     if (prepareError) {
       console.warn('[AI Dispatcher] Erro ao preparar despacho no PostgreSQL:', prepareError.message);
-      return { allowed: true };
+      return {
+        allowed: false,
+        earlyResult: { executed: false, reason: 'dispatch_idempotency_unavailable', toolsUsed },
+      };
     }
 
     if (prepareDispatch && prepareDispatch.allowed === false) {
@@ -57,12 +63,22 @@ export async function prepareDispatchIdempotency(
       };
     }
 
+    if (!prepareDispatch?.allowed || !prepareDispatch?.dispatch_id) {
+      return {
+        allowed: false,
+        earlyResult: { executed: false, reason: 'dispatch_idempotency_unavailable', toolsUsed },
+      };
+    }
+
     return {
       allowed: true,
-      dispatchId: prepareDispatch?.dispatch_id,
+      dispatchId: prepareDispatch.dispatch_id,
     };
   } catch (rpcErr: any) {
     console.warn('[AI Dispatcher] Exceção ao preparar despacho:', rpcErr?.message || rpcErr);
-    return { allowed: true };
+    return {
+      allowed: false,
+      earlyResult: { executed: false, reason: 'dispatch_idempotency_unavailable', toolsUsed },
+    };
   }
 }

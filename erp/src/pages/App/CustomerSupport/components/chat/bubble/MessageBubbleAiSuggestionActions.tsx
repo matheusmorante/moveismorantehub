@@ -1,53 +1,48 @@
-import React from 'react';
+import React, { useState } from 'react';
 import type { WhatsAppMessage } from '../../../types';
+import type { CustomerSupportSendResult } from '@/pages/utils/customerSupport/customerSupportService';
 
 interface MessageBubbleAiSuggestionActionsProps {
   message: WhatsAppMessage;
+  onApprove: (message: WhatsAppMessage) => Promise<CustomerSupportSendResult>;
+  onAccepted: (result: CustomerSupportSendResult) => void;
 }
 
 export const MessageBubbleAiSuggestionActions: React.FC<MessageBubbleAiSuggestionActionsProps> = ({
   message,
+  onApprove,
+  onAccepted,
 }) => {
+  const [isSending, setIsSending] = useState(false);
+  const [error, setError] = useState('');
+
   return (
-    <div className="mt-2.5 pt-2 border-t border-amber-200/80 dark:border-amber-800/50 flex items-center gap-1.5 flex-wrap">
+    <div className="mt-2.5 pt-2 border-t border-orange-200/80 dark:border-orange-800/50 flex flex-col items-end gap-1.5">
       <button
         type="button"
-        onClick={(e) => {
+        disabled={isSending}
+        aria-label="Aceitar e enviar sugestão de IA"
+        title="Aceitar e enviar"
+        onClick={async (e) => {
           e.stopPropagation();
-          window.dispatchEvent(
-            new CustomEvent('customer_support_approve_ai_suggestion', { detail: { message } })
-          );
+          if (isSending) return;
+          setIsSending(true);
+          setError('');
+          try {
+            const result = await onApprove(message);
+            if (result.accepted !== true) throw new Error('O WhatsApp não confirmou o envio.');
+            onAccepted(result);
+          } catch (sendError) {
+            setError(sendError instanceof Error ? sendError.message : 'Não foi possível enviar a sugestão.');
+          } finally {
+            setIsSending(false);
+          }
         }}
-        className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-semibold flex items-center gap-1 transition-colors cursor-pointer shadow-xs"
+        className="w-8 h-8 inline-flex items-center justify-center rounded-full bg-orange-500 hover:bg-orange-600 text-white text-sm transition-colors cursor-pointer shadow-sm disabled:opacity-60 disabled:cursor-wait"
       >
-        <i className="bi bi-send-fill text-[10px]" aria-hidden="true" />
-        Aprovar e Enviar
+        <i className={isSending ? 'bi bi-arrow-repeat animate-spin' : 'bi bi-check-lg'} aria-hidden="true" />
       </button>
-      <button
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          window.dispatchEvent(
-            new CustomEvent('customer_support_use_ai_suggestion', { detail: { text: message.textContent } })
-          );
-        }}
-        className="px-2 py-1 rounded-lg bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-200 text-[11px] font-medium transition-colors cursor-pointer flex items-center gap-1"
-      >
-        <i className="bi bi-pencil-square text-[10px]" aria-hidden="true" />
-        Usar no Editor
-      </button>
-      <button
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          window.dispatchEvent(
-            new CustomEvent('customer_support_discard_ai_suggestion', { detail: { messageId: message.id } })
-          );
-        }}
-        className="px-2 py-1 rounded-lg hover:bg-rose-100 dark:hover:bg-rose-950/40 text-rose-600 dark:text-rose-400 text-[11px] font-medium transition-colors cursor-pointer ml-auto"
-      >
-        Descartar
-      </button>
+      {error && <span role="alert" className="max-w-64 text-right text-[10px] leading-tight text-rose-600 dark:text-rose-400">{error}</span>}
     </div>
   );
 };

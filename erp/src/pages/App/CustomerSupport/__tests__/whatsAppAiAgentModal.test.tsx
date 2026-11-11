@@ -12,7 +12,7 @@ import {
 } from '../../../../../../shared-utils/whatsappAiAgentSchemas';
 
 const mockSaveSettings = vi.fn().mockResolvedValue(true);
-let mockSettingsData: any = {
+const mockSettingsData: any = {
   whatsappAiAgent: {
     enabled: true,
     testMode: true,
@@ -68,8 +68,9 @@ describe('Painel Completo do Agente de IA do WhatsApp (WhatsAppAiAgentModal)', (
     expect(screen.getByText('Conhecimento')).toBeDefined();
     expect(screen.getByText('Fluxos')).toBeDefined();
     expect(screen.getByText('Ferramentas ERP')).toBeDefined();
+    expect(screen.getByText('Limites & Cotas')).toBeDefined();
     expect(screen.getByText('Instruções')).toBeDefined();
-    expect(screen.getByText('Chat de Testes')).toBeDefined();
+    expect(screen.queryByText('Chat de Testes')).toBeNull();
   });
 
   it('permite alternar entre as abas e visualizar os conteúdos específicos', () => {
@@ -101,26 +102,8 @@ describe('Painel Completo do Agente de IA do WhatsApp (WhatsAppAiAgentModal)', (
     expect(screen.getByText('Ferramentas do WhatsApp Habilitadas')).toBeDefined();
     expect(screen.getByText(/Preços de custo, margens de lucro/i)).toBeDefined();
 
-    // Clica na aba Chat de Testes
-    fireEvent.click(screen.getByText('Chat de Testes'));
-    expect(screen.getByText('Lizandro — Chat de Testes do Agente')).toBeDefined();
-    expect(screen.getByText('Nova Conversa')).toBeDefined();
-    expect(screen.getByPlaceholderText(/Digite uma mensagem para o Lizandro/i)).toBeDefined();
-  });
-
-  it('no Chat de Testes, permite enviar mensagem simulada e renderiza o balão com botão de diagnóstico', async () => {
-    render(<WhatsAppAiAgentModal isOpen={true} onClose={vi.fn()} />);
-
-    fireEvent.click(screen.getByText('Chat de Testes'));
-
-    const input = screen.getByPlaceholderText(/Digite uma mensagem para o Lizandro/i);
-    fireEvent.change(input, { target: { value: 'Qual o valor do frete para Colombo?' } });
-
-    const sendBtn = screen.getByRole('button', { name: /Enviar/i });
-    fireEvent.click(sendBtn);
-
-    // Mensagem enviada pelo usuário aparece na lista
-    expect(screen.getByText('Qual o valor do frete para Colombo?')).toBeDefined();
+    fireEvent.click(screen.getByText('Instruções'));
+    expect(screen.getByLabelText('Instruções do Agente (System Prompt)')).toBeDefined();
   });
 
   it('chama onClose ao pressionar Escape ou clicar no botão fechar', () => {

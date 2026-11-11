@@ -53,8 +53,15 @@ export const useInventoryAuditWorkflow = (
   onClose: () => void,
   editingSession?: InventoryAuditSession | null
 ) => {
-  const { allProducts, suppliers, employees, getSupplierNames, catalogSyncedAt } =
-    useInventoryAuditData(isOpen);
+  const {
+    allProducts,
+    suppliers,
+    employees,
+    getSupplierNames,
+    catalogSyncedAt,
+    searchEmployees,
+    rememberEmployee,
+  } = useInventoryAuditData(isOpen);
 
   // View state
   const [view, setView] = useState<'scope' | 'operation' | 'review'>('scope');
@@ -472,6 +479,8 @@ export const useInventoryAuditWorkflow = (
     allProducts,
     suppliers,
     employees,
+    searchEmployees,
+    rememberEmployee,
     catalogSyncedAt,
     view,
     setView,

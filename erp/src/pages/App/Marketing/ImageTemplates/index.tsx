@@ -6,7 +6,7 @@ import { startImageTemplate, type DeleteImageTemplateValues, type ImageTemplateF
 import { SAO_PAULO_TIMEZONE } from '../../../../../../shared-utils/commercialScheduling/timezoneUtils';
 import ImageTemplateEditor from './ImageTemplateEditor';
 import { TemplateDeleteDialog, TemplateDetailsDialog, type TemplateDetails } from './TemplateDetailsDialog';
-import { deleteImageTemplate, IMAGE_TEMPLATE_PAGE_SIZE, imageTemplateError, listImageTemplates, readImageTemplate, renameImageTemplate,
+import { countImageTemplates, deleteImageTemplate, IMAGE_TEMPLATE_PAGE_SIZE, imageTemplateError, listImageTemplates, readImageTemplate, renameImageTemplate,
   type ImageTemplateSummary } from './imageTemplateService';
 import { DEFAULT_TEMPLATE_ORDER, EMPTY_TEMPLATE_FILTERS, templateListQuery, type TemplateLibraryFilters, type TemplateListColumn } from './imageTemplateListFilters';
 import { TemplateListFilters } from './TemplateListFilters';
@@ -14,7 +14,7 @@ import './imageTemplates.css';
 
 type Editor = { kind: 'new'; initial: ImageTemplateFormValues }
   | { kind: 'edit' | 'copy'; model: ImageTemplateSummary; metadata?: { name: string; description: string } };
-type Dialog = { kind: 'create' } | { kind: 'rename' | 'copy' | 'delete'; model: ImageTemplateSummary };
+type Dialog = { kind: 'create'; name: string } | { kind: 'rename' | 'copy' | 'delete'; model: ImageTemplateSummary };
 const createdDate = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short', timeZone: SAO_PAULO_TIMEZONE });
 const libraryColumns = [
   { column: 'name', label: 'Nome do conjunto de modelos', className: 'ct-list-name' },
@@ -35,6 +35,7 @@ function ImageTemplateLibrary({ userId }: { userId: string }) {
   const [editor, setEditor] = useState<Editor | null>(null);
   const [dialog, setDialog] = useState<Dialog | null>(null);
   const [notice, setNotice] = useState('');
+  const [openingCreate, setOpeningCreate] = useState(false);
   const listKey = ['catalog-image-templates', userId];
   const criteria = templateListQuery(filters, order);
   const filtered = !!(criteria.pattern || criteria.from || criteria.through);
@@ -58,6 +59,20 @@ function ImageTemplateLibrary({ userId }: { userId: string }) {
   function sortBy(column: TemplateListColumn) {
     setOrder((previous) => ({ column, ascending: previous.column === column ? !previous.ascending : column !== 'created_at' }));
     setPage(1);
+  }
+
+  async function openCreateDialog() {
+    if (openingCreate) return;
+    setOpeningCreate(true);
+    setNotice('');
+    try {
+      const total = !filtered && !list.isFetching && !list.isError && list.data
+        ? list.data.total
+        : await countImageTemplates(new AbortController().signal);
+      setDialog({ kind: 'create', name: `Modelo ${total + 1}` });
+    } catch (cause) {
+      setNotice(imageTemplateError(cause));
+    } finally { setOpeningCreate(false); }
   }
 
   async function confirmDetails(values: TemplateDetails) {
@@ -100,8 +115,8 @@ function ImageTemplateLibrary({ userId }: { userId: string }) {
   return <section className="ct-library ct-surface">
     <header className="ct-library-heading">
       <div><p className="ct-breadcrumb">Marketing</p><h1>Modelos de imagem</h1><p>Crie e edite modelos de imagem para os produtos do ERP.</p></div>
-      <button type="button" className="ct-button ct-create" onClick={() => setDialog({ kind: 'create' })}>
-        <i className="bi bi-plus-lg" aria-hidden="true" />Criar
+      <button type="button" className="ct-button ct-create" disabled={openingCreate} onClick={() => void openCreateDialog()}>
+        <i className={`bi ${openingCreate ? 'bi-arrow-repeat' : 'bi-plus-lg'}`} aria-hidden="true" />{openingCreate ? 'Preparando…' : 'Criar'}
       </button>
     </header>
     <TemplateListFilters filters={filters} onApply={applyFilters} />
@@ -144,15 +159,17 @@ function ImageTemplateLibrary({ userId }: { userId: string }) {
               <path d="M46 86l21-25 15 17 11-10 23 18z" fill="currentColor" />
             </svg>
             <h2>Nenhum modelo de imagem</h2><p>Crie um modelo em branco para começar.</p>
-            <button type="button" className="ct-button ct-create" onClick={() => setDialog({ kind: 'create' })}>
-              <i className="bi bi-plus-lg" aria-hidden="true" />Criar modelo
+            <button type="button" className="ct-button ct-create" disabled={openingCreate} onClick={() => void openCreateDialog()}>
+              <i className={`bi ${openingCreate ? 'bi-arrow-repeat' : 'bi-plus-lg'}`} aria-hidden="true" />{openingCreate ? 'Preparando…' : 'Criar modelo'}
             </button>
           </div>}
     </div>
     {!list.isError && !!list.data?.total && <ERPListPagination page={page} pageSize={IMAGE_TEMPLATE_PAGE_SIZE} fixedPageSize={IMAGE_TEMPLATE_PAGE_SIZE}
       totalItems={list.data.total} itemLabel="modelos" ariaLabel="Paginação dos modelos de imagem" loading={list.isFetching} onPageChange={setPage} />}
     {dialog?.kind === 'delete' ? <TemplateDeleteDialog model={dialog.model} onClose={() => setDialog(null)} onConfirm={remove} />
-      : dialog && <TemplateDetailsDialog mode={dialog.kind} defaults={dialog.kind === 'create' ? undefined : {
+      : dialog && <TemplateDetailsDialog mode={dialog.kind} defaults={dialog.kind === 'create' ? {
+      name: dialog.name, description: '',
+    } : {
       name: dialog.kind === 'copy' ? `${dialog.model.name.slice(0, 90)} (cópia)` : dialog.model.name, description: dialog.model.description,
     }} onClose={() => setDialog(null)} onConfirm={confirmDetails} />}
   </section>;

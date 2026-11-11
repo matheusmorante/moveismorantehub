@@ -2,7 +2,6 @@ import {
   fetchFinancialCategories,
   fetchFinancialCategoriesForAgent,
 } from '../financial/mobileCategoryService';
-import { fetchMonthlySummary } from '../financial/mobileFinanceReports';
 import {
   deleteFinancialTransaction,
   updateFinancialTransaction,
@@ -19,12 +18,30 @@ import {
   normalizeFinancialPaymentMethod,
   normalizeFinancialDate,
   validateTransactionCategoryAndPurpose,
+  validateAgentDateRange,
 } from '../../../../shared-utils/agentFinancialOperations';
 import { mobileAgentPayableReceivableTools } from './mobileAgentPayableReceivableTools';
 
 export { mobileAgentPayableReceivableTools };
 
 const recentCreations = new Map<string, { data: any; timestamp: number }>();
+
+const parseIsoDate = (value: string, fieldName: string): Date => {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    throw new Error(`${fieldName} deve usar o formato AAAA-MM-DD.`);
+  }
+  const parsed = new Date(`${value}T00:00:00.000Z`);
+  if (!Number.isFinite(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== value) {
+    throw new Error(`${fieldName} não é uma data válida.`);
+  }
+  return parsed;
+};
+
+const addOneDay = (value: string): string => {
+  const date = parseIsoDate(value, 'A data final');
+  date.setUTCDate(date.getUTCDate() + 1);
+  return date.toISOString().slice(0, 10);
+};
 
 export const mobileAgentFinanceTools = {
   ...mobileAgentPayableReceivableTools,
@@ -88,7 +105,9 @@ export const mobileAgentFinanceTools = {
     limite?: number;
   }): Promise<ToolExecutionResponse> {
     try {
-      const limite = Math.min(Math.max(args.limite || 10, 1), 30);
+      const rangeError = validateAgentDateRange(args.dataInicio, args.dataFim);
+      if (rangeError) return { success: false, code: 'INVALID_DATE_RANGE', error: rangeError };
+      const limite = Math.min(Math.max(Math.trunc(args.limite || 10), 1), 30);
       const { data, error } = await supabase.rpc('get_mobile_finance_assistant_movements', {
         p_search: args.termo?.trim() ? args.termo : null,
         p_start_date: args.dataInicio || null,
@@ -131,20 +150,41 @@ export const mobileAgentFinanceTools = {
   }): Promise<ToolExecutionResponse> {
     try {
       const now = new Date();
-      const year = now.getFullYear();
-      const month = now.getMonth() + 1;
-      const summary = await fetchMonthlySummary(year, month);
+      const today = [
+        now.getFullYear(),
+        String(now.getMonth() + 1).padStart(2, '0'),
+        String(now.getDate()).padStart(2, '0'),
+      ].join('-');
+      const anchorDate = args.dataInicio || args.dataFim || today;
+      const anchor = parseIsoDate(anchorDate, 'A data do resumo');
+      const defaultStart = `${anchor.getUTCFullYear()}-${String(anchor.getUTCMonth() + 1).padStart(2, '0')}-01`;
+      const startDate = args.dataInicio || defaultStart;
+      const endDate = args.dataFim || (args.dataInicio ? today : anchorDate);
+      parseIsoDate(startDate, 'A data inicial');
+      parseIsoDate(endDate, 'A data final');
+      if (startDate > endDate) {
+        throw new Error('A data inicial não pode ser posterior à data final.');
+      }
+      const { data, error } = await supabase.rpc('get_mobile_financial_monthly_summary', {
+        p_start_date: startDate,
+        p_end_date_exclusive: addOneDay(endDate),
+      });
+      if (error) throw error;
+
+      const summary = data as any;
+      const income = Number(summary?.income);
+      const expense = Number(summary?.expense);
+      if (!Number.isFinite(income) || !Number.isFinite(expense)) {
+        throw new Error('A resposta do resumo financeiro está incompleta.');
+      }
 
       return {
         success: true,
         data: {
-          periodo: {
-            inicio: args.dataInicio || `${year}-${String(month).padStart(2, '0')}-01`,
-            fim: args.dataFim || now.toISOString().split('T')[0],
-          },
-          totalEntradas: summary.income,
-          totalSaidas: summary.expense,
-          saldoPeriodo: summary.balance,
+          periodo: { inicio: startDate, fim: endDate },
+          totalEntradas: income,
+          totalSaidas: expense,
+          saldoPeriodo: income - expense,
           totalLancamentos: null,
         },
       };

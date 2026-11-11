@@ -48,6 +48,8 @@ const InventoryAuditEditor: React.FC<InventoryAuditModalProps> = ({
     allProducts,
     suppliers,
     employees,
+    searchEmployees,
+    rememberEmployee,
     view,
     setView,
     items,
@@ -169,6 +171,8 @@ const InventoryAuditEditor: React.FC<InventoryAuditModalProps> = ({
             allProducts={allProducts}
             suppliers={suppliers}
             employees={employees}
+            searchEmployees={searchEmployees}
+            rememberEmployee={rememberEmployee}
             catalogSyncedAt={catalogSyncedAt}
             copiedItems={copiedItems}
             onCancel={() => {

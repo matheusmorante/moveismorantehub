@@ -29,8 +29,6 @@ export const InventoryAudit: React.FC<InventoryAuditProps> = ({ onOpen }) => {
     setPage,
     pageCount,
     totalItems,
-    itemsPerPage,
-    setItemsPerPage,
   } = useInventoryAuditSessions();
 
   if (loading) {
@@ -75,12 +73,7 @@ export const InventoryAudit: React.FC<InventoryAuditProps> = ({ onOpen }) => {
         currentPage={page}
         totalPages={pageCount}
         totalItems={totalItems}
-        itemsPerPage={itemsPerPage}
         onPageChange={setPage}
-        onPageSizeChange={(size) => {
-          setPage(1);
-          setItemsPerPage(size);
-        }}
         preferenceKey="stock-inventory"
         itemName="inventários"
         ariaLabel="Paginação de inventários"

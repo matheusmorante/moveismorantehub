@@ -45,19 +45,6 @@ export async function executeWhatsAppAiTurn(
     '';
   const now = dependencies.now ? dependencies.now() : new Date();
 
-  if (!openAiApiKey) {
-    if (turnLock) {
-      await completeDistributedAiTurnLock(supabase, {
-        turnId: turnLock.turnId,
-        lockToken: turnLock.lockToken,
-        conversationId: inbound.conversationId,
-        status: 'failed',
-        fallbackReason: 'api_keys_missing',
-      });
-    }
-    return { executed: false, reason: 'openai_api_key_missing' };
-  }
-
   // Trava a mensagem localmente no processo
   markMessageInFlight(inbound.wamid);
 
@@ -80,7 +67,20 @@ export async function executeWhatsAppAiTurn(
         situation.name,
         now
       );
+      const completion = turnLock && await completeDistributedAiTurnLock(supabase, {
+        turnId: turnLock.turnId,
+        lockToken: turnLock.lockToken,
+        conversationId: inbound.conversationId,
+        status: 'completed',
+        metadata: { dispatchExecuted: false, dispatchReason: 'silent_handoff_no_customer_message' },
+      });
+      markMessageProcessed(inbound.wamid);
+      return completion && !completion.success
+        ? { executed: true, reason: 'turn_finalization_unconfirmed', situationDetected: situation.situationKey }
+        : { executed: true, reason: 'silent_handoff_no_customer_message', situationDetected: situation.situationKey };
     }
+
+    if (!openAiApiKey) throw new Error('OPENAI_API_KEY não configurada para o atendimento.');
 
     // 3. Histórico da conversa formatado para os modelos
     const { historyForOpenAi } = await fetchAndFormatConversationHistory(
@@ -163,6 +163,8 @@ export async function executeWhatsAppAiTurn(
       modelEffective: aiTurnResult.modelEffective,
       fallbackReason: aiTurnResult.fallbackReason,
       isQuotaBlocked: aiTurnResult.quotaBlocked,
+      isSilentHandoff: aiTurnResult.handoffConfirmed === true,
+      durableJob: dependencies.durableJob,
     });
 
     // 8. Finalização atômica do turno no PostgreSQL e conferência de mensagens pendentes em cadeia
@@ -180,7 +182,7 @@ export async function executeWhatsAppAiTurn(
       toolsUsed,
       startTime,
       now,
-      isHandoff: situation?.action === 'handoff_human',
+      isHandoff: false,
       targetModel,
       executeTurnFn: executeWhatsAppAiTurn,
     });

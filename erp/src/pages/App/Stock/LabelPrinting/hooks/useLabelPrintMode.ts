@@ -6,6 +6,7 @@ import { getLabelPaperDimensions } from '../utils/labelGridLayout';
 import { buildMobileLabelPrintHtml, hasMobileLabelBridge, requestMobileLabelAction } from '../services/mobileLabelBridge';
 
 const PRINT_PAGE_CLASS = 'label-printing-page';
+const STATUS_POLL_INTERVAL_MS = 2_000;
 export type LabelPrintMethod = 'advanced' | 'standard' | 'check';
 
 async function sendLabelJob(category: 'identificacao' | 'precos', html: string, width: number, height: number) {
@@ -33,7 +34,8 @@ async function sendLabelJob(category: 'identificacao' | 'precos', html: string, 
   const deadline = Date.now() + 20_000;
   let lastStatus: string = created.status;
   while (Date.now() < deadline) {
-    await new Promise((resolve) => window.setTimeout(resolve, 1_000));
+    await new Promise((resolve) => window.setTimeout(resolve, STATUS_POLL_INTERVAL_MS));
+    if (Date.now() >= deadline) break;
     const statusResponse = await fetch(`/api/label-print-jobs?id=${encodeURIComponent(created.id)}`, {
       headers: { Authorization: `Bearer ${token}` },
       signal: AbortSignal.timeout(10_000),

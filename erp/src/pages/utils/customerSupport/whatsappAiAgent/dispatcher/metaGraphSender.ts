@@ -35,6 +35,8 @@ export async function sendMetaTextMessage(
   }
 
   let metaRes: Response;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 12_000);
   try {
     metaRes = await fetchMeta(
       `https://graph.facebook.com/v26.0/${phoneNumberId}/messages`,
@@ -45,6 +47,7 @@ export async function sendMetaTextMessage(
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(metaPayload),
+        signal: controller.signal,
       }
     );
   } catch (netErr: any) {
@@ -55,19 +58,24 @@ export async function sendMetaTextMessage(
       status: 'uncertain',
       error: netErr?.message || 'Network timeout / error contacting Meta Graph API',
     };
+  } finally {
+    clearTimeout(timeout);
   }
 
   if (!metaRes.ok) {
     const metaErrData = await metaRes.json().catch(() => ({}));
     return {
       ok: false,
-      status: 'failed',
+      status: metaRes.status >= 500 ? 'uncertain' : 'failed',
       error: JSON.stringify(metaErrData),
     };
   }
 
   const metaData = ((await metaRes.json().catch(() => ({}))) as any) || {};
-  const apiMessageId = String(metaData.messages?.[0]?.id || `ai_out_${Date.now()}`);
+  const apiMessageId = metaData.messages?.[0]?.id;
+  if (typeof apiMessageId !== 'string' || !apiMessageId.trim()) {
+    return { ok: false, status: 'uncertain', error: 'A Meta não confirmou o identificador da mensagem.' };
+  }
 
   return {
     ok: true,

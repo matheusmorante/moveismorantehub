@@ -8,6 +8,7 @@ import {
   deleteRemoteLabelLayout,
   fetchRemoteLabelLayouts,
   loadCompleteLabelModel,
+  loadCompleteLabelModels,
 } from '../services/labelLayoutService';
 import {
   applyPresetToConfig,
@@ -323,7 +324,23 @@ export const useLabelLayouts = ({
     if (!current()) return false;
     if (newModel.__layoutSummary) throw new Error('Carregue a arte completa antes de salvar.');
     // Full designs are required only here to preserve duplicate-design checks.
-    await Promise.all(layoutsRef.current.filter((model) => model.__layoutSummary).map(ensureLayoutModel));
+    const summaries = layoutsRef.current.filter((model) => model.__layoutSummary);
+    if (summaries.length) {
+      const revision = mutationRevision.current;
+      const completeModels = await loadCompleteLabelModels(summaries);
+      if (revision !== mutationRevision.current) throw new Error('O modelo mudou durante o carregamento. Selecione-o novamente.');
+      if (!current()) return false;
+      const completeById = new Map(completeModels.map((model) => [model.id, model]));
+      const updated = layoutsRef.current.map((model) => {
+        if (!model.__layoutSummary) return model;
+        const complete = completeById.get(model.id);
+        if (!complete) throw new Error('Nem todos os modelos puderam ser conferidos. Atualize a lista antes de salvar.');
+        return complete;
+      });
+      layoutsRef.current = updated;
+      setCustomLayouts(updated);
+      saveCustomLabelLayouts(updated);
+    }
     if (!current()) return false;
     const editing = editingGridModel;
     if (editing?.category && selectedCategory && editing.category !== selectedCategory) throw new Error('O modelo pertence a outra categoria. Feche o editor e selecione o modelo novamente.');

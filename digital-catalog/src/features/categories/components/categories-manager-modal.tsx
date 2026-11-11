@@ -13,11 +13,12 @@ import { Plus, Loader2, LayoutGrid, ListTree } from 'lucide-react';
 import { useCategoriesManager } from '../hooks/useCategoriesManager';
 import { CategoryListTable } from './CategoryListTable';
 import { CategoryEditDialog } from './CategoryEditDialog';
+import type { CategoryManagerData } from '../types/categoryManager.types';
 
 export interface CategoriesManagerModalProps {
   readonly isOpen: boolean;
   readonly onOpenChange: (open: boolean) => void;
-  readonly onSuccess?: () => void | Promise<void>;
+  readonly onSuccess?: (data?: CategoryManagerData) => void | Promise<void>;
 }
 
 export function CategoriesManagerModal({

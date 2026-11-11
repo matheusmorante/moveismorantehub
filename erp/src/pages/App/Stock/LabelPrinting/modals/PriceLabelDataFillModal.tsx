@@ -86,7 +86,7 @@ const PriceLabelDataFillDialog: React.FC<PriceLabelDataFillModalProps> = (props)
       } finally {
         if (isCurrent) setIsSearchingProducts(false);
       }
-    }, 150);
+    }, 300);
 
     return () => {
       isCurrent = false;

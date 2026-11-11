@@ -84,6 +84,39 @@ describe('Central de Atendimento WhatsApp — Agente de IA Comercial (Lizandro)'
     const mockSupabase: any = {
       _insertedMessages: insertedMessages,
       _conversationUpdates: conversationUpdates,
+      rpc: vi.fn(async (name: string, args: any) => {
+        if (name === 'customer_support_acquire_ai_turn') {
+          return {
+            data: {
+              acquired: true,
+              turn_id: `turn-${args.p_conversation_id}`,
+              lock_token: `lock-${args.p_conversation_id}`,
+            },
+            error: null,
+          };
+        }
+        if (name === 'customer_support_complete_ai_turn') {
+          return { data: { success: true, has_pending: false, pending_count: 0 }, error: null };
+        }
+        if (name === 'customer_support_reserve_ai_quota') {
+          return { data: { allowed: true, reservation_id: `reservation-${args.p_module_source}` }, error: null };
+        }
+        if (name === 'record_ai_token_usage') {
+          return { data: { log_id: 'usage-log-test', reservation_committed: true }, error: null };
+        }
+        if (name === 'customer_support_prepare_ai_dispatch') {
+          return { data: { allowed: true, dispatch_id: `dispatch-${args.p_conversation_id}` }, error: null };
+        }
+        if (name === 'customer_support_record_ai_dispatch_outcome') {
+          return { data: true, error: null };
+        }
+        if (name === 'customer_support_record_ai_handoff') {
+          conversationUpdates.push({ tags: ['atendimento_humano'], ai_status: 'needs_human' });
+          return { data: true, error: null };
+        }
+        if (name === 'release_ai_reservation') return { data: true, error: null };
+        return { data: null, error: null };
+      }),
       from: vi.fn((table: string) => {
         if (table === 'settings') {
           return {
@@ -134,13 +167,25 @@ describe('Central de Atendimento WhatsApp — Agente de IA Comercial (Lizandro)'
             }),
           };
         }
+        if (table === 'product_variations') {
+          return {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            is: vi.fn().mockReturnThis(),
+            or: vi.fn().mockReturnThis(),
+            limit: vi.fn().mockResolvedValue({ data: [], error: null }),
+          };
+        }
         if (table === 'products') {
           return {
             select: vi.fn().mockReturnThis(),
             eq: vi.fn().mockReturnThis(),
             gt: vi.fn().mockReturnThis(),
+            is: vi.fn().mockReturnThis(),
             ilike: vi.fn().mockReturnThis(),
+            filter: vi.fn().mockReturnThis(),
             or: vi.fn().mockReturnThis(),
+            order: vi.fn().mockReturnThis(),
             limit: vi.fn().mockResolvedValue({
               data: overrides?.products ?? [
                 {

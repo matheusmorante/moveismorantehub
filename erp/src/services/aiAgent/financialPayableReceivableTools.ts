@@ -1,5 +1,4 @@
 import { financeService } from '../../pages/services/financeService';
-import { normalizeSearchTerm } from '../../pages/utils/textUtils';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import {
   normalizeFinancialPaymentMethod,
@@ -9,6 +8,7 @@ import {
   buildPayableUpdatePayload,
   buildReceivableInsertPayload,
   buildReceivableUpdatePayload,
+  validateAgentDateRange,
 } from '../../../../shared-utils/agentFinancialOperations';
 import type { ToolExecutionResponse } from './geminiAgentTypes';
 
@@ -21,55 +21,45 @@ export const financialPayableReceivableTools = {
     limite?: number;
   }): Promise<ToolExecutionResponse> {
     try {
-      const statusFilter = args.apenasPendentes === false ? undefined : 'pending';
-      const allPayables =
-        typeof financeService.getPayables === 'function'
-          ? await financeService.getPayables(statusFilter)
-          : [];
-      let filtered = allPayables || [];
-
-      if (args.fornecedor && args.fornecedor.trim()) {
-        const query = normalizeSearchTerm(args.fornecedor);
-        filtered = query
-          ? filtered.filter((p: any) => {
-              const desc = normalizeSearchTerm(p.description || '');
-              const party = normalizeSearchTerm(p.supplier_name || p.counterparty || '');
-              const cat = normalizeSearchTerm(
-                p.financial_categories?.name || p.category_name || ''
-              );
-              return desc.includes(query) || party.includes(query) || cat.includes(query);
-            })
-          : [];
+      const rangeError = validateAgentDateRange(
+        args.dataVencimentoInicio,
+        args.dataVencimentoFim
+      );
+      if (rangeError) return { success: false, code: 'INVALID_DATE_RANGE', error: rangeError };
+      const limit = Math.min(Math.max(Math.trunc(args.limite || 15), 1), 30);
+      const { data, error } = await supabase.rpc('get_finance_assistant_payables', {
+        p_supplier: args.fornecedor?.trim() || null,
+        p_start_due_date: args.dataVencimentoInicio || null,
+        p_end_due_date: args.dataVencimentoFim || null,
+        p_only_pending: args.apenasPendentes !== false,
+        p_limit: limit,
+      });
+      if (error) throw error;
+      const result = data as { total_count?: unknown; items?: unknown } | null;
+      if (
+        !result ||
+        !Array.isArray(result.items) ||
+        typeof result.total_count !== 'number' ||
+        !Number.isFinite(result.total_count)
+      ) {
+        throw new Error('Resposta inválida ao consultar contas a pagar.');
       }
-
-      if (args.dataVencimentoInicio) {
-        filtered = filtered.filter(
-          (p: any) => String(p.due_date || '') >= args.dataVencimentoInicio!
-        );
-      }
-
-      if (args.dataVencimentoFim) {
-        filtered = filtered.filter(
-          (p: any) => String(p.due_date || '') <= args.dataVencimentoFim!
-        );
-      }
-
-      const limit = Math.min(Math.max(args.limite || 15, 1), 30);
+      const payables = result.items as any[];
       return {
         success: true,
-        data: filtered.slice(0, limit).map((p: any) => ({
+        data: payables.map((p: any) => ({
           id: p.id,
-          fornecedor: p.supplier_name || p.counterparty || p.description,
+          fornecedor: p.supplier_name || p.description,
           descricao: p.description,
           valor: Number(p.amount) || 0,
           vencimento: p.due_date,
-          categoria: p.financial_categories?.name || p.category_name || null,
+          categoria: p.category_name || null,
           categoriaId: p.category_id || null,
           formaPagamento: p.payment_method || null,
           status: p.status,
           observacoes: p.notes || null,
         })),
-        message: `${filtered.length} conta(s) a pagar encontrada(s).`,
+        message: `${result.total_count} conta(s) a pagar encontrada(s).`,
       };
     } catch (err: any) {
       return {
@@ -88,6 +78,11 @@ export const financialPayableReceivableTools = {
     limite?: number;
   }): Promise<ToolExecutionResponse> {
     try {
+      const rangeError = validateAgentDateRange(
+        args.dataVencimentoInicio,
+        args.dataVencimentoFim
+      );
+      if (rangeError) return { success: false, code: 'INVALID_DATE_RANGE', error: rangeError };
       const limit = Math.min(Math.max(Math.trunc(args.limite || 15), 1), 30);
       const { data, error } = await supabase.rpc('get_finance_assistant_receivables', {
         p_search: args.cliente?.trim() || null,

@@ -113,6 +113,19 @@ describe('Auditoria de Integração Ponta a Ponta: Agente de IA Comercial (Lizan
       _setConfig: (newCfg: Partial<WhatsAppAiAgentConfig>) => {
         currentConfig = { ...currentConfig, ...newCfg };
       },
+      rpc: vi.fn(async (name: string) => {
+        if (name === 'customer_support_acquire_ai_turn') return { data: { acquired: true, turn_id: 'turn', lock_token: 'lock' }, error: null };
+        if (name === 'customer_support_complete_ai_turn') return { data: { success: true, has_pending: false }, error: null };
+        if (name === 'customer_support_reserve_ai_quota') return { data: { allowed: true, reservation_id: 'reservation' }, error: null };
+        if (name === 'record_ai_token_usage') return { data: { log_id: 'log', reservation_committed: true }, error: null };
+        if (name === 'customer_support_prepare_ai_dispatch') return { data: { allowed: true, dispatch_id: 'dispatch' }, error: null };
+        if (name === 'customer_support_record_ai_handoff') {
+          const update = { tags: ['atendimento_humano'], ai_status: 'needs_human' };
+          conversationUpdates.push(update);
+          convState = { ...convState, ...update };
+        }
+        return { data: true, error: null };
+      }),
       from: vi.fn((table: string) => {
         if (table === 'settings') {
           return {
@@ -171,6 +184,9 @@ describe('Auditoria de Integração Ponta a Ponta: Agente de IA Comercial (Lizan
             gt: vi.fn().mockReturnThis(),
             ilike: vi.fn().mockReturnThis(),
             or: vi.fn().mockReturnThis(),
+            is: vi.fn().mockReturnThis(),
+            order: vi.fn().mockReturnThis(),
+            filter: vi.fn().mockReturnThis(),
             limit: vi.fn().mockImplementation(async () => ({
               data: mockProducts,
               error: null,
@@ -180,6 +196,12 @@ describe('Auditoria de Integração Ponta a Ponta: Agente de IA Comercial (Lizan
               error: null,
             })),
           };
+        }
+
+        if (table === 'product_variations') {
+          return { select: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis(),
+            is: vi.fn().mockReturnThis(), or: vi.fn().mockReturnThis(),
+            limit: vi.fn().mockResolvedValue({ data: [], error: null }) };
         }
 
         return {
@@ -229,6 +251,9 @@ describe('Auditoria de Integração Ponta a Ponta: Agente de IA Comercial (Lizan
     expect(toolCallExecuted).toBe(true);
     expect(result.toolsUsed).toContain('buscarProdutos');
     expect(result.replyText).toContain('R$ 2.199,00');
+    const secondRequest = JSON.parse(String(fetchOpenAiMock.mock.calls[1][1]?.body));
+    expect(JSON.stringify(secondRequest.input)).toContain('100101');
+    expect(JSON.stringify(secondRequest.input)).not.toContain('1300');
 
     // Confirma envio via Meta API
     expect(fetchMetaMock).toHaveBeenCalledTimes(1);
@@ -332,7 +357,7 @@ describe('Auditoria de Integração Ponta a Ponta: Agente de IA Comercial (Lizan
     // O assistente DEVE parar de responder automaticamente para não interferir no atendente
     expect(resTurn2.executed).toBe(false);
     expect(resTurn2.reason).toBe('handoff_to_human_active');
-    expect(fetchMetaMock).toHaveBeenCalledTimes(1); // Não disparou envio novo no turno 2
+    expect(fetchMetaMock).not.toHaveBeenCalled(); // Encaminhamento silencioso, sem envio no turno 1 nem no 2.
   });
 
   // -------------------------------------------------------------
@@ -433,17 +458,18 @@ describe('Auditoria de Integração Ponta a Ponta: Agente de IA Comercial (Lizan
   // -------------------------------------------------------------
   // Teste 7: Prevenção contra afirmação falsa de frete grátis em cotações específicas
   // -------------------------------------------------------------
-  it('7. Prevenção de conflito: não injeta frete grátis genérico quando a IA já cotou taxa específica para distância', async () => {
-    const { mockSupabase } = createMockEnvironment();
+  it('7. Encaminha frete para a equipe sem enviar uma estimativa não confirmada', async () => {
+    const { mockSupabase, conversationUpdates } = createMockEnvironment({
+      config: { enabledTools: ['calcularFreteOuDistancia'] },
+    });
 
     const fetchMetaMock = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({ messages: [{ id: 'wamid.out.e2e.107' }] }),
     });
 
-    // A resposta simulada informa a taxa específica da distância.
-    const fetchOpenAiMock = vi.fn().mockResolvedValue(openAiTextResponse(
-      'Para o seu endereço, a taxa de entrega é de R$ 60,00 com prazo de 2 dias úteis.'
+    const fetchOpenAiMock = vi.fn().mockResolvedValue(openAiToolCallResponse(
+      'calcularFreteOuDistancia', { enderecoOuCep: '80000-000' }
     ));
 
     const inboundDistantDelivery: InboundMessageParams = {
@@ -461,8 +487,8 @@ describe('Auditoria de Integração Ponta a Ponta: Agente de IA Comercial (Lizan
     const result = await maybeTriggerWhatsAppAiAgent(mockSupabase, inboundDistantDelivery, deps);
 
     expect(result.executed).toBe(true);
-    // Não deve conter a afirmação conflitante de frete grátis
-    expect(result.replyText).not.toContain('O frete é grátis');
-    expect(result.replyText).toContain('taxa de entrega é de R$ 60,00');
+    expect(result.reason).toBe('silent_handoff_no_customer_message');
+    expect(conversationUpdates.some((update) => update.tags?.includes('atendimento_humano'))).toBe(true);
+    expect(fetchMetaMock).not.toHaveBeenCalled();
   });
 });

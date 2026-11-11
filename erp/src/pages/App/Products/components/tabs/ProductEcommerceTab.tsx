@@ -8,6 +8,7 @@ import {
   MAX_VARIATION_IMAGES,
 } from '@/pages/utils/productImageLimits';
 import { uploadFile } from '@/pages/utils/storageService';
+import { createBackgroundRemovedPngFile } from '@/pages/utils/backgroundRemoval';
 import type Product from '../../../../types/product.type';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { imageFilesFormSchema } from '../../../../../../../shared-utils/fileFormSchemas';
@@ -46,7 +47,7 @@ const ProductEcommerceTab: React.FC<ProductEcommerceTabProps> = ({
   isDraggingPhoto = 0,
 }) => {
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
-  const [replacingIndex, setReplacingIndex] = useState<number | null>(null);
+  const [processingImage, setProcessingImage] = useState<{ index: number; message: string } | null>(null);
   const [croppingIndex, setCroppingIndex] = useState<number | null>(null);
   const [activeImageIndex, setActiveImageIndex] = useState<number | null>(null);
   const replaceForm = useZodForm(imageFilesFormSchema, { files: [] });
@@ -58,13 +59,13 @@ const ProductEcommerceTab: React.FC<ProductEcommerceTabProps> = ({
   const handleReplacePhoto = async (
     index: number,
     file: File,
-    options?: { silentToast?: boolean }
+    options?: { silentToast?: boolean; originalUrl?: string }
   ) => {
     return replaceForm.validateAndRun({ files: [file] }, async ({ files: [selectedFile] }) => {
       file = selectedFile;
-      setReplacingIndex(index);
+      setProcessingImage({ index, message: 'Substituindo...' });
       try {
-        const oldUrl = (formData.images || [])[index];
+        const oldUrl = options?.originalUrl || (formData.images || [])[index];
         const newUrl = await uploadOptimizedProductImage(file);
 
         setFormData((prev) => replaceProductImageGlobally(prev, oldUrl, newUrl, index));
@@ -78,9 +79,27 @@ const ProductEcommerceTab: React.FC<ProductEcommerceTabProps> = ({
         toast.error('Erro ao substituir a imagem.');
         return false;
       } finally {
-        setReplacingIndex(null);
+        setProcessingImage(null);
       }
     }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
+  };
+
+  const handleRemoveBackground = async (index: number, imageUrl: string) => {
+    if (processingImage) return;
+    setActiveImageIndex(null);
+    setProcessingImage({ index, message: 'Removendo fundo...' });
+    try {
+      const file = await createBackgroundRemovedPngFile(imageUrl, `produto-${index + 1}`);
+      setProcessingImage({ index, message: 'Enviando imagem...' });
+      if (await handleReplacePhoto(index, file, { silentToast: true, originalUrl: imageUrl })) {
+        toast.success('Fundo removido e foto do produto atualizada!');
+      }
+    } catch (error: unknown) {
+      console.error('Erro ao remover fundo da foto:', error);
+      toast.error(error instanceof Error ? error.message : 'Não foi possível remover o fundo.');
+    } finally {
+      setProcessingImage(null);
+    }
   };
 
   const handleCropPhoto = async (file: File) => {
@@ -154,15 +173,20 @@ const ProductEcommerceTab: React.FC<ProductEcommerceTabProps> = ({
                 // biome-ignore lint/a11y/noStaticElementInteractions: item de galeria arrastavel
                 <div
                   key={url}
-                  draggable
-                  onClick={() => setActiveImageIndex((prev) => (prev === index ? null : index))}
+                  draggable={!processingImage}
+                  onClick={() => {
+                    if (processingImage) return;
+                    setActiveImageIndex((prev) => (prev === index ? null : index));
+                  }}
                   onDragStart={(event) => {
+                    if (processingImage) { event.preventDefault(); return; }
                     event.dataTransfer.setData('text/plain', String(index));
                     event.dataTransfer.effectAllowed = 'move';
                     setActiveImageIndex(null);
                     setDraggedIndex(index);
                   }}
                   onDragOver={(e) => {
+                    if (processingImage) return;
                     e.preventDefault();
                     e.dataTransfer.dropEffect = 'move';
                     if (draggedIndex === null || draggedIndex === index) return;
@@ -208,11 +232,11 @@ const ProductEcommerceTab: React.FC<ProductEcommerceTabProps> = ({
                     </span>
                   )}
 
-                  {replacingIndex === index && (
+                  {processingImage?.index === index && (
                     <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center gap-1 z-30 text-white">
                       <i className="bi bi-hourglass-split animate-spin text-xl"></i>
                       <span className="text-[9px] font-black uppercase tracking-wider">
-                        Substituindo...
+                        {processingImage.message}
                       </span>
                     </div>
                   )}
@@ -227,6 +251,7 @@ const ProductEcommerceTab: React.FC<ProductEcommerceTabProps> = ({
                     <div className="flex gap-2">
                       <button
                         type="button"
+                        disabled={Boolean(processingImage)}
                         onClick={(event) => {
                           event.stopPropagation();
                           setActiveImageIndex(null);
@@ -239,15 +264,19 @@ const ProductEcommerceTab: React.FC<ProductEcommerceTabProps> = ({
                       </button>
                       {/* Substituir foto (Câmera) */}
                       <label
-                        className="bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-xl transition-all shadow-md cursor-pointer hover:scale-110 active:scale-95 flex items-center justify-center"
+                        className={`bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-xl transition-all shadow-md flex items-center justify-center ${processingImage ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:scale-110 active:scale-95'}`}
                         title="Substituir foto"
-                        onClick={(event) => event.stopPropagation()}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          if (processingImage) event.preventDefault();
+                        }}
                       >
                         <i className="bi bi-camera text-xs"></i>
                         <input
                           type="file"
                           accept="image/*"
                           className="hidden"
+                          disabled={Boolean(processingImage)}
                           onChange={(e) => {
                             setActiveImageIndex(null);
                             const file = e.target.files?.[0];
@@ -258,15 +287,30 @@ const ProductEcommerceTab: React.FC<ProductEcommerceTabProps> = ({
                         />
                       </label>
 
+                      <button
+                        type="button"
+                        disabled={Boolean(processingImage)}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          void handleRemoveBackground(index, url);
+                        }}
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white p-2 rounded-xl transition-all shadow-md hover:scale-110 active:scale-95 flex items-center justify-center cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+                        title="Remover fundo da foto"
+                        aria-label={`Remover fundo da foto ${index + 1}`}
+                      >
+                        <i className="bi bi-eraser-fill text-xs" aria-hidden="true"></i>
+                      </button>
+
                       {/* Apagar foto (Lixeira) */}
                       <button
                         type="button"
+                        disabled={Boolean(processingImage)}
                         onClick={(event) => {
                           event.stopPropagation();
                           setActiveImageIndex(null);
                           removePhoto(url);
                         }}
-                        className="bg-red-500 hover:bg-red-600 text-white p-2 rounded-xl transition-all shadow-md hover:scale-110 active:scale-95 flex items-center justify-center cursor-pointer"
+                        className="bg-red-500 hover:bg-red-600 text-white p-2 rounded-xl transition-all shadow-md hover:scale-110 active:scale-95 flex items-center justify-center cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
                         title="Apagar foto"
                       >
                         <i className="bi bi-trash text-xs"></i>

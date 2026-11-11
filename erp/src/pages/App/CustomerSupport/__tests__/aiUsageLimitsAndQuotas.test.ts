@@ -71,7 +71,8 @@ describe('Limites de Uso de IA e Cotas (ERP, Mobile e WhatsApp) — Teto R$ 30,0
   describe('2. ApiUsageGuard com RPC Autoritativa e Trava de Orçamento', () => {
     it('permite chamada quando check_and_reserve_ai_quota autoriza dentro da cota', async () => {
       vi.spyOn(ApiConfigService, 'getConfiguration').mockResolvedValue({
-        id: 'openai_gpt',
+        service_id: 'openai_gpt',
+        metric: 'tokens', billing_unit: 'tokens', free_allowance: 0, currency: 'BRL',
         service_name: 'OpenAI GPT-4o-mini / Luna',
         provider: 'openai',
         monthly_limit: 10000,
@@ -83,7 +84,7 @@ describe('Limites de Uso de IA e Cotas (ERP, Mobile e WhatsApp) — Teto R$ 30,0
         circuit_breaker_max_per_minute: 15,
         enabled: true,
         block_on_hard_limit: true,
-        criticality: 'HIGH',
+        criticality: 'IMPORTANT',
       });
 
       vi.spyOn(supabase, 'rpc').mockResolvedValue({
@@ -107,9 +108,10 @@ describe('Limites de Uso de IA e Cotas (ERP, Mobile e WhatsApp) — Teto R$ 30,0
       expect(result.status).toBe('ALLOW');
     });
 
-    it('bloqueia chamada preventivamente quando check_and_reserve_ai_quota reporta teto mensal atingido', async () => {
+    it('bloqueia na pré-validação local quando a estimativa mensal alcança o teto', async () => {
       vi.spyOn(ApiConfigService, 'getConfiguration').mockResolvedValue({
-        id: 'openai_gpt',
+        service_id: 'openai_gpt',
+        metric: 'tokens', billing_unit: 'tokens', free_allowance: 0, currency: 'BRL',
         service_name: 'OpenAI GPT-4o-mini / Luna',
         provider: 'openai',
         monthly_limit: 10000,
@@ -121,29 +123,21 @@ describe('Limites de Uso de IA e Cotas (ERP, Mobile e WhatsApp) — Teto R$ 30,0
         circuit_breaker_max_per_minute: 15,
         enabled: true,
         block_on_hard_limit: true,
-        criticality: 'HIGH',
+        criticality: 'IMPORTANT',
       });
 
-      vi.spyOn(supabase, 'rpc').mockResolvedValue({
-        data: {
-          allowed: false,
-          status: 'BLOCKED',
-          code: 'MONTHLY_BUDGET_EXCEEDED',
-          reason: 'O teto financeiro mensal da IA foi atingido (R$ 29.80 de R$ 30.00).',
-          month_percent: 99.3,
-        },
-        error: null,
-      } as any);
+      vi.spyOn(ApiUsageTracker, 'getCurrentMonthUsage').mockResolvedValue(15000);
 
       const result = await ApiUsageGuard.check('openai_gpt');
       expect(result.allowed).toBe(false);
       expect(result.status).toBe('BLOCKED');
-      expect(result.reason).toContain('teto financeiro mensal');
+      expect(result.reason).toContain('teto limite financeiro');
     });
 
-    it('bloqueia chamada fora do horário permitido de funcionamento (ex: madrugada)', async () => {
+    it('deixa a avaliação de horário para a cota autoritativa do servidor', async () => {
       vi.spyOn(ApiConfigService, 'getConfiguration').mockResolvedValue({
-        id: 'gemini_flash',
+        service_id: 'gemini_flash',
+        metric: 'tokens', billing_unit: 'tokens', free_allowance: 0, currency: 'BRL',
         service_name: 'Google Gemini Flash',
         provider: 'gemini',
         monthly_limit: 10000,
@@ -155,31 +149,22 @@ describe('Limites de Uso de IA e Cotas (ERP, Mobile e WhatsApp) — Teto R$ 30,0
         circuit_breaker_max_per_minute: 15,
         enabled: true,
         block_on_hard_limit: true,
-        criticality: 'HIGH',
+        criticality: 'IMPORTANT',
       });
 
-      vi.spyOn(supabase, 'rpc').mockResolvedValue({
-        data: {
-          allowed: false,
-          status: 'BLOCKED',
-          code: 'OFF_HOURS_LIMIT_EXCEEDED',
-          reason: 'Operação fora do horário comercial (08:00 às 22:00) e cota noturna esgotada.',
-          month_percent: 15.0,
-        },
-        error: null,
-      } as any);
+      vi.spyOn(ApiUsageTracker, 'getCurrentMonthUsage').mockResolvedValue(0);
 
       const result = await ApiUsageGuard.check('gemini_flash');
-      expect(result.allowed).toBe(false);
-      expect(result.status).toBe('BLOCKED');
-      expect(result.reason).toContain('fora do horário');
+      expect(result.allowed).toBe(true);
+      expect(result.status).toBe('ALLOW');
     });
   });
 
   describe('3. WhatsApp AI Agent — Handoff Gracioso ao Atingir Limite de Cota', () => {
     it('intercepta turno no pré-flight de cota e encaminha diretamente para atendimento humano', async () => {
       const mockSupabase = {
-        rpc: vi.fn().mockResolvedValue({
+        rpc: vi.fn().mockImplementation(async (name: string) => name === 'customer_support_record_ai_handoff'
+          ? { data: true, error: null } : ({
           data: {
             allowed: false,
             status: 'BLOCKED',
@@ -187,7 +172,7 @@ describe('Limites de Uso de IA e Cotas (ERP, Mobile e WhatsApp) — Teto R$ 30,0
             reason: 'Teto de R$ 30,00 mensal atingido.',
           },
           error: null,
-        }),
+        })),
       } as any;
 
       const fetchOpenAi = vi.fn();
@@ -206,6 +191,7 @@ describe('Limites de Uso de IA e Cotas (ERP, Mobile e WhatsApp) — Teto R$ 30,0
         toolsDeclarations: [],
         toolsPayloadGemini: [],
         supabase: mockSupabase,
+        toolContext: { conversationId: 'conv-quota-test', contactPhone: '+5541999999999' },
       });
 
       // Não deve chamar rede de nenhum provedor se a cota foi atingida
@@ -224,10 +210,11 @@ describe('Limites de Uso de IA e Cotas (ERP, Mobile e WhatsApp) — Teto R$ 30,0
       const mockSupabase = {
         rpc: vi.fn().mockImplementation(async (fn: string) => {
           rpcCalls.push(fn);
-          if (fn === 'check_and_reserve_ai_quota') {
+          if (fn === 'customer_support_reserve_ai_quota') {
             return {
               data: {
                 allowed: true,
+                reservation_id: 'reservation-test',
                 status: 'ALLOW',
                 monthly_budget_brl: 30.0,
                 month_cost_brl: 5.2,
@@ -236,7 +223,7 @@ describe('Limites de Uso de IA e Cotas (ERP, Mobile e WhatsApp) — Teto R$ 30,0
             };
           }
           if (fn === 'record_ai_token_usage') {
-            return { data: true, error: null };
+            return { data: { log_id: 'log-test', reservation_committed: true }, error: null };
           }
           return { data: null, error: null };
         }),
@@ -245,17 +232,11 @@ describe('Limites de Uso de IA e Cotas (ERP, Mobile e WhatsApp) — Teto R$ 30,0
       const fetchOpenAi = vi.fn().mockResolvedValue({
         ok: true,
         json: async () => ({
-          choices: [
-            {
-              message: {
-                role: 'assistant',
-                content: 'Temos excelentes opções de sofás retráteis!',
-              },
-            },
-          ],
+          output_text: 'Temos excelentes opções de sofás retráteis!',
+          output: [],
           usage: {
-            prompt_tokens: 350,
-            completion_tokens: 60,
+            input_tokens: 350,
+            output_tokens: 60,
             total_tokens: 410,
           },
         }),
@@ -281,7 +262,7 @@ describe('Limites de Uso de IA e Cotas (ERP, Mobile e WhatsApp) — Teto R$ 30,0
       expect(fetchOpenAi).toHaveBeenCalledTimes(1);
       expect(result.text).toBe('Temos excelentes opções de sofás retráteis!');
       // Comprova que verificou a cota antes e registrou os tokens depois
-      expect(rpcCalls).toContain('check_and_reserve_ai_quota');
+      expect(rpcCalls).toContain('customer_support_reserve_ai_quota');
       expect(rpcCalls).toContain('record_ai_token_usage');
     });
   });

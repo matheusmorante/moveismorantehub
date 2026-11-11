@@ -11,7 +11,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'GET') {
     const { data, error } = await authorization.db
       .from('label_print_agents')
-      .select('id,name,created_at,last_seen_at,owner_id')
+      .select('id,name,last_seen_at,owner_id')
       .is('revoked_at', null)
       .order('created_at', { ascending: false });
     if (error) return res.status(503).json({ error: 'Não foi possível consultar as estações.' });

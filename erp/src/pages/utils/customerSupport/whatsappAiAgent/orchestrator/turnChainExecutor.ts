@@ -82,6 +82,14 @@ export async function finalizeTurnAndChainPending(
     },
   });
 
+  if (!completeResult.success) {
+    return { ...dispatchResult, reason: 'turn_finalization_unconfirmed',
+      error: 'Não foi possível confirmar a finalização do turno.' };
+  }
+
+  // Mensagens com trabalho persistente são encadeadas pelo trabalhador da fila.
+  if (dependencies.durableJob) return dispatchResult;
+
   // Se novas mensagens do cliente chegaram durante o turno atual, processar em cadeia
   if (
     completeResult.hasPending &&

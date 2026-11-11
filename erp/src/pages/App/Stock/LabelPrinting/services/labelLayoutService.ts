@@ -50,8 +50,12 @@ export async function updateRemoteLabelLayoutArtwork(
 ): Promise<{ error: unknown | null }> {
   const parsed = labelLayoutArtworkCommandSchema.safeParse({ layoutId, update });
   if (!parsed.success) return { error: parsed.error };
+  const returnedFields = Object.entries(parsed.data.update)
+    .filter(([, value]) => value !== undefined)
+    .map(([key]) => key);
+  const projection = ['id', ...returnedFields].join(', ');
   try {
-    const response = await withTimeout(supabase.from('label_layouts').update(parsed.data.update).eq('id', parsed.data.layoutId).select('*').single(), 20_000, null, 'etiquetas:salvar-vinculo-arte');
+    const response = await withTimeout(supabase.from('label_layouts').update(parsed.data.update).eq('id', parsed.data.layoutId).select(projection).single(), 20_000, null, 'etiquetas:salvar-vinculo-arte');
     const error = writeError(response); if (error) return { error };
     const row = response?.data;
     return { error: row?.id === parsed.data.layoutId && Object.entries(parsed.data.update).every(([key, value]) => value === undefined || canonical(row[key]) === canonical(value)) ? null : new LabelLayoutUnconfirmedError() };
@@ -67,6 +71,7 @@ const parseLayout = (row: Parameters<typeof mapDbToModel>[0]): GridModel => {
 
 const SUMMARY_COLUMNS = ['id', 'updated_at', ...Object.keys(mapModelToDb(DEFAULT_LAYOUT_MODELS[0]))
   .filter((key) => !['art_config', 'preview_image', 'extra_fields', 'extra_fields_promo'].includes(key))].join(',');
+const COMPLETE_COLUMNS = ['id', 'updated_at', ...Object.keys(mapModelToDb(DEFAULT_LAYOUT_MODELS[0]))].join(',');
 
 export async function fetchRemoteLabelLayouts(options: { summary?: boolean } = {}): Promise<RemoteLayoutResult<GridModel[]>> {
   try {
@@ -84,12 +89,77 @@ export function loadCompleteLabelModel(model: GridModel): Promise<GridModel> {
   const active = pendingModels.get(model.id);
   if (active) return active;
   const request = (async () => {
-    const response = await withTimeout(supabase.from('label_layouts').select('*').eq('id', model.id).single(), 15_000, null, 'etiquetas:carregar-modelo');
+    const response = await withTimeout(supabase.from('label_layouts').select(COMPLETE_COLUMNS).eq('id', model.id).single(), 15_000, null, 'etiquetas:carregar-modelo');
     if (!response?.data || response.error || String(response.data.id) !== model.id) throw new Error('Não foi possível carregar a arte do modelo. Tente novamente.');
     return parseLayout(response.data);
   })().finally(() => { if (pendingModels.get(model.id) === request) pendingModels.delete(model.id); });
   pendingModels.set(model.id, request);
   return request;
+}
+
+export async function loadCompleteLabelModels(models: readonly GridModel[]): Promise<GridModel[]> {
+  const summaries = Array.from(
+    new Map(models.filter((model) => model.__layoutSummary).map((model) => [model.id, model])).values()
+  );
+  const requests = new Map<string, Promise<GridModel>>();
+  const missing: GridModel[] = [];
+
+  for (const model of summaries) {
+    const active = pendingModels.get(model.id);
+    if (active) requests.set(model.id, active);
+    else missing.push(model);
+  }
+
+  if (missing.length) {
+    const ids = missing.map((model) => model.id);
+    const expectedIds = new Set(ids);
+    const batchRequest = (async () => {
+      const response = await withTimeout(
+        supabase.from('label_layouts').select(COMPLETE_COLUMNS).in('id', ids),
+        15_000,
+        null,
+        'etiquetas:carregar-modelos-completos'
+      );
+      if (!response?.data || response.error || !Array.isArray(response.data)) {
+        throw new Error('Não foi possível carregar todos os modelos. Atualize a lista antes de salvar.');
+      }
+
+      const completeById = new Map<string, GridModel>();
+      for (const row of response.data) {
+        const id = String(row.id);
+        if (!expectedIds.has(id) || completeById.has(id)) {
+          throw new Error('A lista de modelos mudou durante a comparação. Atualize antes de salvar.');
+        }
+        completeById.set(id, parseLayout(row as unknown as Parameters<typeof parseLayout>[0]));
+      }
+      if (completeById.size !== expectedIds.size) {
+        throw new Error('Nem todos os modelos puderam ser conferidos. Atualize a lista antes de salvar.');
+      }
+      return completeById;
+    })();
+
+    for (const model of missing) {
+      let request: Promise<GridModel>;
+      request = batchRequest
+        .then((completeById) => {
+          const complete = completeById.get(model.id);
+          if (!complete) throw new Error('Não foi possível carregar todos os modelos. Atualize a lista antes de salvar.');
+          return complete;
+        })
+        .finally(() => {
+          if (pendingModels.get(model.id) === request) pendingModels.delete(model.id);
+        });
+      pendingModels.set(model.id, request);
+      requests.set(model.id, request);
+    }
+  }
+
+  return Promise.all(models.map((model) => {
+    if (!model.__layoutSummary) return model;
+    const request = requests.get(model.id);
+    if (!request) throw new Error('Não foi possível carregar todos os modelos. Atualize a lista antes de salvar.');
+    return request;
+  }));
 }
 
 type LayoutWriteResponse = { data?: unknown; error?: unknown; status?: number } | null;

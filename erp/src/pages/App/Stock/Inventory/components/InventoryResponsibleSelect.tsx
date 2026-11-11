@@ -5,11 +5,19 @@ import {
   getInventoryResponsibleDisplayName,
 } from '../../../../../../../shared-utils/inventoryResponsible';
 import { matchesSearchText } from '@/pages/utils/textUtils';
+import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
+import { PRODUCT_AUTOCOMPLETE_DEBOUNCE_MS } from '../../../../../../../shared-utils/productAutocompleteFormSchema';
+
+const MIN_SEARCH_CHARACTERS = 3;
+const MAX_VISIBLE_RESULTS = 5;
+const usefulCharacterCount = (value: string) => value.trim().replace(/\s+/g, '').length;
 
 export const getEmployeeDisplayName = getInventoryResponsibleDisplayName;
 
 export interface InventoryResponsibleSelectProps {
   readonly employees: readonly Person[];
+  readonly searchEmployees: (search: string, signal: AbortSignal) => Promise<Person[]>;
+  readonly rememberEmployee: (employee: Person) => void;
   readonly value: string;
   readonly hasError?: boolean;
   readonly onChange: (value: string) => void;
@@ -20,12 +28,18 @@ export interface InventoryResponsibleSelectProps {
  */
 export const InventoryResponsibleSelect: React.FC<InventoryResponsibleSelectProps> = ({
   employees,
+  searchEmployees,
+  rememberEmployee,
   value,
   onChange,
   hasError = false,
 }) => {
   const [query, setQuery] = useState('');
   const [isOpen, setIsOpen] = useState(false);
+  const [searchResults, setSearchResults] = useState<Person[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchError, setSearchError] = useState(false);
+  const [searchRetryToken, setSearchRetryToken] = useState(0);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
   const validEmployees = React.useMemo(
@@ -34,6 +48,45 @@ export const InventoryResponsibleSelect: React.FC<InventoryResponsibleSelectProp
   );
   const selectedEmployee = validEmployees.find((employee) => String(employee.id) === value);
   const selectedName = selectedEmployee ? getEmployeeDisplayName(selectedEmployee) : '';
+  const searchTerm = query.trim();
+  const canSearch = usefulCharacterCount(searchTerm) >= MIN_SEARCH_CHARACTERS;
+
+  useEffect(() => {
+    setSearchResults([]);
+    setSearchError(false);
+    setIsSearching(isOpen && canSearch);
+    if (!isOpen || !canSearch) return;
+
+    const controller = new AbortController();
+    let active = true;
+    const timer = setTimeout(() => {
+      void withTimeout(
+        searchEmployees(searchTerm, controller.signal),
+        15_000,
+        null,
+        'inventario:buscar-responsavel'
+      ).then((rows) => {
+        if (!active || controller.signal.aborted) return;
+        if (rows === null) {
+          setIsSearching(false);
+          controller.abort();
+          setSearchError(true);
+          return;
+        }
+        setSearchResults(rows);
+      }).catch(() => {
+        if (active && !controller.signal.aborted) setSearchError(true);
+      }).finally(() => {
+        if (active && !controller.signal.aborted) setIsSearching(false);
+      });
+    }, PRODUCT_AUTOCOMPLETE_DEBOUNCE_MS);
+
+    return () => {
+      active = false;
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [canSearch, isOpen, searchEmployees, searchRetryToken, searchTerm]);
 
   useEffect(() => {
     const selected = validEmployees.find((e) => String(e.id) === value);
@@ -60,7 +113,9 @@ export const InventoryResponsibleSelect: React.FC<InventoryResponsibleSelectProp
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [value, validEmployees]);
 
-  const filtered = validEmployees.filter((e) => matchesSearchText(getEmployeeDisplayName(e), query));
+  const filtered = searchResults
+    .filter((employee) => matchesSearchText(getEmployeeDisplayName(employee), searchTerm))
+    .slice(0, MAX_VISIBLE_RESULTS);
 
   return (
     <div ref={wrapperRef} className="relative w-full">
@@ -81,7 +136,7 @@ export const InventoryResponsibleSelect: React.FC<InventoryResponsibleSelectProp
             setQuery('');
             if (selectedEmployee) e.currentTarget.select();
           }}
-          placeholder="Buscar responsável (digite 2+ letras)"
+          placeholder="Buscar responsável (digite 3+ letras)"
           className={`w-full bg-white dark:bg-slate-900 border-0 border-b-2 p-2 pr-10 outline-none text-sm font-bold transition-all focus:ring-0 rounded-none ${
             hasError
               ? 'border-rose-400 focus:border-rose-500 text-rose-900 dark:text-rose-100'
@@ -100,47 +155,73 @@ export const InventoryResponsibleSelect: React.FC<InventoryResponsibleSelectProp
         )}
       </div>
 
-      {isOpen && query.length >= 2 && (
+      {isOpen && canSearch && (
         <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl max-h-64 overflow-y-auto overflow-x-hidden">
-          {filtered.length === 0 ? (
+          {isSearching ? (
+            <p role="status" className="p-4 text-center text-sm text-slate-500 dark:text-slate-400">
+              Buscando responsáveis...
+            </p>
+          ) : searchError ? (
+            <div className="p-4 text-center text-sm text-rose-600 dark:text-rose-300" role="alert">
+              <p>Não foi possível atualizar a busca.</p>
+              <button
+                type="button"
+                className="mt-2 font-semibold underline"
+                onClick={() => setSearchRetryToken((current) => current + 1)}
+              >
+                Tentar novamente
+              </button>
+            </div>
+          ) : filtered.length === 0 ? (
             <div className="p-4 text-center text-sm text-slate-500 dark:text-slate-400">
               Nenhum responsável encontrado
             </div>
           ) : (
-            <ul className="py-2">
-              {filtered.map((emp) => {
-                const isSelected = String(emp.id) === value;
-                return (
-                  <li key={emp.id}>
-                    <button
-                      type="button"
-                      className={`w-full text-left px-4 py-2 text-sm font-medium transition-colors ${
-                        isSelected
-                          ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400'
-                          : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
-                      }`}
-                      onClick={() => {
-                        onChange(String(emp.id));
-                        setQuery(getEmployeeDisplayName(emp));
-                        setIsOpen(false);
-                      }}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span>{getEmployeeDisplayName(emp)}</span>
-                        {isSelected && <i className="bi bi-check2 text-emerald-500 text-lg" />}
-                      </div>
-                      {(emp.position || emp.role) && (
-                        <div className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
-                          {emp.position || emp.role}
+            <>
+              <ul className="py-2">
+                {filtered.map((emp) => {
+                  const isSelected = String(emp.id) === value;
+                  return (
+                    <li key={emp.id}>
+                      <button
+                        type="button"
+                        className={`w-full text-left px-4 py-2 text-sm font-medium transition-colors ${
+                          isSelected
+                            ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400'
+                            : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
+                        }`}
+                        onClick={() => {
+                          rememberEmployee(emp);
+                          onChange(String(emp.id));
+                          setQuery(getEmployeeDisplayName(emp));
+                          setIsOpen(false);
+                        }}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span>{getEmployeeDisplayName(emp)}</span>
+                          {isSelected && <i className="bi bi-check2 text-emerald-500 text-lg" />}
                         </div>
-                      )}
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
+                        {(emp.position || emp.role) && (
+                          <div className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
+                            {emp.position || emp.role}
+                          </div>
+                        )}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+              <p role="status" className="px-4 pb-3 text-xs text-slate-500 dark:text-slate-400">
+                A busca mostra até cinco nomes. Acrescente letras para refinar.
+              </p>
+            </>
           )}
         </div>
+      )}
+      {isOpen && !canSearch && (
+        <p role="status" className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+          Digite pelo menos três caracteres para buscar responsáveis.
+        </p>
       )}
     </div>
   );

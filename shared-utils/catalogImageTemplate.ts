@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { MAX_PARENT_PRODUCT_IMAGES } from './productImageLimits';
+import { templateBoundsUnion, templateGroupIssue, templateLayerBounds } from './catalogImageTemplateGroups';
 
 export const IMAGE_FORMATS = ['1:1', '4:5', '9:16'] as const;
 export type ImageFormat = typeof IMAGE_FORMATS[number];
@@ -13,9 +14,9 @@ export const CATALOG_FIELDS = {
   // Campos principais do ERP MoranteHub
   name: 'Nome do produto',
   category: 'Categoria',
-  price: 'Preço',
+  price: 'Preço Antigo',
   promoPrice: 'Preço promocional',
-  currentPrice: 'Preço atual',
+  currentPrice: 'Preço Atual',
   discount: 'Desconto',
   discountPercent: 'Desconto (%)',
   discountValue: 'Valor do desconto',
@@ -46,6 +47,7 @@ export const FIELD_ALIASES: Record<string, CatalogField> = {
   product_type: 'category',
   preco: 'price',
   preco_normal: 'price',
+  preco_antigo: 'price',
   promotional_price: 'promoPrice',
   sale_price: 'promoPrice',
   salePrice: 'promoPrice',
@@ -161,6 +163,10 @@ export const IMAGE_TEMPLATE_FONTS = ['Bowlby One', 'Noto Sans', 'Noto Serif', 'O
 const legacyImageTemplateFonts = ['Arial', 'Georgia', 'Tahoma', 'Trebuchet MS', 'Times New Roman', 'Courier New'] as const;
 const imageTemplateFontSchema = z.enum([...IMAGE_TEMPLATE_FONTS, ...legacyImageTemplateFonts]);
 const color = z.string().regex(/^#[\da-f]{6}$/i);
+export const IMAGE_TEXT_EFFECTS = ['none', 'shadow', 'outline', '3d', 'neon'] as const;
+export type ImageTextEffect = typeof IMAGE_TEXT_EFFECTS[number];
+export const TEXT_3D_DIRECTIONS = ['down-right', 'down', 'down-left', 'left', 'up-left', 'up', 'up-right', 'right'] as const;
+export type Text3dDirection = typeof TEXT_3D_DIRECTIONS[number];
 const layerName = { id: z.uuid(), name: z.string().trim().min(1).max(80) };
 const position = {
   ...layerName,
@@ -173,14 +179,18 @@ const typography = {
   bold: z.boolean(), italic: z.boolean(), strike: z.boolean(), align: z.enum(['left', 'center', 'right']),
   underline: z.boolean().optional(), verticalAlign: z.enum(['top', 'middle', 'bottom']).optional(),
   lineSpacing: z.number().min(0.5).max(3).optional(), letterSpacing: z.number().min(-20).max(100).optional(),
-  textOpacity: z.number().min(0).max(100).optional(), textShadow: z.boolean().optional(),
+  textOpacity: z.number().min(0).max(100).optional(), textEffect: z.enum(IMAGE_TEXT_EFFECTS).optional(),
+  textEffectSize: z.number().int().min(1).max(32).optional(), textShadowColor: color.optional(),
+  textShadowOpacity: z.number().int().min(0).max(100).optional(),
+  textOutlineColor: color.optional(), text3dColor: color.optional(), textNeonColor: color.optional(),
+  text3dDirection: z.enum(TEXT_3D_DIRECTIONS).optional(), text3dAngle: z.number().int().min(0).max(359).optional(),
+  textShadow: z.boolean().optional(),
 };
 const condition = { condition: conditionSchema.nullable() };
 export const TEMPLATE_ASSET_ID = /^[a-f0-9]{64}$/;
 export const imageLayerSchema = z.discriminatedUnion('type', [
   z.object({ ...position, type: z.literal('product'), condition: conditionSchema.nullable().optional(), imageIndex: z.number().int().min(0).max(MAX_PARENT_PRODUCT_IMAGES - 1),
     fallback: z.enum(['main', 'none']), fit: z.enum(['contain', 'cover']), removeBackground: z.boolean() }),
-  z.object({ ...position, ...typography, ...condition, type: z.literal('catalog'), field: fieldSchema }),
   z.object({ ...position, ...typography, ...condition, type: z.literal('text'), text: z.string().max(700) }),
   z.object({ ...position, ...condition, type: z.literal('image'), assetId: z.string().regex(TEMPLATE_ASSET_ID).nullable(),
     assetName: z.string().trim().max(120).optional(), fit: z.enum(['contain', 'cover']) }),
@@ -192,15 +202,30 @@ export type ImageLayer = z.infer<typeof imageLayerSchema>;
 export type PositionedLayer = Exclude<ImageLayer, { type: 'background' }>;
 export type ImageLayerType = ImageLayer['type'];
 export const LAYER_TYPES: Record<ImageLayerType, { label: string; icon: string }> = {
-  product: { label: 'Produto', icon: 'bi-tag' }, catalog: { label: 'Campo do produto', icon: 'bi-database' },
-  text: { label: 'Texto', icon: 'bi-type' }, image: { label: 'Imagem', icon: 'bi-image' },
+  product: { label: 'Produto', icon: 'bi-tag' },
+  text: { label: 'Texto', icon: 'bi-type' }, image: { label: 'Imagem personalizada', icon: 'bi-image' },
   sticker: { label: 'Forma', icon: 'bi-sticky' }, background: { label: 'Fundo', icon: 'bi-palette' },
 };
-export const MAX_IMAGE_LAYERS = 20;
-const layoutSchema = z.object({ layers: z.array(imageLayerSchema).min(1).max(MAX_IMAGE_LAYERS) })
+export const MAX_IMAGE_LAYERS = 21;
+const templateLayerGroupSchema = z.object({
+  ...layerName,
+  name: z.string().trim().min(1, 'Informe o nome do agrupamento.').max(80),
+  x: z.number().min(-3840).max(3840), y: z.number().min(-3840).max(3840),
+  width: z.number().min(16).max(3840), height: z.number().min(16).max(3840),
+  condition: conditionSchema.nullable().optional(),
+  layerIds: z.array(z.uuid()).min(1).max(MAX_IMAGE_LAYERS - 1),
+});
+export type TemplateLayerGroup = z.infer<typeof templateLayerGroupSchema>;
+const layoutSchema = z.object({ layers: z.array(imageLayerSchema).min(1).max(MAX_IMAGE_LAYERS),
+  groups: z.array(templateLayerGroupSchema).max(MAX_IMAGE_LAYERS - 1).optional() })
   .refine(({ layers }) => layers.some((layer) => layer.type === 'product'), 'Mantenha pelo menos uma camada de produto.')
+  .refine(({ layers }) => layers.at(-1)?.type === 'background', 'Mantenha a camada de fundo fixa no final.')
   .refine(({ layers }) => layers.slice(0, -1).every((layer) => layer.type !== 'background'), 'O fundo deve ficar por último.')
-  .refine(({ layers }) => new Set(layers.map(({ id }) => id)).size === layers.length, 'Há camadas repetidas.');
+  .refine(({ layers }) => new Set(layers.map(({ id }) => id)).size === layers.length, 'Há camadas repetidas.')
+  .superRefine(({ layers, groups }, context) => {
+    const issue = templateGroupIssue(layers, groups);
+    if (issue) context.addIssue({ code: 'custom', message: issue, path: ['groups'] });
+  });
 export type ImageLayout = z.infer<typeof layoutSchema>;
 export const IMAGE_TEMPLATE_TEST_SCENARIO = 'image_template_crud' as const;
 export const imageTemplateTestArtifactSchema = z.object({
@@ -212,6 +237,53 @@ export const imageTemplateDesignSchema = z.object({
   testArtifact: imageTemplateTestArtifactSchema.optional(),
 }).refine((design) => templateAssetIds(design).length <= 12, 'Use até 12 imagens diferentes por modelo.');
 export type ImageTemplateDesign = z.infer<typeof imageTemplateDesignSchema>;
+
+function priceLayerMigration(name: unknown) {
+  if (typeof name !== 'string') return null;
+  const normalized = name.trim().normalize('NFD').replace(/\p{M}/gu, '').replace(/\s+/g, ' ').toLowerCase();
+  if (normalized === 'preco maior' || normalized === 'preco antigo') return { name: 'Preço Antigo', field: 'price' as const };
+  if (normalized === 'preco menor' || normalized === 'preco atual') return { name: 'Preço Atual', field: 'currentPrice' as const };
+  return null;
+}
+
+function normalizeNamedPriceLayer(layer: Record<string, unknown>, migration = priceLayerMigration(layer.name)) {
+  if (!migration) return layer;
+  const text = typeof layer.text === 'string' ? layer.text : undefined;
+  const token = text?.match(/^\s*\{\{\s*product\.([a-zA-Z0-9_]+)\s*\}\}\s*$/);
+  const tokenField = token?.[1];
+  const migratedText = tokenField && isTemplateField(tokenField) && isPriceField(tokenField as TemplateField)
+    ? `{{product.${migration.field}}}` : text;
+  return { ...layer, name: migration.name, ...(migratedText !== undefined ? { text: migratedText } : {}) };
+}
+
+export function normalizeLegacyCatalogLayers(design: unknown): unknown {
+  if (typeof design !== 'object' || design === null) return design;
+  const designRecord = design as Record<string, unknown>;
+  if (typeof designRecord.formats !== 'object' || designRecord.formats === null) return design;
+  const formats = Object.fromEntries(Object.entries(designRecord.formats as Record<string, unknown>).map(([format, layout]) => {
+    if (typeof layout !== 'object' || layout === null) return [format, layout];
+    const layoutRecord = layout as Record<string, unknown>;
+    if (!Array.isArray(layoutRecord.layers)) return [format, layout];
+    const layers = layoutRecord.layers.map((layer) => {
+      if (typeof layer !== 'object' || layer === null || !('type' in layer)) return layer;
+      if (layer.type === 'text' || layer.type === 'sticker') {
+        return normalizeNamedPriceLayer({ ...layer } as Record<string, unknown>);
+      }
+      if (layer.type !== 'catalog' || !('field' in layer)) return layer;
+      const field = fieldSchema.safeParse(layer.field);
+      if (!field.success) return layer;
+      const textLayer = { ...layer } as Record<string, unknown>;
+      delete textLayer.field;
+      const migration = priceLayerMigration(textLayer.name);
+      const targetField = migration?.field ?? field.data;
+      const name = migration?.name ?? (textLayer.name === 'Campo do produto' ? templateFieldLabel(field.data) : textLayer.name);
+      return normalizeNamedPriceLayer({ ...textLayer, name, type: 'text', text: `{{product.${targetField}}}` }, migration);
+    });
+    const imageFormat = IMAGE_FORMATS.includes(format as ImageFormat) ? format as ImageFormat : '1:1';
+    return [format, { ...layoutRecord, layers: pinBackgroundToBottom(layers as ImageLayer[], imageFormat) }];
+  }));
+  return { ...designRecord, formats };
+}
 export const imageTemplateMetadataSchema = z.object({
   name: z.string().trim().min(1, 'Informe o nome do modelo.').max(100),
   description: z.string().trim().max(400, 'Use até 400 caracteres.'),
@@ -231,10 +303,11 @@ export function createImageLayer(type: ImageLayerType, format: ImageFormat): Ima
   const identity = { id: crypto.randomUUID(), name: LAYER_TYPES[type].label };
   const box = { ...identity, x: 54, y: Math.round(height * .1), width: width - 108, height: 140, angle: 0, opacity: 100 };
   const text = { font: 'Verdana', fontSize: 54, color: '#172033', bold: true, italic: false, underline: false, strike: false,
-    textShadow: false, align: 'center', verticalAlign: 'middle', lineSpacing: 1.16, letterSpacing: 0, textOpacity: 100 } as const;
+    textEffect: 'none', textEffectSize: 6, textShadowColor: '#000000', textShadowOpacity: 56, textOutlineColor: '#ffffff',
+    text3dColor: '#172033', text3dDirection: 'down-right', textNeonColor: '#00e5ff', align: 'center', verticalAlign: 'middle', lineSpacing: 1.16,
+    letterSpacing: 0, textOpacity: 100 } as const;
   switch (type) {
     case 'product': return { ...box, type, x: 0, y: 0, width, height, condition: null, imageIndex: 0, fallback: 'main', fit: 'contain', removeBackground: false };
-    case 'catalog': return { ...box, ...text, type, field: 'name', condition: null };
     case 'text': return { ...box, ...text, type, text: 'Seu texto', condition: null };
     case 'image': return { ...box, type, width: 324, height: 250, assetId: null, fit: 'contain', condition: null };
     case 'sticker': return { ...box, ...text, type, x: 758, width: 260, height: 260, fontSize: 44, angle: 0, opacity: 100, condition: null,
@@ -244,11 +317,20 @@ export function createImageLayer(type: ImageLayerType, format: ImageFormat): Ima
   }
 }
 
+function isBackgroundLayer(layer: unknown): layer is Extract<ImageLayer, { type: 'background' }> {
+  return typeof layer === 'object' && layer !== null && 'type' in layer && layer.type === 'background';
+}
+
+function pinBackgroundToBottom(layers: ImageLayer[], format: ImageFormat): ImageLayer[] {
+  const background = [...layers].reverse().find(isBackgroundLayer) ?? createImageLayer('background', format);
+  return [...layers.filter((layer) => !isBackgroundLayer(layer)), background];
+}
+
 export function startImageTemplate(starter: ImageTemplateStarter): ImageTemplateDesign {
   const product = createImageLayer('product', '1:1') as Extract<ImageLayer, { type: 'product' }>;
   const background = createImageLayer('background', '1:1') as Extract<ImageLayer, { type: 'background' }>;
-  const title = { ...createImageLayer('catalog', '1:1') as Extract<ImageLayer, { type: 'catalog' }>, y: 835, height: 110, fontSize: 48 };
-  const price = { ...title, id: crypto.randomUUID(), name: 'Preço atual', field: 'currentPrice' as const, y: 952, height: 78, color: '#1b5bcb' };
+  const title = { ...createImageLayer('text', '1:1') as Extract<ImageLayer, { type: 'text' }>, name: 'Nome do produto', text: '{{product.name}}', y: 835, height: 110, fontSize: 48 };
+  const price = { ...title, id: crypto.randomUUID(), name: 'Preço Atual', text: '{{product.currentPrice}}', y: 952, height: 78, color: '#1b5bcb' };
   let layers: ImageLayer[] = [product];
   switch (starter) {
     case 'showcase':
@@ -271,20 +353,31 @@ export function startImageTemplate(starter: ImageTemplateStarter): ImageTemplate
         { ...background, color: '#ecf6ee' }];
       break;
   }
+  layers = pinBackgroundToBottom(layers, '1:1');
   return { version: 1, formats: { '1:1': { layers } } };
+}
+
+export function copyImageLayerToFormat(layer: ImageLayer, source: ImageFormat, target: ImageFormat): ImageLayer {
+  const ratio = FORMAT_DIMENSIONS[target].height / FORMAT_DIMENSIONS[source].height;
+  if (layer.type === 'background') return { ...layer };
+  const keepBoxHeight = layer.type === 'image' || (layer.type === 'sticker' && (layer.shape !== 'rectangle' || !!layer.lockAspectRatio));
+  return {
+    ...layer,
+    y: Math.max(-3840, Math.min(3840, Math.round(layer.y * ratio))),
+    height: keepBoxHeight ? layer.height : Math.max(16, Math.min(3840, Math.round(layer.height * ratio))),
+  };
 }
 
 export function copyImageLayout(layout: ImageLayout, source: ImageFormat, target: ImageFormat): ImageLayout {
   const ratio = FORMAT_DIMENSIONS[target].height / FORMAT_DIMENSIONS[source].height;
-  return { layers: layout.layers.map((layer) => {
-    if (layer.type === 'background') return { ...layer };
-    const keepBoxHeight = layer.type === 'sticker' && (layer.shape !== 'rectangle' || !!layer.lockAspectRatio);
-    return {
-      ...layer,
-      y: Math.max(-3840, Math.min(3840, Math.round(layer.y * ratio))),
-      height: keepBoxHeight ? layer.height : Math.max(16, Math.min(3840, Math.round(layer.height * ratio))),
-    };
-  }) };
+  const layers = layout.layers.map((layer) => copyImageLayerToFormat(layer, source, target));
+  const groups = layout.groups?.map((group) => {
+    const scaled = { ...group, y: Math.max(-3840, Math.min(3840, Math.round(group.y * ratio))),
+      height: Math.max(16, Math.min(3840, Math.round(group.height * ratio))) };
+    const members = layers.filter((layer): layer is PositionedLayer => layer.type !== 'background' && group.layerIds.includes(layer.id));
+    return { ...scaled, ...templateBoundsUnion([scaled, ...members.map(templateLayerBounds)]) };
+  });
+  return { ...layout, layers: pinBackgroundToBottom(layers, target), ...(groups ? { groups } : {}) };
 }
 
 export interface TemplatePreviewProduct {
@@ -313,7 +406,7 @@ export function parseCatalogPrice(raw: unknown): number | null {
   return Number.isFinite(value) ? value : null;
 }
 
-export function isLayerVisible(layer: ImageLayer, product: TemplatePreviewProduct | null) {
+export function isLayerVisible(layer: ImageLayer | TemplateLayerGroup, product: TemplatePreviewProduct | null) {
   if (!('condition' in layer) || !layer.condition) return true;
   const { field, operator, value } = layer.condition;
   const actual = templateFieldValue(field, product);
@@ -357,4 +450,10 @@ export function isLayerVisible(layer: ImageLayer, product: TemplatePreviewProduc
     case 'notContains': return !left.includes(right);
     default: return false;
   }
+}
+
+export function isTemplateLayerVisible(layout: ImageLayout, layer: ImageLayer, product: TemplatePreviewProduct | null) {
+  if (!isLayerVisible(layer, product)) return false;
+  const group = layout.groups?.find((entry) => entry.layerIds.includes(layer.id));
+  return !group || isLayerVisible(group, product);
 }

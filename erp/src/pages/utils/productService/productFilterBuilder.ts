@@ -6,7 +6,11 @@ import {
   createProductVariationSearchTooBroadError,
   PRODUCT_VARIATION_SEARCH_MATCH_LIMIT,
 } from '../../../../../shared-utils/productListSearch';
-import { PRODUCT_LIST_PRODUCT_ITEM_TYPE_FILTER } from '../../../../../shared-utils/productListTypeFilters';
+import {
+  PRODUCT_LIST_NON_COMBO_FLAG_FILTER,
+  PRODUCT_LIST_NON_COMBO_ITEM_TYPE_FILTER,
+  PRODUCT_LIST_PRODUCT_ITEM_TYPE_FILTER,
+} from '../../../../../shared-utils/productListTypeFilters';
 import { PRODUCT_LIST_DRAFT_FILTER } from '../../../../../shared-utils/productListDraftFilters';
 import { fetchProductListCategoryFilter } from '../../../../../shared-utils/productListCategoryFilters';
 import { NON_TEST_PRODUCT_ARTIFACT_FILTER } from '../../../../../shared-utils/testArtifactQueries';
@@ -24,6 +28,7 @@ export interface ProductQueryFilterOptions {
   supplierId?: string;
   itemType?: string;
   excludeItemType?: string;
+  excludeCombos?: boolean;
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
   excludeTestProducts?: boolean;
@@ -61,6 +66,12 @@ export const applyProductFiltersAndSort = async (
   if (options?.excludeItemType) {
     // Registros legados sem item_type são produtos comuns; o operador neq os excluiria por NULL.
     q = q.filter('item_type', 'isdistinct', options.excludeItemType);
+  }
+
+  if (options?.excludeCombos) {
+    q = q
+      .or(PRODUCT_LIST_NON_COMBO_FLAG_FILTER)
+      .or(PRODUCT_LIST_NON_COMBO_ITEM_TYPE_FILTER);
   }
 
   // Filtro de rascunhos do ERP

@@ -20,6 +20,15 @@ export const getInventoryFinalizationRpcName = (
     ? 'finalize_inventory_transaction_v2'
     : 'finalize_inventory_transaction';
 
+export const getInventoryCompactFinalizationRpcName = (
+  contractVersion: InventorySubmissionContractVersion
+):
+  | 'finalize_inventory_transaction_compact'
+  | 'finalize_inventory_transaction_v2_compact' =>
+  contractVersion === 2
+    ? 'finalize_inventory_transaction_v2_compact'
+    : 'finalize_inventory_transaction_compact';
+
 export const buildInventorySubmissionRpcParams = (
   submission: InventorySubmissionProtocolPayload
 ) => ({

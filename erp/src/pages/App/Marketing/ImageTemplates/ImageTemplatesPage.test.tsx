@@ -125,12 +125,17 @@ describe('biblioteca e editor de modelos', () => {
     fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Avançar' }));
     await screen.findByRole('heading', { name: 'Oferta' });
     fireEvent.change(screen.getByRole('combobox', { name: 'Adicionar camada' }), { target: { value: 'text' } });
-    const input = screen.getByRole<HTMLTextAreaElement>('textbox', { name: 'Mensagem' });
-    fireEvent.change(input, { target: { value: 'DE  POR' } });
-    input.setSelectionRange(3, 3);
+    const input = screen.getByRole<HTMLDivElement>('textbox', { name: 'Mensagem' });
+    input.textContent = 'DE  POR';
+    fireEvent.input(input);
+    const messageRange = document.createRange();
+    messageRange.setStart(input.firstChild!, 3);
+    messageRange.collapse(true);
+    window.getSelection()?.removeAllRanges();
+    window.getSelection()?.addRange(messageRange);
     fireEvent.click(screen.getByRole('button', { name: 'Adicionar campo do produto' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Preço' }));
-    expect(input.value).toBe('DE {{product.price}} POR');
+    fireEvent.click(screen.getByRole('button', { name: 'Preço Antigo' }));
+    expect(input.textContent).toBe('DE Preço Antigo× POR');
     fireEvent.click(screen.getByRole('button', { name: 'Sublinhado' }));
     fireEvent.click(screen.getByRole('button', { name: 'Alinhar no topo' }));
     const lineSpacing = screen.getByRole<HTMLInputElement>('spinbutton', { name: 'Espaçamento entre linhas' });
@@ -174,11 +179,12 @@ describe('biblioteca e editor de modelos', () => {
     expect((screen.getByRole('combobox', { name: 'Campo do produto' }) as HTMLSelectElement).value).toBe('attribute_material');
 
     fireEvent.change(screen.getByRole('combobox', { name: 'Adicionar camada' }), { target: { value: 'text' } });
-    const message = screen.getByRole<HTMLTextAreaElement>('textbox', { name: 'Mensagem' });
-    fireEvent.change(message, { target: { value: 'Material: ' } });
+    const message = screen.getByRole<HTMLDivElement>('textbox', { name: 'Mensagem' });
+    message.textContent = 'Material: ';
+    fireEvent.input(message);
     fireEvent.click(screen.getByRole('button', { name: 'Adicionar campo do produto' }));
     fireEvent.click(screen.getByRole('button', { name: 'Material' }));
-    expect(message.value).toBe('Material: {{product.attribute_material}}');
+    expect(message.textContent).toBe('Material: Material×');
   });
 
   it('abre Alterar nome focando e selecionando o nome da camada ativa', async () => {

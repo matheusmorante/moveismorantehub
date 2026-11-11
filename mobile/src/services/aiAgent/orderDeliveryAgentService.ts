@@ -6,7 +6,14 @@ import {
   getActiveAgentPermissionContext,
   hasAgentActionPermission,
   isPermissionContextEnforced,
+  type AgentPermissionContext,
 } from '../../../../shared-utils/agentPermissionGuard';
+import {
+  canAgentViewOperationRow,
+  getAgentOperationSearchTypes,
+  type AgentOperationSearchType,
+} from '../../../../shared-utils/agentOperationPermissions';
+import { normalizeAgentOrderIdentifier } from '../../../../shared-utils/agentOrderAndPeopleOperations';
 
 export type MobileOperationKind =
   | 'todas'
@@ -133,7 +140,11 @@ function getAssemblyKinds(row: Record<string, any>, options: any[]): string[] {
   ) as string[];
 }
 
-function toOperationSummary(row: Record<string, any>, assemblyKinds: string[]) {
+function toOperationSummary(
+  row: Record<string, any>,
+  assemblyKinds: string[],
+  options: { redactFinancials?: boolean } = {}
+) {
   const data = getOrderData(row);
   const customer = asRecord(data.customerData);
   const shipping = asRecord(data.shipping);
@@ -152,9 +163,9 @@ function toOperationSummary(row: Record<string, any>, assemblyKinds: string[]) {
     tipo: kindLabels[kind] || kind,
     status: String(row.status ?? data.status ?? 'pending'),
     cliente: String(row.customer_name || customer.fullName || ''),
-    valorTotal: Number(
-      row.total_value ?? row.total_amount ?? data.paymentsSummary?.totalOrderValue ?? 0
-    ),
+    valorTotal: options.redactFinancials
+      ? undefined
+      : Number(row.total_value ?? row.total_amount ?? data.paymentsSummary?.totalOrderValue ?? 0),
     agendamento: {
       data: getScheduleDate(row),
       inicio: row.schedule_start_time || scheduling.startTime || scheduling.time || null,
@@ -181,11 +192,17 @@ function toOperationSummary(row: Record<string, any>, assemblyKinds: string[]) {
   };
 }
 
-export async function searchOrdersAndDeliveries(input: OrderDeliverySearchInput) {
-  return searchOperations(input);
+export async function searchOrdersAndDeliveries(
+  input: OrderDeliverySearchInput,
+  permissionContext?: AgentPermissionContext | null
+) {
+  return searchOperations(input, permissionContext);
 }
 
-export async function searchOperations(input: OrderDeliverySearchInput) {
+export async function searchOperations(
+  input: OrderDeliverySearchInput,
+  permissionContext: AgentPermissionContext | null = getActiveAgentPermissionContext()
+) {
   const kind = input.tipo || 'todas';
   const isDate = (value?: string) => !value || /^\d{4}-\d{2}-\d{2}$/.test(value);
   if (!isDate(input.dataInicio) || !isDate(input.dataFim))
@@ -193,22 +210,48 @@ export async function searchOperations(input: OrderDeliverySearchInput) {
   if (input.dataInicio && input.dataFim && input.dataInicio > input.dataFim)
     throw new Error('A data inicial não pode ser posterior à data final.');
   const selectedLimit = normalizeLimit(input.limite);
-  const selected = await withAbortTimeout(
-    supabase.rpc('search_order_operation_ids', {
-      p_filters: input,
-      p_limit: selectedLimit,
-    }),
-    'assistente:pesquisar-operacoes',
-    15_000
+  const searchTypes = getAgentOperationSearchTypes(kind, permissionContext);
+  if (searchTypes.length === 0)
+    throw new Error('Seu perfil não tem permissão para consultar este tipo de operação.');
+  const selections = await Promise.all(
+    searchTypes.map(async (tipo) => {
+      const selected = await withAbortTimeout(
+        supabase.rpc('search_order_operation_ids', {
+          p_filters: { ...input, tipo },
+          p_limit: selectedLimit,
+        }),
+        'assistente:pesquisar-operacoes',
+        15_000
+      );
+      if (selected.error) throw selected.error;
+      const ids = selected.data?.ids;
+      if (
+        !Array.isArray(ids) ||
+        ids.length > selectedLimit ||
+        ids.some((id: unknown) => typeof id !== 'string')
+      ) {
+        throw new Error('A consulta de operações retornou resultados inválidos.');
+      }
+      return { tipo, ids: ids as string[] };
+    })
   );
-  if (selected.error) throw selected.error;
-  const ids = selected.data?.ids;
-  if (
-    !Array.isArray(ids) ||
-    ids.length > selectedLimit ||
-    ids.some((id: unknown) => typeof id !== 'string')
-  ) {
-    throw new Error('A consulta de operações retornou resultados inválidos.');
+  const ids: string[] = [];
+  const filtersById = new Map<string, Set<AgentOperationSearchType>>();
+  for (let index = 0; ids.length < selectedLimit; index += 1) {
+    let added = false;
+    for (const selection of selections) {
+      const id = selection.ids[index];
+      if (!id) continue;
+      const filters = filtersById.get(id) || new Set<AgentOperationSearchType>();
+      filters.add(selection.tipo);
+      filtersById.set(id, filters);
+      if (!ids.includes(id)) {
+        ids.push(id);
+        added = true;
+      }
+      if (ids.length >= selectedLimit) break;
+    }
+    if (!added) break;
   }
   if (!ids.length) return [];
   const { data, error } = await withAbortTimeout(
@@ -222,20 +265,55 @@ export async function searchOperations(input: OrderDeliverySearchInput) {
     15_000
   );
   if (error) throw error;
-  const options =
-    kind === 'montagem' || kind === 'todas' ? await getHandlingOptions().catch(() => []) : [];
+  const options = searchTypes.includes('montagem')
+    ? await getHandlingOptions().catch(() => [])
+    : [];
   const byId = new Map((data || []).map((row: any) => [String(row.id), row]));
   return ids.flatMap((id: string) => {
     const row: any = byId.get(id);
-    return row ? [toOperationSummary(row, getAssemblyKinds(row, options))] : [];
+    if (!row) return [];
+    const rowKind = getOperationKind(row);
+    const deliveryMethod = String(
+      row.delivery_method || getOrderData(row).shipping?.deliveryMethod || getOrderData(row).deliveryMethod || ''
+    );
+    const matchingFilter = Array.from(filtersById.get(id) || []).find((filter) => {
+      if (filter === 'todas') return canAgentViewOperationRow(rowKind, permissionContext);
+      if (filter === 'venda') return ['sale', 'venda'].includes(rowKind);
+      if (filter === 'orcamento') return ['budget', 'orcamento'].includes(rowKind);
+      if (filter === 'assistencia') return ['assistance', 'assistencia'].includes(rowKind);
+      if (filter === 'devolucao') return ['return', 'devolucao'].includes(rowKind);
+      if (filter === 'entrega' || filter === 'retirada' || filter === 'montagem') {
+        return canAgentViewOperationRow(rowKind, permissionContext, {
+          logisticsFilter: filter,
+          deliveryMethod,
+        });
+      }
+      return false;
+    });
+    if (!matchingFilter || !canAgentViewOperationRow(rowKind, permissionContext, {
+      logisticsFilter:
+        matchingFilter === 'entrega' || matchingFilter === 'retirada' || matchingFilter === 'montagem'
+          ? matchingFilter
+          : undefined,
+      deliveryMethod,
+    })) return [];
+
+    const redactFinancials =
+      isPermissionContextEnforced(permissionContext) &&
+      !hasAgentActionPermission('viewOrders', permissionContext) &&
+      !hasAgentActionPermission('createEditOrders', permissionContext);
+    return [toOperationSummary(row, getAssemblyKinds(row, options), { redactFinancials })];
   });
 }
 
 export async function getOrderDeliveryDetails(
-  orderId: string
+  orderId: string,
+  options: { logisticsScoped?: boolean } = {},
+  permissionContext: AgentPermissionContext | null = getActiveAgentPermissionContext()
 ): Promise<Record<string, unknown> | null> {
-  const cleanTarget = orderId.trim().replace(/^#/, '');
-  let { data: row, error } = await supabase
+  const cleanTarget = normalizeAgentOrderIdentifier(orderId);
+  if (!cleanTarget) throw new Error('Informe um ID ou número de operação completo e válido.');
+  const initialResult = await supabase
     .from('orders')
     .select(
       'id, order_number, order_index, status, order_type, customer_name, total_amount, created_at, updated_at, scheduled_date, scheduled_start_time, scheduled_end_time, delivery_method, delivery_status, order_data, items'
@@ -243,11 +321,12 @@ export async function getOrderDeliveryDetails(
     .eq('id', cleanTarget)
     .or('deleted.is.null,deleted.eq.false')
     .maybeSingle();
-  if (error) throw error;
+  let row = initialResult.data;
+  if (initialResult.error) throw initialResult.error;
 
   if (!row && cleanTarget && !/^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(cleanTarget)) {
-    const num = Number(cleanTarget);
-    const expr = Number.isFinite(num)
+    const num = /^\d+$/.test(cleanTarget) ? Number(cleanTarget) : null;
+    const expr = num !== null && Number.isSafeInteger(num)
       ? `order_number.eq.${cleanTarget},order_index.eq.${num}`
       : `order_number.eq.${cleanTarget}`;
     const fallback = await supabase
@@ -257,11 +336,9 @@ export async function getOrderDeliveryDetails(
       )
       .or('deleted.is.null,deleted.eq.false')
       .or(expr)
-      .limit(1)
       .maybeSingle();
-    if (!fallback.error && fallback.data) {
-      row = fallback.data;
-    }
+    if (fallback.error) throw fallback.error;
+    row = fallback.data;
   }
 
   if (!row || isIdentifiedTestArtifact(row)) return null;
@@ -272,39 +349,23 @@ export async function getOrderDeliveryDetails(
   const scheduling = asRecord(shipping.scheduling || data.schedule || data.scheduling);
   const kind = getOperationKind(row);
 
-  const permCtx = getActiveAgentPermissionContext();
-  if (isPermissionContextEnforced(permCtx)) {
-    if (
-      kind === 'budget' &&
-      !hasAgentActionPermission('viewBudgets', permCtx) &&
-      !hasAgentActionPermission('createEditOrders', permCtx) &&
-      !hasAgentActionPermission('viewOrders', permCtx)
-    ) {
-      throw new Error('Seu perfil de acesso não tem permissão para visualizar detalhes de orçamentos.');
-    }
-    if (
-      kind === 'return' &&
-      !hasAgentActionPermission('viewReturns', permCtx) &&
-      !hasAgentActionPermission('createEditOrders', permCtx) &&
-      !hasAgentActionPermission('viewOrders', permCtx)
-    ) {
-      throw new Error('Seu perfil de acesso não tem permissão para visualizar detalhes de devoluções.');
-    }
-    if (
-      kind === 'assistance' &&
-      !hasAgentActionPermission('viewAssistanceOrders', permCtx) &&
-      !hasAgentActionPermission('createEditOrders', permCtx) &&
-      !hasAgentActionPermission('viewOrders', permCtx)
-    ) {
-      throw new Error('Seu perfil de acesso não tem permissão para visualizar detalhes de assistências técnicas.');
-    }
+  const permCtx = permissionContext;
+  const deliveryMethod = String(
+    row.delivery_method || getOrderData(row).shipping?.deliveryMethod || getOrderData(row).deliveryMethod || ''
+  );
+  const logisticsFilter = options.logisticsScoped
+    ? /pickup|retirada/i.test(deliveryMethod)
+      ? 'retirada'
+      : 'entrega'
+    : undefined;
+  if (!canAgentViewOperationRow(kind, permCtx, { logisticsFilter, deliveryMethod })) {
+    throw new Error('Seu perfil de acesso não tem permissão para visualizar esta operação.');
   }
 
   const isLogisticsOnly =
     isPermissionContextEnforced(permCtx) &&
     !hasAgentActionPermission('viewOrders', permCtx) &&
     !hasAgentActionPermission('createEditOrders', permCtx) &&
-    !hasAgentActionPermission('viewFinancials', permCtx) &&
     (hasAgentActionPermission('startDelivery', permCtx) ||
       hasAgentActionPermission('viewAssemblyList', permCtx) ||
       hasAgentActionPermission('viewDeliverySchedule', permCtx));
@@ -323,6 +384,15 @@ export async function getOrderDeliveryDetails(
     ? undefined
     : Number(row.total_amount ?? data.paymentsSummary?.totalOrderValue ?? 0);
   const pagamentos = isLogisticsOnly ? undefined : data.paymentsSummary || data.payments || [];
+  const rawItems = Array.isArray(data.items) ? data.items : Array.isArray(row.items) ? row.items : [];
+  const visibleItems = rawItems.map((item: any) => isLogisticsOnly
+    ? {
+        nome: item?.name || item?.productName || item?.product_title || item?.description || '',
+        quantidade: item?.quantity ?? item?.qty ?? null,
+        manuseio: item?.handlingType || item?.handling || null,
+      }
+    : item
+  );
 
   return {
     id: String(row.id),
@@ -347,12 +417,12 @@ export async function getOrderDeliveryDetails(
     entrega: {
       modalidade: row.delivery_method || shipping.deliveryMethod || data.deliveryMethod || null,
       status: row.delivery_status || data.deliveryStatus || null,
-      observacoes: data.deliveryObservations || data.observations || null,
+      observacoes: data.deliveryObservations || (isLogisticsOnly ? null : data.observations) || null,
     },
-    itens: Array.isArray(data.items) ? data.items : Array.isArray(row.items) ? row.items : [],
+    itens: visibleItems,
     itensAssistencia: Array.isArray(data.assistanceItems) ? data.assistanceItems : [],
     pagamentos,
-    observacoes: data.observations || data.notes || null,
+    observacoes: isLogisticsOnly ? null : data.observations || data.notes || null,
     devolucao:
       kind === 'return'
         ? {

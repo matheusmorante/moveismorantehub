@@ -5,8 +5,10 @@ const authMocks = vi.hoisted(() => ({
   authenticateErpRequest: vi.fn(),
   hasErpPermission: vi.fn(),
 }));
+const quotaMocks = vi.hoisted(() => ({ rpc: vi.fn() }));
 
 vi.mock('../../../../../api/_lib/authenticatedErpRequest.js', () => authMocks);
+vi.mock('@supabase/supabase-js', () => ({ createClient: vi.fn(() => ({ rpc: quotaMocks.rpc })) }));
 
 import handler from '../../../../../api/secure-integrations';
 
@@ -217,6 +219,11 @@ describe('POST /api/meta-graph ensure_smb_message_echoes_subscription', () => {
 describe('POST /api/openai-proxy', () => {
   beforeEach(() => {
     process.env.OPENAI_API_KEY = 'test-openai-key';
+    vi.stubEnv('SUPABASE_URL', 'https://example.supabase.co');
+    vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', 'service-role-unit');
+    quotaMocks.rpc.mockImplementation(async (name: string) => name === 'check_and_reserve_ai_quota'
+      ? { data: { allowed: true, reservation_id: 'reservation-unit' }, error: null }
+      : { data: { log_id: 'log-unit', reservation_committed: true }, error: null });
     authMocks.authenticateErpRequest.mockResolvedValue({ id: 'user-1' });
   });
 
@@ -294,7 +301,7 @@ describe('POST /api/openai-proxy', () => {
   });
 
   it('preserva a resposta OpenAI quando os RPCs Supabase retornam thenables sem catch', async () => {
-    const rpc = vi.fn((name: string) => ({
+    const rpc = quotaMocks.rpc.mockImplementation((name: string) => ({
       then(resolve: (value: unknown) => unknown, reject: (reason: unknown) => unknown) {
         const result = name === 'check_and_reserve_ai_quota'
           ? { data: { allowed: true, reservation_id: 'reservation-unit' }, error: null }
@@ -302,7 +309,7 @@ describe('POST /api/openai-proxy', () => {
         return Promise.resolve(result).then(resolve, reject);
       },
     }));
-    authMocks.authenticateErpRequest.mockResolvedValueOnce({ id: 'user-1', userDb: { rpc } });
+    authMocks.authenticateErpRequest.mockResolvedValueOnce({ id: 'user-1', userDb: {} });
 
     const fetchMock = vi.fn().mockResolvedValueOnce(
       new Response(JSON.stringify({ choices: [{ message: { content: 'Resposta de teste.' } }] }), {

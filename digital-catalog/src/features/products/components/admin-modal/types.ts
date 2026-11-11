@@ -3,7 +3,9 @@ import { storefrontVariationFormSchema } from '@/shared-utils/storefrontProductF
 import type { z } from 'zod';
 
 export type Category = Database['public']['Tables']['categories']['Row'];
-export type StoreCategory = Category & { type?: 'category' | 'environment' };
+export type StoreCategory = Pick<Category, 'id' | 'name'> & {
+  type?: 'category' | 'environment';
+};
 export type CategoryRelationship = { parent_id: string; child_id: string };
 export type Product = Database['public']['Tables']['products']['Row'];
 export type ProductImage = Database['public']['Tables']['product_images']['Row'];

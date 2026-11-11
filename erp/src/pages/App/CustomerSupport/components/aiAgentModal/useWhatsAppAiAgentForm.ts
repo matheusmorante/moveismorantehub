@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'react-toastify';
-import { getSettings, saveSettings, useSettings } from '@/pages/utils/settings';
-import type { AppSettings } from '@/pages/utils/settings/types';
+import { getSettings, useSettings } from '@/pages/utils/settings';
+import { saveWhatsAppAiAgentConfiguration } from '../../services/whatsappAiAgentSettings';
 import {
   whatsAppAiAgentFormSchema,
   type WhatsAppAiAgentFormData,
@@ -35,11 +35,10 @@ export function useWhatsAppAiAgentForm({
     reset,
     formState: { errors },
   } = useForm<WhatsAppAiAgentFormData>({
-    resolver: zodResolver(whatsAppAiAgentFormSchema),
+    resolver: zodResolver(whatsAppAiAgentFormSchema) as Resolver<WhatsAppAiAgentFormData>,
     defaultValues: buildDefaultAiAgentFormValues(settings.whatsappAiAgent),
   });
 
-  const watchedEnabled = watch('enabled');
   const watchedNumbers = watch('testPhoneNumbers') || [];
   const watchedPrompt = watch('systemPrompt') || '';
   const watchedTools = watch('enabledTools') || [];
@@ -94,23 +93,19 @@ export function useWhatsAppAiAgentForm({
 
     setIsSaving(true);
     try {
-      const current = getSettings();
-      const updated: AppSettings = {
-        ...current,
-        whatsappAiAgent: {
-          enabled: data.enabled,
-          testMode: true,
-          testPhoneNumbers: data.testPhoneNumbers,
-          supportMode: data.supportMode,
-          systemPrompt: data.systemPrompt,
-          enabledTools: data.enabledTools,
-          knowledgeBase: data.knowledgeBase,
-          situationRules: data.situationRules,
-          workflows: data.workflows,
-        },
-      };
-
-      await saveSettings(updated);
+      const result = await saveWhatsAppAiAgentConfiguration({
+        testMode: true,
+        testPhoneNumbers: data.testPhoneNumbers,
+        supportMode: data.supportMode,
+        provider: 'openai',
+        model: 'gpt-6-luna',
+        systemPrompt: data.systemPrompt,
+        enabledTools: data.enabledTools,
+        knowledgeBase: data.knowledgeBase,
+        situationRules: data.situationRules,
+        workflows: data.workflows,
+      });
+      if (!result.confirmed) throw new Error('Configurações não confirmadas.');
       toast.success('Configurações do Agente de IA salvas com sucesso!');
       onClose();
     } catch (error) {
@@ -132,7 +127,7 @@ export function useWhatsAppAiAgentForm({
     phoneError,
     setPhoneInput,
     setPhoneError,
-    watchedEnabled,
+    enabled: settings.whatsappAiAgent?.enabled === true,
     watchedNumbers,
     watchedPrompt,
     watchedTools,

@@ -9,7 +9,10 @@ import {
   isProductVariationSearchTooBroadError,
   PRODUCT_VARIATION_SEARCH_MATCH_LIMIT,
 } from '../../../../../shared-utils/productListSearch';
+import { buildAgentProductSearchFilter } from '../../../../../shared-utils/agentProductSearch';
 import {
+  PRODUCT_LIST_NON_COMBO_FLAG_FILTER,
+  PRODUCT_LIST_NON_COMBO_ITEM_TYPE_FILTER,
   PRODUCT_LIST_PRODUCT_AND_LEGACY_ITEM_TYPE_FILTER,
   PRODUCT_LIST_PRODUCT_ITEM_TYPE_FILTER,
 } from '../../../../../shared-utils/productListTypeFilters';
@@ -33,6 +36,9 @@ export interface MobileProductFilterOptions {
   showTrash?: boolean;
   showTestProducts?: boolean;
   summaryOnly?: boolean;
+  agentSearchMode?: boolean;
+  compositionCandidateSearch?: boolean;
+  includeTotal?: boolean;
   supplierId?: string;
   itemType?: 'standard' | 'composition';
   generalType?: 'all' | 'product' | 'service';
@@ -44,6 +50,10 @@ const MOBILE_PRODUCT_LIST_COLUMNS =
   '*, product_variations(*), product_categories(category_id), product_images(image_url, is_main)';
 const MOBILE_PRODUCT_SUMMARY_COLUMNS =
   'id, name, title, description, code, sku, category_id, category, brand, condition, unit_price, price, promo_price, cost_price, stock, unit, active, status, deleted, item_type, is_draft, observations, technical_specs, combo_items, product_categories(category_id), product_variations(*)';
+const MOBILE_PRODUCT_AGENT_SEARCH_COLUMNS =
+  'id,name,title,description,code,sku,category_id,category,brand,line,condition,unit_price,price,promo_price,cost_price,stock,unit,active,status,deleted,item_type,is_draft,combo_items,product_categories(category_id),product_variations(id,sku,active,stock,combo_items,merged_to_variation_id)';
+const MOBILE_PRODUCT_COMPOSITION_CANDIDATE_COLUMNS =
+  'id,name,title,code,sku,category_id,unit_price,price,promo_price,stock,active,status,is_draft,observations,item_type,is_combo,technical_specs,product_categories(category_id),product_variations(id,name,sku,price,promo_price,stock,active,status,merged_to_variation_id,use_parent_price,use_parent_promo_price,use_parent_name,testArtifact:attributes->testArtifact)';
 
 const applyMobileTrashEligibility = async (products: any[], showTrash = false) => {
   const productIds = products
@@ -104,9 +114,16 @@ export const fetchMobileProductsPage = async (
 
     let query = supabase
       .from('products')
-      .select(options?.summaryOnly ? MOBILE_PRODUCT_SUMMARY_COLUMNS : MOBILE_PRODUCT_LIST_COLUMNS, {
-        count: 'exact',
-      });
+      .select(
+        options?.compositionCandidateSearch
+          ? MOBILE_PRODUCT_COMPOSITION_CANDIDATE_COLUMNS
+          : options?.agentSearchMode
+            ? MOBILE_PRODUCT_AGENT_SEARCH_COLUMNS
+            : options?.summaryOnly
+              ? MOBILE_PRODUCT_SUMMARY_COLUMNS
+              : MOBILE_PRODUCT_LIST_COLUMNS,
+        options?.includeTotal === false ? {} : { count: 'exact' }
+      );
 
     if (!options?.showTestProducts) {
       query = query.or(NON_TEST_PRODUCT_ARTIFACT_FILTER);
@@ -133,6 +150,12 @@ export const fetchMobileProductsPage = async (
     } else if (options?.itemType === 'standard' && !includeCompositionsInStandardMode) {
       // Preserva produtos legados com item_type nulo, como o filtro do ERP.
       query = query.filter('item_type', 'isdistinct', 'composition');
+    }
+
+    if (options?.compositionCandidateSearch) {
+      query = query
+        .or(PRODUCT_LIST_NON_COMBO_FLAG_FILTER)
+        .or(PRODUCT_LIST_NON_COMBO_ITEM_TYPE_FILTER);
     }
 
     if (options?.generalType === 'product') {
@@ -212,7 +235,11 @@ export const fetchMobileProductsPage = async (
       }
 
       // Mantém o contrato ERP: nome/código do pai e nome/SKU das variações; descrição não participa.
-      query = query.or(buildProductParentSearchFilter(searchTerms, matchedParentIds));
+      query = query.or(
+        options?.agentSearchMode
+          ? buildAgentProductSearchFilter(searchTerms.safeSearch, matchedParentIds)
+          : buildProductParentSearchFilter(searchTerms, matchedParentIds)
+      );
     }
 
     query = query.order('created_at', { ascending: false }).range(from, to);

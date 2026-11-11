@@ -1,11 +1,14 @@
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import { useCustomerSupportPageController } from './hooks/useCustomerSupportPageController';
+import type { WhatsAppConversation } from './types';
 import {
   NavigationRail,
   EmptyChatState,
   InboxSidebar,
 } from './components';
 import { WhatsAppAiAgentModal } from './components/WhatsAppAiAgentModal';
+import { AiAgentTabTestChat } from './components/aiAgentModal/AiAgentTabTestChat';
+import { buildDefaultAiAgentFormValues } from './components/aiAgentModal/useWhatsAppAiAgentFormDefaults';
 import {
   InboxSidebarColumn,
   ConversationSidebarColumn,
@@ -22,6 +25,11 @@ export default function CustomerSupport() {
     setIsTimelineOpen,
     isAiAgentModalOpen,
     setIsAiAgentModalOpen,
+    aiAgentConfig,
+    isAiAgentEnabled,
+    isAgentStatusKnown,
+    isTogglingAiAgent,
+    handleToggleAiAgent,
     shareOrderRequest,
     agents,
     isLoadingAgents,
@@ -96,6 +104,35 @@ export default function CustomerSupport() {
     handleDeleteFolder,
   } = useCustomerSupportPageController();
 
+  const [isAiAgentChatOpen, setIsAiAgentChatOpen] = useState(false);
+  const [hasOpenedAiAgentChat, setHasOpenedAiAgentChat] = useState(false);
+  const aiAgentSettings = useMemo(() => buildDefaultAiAgentFormValues(aiAgentConfig), [aiAgentConfig]);
+
+  const openAiAgentChat = () => {
+    setHasOpenedAiAgentChat(true);
+    setIsAiAgentChatOpen(true);
+    setSelectedConversation(null);
+    setIsMobileInboxOpen(false);
+  };
+
+  const closeAiAgentChat = () => {
+    setIsAiAgentChatOpen(false);
+    setIsMobileInboxOpen(false);
+  };
+
+  const selectCustomerConversation = (conversation: WhatsAppConversation) => {
+    setIsAiAgentChatOpen(false);
+    handleSelectConversation(conversation);
+  };
+
+  const toggleConversationPanel = () => {
+    if (isMobileViewport && isAiAgentChatOpen) {
+      closeAiAgentChat();
+      return;
+    }
+    handleToggleConversationPanel();
+  };
+
   return (
     <div
       ref={supportLayoutRef}
@@ -108,10 +145,10 @@ export default function CustomerSupport() {
           unreadCountTotal={unreadCountTotal}
           isInboxSidebarOpen={inboxPanelVisible}
           onToggleInboxSidebar={handleToggleInboxPanel}
-          isConversationSidebarOpen={isMobileViewport ? !selectedConversation : isConversationSidebarOpen}
-          onToggleConversationSidebar={handleToggleConversationPanel}
-          onOpenAiAgentModal={() => setIsAiAgentModalOpen(true)}
-          isAiAgentModalOpen={isAiAgentModalOpen}
+          isConversationSidebarOpen={isMobileViewport ? !selectedConversation && !isAiAgentChatOpen : isConversationSidebarOpen}
+          onToggleConversationSidebar={toggleConversationPanel}
+          onOpenAiAgentChat={openAiAgentChat}
+          isAiAgentChatOpen={isAiAgentChatOpen}
         />
       </div>
 
@@ -160,6 +197,7 @@ export default function CustomerSupport() {
         inboxPanelRef={inboxPanelRef}
         isMobileViewport={isMobileViewport}
         selectedConversation={selectedConversation}
+        isAiAgentChatOpen={isAiAgentChatOpen}
         isConversationSidebarOpen={isConversationSidebarOpen}
         conversationPanelStyle={conversationPanelStyle}
         conversations={conversations}
@@ -173,19 +211,39 @@ export default function CustomerSupport() {
         currentUserId={user?.id}
         canViewCommercialInfo={canViewCommercialInfo}
         conversationSidebarWidth={conversationSidebarWidth}
-        onSelectConversation={handleSelectConversation}
+        onSelectConversation={selectCustomerConversation}
         onJumpToMessage={jumpToMessage}
         onFilterChange={handleFilterChange}
         onRefresh={loadConversations}
         onLoadMore={loadMoreConversations}
-        onToggleConversationSidebar={handleToggleConversationPanel}
+        onToggleConversationSidebar={toggleConversationPanel}
         setConversationSidebarWidth={setConversationSidebarWidth}
         setIsConversationSidebarOpen={setIsConversationSidebarOpen}
         setIsDraggingSupportPanel={setIsDraggingSupportPanel}
       />
 
       {/* Coluna 4: Área Principal do Chat (Flex-1) */}
-      {selectedConversation ? (
+      <div
+        id="customer-support-ai-test-chat"
+        aria-hidden={!isAiAgentChatOpen}
+        className={isAiAgentChatOpen ? 'flex flex-1 h-full min-w-0' : 'hidden'}
+      >
+        {hasOpenedAiAgentChat && (
+          <AiAgentTabTestChat
+            rules={aiAgentSettings.situationRules}
+            knowledgeBase={aiAgentSettings.knowledgeBase}
+            workflows={aiAgentSettings.workflows}
+            enabledTools={aiAgentSettings.enabledTools}
+            systemPrompt={aiAgentSettings.systemPrompt}
+            supportMode={aiAgentSettings.supportMode}
+            isAiAgentEnabled={isAiAgentEnabled}
+            isAgentStatusKnown={isAgentStatusKnown}
+            onOpenSettings={() => setIsAiAgentModalOpen(true)}
+            onBack={closeAiAgentChat}
+          />
+        )}
+      </div>
+      {!isAiAgentChatOpen && (selectedConversation ? (
         <CustomerSupportActiveConversation
           selectedConversation={selectedConversation}
           agents={agents}
@@ -214,7 +272,7 @@ export default function CustomerSupport() {
           onSendCustomerMessage={handleSendCustomerMessage}
           onRefreshMessages={refreshMessages}
           resolveReplyTarget={resolveReplyTarget}
-          onSelectConversation={handleSelectConversation}
+          onSelectConversation={selectCustomerConversation}
           jumpToMessage={jumpToMessage}
           jumpToMessageId={jumpToMessageId}
           clearJumpToMessage={clearJumpToMessage}
@@ -229,13 +287,17 @@ export default function CustomerSupport() {
         <div className="hidden md:flex flex-1 h-full min-w-0 md:min-w-[240px]">
           <EmptyChatState enableDevelopmentTestMode={import.meta.env.DEV} />
         </div>
-      )}
+      ))}
 
       {/* Modal de Configurações do Agente de IA do WhatsApp */}
       {isAiAgentModalOpen && (
         <WhatsAppAiAgentModal
           isOpen={isAiAgentModalOpen}
           onClose={() => setIsAiAgentModalOpen(false)}
+          isAiAgentEnabled={isAiAgentEnabled}
+          isAgentStatusKnown={isAgentStatusKnown}
+          isTogglingAiAgent={isTogglingAiAgent}
+          onToggleAiAgent={handleToggleAiAgent}
         />
       )}
     </div>

@@ -1,5 +1,5 @@
 import { supabase } from '@/pages/utils/supabaseConfig';
-import type { CreateLabelImageInput, LabelImage } from '../types/LabelImage.types';
+import { LABEL_IMAGE_PAGE_SIZE, type CreateLabelImageInput, type LabelImagePage } from '../types/LabelImage.types';
 import {
   labelImageQueryFormSchema, labelImageCreateFormSchema, labelImageDeleteFormSchema,
   labelImageRecordSchema, LabelImageUnconfirmedError,
@@ -14,15 +14,23 @@ const checkWriteError = (error: { code?: string } | null, status?: number): void
   throw error;
 };
 
-export async function fetchLabelImages(options: { sort: 'newest' | 'oldest' } = { sort: 'newest' }): Promise<LabelImage[]> {
+export async function fetchLabelImages(options: { sort: 'newest' | 'oldest'; page?: number } = { sort: 'newest' }): Promise<LabelImagePage> {
   const query = labelImageQueryFormSchema.parse(options);
-  const { data, error } = await supabase
+  const ascending = query.sort === 'oldest';
+  const from = query.page * LABEL_IMAGE_PAGE_SIZE;
+  const to = from + LABEL_IMAGE_PAGE_SIZE - 1;
+  if (!Number.isSafeInteger(from) || from < 0 || !Number.isSafeInteger(to)) throw new Error('Página inválida.');
+  const { data, error, count } = await supabase
     .from('label_images')
-    .select('*')
-    .order('created_at', { ascending: query.sort === 'oldest' });
+    .select('id,name,image,category', { count: 'exact' })
+    .order('created_at', { ascending })
+    .order('id', { ascending })
+    .range(from, to);
 
   if (error) throw error;
-  return labelImageRecordSchema.array().parse(data);
+  if (typeof count !== 'number' || !Number.isSafeInteger(count) || count < 0) throw new Error('Não foi possível confirmar o total de imagens.');
+  const rows = labelImageRecordSchema.array().parse(data);
+  return { rows, totalCount: count };
 }
 
 export async function createLabelImage(input: CreateLabelImageInput): Promise<LabelImage> {

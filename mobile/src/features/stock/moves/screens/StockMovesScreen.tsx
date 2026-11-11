@@ -29,6 +29,7 @@ export const StockMovesScreen: React.FC<Props> = ({
     moves,
     loading,
     error,
+    isOnline,
     page,
     totalPages,
     goToPage,
@@ -97,9 +98,20 @@ export const StockMovesScreen: React.FC<Props> = ({
           onSelectProduct={handleSelectProduct}
           onClearProduct={handleClearProduct}
         />
-        {Boolean(selectedProductName) && (
-          <StockBalanceBadge currentStock={currentStock} isDarkMode={isDarkMode} />
-        )}
+        {Boolean(selectedProductName) &&
+          (!isOnline || loading || error ? (
+            <View style={[styles.balanceNotice, isDarkMode && styles.balanceNoticeDark]}>
+              <Text style={[styles.balanceNoticeText, isDarkMode && styles.balanceNoticeTextDark]}>
+                {!isOnline
+                  ? 'Saldo não atualizado sem conexão.'
+                  : loading
+                    ? 'Atualizando saldo...'
+                    : 'Saldo não atualizado.'}
+              </Text>
+            </View>
+          ) : (
+            <StockBalanceBadge currentStock={currentStock} isDarkMode={isDarkMode} />
+          ))}
       </View>
     </View>
   );
@@ -125,7 +137,11 @@ export const StockMovesScreen: React.FC<Props> = ({
           if (item.type === 'ERROR')
             return (
               <View style={[styles.emptyState, isDarkMode && styles.emptyStateDark]}>
-                <Text style={styles.errorTitle}>Não foi possível carregar as movimentações</Text>
+                <Text style={styles.errorTitle}>
+                  {!isOnline
+                    ? 'Movimentações indisponíveis sem conexão'
+                    : 'Não foi possível carregar as movimentações'}
+                </Text>
                 <Text style={styles.errorMessage}>{item.message}</Text>
               </View>
             );
@@ -150,7 +166,7 @@ export const StockMovesScreen: React.FC<Props> = ({
             </View>
           );
         }}
-        ListFooterComponent={
+        ListFooterComponent={isOnline ? (
           <View style={[styles.paginationContainer, isDarkMode && styles.paginationContainerDark]}>
             {loading ? (
               <ActivityIndicator size="small" color="#2563eb" />
@@ -166,7 +182,7 @@ export const StockMovesScreen: React.FC<Props> = ({
               </View>
             )}
           </View>
-        }
+        ) : null}
       />
 
       <StockPeriodModal

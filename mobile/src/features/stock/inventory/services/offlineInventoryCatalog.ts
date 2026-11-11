@@ -32,6 +32,7 @@ let syncInFlight: Promise<{ success: boolean; syncedAt: string | null }> | null 
 let cachedCatalog: OfflineInventoryCatalog | null = null;
 let lastSyncAttemptAt = 0;
 const CATALOG_QUERY_TIMEOUT_MS = 10_000;
+type InventoryCatalogSyncResult = { success: boolean; syncedAt: string | null };
 
 async function awaitCatalogQuery<T>(promise: Promise<T>, label: string): Promise<T> {
   const result = await withTimeout(
@@ -88,7 +89,7 @@ const fetchInventoryResponsibleRows = async (): Promise<CatalogRow[]> => {
   const rows: CatalogRow[] = [];
   const pageSize = 500;
   const columns =
-    'id, person_type, full_name, social_name, nickname, email, position, address, active, deleted, updated_at';
+    'id, person_type, full_name, social_name, nickname, email, position, address, deleted, updated_at';
   for (let offset = 0; ; offset += pageSize) {
     const { data, error } = await supabase
       .from('people')
@@ -134,6 +135,31 @@ export const normalizeInventoryResponsibleRow = (employee: CatalogRow): CatalogR
   };
 };
 
+const resolveCurrentEmployeeIdFromRows = (rows: CatalogRow[], email?: string | null) => {
+  const normalizedEmail = email?.trim().toLowerCase();
+  if (!normalizedEmail || /[%_\\]/.test(normalizedEmail) || /[^\x00-\x7F]/.test(normalizedEmail))
+    return { available: false, employeeId: null };
+
+  const matchingRows = rows.filter(
+    (row) =>
+      row.person_type === 'employees' &&
+      row.deleted !== true &&
+      typeof row.email === 'string' &&
+      row.email.toLowerCase() === normalizedEmail
+  );
+  // Keep the original email query for duplicates: its server ordering and limit decide the winner.
+  if (matchingRows.length > 1) return { available: false, employeeId: null };
+  if (matchingRows.length === 0) return { available: true, employeeId: null };
+
+  const currentEmployee = filterInventoryResponsibleCandidates(
+    matchingRows.map(normalizeInventoryResponsibleRow)
+  )[0];
+  return {
+    available: true,
+    employeeId: currentEmployee?.id ? String(currentEmployee.id) : null,
+  };
+};
+
 export const getOfflineInventoryCatalog = async (): Promise<OfflineInventoryCatalog> => {
   if (cachedCatalog) return cachedCatalog;
   const stored = await getLocalInventoryCatalogSnapshot<OfflineInventoryCatalog>();
@@ -148,11 +174,11 @@ export const getOfflineInventoryCatalog = async (): Promise<OfflineInventoryCata
   return cachedCatalog;
 };
 
-export const syncOfflineInventoryCatalog = async (): Promise<{
-  success: boolean;
-  syncedAt: string | null;
-}> => {
-  if (syncInFlight) return syncInFlight;
+const syncOfflineInventoryCatalogInternal = async (
+  onResponsibleRowsLoaded?: (rows: CatalogRow[]) => void,
+  onResponsibleRowsUnavailable?: () => void
+): Promise<{ result: InventoryCatalogSyncResult; started: boolean }> => {
+  if (syncInFlight) return { result: await syncInFlight, started: false };
   lastSyncAttemptAt = Date.now();
   syncInFlight = (async () => {
     try {
@@ -214,6 +240,19 @@ export const syncOfflineInventoryCatalog = async (): Promise<{
           'inventory:responsibles'
         ),
       ]);
+      if (employeesResult) {
+        try {
+          onResponsibleRowsLoaded?.(employeesResult);
+        } catch {
+          // Resolving the current employee is an optimization; it must not fail catalog refresh.
+        }
+      } else {
+        try {
+          onResponsibleRowsUnavailable?.();
+        } catch {
+          // Resolving the current employee is an optimization; it must not fail catalog refresh.
+        }
+      }
       const fetchedEmployees = (employeesResult || []).map(normalizeInventoryResponsibleRow);
       const uniqueEligibleIds = new Set(
         filterInventoryResponsibleCandidates(fetchedEmployees).map((employee) =>
@@ -287,6 +326,11 @@ export const syncOfflineInventoryCatalog = async (): Promise<{
       cachedCatalog = compact;
       return { success: true, syncedAt: compact.syncedAt };
     } catch (error) {
+      try {
+        onResponsibleRowsUnavailable?.();
+      } catch {
+        // Keep fallback resolution from changing the catalog sync result.
+      }
       console.warn(
         '[Inventory catalog] Sincronização offline indisponível; usando o índice salvo:',
         error
@@ -296,7 +340,12 @@ export const syncOfflineInventoryCatalog = async (): Promise<{
       syncInFlight = null;
     }
   })();
-  return syncInFlight;
+  return { result: await syncInFlight, started: true };
+};
+
+export const syncOfflineInventoryCatalog = async (): Promise<InventoryCatalogSyncResult> => {
+  const { result } = await syncOfflineInventoryCatalogInternal();
+  return result;
 };
 
 export const ensureOfflineInventoryCatalogSynced = async () => {
@@ -309,6 +358,71 @@ export const ensureOfflineInventoryCatalogSynced = async () => {
   )
     return { success: false, syncedAt: catalog.syncedAt };
   return syncOfflineInventoryCatalog();
+};
+
+export const ensureOfflineInventoryCatalogSyncedForCurrentEmployee = async (
+  email?: string | null,
+  resolveFallback?: () => Promise<string | null>
+): Promise<
+  InventoryCatalogSyncResult & {
+    currentEmployeeId: string | null;
+    responsibleRowsLoaded: boolean;
+  }
+> => {
+  const catalog = await getOfflineInventoryCatalog();
+  const normalizedEmail = email?.trim().toLowerCase();
+  let fallbackPromise: Promise<string | null> | null = null;
+  const startFallback = () => {
+    if (!fallbackPromise) {
+      fallbackPromise = resolveFallback
+        ? Promise.resolve().then(resolveFallback).catch(() => null)
+        : Promise.resolve(null);
+    }
+    return fallbackPromise;
+  };
+  const canStartFreshSync =
+    !(catalog.syncedAt && Date.now() - lastSyncAttemptAt < 5 * 60 * 1000) &&
+    connectivityService.connected &&
+    !(typeof navigator !== 'undefined' && (navigator as any).onLine === false);
+
+  if (!canStartFreshSync || !normalizedEmail) {
+    const [result, currentEmployeeId] = await Promise.all([
+      ensureOfflineInventoryCatalogSynced(),
+      startFallback(),
+    ]);
+    return { ...result, currentEmployeeId, responsibleRowsLoaded: false };
+  }
+
+  if (syncInFlight) {
+    const [result, currentEmployeeId] = await Promise.all([syncInFlight, startFallback()]);
+    return { ...result, currentEmployeeId, responsibleRowsLoaded: false };
+  }
+
+  let currentEmployeeId: string | null = null;
+  let responsibleRowsLoaded = false;
+  const { result, started } = await syncOfflineInventoryCatalogInternal((rows) => {
+    const resolution = resolveCurrentEmployeeIdFromRows(rows, normalizedEmail);
+    if (!resolution.available) {
+      void startFallback();
+      return;
+    }
+    responsibleRowsLoaded = true;
+    currentEmployeeId = resolution.employeeId;
+  }, () => void startFallback());
+
+  if (!result.success || !started || !responsibleRowsLoaded) {
+    return {
+      ...result,
+      currentEmployeeId: await startFallback(),
+      responsibleRowsLoaded: false,
+    };
+  }
+
+  return {
+    ...result,
+    currentEmployeeId,
+    responsibleRowsLoaded: true,
+  };
 };
 
 export const getOfflineInventoryScopeProducts = async (): Promise<Array<Record<string, any>>> =>

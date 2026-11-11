@@ -22,7 +22,7 @@ export async function maybeTriggerWhatsAppAiAgent(
   dependencies: WhatsAppAiAgentDependencies = {}
 ): Promise<WhatsAppAiAgentResult> {
   // 1. Prevenção imediata de duplicatas de webhook no processo (fast-path)
-  if (isMessageAlreadyProcessedOrInFlight(inbound.wamid)) {
+  if (!dependencies.durableJob && isMessageAlreadyProcessedOrInFlight(inbound.wamid)) {
     return { executed: false, reason: 'already_processed_or_in_flight' };
   }
   markMessageInFlight(inbound.wamid);
@@ -43,7 +43,9 @@ export async function maybeTriggerWhatsAppAiAgent(
       conversationId: inbound.conversationId,
       triggerWamid: inbound.wamid,
       triggerMessageId: inbound.messageId,
-      leaseSeconds: 60,
+      // O webhook tem maxDuration de 60 s; a lease extra cobre a janela de
+      // finalização sem permitir que outra instância assuma o turno no meio.
+      leaseSeconds: 120,
       modelRequested: targetModel,
     });
 

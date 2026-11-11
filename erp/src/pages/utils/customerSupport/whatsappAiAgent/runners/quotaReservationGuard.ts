@@ -15,19 +15,24 @@ export async function checkAndReserveAiQuota(
   supabase: SupabaseClient,
   provider: 'openai',
   modelToUse: string,
-  toolContext?: SafeToolContext
+  toolContext?: SafeToolContext,
+  estimatedTokens = 1500
 ): Promise<QuotaCheckResult> {
   if (typeof supabase?.rpc !== 'function') {
-    return { blocked: false };
+    throw new Error('A verificação de cota de IA está indisponível. O atendimento automático foi interrompido.');
   }
 
   try {
-    const { data: quotaResult } = await supabase.rpc('check_and_reserve_ai_quota', {
+    const { data: quotaResult, error } = await supabase.rpc('customer_support_reserve_ai_quota', {
       p_provider: provider,
       p_service: 'whatsapp_ai_agent',
-      p_estimated_tokens: 1500,
+      p_estimated_tokens: estimatedTokens,
       p_module_source: 'whatsapp_commercial_agent',
     });
+
+    if (error || !quotaResult || typeof quotaResult.allowed !== 'boolean') {
+      throw new Error(error?.message || 'Resposta inválida da verificação de cota.');
+    }
 
     if (quotaResult && !quotaResult.allowed) {
       const reason = quotaResult.reason || 'Limite de cota de IA atingido.';
@@ -35,13 +40,18 @@ export async function checkAndReserveAiQuota(
 
       // PONTO CRÍTICO: Executa diretamente a transição de atendimento humano no PostgreSQL
       // muta a conversa no banco sem acionar o modelo de IA.
-      if (toolContext) {
-        await executeSafeTool(
+      if (toolContext?.conversationId) {
+        const handoffResult = await executeSafeTool(
           supabase,
           'encaminharParaAtendimentoHumano',
           { motivo: `Limite de cota de IA atingido: ${reason}` },
           toolContext
         );
+        if (handoffResult?.success !== true) {
+          throw new Error('A transferência humana não pôde ser confirmada.');
+        }
+      } else {
+        throw new Error('A transferência humana não pôde ser confirmada.');
       }
 
       return {
@@ -53,6 +63,7 @@ export async function checkAndReserveAiQuota(
           modelEffective: modelToUse,
           fallbackReason: `quota_blocked: ${reason}`,
           quotaBlocked: true,
+          handoffConfirmed: true,
           errorInfo: {
             type: 'quota_exhausted',
             message: reason,
@@ -62,14 +73,14 @@ export async function checkAndReserveAiQuota(
           },
         },
       };
-    } else if (quotaResult?.reservation_id) {
+    } else if (quotaResult.reservation_id) {
       return { blocked: false, reservationId: quotaResult.reservation_id };
     }
+    throw new Error('A cota foi aprovada sem criar a reserva de segurança.');
   } catch (quotaErr) {
-    console.warn('[whatsappAiModelRunner] Falha não bloqueante ao consultar quota no banco:', quotaErr);
+    console.error('[whatsappAiModelRunner] Não foi possível reservar a cota de IA:', quotaErr);
+    throw new Error('A verificação de custo da IA está indisponível. O atendimento não enviou uma resposta automática.');
   }
-
-  return { blocked: false };
 }
 
 /**

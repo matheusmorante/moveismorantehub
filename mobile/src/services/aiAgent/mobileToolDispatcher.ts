@@ -13,6 +13,7 @@ import {
   resolveRuntimeAgentPermissionContext,
   setActiveAgentPermissionContext,
 } from '../../../../shared-utils/agentPermissionGuard';
+import { sanitizeAgentToolResponseForModel } from '../../../../shared-utils/agentToolResponse';
 
 // Despachante seguro e isolado de chamadas de ferramentas no Mobile com verificação de perfil de acesso
 
@@ -36,7 +37,14 @@ export class MobileToolDispatcher {
           permissionContext
         );
         setActiveAgentPermissionContext(effectivePermission);
-        const permCheck = checkAgentToolPermission(name, args || {}, effectivePermission);
+        const permCheck = effectivePermission
+          ? checkAgentToolPermission(name, args || {}, effectivePermission)
+          : {
+              allowed: false,
+              requiredActions: [],
+              code: 'PERMISSION_DENIED',
+              error: 'Não foi possível validar as permissões do operador para esta consulta.',
+            };
         if (!permCheck.allowed) {
           result = {
             success: false,
@@ -46,7 +54,7 @@ export class MobileToolDispatcher {
               `Seu perfil de acesso não possui permissão para executar "${name}".`,
           };
         } else {
-          result = await toolFn(args || {});
+          result = await toolFn(args || {}, effectivePermission);
         }
       } else {
         result = {
@@ -76,7 +84,7 @@ export class MobileToolDispatcher {
       name,
       response: {
         name,
-        content: result,
+        content: sanitizeAgentToolResponseForModel(result),
       },
     };
 

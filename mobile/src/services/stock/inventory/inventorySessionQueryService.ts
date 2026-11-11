@@ -3,6 +3,7 @@ import { ITEMS_PER_PAGE, getStockPeriod } from '../stockMovesService';
 import { offlineStorageService } from '../../offline/offlineStorageService';
 import { getLocalInventoryDraft } from '../../sqlite/inventoryDrafts';
 import { getInventorySubmission } from '../../sqlite/inventoryOutbox';
+import { connectivityService } from '../../offline/connectivityService';
 import { withTimeout } from '../../../../../shared-utils/withTimeout';
 import { sumInventoryCountedQuantities } from '../../../../../shared-utils/inventorySupplierStages';
 
@@ -99,17 +100,48 @@ const mapInventorySessionMarker = (
   };
 };
 
-export const fetchInventorySessions = async (
+export interface InventorySessionsFetchResult {
+  sessions: any[];
+  fromCache: boolean;
+}
+
+export const fetchInventorySessionsWithStatus = async (
   page: number,
   startDate?: string,
   endDate?: string,
-  userId?: string | null
-) => {
+  userId?: string | null,
+  periodDays = 0
+): Promise<InventorySessionsFetchResult> => {
   const from = page * ITEMS_PER_PAGE;
   const to = from + ITEMS_PER_PAGE - 1;
   const period = getStockPeriod(startDate, endDate);
-  const sessionsCacheKey = getUserScopedCacheKey(INVENTORY_SESSIONS_CACHE_KEY, userId);
+  const sessionsCacheKey = getUserScopedCacheKey(
+    periodDays > 0
+      ? `${INVENTORY_SESSIONS_CACHE_KEY}:${periodDays}d`
+      : INVENTORY_SESSIONS_CACHE_KEY,
+    userId
+  );
+  const legacySessionsCacheKey =
+    periodDays > 0 ? getUserScopedCacheKey(INVENTORY_SESSIONS_CACHE_KEY, userId) : null;
   const detailsCacheKey = getUserScopedCacheKey(INVENTORY_SESSION_DETAILS_CACHE_KEY, userId);
+  const readCachedSessions = async (): Promise<any[] | undefined> => {
+    if (page !== 0) return undefined;
+    const cacheKeys = [sessionsCacheKey, legacySessionsCacheKey].filter(
+      (key): key is string => Boolean(key)
+    );
+    for (const cacheKey of cacheKeys) {
+      try {
+        const cached = await offlineStorageService.getWorkingSet<any[]>(cacheKey);
+        if (Array.isArray(cached?.data)) return cached.data;
+      } catch {}
+    }
+    return undefined;
+  };
+
+  if (!connectivityService.connected) {
+    const cached = await readCachedSessions();
+    return { sessions: cached || [], fromCache: cached !== undefined };
+  }
 
   try {
     let query = supabase
@@ -117,10 +149,26 @@ export const fetchInventorySessions = async (
       .select('id, label, observation, quantity, date, created_at')
       .ilike('label', 'Inventário #%')
       .order('created_at', { ascending: false })
-      .range(from, to);
+      .order('date', { ascending: false });
 
-    if (period.start) query = query.gte('created_at', period.start);
-    if (period.end) query = query.lte('created_at', period.end);
+    if (period.start || period.end) {
+      const createdAtBounds = [
+        period.start ? `created_at.gte.${period.start}` : undefined,
+        period.end ? `created_at.lte.${period.end}` : undefined,
+      ].filter((condition): condition is string => Boolean(condition));
+      const legacyDateBounds = [
+        'created_at.is.null',
+        period.start ? `date.gte.${period.start}` : undefined,
+        period.end ? `date.lte.${period.end}` : undefined,
+      ].filter((condition): condition is string => Boolean(condition));
+      const createdAtFilter =
+        createdAtBounds.length === 1
+          ? createdAtBounds[0]
+          : `and(${createdAtBounds.join(',')})`;
+      query = query.or(`${createdAtFilter},and(${legacyDateBounds.join(',')})`);
+    }
+
+    query = query.range(from, to);
 
     const { data: markerMoves, error } = await query;
 
@@ -128,7 +176,9 @@ export const fetchInventorySessions = async (
       throw error;
     }
 
-    if (!markerMoves || markerMoves.length === 0) return [];
+    if (!markerMoves || markerMoves.length === 0) {
+      return { sessions: [], fromCache: false };
+    }
 
     // Cachear detalhes (observation) das sessões remotas para consulta/duplicação offline
     try {
@@ -180,21 +230,29 @@ export const fetchInventorySessions = async (
         .catch(() => {});
     }
 
-    return mappedSessions;
+    return { sessions: mappedSessions, fromCache: false };
   } catch (error) {
     console.warn('Erro ao buscar auditorias de inventário (usando fallback offline):', error);
-    if (page === 0 && sessionsCacheKey) {
-      try {
-        const cached = await offlineStorageService.getWorkingSet<any[]>(
-          sessionsCacheKey
-        );
-        if (Array.isArray(cached?.data)) {
-          return cached.data;
-        }
-      } catch {}
-    }
-    return [];
+    const cached = await readCachedSessions();
+    return { sessions: cached || [], fromCache: cached !== undefined };
   }
+};
+
+export const fetchInventorySessions = async (
+  page: number,
+  startDate?: string,
+  endDate?: string,
+  userId?: string | null,
+  periodDays = 0
+): Promise<any[]> => {
+  const result = await fetchInventorySessionsWithStatus(
+    page,
+    startDate,
+    endDate,
+    userId,
+    periodDays
+  );
+  return result.sessions;
 };
 
 export const getNextInventoryCode = async (
@@ -214,6 +272,43 @@ export const getNextInventoryCode = async (
   if (error) throw error;
   if (typeof data !== 'string' || !data) {
     throw new Error('O servidor não retornou um código de inventário reservado.');
+  }
+  return data;
+};
+
+export const getNextInventoryCodes = async (
+  reservedCodes: readonly string[],
+  count: number
+): Promise<string[]> => {
+  if (!Number.isInteger(count) || count < 1 || count > 1000) {
+    throw new Error('A quantidade de códigos deve ficar entre 1 e 1.000.');
+  }
+  if (reservedCodes.length > 1000) {
+    throw new Error('A lista de códigos reservados excede o limite de 1.000.');
+  }
+
+  const response = await withTimeout(
+    Promise.resolve(
+      supabase.rpc('reserve_next_inventory_codes', {
+        p_reserved_codes: [...reservedCodes],
+        p_count: count,
+      })
+    ).then((result) => ({ result })),
+    5_000,
+    null as { result: { data: string[] | null; error: any } } | null,
+    'inventory:next-codes'
+  );
+  if (!response) throw new Error('A reserva em lote excedeu 5000ms.');
+  const { data, error } = response.result;
+
+  if (error) throw error;
+  if (
+    !Array.isArray(data) ||
+    data.length !== count ||
+    data.some((code) => typeof code !== 'string' || !/^\d{6}$/.test(code)) ||
+    new Set(data).size !== count
+  ) {
+    throw new Error('O servidor não retornou a quantidade esperada de códigos distintos.');
   }
   return data;
 };

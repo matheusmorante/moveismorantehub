@@ -5,6 +5,7 @@ import { withTimeout } from '../../../../../shared-utils/withTimeout';
 import {
   clearOfflineInventoryCatalogCache,
   ensureOfflineInventoryCatalogSynced,
+  ensureOfflineInventoryCatalogSyncedForCurrentEmployee,
   getOfflineInventoryCatalog,
   getOfflineInventoryScopeProducts,
   getOfflineInventoryResponsibleOptions,
@@ -28,8 +29,10 @@ const assertInventoryCatalogCurrent = (formatVersion?: number) => {
   }
 };
 
-export const fetchInventoryScopeSuppliers = async () => {
-  await ensureOfflineInventoryCatalogSynced();
+export const fetchInventoryScopeSuppliers = async (
+  options: { catalogSyncAlreadyChecked?: boolean } = {}
+) => {
+  if (!options.catalogSyncAlreadyChecked) await ensureOfflineInventoryCatalogSynced();
   const catalog = await getOfflineInventoryCatalog();
   assertInventoryCatalogCurrent(catalog.formatVersion);
   if (!catalog.syncedAt && Object.keys(catalog.suppliers).length === 0) {
@@ -78,17 +81,18 @@ const resolveCurrentInventoryEmployeeId = async (email?: string | null): Promise
 };
 
 export const fetchInventoryScopeEmployees = async (currentUserEmail?: string | null) => {
-  const currentEmployeeIdPromise = resolveCurrentInventoryEmployeeId(currentUserEmail);
-  await ensureOfflineInventoryCatalogSynced();
-  const catalog = await getOfflineInventoryCatalog();
-  const [employees, currentEmployeeId] = await Promise.all([
+  const syncResult = await ensureOfflineInventoryCatalogSyncedForCurrentEmployee(
+    currentUserEmail,
+    () => resolveCurrentInventoryEmployeeId(currentUserEmail)
+  );
+  const [catalog, employees] = await Promise.all([
+    getOfflineInventoryCatalog(),
     getOfflineInventoryResponsibleOptions(),
-    currentEmployeeIdPromise,
   ]);
   return {
     employees,
     syncedAt: catalog.employeesSyncedAt || null,
-    currentEmployeeId,
+    currentEmployeeId: syncResult.currentEmployeeId,
   };
 };
 

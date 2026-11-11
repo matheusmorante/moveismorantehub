@@ -26,6 +26,8 @@ interface UseProductAutocompleteProps {
   compositionsOnly?: boolean;
   includeDeactivated?: boolean;
   includeTrashEligibility?: boolean;
+  filterCombosOnServer?: boolean;
+  compactComponentProjection?: boolean;
   allowedProductKinds?: readonly ProductKind[];
   excludedProductLinks?: readonly ProductAutocompleteExcludedLink[];
   localProducts?: Product[];
@@ -44,6 +46,8 @@ export function useProductAutocomplete({
   compositionsOnly = false,
   includeDeactivated = false,
   includeTrashEligibility = true,
+  filterCombosOnServer = false,
+  compactComponentProjection = false,
   allowedProductKinds,
   excludedProductLinks,
   localProducts,
@@ -67,6 +71,8 @@ export function useProductAutocomplete({
     compositionsOnly,
     includeDeactivated,
     includeTrashEligibility,
+    filterCombosOnServer,
+    compactComponentProjection,
     excludeCombos,
     allowedProductKinds,
     excludedProductLinks,
@@ -133,6 +139,8 @@ export function useProductAutocomplete({
               25 + (excludedProductLinks?.length || 0),
               compositionsOnly ? 'composition' : undefined,
               includeTrashEligibility,
+              filterCombosOnServer,
+              compactComponentProjection,
             ), 10000, null, 'autocomplete:produtos');
         if (!active) return;
         if (!Array.isArray(productsData)) throw new Error('A busca de produtos não foi confirmada. Consulte novamente.');
@@ -262,6 +270,8 @@ export function useProductAutocomplete({
     productsOnly,
     includeDeactivated,
     includeTrashEligibility,
+    filterCombosOnServer,
+    compactComponentProjection,
     excludeCombos,
     allowedProductKinds,
     excludedProductLinks,

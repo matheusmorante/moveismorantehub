@@ -14,6 +14,9 @@ vi.mock('@/context/AuthContext', () => ({ useAuth: () => ({ user: { id: mocks.us
 vi.mock('@/pages/utils/permissionService', () => ({ canPerform: () => true }));
 vi.mock('@/pages/utils/accessRoles', () => ({ getProfileRoles: () => ['administrator'] }));
 vi.mock('@/pages/utils/supabaseConfig', () => ({ supabase: {} }));
+vi.mock('../hooks/useWhatsAppAiAgentSwitch', () => ({
+  useWhatsAppAiAgentSwitch: () => ({ isAiAgentEnabled: false, isAgentStatusKnown: false, isTogglingAiAgent: false, handleToggleAiAgent: vi.fn() }),
+}));
 vi.mock('@/pages/utils/customerSupport/customerSupportService', () => ({ fetchTeamProfiles: async () => [] }));
 vi.mock('../hooks', () => ({
   useCustomerSupportFolders: () => ({ folders: [mocks.folder], selectedFolder: null, removeFolder: mocks.removeFolder }),

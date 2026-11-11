@@ -160,7 +160,7 @@ describe(`[${testRunId}] Mobile productAgentTools - Consulta de Produtos`, () =>
     const { record, functionResponse } = await MobileToolDispatcher.execute({
       name: 'buscarProdutos',
       args: { termo: 'Cadeira' },
-    });
+    }, { role: 'administrator', enforced: true });
 
     expect(record.name).toBe('buscarProdutos');
     expect(functionResponse.response.content.success).toBe(true);
@@ -168,7 +168,7 @@ describe(`[${testRunId}] Mobile productAgentTools - Consulta de Produtos`, () =>
     const { record: recDetails } = await MobileToolDispatcher.execute({
       name: 'obterDetalhesProduto',
       args: { codigoOuSku: '999999' },
-    });
+    }, { role: 'administrator', enforced: true });
 
     expect(recDetails.name).toBe('obterDetalhesProduto');
   });

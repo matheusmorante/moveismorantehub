@@ -7,13 +7,20 @@ import {
   buildPostgrestAccentInsensitivePattern,
 } from '../../../../shared-utils/searchText';
 import {
+  buildAgentProductSearchFilter,
+  classifyAgentProductMatch,
+} from '../../../../shared-utils/agentProductSearch';
+import {
   AgentCreateProductInput,
   AgentUpdateProductInput,
   createProductForAgent,
   listProductCategoriesAndCharacteristicsForAgent,
   updateProductForAgent,
 } from '../../../../shared-utils/agentProductOperations';
-import { canAgentViewProductCost } from '../../../../shared-utils/agentPermissionGuard';
+import {
+  canAgentViewProductCost,
+  type AgentPermissionContext,
+} from '../../../../shared-utils/agentPermissionGuard';
 
 // Interfaces de transporte exclusivas para o Agente IA (sem IDs de banco)
 
@@ -23,6 +30,7 @@ export interface ProductSummaryForAgent {
   nome: string;
   categoria: string;
   marca: string;
+  linha?: string;
   condicao: string;
   preco: number;
   precoPromocional?: number;
@@ -265,7 +273,7 @@ export const productAgentTools = {
     apenasAtivos?: boolean;
     naLixeira?: boolean;
     limite?: number;
-  }): Promise<ProductToolResponse<ProductSummaryForAgent[]>> {
+  }, permissionContext?: AgentPermissionContext | null): Promise<ProductToolResponse<ProductSummaryForAgent[]>> {
     try {
       const limit = Math.min(Math.max(Number(args.limite) || 10, 1), 30);
       const searchTerm = args.termo?.trim();
@@ -276,7 +284,7 @@ export const productAgentTools = {
       let query = supabase
         .from(TABLE_NAME)
         .select(
-          '*, product_variations(*), product_categories(*, categories(*)), product_images(*)',
+          'id,code,sku,name,title,description,category,brand,line,condition,unit_price,price,promo_price,cost_price,stock,unit,active,deleted,item_type,is_draft,status,product_variations(sku,name)',
           { count: 'exact' }
         )
         .eq('deleted', inTrash);
@@ -291,34 +299,32 @@ export const productAgentTools = {
 
       if (searchTerm) {
         let matchedParentIds: string[] = [];
-        try {
-          const { data: matchedVars } = await supabase
-            .from('product_variations')
-            .select('product_id')
-            .or(buildPostgrestAccentInsensitiveOrFilter(['name', 'sku'], searchTerm))
-            .limit(50);
-
-          if (matchedVars && matchedVars.length > 0) {
-            matchedParentIds = Array.from(
-              new Set(matchedVars.map((v: any) => v.product_id).filter(Boolean))
-            );
-          }
-        } catch (subErr) {
-          console.warn('[productAgentTools] Aviso ao pesquisar variações filhas:', subErr);
+        const { data: matchedVars, error: variationError } = await supabase
+          .from('product_variations')
+          .select('product_id')
+          .or(buildPostgrestAccentInsensitiveOrFilter(['name', 'sku'], searchTerm))
+          .limit(51);
+        if (variationError) {
+          return {
+            success: false,
+            code: 'DATABASE_ERROR',
+            error: 'Não consegui pesquisar as variações do catálogo agora. Tente novamente mais tarde.',
+          };
+        }
+        if ((matchedVars?.length || 0) > 50) {
+          return {
+            success: false,
+            code: 'SEARCH_TOO_BROAD',
+            error: 'A busca encontrou muitas variações. Informe um modelo, código ou característica mais específica.',
+          };
+        }
+        if (matchedVars?.length) {
+          matchedParentIds = Array.from(
+            new Set(matchedVars.map((variation: any) => variation.product_id).filter(Boolean))
+          );
         }
 
-        const orConditions = [
-          buildPostgrestAccentInsensitiveOrFilter(
-            ['name', 'description', 'code', 'sku', 'brand'],
-            searchTerm
-          ),
-        ];
-
-        if (matchedParentIds.length > 0) {
-          matchedParentIds.forEach((id) => orConditions.push(`id.eq.${id}`));
-        }
-
-        query = query.or(orConditions.join(','));
+        query = query.or(buildAgentProductSearchFilter(searchTerm, matchedParentIds));
       }
 
       query = query.order('created_at', { ascending: false }).limit(limit);
@@ -332,8 +338,28 @@ export const productAgentTools = {
         };
       }
 
-      const products: Product[] = (data || []).map((row, idx) => mapFromDB(row, idx));
-      const allowCost = canAgentViewProductCost();
+      const matchedRows = searchTerm
+        ? (data || []).filter((row: any) =>
+            classifyAgentProductMatch(
+              {
+                ...row,
+                description: [
+                  row.description,
+                  ...(Array.isArray(row.product_variations)
+                    ? row.product_variations.flatMap((variation: any) => [variation.name, variation.sku])
+                    : []),
+                ].filter(Boolean).join(' '),
+              },
+              searchTerm
+            ) === 'corresponding'
+          )
+        : data || [];
+      const products: Product[] = matchedRows.map((row, idx) => mapFromDB(row, idx));
+      const allowCost = permissionContext === undefined
+        ? canAgentViewProductCost()
+        : permissionContext === null
+          ? false
+          : canAgentViewProductCost(permissionContext);
       const sanitized = products.map((p) => sanitizeProductSummaryForAgent(p, allowCost));
 
       return {
@@ -356,7 +382,7 @@ export const productAgentTools = {
    */
   async obterDetalhesProduto(args: {
     codigoOuSku: string;
-  }): Promise<ProductToolResponse<ProductDetailForAgent>> {
+  }, permissionContext?: AgentPermissionContext | null): Promise<ProductToolResponse<ProductDetailForAgent>> {
     const rawTarget = args.codigoOuSku?.trim();
     if (!rawTarget) {
       return {
@@ -366,27 +392,46 @@ export const productAgentTools = {
           'É obrigatório informar o código oficial de 6 dígitos ou o SKU do produto para consultar detalhes.',
       };
     }
+    if (!/^[a-z\d_-]+$/i.test(rawTarget)) {
+      return {
+        success: false,
+        code: 'INVALID_IDENTIFIER',
+        error: 'Informe um código ou SKU completo e válido.',
+      };
+    }
 
     try {
       let { data, error } = await supabase
         .from(TABLE_NAME)
-        .select('*, product_variations(*), product_categories(*, categories(*)), product_images(*)')
+        .select(
+          'id,code,sku,name,title,marketplace_title,description,category,category_id,brand,line,condition,unit_price,price,promo_price,cost_price,freight_cost,stock,min_stock,unit,active,deleted,item_type,is_draft,status,product_kind,is_salvado,width,height,depth,weight,pkg_width,pkg_height,pkg_depth,extra_dimensions,material,colors,main_differential,not_included,images,product_variations(id,product_id,sku,name,unit_price,price,promo_price,cost_price,stock,active,attributes,images,height,width,depth,weight),product_categories(category_id,categories(name)),product_images(image_url,is_main),technical_specs,fiscal'
+        )
         .eq('deleted', false)
         .or(`code.eq.${rawTarget},sku.eq.${rawTarget}`)
         .maybeSingle();
 
       if (!data && !error) {
-        const { data: varData } = await supabase
+        const { data: varData, error: variationError } = await supabase
           .from('product_variations')
           .select('product_id')
           .eq('sku', rawTarget)
           .maybeSingle();
+        if (variationError) {
+          return {
+            success: false,
+            code: variationError.code === 'PGRST116' ? 'AMBIGUOUS_IDENTIFIER' : 'DATABASE_ERROR',
+            error:
+              variationError.code === 'PGRST116'
+                ? 'Esse SKU corresponde a mais de um produto. Confirme o identificador completo.'
+                : 'Não consegui consultar a ficha do produto agora.',
+          };
+        }
 
         if (varData?.product_id) {
           const { data: parentData, error: parentError } = await supabase
             .from(TABLE_NAME)
             .select(
-              '*, product_variations(*), product_categories(*, categories(*)), product_images(*)'
+              'id,code,sku,name,title,marketplace_title,description,category,category_id,brand,line,condition,unit_price,price,promo_price,cost_price,freight_cost,stock,min_stock,unit,active,deleted,item_type,is_draft,status,product_kind,is_salvado,width,height,depth,weight,pkg_width,pkg_height,pkg_depth,extra_dimensions,material,colors,main_differential,not_included,images,product_variations(id,product_id,sku,name,unit_price,price,promo_price,cost_price,stock,active,attributes,images,height,width,depth,weight),product_categories(category_id,categories(name)),product_images(image_url,is_main),technical_specs,fiscal'
             )
             .eq('id', varData.product_id)
             .maybeSingle();
@@ -396,26 +441,29 @@ export const productAgentTools = {
         }
       }
 
-      if (!data && !error && rawTarget.length >= 3) {
+      if (!data && !error && /^\d{1,5}$/.test(rawTarget)) {
         const paddedCode = rawTarget.padStart(6, '0');
-        const { data: fallbackData } = await supabase
+        const { data: fallbackData, error: fallbackError } = await supabase
           .from(TABLE_NAME)
           .select(
-            '*, product_variations(*), product_categories(*, categories(*)), product_images(*)'
+            'id,code,sku,name,title,marketplace_title,description,category,category_id,brand,line,condition,unit_price,price,promo_price,cost_price,freight_cost,stock,min_stock,unit,active,deleted,item_type,is_draft,status,product_kind,is_salvado,width,height,depth,weight,pkg_width,pkg_height,pkg_depth,extra_dimensions,material,colors,main_differential,not_included,images,product_variations(id,product_id,sku,name,unit_price,price,promo_price,cost_price,stock,active,attributes,images,height,width,depth,weight),product_categories(category_id,categories(name)),product_images(image_url,is_main),technical_specs,fiscal'
           )
           .eq('deleted', false)
-          .or(`code.eq.${paddedCode},sku.imatch.${buildPostgrestAccentInsensitivePattern(rawTarget)}`)
-          .limit(1)
+          .eq('code', paddedCode)
           .maybeSingle();
 
         data = fallbackData;
+        error = fallbackError;
       }
 
       if (error) {
         return {
           success: false,
-          code: 'DATABASE_ERROR',
-          error: error.message || 'Erro ao carregar detalhes do produto.',
+          code: error.code === 'PGRST116' ? 'AMBIGUOUS_IDENTIFIER' : 'DATABASE_ERROR',
+          error:
+            error.code === 'PGRST116'
+              ? 'Esse código ou SKU corresponde a mais de um produto. Confirme o identificador completo.'
+              : 'Não consegui consultar a ficha do produto agora. Tente novamente mais tarde.',
         };
       }
 
@@ -428,7 +476,11 @@ export const productAgentTools = {
       }
 
       const product = mapFromDB(data);
-      const allowCost = canAgentViewProductCost();
+      const allowCost = permissionContext === undefined
+        ? canAgentViewProductCost()
+        : permissionContext === null
+          ? false
+          : canAgentViewProductCost(permissionContext);
       const sanitized = sanitizeProductDetailForAgent(product, allowCost);
 
       return {
@@ -455,14 +507,26 @@ export const productAgentTools = {
   /**
    * Cria um novo produto no catálogo/estoque com suas variações, preços, estoque e ficha técnica.
    */
-  async criarProduto(args: AgentCreateProductInput): Promise<ProductToolResponse<ProductDetailForAgent>> {
-    return createProductForAgent(supabase, args);
+  async criarProduto(
+    args: AgentCreateProductInput,
+    permissionContext?: AgentPermissionContext | null
+  ): Promise<ProductToolResponse<ProductDetailForAgent>> {
+    const canViewCost = permissionContext === undefined
+      ? undefined
+      : permissionContext !== null && canAgentViewProductCost(permissionContext);
+    return createProductForAgent(supabase, args, canViewCost);
   },
 
   /**
    * Edita um produto existente (dados gerais, preços, estoque, dimensões, características, variações, ativação ou lixeira).
    */
-  async editarProduto(args: AgentUpdateProductInput): Promise<ProductToolResponse<ProductDetailForAgent>> {
-    return updateProductForAgent(supabase, args);
+  async editarProduto(
+    args: AgentUpdateProductInput,
+    permissionContext?: AgentPermissionContext | null
+  ): Promise<ProductToolResponse<ProductDetailForAgent>> {
+    const canViewCost = permissionContext === undefined
+      ? undefined
+      : permissionContext !== null && canAgentViewProductCost(permissionContext);
+    return updateProductForAgent(supabase, args, canViewCost);
   },
 };

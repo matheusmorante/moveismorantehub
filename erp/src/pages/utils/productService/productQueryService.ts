@@ -5,6 +5,14 @@ import { getProductSalesStats, searchHistoricalItems } from './productAnalyticsQ
 import { applyProductFiltersAndSort, type ProductQueryFilterOptions } from './productFilterBuilder';
 import { getLocalProducts, saveLocalProducts } from './productLocalCache';
 import { mapFromDB } from './productMapper';
+import {
+  mapProductComponentAutocompleteCandidate,
+  PRODUCT_COMPONENT_AUTOCOMPLETE_COLUMNS,
+} from './productAutocompleteCandidateMapper';
+import {
+  mapProductVariationBarcodeCandidate,
+  PRODUCT_VARIATION_BARCODE_CANDIDATE_COLUMNS,
+} from './productVariationBarcodeCandidateMapper';
 import { TABLE_NAME } from './productSkuService';
 import { calculateCompositionAvailability } from '../compositionMath';
 import { withAbortTimeout } from '../../../../../shared-utils/withAbortTimeout';
@@ -157,7 +165,12 @@ export const fetchProductsPage = async (
   page: number,
   pageSize: number,
   options?: ProductQueryFilterOptions,
-  requestOptions: { throwOnError?: boolean; includeTrashEligibility?: boolean } = {}
+  requestOptions: {
+    throwOnError?: boolean;
+    includeTrashEligibility?: boolean;
+    includeTotal?: boolean;
+    productProjection?: 'componentAutocomplete';
+  } = {}
 ): Promise<{ data: Product[]; total: number }> => {
   try {
     const from = (page - 1) * pageSize;
@@ -177,9 +190,19 @@ export const fetchProductsPage = async (
     };
     const orderColumn = columnMap[sortBy] || 'created_at';
 
-    const baseQuery = supabase.from(TABLE_NAME).select(LIGHT_COLUMNS_WITH_CATS, { count: 'exact' });
+    const isComponentAutocompleteProjection =
+      requestOptions.productProjection === 'componentAutocomplete';
+    const baseQuery = supabase.from(TABLE_NAME).select(
+      isComponentAutocompleteProjection
+        ? PRODUCT_COMPONENT_AUTOCOMPLETE_COLUMNS
+        : LIGHT_COLUMNS_WITH_CATS,
+      requestOptions.includeTotal === false ? {} : { count: 'exact' }
+    );
 
-    const { data, error, count } = await applyProductFiltersAndSort(baseQuery, options, {
+    const filters = isComponentAutocompleteProjection
+      ? { ...options, excludeCombos: true }
+      : options;
+    const { data, error, count } = await applyProductFiltersAndSort(baseQuery, filters, {
       orderColumn,
       ascending,
       from,
@@ -250,7 +273,9 @@ export const fetchProductsPage = async (
     }
 
     const mapped: Product[] = (data || []).map((p: any, idx: number) => {
-      const product = mapFromDB(p, idx);
+      const product = isComponentAutocompleteProjection
+        ? mapProductComponentAutocompleteCandidate(p, idx)
+        : mapFromDB(p, idx);
       const productCampaign = campaignByProduct.get(String(product.id || ''));
       const currentProduct = productCampaign
         ? {
@@ -285,7 +310,9 @@ export const fetchProductsPage = async (
     });
 
     return {
-      data: await applyCompositionAvailability(mapped),
+      data: isComponentAutocompleteProjection
+        ? mapped
+        : await applyCompositionAvailability(mapped),
       total: count ?? 0,
     };
   } catch (e) {
@@ -371,8 +398,19 @@ export const getFullProductsByIds = async (ids: string[]): Promise<Map<string, P
 
   const missingIds = uniqueIds.filter((id) => !result.has(id));
   if (missingIds.length) {
+    // If the batch returned some products but not all, recheck only the missing
+    // IDs individually before using local data. This preserves the previous
+    // fresh-read behavior if the server response was incomplete.
+    if (result.size) {
+      const fallbackProducts = await Promise.all(missingIds.map((id) => getFullProduct(id)));
+      for (const product of fallbackProducts) {
+        if (product?.id) result.set(String(product.id), product);
+      }
+    }
+
+    const stillMissingIds = uniqueIds.filter((id) => !result.has(id));
     const localProducts = getLocalProducts();
-    const cachedProducts = missingIds
+    const cachedProducts = stillMissingIds
       .map((id) => localProducts.find((product) => String(product.id) === id))
       .filter((product): product is Product => Boolean(product));
     const availableCachedProducts = await applyCompositionAvailability(cachedProducts);
@@ -398,18 +436,15 @@ export const findProductByVariationBarcode = async (
   if (!normalizedBarcode) return null;
   const { data, error } = await supabase
     .from(TABLE_NAME)
-    .select(LIGHT_COLUMNS_WITH_CATS)
+    .select(PRODUCT_VARIATION_BARCODE_CANDIDATE_COLUMNS)
     .contains('technical_specs', { variationDetails: [{ barcode: normalizedBarcode }] })
     .or('deleted.eq.false,deleted.is.null')
     .limit(20);
   if (error) throw error;
 
   for (const row of data || []) {
-    const product = mapFromDB(row);
-    const variation = product.variations?.find(
-      (candidate) => String(candidate.barcode || '').replace(/\D/g, '') === normalizedBarcode,
-    );
-    if (variation && product.id) return { product, variation };
+    const candidate = mapProductVariationBarcodeCandidate(row, normalizedBarcode);
+    if (candidate) return candidate;
   }
 
   const cachedMatch = getLocalProducts().find((product) =>

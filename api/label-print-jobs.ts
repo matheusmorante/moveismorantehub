@@ -53,7 +53,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!/^[0-9a-f-]{36}$/i.test(id)) return res.status(400).json({ error: 'Impressão inválida.' });
     const { data, error } = await authorization.db
       .from('label_print_jobs')
-      .select('id,status,error,created_at,completed_at')
+      .select('id,status,error')
       .eq('id', id)
       .eq('owner_id', authorization.userId)
       .maybeSingle();

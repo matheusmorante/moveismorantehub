@@ -12,7 +12,11 @@ export const MessageBubbleStatus: React.FC<MessageBubbleStatusProps> = ({
 }) => {
   return (
     <span className="ml-0.5 inline-flex items-center">
-      {status === 'read' ? (
+      {status === 'sending' ? (
+        <i className="bi bi-arrow-repeat text-amber-600 text-[10px] animate-spin" title="Enviando sugestão" />
+      ) : status === 'suggested' ? (
+        <i className="bi bi-clock text-amber-600 text-[9px]" title="Aguardando aprovação" />
+      ) : status === 'read' ? (
         <i className="bi bi-check-all text-[#53bdeb] text-xs font-black" title="Lida"></i>
       ) : status === 'delivered' ? (
         <i className="bi bi-check-all text-slate-400 text-xs font-bold" title="Entregue"></i>

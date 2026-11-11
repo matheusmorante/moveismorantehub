@@ -47,6 +47,33 @@ export const useReceipts = () => {
     }
 
     try {
+      if (!connectivityService.connected) {
+        setLoadError(
+          pageNum === 0
+            ? 'Sem conexão. Os recebimentos salvos no aparelho podem estar desatualizados.'
+            : 'Sem conexão. Exibindo os recebimentos já carregados; eles podem estar desatualizados.',
+        );
+
+        if (pageNum === 0) {
+          try {
+            const cached =
+              await offlineStorageService.getWorkingSet<any[]>(GOODS_RECEIPTS_CACHE_KEY);
+            if (Array.isArray(cached?.data) && cached.data.length > 0) {
+              setReceipts(await overlayPendingChecksOnReceipts(cached.data));
+            } else {
+              setReceipts([]);
+              setLoadError('Sem conexão. Não há recebimentos salvos neste aparelho.');
+            }
+          } catch {
+            setReceipts([]);
+            setLoadError('Sem conexão. Não foi possível ler os recebimentos salvos neste aparelho.');
+          }
+        }
+
+        setHasMore(false);
+        return;
+      }
+
       if (connectivityService.connected && pageNum === 0) {
         await syncPendingGoodsReceipts().catch(() => 0);
       }
@@ -123,14 +150,8 @@ export const useReceipts = () => {
   }, [loadingMore, hasMore, loading, page, loadReceipts]);
 
   useEffect(() => {
-    void loadReceipts(true, 0);
-  }, [loadReceipts]);
-
-  useEffect(() => {
-    const unsubscribe = connectivityService.subscribe((online) => {
-      if (online) {
-        void loadReceipts(true, 0);
-      }
+    const unsubscribe = connectivityService.subscribe(() => {
+      void loadReceipts(true, 0);
     });
     return unsubscribe;
   }, [loadReceipts]);

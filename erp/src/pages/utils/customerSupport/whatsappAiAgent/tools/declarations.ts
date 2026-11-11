@@ -5,26 +5,27 @@ export const whatsappAgentToolDeclarations = [
     description:
       'Pesquisa móveis disponíveis no catálogo comercial da Móveis Morante por termo/nome, categoria ou ordenação de preço.',
     parameters: {
-      type: 'OBJECT',
+      type: 'object',
       properties: {
         termo: {
-          type: 'STRING',
+          type: ['string', 'null'],
           description: 'Termo de busca (ex: "sofá retrátil", "mesa de jantar", "guarda-roupa").',
         },
         categoria: {
-          type: 'STRING',
+          type: ['string', 'null'],
           description: 'Categoria do produto (ex: "Sala de Estar", "Quarto", "Cozinha").',
         },
         apenasEmEstoque: {
-          type: 'BOOLEAN',
+          type: ['boolean', 'null'],
           description: 'Se verdadeiro (padrão), retorna apenas itens com estoque disponível.',
         },
         limite: {
-          type: 'INTEGER',
+          type: ['integer', 'null'],
           description: 'Quantidade máxima de produtos a retornar (padrão 5, máximo 10).',
         },
       },
-      required: [],
+      required: ['termo', 'categoria', 'apenasEmEstoque', 'limite'],
+      additionalProperties: false,
     },
   },
   {
@@ -32,14 +33,15 @@ export const whatsappAgentToolDeclarations = [
     description:
       'Obtém detalhes completos de um produto específico (medidas de altura/largura/profundidade, cores, fotos e preços de venda).',
     parameters: {
-      type: 'OBJECT',
+      type: 'object',
       properties: {
         codigoOuSku: {
-          type: 'STRING',
+          type: 'string',
           description: 'Código de 6 dígitos ou SKU da variação do produto.',
         },
       },
       required: ['codigoOuSku'],
+      additionalProperties: false,
     },
   },
   {
@@ -47,9 +49,10 @@ export const whatsappAgentToolDeclarations = [
     description:
       'Consulta as categorias e ambientes de móveis cadastrados na loja (Sala, Quarto, Sala de Jantar, Cozinha, etc.).',
     parameters: {
-      type: 'OBJECT',
+      type: 'object',
       properties: {},
       required: [],
+      additionalProperties: false,
     },
   },
   {
@@ -57,9 +60,10 @@ export const whatsappAgentToolDeclarations = [
     description:
       'Consulta informações comerciais oficiais da Móveis Morante (endereço físico, horário de funcionamento, condições de frete/montagem, formas de pagamento e links úteis).',
     parameters: {
-      type: 'OBJECT',
+      type: 'object',
       properties: {},
       required: [],
+      additionalProperties: false,
     },
   },
   {
@@ -67,24 +71,26 @@ export const whatsappAgentToolDeclarations = [
     description:
       'Consulta o status e previsão de entrega dos pedidos do cliente que está conversando no WhatsApp.',
     parameters: {
-      type: 'OBJECT',
+      type: 'object',
       properties: {},
       required: [],
+      additionalProperties: false,
     },
   },
   {
     name: 'calcularFreteOuDistancia',
     description:
-      'Calcula a distância e verifica a condição de frete da loja física (Rua Cascavel, 306 - Colombo/PR) até o endereço do cliente. Frete 100% grátis para endereços a menos de 5 km. Para distâncias maiores, orienta a pedir o endereço completo. Se o endereço não for localizado na consulta, aciona intervenção humana silenciosa.',
+      'Recebe o CEP ou endereço para encaminhar a confirmação de distância e valor do frete à equipe. Não prometa frete grátis nem informe quilômetros sem uma consulta real de rota; esta ferramenta aciona a intervenção humana silenciosa.',
     parameters: {
-      type: 'OBJECT',
+      type: 'object',
       properties: {
         enderecoOuCep: {
-          type: 'STRING',
+          type: 'string',
           description: 'Endereço completo (rua, número, bairro) ou CEP informado pelo cliente para cálculo.',
         },
       },
       required: ['enderecoOuCep'],
+      additionalProperties: false,
     },
   },
   {
@@ -92,18 +98,19 @@ export const whatsappAgentToolDeclarations = [
     description:
       'Aciona intervenção humana silenciosa na Central de Atendimento quando a IA não souber responder com segurança, faltarem regras/endereço ou se o cliente solicitar atendente.',
     parameters: {
-      type: 'OBJECT',
+      type: 'object',
       properties: {
         motivo: {
-          type: 'STRING',
+          type: 'string',
           description: 'Motivo detalhado do escalonamento (o que foi solicitado e o que faltou).',
         },
         silencioso: {
-          type: 'BOOLEAN',
+          type: ['boolean', 'null'],
           description: 'Se verdadeiro (padrão), não envia mensagem de aviso no chat do cliente.',
         },
       },
-      required: ['motivo'],
+      required: ['motivo', 'silencioso'],
+      additionalProperties: false,
     },
   },
 ];

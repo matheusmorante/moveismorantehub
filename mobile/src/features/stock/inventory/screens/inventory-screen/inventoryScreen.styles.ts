@@ -13,7 +13,23 @@ export const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#e2e8f0',
   },
+  pageHeaderOffline: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    gap: 8,
+  },
   pageHeaderDark: { backgroundColor: '#0f172a', borderBottomColor: '#1e293b' },
+  offlineDataNotice: {
+    backgroundColor: '#fff7ed',
+    borderColor: '#fed7aa',
+    borderRadius: 8,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  offlineDataNoticeDark: { backgroundColor: 'rgba(124,45,18,0.2)', borderColor: '#9a3412' },
+  offlineDataNoticeText: { color: '#9a3412', fontSize: 12, fontWeight: '700' },
+  offlineDataNoticeTextDark: { color: '#fdba74' },
   menuTrigger: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
   menuOverlay: { flex: 1 },
   actionMenu: {
@@ -42,6 +58,7 @@ export const styles = StyleSheet.create({
   actionMenuTextDark: { color: '#f8fafc' },
   cardContainer: { paddingHorizontal: 16, paddingTop: 12 },
   periodControls: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  periodControlsOffline: { alignSelf: 'flex-end' },
   periodLabel: { color: '#64748b', fontSize: 10, fontWeight: '800', textTransform: 'uppercase' },
   periodLabelDark: { color: '#94a3b8' },
   periodButton: {

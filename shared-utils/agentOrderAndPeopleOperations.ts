@@ -16,6 +16,7 @@ import {
   resolveOrderItems,
   ORDER_ROW_COLUMNS,
   findOrderRowByIdOrNumber,
+  normalizeAgentOrderIdentifier,
 } from './agentOrderHelpers';
 import {
   UpsertAgentCustomerInput,
@@ -45,6 +46,7 @@ export {
   resolveOrderItems,
   ORDER_ROW_COLUMNS,
   findOrderRowByIdOrNumber,
+  normalizeAgentOrderIdentifier,
   upsertCustomerForAgent,
   searchCustomersForAgent,
   searchCollaboratorsForAgent,

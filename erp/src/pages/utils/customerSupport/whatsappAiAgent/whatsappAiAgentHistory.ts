@@ -4,6 +4,7 @@ export function buildCustomerFacingOpenAiHistory(
     id?: string;
     direction: string;
     message_type: string;
+    status?: string | null;
     text_content?: string | null;
     raw_payload?: any;
   }>
@@ -12,7 +13,13 @@ export function buildCustomerFacingOpenAiHistory(
 
   for (const msg of sourceMessages) {
     if (!msg.text_content || !msg.text_content.trim()) continue;
-    if (msg.message_type === 'internal_note' || msg.message_type === 'system_event' || msg.message_type === 'deleted') {
+    if (
+      msg.message_type === 'internal_note' ||
+      msg.message_type === 'system_event' ||
+      msg.message_type === 'deleted' ||
+      msg.status === 'suggested' ||
+      msg.raw_payload?.is_suggestion === true
+    ) {
       continue;
     }
     const role = msg.direction === 'inbound' ? 'user' : 'assistant';

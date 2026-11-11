@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { InventorySession } from '../../types/stock.types';
 import * as stockService from '../../../../services/stockService';
 import {
@@ -15,8 +15,16 @@ export const useInventory = (userProfileId?: string | null) => {
   const [loadingMore, setLoadingMore] = useState(false);
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
+  const [isOnline, setIsOnline] = useState(() => connectivityService.connected);
+  const [usesCachedResults, setUsesCachedResults] = useState(false);
+  const periodDaysRef = useRef(30);
 
-  const loadSessions = useCallback(async (isRefresh = false, pageNum = 0) => {
+  const loadSessions = useCallback(async (
+    isRefresh = false,
+    pageNum = 0,
+    selectedPeriodDays = periodDaysRef.current,
+    shouldSyncPendingSubmissions = true
+  ) => {
     if (isRefresh) {
       setPage(0);
       setHasMore(true);
@@ -27,7 +35,12 @@ export const useInventory = (userProfileId?: string | null) => {
     }
 
     // 0. Se estiver online, sincroniza automaticamente submissões congeladas na outbox local
-    if (pageNum === 0 && connectivityService.connected && userProfileId) {
+    if (
+      shouldSyncPendingSubmissions &&
+      pageNum === 0 &&
+      connectivityService.connected &&
+      userProfileId
+    ) {
       await syncPendingInventorySubmissions(userProfileId).catch(() => 0);
     }
 
@@ -45,29 +58,45 @@ export const useInventory = (userProfileId?: string | null) => {
           .filter((draft) => draft.status === 'in_progress')
           .sort((left, right) => left.updatedAt.localeCompare(right.updatedAt));
 
+        const draftsToRepair = [] as typeof inProgressDrafts;
         for (const draft of inProgressDrafts) {
           const code = draft.code.trim();
           if (code && !reservedCodes.has(code)) {
             reservedCodes.add(code);
             continue;
           }
+          draftsToRepair.push(draft);
+        }
 
-          const reservedNumericCodes = [...reservedCodes]
-            .map((reservedCode) => reservedCode.trim())
-            .filter((reservedCode) => /^\d{1,6}$/.test(reservedCode))
-            .map((reservedCode) => reservedCode.padStart(6, '0'));
-          let nextCode: string;
+        const reservedNumericCodes = [...reservedCodes]
+          .map((reservedCode) => reservedCode.trim())
+          .filter((reservedCode) => /^\d{1,6}$/.test(reservedCode))
+          .map((reservedCode) => reservedCode.padStart(6, '0'));
+
+        for (let offset = 0; offset < draftsToRepair.length; offset += 1000) {
+          const batch = draftsToRepair.slice(offset, offset + 1000);
+          let nextCodes: string[];
           try {
-            nextCode = await stockService.getNextInventoryCode(reservedNumericCodes);
+            if (reservedNumericCodes.length > 1000) {
+              throw new Error('A lista local excede o limite de reserva remota.');
+            }
+            nextCodes = await stockService.getNextInventoryCodes(reservedNumericCodes, batch.length);
           } catch {
-            nextCode = `LOCAL-${draft.id.replace(/-/g, '')}`;
-            while (reservedCodes.has(nextCode)) nextCode += 'X';
+            nextCodes = batch.map((draft) => {
+              let localCode = `LOCAL-${draft.id.replace(/-/g, '')}`;
+              while (reservedCodes.has(localCode)) localCode += 'X';
+              reservedCodes.add(localCode);
+              return localCode;
+            });
           }
 
-          if (!draft.userId || draft.userId !== userProfileId) continue;
-          await saveLocalInventoryDraft({ ...draft, userId: draft.userId, code: nextCode });
-          draft.code = nextCode;
-          reservedCodes.add(nextCode);
+          for (const [index, draft] of batch.entries()) {
+            const nextCode = nextCodes[index];
+            if (!draft.userId || draft.userId !== userProfileId) continue;
+            await saveLocalInventoryDraft({ ...draft, userId: draft.userId, code: nextCode });
+            draft.code = nextCode;
+            reservedCodes.add(nextCode);
+          }
         }
 
         localDraftSessions = localDrafts.map((d) => {
@@ -97,12 +126,18 @@ export const useInventory = (userProfileId?: string | null) => {
     }
 
     try {
-      const data = await stockService.fetchInventorySessions(
+      const periodStart = selectedPeriodDays > 0
+        ? new Date(Date.now() - selectedPeriodDays * 24 * 60 * 60 * 1000).toISOString()
+        : undefined;
+      const result = await stockService.fetchInventorySessionsWithStatus(
         pageNum,
+        periodStart,
         undefined,
-        undefined,
-        userProfileId
+        userProfileId,
+        selectedPeriodDays
       );
+      const data = result.sessions;
+      if (pageNum === 0) setUsesCachedResults(result.fromCache);
 
       const formattedData = (data || []).map((session: any) => ({
         id: session.id,
@@ -161,11 +196,26 @@ export const useInventory = (userProfileId?: string | null) => {
   useEffect(() => {
     void loadSessions(true, 0);
     return connectivityService.subscribe((online) => {
+      setIsOnline(online);
       if (online) {
         void loadSessions(true, 0);
       }
     });
   }, [loadSessions]);
 
-  return { sessions, loading, loadingMore, loadMore, reload: () => loadSessions(true, 0) };
+  const reloadForPeriod = useCallback((nextPeriodDays: number) => {
+    periodDaysRef.current = nextPeriodDays;
+    void loadSessions(true, 0, nextPeriodDays, false);
+  }, [loadSessions]);
+
+  return {
+    sessions,
+    loading,
+    loadingMore,
+    isOnline,
+    usesCachedResults,
+    loadMore,
+    reloadForPeriod,
+    reload: () => loadSessions(true, 0, periodDaysRef.current),
+  };
 };

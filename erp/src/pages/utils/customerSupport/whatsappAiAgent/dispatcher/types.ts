@@ -27,6 +27,7 @@ export interface DispatchAiResponseParams {
   fallbackReason?: string | null;
   isQuotaBlocked?: boolean;
   isSilentHandoff?: boolean;
+  durableJob?: { id: string; token: string };
 }
 
 export interface BuildAiPayloadOptions {

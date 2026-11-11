@@ -1,6 +1,5 @@
 import { supabase } from '../../supabaseClient';
 import { buildPostgrestAccentInsensitivePattern } from '../../../../../shared-utils/searchText';
-import { normalizeSearchTerm } from '../../../../../shared-utils/productText';
 import { parseInboundNfeXml } from '../../../features/stock/invoices/utils/inboundXmlParser';
 import {
   buildInboundInvoiceItemRows,
@@ -25,23 +24,50 @@ import {
   isSalvadosOnlySupplier,
 } from '../../../../../shared-utils/productSupplierStockOrigin';
 import { markInboundInvoiceItemsNotApplicable } from '../../../../../shared-utils/inboundInvoiceSupplierRules';
+import { withTimeout } from '../../../../../shared-utils/withTimeout';
 
-export const findInboundInvoiceSupplier = async (taxId: string, name: string) => {
+interface PriorInvoiceSupplierRow {
+  supplier_id?: string | null;
+  supplier?: { stock_origins?: string[] | null; active?: boolean | null } | Array<{ stock_origins?: string[] | null; active?: boolean | null }> | null;
+}
+
+const querySupplierRows = async <TRow>(query: PromiseLike<{ data: unknown[] | null; error: unknown }>) => {
+  const result = await withTimeout(query, 10_000, null, 'entrada:localizar-fornecedor-nfe-mobile');
+  if (!result) throw new Error('A consulta do fornecedor da NF-e excedeu o prazo.');
+  if (result.error) throw result.error;
+  return (result.data || []) as TRow[];
+};
+
+const buildUnchangedImportResult = (row: Record<string, any>, itemCount: number, accessKey: string) => ({
+  id: row.id,
+  number: String(row.numero_nfe || ''),
+  series: String(row.serie || '1'),
+  accessKey,
+  supplierName: row.emitente_fantasia || row.emitente_nome || 'Fornecedor Desconhecido',
+  supplierCnpj: row.emitente_cnpj || '',
+  issueDate: row.data_emissao || '',
+  totalValue: Number(row.valor_total || 0),
+  itemsCount: itemCount,
+  status: normalizeInvoiceStatus(row.status_recebimento),
+  outcome: 'unchanged' as const,
+  hasConflicts: false,
+});
+
+export const findInboundInvoiceSupplier = async (taxId: string, name: string, issuedAt?: string) => {
   const digits = normalizeTaxId(taxId);
 
   if (digits.length === 11 || digits.length === 14) {
     const formatted = formatTaxId(digits);
-    const { data, error } = await supabase
-      .from('people')
-      .select('id, full_name, cpf_cnpj, stock_origins, active')
-      .in('person_type', ['suppliers', 'supplier'])
-      .or('deleted.eq.false,deleted.is.null')
-      .in('cpf_cnpj', [digits, formatted])
-      .order('full_name')
-      .limit(20);
-    if (error) throw error;
-    const matches = (data || []).filter(
-      (person: any) => normalizeTaxId(person.cpf_cnpj) === digits
+    const candidates = Array.from(new Set([digits, formatted]));
+    const matches = await querySupplierRows<any>(
+      supabase
+        .from('people')
+        .select('id, full_name, cpf_cnpj, stock_origins, active')
+        .in('person_type', ['suppliers', 'supplier'])
+        .or('deleted.eq.false,deleted.is.null')
+        .in('cpf_cnpj', candidates)
+        .order('full_name')
+        .limit(20)
     );
     const salvadosMatch = matches.find(
       (person: any) => person.active && isSalvadosOnlySupplier(person.stock_origins)
@@ -50,23 +76,53 @@ export const findInboundInvoiceSupplier = async (taxId: string, name: string) =>
     const activeMatch = matches.find((person: any) => person.active);
     if (activeMatch) return activeMatch;
     if (matches[0]) return matches[0];
+
+    let historyQuery = supabase
+      .from('inbound_invoices')
+      .select('supplier_id,supplier:people(stock_origins,active)')
+      .in('emitente_cnpj', candidates)
+      .not('supplier_id', 'is', null);
+    const issuedAtTimestamp = issuedAt ? Date.parse(issuedAt) : Number.NaN;
+    if (Number.isFinite(issuedAtTimestamp)) {
+      historyQuery = historyQuery.lte('data_emissao', new Date(issuedAtTimestamp).toISOString());
+    }
+    try {
+      const previousInvoices = await querySupplierRows<PriorInvoiceSupplierRow>(
+        historyQuery
+          .order('data_emissao', { ascending: false })
+          .order('updated_at', { ascending: false })
+          .limit(1)
+      );
+      const previousInvoice = previousInvoices[0];
+      if (previousInvoice?.supplier_id) {
+        const supplier = Array.isArray(previousInvoice.supplier)
+          ? previousInvoice.supplier[0]
+          : previousInvoice.supplier;
+        return {
+          id: previousInvoice.supplier_id,
+          full_name: '',
+          cpf_cnpj: digits,
+          stock_origins: supplier?.stock_origins,
+          active: supplier?.active === true,
+        };
+      }
+    } catch (error) {
+      console.warn('[findInboundInvoiceSupplier] Não foi possível consultar vínculos de notas anteriores.', error);
+    }
   }
 
   const normalizedName = name.trim();
   if (!normalizedName) return null;
-  const { data, error } = await supabase
-    .from('people')
-    .select('id, full_name, cpf_cnpj, stock_origins, active')
-    .in('person_type', ['suppliers', 'supplier'])
-    .or('deleted.eq.false,deleted.is.null')
-    .filter('full_name', 'imatch', buildPostgrestAccentInsensitivePattern(normalizedName, 'exact'))
-    .order('full_name')
-    .limit(20);
-  if (error) throw error;
-  const matches = (data || []).filter(
-      (person: any) =>
-        normalizeSearchTerm(String(person.full_name || '').trim()) === normalizeSearchTerm(normalizedName)
-    );
+  const matches = await querySupplierRows<any>(
+    supabase
+      .from('people')
+      .select('id, full_name, cpf_cnpj, stock_origins, active')
+      .in('person_type', ['suppliers', 'supplier'])
+      .or('deleted.eq.false,deleted.is.null')
+      .filter('full_name', 'imatch', buildPostgrestAccentInsensitivePattern(normalizedName, 'exact'))
+      .order('full_name')
+      .limit(20)
+  );
   return (
     matches.find(
       (person: any) => person.active && isSalvadosOnlySupplier(person.stock_origins)
@@ -119,6 +175,7 @@ export const importInboundInvoiceXml = async (
   let invoiceToSave: Record<string, any> = invoice;
   let outcome: 'added' | 'updated' | 'unchanged' = 'added';
   let hasConflicts = false;
+  let unchangedResult: ReturnType<typeof buildUnchangedImportResult> | null = null;
   if (existingRow) {
     onStatusChange?.('NF-e já cadastrada. Conferindo se há dados novos no XML...');
     const childItems = Array.isArray(existingRow.inbound_invoice_items)
@@ -181,30 +238,25 @@ export const importInboundInvoiceXml = async (
       );
     }
     if (merge.outcome === 'unchanged') {
-      return {
-        id: existingRow.id,
-        number: String(existingRow.numero_nfe || ''),
-        series: String(existingRow.serie || '1'),
-        accessKey,
-        supplierName: existingRow.emitente_fantasia || existingRow.emitente_nome || 'Fornecedor Desconhecido',
-        supplierCnpj: existingRow.emitente_cnpj || '',
-        issueDate: existingRow.data_emissao || '',
-        totalValue: Number(existingRow.valor_total || 0),
-        itemsCount: existingItems.length,
-        status: normalizeInvoiceStatus(existingRow.status_recebimento),
-        outcome: 'unchanged' as const,
-        hasConflicts: false,
-      };
+      unchangedResult = buildUnchangedImportResult(existingRow, existingItems.length, accessKey);
+      if (existingRow.supplier_id) return unchangedResult;
+      invoiceToSave = merge.invoice;
+      outcome = 'unchanged';
+    } else {
+      invoiceToSave = merge.invoice;
+      outcome = 'updated';
+      hasConflicts = merge.hasConflicts;
+      onStatusChange?.('NF-e já cadastrada e desatualizada. Atualizando com os dados novos do XML...');
     }
-    invoiceToSave = merge.invoice;
-    outcome = 'updated';
-    hasConflicts = merge.hasConflicts;
-    onStatusChange?.('NF-e já cadastrada e desatualizada. Atualizando com os dados novos do XML...');
   }
 
   let supplier: any = null;
   try {
-    supplier = await findInboundInvoiceSupplier(invoice.emitterCnpj || '', invoice.emitterName || '');
+    supplier = await findInboundInvoiceSupplier(
+      invoice.emitterCnpj || '',
+      invoice.emitterName || '',
+      invoice.issuedAt || ''
+    );
   } catch (supplierError) {
     console.warn(
       '[importInboundInvoiceXml] Não foi possível localizar o fornecedor; a NF será salva sem associação.',
@@ -231,10 +283,12 @@ export const importInboundInvoiceXml = async (
           : null;
   const isSalvadosSupplier = isSalvadosOnlySupplier(supplierStockOrigins);
 
+  if (unchangedResult && !supplierId) return unchangedResult;
+
   let items = Array.isArray(invoiceToSave.items) ? invoiceToSave.items : [];
   if (isSalvadosSupplier) {
     items = markInboundInvoiceItemsNotApplicable(items);
-  } else if (supplierId && items.length) {
+  } else if (outcome !== 'unchanged' && supplierId && items.length) {
     try {
       const mappings = await findInboundSupplierProductCodes(
         supplierId,

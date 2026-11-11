@@ -13,14 +13,18 @@ export async function fetchAndFormatConversationHistory(
   conversationId: string,
   currentInboundText: string
 ): Promise<FormattedHistories> {
-  const { data: historyRows } = await supabase
+  const { data: historyRows, error } = await supabase
     .from('whatsapp_messages')
-    .select('direction, message_type, text_content, raw_payload, timestamp')
+    .select('direction, message_type, status, text_content, raw_payload, timestamp')
     .eq('conversation_id', conversationId)
     .order('timestamp', { ascending: false })
     .limit(10);
 
-  const chronologicalHistory = (historyRows || []).slice().reverse();
+  if (error || !historyRows) {
+    throw new Error('Não foi possível carregar o histórico da conversa.');
+  }
+
+  const chronologicalHistory = historyRows.slice().reverse();
   const historyForOpenAi = buildCustomerFacingOpenAiHistory(chronologicalHistory);
 
   // Adiciona o turno do usuário atual se ainda não estiver presente no histórico

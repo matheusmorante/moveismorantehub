@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { financialAgentTools } from '../financialAgentTools';
 import { financeService } from '../../../pages/services/financeService';
+import { supabase } from '@/pages/utils/supabaseConfig';
 
 vi.mock('../../../pages/services/financeService', () => ({
   financeService: {
@@ -50,6 +51,7 @@ vi.mock('@/pages/utils/supabaseConfig', () => ({
     auth: {
       getSession: () => Promise.resolve({ data: { session: null }, error: null }),
     },
+    rpc: vi.fn(),
   },
 }));
 
@@ -134,22 +136,18 @@ describe('financialAgentTools - Handlers das Ferramentas Financeiras', () => {
   });
 
   it('deve buscar e filtrar movimentações por termo e tipo', async () => {
-    (financeService.getTransactions as any).mockResolvedValueOnce([
-      {
-        id: '1',
-        type: 'expense',
-        amount: 230,
-        description: 'Posto Shell Gasolina Fiorino',
-        payment_method: 'PIX',
-      },
-      {
-        id: '2',
-        type: 'income',
-        amount: 1500,
-        description: 'Venda Sofá Retrátil',
-        payment_method: 'Cartão de Crédito',
-      },
-    ]);
+    vi.mocked(supabase.rpc).mockResolvedValueOnce({
+      data: [
+        {
+          id: '1',
+          type: 'expense',
+          amount: 230,
+          description: 'Posto Shell Gasolina Fiorino',
+          payment_method: 'PIX',
+        },
+      ],
+      error: null,
+    } as any);
 
     const result = await financialAgentTools.buscarMovimentacoesFinanceiras({
       termo: 'fiorino',
@@ -159,6 +157,58 @@ describe('financialAgentTools - Handlers das Ferramentas Financeiras', () => {
     expect(result.success).toBe(true);
     expect(result.data).toHaveLength(1);
     expect(result.data[0].id).toBe('1');
+    expect(supabase.rpc).toHaveBeenCalledWith('get_finance_assistant_movements', {
+      p_search: 'fiorino',
+      p_start_date: null,
+      p_end_date: null,
+      p_type: 'expense',
+      p_category_id: null,
+      p_limit: 10,
+    });
+    expect(financeService.getTransactions).not.toHaveBeenCalled();
+  });
+
+  it('valida o período de movimentações antes da consulta remota', async () => {
+    const result = await financialAgentTools.buscarMovimentacoesFinanceiras({
+      dataInicio: '2026-11-31',
+      dataFim: '2026-12-01',
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.code).toBe('INVALID_DATE_RANGE');
+    expect(supabase.rpc).not.toHaveBeenCalled();
+  });
+
+  it('filtra contas a receber no RPC do servidor e valida as datas antes da consulta', async () => {
+    vi.mocked(supabase.rpc).mockResolvedValueOnce({
+      data: { total_count: 1, items: [] },
+      error: null,
+    } as any);
+
+    const found = await financialAgentTools.buscarContasAReceber({
+      cliente: 'José da Silva',
+      dataVencimentoInicio: '2026-11-01',
+      dataVencimentoFim: '2026-11-30',
+      apenasPendentes: false,
+      limite: 8,
+    });
+    expect(found.success).toBe(true);
+    expect(supabase.rpc).toHaveBeenCalledWith('get_finance_assistant_receivables', {
+      p_search: 'José da Silva',
+      p_start_due_date: '2026-11-01',
+      p_end_due_date: '2026-11-30',
+      p_only_pending: false,
+      p_limit: 8,
+    });
+
+    vi.mocked(supabase.rpc).mockClear();
+    const invalid = await financialAgentTools.buscarContasAReceber({
+      dataVencimentoInicio: '2026-11-30',
+      dataVencimentoFim: '2026-11-01',
+    });
+    expect(invalid.success).toBe(false);
+    expect(invalid.code).toBe('INVALID_DATE_RANGE');
+    expect(supabase.rpc).not.toHaveBeenCalled();
   });
 
   it('deve obter resumo financeiro do período', async () => {

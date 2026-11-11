@@ -6,6 +6,7 @@ interface DropdownPortalProps {
   children: React.ReactNode;
   isOpen: boolean;
   className?: string;
+  placement?: 'top' | 'bottom';
   onClose?: () => void;
 }
 
@@ -14,6 +15,7 @@ const DropdownPortal: React.FC<DropdownPortalProps> = ({
   children,
   isOpen,
   className = '',
+  placement = 'bottom',
   onClose,
 }) => {
   const [coords, setCoords] = useState<{ top: number; left: number; width: number } | null>(null);
@@ -23,12 +25,12 @@ const DropdownPortal: React.FC<DropdownPortalProps> = ({
     if (anchorRef?.current) {
       const rect = anchorRef.current.getBoundingClientRect();
       setCoords({
-        top: rect.bottom,
+        top: placement === 'top' ? rect.top : rect.bottom,
         left: rect.left,
         width: rect.width,
       });
     }
-  }, [anchorRef]);
+  }, [anchorRef, placement]);
 
   useLayoutEffect(() => {
     if (isOpen) {
@@ -94,10 +96,12 @@ const DropdownPortal: React.FC<DropdownPortalProps> = ({
       ref={portalRef}
       className={`fixed z-[99999999] pointer-events-auto ${className}`}
       style={{
-        top: coords.top + 4,
+        ...(placement === 'top'
+          ? { bottom: `calc(100vh - ${Math.max(0, coords.top - 4)}px)` }
+          : { top: coords.top + 4 }),
         left: adjustedLeft,
         ...(finalWidth ? { width: finalWidth, minWidth: coords.width } : {}),
-        maxHeight: `calc(100vh - ${coords.top + 12}px)`,
+        maxHeight: placement === 'top' ? `${Math.max(0, coords.top - 12)}px` : `calc(100vh - ${coords.top + 12}px)`,
         overflowY: 'auto',
       }}
       onMouseDown={(e) => e.stopPropagation()}

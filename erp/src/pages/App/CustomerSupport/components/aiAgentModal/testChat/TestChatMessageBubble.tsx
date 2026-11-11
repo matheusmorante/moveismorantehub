@@ -18,6 +18,8 @@ interface TestChatMessageBubbleProps {
   feedbackInputId: string | null;
   feedbackComment: string;
   setFeedbackComment: (value: string) => void;
+  feedbackInputRef: React.Ref<HTMLInputElement>;
+  feedbackError?: string;
   onSaveFeedbackComment: (messageId: string) => void;
 }
 
@@ -28,9 +30,12 @@ export const TestChatMessageBubble: React.FC<TestChatMessageBubbleProps> = ({
   feedbackInputId,
   feedbackComment,
   setFeedbackComment,
+  feedbackInputRef,
+  feedbackError,
   onSaveFeedbackComment,
 }) => {
   const isUser = message.role === 'user';
+  const feedbackErrorId = `ai-test-feedback-error-${message.id}`;
 
   return (
     <div className={`flex w-full ${isUser ? 'justify-end' : 'justify-start'}`}>
@@ -120,33 +125,34 @@ export const TestChatMessageBubble: React.FC<TestChatMessageBubbleProps> = ({
 
             {/* Caixa de Comentário para resposta incorreta */}
             {feedbackInputId === message.id && (
-              <div className="p-2 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800 space-y-1.5 animate-fade-in">
-                <span className="text-[10px] font-semibold text-rose-800 dark:text-rose-300 block">
+              <form
+                onSubmit={(event) => { event.preventDefault(); onSaveFeedbackComment(message.id); }}
+                className="p-2 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800 space-y-1.5 animate-fade-in"
+              >
+                <label htmlFor={`ai-test-feedback-${message.id}`} className="text-[10px] font-semibold text-rose-800 dark:text-rose-300 block">
                   Qual foi a falha desta resposta?
-                </span>
+                </label>
                 <div className="flex gap-1.5">
                   <input
+                    id={`ai-test-feedback-${message.id}`}
+                    ref={feedbackInputRef}
                     type="text"
+                    aria-invalid={Boolean(feedbackError)}
+                    aria-describedby={feedbackError ? feedbackErrorId : undefined}
                     placeholder="Ex: Não informou a taxa de entrega corretamente..."
                     value={feedbackComment}
                     onChange={(e) => setFeedbackComment(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        onSaveFeedbackComment(message.id);
-                      }
-                    }}
-                    className="flex-1 px-2 py-1 text-xs rounded-lg bg-white dark:bg-slate-900 border border-rose-200 dark:border-rose-800 text-slate-900 dark:text-slate-100 focus:outline-hidden"
+                    className="flex-1 min-w-0 px-2 py-1 text-xs rounded-lg bg-white dark:bg-slate-900 border border-rose-200 dark:border-rose-800 text-slate-900 dark:text-slate-100 focus:outline-hidden"
                   />
                   <button
-                    type="button"
-                    onClick={() => onSaveFeedbackComment(message.id)}
+                    type="submit"
                     className="px-2.5 py-1 bg-rose-600 text-white rounded-lg text-xs font-semibold cursor-pointer"
                   >
                     Salvar
                   </button>
                 </div>
-              </div>
+                {feedbackError && <p id={feedbackErrorId} role="alert" className="text-xs text-red-700 dark:text-red-300">{feedbackError}</p>}
+              </form>
             )}
 
             {message.ratingComment && (

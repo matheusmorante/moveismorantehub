@@ -16,9 +16,9 @@ export async function checkAndPrepareNextPendingTurn({
   targetModel,
 }: CheckAndPrepareNextTurnOptions): Promise<{
   nextLock?: { turnId: string; lockToken: string };
-  chainedInbound?: InboundMessageParams;
+  chainedInbound?: Pick<InboundMessageParams, 'conversationId' | 'messageId' | 'wamid' | 'text'>;
 } | null> {
-  const { data: pendingMessages } = await supabase
+  const { data: pendingMessages, error } = await supabase
     .from('whatsapp_messages')
     .select('id, text_content, api_message_id, timestamp')
     .eq('conversation_id', conversationId)
@@ -26,7 +26,8 @@ export async function checkAndPrepareNextPendingTurn({
     .gt('timestamp', now.toISOString())
     .order('timestamp', { ascending: true });
 
-  if (!pendingMessages || pendingMessages.length === 0) return null;
+  if (error || !pendingMessages) throw new Error('Não foi possível consultar as mensagens pendentes.');
+  if (pendingMessages.length === 0) return null;
 
   const latestPending = pendingMessages[pendingMessages.length - 1];
   const bundledText = pendingMessages.map((m) => m.text_content).filter(Boolean).join('\n');
@@ -42,6 +43,7 @@ export async function checkAndPrepareNextPendingTurn({
   });
 
   if (!nextLock.acquired) return null;
+  if (!nextLock.turnId || !nextLock.lockToken) throw new Error('A trava do próximo atendimento não foi confirmada.');
 
   return {
     nextLock: { turnId: nextLock.turnId, lockToken: nextLock.lockToken },
@@ -50,9 +52,6 @@ export async function checkAndPrepareNextPendingTurn({
       messageId: latestPending.id,
       wamid: latestPending.api_message_id || `pending-${latestPending.id}`,
       text: bundledText,
-      from: '',
-      contactPhoneE164: '',
-      businessPhoneNumberId: '',
     },
   };
 }

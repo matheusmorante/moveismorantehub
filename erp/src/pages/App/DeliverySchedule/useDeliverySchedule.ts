@@ -322,7 +322,7 @@ export const useDeliverySchedule = () => {
       controller?.abort();
       unsubscribe();
     };
-  }, [queryFilters, queryFiltersKey, settings]);
+  }, [queryFilters, queryFiltersKey]);
 
   // Fetch Showroom Assemblies
   useEffect(() => {

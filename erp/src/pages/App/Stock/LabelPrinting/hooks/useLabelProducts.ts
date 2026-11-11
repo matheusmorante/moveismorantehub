@@ -46,17 +46,21 @@ export const useLabelProducts = (props?: UseLabelProductsProps) => {
     setLinkedProduct(null);
     void (async () => {
       try {
+        const productQuery = supabase
+          .from('products')
+          .select(
+            variationIdParam
+              ? 'id, name, description, code, sku, unit_price, cost_price, promo_price, stock, active, deleted_at, has_variations, category, unit, images, variations:product_variations(*)'
+              : 'id, name, description, code, sku, unit_price, cost_price, promo_price, stock, active, deleted_at, has_variations, category, unit, images'
+          )
+          .eq('id', productIdParam)
+          .is('deleted_at', null);
+        const selectedProductQuery = variationIdParam
+          ? productQuery.eq('variations.id', variationIdParam)
+          : productQuery;
+
         const response = await withTimeout(
-          supabase
-            .from('products')
-            .select(
-              variationIdParam
-                ? 'id, name, description, code, sku, unit_price, cost_price, promo_price, stock, active, deleted_at, has_variations, category, unit, images, variations:product_variations(*)'
-                : 'id, name, description, code, sku, unit_price, cost_price, promo_price, stock, active, deleted_at, has_variations, category, unit, images'
-            )
-            .eq('id', productIdParam)
-            .is('deleted_at', null)
-            .maybeSingle(),
+          selectedProductQuery.maybeSingle(),
           10000,
           null,
           'etiqueta-preço:carregar-produto'

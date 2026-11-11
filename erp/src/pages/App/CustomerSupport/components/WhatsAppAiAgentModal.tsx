@@ -11,7 +11,6 @@ import {
   AiAgentToolsSection,
   AiAgentPromptSection,
   AiAgentTabQuotas,
-  AiAgentTabTestChat,
   AiAgentModalFooter,
 } from './aiAgentModal';
 import { useWhatsAppAiAgentForm } from './aiAgentModal/useWhatsAppAiAgentForm';
@@ -19,11 +18,19 @@ import { useWhatsAppAiAgentForm } from './aiAgentModal/useWhatsAppAiAgentForm';
 export interface WhatsAppAiAgentModalProps {
   isOpen: boolean;
   onClose: () => void;
+  isAiAgentEnabled?: boolean;
+  isAgentStatusKnown?: boolean;
+  isTogglingAiAgent?: boolean;
+  onToggleAiAgent?: () => void;
 }
 
 export const WhatsAppAiAgentModal: React.FC<WhatsAppAiAgentModalProps> = ({
   isOpen,
   onClose,
+  isAiAgentEnabled = false,
+  isAgentStatusKnown = false,
+  isTogglingAiAgent = false,
+  onToggleAiAgent = () => {},
 }) => {
   const { isAdministrator } = useAuth();
   const [activeTab, setActiveTab] = useState<AiAgentTabKey>('visao_geral');
@@ -38,7 +45,7 @@ export const WhatsAppAiAgentModal: React.FC<WhatsAppAiAgentModalProps> = ({
     phoneError,
     setPhoneInput,
     setPhoneError,
-    watchedEnabled,
+    enabled,
     watchedNumbers,
     watchedPrompt,
     watchedTools,
@@ -104,8 +111,11 @@ export const WhatsAppAiAgentModal: React.FC<WhatsAppAiAgentModalProps> = ({
           {activeTab === 'visao_geral' && (
             <AiAgentTabOverview
               control={control}
-              enabled={watchedEnabled}
+              enabled={enabled}
               isAdministrator={isAdministrator}
+              isAgentStatusKnown={isAgentStatusKnown}
+              isTogglingAiAgent={isTogglingAiAgent}
+              onToggleAiAgent={onToggleAiAgent}
               phoneNumbers={watchedNumbers}
               phoneInput={phoneInput}
               phoneError={phoneError}
@@ -165,16 +175,6 @@ export const WhatsAppAiAgentModal: React.FC<WhatsAppAiAgentModalProps> = ({
             />
           )}
 
-          {activeTab === 'chat_testes' && (
-            <AiAgentTabTestChat
-              rules={watchedRules}
-              knowledgeBase={watchedKnowledge}
-              workflows={watchedWorkflows}
-              enabledTools={watchedTools}
-              systemPrompt={watchedPrompt}
-              isAdministrator={isAdministrator}
-            />
-          )}
         </form>
 
         <AiAgentModalFooter

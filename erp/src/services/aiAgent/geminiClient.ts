@@ -4,6 +4,7 @@ import { supabase } from '../../pages/utils/supabaseConfig';
 import { GeminiContent, GeminiTool, GeminiToolConfig } from './geminiAgentTypes';
 import { withTimeout } from '../../../../shared-utils/withTimeout';
 import { buildOpenAiAgentRequest, parseOpenAiAgentResponse } from '../../../../shared-utils/openAiAgentAdapter';
+import { createOpenAiHttpError } from '../../../../shared-utils/openAiProviderError';
 
 // Adaptador que mantém o contrato do agente e executa as chamadas pelo GPT-6 Luna.
 
@@ -101,7 +102,7 @@ export class GeminiClient {
           signal: controller.signal,
         });
         httpStatus = res.status;
-        if (!res.ok) throw new Error(`Erro na API OpenAI: HTTP ${res.status}.`);
+        if (!res.ok) throw createOpenAiHttpError(res.status);
         const result = await res.json().catch(() => {
           throw new Error('A API OpenAI retornou uma resposta inválida.');
         });

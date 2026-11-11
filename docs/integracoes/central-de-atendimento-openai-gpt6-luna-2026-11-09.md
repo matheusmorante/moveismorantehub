@@ -1,97 +1,59 @@
-# Integração GPT-6 Luna — Central de Atendimento WhatsApp (Seu Lizandro) e Governança de IA
+# Motor de IA da Central de Atendimento WhatsApp
 
-**Data:** 09/11/2026  
-**Status:** Operacional e Homologado em Produção / Desenvolvimento  
-**Provedor Primário:** OpenAI (`gpt-6-luna`)  
-**Provedor de Failover Contínuo:** Google Gemini (`gemini-3.8-flash`)  
+**Revisão do código:** 11/11/2026
 
----
+**Escopo:** atendente WhatsApp do ERP MoranteHub (Seu Lizandro).
+**Estado:** descreve o código e a configuração consultada nesta revisão; não comprova todas as versões publicadas nem o comportamento de um atendimento real.
 
-## 1. Contexto e Objetivos
+## Provedor e ativação
 
-O modelo **GPT-6 Luna** (`gpt-6-luna`) da OpenAI foi homologado e integrado como motor de inteligência artificial de alta performance e baixo custo para a Central de Atendimento ao Cliente do WhatsApp (Seu Lizandro Comercial), bem como para os proxies e gateways de IA do ERP MoranteHub.
+- O atendente WhatsApp usa somente OpenAI `gpt-6-luna`, chamado pelo backend através de `https://api.openai.com/v1/responses`.
+- **Não existe failover do atendente para Gemini.** Gemini ainda pode aparecer em outras integrações de IA do ERP; isso não significa que seja provedor alternativo neste fluxo.
+- O agente inicia desligado. A conversa de teste é aberta pelo ícone do agente no painel esquerdo da Central; nela, um administrador pode ligar ou desligar manualmente o atendimento de clientes e abrir as configurações. Salvar prompt, ferramentas ou telefones de teste preserva o estado de ativação.
+- `testMode` permanece `true` e cada execução valida a lista de telefones autorizados. No modo automático, uma resposta a um número dessa lista é enviada de verdade pela API da Meta; a simulação do chat de teste não faz esse despacho.
+- A consulta de estado remoto em 11/11/2026 encontrou `enabled=false`, `testMode=true` e zero telefones de teste cadastrados. Foram consultados apenas esses indicadores, sem obter os números ou o prompt; nenhuma configuração foi alterada.
+- Apenas mensagem de texto com conteúdo não vazio cria job para execução do agente. Outros tipos de mensagem podem ser armazenados pela Central, mas não são enviados a este modelo pelo pipeline atual.
 
-### Características Oficiais do GPT-6 Luna
-- **Janela de Contexto:** 1.050.000 tokens.
-- **Saída Máxima:** 128.000 tokens (`max_completion_tokens`).
-- **Suporte a Raciocínio (Reasoning):** Níveis `none`, `low`, `medium` (padrão), `high`, `xhigh` e `max`.
-- **Function Calling em Chat Completions (`v1/chat/completions`):** Exige `reasoning_effort: 'none'` ao utilizar ferramentas e declarações de funções.
-- **Preços Oficiais:**
-  - Tokens de Entrada (Input): US$ 0,10 / 1M tokens.
-  - Tokens em Cache (Cached Input): US$ 0,01 / 1M tokens (desconto de 90%).
-  - Tokens de Saída (Output): US$ 0,50 / 1M tokens.
+## Contexto enviado e ferramentas
 
----
+O pipeline carrega até dez mensagens recentes da conversa, a instrução do agente e o contexto correspondente às regras, artigos de conhecimento e workflow. Declarações e resultados das ferramentas habilitadas também podem seguir para o modelo durante o turno. A chave `OPENAI_API_KEY` é consumida no servidor. Esta revisão não avaliou retenção ou tratamento de conteúdo pela OpenAI.
 
-## 2. Ajustes Técnicos Implementados
+As ferramentas do atendente incluem busca e detalhes de produtos, categorias/características, informações comerciais da loja, consulta dos pedidos associados ao cliente, frete/distância e encaminhamento para atendimento humano. Não foi encontrada ferramenta de criação ou alteração de venda/pedido nesse conjunto.
 
-### 2.1. Execução de Turnos OpenAI (`openAiTurnRunner.ts`)
-- **Detecção do Modelo Luna / Raciocínio:**
-  Identifica modelos da família Luna e reasoning (`luna` ou prefixo `o`).
-- **Parâmetros de Requisição no Chat Completions:**
-  - Aplica `reasoning_effort: 'none'` quando `tools` estiverem presentes, atendendo estritamente à especificação técnica da OpenAI.
-  - Define `max_completion_tokens: 2048` em substituição ao legado `max_tokens`.
-  - Omite o parâmetro `temperature` para modelos de raciocínio, prevenindo erros `400 Bad Request` por incompatibilidade de hiperparâmetros.
-- **Captura e Contabilização de Cache:**
-  - Extrai `usage.prompt_tokens_details.cached_tokens`.
-  - Propaga `p_cached_tokens` para a RPC atômica `record_ai_token_usage`.
+## Tratamento de erros e recuperação
 
-### 2.2. Resiliência do Classificador de Erros (`whatsappAiErrorClassifier.ts`)
-- Configurado `canFallback: true` para o erro `bad_request` (HTTP 400).
-- **Garantia de Não-Interrupção:** Caso o provedor primário rejeite algum parâmetro ou formato inesperado em tempo de execução, o fluxo do WhatsApp não é descartado: a conversa sofre failover automático e transparente para o Gemini 3.8 Flash, garantindo que o cliente receba atendimento imediato.
+- O runner repete **uma vez** uma resposta HTTP 502 ou 503 antes de qualquer chamada de ferramenta.
+- Não há troca de provedor quando a OpenAI continua indisponível. O job durável aplica novas tentativas e pode terminar em encaminhamento para conferência humana, conforme o estado da execução.
+- A chamada de recuperação `GET /api/whatsapp-webhook?operation=ai-recovery` exige `Authorization: Bearer <CRON_SECRET>` e processa um job por chamada.
+- Em 11/11/2026, a listagem de Cron Jobs da Vercel do projeto `morantehub` retornou `crons: []`. Nenhum agendador externo foi consultado nesta revisão. O endpoint existe, mas a recuperação periódica da fila não está confirmada até localizar um agendador efetivo.
+- O handler do webhook tem `maxDuration` de 60 segundos em `erp/vercel.json`. Como o endpoint atual processa um job por chamada, a capacidade de recuperação depende do intervalo e da repetição do agendador.
 
-### 2.3. Governança e Tarifação no Banco de Dados Supabase
-- **Resolução do Erro PostgreSQL 42725 (Função Ambígua):**
-  - Removidas sobrecargas legadas `check_and_reserve_ai_quota(text, text, integer, text)` e `record_ai_token_usage(...)`.
-  - Assinatura canônica unificada de `check_and_reserve_ai_quota`:
-    ```sql
-    check_and_reserve_ai_quota(p_provider text, p_service text, p_estimated_tokens integer, p_module_source text, p_reserve boolean DEFAULT true)
-    ```
-- **Cálculo de Custos e Cache em BRL (`record_ai_token_usage`):**
-  - Câmbio conservador com IOF: R$ 6,30 por USD.
-  - Entrada OpenAI GPT-6 Luna: R$ 0,000630 / 1k tokens.
-  - Entrada em Cache: R$ 0,000063 / 1k tokens.
-  - Saída OpenAI GPT-6 Luna: R$ 0,003150 / 1k tokens.
-  - Suporte à reconciliação de reservas orçamentárias (`p_reservation_id`).
+## Modos de despacho
 
-### 2.4. Correção na Edge Function `analyze-inbound-invoice`
-- Parâmetros da RPC `check_and_reserve_ai_quota` corrigidos para passar `{ p_provider: "gemini", p_service: "gemini_flash", p_estimated_tokens: 3000, p_module_source: "estoque_nfe_inbound", p_reserve: false }`.
-- Parâmetros da telemetria `record_ai_token_usage` alinhados à assinatura canônica, eliminando inserções manuais duplicadas em `api_usage_logs`.
+| Modo | Efeito |
+| --- | --- |
+| `automatico` | Envia a resposta pela Meta, com idempotência e revalidação de conversa/configuração antes do envio. |
+| `assistido` | Salva uma sugestão para o atendente aprovar; não envia pela Meta. |
+| `humano` | Não executa o agente. |
 
-### 2.5. Modularização Arquitetural de `secure-integrations.ts`
-- O monolito `erp/api/secure-integrations.ts` (652 linhas) foi decomposto em módulos de responsabilidade única (SRP) sob `erp/api/_lib/secureIntegrations/`:
-  - `types.ts`: constantes de tamanho de payload, regex de modelos (GPT-6 Luna, Gemini), máscaras de rotas e helpers de requisição.
-  - `aiQuotaBridge.ts`: desacoplamento da camada de persistência/RPCs de cota de IA (`checkAiQuotaOrReject`, `releaseAiReservationSafe`, `recordAiUsageTokensSafe`).
-  - `handlers/metaGraphHandler.ts`: proxy para a Meta Graph API, cobrindo credenciais, subscrições WABA, SMB echoes e catalog batch sync/status.
-  - `handlers/geminiHandler.ts`: proxy isolado para o Google Gemini com validação de payload, reserva de cota e telemetria atômica.
-  - `handlers/openAiHandler.ts`: proxy isolado para a OpenAI (`gpt-6-luna`) com extração de `cached_tokens` e governança orçamentária.
-  - `handlers/googleRoutesHandler.ts`: proxy para cálculo de rotas e coordenadas com validação estrita e permissão `viewDeliverySchedule`.
-  - `secure-integrations.ts`: ponto de entrada mínimo e declarativo (router/dispatcher com CORS e tratamento de preflight).
-- Bundle de produção CJS gerado com sucesso via `erp/scripts/build-customer-support.cjs`.
+Resultado de envio incerto não é repetido automaticamente. O sistema sinaliza a necessidade de conferência humana para evitar duplicidade.
 
----
+## Quotas, persistência e proveniência
 
-## 3. Validação Operacional e Testes
+Chamadas reais reservam quota antes do modelo e contabilizam tokens/uso pela RPC `record_ai_token_usage`. O painel apresenta métricas agregadas de uso. Turnos, tentativas de fila e despachos ficam registrados em tabelas técnicas; a mensagem salva contém metadados de proveniência, como ferramentas, situação, modo e modelo. A Central não apresenta uma tela administrativa que reúna esses dados por atendimento real.
 
-### 3.1. Teste de Conectividade Real com a API Oficial da OpenAI
-Executado teste fim a fim contra `https://api.openai.com/v1/chat/completions` utilizando as credenciais da conta do operador carregadas em memória da Vercel:
-1. **Geração Direta:**
-   - Requisição: `model: 'gpt-6-luna'`, mensagem de teste.
-   - Resposta: `HTTP 200 OK`, `content: "OK_LUNA_OPERACIONAL"`, tempo: ~2.7s.
-   - Detalhes de tokens: 29 input, 26 output (sendo 12 de raciocínio).
-2. **Function Calling com Ferramentas Comerciais:**
-   - Requisição: `model: 'gpt-6-luna'`, `reasoning_effort: 'none'`, ferramenta `consultarEstoqueProduto`.
-   - Resposta: `HTTP 200 OK`, chamada disparada com argumento `{"termo":"Guarda-Roupa Casal 6 Portas"}`, tempo: ~2.4s.
+Esta documentação não fixa preços ou janela de contexto do modelo. Para análise financeira, use as tarifas e conversões configuradas no registro vigente de uso, em vez de copiar as estimativas antigas que estavam neste documento.
 
-### 3.2. Bateria de Testes Automatizados (Vitest)
-Executada bateria completa das suítes de Customer Support e AI Gateway:
-- `src/services/aiGateway/__tests__/AiQuotaManager.test.ts` — 12 testes aprovados.
-- `src/services/aiGateway/__tests__/AiGateway.test.ts` — 6 testes aprovados.
-- `src/services/aiGateway/__tests__/aiQuotaNotifier.test.ts` — 3 testes aprovados.
-- `src/pages/App/CustomerSupport/__tests__/secureIntegrationsMetaCredentials.test.ts` — 12 testes aprovados.
-- `src/pages/App/CustomerSupport/__tests__/whatsappAiAgentConcurrency.test.ts` — 6 testes aprovados.
-- `src/pages/App/CustomerSupport/__tests__/whatsappAiAgentIntegrationE2E.test.ts` — 7 testes aprovados.
-- `src/pages/App/CustomerSupport/__tests__/aiUsageLimitsAndQuotas.test.ts` — 8 testes aprovados.
-- `src/pages/App/CustomerSupport/__tests__/whatsappAiAgentService.test.ts` — 20 testes aprovados.
+## Arquivos de referência
 
-**Resultado:** 8 arquivos de teste, 74 testes executados, 100% aprovados.
+- `erp/src/pages/utils/customerSupport/whatsappAiAgent/whatsappAiModelRunner.ts`
+- `erp/src/pages/utils/customerSupport/whatsappAiAgent/runners/openAiTurnRunner.ts`
+- `erp/src/pages/utils/customerSupport/whatsappAiAgent/orchestrator/turnExecutionPipeline.ts`
+- `erp/src/pages/utils/customerSupport/whatsappAiAgent/durableAiJob.ts`
+- `erp/api/whatsapp-webhook.ts`
+- `erp/src/pages/App/CustomerSupport/hooks/useWhatsAppAiAgentSwitch.ts`
+- `supabase/migrations/20261111031003_whatsapp_ai_durable_jobs.sql`
+
+## Validação desta revisão
+
+As suítes direcionadas de ativação, integração, concorrência, quotas, pipeline, despacho, runner OpenAI, configuração, fila, endpoint de recuperação e ferramentas passaram: **81 testes aprovados em 16 arquivos**. O resultado é de testes Vitest com serviços simulados; não demonstra qualidade semântica do modelo, entrega real via Meta, estado atual remoto do agente ou execução de um Cron Job. Não houve chamada real à OpenAI nem envio de mensagem nesta revisão.

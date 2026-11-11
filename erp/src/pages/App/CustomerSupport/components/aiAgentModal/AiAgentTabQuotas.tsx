@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'react-toastify';
 import { supabase } from '@/pages/utils/supabaseConfig';
@@ -17,7 +17,7 @@ export interface AiAgentTabQuotasProps {
   isAdministrator?: boolean;
 }
 
-export const AiAgentTabQuotas: React.FC<AiAgentTabQuotasProps> = ({ isAdministrator = true }) => {
+export const AiAgentTabQuotas: React.FC<AiAgentTabQuotasProps> = ({ isAdministrator = false }) => {
   const [metrics, setMetrics] = useState<LiveQuotaMetrics | null>(null);
   const [loadingMetrics, setLoadingMetrics] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -35,7 +35,7 @@ export const AiAgentTabQuotas: React.FC<AiAgentTabQuotasProps> = ({ isAdministra
     watch,
     formState: { errors, isDirty },
   } = useForm<AiUsageLimitsConfig>({
-    resolver: zodResolver(aiUsageLimitsSchema),
+    resolver: zodResolver(aiUsageLimitsSchema) as Resolver<AiUsageLimitsConfig>,
     defaultValues: currentLimits,
   });
 
@@ -45,18 +45,7 @@ export const AiAgentTabQuotas: React.FC<AiAgentTabQuotasProps> = ({ isAdministra
   const fetchLiveMetrics = useCallback(async () => {
     try {
       setLoadingMetrics(true);
-      let { data, error } = await supabase.rpc('get_ai_quota_metrics');
-      if (error || !data) {
-        const fallback = await supabase.rpc('check_and_reserve_ai_quota', {
-          p_provider: 'all',
-          p_service: 'ai_unified',
-          p_estimated_tokens: 0,
-          p_module_source: 'tab_quotas_monitor',
-          p_reserve: false,
-        });
-        data = fallback.data;
-        error = fallback.error;
-      }
+      const { data, error } = await supabase.rpc('get_ai_quota_metrics');
 
       if (!error && data) {
         setMetrics({
@@ -73,6 +62,8 @@ export const AiAgentTabQuotas: React.FC<AiAgentTabQuotasProps> = ({ isAdministra
           status: data.status || 'ALLOW',
           reason: data.reason,
         });
+      } else {
+        setMetrics(null);
       }
     } catch (err) {
       console.warn('[AiAgentTabQuotas] Erro ao carregar métricas:', err);
@@ -82,10 +73,12 @@ export const AiAgentTabQuotas: React.FC<AiAgentTabQuotasProps> = ({ isAdministra
   }, []);
 
   useEffect(() => {
-    void fetchLiveMetrics();
-  }, [fetchLiveMetrics]);
+    if (isAdministrator) void fetchLiveMetrics();
+    else { setMetrics(null); setLoadingMetrics(false); }
+  }, [fetchLiveMetrics, isAdministrator]);
 
   const onSubmit = async (values: AiUsageLimitsConfig) => {
+    if (!isAdministrator) return;
     try {
       setIsSaving(true);
       const current = getSettings();
@@ -94,8 +87,8 @@ export const AiAgentTabQuotas: React.FC<AiAgentTabQuotasProps> = ({ isAdministra
         aiUsageLimits: values,
       };
 
-      const success = await saveSettings(updated);
-      if (success) {
+      const { confirmed } = await saveSettings(updated, { confirm: true });
+      if (confirmed) {
         ApiUsageGuard.clearCache();
         toast.success('Limites e cotas de IA atualizados com sucesso!');
         reset(values);
@@ -109,6 +102,8 @@ export const AiAgentTabQuotas: React.FC<AiAgentTabQuotasProps> = ({ isAdministra
       setIsSaving(false);
     }
   };
+
+  if (!isAdministrator) return <p>Somente administradores podem consultar custos e cotas de IA.</p>;
 
   return (
     <div className="space-y-6">

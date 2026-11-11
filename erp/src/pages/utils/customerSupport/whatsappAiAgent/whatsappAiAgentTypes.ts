@@ -8,6 +8,7 @@ export interface WhatsAppAiAgentDependencies {
   openAiApiKey?: string;
   whatsappAccessToken?: string;
   now?: () => Date;
+  durableJob?: { id: string; token: string };
 }
 
 export interface InboundMessageParams {

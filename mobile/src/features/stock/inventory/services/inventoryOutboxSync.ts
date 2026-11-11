@@ -10,7 +10,7 @@ import { withTimeout } from '../../../../../../shared-utils/withTimeout';
 import {
   buildInventorySubmissionClaimRpcParams,
   buildInventorySubmissionRpcParams,
-  getInventoryFinalizationRpcName,
+  getInventoryCompactFinalizationRpcName,
   isInventorySubmissionClaimAcknowledged,
 } from '../../../../../../shared-utils/inventorySubmissionProtocol';
 import { getOfflineInventoryCatalog } from './offlineInventoryCatalog';
@@ -98,7 +98,7 @@ export const syncPendingInventorySubmissions = async (
             return { data: claim.data, error: null };
           }
           return supabase.rpc(
-            getInventoryFinalizationRpcName(submission.contractVersion),
+            getInventoryCompactFinalizationRpcName(submission.contractVersion),
             buildInventorySubmissionRpcParams(submission)
           );
         })(),

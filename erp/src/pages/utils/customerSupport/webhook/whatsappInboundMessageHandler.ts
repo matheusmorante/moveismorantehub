@@ -2,7 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { normalizeToE164 } from '../phoneUtils.js';
 import { matchCustomerByPhone } from '../customerMatchingService.js';
 import { extractMessageContent } from '../whatsappMessageContent.js';
-import { maybeTriggerWhatsAppAiAgent } from '../whatsappAiAgentService.js';
+import { processDurableAiJob } from '../whatsappAiAgent/durableAiJob.js';
 import { processRevokedMessage } from '../whatsappWebhookEchoService.js';
 
 export interface InboundBatchResult {
@@ -111,7 +111,7 @@ export async function processInboundMessageBatch(
       const extracted = extractMessageContent(message);
 
       // Gravação atômica via RPC
-      const { data: receipt, error: receiptError } = await supabase.rpc('customer_support_receive_message', {
+      const { data: receipt, error: receiptError } = await supabase.rpc('customer_support_receive_message_with_ai_job', {
         p_business_phone_number_id: businessPhoneNumberId,
         p_contact_wa_id: from,
         p_contact_phone: contactPhoneE164,
@@ -139,26 +139,14 @@ export async function processInboundMessageBatch(
         throw new Error('Recebimento da mensagem não confirmado pelo servidor.');
       }
 
-      if (receipt.inserted) {
-        result.processedMessages++;
-        if (extracted.type === 'text' && extracted.text?.trim()) {
-          try {
-            await maybeTriggerWhatsAppAiAgent(supabase, {
-              conversationId: receipt.conversation_id,
-              messageId: receipt.message_id,
-              from,
-              contactPhoneE164,
-              contactProfile,
-              text: extracted.text,
-              wamid,
-              businessPhoneNumberId,
-            });
-          } catch (aiErr) {
-            console.error('[WhatsApp Webhook] Erro não bloqueante no Agente de IA:', aiErr);
-          }
+      if (receipt.inserted) result.processedMessages++;
+      else result.duplicatesIgnored++;
+      if (receipt.ai_job_id) {
+        try {
+          await processDurableAiJob(supabase, receipt.ai_job_id);
+        } catch (aiErr) {
+          console.error('[WhatsApp Webhook] O atendimento continua pendente para recuperação:', aiErr);
         }
-      } else {
-        result.duplicatesIgnored++;
       }
     } catch (err: any) {
       console.error('[WhatsApp Webhook] Erro ao processar mensagem individual:', err);

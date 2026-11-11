@@ -4,6 +4,35 @@ import { deleteLocalInventoryDraft, getLocalInventoryDraft } from '../../sqlite/
 import { deleteInventorySubmission, getInventorySubmission } from '../../sqlite/inventoryOutbox';
 import { deleteLocalInventoryScans } from '../../sqlite/inventoryScans';
 
+interface InventorySessionAdjustmentMove {
+  readonly id: string;
+  readonly label?: string | null;
+  readonly observation?: string | null;
+  readonly product_id?: string | null;
+  readonly status?: string | null;
+}
+
+const isMissingProjectedColumn = (error: { readonly code?: string } | null): boolean =>
+  Boolean(error && ['PGRST204', '42703'].includes(error.code || ''));
+
+const fetchInventorySessionAdjustmentMoves = async (
+  expectedLabel: string
+): Promise<InventorySessionAdjustmentMove[]> => {
+  const fetchWithProjection = (columns: string) =>
+    supabase.from('inventory_moves').select(columns).eq('label', expectedLabel);
+
+  let response = await fetchWithProjection('id, label, observation, product_id, status');
+  if (isMissingProjectedColumn(response.error)) {
+    response = await fetchWithProjection('id, label, observation, product_id');
+    if (isMissingProjectedColumn(response.error)) {
+      response = await fetchWithProjection('*');
+    }
+  }
+
+  if (response.error) throw response.error;
+  return (response.data || []) as unknown as InventorySessionAdjustmentMove[];
+};
+
 const isEffectiveInventoryMove = (move: any) => {
   try {
     const meta = JSON.parse(move.observation || '{}');
@@ -100,12 +129,7 @@ export const reverseInventorySession = async (session: {
   const code = session.inventoryCode || session.id.split('-')[0];
   const expectedLabel = `Ajuste lançado pelo inventário #${code}`;
 
-  const { data: moves, error } = await supabase
-    .from('inventory_moves')
-    .select('*')
-    .eq('label', expectedLabel);
-
-  if (error) throw error;
+  const moves = await fetchInventorySessionAdjustmentMoves(expectedLabel);
   if (!moves || moves.length === 0) return;
 
   const reversedAt = new Date().toISOString();
@@ -151,12 +175,7 @@ export const unreverseInventorySession = async (session: {
   const code = session.inventoryCode || session.id.split('-')[0];
   const expectedLabel = `Ajuste lançado pelo inventário #${code}`;
 
-  const { data: moves, error } = await supabase
-    .from('inventory_moves')
-    .select('*')
-    .eq('label', expectedLabel);
-
-  if (error) throw error;
+  const moves = await fetchInventorySessionAdjustmentMoves(expectedLabel);
   if (!moves || moves.length === 0) return;
 
   const affectedProductIds = new Set<string>();

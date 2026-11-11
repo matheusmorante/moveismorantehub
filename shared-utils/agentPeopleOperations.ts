@@ -165,29 +165,21 @@ export async function searchCollaboratorsForAgent(
     ].includes(normalizedTerm)
       ? normalizedTerm
       : null);
-  const conditions = [
-    buildPostgrestAccentInsensitiveOrFilter(['full_name', 'email', 'position'], term),
-  ];
-  if (role) conditions.push(`role.eq.${role}`, `roles.cs.{${role}}`);
-  const { data, error } = await supabase
+  let query = supabase
     .from('profiles')
     .select('id, email, full_name, position, role, roles')
-    .or(conditions.join(','))
     .order('full_name', { ascending: true })
-    .limit(100);
+    .limit(limit);
+  if (role) {
+    query = query.or(`role.eq.${role},roles.cs.{${role}}`);
+  } else {
+    query = query.or(
+      buildPostgrestAccentInsensitiveOrFilter(['full_name', 'email', 'position'], term)
+    );
+  }
+  const { data, error } = await query;
   if (error) throw error;
-  const matched = (data || [])
-    .filter((profile: any) => {
-      const roles =
-        Array.isArray(profile.roles) && profile.roles.length
-          ? profile.roles
-          : profile.role
-            ? [profile.role]
-            : [];
-      return !role || roles.includes(role) || profile.role === role;
-    })
-    .slice(0, limit);
-  return matched.map((profile: any) => ({
+  return (data || []).map((profile: any) => ({
     id: profile.id,
     nome: profile.full_name || profile.email,
     email: profile.email,

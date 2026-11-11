@@ -19,8 +19,7 @@ export async function simulateWhatsAppAiTurn(
   history: SimulationHistoryTurn[] = []
 ): Promise<SimulationTurnResult> {
   const startTime = Date.now();
-  const fetchOpenAi = dependencies.fetchOpenAi || ((input, init) => globalThis.fetch(input, init));
-  const openAiApiKey = dependencies.openAiApiKey || process.env.OPENAI_API_KEY?.trim() || '';
+  const fetchOpenAi = dependencies.fetchOpenAi;
 
   const {
     situation,
@@ -32,41 +31,7 @@ export async function simulateWhatsAppAiTurn(
     historyForOpenAi,
   } = buildSimulatorContext(userQuery, config, history);
 
-  if (!openAiApiKey) {
-    const samplePreview = `[Simulação sem chave de API] Olá! Sou o Seu Lizandro da Móveis Morante. Identifiquei que você perguntou sobre "${
-      matchedKeywords.join(', ') || situation?.name || 'móveis'
-    }".`;
-    const { text: validatedResponseText, enforcedPhrases } = enforceMandatoryPhrases(
-      samplePreview,
-      situation?.mandatoryPhrases || [],
-      userQuery
-    );
-
-    return {
-      executed: true,
-      userQuery,
-      situation: situation
-        ? {
-            key: situation.situationKey,
-            name: situation.name,
-            action: situation.action,
-            priority: situation.priority,
-          }
-        : null,
-      matchedKeywords,
-      articlesUsed: relevantArticles.map((a) => ({
-        id: a.id,
-        title: a.title,
-        category: a.category,
-        priority: a.priority,
-      })),
-      workflowApplied: activeWorkflow?.workflowKey || null,
-      toolsCalled: [],
-      mandatoryPhrasesEnforced: enforcedPhrases,
-      aiResponseText: validatedResponseText,
-      executionTimeMs: Date.now() - startTime,
-    };
-  }
+  if (!fetchOpenAi) throw new Error('O simulador precisa usar o proxy autenticado da OpenAI.');
 
   const targetModel = 'gpt-6-luna';
 
@@ -74,7 +39,9 @@ export async function simulateWhatsAppAiTurn(
 
   const modelResult = await runAiTurnWithFallback({
     modelToUse: targetModel,
-    openAiApiKey,
+    // O proxy no servidor injeta a chave real; este marcador nunca é enviado
+    // à OpenAI porque o fetch abaixo substitui a chamada externa.
+    openAiApiKey: 'server-managed',
     fetchOpenAi,
     systemInstructionText,
     historyForOpenAi,
@@ -122,5 +89,43 @@ export async function simulateWhatsAppAiTurn(
     mandatoryPhrasesEnforced: enforcedPhrases,
     aiResponseText: validatedResponseText,
     executionTimeMs: Date.now() - startTime,
+  };
+}
+
+/** Cria o transporte autenticado do simulador; a chave OpenAI fica no servidor. */
+export function createSimulatorOpenAiFetch(supabase: SupabaseClient): typeof fetch {
+  return async (_input, init = {}) => {
+    const { data, error } = await supabase.auth.getSession();
+    const accessToken = data.session?.access_token;
+    if (error || !accessToken) {
+      return new Response(JSON.stringify({ error: 'Sessão inválida. Entre novamente.' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    let request: unknown;
+    try {
+      request = JSON.parse(String(init.body || '{}'));
+    } catch {
+      return new Response(JSON.stringify({ error: 'Solicitação do simulador inválida.' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    return fetch('/api/openai-proxy', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({
+        action: 'responses',
+        request,
+        moduleSource: 'whatsapp_ai_simulator',
+      }),
+      signal: init.signal,
+    });
   };
 }

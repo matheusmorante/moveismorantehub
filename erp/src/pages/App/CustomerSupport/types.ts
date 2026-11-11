@@ -80,6 +80,8 @@ export type WhatsAppMessageType =
   | 'unsupported';
 
 export type WhatsAppMessageDeliveryStatus =
+  | 'suggested'
+  | 'sending'
   | 'sent'
   | 'delivered'
   | 'read'

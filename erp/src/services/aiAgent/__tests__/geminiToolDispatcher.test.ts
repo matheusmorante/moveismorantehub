@@ -71,7 +71,7 @@ describe('GeminiToolDispatcher - Roteamento e Controle de Permissões por Perfil
     const { functionResponse, record } = await GeminiToolDispatcher.execute({
       name: 'buscarCategoriasFinanceiras',
       args: { tipo: 'expense' },
-    });
+    }, { role: 'administrator', enforced: true });
 
     expect(functionResponse.name).toBe('buscarCategoriasFinanceiras');
     expect(functionResponse.response.output.success).toBe(true);
@@ -107,7 +107,10 @@ describe('GeminiToolDispatcher - Roteamento e Controle de Permissões por Perfil
       { role: 'manager', enforced: true }
     );
     expect(prodExec.record.success).toBe(true);
-    expect(productAgentTools.criarProduto).toHaveBeenCalledOnce();
+    expect(productAgentTools.criarProduto).toHaveBeenCalledWith(
+      { nome: 'Sofá Retrátil', precoVenda: 2990 },
+      { role: 'manager', enforced: true }
+    );
   });
 
   it('deve bloquear com PERMISSION_DENIED quando o perfil não possui permissão para a ferramenta solicitada', async () => {
@@ -173,7 +176,7 @@ describe('GeminiToolDispatcher - Roteamento e Controle de Permissões por Perfil
     const { functionResponse, record } = await GeminiToolDispatcher.execute({
       name: 'criarMovimentacaoFinanceira',
       args: { tipo: 'expense', valor: 50, descricao: 'Teste' },
-    });
+    }, { role: 'administrator', enforced: true });
 
     expect(functionResponse.response.output.success).toBe(false);
     expect(record.success).toBe(false);

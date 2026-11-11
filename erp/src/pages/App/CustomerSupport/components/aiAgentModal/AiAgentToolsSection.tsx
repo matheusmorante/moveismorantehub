@@ -1,14 +1,15 @@
 import React, { memo } from 'react';
-import { FieldError } from 'react-hook-form';
+import type { FieldErrors } from 'react-hook-form';
 import {
   WHATSAPP_SAFE_TOOLS,
+  type WhatsAppAiAgentFormData,
   type WhatsAppSafeToolDefinition,
 } from '../../../../../../../shared-utils/whatsappAiAgentSchemas';
 
 export interface AiAgentToolsSectionProps {
   enabledTools: string[];
   isAdministrator: boolean;
-  error?: FieldError;
+  error?: FieldErrors<WhatsAppAiAgentFormData>['enabledTools'];
   onToggleTool: (toolId: string) => void;
 }
 

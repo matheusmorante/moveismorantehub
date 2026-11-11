@@ -50,8 +50,7 @@ export async function acquireDistributedAiTurnLock(
 
   // 2. Trava atômica no banco de dados (Garantia física entre instâncias distribuídas)
   if (typeof supabase?.rpc !== 'function') {
-    markConversationInFlight(conversationId);
-    return { acquired: true, turnId: `local-${Date.now()}`, lockToken: `tok-${Date.now()}` };
+    return { acquired: false, reason: 'distributed_lock_unavailable' };
   }
 
   try {
@@ -65,9 +64,7 @@ export async function acquireDistributedAiTurnLock(
 
     if (error) {
       console.warn('[Distributed Lock] Erro ao chamar customer_support_acquire_ai_turn:', error.message);
-      // Fallback gracioso para ambiente de testes unitários sem a RPC provisionada
-      markConversationInFlight(conversationId);
-      return { acquired: true, turnId: `local-${Date.now()}`, lockToken: `tok-${Date.now()}` };
+      return { acquired: false, reason: 'distributed_lock_unavailable' };
     }
 
     if (data && data.acquired === true) {
@@ -90,8 +87,7 @@ export async function acquireDistributedAiTurnLock(
     };
   } catch (err: any) {
     console.warn('[Distributed Lock] Exceção ao adquirir trava:', err?.message || err);
-    markConversationInFlight(conversationId);
-    return { acquired: true, turnId: `local-${Date.now()}`, lockToken: `tok-${Date.now()}` };
+    return { acquired: false, reason: 'distributed_lock_unavailable' };
   }
 }
 
@@ -134,7 +130,7 @@ export async function completeDistributedAiTurnLock(
   releaseConversationInFlight(conversationId);
 
   if (!turnId || !lockToken || turnId.startsWith('local-')) {
-    return { success: true, hasPending: false, pendingCount: 0 };
+    return { success: false, hasPending: false, pendingCount: 0 };
   }
 
   try {
@@ -149,7 +145,7 @@ export async function completeDistributedAiTurnLock(
 
     if (error) {
       console.warn('[Distributed Lock] Erro ao chamar customer_support_complete_ai_turn:', error.message);
-      return { success: true, hasPending: false, pendingCount: 0 };
+      return { success: false, hasPending: false, pendingCount: 0 };
     }
 
     return {
@@ -161,6 +157,6 @@ export async function completeDistributedAiTurnLock(
     };
   } catch (err: any) {
     console.warn('[Distributed Lock] Exceção ao finalizar trava:', err?.message || err);
-    return { success: true, hasPending: false, pendingCount: 0 };
+    return { success: false, hasPending: false, pendingCount: 0 };
   }
 }

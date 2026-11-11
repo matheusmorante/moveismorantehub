@@ -16,6 +16,7 @@ import {
   upsertCustomerForAgent,
   searchCustomersForAgent,
   searchCollaboratorsForAgent,
+  normalizeAgentOrderIdentifier,
 } from '../../../../shared-utils/agentOrderAndPeopleOperations';
 import {
   AgentCreateProductInput,
@@ -24,6 +25,10 @@ import {
   listProductCategoriesAndCharacteristicsForAgent,
   updateProductForAgent,
 } from '../../../../shared-utils/agentProductOperations';
+import {
+  canAgentViewProductCost,
+  type AgentPermissionContext,
+} from '../../../../shared-utils/agentPermissionGuard';
 
 // Executores determinísticos das ferramentas do agente OpenAI no mobile.
 
@@ -43,9 +48,9 @@ export const mobileAgentTools = {
       | 'devolucao'
       | 'montagem';
     limite?: number;
-  }): Promise<ToolExecutionResponse> {
+  }, permissionContext?: AgentPermissionContext | null): Promise<ToolExecutionResponse> {
     try {
-      const operations = await searchOperations(args);
+      const operations = await searchOperations(args, permissionContext);
       return {
         success: true,
         data: operations,
@@ -60,15 +65,18 @@ export const mobileAgentTools = {
     }
   },
 
-  async obterDetalhesOperacao(args: { operacaoId: string }): Promise<ToolExecutionResponse> {
-    if (!args.operacaoId?.trim())
+  async obterDetalhesOperacao(
+    args: { operacaoId: string },
+    permissionContext?: AgentPermissionContext | null
+  ): Promise<ToolExecutionResponse> {
+    if (!args.operacaoId?.trim() || !normalizeAgentOrderIdentifier(args.operacaoId))
       return {
         success: false,
         code: 'INVALID_OPERATION_ID',
         error: 'É necessário informar o ID ou número real da operação.',
       };
     try {
-      const operation = await getOrderDeliveryDetails(args.operacaoId);
+      const operation = await getOrderDeliveryDetails(args.operacaoId, {}, permissionContext);
       if (!operation)
         return { success: false, code: 'OPERATION_NOT_FOUND', error: 'Operação não encontrada.' };
       return { success: true, data: operation, message: 'Detalhes da operação carregados.' };
@@ -87,9 +95,12 @@ export const mobileAgentTools = {
     dataFim?: string;
     status?: string;
     limite?: number;
-  }): Promise<ToolExecutionResponse> {
+  }, permissionContext?: AgentPermissionContext | null): Promise<ToolExecutionResponse> {
     try {
-      const orders = await searchOrdersAndDeliveries({ ...args, tipo: 'venda' });
+      const orders = await searchOrdersAndDeliveries(
+        { ...args, tipo: 'entrega' },
+        permissionContext
+      );
       return {
         success: true,
         data: orders,
@@ -104,15 +115,22 @@ export const mobileAgentTools = {
     }
   },
 
-  async obterDetalhesPedidoEntrega(args: { pedidoId: string }): Promise<ToolExecutionResponse> {
-    if (!args.pedidoId?.trim())
+  async obterDetalhesPedidoEntrega(
+    args: { pedidoId: string },
+    permissionContext?: AgentPermissionContext | null
+  ): Promise<ToolExecutionResponse> {
+    if (!args.pedidoId?.trim() || !normalizeAgentOrderIdentifier(args.pedidoId))
       return {
         success: false,
         code: 'INVALID_ORDER_ID',
         error: 'É necessário informar um ID ou número de pedido válido.',
       };
     try {
-      const order = await getOrderDeliveryDetails(args.pedidoId);
+      const order = await getOrderDeliveryDetails(
+        args.pedidoId,
+        { logisticsScoped: true },
+        permissionContext
+      );
       if (!order)
         return { success: false, code: 'ORDER_NOT_FOUND', error: 'Pedido não encontrado.' };
       return {
@@ -286,9 +304,9 @@ export const mobileAgentTools = {
     apenasAtivos?: boolean;
     naLixeira?: boolean;
     limite?: number;
-  }): Promise<ToolExecutionResponse> {
+  }, permissionContext?: AgentPermissionContext | null): Promise<ToolExecutionResponse> {
     try {
-      const products = await searchMobileProducts(args);
+      const products = await searchMobileProducts(args, permissionContext);
       return {
         success: true,
         data: products,
@@ -304,7 +322,10 @@ export const mobileAgentTools = {
     }
   },
 
-  async obterDetalhesProduto(args: { codigoOuSku: string }): Promise<ToolExecutionResponse> {
+  async obterDetalhesProduto(
+    args: { codigoOuSku: string },
+    permissionContext?: AgentPermissionContext | null
+  ): Promise<ToolExecutionResponse> {
     const target = args?.codigoOuSku?.trim();
     if (!target) {
       return {
@@ -316,7 +337,7 @@ export const mobileAgentTools = {
     }
 
     try {
-      const product = await getMobileProductDetails(target);
+      const product = await getMobileProductDetails(target, permissionContext);
       if (!product) {
         return {
           success: false,
@@ -342,11 +363,23 @@ export const mobileAgentTools = {
     return listProductCategoriesAndCharacteristicsForAgent(supabase);
   },
 
-  async criarProduto(args: AgentCreateProductInput): Promise<ToolExecutionResponse> {
-    return createProductForAgent(supabase, args);
+  async criarProduto(
+    args: AgentCreateProductInput,
+    permissionContext?: AgentPermissionContext | null
+  ): Promise<ToolExecutionResponse> {
+    const canViewCost = permissionContext === undefined
+      ? undefined
+      : permissionContext !== null && canAgentViewProductCost(permissionContext);
+    return createProductForAgent(supabase, args, canViewCost);
   },
 
-  async editarProduto(args: AgentUpdateProductInput): Promise<ToolExecutionResponse> {
-    return updateProductForAgent(supabase, args);
+  async editarProduto(
+    args: AgentUpdateProductInput,
+    permissionContext?: AgentPermissionContext | null
+  ): Promise<ToolExecutionResponse> {
+    const canViewCost = permissionContext === undefined
+      ? undefined
+      : permissionContext !== null && canAgentViewProductCost(permissionContext);
+    return updateProductForAgent(supabase, args, canViewCost);
   },
 };

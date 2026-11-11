@@ -14,6 +14,9 @@ import {
   reconcileInboundInvoiceVariationReferences,
 } from '../../../../../../shared-utils/inboundInvoiceVariationReferences';
 import { getSettings } from '../../settingsService';
+import { findInboundInvoiceSupplier } from './inboundInvoiceSupplierLookupService';
+import { isSalvadosOnlySupplier } from '../../../../../../shared-utils/productSupplierStockOrigin';
+import { markInboundInvoiceItemsNotApplicable } from '../../../../../../shared-utils/inboundInvoiceSupplierRules';
 
 export const deleteInboundInvoice = async (_invoiceIdOrKey: string): Promise<void> => {
   throw new Error('Notas fiscais de entrada não podem ser excluídas.');
@@ -229,7 +232,26 @@ export const saveInboundInvoice = async (invoice: InboundInvoice, options: { req
 
 export const importInboundInvoiceXml = async (xmlString: string): Promise<InboundInvoice> => {
   const parsed = parseInboundNfeXml(xmlString);
-  return await saveInboundInvoice(parsed);
+  let invoice = parsed;
+  if (!invoice.supplierId) {
+    try {
+      const supplier = await findInboundInvoiceSupplier(invoice.emitterName, invoice.emitterCnpj, invoice.issuedAt);
+      if (supplier) {
+        const supplierStockOrigins = supplier.stockOrigins || invoice.supplierStockOrigins;
+        invoice = {
+          ...invoice,
+          supplierId: supplier.id,
+          supplierStockOrigins,
+          items: isSalvadosOnlySupplier(supplierStockOrigins)
+            ? markInboundInvoiceItemsNotApplicable(invoice.items)
+            : invoice.items,
+        };
+      }
+    } catch (error) {
+      console.warn('[importInboundInvoiceXml] Não foi possível localizar o fornecedor; a NF será salva sem associação.', error);
+    }
+  }
+  return await saveInboundInvoice(invoice);
 };
 
 export const markInvoiceAsReceived = async (nfeKey: string, receiptId: string): Promise<void> => {

@@ -189,6 +189,29 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
         }
         onResolveReplyTarget={onResolveReplyTarget}
         onJumpToMessage={onJumpToMessage}
+        onApproveAiSuggestion={
+          canSend && careWindow.isOpen && isChannelConnected && onSendCustomerMessage
+            ? async (suggestion) => {
+                try {
+                  const result = await onSendCustomerMessage({
+                    message: suggestion.textContent || '',
+                    aiSuggestionMessageId: suggestion.id,
+                    ...(suggestion.replyToWamid ? { replyToWamid: suggestion.replyToWamid } : {}),
+                  });
+                  try {
+                    await onRefreshMessages?.();
+                  } catch {}
+                  return result;
+                } catch (error) {
+                  try {
+                    await onRefreshMessages?.();
+                  } catch {}
+                  throw error;
+                }
+              }
+            : undefined
+        }
+        aiSuggestionAuthorName={currentUserName}
         jumpToMessageId={jumpToMessageId}
         onJumpComplete={onJumpComplete}
       />

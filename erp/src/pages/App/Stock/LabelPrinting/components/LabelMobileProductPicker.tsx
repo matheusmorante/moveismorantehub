@@ -48,6 +48,7 @@ export function LabelMobileProductPicker({ category, productName, selected, prod
                 allowedProductKinds={['normal']}
                 variationsOnly
                 excludeCombos
+                includeTrashEligibility={false}
                 maxSuggestions={5}
                 onlyName
                 placeholder="Nome, código ou SKU"

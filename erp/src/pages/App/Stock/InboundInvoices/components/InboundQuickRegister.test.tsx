@@ -47,7 +47,7 @@ function Page({ items = [item], supplierId = ' supplier-1 ' }: { items?: Inbound
 async function open(mode: 'new' | 'existing' = 'new', ncmChoice: string | null = 'Usar o NCM da NF-e e atualizar o produto pai') {
   fireEvent.click(screen.getByRole('button', { name: 'Cadastro rápido' }));
   if (mode === 'existing') {
-    fireEvent.click(screen.getByRole('button', { name: /Variação de produto existente/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Nova variação de um produto existente/ }));
     fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Selecionar pai' }));
     await waitFor(() => expect(screen.getByRole('button', { name: 'Cadastrar e vincular' }).hasAttribute('disabled')).toBe(false));
     const resolution = ncmChoice ? screen.queryByLabelText(ncmChoice) : null;
@@ -170,7 +170,7 @@ describe('cadastro rápido da NF-e com resolver real, criação direta e víncul
     expect(screen.queryByRole('button', { name: 'Cadastro rápido' })).toBeNull();
   });
   it('exibe erro do resolver sem consultar quando falta selecionar pai', async () => {
-    render(<Page />); await open(); fireEvent.click(screen.getByRole('button', { name: /Variação de produto existente/ })); submit();
+    render(<Page />); await open(); fireEvent.click(screen.getByRole('button', { name: /Nova variação de um produto existente/ })); submit();
     await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('Selecione o produto pai'));
     expect(mocks.full).not.toHaveBeenCalled(); expect(mocks.save).not.toHaveBeenCalled();
   });

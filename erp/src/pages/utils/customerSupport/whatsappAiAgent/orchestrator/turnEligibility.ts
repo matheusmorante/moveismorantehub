@@ -25,11 +25,13 @@ export async function evaluateTurnPreconditions(
   supabase: SupabaseClient,
   inbound: InboundMessageParams
 ): Promise<TurnEligibilityResult> {
-  const { data: settingsRow } = await supabase
+  const { data: settingsRow, error: settingsError } = await supabase
     .from('settings')
     .select('data')
     .eq('id', 'app')
     .maybeSingle();
+
+  if (settingsError) throw new Error('Não foi possível consultar as configurações do atendimento.');
 
   const settings = settingsRow?.data;
   const config = settings?.whatsappAiAgent as WhatsAppAiAgentConfig | undefined;
@@ -52,11 +54,13 @@ export async function evaluateTurnPreconditions(
     return { eligible: false, reason: 'unauthorized_phone_number' };
   }
 
-  const { data: conv } = await supabase
+  const { data: conv, error: conversationError } = await supabase
     .from('whatsapp_conversations')
     .select('id, assigned_to, is_archived, tags, customer_id, contact_phone, ai_status')
     .eq('id', inbound.conversationId)
     .maybeSingle();
+
+  if (conversationError) throw new Error('Não foi possível consultar a conversa.');
 
   if (!conv || conv.is_archived) {
     return { eligible: false, reason: 'conversation_archived_or_missing' };

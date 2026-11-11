@@ -43,6 +43,10 @@ interface ProductAutocompleteProps {
   includeDeactivated?: boolean;
   /** Mantém a verificação de lixeira por padrão; seletores sem ação de exclusão podem dispensá-la. */
   includeTrashEligibility?: boolean;
+  /** Aplica também no servidor a exclusão de combinações deste seletor. */
+  filterCombosOnServer?: boolean;
+  /** Usa projeção compacta exclusiva para selecionar componentes de composições. */
+  compactComponentProjection?: boolean;
   allowedProductKinds?: readonly ProductKind[];
   excludedProductLinks?: readonly ProductAutocompleteExcludedLink[];
   products?: Product[];
@@ -82,6 +86,8 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
   productsOnly = false,
   includeDeactivated = false,
   includeTrashEligibility = true,
+  filterCombosOnServer = false,
+  compactComponentProjection = false,
   allowedProductKinds,
   excludedProductLinks,
   products: localProducts,
@@ -112,6 +118,8 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
     compositionsOnly,
     includeDeactivated,
     includeTrashEligibility,
+    filterCombosOnServer,
+    compactComponentProjection,
     allowedProductKinds,
     excludedProductLinks,
     localProducts,

@@ -10,6 +10,11 @@ export type CategoryLink = {
   readonly child_id: string;
 };
 
+export type CategoryManagerData = {
+  readonly categories: readonly CategoryItem[];
+  readonly relationships: readonly CategoryLink[];
+};
+
 export type CategoryFormData = {
   name: string;
   slug: string;

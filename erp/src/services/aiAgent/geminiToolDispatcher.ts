@@ -10,6 +10,7 @@ import {
   resolveRuntimeAgentPermissionContext,
   setActiveAgentPermissionContext,
 } from '../../../../shared-utils/agentPermissionGuard';
+import { sanitizeAgentToolResponseForModel } from '../../../../shared-utils/agentToolResponse';
 
 // Dispatcher central que recebe as tool calls da IA, valida permissões do perfil de acesso e executa os handlers seguros
 
@@ -44,7 +45,10 @@ const toolLabels: Record<string, string> = {
   editarProduto: 'Editando produto no catálogo',
 };
 
-const erpToolHandlers: Record<string, (args: any) => Promise<any>> = {
+const erpToolHandlers: Record<
+  string,
+  (args: any, permissionContext?: AgentPermissionContext | null) => Promise<any>
+> = {
   buscarCategoriasFinanceiras: (a) => financialAgentTools.buscarCategoriasFinanceiras(a || {}),
   buscarContasAPagar: (a) => financialAgentTools.buscarContasAPagar(a || {}),
   buscarContasAReceber: (a) => financialAgentTools.buscarContasAReceber(a || {}),
@@ -60,21 +64,21 @@ const erpToolHandlers: Record<string, (args: any) => Promise<any>> = {
   editarContaAReceber: (a) => financialAgentTools.editarContaAReceber(a),
   baixarContaFinanceira: (a) => financialAgentTools.baixarContaFinanceira(a),
   registrarFeedbackAgente: (a) => financialAgentTools.registrarFeedbackAgente(a),
-  buscarOperacoes: (a) => orderAndPeopleAgentTools.buscarOperacoes(a || {}),
-  obterDetalhesOperacao: (a) => orderAndPeopleAgentTools.obterDetalhesOperacao(a),
-  buscarPedidosEntregas: (a) => orderAndPeopleAgentTools.buscarPedidosEntregas(a || {}),
-  obterDetalhesPedidoEntrega: (a) => orderAndPeopleAgentTools.obterDetalhesPedidoEntrega(a),
+  buscarOperacoes: (a, c) => orderAndPeopleAgentTools.buscarOperacoes(a || {}, c),
+  obterDetalhesOperacao: (a, c) => orderAndPeopleAgentTools.obterDetalhesOperacao(a, c),
+  buscarPedidosEntregas: (a, c) => orderAndPeopleAgentTools.buscarPedidosEntregas(a || {}, c),
+  obterDetalhesPedidoEntrega: (a, c) => orderAndPeopleAgentTools.obterDetalhesPedidoEntrega(a, c),
   criarPedidoOperacao: (a) => orderAndPeopleAgentTools.criarPedidoOperacao(a),
   editarPedidoOperacao: (a) => orderAndPeopleAgentTools.editarPedidoOperacao(a),
   buscarClientes: (a) => orderAndPeopleAgentTools.buscarClientes(a),
   criarOuEditarCliente: (a) => orderAndPeopleAgentTools.criarOuEditarCliente(a),
   buscarColaboradores: (a) => orderAndPeopleAgentTools.buscarColaboradores(a),
-  buscarProdutos: (a) => productAgentTools.buscarProdutos(a || {}),
-  obterDetalhesProduto: (a) => productAgentTools.obterDetalhesProduto(a),
+  buscarProdutos: (a, c) => productAgentTools.buscarProdutos(a || {}, c),
+  obterDetalhesProduto: (a, c) => productAgentTools.obterDetalhesProduto(a, c),
   listarCategoriasECaracteristicasProduto: () =>
     productAgentTools.listarCategoriasECaracteristicasProduto(),
-  criarProduto: (a) => productAgentTools.criarProduto(a),
-  editarProduto: (a) => productAgentTools.editarProduto(a),
+  criarProduto: (a, c) => productAgentTools.criarProduto(a, c),
+  editarProduto: (a, c) => productAgentTools.editarProduto(a, c),
 };
 
 export class GeminiToolDispatcher {
@@ -105,7 +109,14 @@ export class GeminiToolDispatcher {
           permissionContext
         );
         setActiveAgentPermissionContext(effectivePermission);
-        const permCheck = checkAgentToolPermission(name, args || {}, effectivePermission);
+        const permCheck = effectivePermission
+          ? checkAgentToolPermission(name, args || {}, effectivePermission)
+          : {
+              allowed: false,
+              requiredActions: [],
+              code: 'PERMISSION_DENIED',
+              error: 'Não foi possível validar as permissões do operador para esta consulta.',
+            };
         if (!permCheck.allowed) {
           result = {
             success: false,
@@ -115,7 +126,7 @@ export class GeminiToolDispatcher {
               `Seu perfil de acesso não possui permissão para executar "${name}".`,
           };
         } else {
-          result = await handler(args || {});
+          result = await handler(args || {}, effectivePermission);
         }
       }
 
@@ -132,7 +143,7 @@ export class GeminiToolDispatcher {
       return {
         functionResponse: {
           name,
-          response: { output: result },
+          response: { output: sanitizeAgentToolResponseForModel(result) },
         },
         record,
       };
@@ -150,7 +161,13 @@ export class GeminiToolDispatcher {
       return {
         functionResponse: {
           name,
-          response: { output: { success: false, error: errMessage } },
+          response: {
+            output: sanitizeAgentToolResponseForModel({
+              success: false,
+              code: 'EXECUTION_ERROR',
+              error: errMessage,
+            }),
+          },
         },
         record,
       };
