@@ -576,10 +576,19 @@ export const NewGoodsReceiptModal: React.FC<Props> = ({
       Alert.alert('Pedido sem fornecedor', 'Vincule um fornecedor ao pedido antes de receber.');
       return;
     }
-    const options = suppliersLoaded ? suppliers : await loadSupplierOptions();
-    if (!options) {
-      Alert.alert('Fornecedores indisponíveis', 'Não foi possível carregar os fornecedores. Tente novamente.');
-      return;
+    let options: SupplierOption[];
+    if (suppliersLoaded) {
+      options = suppliers;
+    } else {
+      const result = await fetchMobileProductSuppliersWithStatus(purchase.supplierId);
+      if (result.ok === false) {
+        Alert.alert('Fornecedores indisponíveis', 'Não foi possível carregar os fornecedores. Tente novamente.');
+        return;
+      }
+      options = result.suppliers.map((supplier) => ({
+        ...supplier,
+        name: supplier.nickname || supplier.full_name || supplier.social_name || 'Fornecedor',
+      }));
     }
     const supplier = options.find((item) => item.id === purchase.supplierId);
     if (!supplier) {

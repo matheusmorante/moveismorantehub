@@ -1,230 +1,161 @@
-const MASK_BACKGROUND_THRESHOLD = 48;
-const MASK_FOREGROUND_THRESHOLD = 200;
-const FLAT_BACKGROUND_COLOR_TOLERANCE = 24;
-const RESTORE_FOREGROUND_COLOR_START = 16;
-const RESTORE_FOREGROUND_COLOR_FULL = 48;
+const SOLID_FOREGROUND = 200;
+const SOLID_BACKGROUND = 42;
+const BORDER_COLOR_TOLERANCE = 20;
+const MIN_FOREGROUND_MASK_RATIO = .05;
 
-export function hasTransparentCorners(data: Uint8ClampedArray, width: number, height: number): boolean {
+export const INVALID_BACKGROUND_MASK = 'A ferramenta não conseguiu separar o móvel do fundo nesta foto.';
+export type AlphaMatte = { data: ArrayLike<number>; width: number; height: number };
+
+export function hasTransparentBackground(data: Uint8ClampedArray, width: number, height: number): boolean {
+  let transparent = 0;
+  for (let index = 3; index < data.length; index += 4) {
+    if (data[index] < 20) transparent++;
+  }
   const corners = [0, width - 1, width * (height - 1), width * height - 1];
-  return corners.every((pixel) => data[pixel * 4 + 3] < 20);
+  return transparent >= width * height * .02 && corners.some((pixel) => data[pixel * 4 + 3] < 20);
 }
 
-// shortcut: recuperação de cor é limitada a fundos planos; fundos texturizados exigiriam uma trimap guiada.
-export function inferFlatBackground(data: Uint8ClampedArray, width: number, height: number): number[] | null {
-  const step = Math.max(1, Math.floor(Math.min(width, height) / 48));
-  const samples: number[][] = [];
-  const addSample = (x: number, y: number) => {
-    const offset = (y * width + x) * 4;
-    if (data[offset + 3] < 20) return;
-    samples.push([data[offset], data[offset + 1], data[offset + 2]]);
-  };
-  for (let x = 0; x < width; x += step) {
-    addSample(x, 0);
-    if (height > 1) addSample(x, height - 1);
+export function validateSegmentationMask(mask: ArrayLike<number>) {
+  let foreground = 0;
+  let background = 0;
+  for (let index = 0; index < mask.length; index++) {
+    if (mask[index] >= SOLID_FOREGROUND) foreground++;
+    if (mask[index] <= SOLID_BACKGROUND) background++;
   }
-  for (let y = step; y < height - 1; y += step) {
-    addSample(0, y);
-    if (width > 1) addSample(width - 1, y);
-  }
-  if (samples.length < 10) return null;
-
-  let bestCluster: number[][] = [];
-  for (const seed of samples) {
-    const cluster = samples.filter((sample) => sample.every((value, channel) =>
-      Math.abs(value - seed[channel]) <= FLAT_BACKGROUND_COLOR_TOLERANCE));
-    if (cluster.length > bestCluster.length) bestCluster = cluster;
-  }
-  if (bestCluster.length < samples.length * .55) return null;
-  return [0, 1, 2].map((channel) =>
-    bestCluster.reduce((sum, color) => sum + color[channel], 0) / bestCluster.length);
+  // A tiny foreground mask often means the model selected only a fragment of
+  // furniture in a room. Keep the original and offer brush correction instead.
+  const minimum = Math.max(1, Math.ceil(mask.length * MIN_FOREGROUND_MASK_RATIO));
+  if (foreground < minimum || background < minimum) throw new Error(INVALID_BACKGROUND_MASK);
 }
 
-function smoothstep(value: number): number {
-  const clamped = Math.max(0, Math.min(1, value));
-  return clamped * clamped * (3 - 2 * clamped);
-}
-
-function colorDifferenceFromBackground(data: Uint8ClampedArray, offset: number, background: number[]): number {
+function colorDistance(data: Uint8ClampedArray, offset: number, rgb: readonly number[]) {
   return Math.max(
-    Math.abs(data[offset] - background[0]),
-    Math.abs(data[offset + 1] - background[1]),
-    Math.abs(data[offset + 2] - background[2]),
+    Math.abs(data[offset] - rgb[0]),
+    Math.abs(data[offset + 1] - rgb[1]),
+    Math.abs(data[offset + 2] - rgb[2]),
   );
 }
 
-function getColorBin(data: Uint8ClampedArray, pixel: number): number {
-  const offset = pixel * 4;
-  return ((data[offset] >> 4) << 8) | ((data[offset + 1] >> 4) << 4) | (data[offset + 2] >> 4);
-}
-
-export function findConnectedForegroundPixels(
-  data: Uint8ClampedArray,
-  mask: ArrayLike<number>,
-  width: number,
-  height: number,
-  background: number[],
-): Uint8Array {
-  const pixelCount = width * height;
-  const candidates = new Uint8Array(pixelCount);
-  const protectedPixels = new Uint8Array(pixelCount);
-
-  for (let pixel = 0; pixel < pixelCount; pixel++) {
+/**
+ * Color refinement is enabled only when BiRefNet and the photo's perimeter
+ * both support the same background color on at least three sides.
+ */
+export function inferUniformBackground(
+  data: Uint8ClampedArray, mask: Uint8Array, width: number, height: number,
+): readonly number[] | null {
+  const sides = Array.from({ length: 4 }, () => [] as number[][]);
+  const sample = (side: number, x: number, y: number) => {
+    const pixel = y * width + x;
     const offset = pixel * 4;
-    if (data[offset + 3] < 20) continue;
-    if (colorDifferenceFromBackground(data, offset, background) >= RESTORE_FOREGROUND_COLOR_START) {
-      candidates[pixel] = 1;
-    }
+    if (mask[pixel] > SOLID_BACKGROUND || data[offset + 3] < 245) return;
+    sides[side].push([data[offset], data[offset + 1], data[offset + 2]]);
+  };
+  const samplesPerSide = 32;
+  for (let i = 0; i < samplesPerSide; i++) {
+    const x = Math.round(i * (width - 1) / (samplesPerSide - 1));
+    const y = Math.round(i * (height - 1) / (samplesPerSide - 1));
+    sample(0, x, 0);
+    sample(1, x, height - 1);
+    sample(2, 0, y);
+    sample(3, width - 1, y);
   }
 
-  const queue = new Uint32Array(pixelCount);
-  const seenForegroundColors = new Uint32Array(16 * 16 * 16);
-  const similarForegroundColors = new Uint32Array(16 * 16 * 16);
-  let componentId = 0;
-  for (let pixel = 0; pixel < pixelCount; pixel++) {
-    if (candidates[pixel] !== 1) continue;
-    componentId += 1;
-    let head = 0;
-    let tail = 0;
-    let containsConfidentForeground = false;
-    let touchesImageEdge = false;
-    const foregroundColorBins: number[] = [];
-    queue[tail++] = pixel;
-    candidates[pixel] = 2;
+  const samples = sides.flat();
+  if (samples.length < 2 * samplesPerSide) return null;
+  const color = [0, 1, 2].map((channel) => {
+    const values = samples.map((rgb) => rgb[channel]).sort((a, b) => a - b);
+    return values[Math.floor(values.length / 2)];
+  });
+  const matching = sides.map((side) =>
+    side.filter((rgb) => rgb.every((value, channel) => Math.abs(value - color[channel]) <= BORDER_COLOR_TOLERANCE)).length);
+  return matching.filter((count) => count >= samplesPerSide / 2).length >= 3
+    && matching.reduce((sum, count) => sum + count, 0) >= samples.length * .85
+    ? color
+    : null;
+}
 
-    while (head < tail) {
-      const current = queue[head++];
-      if (mask[current] >= MASK_FOREGROUND_THRESHOLD) {
-        containsConfidentForeground = true;
-        const colorBin = getColorBin(data, current);
-        if (seenForegroundColors[colorBin] !== componentId) {
-          seenForegroundColors[colorBin] = componentId;
-          foregroundColorBins.push(colorBin);
-        }
-      }
-      const y = (current / width) | 0;
-      const x = current - y * width;
-      if (x === 0 || y === 0 || x === width - 1 || y === height - 1) touchesImageEdge = true;
-
-      for (let dy = -1; dy <= 1; dy++) {
-        const nextY = y + dy;
-        if (nextY < 0 || nextY >= height) continue;
-        const rowOffset = nextY * width;
-        for (let dx = -1; dx <= 1; dx++) {
-          if (dx === 0 && dy === 0) continue;
-          const nextX = x + dx;
-          if (nextX < 0 || nextX >= width) continue;
-          const next = rowOffset + nextX;
-          if (candidates[next] !== 1) continue;
-          candidates[next] = 2;
-          queue[tail++] = next;
-        }
-      }
-    }
-
-    if (!containsConfidentForeground) continue;
-
-    if (touchesImageEdge) {
-      // Na borda, recupera apenas cores próximas às partes confiáveis do próprio móvel.
-      for (const colorBin of foregroundColorBins) {
-        const red = (colorBin >> 8) & 15;
-        const green = (colorBin >> 4) & 15;
-        const blue = colorBin & 15;
-        for (let redOffset = -1; redOffset <= 1; redOffset++) {
-          const neighborRed = red + redOffset;
-          if (neighborRed < 0 || neighborRed > 15) continue;
-          for (let greenOffset = -1; greenOffset <= 1; greenOffset++) {
-            const neighborGreen = green + greenOffset;
-            if (neighborGreen < 0 || neighborGreen > 15) continue;
-            for (let blueOffset = -1; blueOffset <= 1; blueOffset++) {
-              const neighborBlue = blue + blueOffset;
-              if (neighborBlue < 0 || neighborBlue > 15) continue;
-              similarForegroundColors[(neighborRed << 8) | (neighborGreen << 4) | neighborBlue] = componentId;
-            }
-          }
-        }
-      }
-    }
-
-    if (!touchesImageEdge) {
-      for (let index = 0; index < tail; index++) {
-        protectedPixels[queue[index]] = 1;
-      }
-      continue;
-    }
-
-    for (let index = 0; index < tail; index++) {
-      const current = queue[index];
-      if (similarForegroundColors[getColorBin(data, current)] === componentId) {
-        protectedPixels[current] = 1;
-      }
+/**
+ * Selects likely residual background. Strong foreground, including white
+ * panels and fine legs, never participates in the color-based operation.
+ */
+export function colorRefinementCandidates(
+  data: Uint8ClampedArray, mask: Uint8Array, background: readonly number[],
+) {
+  const candidates = new Uint8Array(mask.length);
+  for (let pixel = 0; pixel < mask.length; pixel++) {
+    if (mask[pixel] < 160 && colorDistance(data, pixel * 4, background) <= BORDER_COLOR_TOLERANCE) {
+      candidates[pixel] = 255;
     }
   }
-  return protectedPixels;
+  return candidates;
 }
 
-function resolvePixelForegroundConfidence(
-  data: Uint8ClampedArray,
-  offset: number,
-  maskValue: number,
-  isProtected: boolean,
-  background: number[] | null,
-): number {
-  const confidence = Math.max(0, Math.min(1,
-    (maskValue - MASK_BACKGROUND_THRESHOLD) / (MASK_FOREGROUND_THRESHOLD - MASK_BACKGROUND_THRESHOLD)));
-  const baseConfidence = smoothstep(confidence);
-  if (!isProtected || !background) return baseConfidence;
-
-  const redDiff = Math.abs(data[offset] - background[0]);
-  const greenDiff = Math.abs(data[offset + 1] - background[1]);
-  const blueDiff = Math.abs(data[offset + 2] - background[2]);
-  const colorDiff = Math.max(redDiff, greenDiff, blueDiff);
-  const minimumDiff = Math.min(redDiff, greenDiff, blueDiff);
-  const neutralShadow = colorDiff > FLAT_BACKGROUND_COLOR_TOLERANCE * 2 && colorDiff - minimumDiff < 18;
-  if (neutralShadow) return baseConfidence;
-
-  // Recupera portas claras e bordas coloridas, mas deixa sombras neutras sob os pés para a máscara remover.
-  const colorConfidence = smoothstep((colorDiff - RESTORE_FOREGROUND_COLOR_START)
-    / (RESTORE_FOREGROUND_COLOR_FULL - RESTORE_FOREGROUND_COLOR_START));
-  return Math.max(baseConfidence, colorConfidence);
-}
-
-function applyFlatColorDecontamination(data: Uint8ClampedArray, background: number[]) {
-  for (let pixel = 0; pixel < data.length; pixel += 4) {
-    const alpha = data[pixel + 3] / 255;
-    if (alpha <= .02 || alpha >= .98) continue;
-    for (let channel = 0; channel < 3; channel++) {
-      data[pixel + channel] = Math.max(0, Math.min(255,
-        Math.round((data[pixel + channel] - (1 - alpha) * background[channel]) / alpha)));
-    }
+export function polishAlpha(mask: Uint8Array, softened: Uint8Array) {
+  for (let index = 0; index < mask.length; index++) {
+    const alpha = mask[index];
+    if (alpha <= 12) mask[index] = 0;
+    else if (alpha >= 245) mask[index] = 255;
+    else mask[index] = Math.round(alpha * .8 + softened[index] * .2);
   }
 }
 
 /**
- * Applies the segmentation confidence mask, protects interior furniture details, and removes background tint on edges.
+ * A closed opening must have a region already classified as background.
+ * Smaller uncertain islands inside the object retain the BiRefNet mask.
  */
-export function applyBackgroundRemovalMask(
-  data: Uint8ClampedArray,
-  maskData: ArrayLike<number>,
-  width: number,
-  height: number,
-): Uint8ClampedArray {
-  const background = inferFlatBackground(data, width, height);
-  const colorProtectedPixels = background
-    ? findConnectedForegroundPixels(data, maskData, width, height, background)
-    : null;
-
-  for (let pixel = 0; pixel < maskData.length; pixel++) {
-    const offset = pixel * 4;
-    const confidence = resolvePixelForegroundConfidence(
-      data,
-      offset,
-      maskData[pixel],
-      Boolean(colorProtectedPixels?.[pixel]),
-      background,
-    );
-    data[offset + 3] = Math.round(confidence * data[offset + 3]);
+export function removeBackgroundComponents(
+  mask: Uint8Array, labels: Int32Array, labelCount: number, width: number, height: number,
+) {
+  const exterior = new Uint8Array(labelCount);
+  const lowConfidence = new Uint32Array(labelCount);
+  const sizes = new Uint32Array(labelCount);
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const index = y * width + x;
+      const label = labels[index];
+      if (!label) continue;
+      sizes[label]++;
+      if (mask[index] <= SOLID_BACKGROUND) {
+        lowConfidence[label]++;
+        if (x === 0 || x === width - 1 || y === 0 || y === height - 1) exterior[label] = 1;
+      }
+    }
   }
+  const remove = new Uint8Array(labelCount);
+  const minimumCore = Math.max(8, Math.ceil(mask.length * .0002));
+  for (let label = 1; label < labelCount; label++) {
+    if (exterior[label] || (lowConfidence[label] >= minimumCore && lowConfidence[label] >= sizes[label] * .7)) {
+      remove[label] = 1;
+    }
+  }
+  for (let index = 0; index < mask.length; index++) {
+    if (remove[labels[index]]) mask[index] = 0;
+  }
+}
 
-  if (background) applyFlatColorDecontamination(data, background);
-  return data;
+export function resizeMatte(mask: AlphaMatte, width: number, height: number): Uint8Array {
+  if (mask.width === width && mask.height === height) return Uint8Array.from(mask.data);
+  const result = new Uint8Array(width * height);
+  const left = new Int32Array(width);
+  const horizontalWeight = new Float32Array(width);
+  for (let x = 0; x < width; x++) {
+    const sourceX = Math.min(mask.width - 1, Math.max(0, (x + .5) * mask.width / width - .5));
+    left[x] = Math.floor(sourceX);
+    horizontalWeight[x] = sourceX - left[x];
+  }
+  for (let y = 0; y < height; y++) {
+    const sourceY = Math.min(mask.height - 1, Math.max(0, (y + .5) * mask.height / height - .5));
+    const top = Math.floor(sourceY);
+    const bottom = Math.min(top + 1, mask.height - 1);
+    const dy = sourceY - top;
+    for (let x = 0; x < width; x++) {
+      const lx = left[x];
+      const rx = Math.min(lx + 1, mask.width - 1);
+      const dx = horizontalWeight[x];
+      const upper = mask.data[top * mask.width + lx] * (1 - dx) + mask.data[top * mask.width + rx] * dx;
+      const lower = mask.data[bottom * mask.width + lx] * (1 - dx) + mask.data[bottom * mask.width + rx] * dx;
+      result[y * width + x] = Math.round(upper * (1 - dy) + lower * dy);
+    }
+  }
+  return result;
 }

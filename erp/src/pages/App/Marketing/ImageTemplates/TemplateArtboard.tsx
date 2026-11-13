@@ -122,7 +122,7 @@ export function TemplateArtboard({
       }, 140);
     }
 
-    const needsBackgroundRemoval = layout.layers.some((layer) => layer.type === 'product'
+    const needsBackgroundRemoval = layout.layers.some((layer) => 'removeBackground' in layer
       && layer.removeBackground && isTemplateLayerVisible(layout, layer, product));
     // Keep the status out of pointer-move redraws; its flex row changes the preview's available height.
     if (!moving && needsBackgroundRemoval && !previousBackgroundRemoval.current) {

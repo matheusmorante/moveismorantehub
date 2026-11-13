@@ -1,26 +1,18 @@
 import { imageAlphaContentBounds } from '../imageContentBounds';
 import { loadHtmlImage } from '../imageHtmlLoader';
-import { hasTransparentCorners } from './backgroundRemovalPostProcess';
+import { hasTransparentBackground } from './backgroundRemovalPostProcess';
 import {
   createAbortError,
   enqueueWorkerTask,
   type BackgroundRemovalPriority,
-  warmBackgroundRemoval,
 } from './backgroundRemovalQueue';
 
 export { BACKGROUND_REMOVAL_REVISION } from './backgroundRemovalModel';
-export {
-  applyBackgroundRemovalMask,
-  findConnectedForegroundPixels,
-  hasTransparentCorners,
-  inferFlatBackground,
-} from './backgroundRemovalPostProcess';
-export { type BackgroundRemovalPriority, warmBackgroundRemoval };
+export type { BackgroundRemovalPriority };
 
 export interface RemoveImageBackgroundOptions {
   centerContent?: boolean;
   maxSide?: number;
-  modelInputSize?: number;
   priority?: BackgroundRemovalPriority;
   signal?: AbortSignal;
 }
@@ -32,7 +24,8 @@ export interface BackgroundRemovalResult {
   alreadyTransparent: boolean;
 }
 
-const DEFAULT_MAX_SIDE = 1200;
+const MAX_IMAGE_PIXELS = 24_000_000;
+const MAX_ANALYSIS_SIDE = 1200;
 
 function centerForeground(canvas: HTMLCanvasElement): HTMLCanvasElement {
   const { width, height } = canvas;
@@ -67,57 +60,61 @@ export async function removeImageBackground(
   options: RemoveImageBackgroundOptions = {},
 ): Promise<BackgroundRemovalResult> {
   if (options.signal?.aborted) throw createAbortError();
-  const sourceCanvas = document.createElement('canvas');
-  const maxSide = Math.max(128, options.maxSide ?? DEFAULT_MAX_SIDE);
-  const scale = Math.min(1, maxSide / Math.max(imageWidth, imageHeight));
-  const width = sourceCanvas.width = Math.max(1, Math.round(imageWidth * scale));
-  const height = sourceCanvas.height = Math.max(1, Math.round(imageHeight * scale));
-  const context = sourceCanvas.getContext('2d', { willReadFrequently: true });
-  if (!context) throw new Error('Não foi possível preparar a imagem para remover o fundo.');
-
-  context.drawImage(image, 0, 0, width, height);
-  const sourcePixels = context.getImageData(0, 0, width, height);
-  if (hasTransparentCorners(sourcePixels.data, width, height)) {
-    return {
-      canvas: options.centerContent === false ? sourceCanvas : centerForeground(sourceCanvas),
-      width,
-      height,
-      alreadyTransparent: true,
-    };
+  if (!Number.isInteger(imageWidth) || !Number.isInteger(imageHeight) || imageWidth <= 0 || imageHeight <= 0) {
+    throw new Error('A ferramenta não conseguiu ler as dimensões da foto.');
   }
+  const scale = options.maxSide === undefined ? 1 : Math.min(1, Math.max(128, options.maxSide) / Math.max(imageWidth, imageHeight));
+  const width = Math.max(1, Math.round(imageWidth * scale));
+  const height = Math.max(1, Math.round(imageHeight * scale));
+  if (width * height > MAX_IMAGE_PIXELS) throw new Error('A ferramenta aceita fotos de até 24 megapixels.');
+  const analysisScale = Math.min(1, MAX_ANALYSIS_SIDE / Math.max(width, height));
+  const analysis = document.createElement('canvas');
+  const aw = analysis.width = Math.max(1, Math.round(width * analysisScale));
+  const ah = analysis.height = Math.max(1, Math.round(height * analysisScale));
+  const analysisContext = analysis.getContext('2d', { willReadFrequently: true });
+  if (!analysisContext) throw new Error('Não foi possível preparar a imagem para remover o fundo.');
+  analysisContext.drawImage(image, 0, 0, aw, ah);
+  const pixels = analysisContext.getImageData(0, 0, aw, ah).data;
+  const alreadyTransparent = hasTransparentBackground(pixels, aw, ah);
 
-  if (typeof BigInt !== 'function') {
-    throw new Error('A remoção de fundo precisa de um navegador mais atualizado.');
+  const result = document.createElement('canvas');
+  try {
+    let alpha: ArrayBuffer | undefined;
+    if (!alreadyTransparent) {
+      if (typeof BigInt !== 'function' || typeof Worker !== 'function') {
+        throw new Error('A ferramenta precisa de um navegador mais atualizado.');
+      }
+      const buffer = pixels.buffer as ArrayBuffer;
+      const response = await enqueueWorkerTask(
+        options.priority ?? 'high', options.signal,
+        { width: aw, height: ah, pixels: buffer },
+      );
+      if (options.signal?.aborted) throw createAbortError();
+      alpha = response.alpha;
+      if (alpha?.byteLength !== aw * ah) throw new Error('A ferramenta não gerou uma máscara válida.');
+    }
+
+    result.width = width;
+    result.height = height;
+    const context = result.getContext('2d');
+    if (!context) throw new Error('Não foi possível montar a imagem sem fundo.');
+    context.drawImage(image, 0, 0, width, height);
+    if (alpha) {
+      const matte = new Uint8Array(alpha);
+      const imageData = new ImageData(aw, ah);
+      for (let i = 0; i < matte.length; i++) imageData.data[i * 4 + 3] = matte[i];
+      analysisContext.putImageData(imageData, 0, 0);
+      context.globalCompositeOperation = 'destination-in';
+      context.imageSmoothingQuality = 'high';
+      context.drawImage(analysis, 0, 0, width, height);
+      context.globalCompositeOperation = 'source-over';
+    }
+    const canvas = options.centerContent === false ? result : centerForeground(result);
+    return { canvas, width, height, alreadyTransparent };
+  } finally {
+    analysis.width = 0;
+    analysis.height = 0;
   }
-
-  const pixelBuffer = sourcePixels.data.byteOffset === 0
-    && sourcePixels.data.byteLength === sourcePixels.data.buffer.byteLength
-    ? sourcePixels.data.buffer as ArrayBuffer
-    : sourcePixels.data.slice().buffer as ArrayBuffer;
-
-  const response = await enqueueWorkerTask(
-    options.priority ?? 'high',
-    options.signal,
-    (id) => ({
-      id,
-      type: 'segment',
-      width,
-      height,
-      pixels: pixelBuffer,
-      modelInputSize: options.modelInputSize,
-    }),
-    () => [pixelBuffer],
-  );
-  if (!response.pixels) throw new Error('A ferramenta não gerou uma máscara válida.');
-
-  const processedPixels = new Uint8ClampedArray(response.pixels);
-  context.putImageData(new ImageData(processedPixels, width, height), 0, 0);
-  return {
-    canvas: options.centerContent === false ? sourceCanvas : centerForeground(sourceCanvas),
-    width,
-    height,
-    alreadyTransparent: false,
-  };
 }
 
 /**

@@ -1,7 +1,6 @@
 import {
-  FORMAT_DIMENSIONS, isTemplateLayerVisible, type ImageFormat, type ImageLayer, type ImageLayout, type PositionedLayer, type TemplatePreviewProduct,
+  FORMAT_DIMENSIONS, isTemplateLayerVisible, type ImageFormat, type ImageLayout, type PositionedLayer, type TemplatePreviewProduct,
 } from '../../../../../../shared-utils/catalogImageTemplate';
-import { getDerivedImageUrl } from '@/utils/imageUrlUtils';
 import type { ImageContentBounds } from '@/pages/utils/images/imageContentBounds';
 import {
   BACKGROUND_REMOVAL_MASK_REVISION,
@@ -11,6 +10,9 @@ import {
   type TemplatePicture,
   type TemplatePictureLoader,
 } from './rendering/templatePictureLoader';
+import {
+  cachedTemplatePhotoKey, templateLayerPhotoUrls, templatePhotoKey, templatePhotoVariants,
+} from './rendering/templateImageMask';
 import {
   canvasFont,
   drawTemplateText,
@@ -100,34 +102,6 @@ function drawPlaceholder(ctx: CanvasRenderingContext2D, width: number, height: n
   ctx.restore();
 }
 
-function buildLayerUrlCandidates(
-  layer: ImageLayer,
-  product: TemplatePreviewProduct | null,
-  assets: ReadonlyMap<string, string>,
-  preview: boolean,
-): string[] | null {
-  let rawCandidates: Array<string | null | undefined>;
-  if (layer.type === 'image') {
-    if (!layer.assetId) return null;
-    rawCandidates = [assets.get(layer.assetId)];
-  } else if (layer.type === 'product') {
-    if (!product) return null;
-    rawCandidates = [product.images[layer.imageIndex]];
-    if (layer.imageIndex > 0 && layer.fallback === 'main') rawCandidates.push(product.images[0]);
-  } else {
-    return null;
-  }
-
-  const expanded = preview && layer.type === 'product'
-    ? rawCandidates.flatMap((url) => {
-      if (!url) return [];
-      const mediumUrl = getDerivedImageUrl(url, 'medium');
-      return mediumUrl === url ? [url] : [mediumUrl, url];
-    })
-    : rawCandidates;
-  return [...new Set(expanded.filter((url): url is string => Boolean(url)))];
-}
-
 function drawStickerOrTextLayer(
   ctx: CanvasRenderingContext2D,
   layer: Extract<PositionedLayer, { type: 'text' | 'sticker' }>,
@@ -171,37 +145,44 @@ export async function renderImageTemplate({ canvas, format, layout, product, ass
   let backgroundRemovalPending = false;
 
   const sourcePromises = layers.map(async (layer, layerIndex) => {
-    const candidates = buildLayerUrlCandidates(layer, product, assets, preview);
-    if (!candidates) return null;
+    const photos = templateLayerPhotoUrls(layer, product, assets);
+    if (!photos) return null;
+    const candidates = photos.flatMap((photo) => templatePhotoVariants(photo, preview && layer.type === 'product')
+      .map((url) => ({ photo, url })));
 
-    for (const url of candidates) {
+    for (const { photo, url } of candidates) {
       if (signal?.aborted) continue;
       try {
-        const needsBackgroundRemoval = layer.type === 'product' && layer.removeBackground;
-        const backgroundCacheKey = `${BACKGROUND_REMOVAL_MASK_REVISION}:${url}`;
+        const needsBackgroundRemoval = 'removeBackground' in layer && layer.removeBackground === true;
+        const correction = needsBackgroundRemoval && 'imageMask' in layer ? layer.imageMask : undefined;
+        const photoKey = correction ? cachedTemplatePhotoKey(photo) ?? await templatePhotoKey(photo) : undefined;
+        const maskStrokes = correction && correction.photoKey === photoKey ? correction.strokes : undefined;
+        if (signal?.aborted) return null;
+        const pictureOptions = { preview, priority: 'high' as const, maskStrokes, signal: preview ? undefined : signal };
+        const backgroundCacheKey = `${BACKGROUND_REMOVAL_MASK_REVISION}:${url}:${maskStrokes ? JSON.stringify(maskStrokes) : ''}`;
         const cachedCutout = needsBackgroundRemoval && processedPictures?.has(backgroundCacheKey)
           ? processedPictures.get(backgroundCacheKey)!
-          : needsBackgroundRemoval && getPicture.getCached(url, true);
+          : needsBackgroundRemoval && getPicture.getCached?.(url, true, pictureOptions);
         if (cachedCutout) {
           sources[layerIndex] = cachedCutout;
           if (cachedCutout.flatBackground === false) {
-            notices.push(`Não foi possível concluir o recorte de “${layer.name}”; a foto original foi mantida.`);
+            notices.push(`O recorte automático de “${layer.name}” falhou. Você pode ajustar a máscara com o pincel.`);
           }
           return cachedCutout;
         }
-        const cachedSource = getPicture.getCached(url, false);
+        const cachedSource = getPicture.getCached?.(url, false);
         const removeNow = needsBackgroundRemoval && !(preview && onBackgroundRemovalReady);
         // Source requests are deduplicated and cached; a canvas redraw must not cancel their shared work.
         const source = !removeNow && cachedSource
           ? cachedSource
-          : await getPicture(url, removeNow, { preview, priority: 'high' });
+          : await getPicture(url, removeNow, pictureOptions);
         if (removeNow && source.flatBackground === false) {
-          notices.push(`Não foi possível concluir o recorte de “${layer.name}”; a foto original foi mantida.`);
+          notices.push(`O recorte automático de “${layer.name}” falhou. Você pode ajustar a máscara com o pincel.`);
         }
         sources[layerIndex] = source;
         if (preview && needsBackgroundRemoval && onBackgroundRemovalReady && !signal?.aborted) {
           backgroundRemovalPending = true;
-          void getPicture(url, true, { preview: true, priority: 'high' }).then((processed) => {
+          void getPicture(url, true, pictureOptions).then((processed) => {
             if (!signal?.aborted) onBackgroundRemovalReady(backgroundCacheKey, processed);
           }).catch(() => {});
         }
@@ -242,8 +223,10 @@ export async function renderImageTemplate({ canvas, format, layout, product, ass
   const paint = () => {
     if (signal?.aborted) return;
     ctx.clearRect(0, 0, width, height);
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, width, height);
+    if (!layers.some((layer) => layer.type === 'background')) {
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, width, height);
+    }
     for (const [index, layer] of layers.entries()) {
       if (layer.type === 'background') {
         ctx.save();

@@ -82,6 +82,8 @@ export function useImageTemplateExport({
       });
       if (controller.signal.aborted) return;
       if (rendered.errors.length) throw new Error(rendered.errors.join(' '));
+      const failedCutout = rendered.notices.find((notice) => notice.startsWith('O recorte automático de'));
+      if (failedCutout) throw new Error(failedCutout);
 
       const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
       if (!blob) throw new Error('O navegador não conseguiu gerar o PNG.');

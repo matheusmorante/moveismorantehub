@@ -127,7 +127,10 @@ export function useImageTemplateFileLayers({
           imageLayerBoundsForSourceSize(layer, sourceSize.width, sourceSize.height),
         );
 
-      if (!replaceLayer({ ...layer, ...cropBounds, assetId: asset.id, assetName, fit: options?.fit ?? layer.fit })) {
+      if (!replaceLayer({
+        ...layer, ...cropBounds, assetId: asset.id, assetName, fit: options?.fit ?? layer.fit,
+        imageMask: asset.id === layer.assetId ? layer.imageMask : undefined,
+      })) {
         return false;
       }
       setPendingAssets((current) => new Map(current).set(asset.id, asset));

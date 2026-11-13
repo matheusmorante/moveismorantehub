@@ -3,8 +3,9 @@ import {
   LAYER_TYPES, isLayerVisible, templateFieldLabel, type ImageLayer, type TemplateField, type TemplatePreviewProduct,
 } from '../../../../../../shared-utils/catalogImageTemplate';
 import { MAX_PARENT_PRODUCT_IMAGES } from '../../../../../../shared-utils/productImageLimits';
-import { warmBackgroundRemoval } from '@/pages/utils/images/backgroundRemoval';
 import { TemplateImageCropDialog } from './TemplateImageCropDialog';
+import { TemplateImageMaskDialog } from './TemplateImageMaskDialog';
+import type { TemplatePictureLoader } from './rendering/templatePictureLoader';
 import type { TemplateImageCrop } from './templateImageCrop';
 import { NumberField } from './TemplateNumberField';
 import { interpolateTemplateFields, measureTextLayerSafetyBounds } from './renderImageTemplate';
@@ -47,17 +48,22 @@ function resizeTextSelection(layer: EditableTextLayer, width: number, height: nu
   };
 }
 
-export function TemplateLayerSettings({ layer, product, assetPreview, palette, onChange, onFile, uploading, disabled, uploadError }: {
+export function TemplateLayerSettings({
+  layer, product, assetPreview, palette, onChange, onFile, uploading, disabled, uploadError, maskPhotos, getPicture,
+}: {
   layer: ImageLayer; product: TemplatePreviewProduct | null; assetPreview?: string; palette?: readonly string[];
   onChange: (layer: ImageLayer, amendHistory?: boolean) => boolean | void;
   onFile: (file: File, options?: { fit?: 'contain' | 'cover'; crop?: TemplateImageCrop }) => Promise<boolean | void> | boolean | void;
   uploading: boolean; disabled: boolean; uploadError: string;
+  maskPhotos?: readonly string[];
+  getPicture?: TemplatePictureLoader;
 }) {
   const angleDragChanged = useRef<boolean | null>(null);
   const textInput = useRef<HTMLDivElement>(null);
   const [textError, setTextError] = useState('');
   const [fieldMenuOpen, setFieldMenuOpen] = useState(false);
   const [cropOpen, setCropOpen] = useState(false);
+  const [maskOpen, setMaskOpen] = useState(false);
   const fittedTextSelection = useRef<{ layerId: string; signature: string } | null>(null);
   const swatches = palette?.length ? [...new Set([...DEFAULT_COLOR_SWATCHES, ...palette])] : DEFAULT_COLOR_SWATCHES;
   const messageLabels = messageAttributeSignature(product?.attributes);
@@ -259,7 +265,7 @@ export function TemplateLayerSettings({ layer, product, assetPreview, palette, o
         {layer.assetId && <div className="ct-asset-card">
           {assetPreview ? <img src={assetPreview} alt="" /> : <span className="ct-asset-placeholder" aria-hidden="true"><i className="bi bi-image" /></span>}
           <span className="ct-asset-name" title={layer.assetName || 'Imagem carregada'}>{layer.assetName || 'Imagem carregada'}</span>
-          <button type="button" className="ct-link" onClick={() => update({ assetId: null, assetName: undefined })}>Remover</button>
+          <button type="button" className="ct-link" onClick={() => update({ assetId: null, assetName: undefined, imageMask: undefined })}>Remover</button>
         </div>}
         {layer.assetId && <button type="button" className="ct-button ct-crop-trigger" disabled={uploading || !assetPreview}
           title={!assetPreview ? 'Carregando imagem para recorte' : undefined}
@@ -353,14 +359,15 @@ export function TemplateLayerSettings({ layer, product, assetPreview, palette, o
           </div>
         </div>
       </div>
-      {layer.type === 'product' && <div className="ct-panel-group"
-        onMouseEnter={() => { void warmBackgroundRemoval(); }}
-        onFocus={() => { void warmBackgroundRemoval(); }}>
-        <h3>Melhorar com a IA</h3>
-        <LayerSwitch label="Remoção do fundo" description="A IA detecta a silhueta no navegador; na primeira vez, o modelo é baixado."
-          checked={layer.removeBackground} onChange={(removeBackground) => update({ removeBackground })} />
-        <LayerSwitch label="Enquadrar" description="Aproxima e centraliza o móvel na camada, mantendo uma folga pequena até as bordas."
-          checked={layer.fit === 'cover'} onChange={(checked) => update({ fit: checked ? 'cover' : 'contain' })} />
+      {(layer.type === 'product' || (layer.type === 'image' && layer.assetId)) && <div className="ct-panel-group">
+        <h3>Remoção de fundo</h3>
+        <LayerSwitch label="Remoção do fundo" description="Identifica o móvel no navegador. O primeiro recorte baixa o modelo."
+          checked={!!layer.removeBackground} onChange={(removeBackground) => update({ removeBackground })} />
+        {layer.removeBackground && <button type="button" className="ct-button" disabled={!maskPhotos?.length || !getPicture}
+          onClick={() => setMaskOpen(true)}><i className="bi bi-brush" aria-hidden="true" /> Ajustar máscara</button>}
+        {layer.type === 'product' && <LayerSwitch label="Enquadrar"
+          description="Aproxima e centraliza o móvel na camada, mantendo uma folga pequena até as bordas."
+          checked={layer.fit === 'cover'} onChange={(checked) => update({ fit: checked ? 'cover' : 'contain' })} />}
       </div>}
       {(layer.type === 'product' || 'condition' in layer) && <LayerRule
         condition={layer.condition ?? null}
@@ -373,5 +380,11 @@ export function TemplateLayerSettings({ layer, product, assetPreview, palette, o
         setCropOpen(false);
         return true;
       }} />}
+    {maskOpen && maskPhotos?.length && getPicture && (layer.type === 'product' || layer.type === 'image')
+      ? <TemplateImageMaskDialog photos={maskPhotos} useMedium={layer.type === 'product'} getPicture={getPicture}
+          correction={layer.imageMask} onCancel={() => setMaskOpen(false)} onConfirm={(imageMask) => {
+            if (update({ imageMask }) !== false) setMaskOpen(false);
+          }} />
+      : null}
   </fieldset>;
 }

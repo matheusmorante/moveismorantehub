@@ -149,6 +149,12 @@
 .ct-image-crop-error { margin: 0; padding: .5rem 1.1rem; background: #3b1118; color: #fecaca; font-size: .82rem; }
 .ct-image-crop-footer { border-top: 1px solid #334155; }
 .ct-image-crop-footer > div { display: flex; justify-content: end; gap: .5rem; }
+.ct-mask-tools { display: flex; flex-wrap: wrap; align-items: center; gap: .55rem; padding: .7rem 1rem; background: #172033; }
+.ct-mask-tools > label { display: flex; align-items: center; flex-wrap: wrap; gap: .45rem; font-size: .8rem; }
+.ct-mask-tools button[aria-pressed='true'] { background: #dbeafe; color: #123766; }
+.ct-mask-stage canvas { display: block; width: auto; height: auto; max-width: 100%; max-height: 100%;
+  background: repeating-conic-gradient(#cbd5e1 0% 25%, #f8fafc 0% 50%) 50% / 20px 20px; touch-action: none; cursor: crosshair; }
+.ct-mask-notice { margin: 0; padding: .5rem 1rem; font-size: .8rem; color: #fde68a; }
 @media (max-width: 600px) {
   .ct-image-crop-header, .ct-image-crop-footer { padding: .7rem; }
   .ct-image-crop-header p { max-width: 19rem; font-size: .72rem; }

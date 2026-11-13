@@ -1,5 +1,4 @@
 import type React from 'react';
-import { warmBackgroundRemoval } from '@/pages/utils/images/backgroundRemoval';
 
 interface ProductGalleryPhotoCardProps {
   url: string;
@@ -171,8 +170,6 @@ export const ProductGalleryPhotoCard: React.FC<ProductGalleryPhotoCardProps> = (
           <button
             type="button"
             disabled={isBusy}
-            onMouseEnter={() => void warmBackgroundRemoval()}
-            onFocus={() => void warmBackgroundRemoval()}
             onClick={(event) => {
               event.stopPropagation();
               onRemoveBackground();

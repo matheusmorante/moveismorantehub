@@ -5,6 +5,8 @@ import {
 } from '@/pages/utils/images/backgroundRemoval';
 import { imageAlphaContentBounds, imageContentBounds, type ImageContentBounds } from '@/pages/utils/images/imageContentBounds';
 import { loadHtmlImage } from '@/pages/utils/images/imageHtmlLoader';
+import type { ImageMaskStroke } from '../../../../../../../shared-utils/catalogImageTemplate';
+import { drawCorrectedPhoto } from './templateImageMask';
 
 export type TemplatePicture = { image: CanvasImageSource; width: number; height: number; flatBackground?: boolean };
 
@@ -12,13 +14,14 @@ export type TemplatePictureLoadOptions = {
   preview?: boolean;
   priority?: BackgroundRemovalPriority;
   signal?: AbortSignal;
+  maskStrokes?: readonly ImageMaskStroke[];
 };
 
 export type TemplatePictureLoader = ((url: string, cutout: boolean, options?: TemplatePictureLoadOptions) => Promise<TemplatePicture>) & {
-  getCached: (url: string, cutout: boolean) => TemplatePicture | undefined;
+  getCached: (url: string, cutout: boolean, options?: TemplatePictureLoadOptions) => TemplatePicture | undefined;
 };
 
-export const BACKGROUND_REMOVAL_MASK_REVISION = 'protect-edge-foreground-colors-v10';
+export const BACKGROUND_REMOVAL_MASK_REVISION = 'birefnet-opencv-v1';
 const PICTURE_CACHE_LIMIT = 48;
 
 const framedPictureBounds = new WeakMap<TemplatePicture, ImageContentBounds>();
@@ -40,8 +43,7 @@ async function cutOutProductBackground(
   try {
     const result = await removeImageBackground(picture.image, picture.width, picture.height, {
       centerContent: false,
-      maxSide: options?.preview ? 768 : 1200,
-      modelInputSize: options?.preview ? 512 : 768,
+      maxSide: options?.preview ? 768 : undefined,
       priority: options?.priority ?? 'high',
       signal: options?.signal,
     });
@@ -58,17 +60,26 @@ async function cutOutProductBackground(
  */
 export function createTemplatePictureLoader(): TemplatePictureLoader {
   const cache = new Map<string, { picture: Promise<TemplatePicture>; resolved?: TemplatePicture; retryAt?: number }>();
-  const cacheKey = (url: string, cutout: boolean) =>
-    `${cutout ? `cut:${BACKGROUND_REMOVAL_MASK_REVISION}:${BACKGROUND_REMOVAL_REVISION}:` : 'img:'}${url}`;
+  const cacheKey = (url: string, cutout: boolean, options?: TemplatePictureLoadOptions) =>
+    cutout
+      ? `cut:${BACKGROUND_REMOVAL_MASK_REVISION}:${BACKGROUND_REMOVAL_REVISION}:${options?.preview ? 'preview' : 'full'}:${options?.maskStrokes ? JSON.stringify(options.maskStrokes) : ''}:${url}`
+      : `img:${url}`;
 
   const get = ((url: string, cutout: boolean, options?: TemplatePictureLoadOptions): Promise<TemplatePicture> => {
-    const key = cacheKey(url, cutout);
+    const key = cacheKey(url, cutout, options);
     const cached = cache.get(key);
     if (cached && (!cached.retryAt || cached.retryAt > Date.now())) return cached.picture;
 
     const isDerivedPreview = /_medium\.webp(?:[?#]|$)/i.test(url);
+    const strokes = options?.maskStrokes;
     const picture = cutout
-      ? get(url, false).then((raw) => cutOutProductBackground(raw, options))
+      ? strokes?.length
+        ? Promise.all([get(url, false), get(url, true, { ...options, maskStrokes: undefined })]).then(([original, cutoutPicture]) => {
+          const canvas = document.createElement('canvas');
+          drawCorrectedPhoto(canvas, cutoutPicture, original.image, strokes);
+          return { ...cutoutPicture, image: canvas };
+        })
+        : get(url, false).then((raw) => cutOutProductBackground(raw, options))
       : loadPicture(url, isDerivedPreview ? 2_500 : 8_000);
 
     cache.delete(key);
@@ -91,8 +102,8 @@ export function createTemplatePictureLoader(): TemplatePictureLoader {
     return picture;
   }) as TemplatePictureLoader;
 
-  get.getCached = (url, cutout) => {
-    const entry = cache.get(cacheKey(url, cutout));
+  get.getCached = (url, cutout, options) => {
+    const entry = cache.get(cacheKey(url, cutout, options));
     return entry && (!entry.retryAt || entry.retryAt > Date.now()) ? entry.resolved : undefined;
   };
   return get;

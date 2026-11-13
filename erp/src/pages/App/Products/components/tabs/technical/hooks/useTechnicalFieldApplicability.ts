@@ -100,7 +100,13 @@ export const useTechnicalFieldApplicability = ({
 
   const applicableFieldsByName = new Map<string, TechnicalFieldDefinition>(
     applicableFieldsForCategory.map(
-      (field): [string, TechnicalFieldDefinition] => [normalizeSearchTerm(field.name), field]
+      (field): [string, TechnicalFieldDefinition] => [
+        normalizeSearchTerm(field.name),
+        {
+          ...field,
+          isRequiredForCatalog: isCatalogRequiredForSelectedCategory(field),
+        },
+      ]
     )
   );
 

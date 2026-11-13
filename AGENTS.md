@@ -227,3 +227,10 @@ Por determinação do usuário, **todos os formulários do sistema** (ERP, aplic
 * Quando a funcionalidade existir no ERP e no app, confira os dois caminhos e seus chamadores. Para medir, registre separadamente volume de chamadas, linhas/campos e bytes/respostas, latência e serviço (REST, Realtime, Storage); use janelas e versões comparáveis e não declare economia faturável sem evidência do medidor oficial.
 * Revisar os acessos amplos com `rules/supabase/supabase-consumption.yml` e aplicar a skill `supabase-consumption`, quando disponível. Esta regra complementa a seção 24 e não altera os limites de migrações, testes remotos e mudanças operacionais definidos na seção 7 e na seção 13.
 * Manter `docs/auditorias/roadmap-otimizacao-consumo-supabase.md` como índice cumulativo das áreas auditadas e das sugestões. Cada sugestão deve ter ID, evidência, estimativa/limite de economia, opções, implicações, status e decisão; registrar `negada` quando recusada e `executada` com arquivos/validações quando aplicada. Antes de propor algo, ler o roadmap e os registros anteriores para não repetir recomendações; não alterar código ou banco sem aceite explícito do usuário.
+
+## 26. Remoção de fundo das fotos de produtos
+
+* Usar BiRefNet como segmentação principal em fotos opacas, inclusive com fundos uniformes, degradês, ambientes reais, sombras, reflexos e cores semelhantes às do móvel. Selecionar automaticamente o refinamento adequado à foto.
+* Usar OpenCV.js para refinar o canal alfa. Aplicar remoção por cor e regiões conectadas somente com evidência suficiente de fundo uniforme e preservar as áreas reconhecidas como primeiro plano. Em caso de dúvida, manter a máscara da IA.
+* Preservar a foto original, suas cores, proporções e detalhes. Aplicar a máscara na resolução original na saída e disponibilizar pincéis de restaurar e apagar no editor.
+* Conferir alterações com fotos de móveis em fundos brancos, coloridos e ambientes reais complexos. Informar quais imagens foram avaliadas e os limites observados na segmentação.

@@ -27,8 +27,8 @@ import { TemplateCopyLayersDialog } from './TemplateCopyLayersDialog';
 import { TemplateProductPreview, useTemplateProductPreview } from './TemplateProductPreview';
 import { mapPreviewProduct } from './productPreviewService';
 import { createTemplatePictureLoader, prepareTemplateProductPicture } from './renderImageTemplate';
+import { templateLayerPhotoUrls } from './rendering/templateImageMask';
 import { getDerivedImageUrl } from '@/utils/imageUrlUtils';
-import { warmBackgroundRemoval } from '@/pages/utils/images/backgroundRemoval';
 import { imageTemplateError, saveImageTemplate, type ImageTemplateSummary, type SavedImageTemplate, type TemplateAsset } from './imageTemplateService';
 import { useTemplateAssets } from './useTemplateAssets';
 import { imageTemplateTestContext } from './imageTemplateTestContext';
@@ -75,12 +75,6 @@ export default function ImageTemplateEditor({ initial, original, userId, onBack,
   const currentFormat = design.formats[format] ? format : FIRST_TEMPLATE_FORMAT;
   const layout = design.formats[currentFormat]!;
   const productImageCount = Math.max(1, ...layout.layers.flatMap((layer) => (layer.type === 'product' ? [layer.imageIndex + 1] : [])));
-  const hasBackgroundRemoval = layout.layers.some((layer) => layer.type === 'product' && layer.removeBackground);
-
-  useEffect(() => {
-    if (hasBackgroundRemoval) void warmBackgroundRemoval();
-  }, [hasBackgroundRemoval]);
-
   const preloadPreviewProductImages = useCallback((candidate: TemplatePreviewProduct) => {
     const imageIndexes = new Set<number>();
     const cutoutIndexes = new Set<number>();
@@ -505,6 +499,8 @@ export default function ImageTemplateEditor({ initial, original, userId, onBack,
             layer={active}
             product={product}
             assetPreview={active.type === 'image' && active.assetId ? assets.sources.get(active.assetId) : undefined}
+            maskPhotos={templateLayerPhotoUrls(active, product, assets.sources) ?? undefined}
+            getPicture={getPicture}
             palette={layout.layers.flatMap((entry) =>
               entry.type === 'background'
                 ? [entry.color]

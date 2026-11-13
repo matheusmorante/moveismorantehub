@@ -162,9 +162,11 @@ export const ChoiceSearch: React.FC<ChoiceSearchProps> = ({
             if (!disabled) setIsOpen(true);
           }}
           onChange={(e) => {
-            setQuery(e.target.value);
+            const nextQuery = e.target.value;
+            setQuery(nextQuery);
             setHasBlurredQuery(false);
             if (!isOpen) setIsOpen(true);
+            if (!multiple && !nextQuery.trim() && selected.length > 0) onChange('');
           }}
           onBlur={(event) => {
             if (!onCreateOption) return;

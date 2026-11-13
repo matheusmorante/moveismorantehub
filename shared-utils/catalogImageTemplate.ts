@@ -222,12 +222,23 @@ const typography = {
 };
 const condition = { condition: conditionSchema.nullable() };
 export const TEMPLATE_ASSET_ID = /^[a-f0-9]{64}$/;
+const maskStrokeSchema = z.object({
+  mode: z.enum(['erase', 'restore']),
+  size: z.number().int().min(1).max(100),
+  points: z.array(z.tuple([z.number().int().min(0).max(1000), z.number().int().min(0).max(1000)])).min(1).max(160),
+});
+const maskStrokesSchema = z.array(maskStrokeSchema).min(1).max(30);
+export const imageMaskEditSchema = z.object({ strokes: z.array(maskStrokeSchema).max(30) });
+const imageMaskSchema = z.object({ photoKey: z.string().regex(TEMPLATE_ASSET_ID), strokes: maskStrokesSchema });
+export type ImageMaskStroke = z.infer<typeof maskStrokeSchema>;
+export type ImageMaskCorrection = z.infer<typeof imageMaskSchema>;
 export const imageLayerSchema = z.discriminatedUnion('type', [
   z.object({ ...position, type: z.literal('product'), condition: conditionSchema.nullable().optional(), imageIndex: z.number().int().min(0).max(MAX_PARENT_PRODUCT_IMAGES - 1),
-    fallback: z.enum(['main', 'none']), fit: z.enum(['contain', 'cover']), removeBackground: z.boolean() }),
+    fallback: z.enum(['main', 'none']), fit: z.enum(['contain', 'cover']), removeBackground: z.boolean(), imageMask: imageMaskSchema.optional() }),
   z.object({ ...position, ...typography, ...condition, type: z.literal('text'), text: z.string().max(700) }),
   z.object({ ...position, ...condition, type: z.literal('image'), assetId: z.string().regex(TEMPLATE_ASSET_ID).nullable(),
-    assetName: z.string().trim().max(120).optional(), fit: z.enum(['contain', 'cover']) }),
+    assetName: z.string().trim().max(120).optional(), fit: z.enum(['contain', 'cover']),
+    removeBackground: z.boolean().optional(), imageMask: imageMaskSchema.optional() }),
   z.object({ ...position, ...typography, condition: conditionSchema.nullable().optional(), type: z.literal('sticker'), text: z.string().max(700), fill: color,
     fillOpacity: z.number().min(0).max(100).optional(), lockAspectRatio: z.boolean().optional(), shape: z.enum(['rectangle', 'square', 'circle']) }),
   z.object({ ...layerName, type: z.literal('background'), color, opacity: z.number().min(0).max(100).default(100) }),
@@ -269,7 +280,10 @@ export type ImageTemplateTestArtifact = z.infer<typeof imageTemplateTestArtifact
 export const imageTemplateDesignSchema = z.object({
   version: z.literal(1), formats: z.object({ '1:1': layoutSchema, '4:5': layoutSchema.optional(), '9:16': layoutSchema.optional() }),
   testArtifact: imageTemplateTestArtifactSchema.optional(),
-}).refine((design) => templateAssetIds(design).length <= 12, 'Use até 12 imagens diferentes por modelo.');
+}).refine((design) => templateAssetIds(design).length <= 12, 'Use até 12 imagens diferentes por modelo.')
+  .refine((design) => Object.values(design.formats).flatMap((layout) => layout?.layers ?? [])
+    .reduce((total, layer) => total + ('imageMask' in layer && layer.imageMask ? JSON.stringify(layer.imageMask).length : 0), 0)
+    <= 60_000, 'Há muitos ajustes de máscara neste modelo.');
 export type ImageTemplateDesign = z.infer<typeof imageTemplateDesignSchema>;
 
 function priceLayerMigration(name: unknown) {

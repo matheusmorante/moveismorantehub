@@ -162,9 +162,11 @@ export type MobileProductSuppliersResult =
 
 const SUPPLIER_LOAD_ERROR = 'Não foi possível carregar os fornecedores. Tente novamente.';
 
-export const fetchMobileProductSuppliersWithStatus = async (): Promise<MobileProductSuppliersResult> => {
+export const fetchMobileProductSuppliersWithStatus = async (
+  supplierId?: string,
+): Promise<MobileProductSuppliersResult> => {
   try {
-    const query = supabase
+    let query = supabase
       .from('people')
       .select(
         'id, full_name, social_name, nickname, address, observation, stock_origins'
@@ -174,6 +176,9 @@ export const fetchMobileProductSuppliersWithStatus = async (): Promise<MobilePro
       )
       .order('full_name', { ascending: true })
       .order('id', { ascending: true });
+    if (supplierId?.trim()) {
+      query = query.eq('id', supplierId.trim()).limit(1);
+    }
     const queryPromise = Promise.resolve(query);
     const response = await withTimeout<Awaited<typeof queryPromise> | null>(
       queryPromise,
