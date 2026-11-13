@@ -51,6 +51,18 @@ export function getDanfeOfficialStyles(isHomologacao: boolean): string {
         .box-value-sm {
             font-size: 7.5px;
         }
+        .danfe-section-heading {
+            background: #fff !important;
+            border: 0 !important;
+            border-bottom: 1px solid #000 !important;
+            padding: 2px 3px 1px !important;
+            color: #000;
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 6.5px;
+            font-weight: 900;
+            text-align: left;
+            text-transform: uppercase;
+        }
         .text-center { text-align: center; }
         .text-right { text-align: right; }
         .text-left { text-align: left; }

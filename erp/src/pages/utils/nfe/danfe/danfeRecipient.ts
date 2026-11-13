@@ -58,7 +58,7 @@ export function buildDanfeRecipientOfficialHtml(params: DanfeRecipientParams): s
         <!-- BLOCO 3: DESTINATÁRIO / REMETENTE -->
         <table style="width: 100%; border-collapse: collapse; margin-bottom: 3px;">
             <tr>
-                <td colspan="4" style="background:#e2e8f0; border: 1px solid #000; padding: 1px 3px; font-size: 6.5px; font-weight: 900;">
+                <td colspan="4" class="danfe-section-heading">
                     DESTINATÁRIO / REMETENTE
                 </td>
             </tr>

@@ -17,7 +17,7 @@ export const DANFE_NFCE_A4_PAGINATION_SCRIPT = `
   if (!sourceHeader || !sourceItems || !sourceTitle || !sourceTable || !sourceFooter || !sourceRows.length) return;
 
   const measureHost = document.createElement('div');
-  measureHost.style.cssText = 'position:absolute;left:-20000px;top:0;width:200mm;visibility:hidden;';
+  measureHost.style.cssText = 'position:absolute;left:-20000px;top:0;width:198mm;visibility:hidden;';
   document.body.appendChild(measureHost);
   document.body.classList.add('danfe-pagination-measuring');
 

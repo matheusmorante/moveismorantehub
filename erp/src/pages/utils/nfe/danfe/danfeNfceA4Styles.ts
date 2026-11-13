@@ -3,7 +3,7 @@ import { DANFE_NFCE_A4_CHROME_STYLES } from './danfeNfceA4ChromeStyles';
 export const DANFE_NFCE_A4_STYLES = `
     @page {
       size: A4 portrait;
-      margin: 5mm;
+      margin: 6mm;
     }
     * {
       box-sizing: border-box;
@@ -198,8 +198,9 @@ export const DANFE_NFCE_A4_STYLES = `
     }
     .section-title {
       background: #ffffff;
-      border: 1px solid #000;
-      padding: 2px 4px;
+      border: 0;
+      border-bottom: 1px solid #000;
+      padding: 2px 0 1px;
       font-size: 7px;
       font-weight: 900;
       text-transform: uppercase;
@@ -209,7 +210,7 @@ export const DANFE_NFCE_A4_STYLES = `
       break-after: avoid-page;
     }
     .products-title {
-      border-width: 0 1px 0;
+      border-width: 0 0 1px;
     }
     .consumer-card {
       margin: 0;
@@ -280,12 +281,18 @@ export const DANFE_NFCE_A4_STYLES = `
       overflow-wrap: anywhere;
       line-height: 1.15;
     }
+    table.items-table tbody tr:not(.table-fill-row) td {
+      border-top-style: dashed;
+      border-bottom-style: dashed;
+    }
     table.items-table .table-fill-row td {
       height: 0;
       padding: 0;
       font-size: 0;
       line-height: 0;
       vertical-align: top;
+      border-top: 0;
+      border-bottom: 0;
     }
     table.items-table tr {
       page-break-inside: avoid;
@@ -546,8 +553,8 @@ export const DANFE_NFCE_A4_STYLES = `
     }
     body.danfe-pagination-measuring .danfe-nfce-a4 {
       position: relative !important;
-      width: 200mm !important;
-      max-width: 200mm !important;
+      width: 198mm !important;
+      max-width: 198mm !important;
       margin: 0 !important;
     }
     body.danfe-pagination-measuring .danfe-pages {
@@ -555,11 +562,11 @@ export const DANFE_NFCE_A4_STYLES = `
       top: 0 !important;
       left: -10000px !important;
       display: block !important;
-      width: 200mm !important;
+      width: 198mm !important;
     }
     body.danfe-pagination-measuring .danfe-page {
-      width: 200mm !important;
-      height: 287mm !important;
+      width: 198mm !important;
+      height: 285mm !important;
       margin: 0 !important;
     }
     body.danfe-pagination-measuring .document-header { grid-template-columns: minmax(0, 1.12fr) minmax(0, 0.78fr) minmax(0, 1fr) !important; }
@@ -605,7 +612,7 @@ export const DANFE_NFCE_A4_STYLES = `
       .danfe-pages { display: block !important; }
       .danfe-page {
         width: 100% !important;
-        height: 287mm !important;
+        height: 285mm !important;
         margin: 0 !important;
       }
       .danfe-page:last-child { page-break-after: auto !important; break-after: auto !important; }

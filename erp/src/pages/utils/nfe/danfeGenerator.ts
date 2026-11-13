@@ -133,7 +133,7 @@ export function generateDanfeHtml(data: DanfeData): string {
         <!-- BLOCO 7: DADOS DO PRODUTO / SERVIÇOS -->
         <table style="width: 100%; border-collapse: collapse; margin-bottom: 2px;">
             <tr>
-                <td style="background:#e2e8f0; border: 1px solid #000; padding: 1px 3px; font-size: 6.5px; font-weight: 900;">
+                <td class="danfe-section-heading">
                     DADOS DOS PRODUTOS / SERVIÇOS
                 </td>
             </tr>

@@ -25,18 +25,17 @@ export function buildDanfeAdditionalInfoOfficialHtml(
         <!-- BLOCO 8: DADOS ADICIONAIS / RESERVADO AO FISCO -->
         <table style="width: 100%; border-collapse: collapse; margin-top: 3px;">
             <tr>
-                <td style="width: 70%; background:#e2e8f0; border: 1px solid #000; padding: 1px 3px; font-size: 6.5px; font-weight: 900;">
-                    INFORMAÇÕES COMPLEMENTARES
-                </td>
-                <td style="width: 30%; background:#e2e8f0; border: 1px solid #000; padding: 1px 3px; font-size: 6.5px; font-weight: 900;">
-                    RESERVADO AO FISCO
+                <td colspan="2" class="danfe-section-heading">
+                    DADOS ADICIONAIS
                 </td>
             </tr>
             <tr>
                 <td style="width: 70%; border: 1px solid #000; padding: 4px; font-size: 7.5px; vertical-align: top; line-height: 1.25;">
+                    <div class="box-title">INFORMAÇÕES COMPLEMENTARES</div>
                     ${complementaryInfo}
                 </td>
                 <td style="width: 30%; border: 1px solid #000; padding: 4px; font-size: 7.5px; vertical-align: top;">
+                    <div class="box-title">RESERVADO AO FISCO</div>
                     ${reservedForTaxAuthority}
                 </td>
             </tr>

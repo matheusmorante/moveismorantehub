@@ -55,7 +55,7 @@ export function buildDanfeTaxesAndTotalsOfficialHtml(params: DanfeTaxesAndTotals
         <!-- BLOCO 4: FATURA / DUPLICATAS -->
         <table style="width: 100%; border-collapse: collapse; margin-bottom: 3px;">
             <tr>
-                <td style="background:#e2e8f0; border: 1px solid #000; padding: 1px 3px; font-size: 6.5px; font-weight: 900;">
+                <td class="danfe-section-heading">
                     FATURA / DUPLICATAS
                 </td>
             </tr>
@@ -69,7 +69,7 @@ export function buildDanfeTaxesAndTotalsOfficialHtml(params: DanfeTaxesAndTotals
         <!-- BLOCO 5: CÁLCULO DO IMPOSTO -->
         <table style="width: 100%; border-collapse: collapse; margin-bottom: 3px;">
             <tr>
-                <td colspan="5" style="background:#e2e8f0; border: 1px solid #000; padding: 1px 3px; font-size: 6.5px; font-weight: 900;">
+                <td colspan="5" class="danfe-section-heading">
                     CÁLCULO DO IMPOSTO
                 </td>
             </tr>
