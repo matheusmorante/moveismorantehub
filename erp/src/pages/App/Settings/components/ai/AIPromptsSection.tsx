@@ -3,7 +3,7 @@ import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { imageFilesFormSchema } from '../../../../../../../shared-utils/fileFormSchemas';
 import { AppSettings } from '@/pages/utils/settingsService';
 import { toast } from 'react-toastify';
-import { compressImage } from '@/pages/utils/imageUtils';
+import { compressImage } from '@/pages/utils/images/imageUtils';
 
 interface AIPromptsSectionProps {
   settings: AppSettings;

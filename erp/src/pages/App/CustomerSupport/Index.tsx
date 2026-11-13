@@ -44,9 +44,6 @@ export default function CustomerSupport() {
     inboxSidebarWidth,
     setInboxSidebarWidth,
     isConversationSidebarOpen,
-    setIsConversationSidebarOpen,
-    conversationSidebarWidth,
-    setConversationSidebarWidth,
     isMobileInboxOpen,
     setIsMobileInboxOpen,
     isMobileViewport,
@@ -193,8 +190,6 @@ export default function CustomerSupport() {
       {/* Coluna 3: Lista de Conversas */}
       <ConversationSidebarColumn
         conversationPanelRef={conversationPanelRef}
-        supportLayoutRef={supportLayoutRef}
-        inboxPanelRef={inboxPanelRef}
         isMobileViewport={isMobileViewport}
         selectedConversation={selectedConversation}
         isAiAgentChatOpen={isAiAgentChatOpen}
@@ -210,16 +205,13 @@ export default function CustomerSupport() {
         sortOrder={sortOrder}
         currentUserId={user?.id}
         canViewCommercialInfo={canViewCommercialInfo}
-        conversationSidebarWidth={conversationSidebarWidth}
+        showAiHandoffBadge={aiAgentSettings.supportMode === 'automatico'}
         onSelectConversation={selectCustomerConversation}
         onJumpToMessage={jumpToMessage}
         onFilterChange={handleFilterChange}
         onRefresh={loadConversations}
         onLoadMore={loadMoreConversations}
         onToggleConversationSidebar={toggleConversationPanel}
-        setConversationSidebarWidth={setConversationSidebarWidth}
-        setIsConversationSidebarOpen={setIsConversationSidebarOpen}
-        setIsDraggingSupportPanel={setIsDraggingSupportPanel}
       />
 
       {/* Coluna 4: Área Principal do Chat (Flex-1) */}

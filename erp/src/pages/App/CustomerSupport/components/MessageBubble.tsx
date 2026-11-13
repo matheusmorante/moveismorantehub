@@ -1,7 +1,9 @@
 import React, { memo, useState } from 'react';
 import type { WhatsAppMessage } from '../types';
+import { getCatalogProductCardIds, type CatalogInteractiveProductCard } from '../catalogInteractiveProducts';
 import type { CustomerSupportSendResult } from '@/pages/utils/customerSupport/customerSupportService';
 import { useCustomerSupportMedia } from '../hooks/useCustomerSupportMedia';
+import { isMetaSocialMediaUrl } from '@/pages/utils/customerSupport/socialMediaUrl';
 import { MediaLoadStatus } from './chat/bubble/MediaLoadStatus';
 import {
   renderFormattedText,
@@ -27,10 +29,14 @@ export { getInitials, isCustomerSupportAiMessage };
 
 export interface MessageBubbleProps {
   message: WhatsAppMessage;
+  catalogProductCards?: Record<string, CatalogInteractiveProductCard>;
+  loadingCatalogRetailerIds?: ReadonlySet<string>;
   contactName?: string;
   reactions?: string[];
   quotedMessage?: WhatsAppMessage;
   isSelected?: boolean;
+  canSelectForActions?: boolean;
+  isMessageSelectionMode?: boolean;
   onSelectMessage?: (
     message: WhatsAppMessage,
     capabilities: { canReply: boolean; canForward: boolean }
@@ -49,10 +55,14 @@ export interface MessageBubbleProps {
 
 export const MessageBubble: React.FC<MessageBubbleProps> = memo(({
   message,
+  catalogProductCards,
+  loadingCatalogRetailerIds,
   contactName,
   reactions = [],
   quotedMessage,
   isSelected = false,
+  canSelectForActions = true,
+  isMessageSelectionMode = false,
   onSelectMessage,
   onResolveReplyTarget,
   onJumpToMessage,
@@ -84,18 +94,34 @@ export const MessageBubble: React.FC<MessageBubbleProps> = memo(({
     isInbound,
     isInternalNote,
     isSystemEvent,
+    isReactionMessage,
+    isNonChatEvent,
     isAiMessage,
     isSuggestion,
     timeFormatted,
     canReply,
     canForward,
   } = useMessageBubbleFlags(displayMessage);
+  const canSelectForCopy = message.messageType === 'text' && Boolean(message.textContent?.trim());
+  const canSelectForAction = canSelectForActions && (canReply || canForward);
+  const canSelectForDelete = canSelectForActions && message.messageType !== 'deleted' && !isReactionMessage && !isNonChatEvent;
+  const isCatalogMessage = getCatalogProductCardIds(displayMessage).length > 0;
+  const isOutboundVisualMedia = !isInbound && ['image', 'video', 'sticker'].includes(displayMessage.messageType);
 
-  const { mediaUrl, isLoadingMedia, mediaError, retryMedia } = useCustomerSupportMedia(
+  const {
+    mediaUrl: fetchedMediaUrl,
+    isLoadingMedia: isFetchingMedia,
+    mediaError,
+    retryMedia,
+  } = useCustomerSupportMedia(
     ['image', 'document', 'audio', 'video', 'sticker', 'template'].includes(displayMessage.messageType)
       ? displayMessage.mediaId
       : null
   );
+  const mediaUrl = isMetaSocialMediaUrl(displayMessage.mediaUrl)
+    ? displayMessage.mediaUrl
+    : fetchedMediaUrl;
+  const isLoadingMedia = !displayMessage.mediaUrl && isFetchingMedia;
 
   const {
     quote,
@@ -113,9 +139,10 @@ export const MessageBubble: React.FC<MessageBubbleProps> = memo(({
   });
 
   const handleMessageClick = (event: React.MouseEvent<HTMLDivElement>) => {
-    if (!onSelectMessage || (!canReply && !canForward)) return;
+    if (!onSelectMessage || (!canSelectForAction && !canSelectForCopy)) return;
     const target = event.target instanceof Element ? event.target : null;
-    if (target?.closest('button, a, input, textarea, select, video, audio, img, [role="button"]')) return;
+    if (target?.closest('button, a, input, textarea, select, video, audio, [role="button"]')) return;
+    if (!isCatalogMessage && target?.closest('img')) return;
     onSelectMessage(message, { canReply, canForward });
   };
 
@@ -141,16 +168,36 @@ export const MessageBubble: React.FC<MessageBubbleProps> = memo(({
       <div
         onClick={handleMessageClick}
         data-message-selected={isSelected || undefined}
-        className={`group/message relative max-w-[85%] sm:max-w-[72%] md:max-w-[62%] rounded-2xl px-3.5 py-2.5 shadow-xs text-xs leading-relaxed select-text transition-all ${
-          isInbound
-            ? 'bg-white dark:bg-[#202c33] text-slate-800 dark:text-slate-100 rounded-tl-xs border border-slate-200/50 dark:border-slate-700/50'
-            : isSuggestion
-              ? 'bg-orange-50/95 dark:bg-orange-950/40 text-slate-900 dark:text-slate-100 rounded-tr-xs border-2 border-dashed border-orange-400 dark:border-orange-600 shadow-md'
-              : 'bg-[#d9fdd3] dark:bg-[#005c4b] text-slate-900 dark:text-slate-100 rounded-tr-xs border border-emerald-200/60 dark:border-emerald-700/50'
-        } ${onSelectMessage && (canReply || canForward) ? 'cursor-pointer' : ''} ${
+        data-catalog-message={isCatalogMessage || undefined}
+        className={`group/message relative min-w-0 text-xs leading-relaxed select-text transition-all ${
+          isCatalogMessage
+            ? 'w-fit max-w-full rounded-xl text-slate-800 dark:text-slate-100'
+            : `max-w-[85%] sm:max-w-[72%] md:max-w-[62%] rounded-2xl ${isOutboundVisualMedia ? 'p-1' : 'px-3.5 py-2.5'} shadow-xs ${
+              isInbound
+                ? 'bg-white dark:bg-[#202c33] text-slate-800 dark:text-slate-100 rounded-tl-xs border border-slate-200/50 dark:border-slate-700/50'
+                : isSuggestion
+                  ? 'bg-orange-50/95 dark:bg-orange-950/40 text-slate-900 dark:text-slate-100 rounded-tr-xs border-2 border-dashed border-orange-400 dark:border-orange-600 shadow-md'
+                  : 'bg-[#d9fdd3] dark:bg-[#005c4b] text-slate-900 dark:text-slate-100 rounded-tr-xs border border-emerald-200/60 dark:border-emerald-700/50'
+            }`
+        } ${onSelectMessage && (canSelectForAction || canSelectForCopy) ? 'cursor-pointer' : ''} ${
           isSelected ? 'ring-2 ring-emerald-600 ring-offset-2 ring-offset-[#efeae2] dark:ring-offset-[#0b141a]' : ''
         }`}
       >
+        {isMessageSelectionMode && canSelectForDelete && (
+          <label
+            onClick={(event) => event.stopPropagation()}
+            className="absolute -left-5 -top-5 z-20 flex h-5 w-5 cursor-pointer items-center justify-center rounded-full border border-slate-300 bg-white shadow-sm dark:border-slate-600 dark:bg-slate-800"
+          >
+            <input
+              type="checkbox"
+              checked={isSelected}
+              onChange={() => onSelectMessage?.(message, { canReply, canForward })}
+              aria-label={`${isSelected ? 'Desmarcar' : 'Selecionar'} mensagem de ${timeFormatted || 'horário desconhecido'}`}
+              className="h-3.5 w-3.5 cursor-pointer accent-blue-600"
+            />
+          </label>
+        )}
+
         <MessageBubbleDirectActions
           message={displayMessage}
           canReply={canReply}
@@ -187,6 +234,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = memo(({
           message={displayMessage}
           mediaUrl={mediaUrl}
           onOpenLightbox={() => setIsMediaModalOpen(true)}
+          catalogProductCards={catalogProductCards}
+          loadingCatalogRetailerIds={loadingCatalogRetailerIds}
         />
 
         {/* Texto Padrão */}
@@ -218,7 +267,9 @@ export const MessageBubble: React.FC<MessageBubbleProps> = memo(({
         )}
 
         {/* Rodapé do Balão: Horário e Indicadores de Entrega */}
-        <div className="flex items-center justify-end gap-1 mt-1 text-[10px] text-slate-400 dark:text-slate-400 select-none">
+        <div className={`flex items-center justify-end gap-1 ${isOutboundVisualMedia ? 'mt-0.5' : 'mt-1'} text-[10px] select-none ${
+          isCatalogMessage ? 'text-slate-600 dark:text-slate-300' : 'text-slate-400 dark:text-slate-400'
+        }`}>
           <span>{timeFormatted}</span>
           {!isInbound && (
             <MessageBubbleStatus

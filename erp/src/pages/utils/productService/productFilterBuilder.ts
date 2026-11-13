@@ -161,9 +161,15 @@ export const applyProductFiltersAndSort = async (
   }
 
   if (pagination) {
-    q = q
-      .order(pagination.orderColumn, { ascending: pagination.ascending })
-      .range(pagination.from, pagination.to);
+    q = q.order(pagination.orderColumn, {
+      ascending: pagination.ascending,
+      ...(pagination.orderColumn === 'updated_at' ? { nullsFirst: false } : {}),
+    });
+    if (pagination.orderColumn === 'updated_at') {
+      q = q.order('created_at', { ascending: false, nullsFirst: false });
+      q = q.order('id', { ascending: true });
+    }
+    q = q.range(pagination.from, pagination.to);
   }
 
   return await withAbortTimeout(q, 'products:page');

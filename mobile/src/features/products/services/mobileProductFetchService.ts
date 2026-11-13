@@ -36,6 +36,7 @@ export interface MobileProductFilterOptions {
   showTrash?: boolean;
   showTestProducts?: boolean;
   summaryOnly?: boolean;
+  sortBy?: 'createdAt' | 'updatedAt';
   agentSearchMode?: boolean;
   compositionCandidateSearch?: boolean;
   includeTotal?: boolean;
@@ -242,7 +243,13 @@ export const fetchMobileProductsPage = async (
       );
     }
 
-    query = query.order('created_at', { ascending: false }).range(from, to);
+    const orderColumn = options?.sortBy === 'updatedAt' ? 'updated_at' : 'created_at';
+    query = query.order(orderColumn, { ascending: false, nullsFirst: false });
+    if (orderColumn === 'updated_at') {
+      query = query.order('created_at', { ascending: false, nullsFirst: false });
+      query = query.order('id', { ascending: true });
+    }
+    query = query.range(from, to);
 
     const { data, count, error } = await withAbortTimeout(query, 'mobile:product-list');
     if (error) {

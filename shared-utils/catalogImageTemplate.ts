@@ -31,7 +31,7 @@ export const CATALOG_FIELDS = {
   custom_label_0: 'Rótulo personalizado 0',
   custom_label_1: 'Rótulo personalizado 1',
   custom_label_2: 'Rótulo personalizado 2',
-  custom_label_3: 'Rótulo personalizado 3',
+  custom_label_3: 'Oportunidade do produto',
   custom_label_4: 'Rótulo personalizado 4',
 
   // Legado / Aliases de compatibilidade Meta
@@ -136,24 +136,58 @@ export const CONDITION_OPERATORS = {
   lt: 'É menor que', lte: 'É menor ou igual a',
 } as const;
 const operatorSchema = z.enum(Object.keys(CONDITION_OPERATORS) as [keyof typeof CONDITION_OPERATORS, ...(keyof typeof CONDITION_OPERATORS)[]]);
-const conditionSchema = z.object({ field: fieldSchema, operator: operatorSchema, value: z.string().trim().max(160) })
+const CONDITION_VALUES_PREFIX = '__condition_values_v1__:';
+export const MAX_CONDITION_VALUES = 20;
+export const MAX_CONDITION_VALUE_LENGTH = 160;
+
+export function parseConditionValues(value: string): string[] {
+  if (!value.startsWith(CONDITION_VALUES_PREFIX)) return value.trim() ? [value.trim()] : [];
+  try {
+    const values: unknown = JSON.parse(value.slice(CONDITION_VALUES_PREFIX.length));
+    return Array.isArray(values) && values.every((entry) => typeof entry === 'string')
+      ? values.map((entry) => entry.trim()).filter(Boolean) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function serializeConditionValues(values: string[]): string {
+  const unique: string[] = [];
+  const seen = new Set<string>();
+  values.forEach((entry) => {
+    const value = entry.trim();
+    const key = value.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
+    if (key && value.length <= MAX_CONDITION_VALUE_LENGTH && !seen.has(key)) {
+      seen.add(key);
+      unique.push(value);
+    }
+  });
+  if (unique.length === 0) return '';
+  if (unique.length === 1) return unique[0];
+  return `${CONDITION_VALUES_PREFIX}${JSON.stringify(unique)}`;
+}
+
+const conditionSchema = z.object({ field: fieldSchema, operator: operatorSchema, value: z.string().trim().max(7000) })
   .refine(({ field, operator, value }) => {
     if (operator === 'exists' || operator === 'empty') return true;
     if (isPriceField(field)) {
-      return parseCatalogPrice(value) !== null && !['contains', 'notContains'].includes(operator);
+      return value.length <= MAX_CONDITION_VALUE_LENGTH && parseCatalogPrice(value) !== null && !['contains', 'notContains'].includes(operator);
     }
     if (isPercentageField(field)) {
       const num = Number(value.replace(/%/g, '').trim());
-      return Number.isFinite(num) && !['contains', 'notContains'].includes(operator);
+      return value.length <= MAX_CONDITION_VALUE_LENGTH && Number.isFinite(num) && !['contains', 'notContains'].includes(operator);
     }
     if (field === 'discount') {
       if (['gt', 'gte', 'lt', 'lte'].includes(operator)) {
         const num = Number(value.replace(/%/g, '').trim());
-        return Number.isFinite(num);
+        return value.length <= MAX_CONDITION_VALUE_LENGTH && Number.isFinite(num);
       }
       return !!value;
     }
-    return !!value && !['gt', 'gte', 'lt', 'lte'].includes(operator);
+    const values = parseConditionValues(value);
+    return values.length > 0 && values.length <= MAX_CONDITION_VALUES
+      && values.every((entry) => entry.length <= MAX_CONDITION_VALUE_LENGTH)
+      && !['gt', 'gte', 'lt', 'lte'].includes(operator);
   }, 'Informe um valor compatível com a regra.');
 export type LayerCondition = z.infer<typeof conditionSchema>;
 
@@ -203,7 +237,7 @@ export type PositionedLayer = Exclude<ImageLayer, { type: 'background' }>;
 export type ImageLayerType = ImageLayer['type'];
 export const LAYER_TYPES: Record<ImageLayerType, { label: string; icon: string }> = {
   product: { label: 'Produto', icon: 'bi-tag' },
-  text: { label: 'Texto', icon: 'bi-type' }, image: { label: 'Imagem personalizada', icon: 'bi-image' },
+  text: { label: 'Texto', icon: 'bi-type' }, image: { label: 'Imagem importada', icon: 'bi-image' },
   sticker: { label: 'Forma', icon: 'bi-sticky' }, background: { label: 'Fundo', icon: 'bi-palette' },
 };
 export const MAX_IMAGE_LAYERS = 21;
@@ -441,13 +475,13 @@ export function isLayerVisible(layer: ImageLayer | TemplateLayerGroup, product: 
   }
   const normalize = (text: string) => text.normalize('NFD').replace(/\p{M}/gu, '').trim().toLowerCase();
   const left = normalize(String(actual));
-  const right = normalize(value);
-  if (!right) return false;
+  const values = parseConditionValues(value).map(normalize);
+  if (!values.length) return false;
   switch (operator) {
-    case 'eq': return left === right;
-    case 'ne': return left !== right;
-    case 'contains': return left.includes(right);
-    case 'notContains': return !left.includes(right);
+    case 'eq': return values.some((right) => left === right);
+    case 'ne': return values.every((right) => left !== right);
+    case 'contains': return values.some((right) => left.includes(right));
+    case 'notContains': return values.every((right) => !left.includes(right));
     default: return false;
   }
 }

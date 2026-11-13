@@ -3,7 +3,10 @@ import react from '@vitejs/plugin-react';
 import tsconfigPaths from 'vite-tsconfig-paths';
 import legacy from '@vitejs/plugin-legacy';
 import path from 'path';
-import { segmentationBigIntCompatibility } from './vite-segmentation-compat';
+import {
+  createSegmentationBigIntCompatibility,
+  segmentationBigIntCompatibility,
+} from './vite-segmentation-compat';
 
 const rewriteMobileLabelsEntry = (url?: string) => {
   if (!url) return url;
@@ -32,6 +35,11 @@ const mobileLabelsEntryPlugin: Plugin = {
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  define: {
+    __MORANTE_BETA__: JSON.stringify(
+      process.env.EXPO_PUBLIC_APP_BETA === 'true' || process.env.VERCEL_ENV === 'preview'
+    ),
+  },
   // The official dev launcher injects Vercel Development. Do not fill missing
   // remote values from stale ERP .env files; build/test keep their normal envDir.
   envDir: process.env.MORANTE_ENV_SOURCE === 'vercel-development'
@@ -80,6 +88,9 @@ export default defineConfig({
         rewrite: (path) => path.replace(/^\/r2-proxy/, ''),
       },
     },
+  },
+  worker: {
+    plugins: () => [createSegmentationBigIntCompatibility()],
   },
   build: {
     outDir: 'dist',

@@ -17,7 +17,7 @@ export const PREVIEW_PRODUCT_PAGE_SIZE = 15;
 const TIMEOUT = 15_000;
 export interface PreviewProductGroup { id: string; name: string }
 const DETAILS = 'id,name,description,code,brand,category,unit_price,price,promo_price,stock,images,technical_values:technical_specs->technicalValues,variation_details:technical_specs->variationDetails,active,is_draft,status,item_type,product_kind,condition,is_salvado,opportunity_id,'
-  + 'product_variations(id,product_id,name,sku,stock,price,promo_price,use_parent_price,use_parent_promo_price,use_parent_name,use_parent_description,description,active,status,image_url,attributes,merged_to_variation_id),'
+  + 'product_variations!inner(id,product_id,name,sku,stock,price,promo_price,use_parent_price,use_parent_promo_price,use_parent_name,use_parent_description,description,active,status,image_url,attributes,merged_to_variation_id),'
   + 'product_images(image_url,is_main),category_details:categories!products_category_id_fkey(id,name),opportunity_details:opportunities!products_opportunity_id_fkey(id,name)';
 
 export interface PreviewVariationOption { id: string; name: string; sku: string; active: boolean }
@@ -198,9 +198,10 @@ export async function listPreviewProducts(page: number, search: string, signal: 
     + 'item_type,product_kind,condition,is_salvado,technical_values:technical_specs->technicalValues,active,'
     + 'product_images(image_url,is_main),category_details:categories!products_category_id_fkey(name),'
     + 'opportunity_details:opportunities!products_opportunity_id_fkey(name),'
-    + 'product_variations(id,product_id,name,sku,active,merged_to_variation_id)',
+    + 'product_variations!inner(id,product_id,name,sku,active,status,merged_to_variation_id)',
   { count: 'exact' })
-    .eq('deleted', false).not('is_draft', 'is', true).eq('status', 'published').is('deleted_at', null)
+    .eq('deleted', false).not('is_draft', 'is', true).eq('status', 'published')
+    .eq('product_variations.status', 'published').is('deleted_at', null)
     .filter('item_type', 'isdistinct', 'service');
   if (categoryId) query = query.eq('category_id', categoryId);
   if (search) {
@@ -237,7 +238,8 @@ export async function listPreviewProducts(page: number, search: string, signal: 
 export async function readPreviewProduct(id: string, signal: AbortSignal, requiredImageCount = 1) {
   const imageLimit = Math.min(MAX_PARENT_PRODUCT_IMAGES, Math.max(1, Math.floor(requiredImageCount)));
   const result = await withAbortTimeout(supabase.from('products').select(DETAILS).eq('id', id).eq('deleted', false)
-    .not('is_draft', 'is', true).eq('status', 'published').is('deleted_at', null).filter('item_type', 'isdistinct', 'service')
+    .not('is_draft', 'is', true).eq('status', 'published').eq('product_variations.status', 'published')
+    .is('deleted_at', null).filter('item_type', 'isdistinct', 'service')
     .order('is_main', { referencedTable: 'product_images', ascending: false, nullsFirst: false })
     .order('id', { referencedTable: 'product_images', ascending: true })
     .limit(imageLimit, { referencedTable: 'product_images' })

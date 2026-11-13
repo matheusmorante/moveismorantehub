@@ -1,6 +1,7 @@
 import {
   type ExtractedMessageContent,
   parseInteractiveFlow,
+  parseInteractiveProduct,
   parseInteractiveSelection,
   parseCatalogOrder,
   parseContactsMessage,
@@ -29,6 +30,9 @@ function extractMessageContentBase(msg: any): ExtractedMessageContent {
 
   switch (type) {
     case 'interactive': {
+      if (msg.interactive?.type === 'product' && msg.interactive.product && typeof msg.interactive.product === 'object') {
+        return parseInteractiveProduct(msg.interactive, replyToWamid, type);
+      }
       if (msg.interactive?.nfm_reply) {
         return parseInteractiveFlow(msg.interactive.nfm_reply, replyToWamid, type);
       }

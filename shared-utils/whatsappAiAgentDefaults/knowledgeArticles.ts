@@ -9,9 +9,9 @@ export const DEFAULT_KNOWLEDGE_ARTICLES: readonly AiKnowledgeArticle[] = [
     category: 'politica_entrega',
     title: 'Frete e Prazos de Entrega',
     content:
-      'O frete é grátis para entregas realizadas a menos de 5 km de distância da nossa loja física em Colombo/PR (Rua Cascavel, 306). Para distâncias maiores, solicitamos que o cliente envie o endereço completo (rua, número e bairro) para a equipe comercial calcular o frete com precisão. Caso o endereço não seja localizado na consulta de distância da loja, a conversa é imediatamente marcada para intervenção humana.',
+      'Realizamos entregas somente em Curitiba/PR e na Região Metropolitana de Curitiba. Nossa loja fica na Rua Cascavel, 306, em Colombo/PR. Não realizamos entrega fora dessa área e não devemos prometer cotação ou prazo para destinos externos. Dentro da área atendida, o frete é grátis somente para endereços a menos de 5 km da loja. Para distâncias maiores, a equipe comercial precisa confirmar o valor e o prazo com o endereço completo (rua, número, bairro e município). A previsão rápida de 1 a 5 dias úteis vale somente para entregas na área atendida e deve ser confirmada conforme endereço e disponibilidade. Caso um endereço dentro da área atendida não seja localizado ou a distância fique inconclusiva, a conversa é marcada para intervenção humana.',
     priority: 10,
-    version: 2,
+    version: 3,
     active: true,
     keywords: [
       'frete',

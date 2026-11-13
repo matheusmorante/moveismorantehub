@@ -646,6 +646,8 @@ async function loadOrderFiscalSituation(db, document, orderEmissions) {
 var supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "https://hkoxhourxwlddgsfdgws.supabase.co";
 var serviceKey = getSupabaseSecretKey() || "";
 var uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+var operationDraftDetailsColumns = "id,operation_kind,environment,status,reason,created_at,updated_at,document_id,access_key,protocol_number,original_document_id,signed_xml,generated_xml,sefaz_response_xml";
+var sourceDocumentSummaryColumns = "id,order_id,modelo,ambiente,numero_nfe,serie,chave_acesso,valor_total,destinatario_nome,destinatario_documento";
 async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "OPTIONS,POST");
@@ -672,7 +674,7 @@ async function handler(req, res) {
   let operationDrafts = [];
   let events = [];
   if (!fiscalDoc) {
-    const { data: draft, error: draftError } = await db.from("nfe_operation_drafts").select("*").eq("id", documentId).maybeSingle();
+    const { data: draft, error: draftError } = await db.from("nfe_operation_drafts").select(operationDraftDetailsColumns).eq("id", documentId).maybeSingle();
     if (draftError)
       return res.status(503).json({ success: false, error: "N\xE3o foi poss\xEDvel carregar os detalhes fiscais." });
     if (!draft)
@@ -688,7 +690,7 @@ async function handler(req, res) {
     if (!fiscalDoc) {
       let originalDoc = null;
       if (draft.original_document_id) {
-        const { data: orig, error: originalError } = await db.from("nfe_documents").select("*").eq("id", draft.original_document_id).maybeSingle();
+        const { data: orig, error: originalError } = await db.from("nfe_documents").select(sourceDocumentSummaryColumns).eq("id", draft.original_document_id).maybeSingle();
         if (originalError || !orig)
           return res.status(503).json({ success: false, error: "N\xE3o foi poss\xEDvel conferir o documento fiscal de origem." });
         originalDoc = orig;

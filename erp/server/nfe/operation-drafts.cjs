@@ -1559,14 +1559,16 @@ function validateEstornoDraftReviewItems(params) {
 }
 
 // api/nfe/operation-draft/readOperationDraft.ts
+var AUTOMATIC_WORKER_DRAFT_COLUMNS = "id,operation_kind,finalidade,original_document_id,original_access_key,return_order_id,environment,status,reason,nature_of_operation,review_data,protocol_number,access_key,document_id,created_at,updated_at";
+var FULL_DRAFT_COLUMNS = "id,operation_kind,finalidade,original_document_id,original_access_key,return_order_id,environment,status,reason,nature_of_operation,review_data,generated_xml,signed_xml,sefaz_response_xml,protocol_number,access_key,document_id,created_at,updated_at";
 function extractFiscalBlock(xml, name) {
   const prefix = "(?:[\\w.-]+:)?";
   return xml.match(new RegExp(`<${prefix}${name}\\b[^>]*>[\\s\\S]*?<\\/${prefix}${name}>`, "i"))?.[0] || "";
 }
 async function readFiscalOperationDraft(db, draftId, automaticReturnWorker, res) {
-  const { data: draft, error: draftError } = await db.from("nfe_operation_drafts").select(
-    "id,operation_kind,finalidade,original_document_id,original_access_key,return_order_id,environment,status,reason,nature_of_operation,review_data,generated_xml,signed_xml,sefaz_response_xml,protocol_number,access_key,document_id,created_at,updated_at"
-  ).eq("id", draftId).maybeSingle();
+  const draftResult = automaticReturnWorker ? await db.from("nfe_operation_drafts").select(AUTOMATIC_WORKER_DRAFT_COLUMNS).eq("id", draftId).maybeSingle() : await db.from("nfe_operation_drafts").select(FULL_DRAFT_COLUMNS).eq("id", draftId).maybeSingle();
+  const { data: draftData, error: draftError } = draftResult;
+  const draft = draftData;
   if (draftError) throw draftError;
   if (!draft) return res.status(404).json({ error: "Rascunho fiscal n\xE3o encontrado." });
   if (automaticReturnWorker && draft.operation_kind !== "return") {
@@ -1645,7 +1647,7 @@ async function readFiscalOperationDraft(db, draftId, automaticReturnWorker, res)
       error: "O cen\xE1rio da devolu\xE7\xE3o n\xE3o possui op\xE7\xF5es fiscais aprovadas para revis\xE3o."
     });
   }
-  const lastSefazResult = draft.sefaz_response_xml ? parseSefazAuthorization(String(draft.sefaz_response_xml)) : null;
+  const lastSefazResult = !automaticReturnWorker && draft.sefaz_response_xml ? parseSefazAuthorization(String(draft.sefaz_response_xml)) : null;
   return res.status(200).json({
     success: true,
     draft,

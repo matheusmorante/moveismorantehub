@@ -141,7 +141,7 @@ it('abre o teste pelo painel esquerdo e preserva a conversa ao trocar de cliente
   expect(screen.getByRole('dialog', { name: /configurações do agente/i })).toBeDefined();
   fireEvent.click(screen.getByRole('button', { name: /fechar configurações/i }));
 
-  const input = within(chat).getByPlaceholderText(/digite uma mensagem para o lizandro/i) as HTMLInputElement;
+  const input = within(chat).getByRole('textbox', { name: 'Mensagem para o agente de IA' }) as HTMLInputElement;
   fireEvent.change(input, { target: { value: 'Quero testar um produto' } });
   fireEvent.click(screen.getByRole('button', { name: 'Selecionar cliente' }));
   expect(screen.getByText('Conversa do cliente')).toBeDefined();
@@ -149,7 +149,7 @@ it('abre o teste pelo painel esquerdo e preserva a conversa ao trocar de cliente
 
   fireEvent.click(openChat);
   expect(chat.getAttribute('aria-hidden')).toBe('false');
-  expect((within(chat).getByPlaceholderText(/digite uma mensagem para o lizandro/i) as HTMLInputElement).value)
+  expect((within(chat).getByRole('textbox', { name: 'Mensagem para o agente de IA' }) as HTMLInputElement).value)
     .toBe('Quero testar um produto');
   fireEvent.click(within(chat).getByRole('button', { name: /enviar/i }));
   await waitFor(() => expect(mocks.simulate).toHaveBeenCalledTimes(1));

@@ -41,7 +41,7 @@ export const DEFAULT_WORKFLOWS: readonly AiWorkflowConfig[] = [
     steps: [
       '1. Verificar se é cliente novo ou com pedido já realizado',
       '2. Para pedidos realizados: consultar status no ERP',
-      '3. Para novos clientes: informar que frete é grátis a menos de 5 km da loja em Colombo; se for maior, sugerir endereço completo. Se o endereço não for localizado na consulta, acionar intervenção humana silenciosa',
+      '3. Para novos clientes: informar que entregamos somente em Curitiba e na Região Metropolitana, com a loja em Colombo/PR. Fora dessa área, dizer que não realizamos entrega. Dentro da área, frete grátis somente a menos de 5 km da loja; para distâncias maiores, solicitar endereço completo para confirmar valor e prazo. Se um endereço atendido não for localizado na consulta, acionar intervenção humana silenciosa',
     ],
     enabled: true,
     handoffTrigger: false,

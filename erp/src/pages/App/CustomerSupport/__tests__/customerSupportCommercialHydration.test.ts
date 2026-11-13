@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { fetchConversations } from '@/pages/utils/customerSupport/customerSupportService';
 
 const summaries = 'customer_support_list_customer_summaries';
-const counts = 'customer_support_count_customer_orders';
+const counts = 'customer_support_list_customer_order_indicators';
 const feedback = 'Não foi possível carregar os dados comerciais das conversas. Tente atualizar a lista.';
 const row = {
   id: 'conversation-unit', customer_id: 'customer-unit', customer_link_status: 'manually_linked',

@@ -1,5 +1,6 @@
 import React from 'react';
 import type { WhatsAppMessage } from '../../../types';
+import type { CatalogInteractiveProductCard } from '../../../catalogInteractiveProducts';
 import { MessageAudioPlayer } from './MessageAudioPlayer';
 import { renderFormattedText } from './bubbleUtils';
 import {
@@ -14,12 +15,16 @@ interface MessageBubbleMediaProps {
   message: WhatsAppMessage;
   mediaUrl: string | null;
   onOpenLightbox: () => void;
+  catalogProductCards?: Record<string, CatalogInteractiveProductCard>;
+  loadingCatalogRetailerIds?: ReadonlySet<string>;
 }
 
 export const MessageBubbleMedia: React.FC<MessageBubbleMediaProps> = ({
   message,
   mediaUrl,
   onOpenLightbox,
+  catalogProductCards,
+  loadingCatalogRetailerIds,
 }) => {
   // 1. Mensagem de Template do WhatsApp
   if (message.messageType === 'template') {
@@ -35,7 +40,7 @@ export const MessageBubbleMedia: React.FC<MessageBubbleMediaProps> = ({
   // 2. Imagem / Figurinha
   if (message.messageType === 'image' || message.messageType === 'sticker') {
     return (
-      <div className="mb-2 overflow-hidden rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200/60 dark:border-slate-700">
+      <div className="mb-1 overflow-hidden rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200/60 dark:border-slate-700">
         {mediaUrl ? (
           <img
             src={mediaUrl}
@@ -88,7 +93,7 @@ export const MessageBubbleMedia: React.FC<MessageBubbleMediaProps> = ({
   // 5. Vídeo
   if (message.messageType === 'video') {
     return (
-      <div className="mb-2 overflow-hidden rounded-xl bg-black/10 dark:bg-black/30">
+      <div className="mb-1 overflow-hidden rounded-xl bg-black/10 dark:bg-black/30">
         {mediaUrl ? (
           <video controls src={mediaUrl} className="w-full max-h-72 rounded-xl" />
         ) : (
@@ -108,7 +113,13 @@ export const MessageBubbleMedia: React.FC<MessageBubbleMediaProps> = ({
 
   // 6. Mensagem Interativa / Botões / Reação
   if (message.messageType === 'interactive') {
-    return <InteractiveMessageMedia message={message} />;
+    return (
+      <InteractiveMessageMedia
+        message={message}
+        catalogProductCards={catalogProductCards}
+        loadingCatalogRetailerIds={loadingCatalogRetailerIds}
+      />
+    );
   }
 
   // 7. Localização / Contatos

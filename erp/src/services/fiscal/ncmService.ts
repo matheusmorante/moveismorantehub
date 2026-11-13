@@ -81,6 +81,10 @@ export interface NcmShortlistParams {
   material?: string;
 }
 
+export interface NcmCatalogLookupOptions {
+  includeInternalAliases?: boolean;
+}
+
 class NcmService {
   private async getInternalAliases(codes: string[]): Promise<Map<string, NcmAlias[]>> {
     if (codes.length === 0) return new Map();
@@ -117,7 +121,11 @@ class NcmService {
    * Pesquisa NCMs no banco por código (exato ou parcial) ou texto
    * Busca tanto na descrição oficial quanto nos aliases comerciais
    */
-  async searchNcms(searchTerm: string, maxResults: number = 20): Promise<NcmSearchResult[]> {
+  async searchNcms(
+    searchTerm: string,
+    maxResults: number = 20,
+    { includeInternalAliases = true }: NcmCatalogLookupOptions = {}
+  ): Promise<NcmSearchResult[]> {
     if (!searchTerm || searchTerm.trim().length < 2) return [];
 
     try {
@@ -155,9 +163,9 @@ class NcmService {
         .filter(({ code }) => usableCodes.has(code))
         .sort((left, right) => right.rank - left.rank)
         .slice(0, maxResults);
-      const aliasesByCode = await this.getInternalAliases(
-        [...new Set(topCandidates.map(({ code }) => code))]
-      );
+      const aliasesByCode = includeInternalAliases
+        ? await this.getInternalAliases([...new Set(topCandidates.map(({ code }) => code))])
+        : new Map<string, NcmAlias[]>();
       return topCandidates.map((candidate) => ({
         ...candidate,
         internal_description: summarizeInternalDescription(
@@ -171,7 +179,10 @@ class NcmService {
     }
   }
 
-  async getCatalogEntry(code: string): Promise<{
+  async getCatalogEntry(
+    code: string,
+    { includeInternalAliases = true }: NcmCatalogLookupOptions = {}
+  ): Promise<{
     code: string;
     official_description: string;
     active: boolean;
@@ -182,16 +193,21 @@ class NcmService {
   } | null> {
     const normalizedCode = code.replace(/\D/g, '');
     if (normalizedCode.length !== 8) return null;
-    const [{ data, error }, aliasesByCode] = await Promise.all([
-      supabase
-        .from('ncms')
-        .select('code, official_description, active, is_active, start_date, end_date')
-        .eq('code', normalizedCode)
-        .maybeSingle(),
-      this.getInternalAliases([normalizedCode]),
+    const catalogRequest = supabase
+      .from('ncms')
+      .select('code, official_description, active, is_active, start_date, end_date')
+      .eq('code', normalizedCode)
+      .maybeSingle();
+    const [catalogResult, aliasesByCode] = await Promise.all([
+      catalogRequest,
+      includeInternalAliases
+        ? this.getInternalAliases([normalizedCode])
+        : Promise.resolve(new Map<string, NcmAlias[]>()),
     ]);
+    const { data, error } = catalogResult;
     if (error) throw error;
     if (!data) return null;
+    if (!includeInternalAliases) return data;
     return {
       ...data,
       internal_description: summarizeInternalDescription(aliasesByCode.get(normalizedCode) || []),

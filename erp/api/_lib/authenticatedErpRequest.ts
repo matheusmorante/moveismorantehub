@@ -17,7 +17,7 @@ const DEFAULT_PERMISSION_ROLES: Record<string, string[]> = {
   viewMarketing: ['manager'],
   manageCatalogImageTemplates: ['manager'],
   viewDeliverySchedule: ['manager', 'seller', 'deliverer'],
-  sendCustomerSupportMessages: ['manager', 'seller'],
+  viewCustomerSupport: ['manager', 'seller', 'deliverer'],
 };
 
 function getBearerToken(req: VercelRequest): string {
@@ -69,6 +69,11 @@ export async function authenticateErpRequest(
   // Match the ERP and support RLS: current roles take precedence over the legacy field.
   if (!roles.length && typeof profile?.role === 'string' && profile.role.trim() && profile.role !== 'pending') {
     roles.push(profile.role);
+  }
+  // A função de administrador é uma concessão explícita do perfil principal,
+  // mesmo quando uma lista antiga de roles ainda não foi sincronizada.
+  if (profile?.role === 'administrator' && !roles.includes('administrator')) {
+    roles.push('administrator');
   }
   if (!roles.length) {
     res.status(403).json({ error: 'Perfil sem acesso ao serviço.' });

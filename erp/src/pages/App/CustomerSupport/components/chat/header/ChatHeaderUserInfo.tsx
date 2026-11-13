@@ -23,6 +23,12 @@ export const ChatHeaderUserInfo: React.FC<ChatHeaderUserInfoProps> = ({
   onToggleInfoPanel,
   onBackMobile,
 }) => {
+  const isSocialChannel = conversation.channel === 'instagram' || conversation.channel === 'messenger';
+  const channelLabel = conversation.channel === 'instagram'
+    ? 'Instagram'
+    : conversation.channel === 'messenger'
+      ? 'Messenger'
+      : 'WhatsApp';
   return (
     <div
       onClick={onToggleInfoPanel}
@@ -84,17 +90,23 @@ export const ChatHeaderUserInfo: React.FC<ChatHeaderUserInfoProps> = ({
 
         <div
           className="flex min-w-0 items-center gap-1.5 truncate text-[11px] text-slate-400"
-          title={`${formattedPhone} · ${careWindow.isOpen ? `Janela de 24h aberta (${careWindow.remainingHours}h)` : 'Janela de 24h expirada'}`}
+          title={isSocialChannel
+            ? `${channelLabel} · ${formattedPhone}`
+            : `${formattedPhone} · ${careWindow.isOpen ? `Janela de 24h aberta (${careWindow.remainingHours}h)` : 'Janela de 24h expirada'}`}
         >
-          <span className="shrink-0">WhatsApp</span>
+          <span className="shrink-0">{channelLabel}</span>
           <span>·</span>
           <span className="shrink-0 font-medium text-slate-600 dark:text-slate-300">
             {currentStatus === 'closed' ? 'Atendimento fechado' : currentStatus === 'snoozed' ? 'Atendimento adiado' : 'Atendimento aberto'}
           </span>
-          <span>·</span>
-          <span className={`truncate ${careWindow.isOpen ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}`}>
-            {careWindow.isOpen ? `Janela 24h aberta (${careWindow.remainingHours}h)` : 'Janela expirada'}
-          </span>
+          {!isSocialChannel && (
+            <>
+              <span>·</span>
+              <span className={`truncate ${careWindow.isOpen ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}`}>
+                {careWindow.isOpen ? `Janela 24h aberta (${careWindow.remainingHours}h)` : 'Janela expirada'}
+              </span>
+            </>
+          )}
         </div>
       </div>
     </div>

@@ -20,7 +20,8 @@ test('nova mensagem reabre Fechados e Adiados pela mesma Inbox e mantém timelin
   let unauthorizedWrites = 0;
   const readRPCs = new Set(['customer_support_list_conversations', 'customer_support_conversation_counts',
     'customer_support_list_agents', 'customer_support_can_view', 'customer_support_can_view_commercial_info',
-    'customer_support_list_customer_summaries', 'customer_support_count_customer_orders', 'customer_support_test_fixture_manifest']);
+    'customer_support_list_customer_summaries', 'customer_support_count_customer_orders',
+    'customer_support_list_customer_order_indicators', 'customer_support_test_fixture_manifest']);
   const guard = async (route: Route) => {
     const req = route.request(); const url = new URL(req.url()); const method = req.method();
     if (['GET', 'HEAD', 'OPTIONS'].includes(method)) return route.continue();

@@ -18,7 +18,7 @@ export const ChatComposerEmojiMenu: React.FC<ChatComposerEmojiMenuProps> = ({
   return (
     <div
       ref={menuRef}
-      className="absolute bottom-full left-0 mb-2 p-2 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-xl grid grid-cols-4 gap-1 z-30"
+      className="absolute bottom-full left-0 mb-2 w-44 max-w-[calc(100vw-2rem)] p-2 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-xl grid grid-cols-4 gap-1 z-30"
     >
       {COMPOSER_EMOJIS.map((emoji) => (
         <button

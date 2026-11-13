@@ -89,7 +89,7 @@ export function SubHeader() {
         <nav
           ref={navRef}
           aria-label="Navegação do catálogo"
-          className={`flex flex-wrap items-center gap-y-0 overflow-visible min-w-0 ${
+          className={`flex flex-wrap items-center gap-x-2 sm:gap-x-3 gap-y-0 overflow-visible min-w-0 ${
             useMenu
               ? 'invisible absolute left-4 right-4 top-0 pointer-events-none sm:left-8 sm:right-8 md:left-12 md:right-12 lg:left-16 lg:right-16 xl:left-24 xl:right-24'
               : ''

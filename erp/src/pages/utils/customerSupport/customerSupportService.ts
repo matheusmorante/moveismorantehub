@@ -13,6 +13,7 @@
  */
 
 export { fetchInitialConversationMessagePage, fetchConversationMessageChanges } from './customerSupportMessageSync';
+export { removeCustomerSupportMessagesFromCentral } from './customerSupportMessageDeletionService';
 export {
   computeConversationStatus,
   mapRowToConversation,
@@ -43,6 +44,8 @@ export type {
 export {
   CustomerSupportSendError,
   downloadCustomerSupportForwardFile,
+  fetchCustomerSupportWhatsAppSendQuota,
+  fetchCustomerSupportWhatsAppUsageDetails,
   fetchCustomerSupportTestSender,
   sendCustomerSupportMessage,
   sendCustomerSupportTestMessage,
@@ -50,6 +53,8 @@ export {
 export type {
   CustomerSupportSendInput,
   CustomerSupportSendResult,
+  CustomerSupportWhatsAppSendQuota,
+  CustomerSupportMetaMonthlyUsage,
   CustomerSupportTestSendResult,
   CustomerSupportTestSender,
 } from './customerSupportMessagingService';

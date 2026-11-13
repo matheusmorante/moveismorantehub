@@ -57,14 +57,17 @@ const AdminRoute = ({ children }: { children: React.ReactNode }) => {
 const PermissionRoute = ({
   action,
   children,
+  allowRealAdministrator = false,
 }: {
   action: string;
   children?: React.ReactNode;
+  allowRealAdministrator?: boolean;
 }) => {
-  const { profile, loading } = useAuth();
+  const { profile, loading, isRealAdministrator } = useAuth();
 
   if (loading) return null;
-  if (!canPerform(action, profile ? getProfileRoles(profile) : [])) {
+  if (!(allowRealAdministrator && isRealAdministrator) &&
+      !canPerform(action, profile ? getProfileRoles(profile) : [])) {
     return <Navigate to="/" replace />;
   }
 

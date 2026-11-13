@@ -1,5 +1,5 @@
 import { SquareSelection } from './squareCropSelection';
-import { compressImageToFile } from '@/pages/utils/imageUtils';
+import { compressImageToFile } from '@/pages/utils/images/imageUtils';
 
 export async function processSquareCropImage(
   img: HTMLImageElement,

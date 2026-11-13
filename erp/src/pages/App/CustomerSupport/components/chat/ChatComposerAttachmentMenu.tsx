@@ -20,20 +20,17 @@ interface ChatComposerAttachmentMenuProps {
 export const ChatComposerAttachmentMenu: React.FC<ChatComposerAttachmentMenuProps> = ({
   menuRef,
   isOpen,
-  canShareCommercialInfo,
   canCreateOrders,
-  hasCustomer,
   onToggle,
   onOpenCatalog,
   onChooseMedia,
   onChooseDocument,
-  onOpenOrderPicker,
   onNewSalesOrder,
   onNewBudget,
   onAddStoreContact,
   onOpenSnippets,
 }) => (
-  <div ref={menuRef} className="relative shrink-0 self-end">
+  <div ref={menuRef} className="relative shrink-0 self-center">
     <button
       type="button"
       onClick={onToggle}
@@ -42,7 +39,13 @@ export const ChatComposerAttachmentMenu: React.FC<ChatComposerAttachmentMenuProp
       title="Anexar conteúdo"
       className="flex h-10 w-10 items-center justify-center rounded-full text-slate-600 transition-colors hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 dark:text-slate-300 dark:hover:bg-slate-800"
     >
-      <i className={`bi ${isOpen ? 'bi-x-lg' : 'bi-plus-lg'} text-xl`} />
+      {isOpen ? (
+        <svg aria-hidden="true" className="h-5 w-5" viewBox="0 0 24 24" fill="none">
+          <path d="M5 5L19 19M19 5L5 19" stroke="currentColor" strokeWidth="2" strokeLinecap="butt" />
+        </svg>
+      ) : (
+        <i aria-hidden="true" className="bi bi-plus-lg text-xl" />
+      )}
     </button>
     {isOpen && (
       <div
@@ -87,18 +90,6 @@ export const ChatComposerAttachmentMenu: React.FC<ChatComposerAttachmentMenuProp
           <i className="bi bi-file-earmark-text w-9 text-center text-lg text-rose-600" />
           <span>
             Documentos e áudio<small className="block text-xs text-slate-400">PDF, planilhas, OGG, MP3 e outros</small>
-          </span>
-        </button>
-        <button
-          type="button"
-          role="menuitem"
-          disabled={!canShareCommercialInfo || !hasCustomer}
-          onClick={onOpenOrderPicker}
-          className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-45 dark:text-slate-200 dark:hover:bg-slate-800"
-        >
-          <i className="bi bi-receipt w-9 text-center text-lg text-amber-600" />
-          <span>
-            Pedidos e orçamentos<small className="block text-xs text-slate-400">Preparar resumo em PDF</small>
           </span>
         </button>
         <button

@@ -123,6 +123,9 @@ describe('Central de Atendimento WhatsApp — Concorrência Distribuída, Fila e
         };
       }),
       rpc: vi.fn().mockImplementation((fn: string, args: any) => {
+        if (fn === 'customer_support_outside_window_quota') {
+          return Promise.resolve({ data: { allowed: true, exempt: true, reservation_id: null }, error: null });
+        }
         if (overrides?.rpcHandler) {
           return overrides.rpcHandler(fn, args);
         }

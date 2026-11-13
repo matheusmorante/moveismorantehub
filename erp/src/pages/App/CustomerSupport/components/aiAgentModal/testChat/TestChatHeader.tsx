@@ -32,13 +32,18 @@ export const TestChatHeader: React.FC<TestChatHeaderProps> = ({
           >
             <i className="bi bi-arrow-left text-base" aria-hidden="true" />
           </button>
-          <div className="w-9 h-9 shrink-0 rounded-full bg-gradient-to-tr from-indigo-600 to-purple-600 text-white flex items-center justify-center shadow-xs">
-            <i className="bi bi-robot" aria-hidden="true" />
+          <div className="w-9 h-9 shrink-0 overflow-hidden rounded-full border border-slate-200 dark:border-slate-700 shadow-xs">
+            <img
+              src="/lizandro.png"
+              alt=""
+              className="h-full w-full object-cover"
+              onError={({ currentTarget }) => { currentTarget.src = '/seu-lizandro.jpg'; }}
+            />
           </div>
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-1.5">
               <h2 className="text-xs font-bold text-slate-900 dark:text-slate-100">
-                Lizandro — Chat de Testes do Agente
+                Seu Lizandro
               </h2>
               <span className="text-[10px] font-semibold text-emerald-700 dark:text-emerald-300">Sandbox Isolado</span>
             </div>

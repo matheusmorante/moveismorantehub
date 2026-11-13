@@ -25,6 +25,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'OPTIONS') return res.status(200).end();
 
   const operation = req.query?.operation as string | undefined;
+  if (operation === 'meta-social') {
+    const { createMetaSocialWebhookHandler } = await import('../erp/server/customer-support/meta-social-webhook.js');
+    return createMetaSocialWebhookHandler({
+      verifyToken: process.env.META_SOCIAL_VERIFY_TOKEN || process.env.WHATSAPP_VERIFY_TOKEN,
+      appSecret: process.env.META_APP_SECRET || process.env.WHATSAPP_APP_SECRET,
+      supabaseUrl,
+      supabaseServiceKey,
+    })(req, res);
+  }
   if (operation === 'dispatch') {
     const { createWhatsAppTestDispatchHandler } = await import('./whatsapp-dispatch.js');
     return createWhatsAppTestDispatchHandler()(req, res);

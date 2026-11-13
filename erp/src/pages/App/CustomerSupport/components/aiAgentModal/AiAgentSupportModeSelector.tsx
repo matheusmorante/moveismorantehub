@@ -31,9 +31,13 @@ export const AiAgentSupportModeSelector: React.FC<AiAgentSupportModeSelectorProp
           {/* Modo Automático */}
           <button
             type="button"
-            disabled={!isAdministrator}
+            disabled={!isAdministrator || __MORANTE_BETA__}
+            title={__MORANTE_BETA__ ? 'O modo Automático está desativado na versão beta.' : undefined}
+            aria-describedby={__MORANTE_BETA__ ? 'ai-automatic-mode-beta-note' : undefined}
             onClick={() => field.onChange('automatico')}
-            className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+            className={`p-3.5 rounded-2xl border text-left transition-all flex flex-col justify-between ${
+              __MORANTE_BETA__ || !isAdministrator ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'
+            } ${
               field.value === 'automatico'
                 ? 'bg-indigo-50/70 dark:bg-indigo-950/40 border-indigo-500 dark:border-indigo-600 shadow-xs ring-1 ring-indigo-500'
                 : 'bg-white dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
@@ -56,9 +60,17 @@ export const AiAgentSupportModeSelector: React.FC<AiAgentSupportModeSelectorProp
               </p>
             </div>
             <div className="mt-3 pt-2 border-t border-slate-100 dark:border-slate-700/50">
-              <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">
-                Recomendado para Testes
+              <span className="inline-flex rounded bg-amber-100 px-1.5 py-0.5 text-[9px] font-bold text-amber-800 dark:bg-amber-900/50 dark:text-amber-200 uppercase tracking-wider">
+                BETA
               </span>
+              <p
+                id="ai-automatic-mode-beta-note"
+                className="mt-1 text-[10px] text-slate-500 dark:text-slate-400"
+              >
+                {__MORANTE_BETA__
+                  ? 'Desativado nesta versão beta.'
+                  : 'Disponível para ativação manual.'}
+              </p>
             </div>
           </button>
 

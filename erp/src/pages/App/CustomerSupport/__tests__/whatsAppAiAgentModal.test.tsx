@@ -56,20 +56,20 @@ describe('Painel Completo do Agente de IA do WhatsApp (WhatsAppAiAgentModal)', (
     cleanup();
   });
 
-  it('renderiza o modal aberto com todas as 7 abas de navegação', () => {
+  it('renderiza o painel de treinamento com cinco áreas e as abas de visão geral e limites', () => {
     render(<WhatsAppAiAgentModal isOpen={true} onClose={vi.fn()} />);
 
     expect(screen.getByRole('dialog')).toBeDefined();
-    expect(screen.getByText('Agente de IA do WhatsApp (Lizandro)')).toBeDefined();
+    expect(screen.getByText('Treinamento do Seu Lizandro')).toBeDefined();
 
-    // Abas
+    // Visão geral e limites ficam fora das cinco áreas de treinamento.
     expect(screen.getByText('Visão Geral')).toBeDefined();
-    expect(screen.getByText('Regras & Frases')).toBeDefined();
+    expect(screen.getByText('Comportamento')).toBeDefined();
     expect(screen.getByText('Conhecimento')).toBeDefined();
-    expect(screen.getByText('Fluxos')).toBeDefined();
+    expect(screen.getByText('Procedimentos')).toBeDefined();
     expect(screen.getByText('Ferramentas ERP')).toBeDefined();
+    expect(screen.getByText('Testes')).toBeDefined();
     expect(screen.getByText('Limites & Cotas')).toBeDefined();
-    expect(screen.getByText('Instruções')).toBeDefined();
     expect(screen.queryByText('Chat de Testes')).toBeNull();
   });
 
@@ -82,18 +82,19 @@ describe('Painel Completo do Agente de IA do WhatsApp (WhatsAppAiAgentModal)', (
     expect(screen.getByText('Assistido (Copiloto)')).toBeDefined();
     expect(screen.getByText('Pausado (Somente Humano)')).toBeDefined();
 
-    // Clica na aba Regras & Frases
-    fireEvent.click(screen.getByText('Regras & Frases'));
+    // Comportamento reúne regras situacionais e instruções do agente.
+    fireEvent.click(screen.getByText('Comportamento'));
     expect(screen.getByText('Regras de Atendimento e Frases por Situação')).toBeDefined();
     expect(screen.getByText('Consulta de Formas de Pagamento e Parcelamento')).toBeDefined();
+    expect(screen.getByLabelText('Instruções do Agente (System Prompt)')).toBeDefined();
 
     // Clica na aba Conhecimento
     fireEvent.click(screen.getByText('Conhecimento'));
     expect(screen.getByText('Base de Conhecimento Confiável e Versionada')).toBeDefined();
     expect(screen.getByText('Frete e Prazos de Entrega')).toBeDefined();
 
-    // Clica na aba Fluxos
-    fireEvent.click(screen.getByText('Fluxos'));
+    // Clica na aba Procedimentos
+    fireEvent.click(screen.getByText('Procedimentos'));
     expect(screen.getByText('Fluxos Guiados de Atendimento')).toBeDefined();
     expect(screen.getByText('Fluxo de Compra e Recomendação')).toBeDefined();
 
@@ -102,8 +103,9 @@ describe('Painel Completo do Agente de IA do WhatsApp (WhatsAppAiAgentModal)', (
     expect(screen.getByText('Ferramentas do WhatsApp Habilitadas')).toBeDefined();
     expect(screen.getByText(/Preços de custo, margens de lucro/i)).toBeDefined();
 
-    fireEvent.click(screen.getByText('Instruções'));
-    expect(screen.getByLabelText('Instruções do Agente (System Prompt)')).toBeDefined();
+    fireEvent.click(screen.getByText('Testes'));
+    expect(screen.getByText('Simulador & Diagnóstico de Atendimento')).toBeDefined();
+    expect(screen.getByText('Quero ver pia')).toBeDefined();
   });
 
   it('chama onClose ao pressionar Escape ou clicar no botão fechar', () => {

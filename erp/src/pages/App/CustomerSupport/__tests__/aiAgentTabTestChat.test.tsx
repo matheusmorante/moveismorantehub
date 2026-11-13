@@ -61,7 +61,7 @@ describe('AiAgentTabTestChat (Chat de Testes do Agente)', () => {
   it('renderiza a interface do chat com cabeçalho, mensagem inicial e pílulas de cenários', () => {
     render(<AiAgentTabTestChat {...defaultProps} />);
 
-    expect(screen.getByText('Lizandro — Chat de Testes do Agente')).toBeDefined();
+    expect(screen.getByRole('heading', { name: 'Seu Lizandro' })).toBeDefined();
     expect(screen.getByText('Sandbox Isolado')).toBeDefined();
     expect(screen.getByText(/Consultas reais ao ERP · Sem envio ao WhatsApp/i)).toBeDefined();
     expect(screen.queryByText('Nova Conversa')).toBeNull();
@@ -138,7 +138,7 @@ describe('AiAgentTabTestChat (Chat de Testes do Agente)', () => {
 
     render(<AiAgentTabTestChat {...defaultProps} />);
 
-    const input = screen.getByPlaceholderText(/Digite uma mensagem para o Lizandro/i);
+    const input = screen.getByPlaceholderText(/Digite uma mensagem para testar o Seu Lizandro/i);
     fireEvent.change(input, { target: { value: 'Qual o valor do frete para Colombo?' } });
 
     const sendBtn = screen.getByRole('button', { name: /Enviar/i });
@@ -198,7 +198,7 @@ describe('AiAgentTabTestChat (Chat de Testes do Agente)', () => {
 
     render(<AiAgentTabTestChat {...defaultProps} />);
 
-    const input = screen.getByPlaceholderText(/Digite uma mensagem para o Lizandro/i);
+    const input = screen.getByPlaceholderText(/Digite uma mensagem para testar o Seu Lizandro/i);
     fireEvent.change(input, { target: { value: 'Vocês têm guarda-roupa 6 portas?' } });
     fireEvent.click(screen.getByRole('button', { name: /Enviar/i }));
 
@@ -306,7 +306,7 @@ describe('AiAgentTabTestChat (Chat de Testes do Agente)', () => {
     expect(localStorage.getItem('morante_ai_saved_test_cases')).toBeNull();
 
     // Envia mensagem
-    const input = screen.getByPlaceholderText(/Digite uma mensagem para o Lizandro/i);
+    const input = screen.getByPlaceholderText(/Digite uma mensagem para testar o Seu Lizandro/i);
     fireEvent.change(input, { target: { value: 'Qual o valor do frete?' } });
     fireEvent.click(screen.getByRole('button', { name: /Enviar/i }));
 
@@ -341,7 +341,7 @@ describe('AiAgentTabTestChat (Chat de Testes do Agente)', () => {
 
     render(<AiAgentTabTestChat {...defaultProps} />);
 
-    const input = screen.getByPlaceholderText(/Digite uma mensagem para o Lizandro/i);
+    const input = screen.getByPlaceholderText(/Digite uma mensagem para testar o Seu Lizandro/i);
     fireEvent.change(input, { target: { value: 'Quero um sofá' } });
     fireEvent.click(screen.getByRole('button', { name: /Enviar/i }));
 
@@ -389,23 +389,66 @@ describe('AiAgentTabTestChat (Chat de Testes do Agente)', () => {
     });
   });
 
-  it('trata erros de simulação graciosamente sem travar a interface', async () => {
+  it('solicita intervenção humana no chat de teste quando a simulação falha', async () => {
     vi.spyOn(orchestrator, 'simulateWhatsAppAiTurn').mockRejectedValueOnce(
       new Error('Erro de conexão com a API da OpenAI (503 Service Unavailable)')
     );
 
     render(<AiAgentTabTestChat {...defaultProps} />);
 
-    const input = screen.getByPlaceholderText(/Digite uma mensagem para o Lizandro/i);
+    const input = screen.getByPlaceholderText(/Digite uma mensagem para testar o Seu Lizandro/i);
     fireEvent.change(input, { target: { value: 'Olá!' } });
     fireEvent.click(screen.getByRole('button', { name: /Enviar/i }));
 
     await waitFor(() => {
-      expect(
-        screen.getByText(
-          /Erro na simulação do agente: Erro de conexão com a API da OpenAI \(503 Service Unavailable\)/i
-        )
-      ).toBeDefined();
+      expect(screen.getByText(/Intervenção humana solicitada no teste/i)).toBeDefined();
     });
+    expect(screen.queryByText(/Erro na simulação do agente/i)).toBeNull();
+    expect(screen.getByText(/503 Service Unavailable/i)).toBeDefined();
+  });
+
+  it('renderiza os cards de produto do WhatsApp quando a simulação retorna produtos nativos', async () => {
+    vi.spyOn(orchestrator, 'simulateWhatsAppAiTurn').mockResolvedValueOnce({
+      executed: true,
+      userQuery: 'balcoes para pia',
+      situation: null,
+      matchedKeywords: [],
+      articlesUsed: [],
+      workflowApplied: null,
+      toolsCalled: [{
+        name: 'buscarProdutos',
+        args: { termo: 'balcão para pia', enviarCartoes: true },
+        result: {
+          success: true,
+          total: 2,
+          produtos: [
+            { codigo: '000122', nome: 'Balcão 1,20m Darmovel' },
+            { codigo: '000217', nome: 'Balcão 1,20m Florença' },
+          ],
+        },
+      }],
+      aiResponseText: 'Tenho 2 modelos de balcão para pia:',
+      mandatoryPhrasesEnforced: [],
+      executionTimeMs: 320,
+      nativeCatalogProducts: [
+        { retailerId: '000122', name: 'Balcão 1,20m Darmovel' },
+        { retailerId: '000217', name: 'Balcão 1,20m Florença' },
+      ],
+    });
+
+    render(<AiAgentTabTestChat {...defaultProps} />);
+
+    const input = screen.getByPlaceholderText(/Digite uma mensagem para testar o Seu Lizandro/i);
+    fireEvent.change(input, { target: { value: 'balcoes para pia' } });
+    fireEvent.click(screen.getByRole('button', { name: /Enviar/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Tenho 2 modelos de balcão para pia:')).toBeDefined();
+    });
+
+    expect(screen.getByText(/2 produtos/i)).toBeDefined();
+    expect(screen.getByText(/Deslize para ver/i)).toBeDefined();
+    expect(screen.getByText('Balcão 1,20m Darmovel')).toBeDefined();
+    expect(screen.getByText('Balcão 1,20m Florença')).toBeDefined();
   });
 });

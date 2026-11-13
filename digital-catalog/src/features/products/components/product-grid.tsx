@@ -46,7 +46,6 @@ export function ProductGrid({ filters }: ProductGridProps) {
     filters?.minPrice,
     filters?.maxPrice,
     filters?.type,
-    filters?.sortBy,
   ]);
 
   // 1. Busca remota no banco com RPC, compatibilidade de schema e cache

@@ -74,8 +74,12 @@ export async function handleOpenAi(req: VercelRequest, res: VercelResponse): Pro
     requestBody = { ...requestBody, max_output_tokens: Number.isInteger(requestedOutput) && requestedOutput > 0
       ? Math.min(requestedOutput, 2048) : 2048 };
   }
+  // Serialized JSON syntax inflates byte-based token counts; reserve the output cap separately.
   const estimatedTokens = isSupportSimulator
-    ? new TextEncoder().encode(JSON.stringify(requestBody)).length * 2 + 3072
+    ? Math.max(
+        3072,
+        Math.ceil(bodySize(requestBody) / 3) + Number(requestBody.max_output_tokens || 2048)
+      )
     : isEmbeddings ? 1000 : 1500;
   const quota = await checkAiQuotaOrReject(
     context.userDb,

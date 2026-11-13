@@ -15,8 +15,8 @@ import { withNfeEmissionStage } from '../nfeEmissionPerformance';
 import { embeddedNfeXml } from '../xmlEnvelope';
 import { isUncertainAuthorization } from './attemptPolicy';
 import {
-  type Attempt,
-  type Document,
+  type OutboundAttemptSnapshot,
+  type OutboundDocumentSnapshot,
   type OutboundDatabase,
   type OutboundResult,
   metadata,
@@ -28,8 +28,8 @@ import { productionTransmissionGate } from './outboundRecovery';
 /** Called with an owned lease. There is exactly one SOAP call, after the durable start marker. */
 export async function transmitPreparedOutbound(
   db: OutboundDatabase,
-  a: Attempt,
-  doc: Document,
+  a: OutboundAttemptSnapshot,
+  doc: OutboundDocumentSnapshot,
   token: string,
   certificate: ReturnType<typeof extractCertificateAndKey>,
   productionConfirmed: boolean

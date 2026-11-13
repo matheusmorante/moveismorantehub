@@ -148,7 +148,8 @@ export const searchMobileNcms = async (query: string) => {
 };
 
 export const fetchMobileNcmCatalogEntry = async (
-  code: string
+  code: string,
+  { includeInternalAliases = true }: { includeInternalAliases?: boolean } = {}
 ): Promise<MobileNcmCatalogEntry | null> => {
   const { data, error } = await supabase
     .from('ncms')
@@ -156,6 +157,7 @@ export const fetchMobileNcmCatalogEntry = async (
     .eq('code', code)
     .maybeSingle();
   if (error || !data) return null;
+  if (!includeInternalAliases) return data;
   const { data: aliases } = await supabase
     .from('ncm_aliases')
     .select('term, weight')

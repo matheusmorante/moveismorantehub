@@ -14,8 +14,13 @@ const PRODUCT_SEARCH_COLUMNS = [
 
 export const normalizeAgentProductSearchTerm = (value: string): string =>
   normalizeSearchTerm(value)
+    .replace(/\bapra\b/g, 'para')
     .replace(/\bparapias?\b/g, 'para pia')
     .replace(/\b(?:para|pra)\s*pias?\b/g, 'para pia')
+    .replace(/\bpias\b/g, 'pia')
+    .replace(/\bbalcoes\b/g, 'balcao')
+    // Common typo in quick customer messages: "bacoes" for "balcões".
+    .replace(/\bbacoes\b/g, 'balcao')
     .replace(/\s+/g, ' ')
     .trim();
 
@@ -24,7 +29,7 @@ const normalizeWords = (value: string): string[] =>
 
 export const hasSinkBaseCabinetIntent = (value: string): boolean => {
   const words = new Set(normalizeWords(value));
-  return (words.has('balcao') || words.has('balcoes')) && (words.has('pia') || words.has('pias'));
+  return words.has('balcao') && words.has('pia');
 };
 
 /**
@@ -40,21 +45,37 @@ export const buildAgentProductSearchFilter = (
   const search = normalizeAgentProductSearchTerm(value);
   if (!search) return '';
 
-  const textFilter = buildPostgrestAccentInsensitiveOrFilter(columns.search, search);
   const validParentIds = variationParentIds.filter((id) =>
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
   );
+
+  if (hasSinkBaseCabinetIntent(search)) {
+    const nameTypeFilter = [
+      buildPostgrestAccentInsensitiveOrFilter(columns.name, 'balcao'),
+      buildPostgrestAccentInsensitiveOrFilter(columns.name, 'pia'),
+    ];
+    const qualifiers = normalizeWords(search).filter((word) => !['balcao', 'para', 'pia'].includes(word));
+    const qualifierFilter = qualifiers.length
+      ? buildPostgrestAccentInsensitiveOrFilter(columns.search, qualifiers.join(' '))
+      : '';
+    const qualifierMatch = qualifierFilter && validParentIds.length
+      ? `or(${qualifierFilter},${validParentIds.map((id) => `id.eq.${id}`).join(',')})`
+      : qualifierFilter;
+
+    // A broad sink-base request only needs the two product-name terms. Searching
+    // those terms again across every catalog field duplicates large Unicode
+    // regexes in the PostgREST URL and can exceed the gateway's request limit.
+    return `and(${[
+      ...nameTypeFilter.map((filter) => `or(${filter})`),
+      ...(qualifierMatch ? [qualifierMatch] : []),
+    ].join(',')})`;
+  }
+
+  const textFilter = buildPostgrestAccentInsensitiveOrFilter(columns.search, search);
   const matchingProducts = validParentIds.length
     ? `or(${textFilter},${validParentIds.map((id) => `id.eq.${id}`).join(',')})`
     : textFilter;
-
-  if (!hasSinkBaseCabinetIntent(search)) return matchingProducts;
-
-  const nameTypeFilter = [
-    buildPostgrestAccentInsensitiveOrFilter(columns.name, 'balcao'),
-    buildPostgrestAccentInsensitiveOrFilter(columns.name, 'pia'),
-  ];
-  return `and(${matchingProducts},${nameTypeFilter.join(',')})`;
+  return matchingProducts;
 };
 
 export type AgentProductMatchKind = 'corresponding' | 'alternative' | 'incompatible';

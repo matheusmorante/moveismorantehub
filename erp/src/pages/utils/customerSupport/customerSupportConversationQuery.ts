@@ -21,6 +21,7 @@ export interface FetchConversationsOptions {
   agentId?: string | null;
   criteria?: import('@/pages/App/CustomerSupport/types').CustomerSupportFolderCriteria | null;
   canViewCommercialInfo?: boolean;
+  canViewScheduledOperations?: boolean;
   sortOrder?: 'newest' | 'oldest' | 'unread';
 }
 
@@ -39,6 +40,7 @@ export async function fetchConversations(
     agentId = null,
     criteria = null,
     canViewCommercialInfo = false,
+    canViewScheduledOperations = false,
     sortOrder = 'newest',
   } = options;
   const response = await withTimeout<any>(
@@ -83,7 +85,8 @@ export async function fetchConversations(
   const hydrated = await hydrateConversationsCommercialData(
     supabase,
     listedConversations,
-    canViewCommercialInfo
+    canViewCommercialInfo,
+    canViewScheduledOperations
   );
 
   return {

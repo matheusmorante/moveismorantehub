@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { toast } from 'sonner';
-import { ShoppingCart, ChevronRight, Pencil, Info } from 'lucide-react';
+import { ShoppingCart, ChevronRight, Pencil, Info, Flame, Zap } from 'lucide-react';
 
 import { useCart } from '@/hooks/use-cart';
 import { useAuth } from '@/hooks/use-auth';
@@ -11,6 +11,7 @@ import { useAdminMode } from '@/hooks/use-admin-mode';
 import { cn } from '@/lib/utils';
 import { productCardStyleClasses, getOpportunityTitleColor } from '@/lib/product-card-style';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { WhatsAppIcon } from '@/components/icons/whatsapp-icon';
 import { Link as LinkIcon } from 'lucide-react';
 import { DeliveryPickupInfo } from '@/features/products/components/delivery-pickup-info';
@@ -103,6 +104,24 @@ export default function ProductPageContent({
     (product?.is_salvado ? { name: 'Salvados', slug: 'salvado' } : null);
   const oppTitleColor = getOpportunityTitleColor(currentOpportunity);
   const titleColor = oppTitleColor === 'inherit' ? 'var(--primary)' : oppTitleColor;
+  const isSalvados = Boolean(
+    currentOpportunity?.slug === 'salvado' ||
+      currentOpportunity?.name?.toLowerCase()?.includes('salvado')
+  );
+  const isMegaLiquidacaoLastUnit =
+    /últimas?\s+unidades?/i.test(currentOpportunity?.name || '') &&
+    !/mostru[aá]rio/i.test(currentOpportunity?.name || '');
+  const isMegaLiquidacao =
+    isMegaLiquidacaoLastUnit ||
+    currentOpportunity?.slug === 'liquidacao' ||
+    currentOpportunity?.name?.toLowerCase()?.includes('liquida');
+  const opportunityBadgeBackground = currentOpportunity
+    ? getOpportunityTitleColor({
+        name: currentOpportunity.name,
+        slug: currentOpportunity.slug,
+        badge_color: currentOpportunity.badge_color,
+      })
+    : 'inherit';
 
   return (
     <div className="bg-white min-h-screen">
@@ -134,6 +153,28 @@ export default function ProductPageContent({
           {/* Coluna Direita: Informações e Compra */}
           <div className="lg:col-span-6 flex flex-col gap-6 lg:gap-8">
             <div className="space-y-3 relative">
+              {currentOpportunity?.name && (
+                <Badge
+                  className={cn(
+                    'pointer-events-none w-fit max-w-full rounded-md px-3 py-1.5 text-[11px] font-black uppercase tracking-wide shadow-xs flex items-center gap-1.5',
+                    isSalvados
+                      ? 'bg-orange-500 text-white border-orange-600/30'
+                      : isMegaLiquidacao
+                        ? 'bg-amber-400 text-black border-amber-500/30'
+                        : 'text-white border-white/20'
+                  )}
+                  style={
+                    isSalvados || isMegaLiquidacao || opportunityBadgeBackground === 'inherit'
+                      ? undefined
+                      : { backgroundColor: opportunityBadgeBackground }
+                  }
+                >
+                  {isSalvados && <Flame className="size-3.5 shrink-0 fill-white" />}
+                  {isMegaLiquidacao && <Zap className="size-3.5 shrink-0 fill-current text-black" />}
+                  <span className="truncate">{currentOpportunity.name}</span>
+                </Badge>
+              )}
+
               <h1
                 className="text-2xl sm:text-3xl font-extrabold leading-[1.1] tracking-tight pr-12 capitalize"
                 style={{ color: titleColor }}
@@ -193,6 +234,7 @@ export default function ProductPageContent({
               <PaymentInfo
                 price={displayPromoPrice ?? displayPrice}
                 originalPrice={displayPromoPrice != null ? displayPrice : undefined}
+                isSalvados={isSalvados}
               />
               {displayPromotion ? <div className="rounded-xl border border-blue-200 bg-blue-50 p-3 text-blue-900">
                 <p className="text-xs font-extrabold">Campanha: {displayPromotion.name} · desconto informativo de {displayPromotion.discount_percent}%</p>

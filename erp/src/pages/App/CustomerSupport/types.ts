@@ -30,8 +30,18 @@ export interface CustomerSupportFolder {
   updatedAt: string;
 }
 
+export interface ConversationScheduledOrderIndicators {
+  delivery: boolean;
+  pickup: boolean;
+  assistance: boolean;
+  returnCollection: boolean;
+}
+
+export type CustomerSupportChannel = 'whatsapp' | 'instagram' | 'messenger' | 'unknown';
+
 export interface WhatsAppConversation {
   id: string;
+  channel?: CustomerSupportChannel;
   businessPhoneNumberId: string;
   contactPhone: string; // E.164
   contactWaId: string;
@@ -59,6 +69,7 @@ export interface WhatsAppConversation {
   assignedProfile?: AssignedProfileSummary | null;
   customer?: CustomerSummary | null;
   orders?: SupportOrderSummary[];
+  scheduledOrderIndicators?: ConversationScheduledOrderIndicators;
   ambiguityList?: CustomerSummary[];
 }
 

@@ -61,6 +61,22 @@ export function parseInteractiveSelection(
   };
 }
 
+export function parseInteractiveProduct(
+  rawInteractive: any,
+  replyToWamid?: string,
+  type = 'interactive'
+): ExtractedMessageContent {
+  const title = typeof rawInteractive?.product?.title === 'string'
+    ? rawInteractive.product.title.trim()
+    : '';
+  return {
+    type: 'interactive',
+    text: title ? `🛍️ Produto do catálogo: ${title}` : '🛍️ Produto do catálogo',
+    replyToWamid,
+    rawPayload: { provider_message_type: type, interactive: rawInteractive },
+  };
+}
+
 export function parseCatalogOrder(
   order: any,
   replyToWamid?: string,

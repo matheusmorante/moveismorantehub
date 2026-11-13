@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -16,7 +16,7 @@ import { useChatComposerDraftLifecycle } from './useChatComposerDraftLifecycle';
 import { useChatComposerAttachments } from './useChatComposerAttachments';
 import { useChatComposerSend } from './useChatComposerSend';
 import { useChatComposerOrderPicker } from './useChatComposerOrderPicker';
-import { useChatComposerAudioRecording } from './useChatComposerAudioRecording';
+import { useChatComposerAudioRecording, type ChatAudioPreview } from './useChatComposerAudioRecording';
 import { useChatComposerInputState } from './useChatComposerInputState';
 
 export type InsertedSnippet = { id: number; text: string };
@@ -29,7 +29,6 @@ export interface UseChatComposerControllerOptions {
   canCreateOrders?: boolean;
   shareOrderRequest: { record: SupportOrderSummary; requestId: string } | null;
   onShareOrderRequestHandled?: (requestId: string) => void;
-  careWindowOpen: boolean;
   isChannelConnected: boolean;
   onSendCustomerMessage?: (input: CustomerSupportSendInput) => Promise<CustomerSupportSendResult>;
   onRefreshMessages?: () => Promise<void> | void;
@@ -57,7 +56,6 @@ export function useChatComposerController(options: UseChatComposerControllerOpti
     canShareCommercialInfo,
     shareOrderRequest,
     onShareOrderRequestHandled,
-    careWindowOpen,
     isChannelConnected,
     onSendCustomerMessage,
     onRefreshMessages,
@@ -73,6 +71,8 @@ export function useChatComposerController(options: UseChatComposerControllerOpti
   const setComposerMode = onComposerModeChange || setInternalComposerMode;
   const [isCatalogOpen, setIsCatalogOpen] = useState(false);
   const [newOrderType, setNewOrderType] = useState<'sale' | 'budget' | null>(null);
+  const currentAudioAttachmentRef = useRef<string | null>(null);
+  const audioPreviewRef = useRef<ChatAudioPreview>(null);
 
   const {
     register: registerDraft,
@@ -100,7 +100,6 @@ export function useChatComposerController(options: UseChatComposerControllerOpti
     removeAttachment,
     addFiles,
     addStoreContact,
-    addCatalogSelection,
   } = useChatComposerAttachments({
     watchAttachments: () => watchDraft('attachments') || [],
     setDraftValue,
@@ -109,14 +108,13 @@ export function useChatComposerController(options: UseChatComposerControllerOpti
     setSendError: (err) => sendControl.setSendError(err),
     setSendFeedback: (fb) => sendControl.setSendFeedback(fb),
     setAudioPreview: (preview) => audioRecording.setAudioPreview(preview),
-    audioPreview: null,
-    currentAudioAttachmentRef: { current: null },
+    audioPreviewRef,
+    currentAudioAttachmentRef,
     makeId,
   });
 
   const sendControl = useChatComposerSend({
     canSend,
-    careWindowOpen,
     isChannelConnected,
     onSendCustomerMessage,
     onRefreshMessages,
@@ -139,6 +137,8 @@ export function useChatComposerController(options: UseChatComposerControllerOpti
 
   const audioRecording = useChatComposerAudioRecording({
     objectUrlsRef,
+    audioPreviewRef,
+    currentAudioAttachmentRef,
     setSendError: sendControl.setSendError,
     makeId,
     formatDuration,
@@ -146,7 +146,7 @@ export function useChatComposerController(options: UseChatComposerControllerOpti
     appendAttachments,
   });
 
-  const { textareaRef, insertEmoji } = useChatComposerInputState({
+  const { messageInputRef, insertEmoji } = useChatComposerInputState({
     message,
     setDraftValue,
     watchDraft,
@@ -181,7 +181,7 @@ export function useChatComposerController(options: UseChatComposerControllerOpti
     handleSendDraft,
     draftErrors,
     isDraftSubmitting,
-    textareaRef,
+    messageInputRef,
     insertEmoji,
     photoInputRef,
     documentInputRef,
@@ -189,7 +189,6 @@ export function useChatComposerController(options: UseChatComposerControllerOpti
     removeAttachment,
     addFiles,
     addStoreContact,
-    addCatalogSelection,
     sendControl,
     orderPicker,
     audioRecording,

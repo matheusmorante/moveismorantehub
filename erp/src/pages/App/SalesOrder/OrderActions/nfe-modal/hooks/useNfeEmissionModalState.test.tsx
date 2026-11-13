@@ -1,26 +1,80 @@
 // @vitest-environment happy-dom
 import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useState } from 'react';
 import type Order from '@/pages/types/order.type';
 import { useNfeEmissionModalState } from './useNfeEmissionModalState';
 import type { UseNfeEmissionModalStateProps } from './useNfeEmissionModalState';
 
-const { supabaseMock } = vi.hoisted(() => ({
+const { supabaseMock, fetchFiscalStatusesMock } = vi.hoisted(() => ({
   supabaseMock: {
     from: vi.fn(),
   },
+  fetchFiscalStatusesMock: vi.fn().mockResolvedValue({}),
 }));
 
 vi.mock('@/pages/utils/supabaseConfig', () => ({
   supabase: supabaseMock,
   isTestEnvironment: false,
 }));
+vi.mock('@/pages/utils/nfe/orderFiscalBadgeService', () => ({
+  fetchOrderFiscalBadgeStatuses: fetchFiscalStatusesMock,
+}));
 
 describe('useNfeEmissionModalState recipient CPF prefill', () => {
+  beforeEach(() => {
+    fetchFiscalStatusesMock.mockReset();
+    fetchFiscalStatusesMock.mockResolvedValue({});
+  });
+
   afterEach(() => {
     cleanup();
     vi.clearAllMocks();
+  });
+
+  it('skips the auxiliary status lookup when an environment is already supplied', () => {
+    const order = { id: 'order-explicit-environment' } as Order;
+    const setEnvironment = vi.fn();
+    const props: UseNfeEmissionModalStateProps = {
+      isOpen: true,
+      order,
+      emissionOrder: order,
+      isLoadingCustomerType: false,
+      initialEnvironment: 2,
+      environment: 1,
+      setEnvironment,
+      setRecipientTaxId: vi.fn(),
+      fiscalFieldError: null,
+      recipientTaxIdError: null,
+      emissionResult: null,
+    };
+
+    renderHook(() => useNfeEmissionModalState(props));
+
+    expect(fetchFiscalStatusesMock).not.toHaveBeenCalled();
+    expect(setEnvironment).toHaveBeenCalledWith(2);
+  });
+
+  it('keeps the status lookup when no environment was supplied', async () => {
+    const order = { id: 'order-inferred-environment' } as Order;
+    const props: UseNfeEmissionModalStateProps = {
+      isOpen: true,
+      order,
+      emissionOrder: order,
+      isLoadingCustomerType: false,
+      environment: 1,
+      setEnvironment: vi.fn(),
+      setRecipientTaxId: vi.fn(),
+      fiscalFieldError: null,
+      recipientTaxIdError: null,
+      emissionResult: null,
+    };
+
+    renderHook(() => useNfeEmissionModalState(props));
+
+    await waitFor(() => {
+      expect(fetchFiscalStatusesMock).toHaveBeenCalledWith(['order-inferred-environment']);
+    });
   });
 
   it('prefills the customer document once and preserves a manual edit for that order', async () => {

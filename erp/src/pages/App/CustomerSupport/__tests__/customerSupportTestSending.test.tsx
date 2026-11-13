@@ -107,21 +107,20 @@ describe('envio sandbox da Central', () => {
   it('explica as validações de envio no modal de política', () => {
     const close = vi.fn();
     const { rerender } = render(<UsageConsumptionModal isOpen onClose={close} />);
-    expect(screen.getByText('Envio controlado por permissão e janela de atendimento')).toBeTruthy();
-    expect(screen.getByText(/Somente perfis autorizados podem enviar mensagens/)).toBeTruthy();
+    expect(screen.getByText('Envio sujeito às regras do WhatsApp e à cota da Central')).toBeTruthy();
+    expect(screen.getByText(/Nesses casos, a Central limita a 10 tentativas por minuto/)).toBeTruthy();
 
     rerender(<UsageConsumptionModal isOpen onClose={close} enableDevelopmentTestMode />);
-    expect(screen.getByText(/O compositor segue as mesmas validações do ambiente de produção/)).toBeTruthy();
+    expect(screen.getByText(/Fora da janela de 24 horas, a cota compartilhada/)).toBeTruthy();
   });
 
-  it('mantém o compositor visível e explica o bloqueio sem permissão', () => {
+  it('mantém o compositor visível e bloqueado sem permissão', () => {
     const fetch = vi.fn();
     vi.stubGlobal('fetch', fetch);
     render(<ChatComposer onOpenSnippets={vi.fn()} />);
     const composer = screen.getByRole('textbox', { name: 'Mensagem' });
     expect(composer).toBeTruthy();
     expect((composer as HTMLTextAreaElement).disabled).toBe(true);
-    expect(screen.getByText('Seu perfil não tem permissão para enviar mensagens pela Central.')).toBeTruthy();
     expect((screen.getByRole('button', { name: 'Gravar áudio' }) as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getByRole('button', { name: 'Abrir menu de anexos' })).toBeTruthy();
     expect(fetch).not.toHaveBeenCalled();

@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { InboundMessageParams, WhatsAppAiAgentDependencies, WhatsAppAiAgentResult } from './whatsappAiAgentTypes.js';
+import type { InboundMessageParams, WhatsAppAiAgentDependencies, WhatsAppAiAgentResult, WhatsAppNativeCatalogProduct } from './whatsappAiAgentTypes.js';
 import { maybeTriggerWhatsAppAiAgent } from './orchestrator/inboundTriggerHandler.js';
 import { evaluateTurnPreconditions } from './orchestrator/turnEligibility.js';
 import { dispatchAiResponse } from './whatsappAiAgentDispatcher.js';
@@ -10,6 +10,7 @@ type SavedResponse = {
   aiResponseText: string; toolsUsed: string[]; situationKey: string | null; matchedKeywords: string[];
   enforcedPhrases: string[]; relevantArticleIds: string[]; workflowKey: string | null;
   executionTimeMs: number; modelEffective?: string; fallbackReason?: string | null;
+  nativeCatalogProducts?: WhatsAppNativeCatalogProduct[]; messageType?: 'text' | 'interactive'; storedText?: string;
 };
 type ClaimedJob = {
   id: string; token: string; attempts: number; phase: 'pending' | 'ready' | 'sending';
@@ -68,10 +69,19 @@ export async function processDurableAiJob(supabase: SupabaseClient, jobId?: stri
         return true;
       }
       const saved = job.response;
+      const rawPayload = buildAiMessagePayload({ authorName: 'Lizandro (IA)', ...saved, supportMode: 'automatico' });
+      if (saved.messageType === 'interactive' && saved.nativeCatalogProducts?.length) {
+        rawPayload.provider_message_type = saved.nativeCatalogProducts.length === 1 ? 'product' : 'product_list';
+        rawPayload.catalog_product_count = saved.nativeCatalogProducts.length;
+        rawPayload.catalog_products = saved.nativeCatalogProducts.map((product) => ({
+          retailer_id: product.retailerId,
+          name: product.name,
+        }));
+      }
       await persistOutboundMessageAndSyncConversation(supabase, {
         conversationId: job.inbound.conversationId, apiMessageId: job.dispatchMessageId,
-        replyToWamid: job.inbound.wamid, textContent: saved.aiResponseText, status: 'sent',
-        rawPayload: buildAiMessagePayload({ authorName: 'Lizandro (IA)', ...saved, supportMode: 'automatico' }),
+        replyToWamid: job.inbound.wamid, textContent: saved.storedText || saved.aiResponseText, status: 'sent',
+        messageType: saved.messageType || 'text', rawPayload,
         sendAt: job.dispatchSentAt || new Date().toISOString(), syncConversationLastMessage: true, idempotent: true,
       });
       await finish(supabase, job, 'completed', 'Envio e histórico confirmados.');
@@ -83,8 +93,14 @@ export async function processDurableAiJob(supabase: SupabaseClient, jobId?: stri
       return true;
     }
     if (job.attempts > 4) {
-      await finish(supabase, job, 'handoff', 'As tentativas de atendimento automático foram esgotadas.');
-      return true;
+      const { data, error: dispatchError } = await supabase.from('whatsapp_ai_dispatches')
+        .select('error_message')
+        .eq('idempotency_key', `ai_dispatch:${job.inbound.conversationId}:${job.inbound.wamid || 'nowamid'}`)
+        .maybeSingle();
+      if (dispatchError || data?.error_message !== 'whatsapp_send_quota_exhausted') {
+        await finish(supabase, job, 'handoff', 'As tentativas de atendimento automático foram esgotadas.');
+        return true;
+      }
     }
     if (job.phase === 'ready' && !validResponse(job.response)) {
       await finish(supabase, job, 'handoff', 'A resposta salva não pôde ser recuperada com segurança.');
@@ -95,7 +111,11 @@ export async function processDurableAiJob(supabase: SupabaseClient, jobId?: stri
       ? await resumeResponse(supabase, job, deps)
       : await maybeTriggerWhatsAppAiAgent(supabase, job.inbound, { ...deps, durableJob });
     const reason = result.reason || 'turno_incompleto';
-    if (reason === 'meta_api_network_error_outcome_uncertain' || reason === 'meta_api_result_state_unrecorded') {
+    if (reason === 'whatsapp_send_quota_exhausted') {
+      await finish(supabase, job, 'busy', 'A cota compartilhada de envio do WhatsApp está esgotada.');
+    } else if (reason === 'whatsapp_send_quota_unavailable') {
+      await finish(supabase, job, 'retry', 'Não foi possível consultar a cota compartilhada de envio do WhatsApp.');
+    } else if (reason === 'meta_api_network_error_outcome_uncertain' || reason === 'meta_api_result_state_unrecorded') {
       await finish(supabase, job, 'handoff', 'O envio à Meta tem resultado incerto; confira a conversa antes de responder.');
     } else if (reason === 'automatic_sent_persistence_incomplete' || reason === 'turn_finalization_unconfirmed') {
       await finish(supabase, job, 'retry', 'Confirmação do envio ou do turno pendente.');

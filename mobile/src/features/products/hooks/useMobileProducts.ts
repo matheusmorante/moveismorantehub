@@ -193,6 +193,7 @@ export function useMobileProducts(
             canViewCompositions,
             showTrash: values.showTrash,
             showTestProducts: values.showTestProducts,
+            sortBy: 'updatedAt',
             // A lista precisa distinguir erro de consulta de uma consulta sem resultados,
             // como no ERP, que chama fetchProductsPage com throwOnError habilitado.
             throwOnError: true,

@@ -3,9 +3,14 @@ import { dispatchAutomaticMode } from './dispatchAutomaticMode.js';
 import { sendMetaTextMessage } from './metaGraphSender.js';
 
 it('não repete o envio quando a Meta aceita e a gravação do histórico falha', async () => {
-  const rpc = vi.fn(async (name: string) => name === 'customer_support_prepare_ai_dispatch'
-    ? { data: { allowed: true, dispatch_id: 'dispatch' }, error: null }
-    : { data: true, error: null });
+  const rpc = vi.fn((name: string) => {
+    const result = name === 'customer_support_prepare_ai_dispatch'
+      ? { data: { allowed: true, dispatch_id: 'dispatch' }, error: null }
+      : name === 'customer_support_outside_window_quota'
+        ? { data: { allowed: true, exempt: true, reservation_id: null }, error: null }
+        : { data: true, error: null };
+    return { then: (resolve: (value: typeof result) => unknown, reject: (reason: unknown) => unknown) => Promise.resolve(result).then(resolve, reject) };
+  });
   const supabase = { rpc, from: vi.fn(() => ({ upsert: vi.fn().mockResolvedValue({ error: { message: 'indisponível' } }) })) };
   const fetchMeta = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ messages: [{ id: 'wamid.out' }] }) });
   const result = await dispatchAutomaticMode({
@@ -21,6 +26,29 @@ it('não repete o envio quando a Meta aceita e a gravação do histórico falha'
   expect(rpc).toHaveBeenCalledWith('customer_support_record_ai_dispatch_outcome', expect.objectContaining({
     p_status: 'sent', p_api_message_id: 'wamid.out',
   }));
+  expect(rpc).toHaveBeenCalledWith('customer_support_outside_window_quota', expect.objectContaining({
+    p_conversation_id: 'conversation', p_reserve: true,
+  }));
+  expect(rpc).not.toHaveBeenCalledWith('customer_support_finish_whatsapp_send_quota', expect.anything());
+});
+
+it('aguarda a liberação da cota externa sem enviar à Meta', async () => {
+  const rpc = vi.fn(async (name: string) => name === 'customer_support_prepare_ai_dispatch'
+    ? { data: { allowed: true, dispatch_id: 'dispatch' }, error: null }
+    : name === 'customer_support_outside_window_quota'
+      ? { data: { allowed: false, exempt: false }, error: null }
+      : { data: true, error: null });
+  const fetchMeta = vi.fn();
+  const result = await dispatchAutomaticMode({
+    supabase: { rpc } as any, inbound: { conversationId: 'conversation', messageId: 'message', from: '5541999999999',
+      contactPhoneE164: '5541999999999', text: 'Olá', wamid: 'wamid.in', businessPhoneNumberId: '12345' },
+    conv: { id: 'conversation' }, config: { model: 'gpt-6-luna' } as any, settings: {}, aiResponseText: 'Olá!',
+    toolsUsed: [], situationKey: null, matchedKeywords: [], enforcedPhrases: [], relevantArticleIds: [],
+    workflowKey: null, executionTimeMs: 1, accessToken: 'token', fetchMeta: fetchMeta as any, now: new Date(),
+    durableJob: { id: 'job', token: 'lock' },
+  });
+  expect(result.reason).toBe('whatsapp_send_quota_exhausted');
+  expect(fetchMeta).not.toHaveBeenCalled();
 });
 
 it('considera incerto um retorno 2xx sem identificador e um erro 5xx da Meta', async () => {

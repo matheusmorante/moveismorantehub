@@ -16,6 +16,15 @@ function isUuid(value: unknown): boolean {
   return typeof value === 'string' && UUID_REGEX.test(value);
 }
 
+async function syncCatalogChangeWithMeta(productId: string): Promise<void> {
+  const result = await triggerProductMetaCatalogSync(productId);
+  if (result?.success === false) {
+    throw new Error(
+      `O status foi salvo no ERP, mas a Meta não confirmou a exclusão: ${result.error || 'tente novamente.'}`
+    );
+  }
+}
+
 export interface ResolvedCatalogEntities {
   parentProduct?: Product;
   variation?: any;
@@ -181,7 +190,11 @@ export const persistCatalogStatus = async (
         }
       }
 
-      triggerProductMetaCatalogSync(parentProduct.id);
+      if (newStatus === 'published') {
+        void triggerProductMetaCatalogSync(parentProduct.id);
+      } else {
+        await syncCatalogChangeWithMeta(parentProduct.id);
+      }
     }
     return;
   }
@@ -226,5 +239,14 @@ export const persistCatalogStatus = async (
       )
   );
 
-  triggerProductMetaCatalogSync(id);
+  if (newStatus === 'published') {
+    void triggerProductMetaCatalogSync(id);
+    return;
+  }
+
+  const affectedProductIds = Array.from(new Set([
+    id,
+    ...independentChildren.map((product) => String(product.id || '')).filter(Boolean),
+  ]));
+  await Promise.all(affectedProductIds.map(syncCatalogChangeWithMeta));
 };

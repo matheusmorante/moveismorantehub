@@ -1,7 +1,8 @@
 import { useRef } from 'react';
+import type { MutableRefObject } from 'react';
 import type { UseFormSetValue, UseFormSetError, UseFormClearErrors } from 'react-hook-form';
+import type { ChatAudioPreview } from './useChatComposerAudioRecording';
 import type { SupportChatComposerDraft } from '../../../../../../../shared-utils/customerSupportFormSchemas';
-import type { ProductCatalogPrepareInput } from '../../../../../../../shared-utils/productCatalogFormSchemas';
 import { getSettings } from '@/pages/utils/settingsService';
 import {
   MAX_ATTACHMENTS,
@@ -17,8 +18,8 @@ interface UseChatComposerAttachmentsParams {
   setSendError: (err: string) => void;
   setSendFeedback: (fb: string) => void;
   setAudioPreview: (preview: { url: string; type: string; name: string } | null) => void;
-  audioPreview: { url: string; type: string; name: string } | null;
-  currentAudioAttachmentRef: React.MutableRefObject<string | null>;
+  audioPreviewRef: MutableRefObject<ChatAudioPreview>;
+  currentAudioAttachmentRef: MutableRefObject<string | null>;
   makeId: () => string;
 }
 
@@ -30,7 +31,7 @@ export function useChatComposerAttachments({
   setSendError,
   setSendFeedback,
   setAudioPreview,
-  audioPreview,
+  audioPreviewRef,
   currentAudioAttachmentRef,
   makeId,
 }: UseChatComposerAttachmentsParams) {
@@ -49,7 +50,7 @@ export function useChatComposerAttachments({
     if (attachment.id === currentAudioAttachmentRef.current) {
       currentAudioAttachmentRef.current = null;
     }
-    if (audioPreview?.url && 'previewUrl' in attachment && attachment.previewUrl === audioPreview.url) {
+    if (audioPreviewRef.current?.url && 'previewUrl' in attachment && attachment.previewUrl === audioPreviewRef.current.url) {
       setAudioPreview(null);
     }
   };
@@ -130,22 +131,6 @@ export function useChatComposerAttachments({
     onCloseMenu();
   };
 
-  const addCatalogSelection = (
-    selection: ProductCatalogPrepareInput,
-    catalogUrl: string | null,
-    onCloseCatalog: () => void
-  ) => {
-    appendAttachments([
-      {
-        kind: 'catalog',
-        id: makeId(),
-        selection,
-        ...(catalogUrl ? { catalogUrl } : {}),
-      },
-    ]);
-    onCloseCatalog();
-  };
-
   return {
     objectUrlsRef,
     fileByAttachmentIdRef,
@@ -156,6 +141,5 @@ export function useChatComposerAttachments({
     removeAttachment,
     addFiles,
     addStoreContact,
-    addCatalogSelection,
   };
 }

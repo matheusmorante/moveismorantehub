@@ -1,6 +1,7 @@
 import React from 'react';
 
 export const QUICK_TEST_QUERIES = [
+  'Quero ver pia',
   'Qual o preço do Sofá Retrátil no catálogo de vocês?',
   'Qual o valor do frete e o prazo de entrega para Colombo?',
   'Vocês parcelam em até 10 vezes no cartão? Tem desconto no Pix?',

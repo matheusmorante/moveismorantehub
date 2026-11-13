@@ -6,6 +6,15 @@ import { readTestArtifactIdentity } from '../../../../shared-utils/testArtifactP
 export const TEST_ORDER_CODE_THRESHOLD = 800000;
 const MAX_ORDER_CODE = 799999;
 
+const ORDER_CODE_PROJECTION = [
+  'order_index',
+  'order_number',
+  'legacy_order_index:order_data->>orderIndex',
+  'legacy_snake_order_index:order_data->>order_index',
+  'legacy_order_number:order_data->>orderNumber',
+  'legacy_snake_order_number:order_data->>order_number',
+].join(',');
+
 export const getOrderIndex = (order?: Partial<Order> | Record<string, any>): number | null => {
   if (!order) return null;
   const rawValue =
@@ -29,6 +38,16 @@ export const resolveOrderIndexForUpdate = (
   persistedOrder?: Partial<Order> | Record<string, any>,
   incomingOrder?: Partial<Order> | Record<string, any>
 ): number | null => getOrderIndex(persistedOrder) ?? getOrderIndex(incomingOrder);
+
+const getPersistedOrderIndex = (row: Record<string, any>): number | null =>
+  getOrderIndex(row) ??
+  getOrderIndex({
+    orderIndex:
+      row.legacy_order_index ??
+      row.legacy_snake_order_index ??
+      row.legacy_order_number ??
+      row.legacy_snake_order_number,
+  });
 
 /** The human-facing code is always the six-digit sequential order index, never the UUID. */
 export const formatOrderCode = (order?: Partial<Order> | Record<string, any>): string => {
@@ -59,7 +78,7 @@ export const getNextOrderIndex = async (): Promise<number> => {
   try {
     const { data: orders, error: fetchErr } = await supabase
       .from('orders')
-      .select('id, order_data, order_number, created_at')
+      .select(ORDER_CODE_PROJECTION)
       .order('created_at', { ascending: false })
       .limit(200);
 
@@ -69,8 +88,7 @@ export const getNextOrderIndex = async (): Promise<number> => {
 
     let maxCode = 0;
     for (const o of orders || []) {
-      const num =
-        getOrderIndex(o.order_data || o) || getOrderIndex({ order_number: o.order_number });
+      const num = getPersistedOrderIndex(o);
       // Blindagem: pedidos de teste (>= 800000) são estritamente ignorados
       if (num && num < TEST_ORDER_CODE_THRESHOLD && num > maxCode) {
         maxCode = num;
@@ -80,12 +98,11 @@ export const getNextOrderIndex = async (): Promise<number> => {
     if (maxCode === 0) {
       const { data: allOrders, error: allErr } = await supabase
         .from('orders')
-        .select('order_data, order_number')
+        .select(ORDER_CODE_PROJECTION)
         .limit(500);
       if (allErr) throw allErr;
       for (const o of allOrders || []) {
-        const num =
-          getOrderIndex(o.order_data || o) || getOrderIndex({ order_number: o.order_number });
+        const num = getPersistedOrderIndex(o);
         if (num && num < TEST_ORDER_CODE_THRESHOLD && num > maxCode) {
           maxCode = num;
         }

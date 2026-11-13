@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { compressImageToFile } from '@/pages/utils/imageUtils';
+import { compressImageToFile } from '@/pages/utils/images/imageUtils';
 import { toast } from 'react-toastify';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { imageFilesFormSchema, rectangularImageCropFormSchema } from '../../../../../../shared-utils/fileFormSchemas';

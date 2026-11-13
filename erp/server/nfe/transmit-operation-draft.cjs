@@ -2947,6 +2947,7 @@ function matchesConsultedDocument(response, doc, currentStatus = "100") {
 }
 
 // api/nfe/operation-draft/draftPersistence.ts
+var RECOVERY_DRAFT_COLUMNS = "id,environment,original_document_id,return_order_id,status,document_id,access_key,signed_xml,protocol_number,transmitted_at,updated_at,operation_kind";
 async function consultDraftKey(accessKey, environment, certificate) {
   const queryXml = `<consSitNFe xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00"><tpAmb>${environment}</tpAmb><xServ>CONSULTAR</xServ><chNFe>${accessKey}</chNFe></consSitNFe>`;
   return sendSoapToSefaz({
@@ -3111,7 +3112,7 @@ async function reconcileStoredDraftAttempt(params) {
     certificate,
     allowRetryAfterNotFound
   } = params;
-  const { data: draft, error: draftError } = await db.from("nfe_operation_drafts").select("*").eq("id", requestedDraft.id).maybeSingle();
+  const { data: draft, error: draftError } = await db.from("nfe_operation_drafts").select(RECOVERY_DRAFT_COLUMNS).eq("id", requestedDraft.id).maybeSingle();
   if (draftError || !draft || draft.environment !== environment || draft.original_document_id !== requestedDraft.original_document_id || draft.return_order_id !== requestedDraft.return_order_id) {
     return res.status(503).json({
       success: false,

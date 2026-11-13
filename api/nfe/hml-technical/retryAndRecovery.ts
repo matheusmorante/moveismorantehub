@@ -33,7 +33,9 @@ export async function retryHmlTechnical(
 ): Promise<Result> {
   const { data: doc, error } = await db
     .from('nfe_documents')
-    .select('*')
+    .select(
+      'id,order_id,ambiente,modelo,fiscal_ruleset_version,status,chave_acesso,numero_nfe,serie,numero_protocolo,xml_nfe,xml_protocolo,motivo_status,emission_request_id,fiscal_snapshot_id'
+    )
     .eq('id', documentId)
     .maybeSingle();
   if (

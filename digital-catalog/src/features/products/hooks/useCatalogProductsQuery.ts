@@ -73,7 +73,7 @@ export function useCatalogProductsQuery(filters: CatalogFilters | undefined, cur
       filters?.minPrice ?? 0,
       filters?.maxPrice ?? 10000,
       filters?.type || 'all',
-      filters?.sortBy || 'newest',
+      'newest',
       [...(filters?.envs || [])].sort(),
       [...(filters?.cats || [])].sort(),
     ],
@@ -133,7 +133,7 @@ export function useCatalogProductsQuery(filters: CatalogFilters | undefined, cur
         p_max_price: filters?.maxPrice ?? 10000,
         p_page: currentPage,
         p_page_size: ITEMS_PER_PAGE,
-        p_sort_by: filters?.sortBy || 'newest',
+        p_sort_by: 'newest',
       }), 'catalogo:vitrine', 15_000, signal);
       if (error) throw error;
       if (!Array.isArray(page?.products) || !Number.isFinite(Number(page?.total))) {

@@ -64,5 +64,6 @@ export async function runAiTurnWithFallback(
       modelEffective: model,
       fallbackReason: null,
       handoffConfirmed: result.handoffConfirmed,
+      nativeCatalogProducts: result.nativeCatalogProducts,
     };
 }

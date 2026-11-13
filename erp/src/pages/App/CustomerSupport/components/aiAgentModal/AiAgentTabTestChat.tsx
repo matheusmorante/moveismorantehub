@@ -1,10 +1,13 @@
-import React, { memo } from 'react';
+import React, { memo, useMemo, useState } from 'react';
 import type {
   AiSituationRule,
   AiKnowledgeArticle,
   AiWorkflowConfig,
 } from '../../../../../../../shared-utils/whatsappAiAgentSchemas';
+import type { WhatsAppMessage } from '../../types';
+import { useInteractiveCatalogProductCards } from '../../hooks/useInteractiveCatalogProductCards';
 import { AiAgentMessageDiagnosticDrawer } from './AiAgentMessageDiagnosticDrawer';
+import { CopySelectedMessageFooter } from '../CopySelectedMessageFooter';
 import {
   TestChatHeader,
   TestChatMessageBubble,
@@ -41,6 +44,7 @@ export const AiAgentTabTestChat: React.FC<AiAgentTabTestChatProps> = memo(({
   onOpenSettings,
   onBack,
 }) => {
+  const [selectedMessageId, setSelectedMessageId] = useState<string | null>(null);
   const {
     messages,
     inputText,
@@ -57,6 +61,9 @@ export const AiAgentTabTestChat: React.FC<AiAgentTabTestChatProps> = memo(({
     chatContainerRef,
     inputRef,
     handleSendMessage,
+    handleEditSuggestion,
+    handleAcceptSuggestion,
+    handleRejectSuggestion,
     handleRateMessage,
     handleSaveFeedbackComment,
     handleSaveTestCase,
@@ -67,6 +74,53 @@ export const AiAgentTabTestChat: React.FC<AiAgentTabTestChatProps> = memo(({
     enabledTools,
     systemPrompt,
   });
+  const selectedMessage = messages.find((message) => message.id === selectedMessageId);
+
+  const virtualInteractiveMessages = useMemo<WhatsAppMessage[]>(() => {
+    return messages
+      .filter((m) => m.nativeCatalogProducts && m.nativeCatalogProducts.length > 0)
+      .map((m) => ({
+        id: m.id,
+        conversationId: 'simulated_test_chat',
+        apiMessageId: null,
+        direction: 'outbound' as const,
+        messageType: 'interactive' as const,
+        textContent: null,
+        mediaId: null,
+        mediaMimeType: null,
+        mediaUrl: null,
+        mediaFilename: null,
+        mediaCaption: null,
+        replyToMessageId: null,
+        replyToWamid: null,
+        status: 'delivered' as const,
+        errorCode: null,
+        failureReason: null,
+        timestamp: m.timestamp.toISOString(),
+        createdAt: m.timestamp.toISOString(),
+        rawPayload: {
+          nativeCatalogProducts: m.nativeCatalogProducts,
+          catalog_products: m.nativeCatalogProducts,
+          interactive: {
+            type: 'product_list',
+            header: { type: 'text', text: 'Opções encontradas' },
+            body: { text: '' },
+            action: {
+              sections: [
+                {
+                  title: 'Produtos',
+                  product_items: (m.nativeCatalogProducts || []).map((p) => ({
+                    product_retailer_id: p.retailerId,
+                  })),
+                },
+              ],
+            },
+          },
+        },
+      }));
+  }, [messages]);
+
+  const { catalogProductCards, loadingRetailerIds } = useInteractiveCatalogProductCards(virtualInteractiveMessages);
 
   return (
     <div className="flex flex-col w-full h-full min-h-0 min-w-0 bg-slate-100 dark:bg-slate-950 overflow-hidden relative">
@@ -89,6 +143,13 @@ export const AiAgentTabTestChat: React.FC<AiAgentTabTestChatProps> = memo(({
           <TestChatMessageBubble
             key={msg.id}
             message={msg}
+            isSelected={msg.id === selectedMessageId}
+            onSelectMessage={(messageId) => {
+              setSelectedMessageId((current) => current === messageId ? null : messageId);
+            }}
+            onEditSuggestion={handleEditSuggestion}
+            onAcceptSuggestion={handleAcceptSuggestion}
+            onRejectSuggestion={handleRejectSuggestion}
             onOpenDiagnostic={(diag) => setSelectedDiagnostic(diag)}
             onRateMessage={handleRateMessage}
             feedbackInputId={feedbackInputId}
@@ -97,6 +158,8 @@ export const AiAgentTabTestChat: React.FC<AiAgentTabTestChatProps> = memo(({
             feedbackInputRef={feedbackInputRef}
             feedbackError={feedbackError}
             onSaveFeedbackComment={handleSaveFeedbackComment}
+            catalogProductCards={catalogProductCards}
+            loadingCatalogRetailerIds={loadingRetailerIds}
           />
         ))}
 
@@ -105,7 +168,7 @@ export const AiAgentTabTestChat: React.FC<AiAgentTabTestChatProps> = memo(({
           <div className="flex justify-start">
             <div className="bg-white dark:bg-[#202c33] rounded-2xl rounded-tl-xs p-3 shadow-xs border border-slate-200/60 dark:border-slate-700/60 flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
               <span className="w-2 h-2 rounded-full bg-indigo-500 animate-ping" />
-              <span>Lizandro está consultando o ERP e formulando a resposta...</span>
+              <span>Seu Lizandro está consultando o ERP e formulando a resposta...</span>
             </div>
           </div>
         )}
@@ -114,8 +177,18 @@ export const AiAgentTabTestChat: React.FC<AiAgentTabTestChatProps> = memo(({
       {/* Pílulas de Sugestão de Cenários Rápidos */}
       <TestChatQuickScenarios
         isGenerating={isGenerating}
-        onSelectScenario={(s) => handleSendMessage(s)}
+        onSelectScenario={(s) => {
+          setSelectedMessageId(null);
+          handleSendMessage(s);
+        }}
       />
+
+      {selectedMessage && (
+        <CopySelectedMessageFooter
+          messageText={selectedMessage.text}
+          onCancel={() => setSelectedMessageId(null)}
+        />
+      )}
 
       {/* Campo de Digitação Fixo */}
       <TestChatInputBar
@@ -124,7 +197,10 @@ export const AiAgentTabTestChat: React.FC<AiAgentTabTestChatProps> = memo(({
         setInputText={setInputText}
         error={messageError}
         isGenerating={isGenerating}
-        onSendMessage={() => handleSendMessage()}
+        onSendMessage={() => {
+          setSelectedMessageId(null);
+          handleSendMessage();
+        }}
       />
 
       {/* Painel Lateral / Drawer de Diagnóstico Detalhado */}

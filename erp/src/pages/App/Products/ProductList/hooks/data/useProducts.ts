@@ -76,8 +76,8 @@ export const useProducts = (filters?: ProductListFilters) => {
       itemType: filters?.itemType,
       excludeItemType: filters?.excludeItemType,
       excludeTestProducts: !filters?.showTestProducts,
-      sortBy: filters?.sortBy,
-      sortOrder: filters?.sortOrder,
+      sortBy: filters?.sortBy ?? 'updatedAt',
+      sortOrder: filters?.sortOrder ?? 'desc',
     };
   }, [
     filters?.showTrash,

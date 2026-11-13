@@ -7,7 +7,8 @@ import { withTimeout } from '../../../../../../shared-utils/withTimeout';
 export async function hydrateConversationsCommercialData(
   supabase: SupabaseClient,
   listedConversations: Array<WhatsAppConversation & { assignedProfile: AssignedProfileSummary | null }>,
-  canViewCommercialInfo: boolean
+  canViewCommercialInfo: boolean,
+  canViewScheduledOperations: boolean
 ): Promise<WhatsAppConversation[]> {
   const identityByConversationId = new Map<
     string,
@@ -73,6 +74,12 @@ export async function hydrateConversationsCommercialData(
 
   const customersMap = new Map<string, CustomerSummary>();
   const customerOrdersCountMap = new Map<string, number>();
+  const scheduledOrderIndicatorsMap = new Map<string, {
+    delivery: boolean;
+    pickup: boolean;
+    assistance: boolean;
+    returnCollection: boolean;
+  }>();
 
   if (canViewCommercialInfo && customerIds.length > 0) {
     const customerResponse = await withTimeout<any>(
@@ -93,15 +100,15 @@ export async function hydrateConversationsCommercialData(
     }
   }
 
-  if (canViewCommercialInfo && (customerIds.length > 0 || contactPhones.length > 0)) {
+  if ((canViewCommercialInfo || canViewScheduledOperations) && (customerIds.length > 0 || contactPhones.length > 0)) {
     const targetKeys = Array.from(new Set([...customerIds, ...contactPhones]));
     const ordersResponse = await withTimeout<any>(
-      supabase.rpc('customer_support_count_customer_orders', {
+      supabase.rpc('customer_support_list_customer_order_indicators', {
         p_customer_ids: targetKeys,
       }),
       15_000,
       null,
-      'central:contagem-pedidos'
+      'central:indicadores-agendamento-pedidos'
     );
     const ordersData = ordersResponse?.data;
 
@@ -109,7 +116,16 @@ export async function hydrateConversationsCommercialData(
       throw new Error('Não foi possível carregar os dados comerciais das conversas. Tente atualizar a lista.');
     }
     for (const row of ordersData) {
-      if (row.customer_id) customerOrdersCountMap.set(String(row.customer_id), Number(row.order_count) || 0);
+      if (!row.customer_id) continue;
+      const key = String(row.customer_id);
+      const existing = scheduledOrderIndicatorsMap.get(key);
+      scheduledOrderIndicatorsMap.set(key, {
+        delivery: Boolean(existing?.delivery || row.scheduled_delivery),
+        pickup: Boolean(existing?.pickup || row.scheduled_pickup),
+        assistance: Boolean(existing?.assistance || row.scheduled_assistance),
+        returnCollection: Boolean(existing?.returnCollection || row.scheduled_return_collection),
+      });
+      if (canViewCommercialInfo) customerOrdersCountMap.set(key, Number(row.order_count) || 0);
     }
   }
 
@@ -119,11 +135,19 @@ export async function hydrateConversationsCommercialData(
     const ordersCountByCust = c.customerId ? customerOrdersCountMap.get(c.customerId) || 0 : 0;
     const ordersCountByPhone = c.contactPhone ? customerOrdersCountMap.get(c.contactPhone) || 0 : 0;
     const ordersCount = Math.max(ordersCountByCust, ordersCountByPhone);
+    const indicatorsByCust = c.customerId ? scheduledOrderIndicatorsMap.get(c.customerId) : undefined;
+    const indicatorsByPhone = c.contactPhone ? scheduledOrderIndicatorsMap.get(c.contactPhone) : undefined;
 
     return {
       ...c,
       customer: cust || c.customer || null,
       orders: ordersCount > 0 ? (Array(ordersCount).fill({}) as SupportOrderSummary[]) : [],
+      scheduledOrderIndicators: {
+        delivery: Boolean(indicatorsByCust?.delivery || indicatorsByPhone?.delivery),
+        pickup: Boolean(indicatorsByCust?.pickup || indicatorsByPhone?.pickup),
+        assistance: Boolean(indicatorsByCust?.assistance || indicatorsByPhone?.assistance),
+        returnCollection: Boolean(indicatorsByCust?.returnCollection || indicatorsByPhone?.returnCollection),
+      },
     };
   });
 }

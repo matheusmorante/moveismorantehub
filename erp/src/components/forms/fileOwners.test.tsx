@@ -9,7 +9,7 @@ import AIPromptsSection from '../../pages/App/Settings/components/ai/AIPromptsSe
 import { imageFilesFormSchema, documentFilesFormSchema } from '../../../../shared-utils/fileFormSchemas';
 
 const mocks = vi.hoisted(() => ({ upload: vi.fn(), publicUrl: vi.fn(), error: vi.fn(), compress: vi.fn() }));
-vi.mock('@/pages/utils/imageUtils', () => ({ compressImage: mocks.compress }));
+vi.mock('@/pages/utils/images/imageUtils', () => ({ compressImage: mocks.compress }));
 vi.mock('@/pages/utils/supabaseConfig', () => ({ supabase: { storage: { from: () => ({ upload: mocks.upload, getPublicUrl: mocks.publicUrl }) } } }));
 vi.mock('react-toastify', () => ({ toast: { error: mocks.error, success: vi.fn() } }));
 vi.mock('../../pages/App/Stock/LabelPrinting/components/ProductSearchInput', () => ({ default: () => null }));

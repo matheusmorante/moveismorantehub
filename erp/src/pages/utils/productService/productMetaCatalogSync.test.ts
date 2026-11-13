@@ -181,9 +181,10 @@ describe('productMetaCatalogSync', () => {
 
       const res = await syncProductToMetaCatalog('p1');
       expect(res.success).toBe(true);
-      expect(res.count).toBe(1);
+      expect(res.count).toBe(2);
       expect(whatsappGraphService.syncBatchProductsToCatalog).toHaveBeenCalledWith([
         { id: 'p1', code: '001', deleted: true, status: 'hidden' },
+        { id: 'p1', code: 'p1', deleted: true, status: 'hidden' },
       ]);
     });
   });

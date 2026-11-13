@@ -39,6 +39,9 @@ const getParentCode = (product: MetaCatalogProductSource): string => {
   return (!isSlugSku(rawCode) && rawCode) || (!isSlugSku(rawSku) && rawSku) || product.id;
 };
 
+const getParentDeleteCodes = (product: MetaCatalogProductSource): string[] =>
+  uniqueCodes([getParentCode(product), product.code, product.sku, product.id]);
+
 const isDeleteItem = (item: ProductMetaCatalogSyncItem): item is MetaCatalogDeleteItem =>
   'deleted' in item && item.deleted === true;
 
@@ -89,10 +92,7 @@ export function buildProductMetaCatalogSyncItems(
 
   if (variations.length > 0) {
     // O produto pai da família não é vendido avulso no catálogo.
-    items.push(deletedItem(product.id, product.code || product.id));
-    if (product.code && product.id && product.code !== product.id) {
-      items.push(deletedItem(product.id, product.id));
-    }
+    getParentDeleteCodes(product).forEach((code) => items.push(deletedItem(product.id, code)));
 
     const built = isParentEligible
       ? buildMetaCatalogItems(
@@ -110,6 +110,9 @@ export function buildProductMetaCatalogSyncItems(
       const currentItem = itemsById.get(variation.id);
       if (currentItem) {
         items.push(currentItem);
+        getVariationDeleteCodes(variation, index, product.code)
+          .filter((code) => code !== currentItem.code)
+          .forEach((code) => items.push(deletedItem(variation.id, code)));
         return;
       }
 
@@ -121,7 +124,7 @@ export function buildProductMetaCatalogSyncItems(
   }
 
   if (!isParentEligible) {
-    return [deletedItem(product.id, getParentCode(product))];
+    return getParentDeleteCodes(product).map((code) => deletedItem(product.id, code));
   }
 
   const built = buildMetaCatalogItems(
@@ -129,7 +132,16 @@ export function buildProductMetaCatalogSyncItems(
     [],
     opportunities.filter((opportunity) => opportunity.id === product.opportunity_id)
   );
-  return built.length > 0 ? built : [deletedItem(product.id, getParentCode(product))];
+  if (built.length === 0) {
+    return getParentDeleteCodes(product).map((code) => deletedItem(product.id, code));
+  }
+
+  const currentCodes = new Set(built.map((item) => item.code));
+  const legacyDeletes = getParentDeleteCodes(product)
+    .filter((code) => !currentCodes.has(code))
+    .map((code) => deletedItem(product.id, code));
+
+  return [...built, ...legacyDeletes];
 }
 
 /** Monta uma reconciliação completa: atualiza itens elegíveis e remove IDs ocultos/legados. */

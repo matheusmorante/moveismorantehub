@@ -79,7 +79,10 @@ export function nfceXmlNeedsFreshEmission(xml: string | null | undefined, now = 
 }
 
 export function freshNfceEmissionRequired(
-  doc: FiscalDatabase['public']['Tables']['nfe_documents']['Row'],
+  doc: Pick<
+    FiscalDatabase['public']['Tables']['nfe_documents']['Row'],
+    'id' | 'order_id' | 'chave_acesso' | 'numero_nfe' | 'serie' | 'modelo'
+  >,
   cStat: string
 ) {
   return failure(

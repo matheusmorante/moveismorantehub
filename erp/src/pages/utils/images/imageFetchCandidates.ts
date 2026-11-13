@@ -1,6 +1,6 @@
 export function buildImageFetchCandidates(
   rawUrl: string,
-  includePublicProxiesForNonHttp = false
+  includePublicProxiesForNonHttp = false,
 ): string[] {
   const candidates: string[] = [];
 
@@ -16,9 +16,9 @@ export function buildImageFetchCandidates(
   candidates.push(rawUrl);
 
   if (
-    includePublicProxiesForNonHttp ||
-    rawUrl.startsWith('http://') ||
-    rawUrl.startsWith('https://')
+    includePublicProxiesForNonHttp
+    || rawUrl.startsWith('http://')
+    || rawUrl.startsWith('https://')
   ) {
     candidates.push(`https://images.weserv.nl/?url=${encodeURIComponent(rawUrl)}`);
     candidates.push(`https://api.allorigins.win/raw?url=${encodeURIComponent(rawUrl)}`);

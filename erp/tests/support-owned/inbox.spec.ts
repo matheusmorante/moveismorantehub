@@ -34,6 +34,7 @@ test('pasta persistida, paginação de conversas e mensagens da própria execuç
   let noteCalls = 0;
   const readRPCs = new Set(['customer_support_list_conversations', 'customer_support_conversation_counts',
     'customer_support_list_agents', 'customer_support_list_customer_summaries', 'customer_support_count_customer_orders',
+    'customer_support_list_customer_order_indicators',
     'customer_support_can_view', 'customer_support_can_view_commercial_info', 'customer_support_test_fixture_manifest']);
   const writeRPCs = new Set(['customer_support_assign_conversation', 'customer_support_set_conversation_status',
     'customer_support_add_internal_note', 'customer_support_set_internal_notes', 'customer_support_update_tag']);

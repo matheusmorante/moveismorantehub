@@ -114,6 +114,7 @@ describe('Auditoria de Integração Ponta a Ponta: Agente de IA Comercial (Lizan
         currentConfig = { ...currentConfig, ...newCfg };
       },
       rpc: vi.fn(async (name: string) => {
+        if (name === 'customer_support_outside_window_quota') return { data: { allowed: true, exempt: true, reservation_id: null }, error: null };
         if (name === 'customer_support_acquire_ai_turn') return { data: { acquired: true, turn_id: 'turn', lock_token: 'lock' }, error: null };
         if (name === 'customer_support_complete_ai_turn') return { data: { success: true, has_pending: false }, error: null };
         if (name === 'customer_support_reserve_ai_quota') return { data: { allowed: true, reservation_id: 'reservation' }, error: null };

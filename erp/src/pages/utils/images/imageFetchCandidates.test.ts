@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildImageFetchCandidates } from '../imageFetchCandidates';
+import { buildImageFetchCandidates } from './imageFetchCandidates';
 
 describe('buildImageFetchCandidates', () => {
   it('prioriza o proxy local para imagens R2', () => {

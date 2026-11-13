@@ -62,10 +62,10 @@ export const DEFAULT_SITUATION_RULES: readonly AiSituationRule[] = [
       'km',
     ],
     mandatoryPhrases: [
-      'O frete é grátis para endereços a menos de 5 km da nossa loja em Colombo! Se a distância for maior, por favor nos passe seu endereço completo para calcularmos o frete.',
+      'Realizamos entregas somente em Curitiba e na Região Metropolitana, com a loja em Colombo/PR. Fora dessa área não realizamos entrega. Dentro da área atendida, o frete é grátis a menos de 5 km da loja; para os demais endereços, a equipe precisa confirmar o valor e o prazo.',
     ],
     preferentialPhrases: [
-      'Informe sua rua, número e bairro para que possamos verificar o cálculo exato da distância!',
+      'Se o endereço for dentro da área atendida, informe rua, número, bairro e município para confirmarmos o frete e o prazo.',
     ],
     action: 'reply',
     priority: 10,

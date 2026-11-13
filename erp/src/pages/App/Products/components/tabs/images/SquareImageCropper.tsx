@@ -1,11 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { withTimeout } from '../../../../../../../../shared-utils/withTimeout';
-import { compressImageToFile } from '@/pages/utils/imageUtils';
+import { compressImageToFile } from '@/pages/utils/images/imageUtils';
 import { toast } from 'react-toastify';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { squareImageCropFormSchema } from '../../../../../../../../shared-utils/fileFormSchemas';
-import { buildImageFetchCandidates } from '@/pages/utils/imageFetchCandidates';
+import { buildImageFetchCandidates } from '@/pages/utils/images/imageFetchCandidates';
 import {
   createCenteredSquareSelection,
   moveSquareSelection,

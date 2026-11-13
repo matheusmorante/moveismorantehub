@@ -11,7 +11,7 @@ export interface ProductListFilters {
   readonly search?: string;
   readonly showTestProducts?: boolean;
   readonly showTrash?: boolean;
-  readonly sortBy?: 'description' | 'unitPrice' | 'stock' | 'code' | 'createdAt' | 'category';
+  readonly sortBy?: 'description' | 'unitPrice' | 'stock' | 'code' | 'createdAt' | 'updatedAt' | 'category';
   readonly sortOrder?: 'asc' | 'desc';
   readonly status?: 'published' | 'hidden';
 }

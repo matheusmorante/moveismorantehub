@@ -19,6 +19,32 @@ import {
   type ReturnFiscalSourceContext,
 } from '../returnFiscalRules';
 
+type OperationDraftRow = FiscalDatabase['public']['Tables']['nfe_operation_drafts']['Row'];
+type OperationDraftRead = Pick<
+  OperationDraftRow,
+  | 'id'
+  | 'operation_kind'
+  | 'finalidade'
+  | 'original_document_id'
+  | 'original_access_key'
+  | 'return_order_id'
+  | 'environment'
+  | 'status'
+  | 'reason'
+  | 'nature_of_operation'
+  | 'review_data'
+  | 'protocol_number'
+  | 'access_key'
+  | 'document_id'
+  | 'created_at'
+  | 'updated_at'
+> & Partial<Pick<OperationDraftRow, 'generated_xml' | 'signed_xml' | 'sefaz_response_xml'>>;
+
+const AUTOMATIC_WORKER_DRAFT_COLUMNS =
+  'id,operation_kind,finalidade,original_document_id,original_access_key,return_order_id,environment,status,reason,nature_of_operation,review_data,protocol_number,access_key,document_id,created_at,updated_at';
+const FULL_DRAFT_COLUMNS =
+  'id,operation_kind,finalidade,original_document_id,original_access_key,return_order_id,environment,status,reason,nature_of_operation,review_data,generated_xml,signed_xml,sefaz_response_xml,protocol_number,access_key,document_id,created_at,updated_at';
+
 export function extractFiscalBlock(xml: string, name: string): string {
   const prefix = '(?:[\\w.-]+:)?';
   return (
@@ -33,13 +59,19 @@ export async function readFiscalOperationDraft(
   automaticReturnWorker: boolean,
   res: VercelResponse
 ) {
-  const { data: draft, error: draftError } = await db
-    .from('nfe_operation_drafts')
-    .select(
-      'id,operation_kind,finalidade,original_document_id,original_access_key,return_order_id,environment,status,reason,nature_of_operation,review_data,generated_xml,signed_xml,sefaz_response_xml,protocol_number,access_key,document_id,created_at,updated_at'
-    )
-    .eq('id', draftId)
-    .maybeSingle();
+  const draftResult = automaticReturnWorker
+    ? await db
+        .from('nfe_operation_drafts')
+        .select(AUTOMATIC_WORKER_DRAFT_COLUMNS)
+        .eq('id', draftId)
+        .maybeSingle()
+    : await db
+        .from('nfe_operation_drafts')
+        .select(FULL_DRAFT_COLUMNS)
+        .eq('id', draftId)
+        .maybeSingle();
+  const { data: draftData, error: draftError } = draftResult;
+  const draft: OperationDraftRead | null = draftData;
   if (draftError) throw draftError;
   if (!draft) return res.status(404).json({ error: 'Rascunho fiscal não encontrado.' });
   if (automaticReturnWorker && draft.operation_kind !== 'return') {
@@ -157,7 +189,7 @@ export async function readFiscalOperationDraft(
       error: 'O cenário da devolução não possui opções fiscais aprovadas para revisão.',
     });
   }
-  const lastSefazResult = draft.sefaz_response_xml
+  const lastSefazResult = !automaticReturnWorker && draft.sefaz_response_xml
     ? parseSefazAuthorization(String(draft.sefaz_response_xml))
     : null;
   return res.status(200).json({

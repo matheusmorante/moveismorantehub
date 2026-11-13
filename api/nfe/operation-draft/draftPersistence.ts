@@ -13,6 +13,13 @@ import { matchesSefazAuthorization } from '../authorizationResponseIdentity';
 import type { DraftRecord } from './draftValidation';
 import { type Environment, getPersistableItems } from './draftXmlAudit';
 
+type PersistableDraft = Pick<
+  DraftRecord,
+  'id' | 'document_id' | 'operation_kind' | 'original_document_id'
+>;
+const RECOVERY_DRAFT_COLUMNS =
+  'id,environment,original_document_id,return_order_id,status,document_id,access_key,signed_xml,protocol_number,transmitted_at,updated_at,operation_kind';
+
 export interface CertificateCredentials {
   certPem: string;
   privateKeyPem: string;
@@ -104,7 +111,7 @@ export async function confirmDraftTransmissionStart(
 export async function persistDraftAuthorized(params: {
   res: VercelResponse;
   db: SupabaseClient<FiscalDatabase>;
-  draft: DraftRecord;
+  draft: PersistableDraft;
   lines: Array<Record<string, unknown>>;
   environment: Environment;
   responseXml: string;
@@ -264,7 +271,7 @@ export async function persistDraftAuthorized(params: {
 export async function reconcileStoredDraftAttempt(params: {
   res: VercelResponse;
   db: SupabaseClient<FiscalDatabase>;
-  draft: DraftRecord;
+  draft: Pick<DraftRecord, 'id' | 'original_document_id' | 'return_order_id'>;
   lines: Array<Record<string, unknown>>;
   environment: Environment;
   certificate: CertificateCredentials;
@@ -282,7 +289,9 @@ export async function reconcileStoredDraftAttempt(params: {
 
   // A prior read can predate reservation, timeout marking or another session.
   const { data: draft, error: draftError } = await db.from('nfe_operation_drafts')
-    .select('*').eq('id', requestedDraft.id).maybeSingle();
+    .select(RECOVERY_DRAFT_COLUMNS)
+    .eq('id', requestedDraft.id)
+    .maybeSingle();
   if (draftError || !draft || draft.environment !== environment ||
       draft.original_document_id !== requestedDraft.original_document_id ||
       draft.return_order_id !== requestedDraft.return_order_id) {

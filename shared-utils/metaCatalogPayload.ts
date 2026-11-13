@@ -92,6 +92,8 @@ export const META_CATALOG_GLOBAL_PREFIX = `🚚📦 Entrega rápida (1 a 5 dias 
 
 💳 Pagamento parcelado nas bandeiras VISA, MASTER, MASTERCARD, MAESTRO, HIPERCARD, ELO, em até 10x sem juros no cartão de crédito
 
+💳 Parcelamos em até 12x no crediário, sujeito à análise e aprovação de crédito.
+
 🚨⚠️ Aceitamos Senff com juros.
 
 ✅ À vista tem desconto no pix, débito ou dinheiro!

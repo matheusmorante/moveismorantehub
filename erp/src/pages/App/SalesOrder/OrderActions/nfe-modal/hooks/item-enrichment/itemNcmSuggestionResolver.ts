@@ -46,7 +46,9 @@ export async function resolveNcmForOrderItem(
   // 1. Se o produto for cadastrado e já possuir NCM de 8 dígitos no cadastro da loja
   if (dbProduct?.fiscal?.ncm && /^\d{8}$/.test(dbProduct.fiscal.ncm)) {
     try {
-      const entry = await ncmService.getCatalogEntry(dbProduct.fiscal.ncm);
+      const entry = await ncmService.getCatalogEntry(dbProduct.fiscal.ncm, {
+        includeInternalAliases: false,
+      });
       if (isCurrentCatalogEntry(entry, today)) {
         return { code: entry.code, description: entry.official_description };
       }
@@ -76,7 +78,9 @@ export async function resolveNcmForOrderItem(
   try {
     const inference = await ncmService.inferProductNcm(facts);
     if (inference) {
-      const current = await ncmService.getCatalogEntry(inference.code);
+      const current = await ncmService.getCatalogEntry(inference.code, {
+        includeInternalAliases: false,
+      });
       if (isCurrentCatalogEntry(current, today)) {
         return { code: current.code, description: current.official_description };
       }
@@ -105,7 +109,7 @@ export async function resolveNcmForOrderItem(
     const result = (await response.json()) as { ncm?: { code?: string } | null };
     const code = result.ncm?.code || '';
     if (!/^\d{8}$/.test(code)) return null;
-    const current = await ncmService.getCatalogEntry(code);
+    const current = await ncmService.getCatalogEntry(code, { includeInternalAliases: false });
     return isCurrentCatalogEntry(current, today)
       ? { code: current.code, description: current.official_description }
       : null;

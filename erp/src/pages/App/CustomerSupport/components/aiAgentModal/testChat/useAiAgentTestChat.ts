@@ -15,6 +15,7 @@ import {
 } from '@/pages/utils/customerSupport/whatsappAiAgent/whatsappAiAgentOrchestrator';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { getSettings } from '@/pages/utils/settings';
+import { buildAiFailureHandoffReason, recordHandoffToHuman } from '@/pages/utils/customerSupport/whatsappAiAgent/tools/handoffService';
 import type { TestChatMessage } from './TestChatMessageBubble';
 
 const testMessageSchema = z.object({
@@ -30,6 +31,37 @@ interface UseAiAgentTestChatParams {
   workflows: AiWorkflowConfig[];
   enabledTools?: string[];
   systemPrompt?: string;
+}
+
+async function createSimulatedHandoffResult(
+  userQuery: string,
+  error: unknown,
+  baseResult?: SimulationTurnResult
+): Promise<SimulationTurnResult> {
+  const reason = buildAiFailureHandoffReason(error, 'simulação do atendimento');
+  const args = { motivo: reason, silencioso: true };
+  const handoffResult = await recordHandoffToHuman(supabase, {
+    conversationId: 'simulated_test_chat',
+    reason,
+    isSilent: true,
+    isSimulation: true,
+  });
+
+  return {
+    executed: handoffResult.success,
+    userQuery,
+    situation: baseResult?.situation || null,
+    matchedKeywords: baseResult?.matchedKeywords || [],
+    articlesUsed: baseResult?.articlesUsed || [],
+    workflowApplied: baseResult?.workflowApplied || null,
+    toolsCalled: [
+      ...(baseResult?.toolsCalled || []),
+      { name: 'encaminharParaAtendimentoHumano', args, result: handoffResult },
+    ],
+    mandatoryPhrasesEnforced: [],
+    aiResponseText: '',
+    executionTimeMs: baseResult?.executionTimeMs || 0,
+  };
 }
 
 export function useAiAgentTestChat({
@@ -100,15 +132,33 @@ export function useAiAgentTestChat({
       const nextMessages = [...messages, newUserMessage];
       setMessages(nextMessages);
       messageForm.reset({ message: '' });
+
+      const previousHandoff = [...messages].reverse().find((m) => m.role === 'handoff');
+      if (previousHandoff) {
+        setMessages([
+          ...nextMessages,
+          {
+            id: `handoff_${Date.now()}`,
+            role: 'handoff',
+            text: '',
+            handoffReason: 'Esta conversa já foi encaminhada e permanece aguardando um atendente humano.',
+            timestamp: new Date(),
+          },
+        ]);
+        return;
+      }
+
       setIsGenerating(true);
 
       try {
         const currentSettings = getSettings();
         const historyTurns = nextMessages
-          .filter((m) => m.id !== 'welcome-msg')
+          .filter((m) => m.id !== 'welcome-msg' && (
+            m.role === 'user' || (m.role === 'model' && m.suggestionStatus !== 'pending')
+          ))
           .map((m) => ({ role: m.role, text: m.text }));
 
-        const simulationResult = await simulateWhatsAppAiTurn(
+        let simulationResult = await simulateWhatsAppAiTurn(
           supabase,
           text,
           {
@@ -126,23 +176,61 @@ export function useAiAgentTestChat({
           historyTurns
         );
 
+        const requestedHandoff = simulationResult.toolsCalled.find(
+          (tool) => tool.name === 'encaminharParaAtendimentoHumano'
+        );
+        if (!requestedHandoff && !simulationResult.aiResponseText.trim()) {
+          simulationResult = await createSimulatedHandoffResult(
+            text,
+            new Error('O turno terminou sem uma mensagem final.'),
+            simulationResult
+          );
+        }
+
+        const handoffCall = simulationResult.toolsCalled.find(
+          (tool) => tool.name === 'encaminharParaAtendimentoHumano'
+        );
+        const handoffReason = String(handoffCall?.args?.motivo || '').trim();
+        const isHandoff = Boolean(handoffCall);
+
+        const nativeCatalogProducts = isHandoff
+          ? []
+          : simulationResult.nativeCatalogProducts && simulationResult.nativeCatalogProducts.length > 0
+            ? simulationResult.nativeCatalogProducts
+            : simulationResult.toolsCalled
+              .filter((t) => t.name === 'buscarProdutos')
+              .flatMap((t) => t.result?.produtos || [])
+              .map((p: any) => ({
+                retailerId: String(p.codigo || p.sku || '').trim(),
+                name: String(p.nome || 'Produto'),
+              }))
+              .filter((p) => p.retailerId);
+
         const aiMessage: TestChatMessage = {
           id: `ai_${Date.now()}`,
-          role: 'model',
-          text: simulationResult.aiResponseText || 'Não foi possível gerar a resposta no momento.',
+          role: isHandoff ? 'handoff' : 'model',
+          text: isHandoff ? '' : simulationResult.aiResponseText.trim(),
+          suggestionStatus: isHandoff ? undefined : 'pending',
+          handoffReason: isHandoff ? handoffReason || 'A conversa precisa de análise humana.' : undefined,
           timestamp: new Date(),
           diagnostic: simulationResult,
+          nativeCatalogProducts: !isHandoff && nativeCatalogProducts.length > 0 ? nativeCatalogProducts : undefined,
         };
 
         setMessages((prev) => [...prev, aiMessage]);
       } catch (err: any) {
-        const errMessage: TestChatMessage = {
-          id: `ai_err_${Date.now()}`,
-          role: 'model',
-          text: `Erro na simulação do agente: ${err?.message || 'Falha de comunicação com o modelo.'}`,
+        const fallbackResult = await createSimulatedHandoffResult(text, err);
+        const fallbackMessage: TestChatMessage = {
+          id: `ai_${Date.now()}`,
+          role: 'handoff',
+          text: '',
+          handoffReason: String(
+            fallbackResult.toolsCalled.find((tool) => tool.name === 'encaminharParaAtendimentoHumano')?.args?.motivo || ''
+          ),
           timestamp: new Date(),
+          diagnostic: fallbackResult,
         };
-        setMessages((prev) => [...prev, errMessage]);
+        setMessages((prev) => [...prev, fallbackMessage]);
       } finally {
         setIsGenerating(false);
         setTimeout(() => inputRef.current?.focus(), 50);
@@ -166,6 +254,26 @@ export function useAiAgentTestChat({
       setFeedbackInputId(null);
       toast.success('Resposta avaliada como correta!');
     }
+  };
+
+  const handleEditSuggestion = (messageId: string, text: string) => {
+    setMessages((prev) => prev.map((message) =>
+      message.id === messageId && message.suggestionStatus === 'pending'
+        ? { ...message, text }
+        : message
+    ));
+  };
+
+  const handleAcceptSuggestion = (messageId: string, text: string) => {
+    setMessages((prev) => prev.map((message) =>
+      message.id === messageId && message.suggestionStatus === 'pending'
+        ? { ...message, text: text.trim(), suggestionStatus: 'accepted' }
+        : message
+    ));
+  };
+
+  const handleRejectSuggestion = (messageId: string) => {
+    setMessages((prev) => prev.filter((message) => message.id !== messageId));
   };
 
   const handleSaveFeedbackComment = (messageId: string) => {
@@ -217,6 +325,9 @@ export function useAiAgentTestChat({
     chatContainerRef,
     inputRef: setInputRef,
     handleSendMessage,
+    handleEditSuggestion,
+    handleAcceptSuggestion,
+    handleRejectSuggestion,
     handleRateMessage,
     handleSaveFeedbackComment,
     handleSaveTestCase,

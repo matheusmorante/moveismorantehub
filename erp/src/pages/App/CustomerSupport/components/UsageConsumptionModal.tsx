@@ -27,17 +27,17 @@ export const UsageConsumptionModal: React.FC<UsageConsumptionModalProps> = ({ is
             <i className="bi bi-lock-fill mt-0.5 text-amber-600 dark:text-amber-400" />
             <div>
               <strong className="block text-xs font-bold">
-                Envio controlado por permissão e janela de atendimento
+                Envio sujeito às regras do WhatsApp e à cota da Central
               </strong>
               <p className="mt-1 text-[11px] leading-relaxed">
                 {enableDevelopmentTestMode
-                  ? 'O compositor segue as mesmas validações do ambiente de produção: perfil autorizado, conversa aberta, canal configurado e janela de 24 horas. A mensagem só é enviada após a confirmação explícita do atendente.'
-                  : 'Somente perfis autorizados podem enviar mensagens em conversas abertas, pelo canal conectado e durante a janela de 24 horas. O servidor revalida essas condições antes de chamar a Meta; a Central não envia mensagens automaticamente.'}
+                  ? 'O envio exige perfil autorizado, conversa aberta e canal conectado. Fora da janela de 24 horas, a cota compartilhada é de 10 tentativas por minuto e 50 por hora, por número.'
+                  : 'Perfis autorizados podem tentar enviar mensagens por um canal conectado, mesmo fora da janela de 24 horas. Nesses casos, a Central limita a 10 tentativas por minuto e 50 por hora, por número.'}
               </p>
             </div>
           </div>
         </div>
-        <p className="text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">Mensagens fora da janela de 24 horas e modelos aprovados ainda não estão disponíveis neste compositor.</p>
+        <p className="text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">Fora da janela de 24 horas, texto livre pode ser recusado pela Meta. A cobrança da Meta segue regras próprias, inclusive para mensagens de atendimento dentro da janela.</p>
         <button type="button" onClick={onClose} className="mt-5 w-full py-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold text-xs">Entendi</button>
       </div>
     </div>

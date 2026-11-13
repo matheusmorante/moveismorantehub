@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { extractDigits, normalizeToE164 } from './phoneUtils.js';
 import { matchCustomerByPhone } from './customerMatchingService.js';
 import { extractMessageContent } from './whatsappMessageContent.js';
+import { markLatestCustomerMessageAsRead } from './whatsappReadReceipt.js';
 
 /**
  * Processa a revogação de uma mensagem do WhatsApp (apagar para todos)
@@ -115,5 +116,16 @@ export async function processBusinessAppEcho(
   if (!receipt?.conversation_id || !receipt?.message_id || typeof receipt.inserted !== 'boolean') {
     throw new Error('Recebimento da mensagem enviada pelo WhatsApp Business não confirmado pelo servidor.');
   }
+
+  const readReceiptResult = await markLatestCustomerMessageAsRead(supabase, {
+    conversationId: receipt.conversation_id,
+    businessPhoneNumberId,
+    accessToken: process.env.WHATSAPP_ACCESS_TOKEN?.trim() || '',
+    beforeTimestamp: timestamp,
+  });
+  if (readReceiptResult === 'failed') {
+    console.warn('[WhatsApp Webhook] A resposta foi registrada, mas a confirmação de leitura não foi aceita pela Meta.');
+  }
+
   return receipt.inserted;
 }

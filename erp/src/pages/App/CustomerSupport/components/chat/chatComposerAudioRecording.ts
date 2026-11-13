@@ -1,7 +1,8 @@
 import type { Dispatch, MutableRefObject, SetStateAction } from 'react';
 import { z } from 'zod';
 import type { supportChatComposerDraftSchema } from '../../../../../../../shared-utils/customerSupportFormSchemas';
-import { formatFileSize, normalizedFileType } from './chatComposerAttachmentFiles';
+import { formatFileSize, MAX_FILE_SIZE } from './chatComposerAttachmentFiles';
+import { prepareRecordedAudioFile } from './chatComposerAudioConversion';
 
 type Attachment = z.input<typeof supportChatComposerDraftSchema>['attachments'][number];
 type AudioPreview = { url: string; type: string; name: string } | null;
@@ -15,10 +16,11 @@ interface ChatAudioRecordingActionsInput {
   recordingSeconds: number;
   setIsRecording: Dispatch<SetStateAction<boolean>>;
   setIsRecordingPaused: Dispatch<SetStateAction<boolean>>;
+  setIsPreparingAudio: Dispatch<SetStateAction<boolean>>;
   setRecordingSeconds: Dispatch<SetStateAction<number>>;
   setRecordingError: Dispatch<SetStateAction<string>>;
-  setSendError: Dispatch<SetStateAction<string>>;
-  setAudioPreview: Dispatch<SetStateAction<AudioPreview>>;
+  setSendError: (error: string) => void;
+  setAudioPreview: (preview: AudioPreview) => void;
   makeId: () => string;
   formatDuration: (seconds: number) => string;
   removeAttachment: (attachmentId: string) => void;
@@ -34,6 +36,7 @@ export function createChatAudioRecordingActions({
   recordingSeconds,
   setIsRecording,
   setIsRecordingPaused,
+  setIsPreparingAudio,
   setRecordingSeconds,
   setRecordingError,
   setSendError,
@@ -60,6 +63,7 @@ export function createChatAudioRecordingActions({
     recordingChunksRef.current = [];
     setIsRecording(false);
     setIsRecordingPaused(false);
+    setIsPreparingAudio(false);
     setRecordingSeconds(0);
     setRecordingError('');
     const existing = currentAudioAttachmentRef.current;
@@ -76,10 +80,12 @@ export function createChatAudioRecordingActions({
     }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const supportedMime = ['audio/ogg;codecs=opus', 'audio/mp4', 'audio/aac']
-        .find((mimeType) => MediaRecorder.isTypeSupported(mimeType));
-      const recorder = new MediaRecorder(stream, supportedMime ? { mimeType: supportedMime } : undefined);
       recordingStreamRef.current = stream;
+      const supportedMime = typeof MediaRecorder.isTypeSupported === 'function'
+        ? ['audio/ogg;codecs=opus', 'audio/webm;codecs=opus', 'audio/mp4', 'audio/aac']
+          .find((mimeType) => MediaRecorder.isTypeSupported(mimeType))
+        : undefined;
+      const recorder = new MediaRecorder(stream, supportedMime ? { mimeType: supportedMime } : undefined);
       recordingRef.current = recorder;
       recordingChunksRef.current = [];
       setRecordingSeconds(0);
@@ -89,35 +95,54 @@ export function createChatAudioRecordingActions({
         if (event.data.size) recordingChunksRef.current.push(event.data);
       };
       recorder.onerror = () => {
+        recorder.ondataavailable = null;
+        recorder.onstop = null;
         setRecordingError('A gravação foi interrompida. Confira a permissão do microfone e tente novamente.');
         stopRecordingStream();
         setIsRecording(false);
+        setIsRecordingPaused(false);
+        setIsPreparingAudio(false);
+        recordingChunksRef.current = [];
       };
-      recorder.onstop = () => {
-        const blob = new Blob(recordingChunksRef.current, { type: recorder.mimeType || 'audio/webm' });
-        const fileType = normalizedFileType(new File([blob], 'gravacao', { type: blob.type }));
-        const fileName = `audio-atendimento.${blob.type.includes('ogg') ? 'ogg' : blob.type.includes('mp4') ? 'm4a' : blob.type.includes('mpeg') ? 'mp3' : 'webm'}`;
-        const id = makeId();
-        const url = URL.createObjectURL(blob);
-        objectUrlsRef.current.add(url);
-        const file = new File([blob], fileName, { type: blob.type || 'audio/webm' });
-        const addition: Attachment = {
-          kind: 'audio', id, label: 'Áudio gravado',
-          detail: `${formatDuration(recordingSeconds)} · ${formatFileSize(file.size)}`,
-          fileName,
-          mimeType: file.type,
-          previewUrl: url,
-        };
-        currentAudioAttachmentRef.current = id;
-        setAudioPreview({ url, type: file.type, name: fileName });
+      recorder.onstop = async () => {
+        const chunks = [...recordingChunksRef.current];
+        recordingChunksRef.current = [];
         setIsRecording(false);
         setIsRecordingPaused(false);
+        setIsPreparingAudio(true);
         stopRecordingStream();
-        recordingChunksRef.current = [];
-        if (fileType?.label !== 'Áudio') {
-          setRecordingError('A gravação deste navegador está em WebM, formato não aceito pela API do WhatsApp. Você pode anexar áudio OGG, MP3 ou M4A.');
+
+        try {
+          const blob = new Blob(chunks, { type: recorder.mimeType || chunks[0]?.type || 'audio/webm' });
+          if (!blob.size) throw new Error('A gravação ficou vazia. Grave o áudio novamente.');
+          const file = await prepareRecordedAudioFile(blob, recorder.mimeType || blob.type);
+          if (file.size > MAX_FILE_SIZE) throw new Error('O áudio gravado ultrapassou o limite de 4 MB. Grave um trecho menor.');
+
+          const id = makeId();
+          const fileName = file.name;
+          const url = URL.createObjectURL(file);
+          objectUrlsRef.current.add(url);
+          const addition: Attachment = {
+            kind: 'audio', id, label: 'Áudio gravado',
+            detail: `${formatDuration(recordingSeconds)} · ${formatFileSize(file.size)}`,
+            fileName,
+            mimeType: file.type,
+            previewUrl: url,
+          };
+
+          if (!appendAttachments([addition], new Map([[id, file]]))) return;
+          currentAudioAttachmentRef.current = id;
+          setAudioPreview({ url, type: file.type, name: fileName });
+          setRecordingError('');
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : '';
+          const isKnownMessage = errorMessage.startsWith('A gravação') || errorMessage.startsWith('O áudio gravado');
+          setRecordingError(isKnownMessage
+            ? errorMessage
+            : 'Não foi possível preparar o áudio para envio. Grave novamente ou anexe um arquivo OGG, MP3, M4A, AAC ou AMR.');
+        } finally {
+          setIsPreparingAudio(false);
         }
-        appendAttachments([addition], new Map([[id, file]]));
       };
       recorder.start(500);
     } catch (error) {
@@ -127,6 +152,8 @@ export function createChatAudioRecordingActions({
         : 'Não foi possível iniciar a gravação. Confira o microfone e tente novamente.');
       stopRecordingStream();
       setIsRecording(false);
+      setIsRecordingPaused(false);
+      setIsPreparingAudio(false);
     }
   };
 

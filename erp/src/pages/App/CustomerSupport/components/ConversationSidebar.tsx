@@ -1,6 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import { WhatsAppConversation, WhatsAppMessage, ConversationFilter } from '../types';
-import { ConversationItem } from './ConversationItem';
+import { ConversationItem, ScheduledOrderBadgeColors } from './ConversationItem';
+import { getSettings } from '@/pages/utils/settingsService';
+import { getOrderTypeClasses, resolveOrderColor } from '@/pages/utils/orderTypeColorUtils';
 import {
   ConversationAdvancedFilterModal,
   GlobalMessageSearch,
@@ -31,6 +33,7 @@ export interface ConversationSidebarProps {
   totalCount?: number;
   onLoadMore?: () => Promise<void>;
   canViewCommercialInfo?: boolean;
+  showAiHandoffBadge?: boolean;
   error?: string;
 }
 
@@ -53,11 +56,23 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
   totalCount = conversations.length,
   onLoadMore,
   canViewCommercialInfo = false,
+  showAiHandoffBadge = true,
   error = '',
 }) => {
   const [isScopeMenuOpen, setIsScopeMenuOpen] = useState(false);
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
   const [isGlobalMessageSearchOpen, setIsGlobalMessageSearchOpen] = useState(false);
+  const orderTypeColors = getSettings().orderTypeColors ?? {
+    delivery: 'green',
+    pickup: 'purple',
+    assistance: 'orange',
+  };
+  const scheduledBadgeColors: ScheduledOrderBadgeColors = {
+    delivery: getOrderTypeClasses(resolveOrderColor('sale', 'delivery', orderTypeColors)).badge,
+    pickup: getOrderTypeClasses(resolveOrderColor('sale', 'pickup', orderTypeColors)).badge,
+    assistance: getOrderTypeClasses(resolveOrderColor('assistance', undefined, orderTypeColors)).badge,
+    returnCollection: getOrderTypeClasses(resolveOrderColor('return', undefined, orderTypeColors)).badge,
+  };
 
   const sortedConversations = useMemo(
     () => sortConversations(conversations, sortOrder),
@@ -137,6 +152,8 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
               conversation={conv}
               isSelected={selectedConversation?.id === conv.id}
               onSelect={onSelectConversation}
+              scheduledBadgeColors={scheduledBadgeColors}
+              showAiHandoffBadge={showAiHandoffBadge}
             />
           ))}
           {isLoadingMore && (

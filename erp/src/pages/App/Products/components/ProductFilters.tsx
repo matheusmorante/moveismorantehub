@@ -7,7 +7,7 @@ export interface ProductFiltersData {
   activeOnly: boolean | undefined;
   isDraft?: boolean;
   status?: 'published' | 'hidden';
-  sortBy: 'description' | 'unitPrice' | 'stock' | 'code' | 'createdAt' | 'category';
+  sortBy: 'description' | 'unitPrice' | 'stock' | 'code' | 'createdAt' | 'updatedAt' | 'category';
   sortOrder: 'asc' | 'desc';
   showTrash?: boolean;
 }
@@ -60,7 +60,7 @@ export const ProductFilters: React.FC<ProductFiltersProps> = ({
       activeOnly: undefined,
       isDraft: undefined,
       status: undefined,
-      sortBy: 'createdAt',
+      sortBy: 'updatedAt',
       sortOrder: 'desc',
       showTrash: prev.showTrash,
     }));

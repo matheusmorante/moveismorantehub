@@ -7,12 +7,13 @@ import type {
   CustomerSupportSendResult,
 } from '@/pages/utils/customerSupport/customerSupportService';
 import type { WhatsAppMessage } from '../../types';
+import type { ProductCatalogPrepareInput } from '../../../../../../../shared-utils/productCatalogFormSchemas';
 import { getChatComposerSendPreflightError } from './chatComposerSendValidation';
 import { sendDraftAttachments } from './chatComposerAttachmentSender';
+import { toCatalogSendSelection } from './chatComposerCatalogSelection';
 
 interface UseChatComposerSendParams {
   canSend: boolean;
-  careWindowOpen: boolean;
   isChannelConnected: boolean;
   onSendCustomerMessage?: (input: CustomerSupportSendInput) => Promise<CustomerSupportSendResult>;
   onRefreshMessages?: () => Promise<void> | void;
@@ -25,7 +26,6 @@ interface UseChatComposerSendParams {
 
 export function useChatComposerSend({
   canSend,
-  careWindowOpen,
   isChannelConnected,
   onSendCustomerMessage,
   onRefreshMessages,
@@ -43,7 +43,16 @@ export function useChatComposerSend({
   const isSendingRef = useRef(false);
 
   const sendAllowed =
-    canSend && careWindowOpen && isChannelConnected && Boolean(onSendCustomerMessage) && !isOutcomeUncertain;
+    canSend && isChannelConnected && Boolean(onSendCustomerMessage) && !isOutcomeUncertain;
+  const sendBlockedReason = !canSend
+    ? 'Seu perfil não tem permissão para enviar mensagens pela Central.'
+    : !isChannelConnected
+      ? 'O canal WhatsApp desta conversa está desconectado.'
+      : !onSendCustomerMessage
+        ? 'O envio está indisponível para esta conversa.'
+        : isOutcomeUncertain
+          ? 'Atualize a conversa e confira o último envio antes de enviar novamente.'
+          : '';
 
   const handleRefreshAfterUncertainSend = async () => {
     if (!onRefreshMessages || isRefreshingForRetry) return;
@@ -65,11 +74,9 @@ export function useChatComposerSend({
       setSendError(
         !canSend
           ? 'Seu perfil não tem permissão para enviar mensagens pela Central.'
-          : !careWindowOpen
-            ? 'A janela de atendimento de 24 horas está fechada.'
-            : !isChannelConnected
-              ? 'O canal WhatsApp desta conversa está desconectado.'
-              : 'O envio está indisponível para esta conversa.'
+          : !isChannelConnected
+            ? 'O canal WhatsApp desta conversa está desconectado.'
+            : 'O envio está indisponível para esta conversa.'
       );
       return;
     }
@@ -136,6 +143,81 @@ export function useChatComposerSend({
     }
   };
 
+  const executeSendCatalogSelection = async (selection: ProductCatalogPrepareInput): Promise<boolean> => {
+    if (isSendingRef.current) return false;
+    if (!sendAllowed || !onSendCustomerMessage) {
+      const error = !canSend
+        ? 'Seu perfil não tem permissão para enviar mensagens pela Central.'
+        : !isChannelConnected
+          ? 'O canal WhatsApp desta conversa está desconectado.'
+          : 'O envio está indisponível para esta conversa.';
+      setSendError(error);
+      throw new Error(error);
+    }
+
+    const itemCount = selection.bulkScope
+      ? Math.max(0, selection.bulkScope.total - selection.bulkScope.excludedProductIds.length)
+      : selection.items.length;
+    if (
+      itemCount > 10 &&
+      !(await requestConfirmation({
+        title: 'Enviar mais de 10 produtos?',
+        message: `Você está prestes a enviar conteúdo sobre ${itemCount} produtos. Deseja continuar?`,
+        confirmLabel: 'Enviar produtos',
+        type: 'warning',
+      }))
+    ) {
+      return false;
+    }
+
+    isSendingRef.current = true;
+    setIsSending(true);
+    setSendError('');
+    setSendFeedback('');
+
+    try {
+      const selections = [selection];
+      let sentCount = 0;
+      let persistenceWarning = '';
+
+      for (const itemSelection of selections) {
+        try {
+          const result = await onSendCustomerMessage({
+            message: '',
+            catalogSelection: toCatalogSendSelection(itemSelection),
+          });
+          sentCount += 1;
+          if (result.warning) persistenceWarning = result.warning;
+        } catch (sendErr: any) {
+          if (sentCount > 0 || sendErr?.outcomeUncertain || sendErr?.status === 504 || sendErr?.message?.includes('504')) {
+            setIsOutcomeUncertain(true);
+            const message = sentCount > 0
+              ? `${sentCount} de ${selections.length} envios foram concluídos. O envio foi interrompido; atualize a conversa e confira os produtos antes de tentar novamente.`
+              : sendErr?.message || 'O resultado do envio é incerto. Atualize a conversa antes de tentar novamente.';
+            setSendError(message);
+            throw new Error(message);
+          }
+          throw sendErr;
+        }
+      }
+
+      const totalItems = selection.bulkScope
+        ? Math.max(0, selection.bulkScope.total - selection.bulkScope.excludedProductIds.length)
+        : selection.items.length;
+      setSendFeedback(persistenceWarning || (selection.deliveryMode === 'native'
+        ? (totalItems === 1 ? 'Card de produto enviado ao cliente.' : `Lista com ${totalItems} produtos enviada ao cliente.`)
+        : `${totalItems} produto${totalItems === 1 ? '' : 's'} enviado${totalItems === 1 ? '' : 's'} ao cliente.`));
+      return true;
+    } catch (sendErr: any) {
+      const message = sendErr?.message || 'Não foi possível enviar os produtos ao cliente.';
+      setSendError(message);
+      throw new Error(message);
+    } finally {
+      isSendingRef.current = false;
+      setIsSending(false);
+    }
+  };
+
   return {
     sendAllowed,
     sendError,
@@ -145,7 +227,9 @@ export function useChatComposerSend({
     isOutcomeUncertain,
     isRefreshingForRetry,
     isSending,
+    sendBlockedReason,
     handleRefreshAfterUncertainSend,
     executeSendDraft,
+    executeSendCatalogSelection,
   };
 }

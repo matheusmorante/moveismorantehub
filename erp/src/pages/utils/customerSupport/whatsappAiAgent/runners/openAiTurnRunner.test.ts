@@ -81,7 +81,37 @@ describe('loop de ferramentas OpenAI do atendimento', () => {
     expect(requestBody.tools).toBeUndefined();
   });
 
-  it('deduplica chamadas idênticas e não devolve detalhes internos de falhas', async () => {
+  it('deixa a resposta vazia quando falha ao responder uma saudação para permitir o handoff do pipeline', async () => {
+    const options = baseOptions();
+    options.historyMessages = [{ role: 'user', content: 'oi' }];
+    options.fetchOpenAi = vi.fn().mockResolvedValue(response({ output: [] })) as unknown as typeof fetch;
+
+    const result = await executeOpenAiTurnLoop(options);
+
+    expect(result.text).toBe('');
+  });
+
+  it('envia o histórico recente e as regras de continuidade para interpretar um follow-up', async () => {
+    const options = baseOptions();
+    options.historyMessages = [
+      { role: 'user', content: 'Quero uma pia de 1,20 na cor branca.' },
+      { role: 'assistant', content: 'Vou procurar pias nessa medida e cor.' },
+      { role: 'user', content: 'E o balcão dela?' },
+    ];
+    const fetchOpenAi = vi.fn().mockResolvedValue(response({ output_text: 'Vou procurar o balcão para pia nessa medida e cor.', output: [] }));
+    options.fetchOpenAi = fetchOpenAi as unknown as typeof fetch;
+
+    await executeOpenAiTurnLoop(options);
+
+    const requestBody = JSON.parse(String(fetchOpenAi.mock.calls[0][1]?.body));
+    expect(requestBody.input.map((message: any) => message.content[0].text)).toEqual(
+      options.historyMessages.map(({ content }) => content)
+    );
+    expect(requestBody.instructions).toContain('"pia" pede a categoria Pias');
+    expect(requestBody.instructions).toContain('"e o balcão dela?"');
+  });
+
+  it('encaminha para um atendente quando uma ferramenta falha sem devolver erro ao cliente', async () => {
     const options = baseOptions();
     options.historyMessages = [{ role: 'user', content: 'Procure balcão para pia Florença' }];
     const fetchOpenAi = vi
@@ -103,27 +133,49 @@ describe('loop de ferramentas OpenAI do atendimento', () => {
         ],
         usage: {},
       }))
-      .mockResolvedValueOnce(response({
-        output_text: 'Não consegui consultar o catálogo agora. Posso tentar novamente mais tarde.',
-        output: [],
-        usage: {},
-      }));
+      .mockResolvedValueOnce(response({ output: [], usage: {} }));
     options.fetchOpenAi = fetchOpenAi as unknown as typeof fetch;
-    executeSafeTool.mockResolvedValue({
+    executeSafeTool
+      .mockResolvedValueOnce({
       success: false,
       code: 'DATABASE_ERROR',
-      erro: 'relation secret_table does not exist',
-    });
+      erro: 'Não consegui consultar os produtos agora.',
+      })
+      .mockResolvedValueOnce({ success: true, silentHandoff: true, motivo: 'Falha na consulta.' });
 
     const result = await executeOpenAiTurnLoop(options);
 
-    expect(result.text).toContain('Não consegui consultar o catálogo');
-    expect(executeSafeTool).toHaveBeenCalledTimes(1);
-    const secondRequest = JSON.parse(String(fetchOpenAi.mock.calls[1][1]?.body));
-    const toolOutputs = secondRequest.input.filter((item: any) => item.type === 'function_call_output');
-    expect(toolOutputs).toHaveLength(2);
-    expect(JSON.stringify(toolOutputs)).toContain('TEMPORARY_FAILURE');
-    expect(JSON.stringify(toolOutputs)).not.toContain('secret_table');
+    expect(result.text).toBe('Atendimento encaminhado à equipe.');
+    expect(result.handoffConfirmed).toBe(true);
+    expect(result.toolsCalled).toContain('encaminharParaAtendimentoHumano');
+    expect(fetchOpenAi).toHaveBeenCalledTimes(1);
+    expect(executeSafeTool).toHaveBeenCalledTimes(2);
+    expect(executeSafeTool.mock.calls[1][1]).toBe('encaminharParaAtendimentoHumano');
+    expect(executeSafeTool.mock.calls[1][2]).toMatchObject({ silencioso: true });
+  });
+
+  it('encaminha para um atendente quando a busca não encontra produtos', async () => {
+    const options = baseOptions();
+    options.historyMessages = [{ role: 'user', content: 'Balcão para pia' }];
+    const fetchOpenAi = vi.fn().mockResolvedValue(response({
+      output: [{
+        type: 'function_call',
+        name: 'buscarProdutos',
+        call_id: 'search-call',
+        arguments: '{"termo":"balcão para pia","enviarCartoes":true}',
+      }],
+    }));
+    options.fetchOpenAi = fetchOpenAi as unknown as typeof fetch;
+    executeSafeTool
+      .mockResolvedValueOnce({ success: true, total: 0, produtos: [] })
+      .mockResolvedValueOnce({ success: true, silentHandoff: true });
+
+    const result = await executeOpenAiTurnLoop(options);
+
+    expect(result.handoffConfirmed).toBe(true);
+    expect(result.toolsCalled).toContain('encaminharParaAtendimentoHumano');
+    expect(fetchOpenAi).toHaveBeenCalledTimes(1);
+    expect(executeSafeTool.mock.calls[1][1]).toBe('encaminharParaAtendimentoHumano');
   });
 
   it('conclui busca seguida de detalhes sem sugerir o produto incompatível', async () => {
@@ -232,7 +284,7 @@ describe('loop de ferramentas OpenAI do atendimento', () => {
       return { data: { log_id: 'log-1', reservation_committed: true }, error: null };
     });
     executeSafeTool.mockImplementation(async (_client, name) => name === 'encaminharParaAtendimentoHumano'
-      ? { success: true } : { success: true, produtos: [] });
+      ? { success: true } : { success: true, total: 1, produtos: [{ codigo: '000001' }] });
 
     const result = await executeOpenAiTurnLoop(options);
 

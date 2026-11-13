@@ -11,7 +11,7 @@ type ClassificationResult = {
 const isCurrentNcm = async (candidate: PendingMobileNcmSuggestion) => {
   const code = candidate.code.replace(/\D/g, '');
   if (!/^\d{8}$/.test(code)) return null;
-  const entry = await fetchMobileNcmCatalogEntry(code);
+  const entry = await fetchMobileNcmCatalogEntry(code, { includeInternalAliases: false });
   const today = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'America/Sao_Paulo',
     year: 'numeric',

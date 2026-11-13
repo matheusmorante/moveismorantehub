@@ -1,25 +1,9 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { useInfiniteQuery, useQueries, useQuery } from '@tanstack/react-query';
 import './ProductCatalogPanel.css';
-import { useForm, useWatch } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
 import { requestConfirmation } from '@/components/shared/confirmationService';
-import { flattenCategories, type CategoryOption, type CategoryRelation } from './productCatalogCategoryTree';
 import { buildProductCatalogUrl } from '../../../../shared-utils/productCatalogLinks';
-import {
-  productCatalogFiltersSchema,
-  productCatalogPrepareSchema,
-  type ProductCatalogFiltersInput,
-  type ProductCatalogPrepareInput,
-} from '../../../../shared-utils/productCatalogFormSchemas';
-import {
-  fetchSupportCatalogMetadata,
-  fetchSupportCatalogPage,
-  fetchSupportCatalogProductDetails,
-  supportCatalogCacheContext,
-} from './supportCatalogService';
+import type { ProductCatalogPrepareInput } from '../../../../shared-utils/productCatalogFormSchemas';
 import {
   generateCatalogPdf,
   type CatalogItem,
@@ -30,14 +14,13 @@ import { ProductCatalogFilterToolbar } from './ProductCatalogFilterToolbar';
 import { createProductCatalogSelectionActions } from './productCatalogSelection';
 import type { CatalogPresentation } from './productCatalogPresentationMode';
 import { useProductCatalogPresentationObserver } from './useProductCatalogPresentationObserver';
-import {
-  itemKey,
-  makeCatalogItem,
-} from './productCatalogItems';
-import { ProductCatalogSingleProductCard, ProductCatalogVariationCard } from './ProductCatalogProductCards';
+import { useProductCatalogForms } from './hooks/useProductCatalogForms';
+import { useProductCatalogData } from './hooks/useProductCatalogData';
+import { ProductCatalogHeader } from './components/ProductCatalogHeader';
+import { ProductCatalogProductList } from './components/ProductCatalogProductList';
+import { ProductCatalogPickerFooter } from './components/ProductCatalogPickerFooter';
+import { resolveCatalogEffectiveItems } from './productCatalogResolution';
 
-const CACHE_TIME = 5 * 60 * 1000;
-const SEARCH_DEBOUNCE = 350;
 const PDF_LIMIT_WITH_IMAGES_NOTICE = 20;
 
 type BulkScope = NonNullable<ProductCatalogPrepareInput['bulkScope']>;
@@ -47,6 +30,10 @@ interface ProductCatalogPanelProps {
   isOpen: boolean;
   onClose: () => void;
   onSelectionPrepared?: (selection: ProductCatalogPrepareInput, catalogUrl: string | null) => void;
+  onSendSelection?: (selection: ProductCatalogPrepareInput) => Promise<boolean>;
+  canSendSelection?: boolean;
+  sendDisabledReason?: string;
+  isSendingSelection?: boolean;
   onPdfPrepared?: (file: File) => boolean;
   selectionActionLabel?: string;
   availableSpaceRef?: React.RefObject<HTMLElement | null>;
@@ -56,6 +43,10 @@ export const ProductCatalogPanel: React.FC<ProductCatalogPanelProps> = ({
   isOpen,
   onClose,
   onSelectionPrepared,
+  onSendSelection,
+  canSendSelection = true,
+  sendDisabledReason = '',
+  isSendingSelection = false,
   onPdfPrepared,
   selectionActionLabel = 'Adicionar à conversa',
   availableSpaceRef,
@@ -66,34 +57,53 @@ export const ProductCatalogPanel: React.FC<ProductCatalogPanelProps> = ({
   const [previewTab, setPreviewTab] = useState<PreviewTab>('cards');
   const [selectedItems, setSelectedItems] = useState<Map<string, CatalogItem>>(() => new Map());
   const [bulkScope, setBulkScope] = useState<BulkScope | null>(null);
-  const [filters, setFilters] = useState<ProductCatalogFiltersInput>({ categoryId: null, search: '', brand: '' });
   const [selectionError, setSelectionError] = useState('');
   const [prepared, setPrepared] = useState<ProductCatalogPrepareInput | null>(null);
   const [hidePrices, setHidePrices] = useState(false);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [pdfProgress, setPdfProgress] = useState(0);
   const [previewFeedback, setPreviewFeedback] = useState('');
+
   const catalogListRef = useRef<HTMLDivElement>(null);
   const loadMoreRef = useRef<HTMLDivElement>(null);
-  const filterForm = useForm<ProductCatalogFiltersInput>({
-    resolver: zodResolver(productCatalogFiltersSchema),
-    defaultValues: { categoryId: null, search: '', brand: '' },
+
+  const {
+    filters,
+    filterForm,
+    search,
+    categoryId,
+    applyFilters,
+    updateCategoryFilter,
+    prepareForm,
+    deliveryMode,
+    isSearchDebouncing,
+  } = useProductCatalogForms();
+
+  const {
+    metadataQuery,
+    catalogQuery,
+    flattenedCategories,
+    selectedCategory,
+    products,
+    total,
+    isLoading,
+    isLoadingNext,
+    metadataError,
+    catalogError,
+    variationProductBatches,
+    productDetailsQueries,
+    productDetailsById,
+    hasProductDetailsError,
+  } = useProductCatalogData({
+    isOpen,
+    mode,
+    filters,
+    categoryId,
+    catalogListRef,
+    loadMoreRef,
   });
-  const rawFilters = useWatch({ control: filterForm.control });
-  const search = rawFilters.search || '';
-  const categoryId = rawFilters.categoryId || '';
-  const applyFilters = useCallback(() => {
-    void filterForm.handleSubmit((values) => setFilters(values))();
-  }, [filterForm.handleSubmit]);
-  const updateCategoryFilter = (value: string) => {
-    filterForm.setValue('categoryId', value || null, { shouldDirty: true, shouldValidate: true });
-    applyFilters();
-  };
-  const prepareForm = useForm<z.input<typeof productCatalogPrepareSchema>, unknown, ProductCatalogPrepareInput>({
-    resolver: zodResolver(productCatalogPrepareSchema),
-    defaultValues: { items: [], bulkScope: null, hidePrices: false, deliveryMode: 'link' },
-  });
-  const deliveryMode = useWatch({ control: prepareForm.control, name: 'deliveryMode' }) || 'link';
+
+  const error = selectionError || metadataError || catalogError;
 
   useEffect(() => setMounted(true), []);
 
@@ -105,88 +115,6 @@ export const ProductCatalogPanel: React.FC<ProductCatalogPanelProps> = ({
     document.body.style.overflow = 'hidden';
     return () => { document.body.style.overflow = previousOverflow; };
   }, [isOpen]);
-
-  useEffect(() => {
-    const timer = window.setTimeout(applyFilters, SEARCH_DEBOUNCE);
-    return () => window.clearTimeout(timer);
-  }, [applyFilters, search]);
-
-  const metadataQuery = useQuery({
-    queryKey: ['customer-support-catalog-metadata', ...supportCatalogCacheContext()],
-    queryFn: ({ signal }) => fetchSupportCatalogMetadata(signal),
-    enabled: isOpen,
-    staleTime: CACHE_TIME,
-    gcTime: CACHE_TIME,
-    retry: 1,
-  });
-  const categories = (metadataQuery.data?.categories || []) as CategoryOption[];
-  const relations = (metadataQuery.data?.relations || []) as CategoryRelation[];
-  const flattenedCategories = useMemo(() => flattenCategories(categories, relations), [categories, relations]);
-  const selectedCategory = categories.find((category) => category.id === categoryId);
-  const catalogQuery = useInfiniteQuery({
-    queryKey: [
-      'customer-support-catalog-products',
-      ...supportCatalogCacheContext(),
-      metadataQuery.data?.userId || 'anonymous',
-      filters.categoryId,
-      filters.search,
-      filters.brand,
-    ],
-    queryFn: ({ pageParam, signal }) => fetchSupportCatalogPage(filters, Number(pageParam), signal),
-    initialPageParam: 1,
-    getNextPageParam: (lastPage) =>
-      lastPage.page * lastPage.pageSize < lastPage.totalCount ? lastPage.page + 1 : undefined,
-    enabled: isOpen && mode === 'picker' && Boolean(metadataQuery.data),
-    staleTime: CACHE_TIME,
-    gcTime: CACHE_TIME,
-    retry: 1,
-  });
-  const pages = catalogQuery.data?.pages || [];
-  const products = pages.flatMap((result) => result.products);
-  const total = pages[0]?.totalCount || 0;
-  const isSearchDebouncing = search.trim() !== filters.search;
-  const isLoading = metadataQuery.isLoading || catalogQuery.isLoading;
-  const isLoadingNext = catalogQuery.isFetchingNextPage;
-  const metadataError = metadataQuery.isError ? 'Não foi possível carregar as categorias. Tente atualizar.' : '';
-  const error = selectionError || metadataError || (catalogQuery.isError ? 'Não foi possível carregar os produtos. Tente novamente.' : '');
-
-  const variationProductBatches = useMemo(() => {
-    return pages.flatMap((page) => {
-      const productIds = page.products.filter((product) => product.hasVariations).map((product) => product.id);
-      return productIds.length ? [productIds] : [];
-    });
-  }, [pages]);
-  const productDetailsQueries = useQueries({
-    queries: variationProductBatches.map((productIds) => ({
-      queryKey: [
-        'customer-support-catalog-product-details',
-        ...supportCatalogCacheContext(),
-        metadataQuery.data?.userId || 'anonymous',
-        productIds,
-      ],
-      queryFn: ({ signal }) => fetchSupportCatalogProductDetails(productIds, signal),
-      enabled: isOpen && mode === 'picker',
-      staleTime: CACHE_TIME,
-      gcTime: CACHE_TIME,
-      retry: 1,
-    })),
-  });
-  const productDetailsById = useMemo(
-    () => new Map(productDetailsQueries.flatMap((query) => query.data || []).map((details) => [details.productId, details] as const)),
-    [productDetailsQueries],
-  );
-  const hasProductDetailsError = productDetailsQueries.some((query) => query.isError);
-
-  useEffect(() => {
-    const root = catalogListRef.current;
-    const target = loadMoreRef.current;
-    if (!isOpen || mode !== 'picker' || !root || !target || !catalogQuery.hasNextPage || isLoadingNext) return;
-    const observer = new IntersectionObserver((entries) => {
-      if (entries.some((entry) => entry.isIntersecting)) void catalogQuery.fetchNextPage({ cancelRefetch: false });
-    }, { root, rootMargin: '180px 0px' });
-    observer.observe(target);
-    return () => observer.disconnect();
-  }, [isOpen, mode, catalogQuery.hasNextPage, catalogQuery.fetchNextPage, isLoadingNext]);
 
   const currentScope = useMemo<BulkScope>(() => ({
     selectionMode: 'all_matching',
@@ -215,6 +143,7 @@ export const ProductCatalogPanel: React.FC<ProductCatalogPanelProps> = ({
     setPrepared,
     clearPreparedItemsError: () => prepareForm.clearErrors('items'),
   });
+
   const onPrepare = prepareForm.handleSubmit((values) => {
     setPrepared(values);
     setHidePrices(values.hidePrices);
@@ -224,14 +153,42 @@ export const ProductCatalogPanel: React.FC<ProductCatalogPanelProps> = ({
   });
 
   const handlePrepare = () => {
-    prepareForm.setValue('items', Array.from(selectedItems.values()));
+    const effectiveItems = resolveCatalogEffectiveItems(
+      selectedItems,
+      bulkScope,
+      products,
+      productDetailsById,
+    );
+    prepareForm.setValue('items', effectiveItems);
     prepareForm.setValue('bulkScope', bulkScope);
     prepareForm.setValue('hidePrices', hidePrices);
-    void onPrepare();
+
+    const effectiveCount = bulkScope
+      ? Math.max(0, bulkScope.total - bulkScope.excludedProductIds.length)
+      : effectiveItems.length;
+    const canSendNativeCards = effectiveCount > 0 && effectiveCount <= 30 && !hidePrices;
+    prepareForm.setValue('deliveryMode', canSendNativeCards ? 'native' : 'link');
+
+    if (!onSendSelection) {
+      void onPrepare();
+      return;
+    }
+
+    void prepareForm.handleSubmit(async (values) => {
+      setSelectionError('');
+      const sent = await onSendSelection({
+        ...values,
+        items: effectiveItems,
+        deliveryMode: canSendNativeCards ? 'native' : 'link',
+      });
+      if (sent) onClose();
+    })().catch((sendError: unknown) => {
+      setSelectionError(sendError instanceof Error ? sendError.message : 'Não foi possível enviar os produtos ao cliente.');
+    });
   };
 
   const activePrepared = prepared || {
-    items: Array.from(selectedItems.values()),
+    items: resolveCatalogEffectiveItems(selectedItems, bulkScope, products, productDetailsById),
     bulkScope,
     hidePrices,
   };
@@ -242,15 +199,15 @@ export const ProductCatalogPanel: React.FC<ProductCatalogPanelProps> = ({
     hidePrices,
   });
   const messageItemCount = Math.max(0, (preparedSelection.bulkScope?.total || 0) - (preparedSelection.bulkScope?.excludedProductIds.length || 0)) + preparedSelection.items.length;
-  const nativeProductCount = preparedSelection.items.length;
-  const nativeDisabledReason = preparedSelection.bulkScope
-    ? 'Seleções por categoria inteira devem ser compartilhadas por link.'
-    : nativeProductCount > 30
-      ? 'A lista nativa aceita até 30 produtos. Reduza a seleção ou use o link.'
-      : hidePrices
-        ? 'Os cards nativos exibem o preço publicado no catálogo da Meta. Desative “Ocultar preços” para usá-los.'
-        : '';
-  const canUseNativeDelivery = nativeProductCount > 0 && nativeProductCount <= 30 && !preparedSelection.bulkScope && !hidePrices;
+  const nativeProductCount = preparedSelection.items.length || (preparedSelection.bulkScope
+    ? Math.max(0, preparedSelection.bulkScope.total - preparedSelection.bulkScope.excludedProductIds.length)
+    : 0);
+  const nativeDisabledReason = nativeProductCount > 30
+    ? 'A lista nativa aceita até 30 produtos. Reduza a seleção ou use o link.'
+    : hidePrices
+      ? 'Os cards nativos exibem o preço publicado no catálogo da Meta. Desative “Ocultar preços” para usá-los.'
+      : '';
+  const canUseNativeDelivery = nativeProductCount > 0 && nativeProductCount <= 30 && !hidePrices;
   const canAddSelectionToConversation = deliveryMode === 'native'
     ? canUseNativeDelivery
     : Boolean(activeLink) || (!preparedSelection.bulkScope && preparedSelection.items.length <= 8);
@@ -307,26 +264,13 @@ export const ProductCatalogPanel: React.FC<ProductCatalogPanelProps> = ({
         aria-labelledby="support-product-catalog-title"
         className="catalog-dialog flex min-h-0 w-full flex-col overflow-hidden bg-white text-slate-900 shadow-2xl dark:bg-slate-950 dark:text-slate-100"
       >
-        <header className="catalog-dialog-header flex shrink-0 items-center justify-between border-b border-slate-200 px-5 py-4 dark:border-slate-800">
-          <div>
-            {mode === 'preview' && (
-              <button type="button" onClick={() => setMode('picker')} className="mb-1 flex items-center gap-1 text-xs font-semibold text-slate-500 hover:text-slate-800 dark:hover:text-slate-200">
-                <i className="bi bi-arrow-left" aria-hidden="true" /> Voltar ao catálogo
-              </button>
-            )}
-            <h2 id="support-product-catalog-title" className="text-lg font-bold">
-              {mode === 'picker' ? 'Catálogo de produtos' : 'Prévia da seleção'}
-            </h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              {mode === 'picker'
-                ? `${selectedCount} selecionado${selectedCount === 1 ? '' : 's'}`
-                : `${messageItemCount} produto${messageItemCount === 1 ? '' : 's'} na seleção`}
-            </p>
-          </div>
-          <button type="button" onClick={onClose} aria-label="Fechar catálogo" className="flex h-9 w-9 items-center justify-center rounded-xl text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:hover:bg-slate-800 dark:hover:text-white">
-            <i className="bi bi-x-lg" aria-hidden="true" />
-          </button>
-        </header>
+        <ProductCatalogHeader
+          mode={mode}
+          selectedCount={selectedCount}
+          messageItemCount={messageItemCount}
+          onBackToPicker={() => setMode('picker')}
+          onClose={onClose}
+        />
 
         {mode === 'picker' ? (
           <>
@@ -337,7 +281,8 @@ export const ProductCatalogPanel: React.FC<ProductCatalogPanelProps> = ({
                   flattenedCategories={flattenedCategories}
                   onCategoryChange={updateCategoryFilter}
                 />
-                <section className="catalog-results-pane" aria-label="Produtos do catálogo">
+
+                <section className="catalog-content flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-slate-50 dark:bg-slate-900/40">
                   <ProductCatalogFilterToolbar
                     filterForm={filterForm}
                     search={search}
@@ -346,7 +291,7 @@ export const ProductCatalogPanel: React.FC<ProductCatalogPanelProps> = ({
                     onCategoryChange={updateCategoryFilter}
                     metadataError={metadataError}
                     isMetadataLoading={metadataQuery.isLoading}
-                    hasMetadataError={metadataQuery.isError}
+                    hasMetadataError={Boolean(metadataQuery.isError)}
                     onRetryMetadata={() => void metadataQuery.refetch()}
                     bulkScope={bulkScope}
                     hasMatchingBulkScope={hasMatchingBulkScope}
@@ -374,101 +319,45 @@ export const ProductCatalogPanel: React.FC<ProductCatalogPanelProps> = ({
                       </div>
                       <span className="shrink-0">Preços públicos atuais</span>
                     </div>
-                    <div ref={catalogListRef} className="catalog-product-list">
-                      {error && (
-                        <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200">
-                          <p>{error}</p>
-                          {catalogQuery.isError && <button type="button" onClick={() => void catalogQuery.refetch()} className="mt-2 font-semibold underline">Tentar novamente</button>}
-                        </div>
-                      )}
-                      {hasProductDetailsError && (
-                        <div role="alert" className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
-                          <p>Não foi possível carregar algumas variações.</p>
-                          <button type="button" onClick={() => void Promise.all(productDetailsQueries.map((query) => query.refetch()))} className="mt-2 font-semibold underline">Tentar carregar novamente</button>
-                        </div>
-                      )}
-                      {isLoading && Array.from({ length: 6 }, (_, index) => (
-                        <div key={`catalog-skeleton-${index}`} aria-hidden="true" className="flex animate-pulse gap-3 rounded-2xl border border-slate-200 p-3 dark:border-slate-800">
-                          <span className="h-16 w-16 shrink-0 rounded-xl bg-slate-200 dark:bg-slate-800" />
-                          <span className="flex-1 space-y-2 pt-1"><span className="block h-3 w-4/5 rounded bg-slate-200 dark:bg-slate-800" /><span className="block h-3 w-2/3 rounded bg-slate-200 dark:bg-slate-800" /><span className="block h-3 w-1/3 rounded bg-slate-200 dark:bg-slate-800" /></span>
-                        </div>
-                      ))}
-                      {products.map((product) => {
-                        if (product.hasVariations) {
-                          const productDetails = productDetailsById.get(product.id);
-                          const detailsQueryIndex = variationProductBatches.findIndex((batch) => batch.includes(product.id));
-                          const detailsQuery = productDetailsQueries[detailsQueryIndex];
-                          if (!productDetails || productDetails.variations.length === 0) {
-                            return (
-                              <div key={`variations-${product.id}`} role={detailsQuery?.isLoading ? 'status' : detailsQuery?.isError ? 'alert' : undefined} className="rounded-xl border border-dashed border-slate-200 px-3 py-4 text-center text-xs text-slate-500 dark:border-slate-700">
-                                {detailsQuery?.isLoading ? 'Carregando variações…' : detailsQuery?.isError ? 'Variações indisponíveis no momento.' : 'Nenhuma variação ativa disponível.'}
-                              </div>
-                            );
-                          }
 
-                          return (
-                            <React.Fragment key={`variations-${product.id}`}>
-                              {productDetails.variations.map((variation) => {
-                                const item = makeCatalogItem(product, variation);
-                                if (!item) return null;
-                                const isBulkProduct = hasMatchingBulkScope && Boolean(bulkScope)
-                                  && !bulkScope!.excludedProductIds.includes(product.id);
-                                const isSelected = isBulkProduct || selectedItems.has(itemKey(item));
-                                return (
-                                  <ProductCatalogVariationCard
-                                    key={itemKey(item)}
-                                    product={product}
-                                    variation={variation}
-                                    item={item}
-                                    isBulkProduct={isBulkProduct}
-                                    isSelected={isSelected}
-                                    disabled={isSearchDebouncing}
-                                    onToggle={() => toggleProduct(item, product.id)}
-                                  />
-                                );
-                              })}
-                            </React.Fragment>
-                          );
-                        }
-
-                        const simpleItem = makeCatalogItem(product, product.variations?.[0]);
-                        const isBulkProduct = hasMatchingBulkScope && Boolean(bulkScope)
-                          && !bulkScope!.excludedProductIds.includes(product.id);
-                        const isSelected = isBulkProduct || Boolean(simpleItem && selectedItems.has(itemKey(simpleItem)));
-                        return (
-                          <ProductCatalogSingleProductCard
-                            key={product.id}
-                            product={product}
-                            hasMatchingBulkScope={hasMatchingBulkScope}
-                            isSelected={isSelected}
-                            disabled={isSearchDebouncing || (!simpleItem || (!isSelected && selectedItems.size >= 500))}
-                            onToggle={() => toggleProductCard(product.id, isSelected ? 1 : 0, simpleItem)}
-                          />
-                        );
-                      })}
-                      {!isLoading && products.length === 0 && !error && <div className="rounded-2xl border border-dashed border-slate-300 px-4 py-10 text-center text-sm text-slate-500 dark:border-slate-700">Nenhum produto ativo disponível com esses filtros.</div>}
-                      <div ref={loadMoreRef} aria-hidden="true" className="h-px w-full" />
-                      {isLoadingNext && <div className="flex items-center justify-center gap-2 py-5 text-sm text-slate-500"><i className="bi bi-arrow-repeat animate-spin" aria-hidden="true" /> Carregando mais produtos…</div>}
-                      {catalogQuery.hasNextPage && !isLoadingNext && <button type="button" onClick={() => void catalogQuery.fetchNextPage({ cancelRefetch: false })} className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800">Carregar mais produtos</button>}
-                    </div>
-            </div>
-
+                    <ProductCatalogProductList
+                      catalogListRef={catalogListRef}
+                      error={error}
+                      hasProductDetailsError={hasProductDetailsError}
+                      onRetryCatalog={() => void catalogQuery.refetch()}
+                      onRetryProductDetails={() => void Promise.all(productDetailsQueries.map((query) => query.refetch()))}
+                      isLoading={isLoading}
+                      products={products}
+                      productDetailsById={productDetailsById}
+                      variationProductBatches={variationProductBatches}
+                      productDetailsQueries={productDetailsQueries}
+                      hasMatchingBulkScope={hasMatchingBulkScope}
+                      bulkScope={bulkScope}
+                      selectedItems={selectedItems}
+                      isSearchDebouncing={isSearchDebouncing}
+                      toggleProduct={toggleProduct}
+                      toggleProductCard={toggleProductCard}
+                      loadMoreRef={loadMoreRef}
+                      isLoadingNext={isLoadingNext}
+                      hasNextPage={Boolean(catalogQuery.hasNextPage)}
+                      onFetchNextPage={() => void catalogQuery.fetchNextPage({ cancelRefetch: false })}
+                    />
+                  </div>
                 </section>
-
               </div>
             </div>
 
-            <footer className="catalog-picker-footer flex shrink-0 items-center justify-between gap-3 border-t border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950">
-              <div className="catalog-picker-footer-count min-w-0">
-                <p className="text-sm font-bold">{selectedCount} produto{selectedCount === 1 ? '' : 's'} selecionado{selectedCount === 1 ? '' : 's'}</p>
-                {bulkScope && <p className="truncate text-xs text-slate-500">Todos de {bulkScope.categoryName} no momento do envio</p>}
-              </div>
-              <div className="flex shrink-0 items-center gap-2">
-                <button type="button" onClick={clearSelection} disabled={selectedCount === 0} className="catalog-footer-clear rounded-xl px-3 py-2 text-xs font-semibold text-slate-500 hover:bg-slate-100 disabled:opacity-40 dark:hover:bg-slate-800">Limpar</button>
-                <button type="button" onClick={handlePrepare} disabled={selectedCount === 0} className="rounded-xl bg-emerald-600 px-4 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50">Continuar com {selectedCount} produto{selectedCount === 1 ? '' : 's'}</button>
-              </div>
-            </footer>
-            {prepareForm.formState.errors.items && <p role="alert" className="shrink-0 bg-red-50 px-4 py-2 text-xs text-red-700 dark:bg-red-950/50 dark:text-red-200">{prepareForm.formState.errors.items.message}</p>}
+            <ProductCatalogPickerFooter
+              selectedCount={selectedCount}
+              bulkScope={bulkScope}
+              onSendSelection={onSendSelection}
+              canSendSelection={canSendSelection}
+              sendDisabledReason={sendDisabledReason}
+              isSendingSelection={isSendingSelection}
+              onClear={clearSelection}
+              onSubmit={handlePrepare}
+              itemsError={prepareForm.formState.errors.items?.message}
+            />
           </>
         ) : (
           <ProductCatalogPreview

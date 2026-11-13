@@ -1,9 +1,13 @@
 import { parseAuthorizedInvoiceLines } from '../../../erp/src/pages/utils/nfe/invoiceLineSnapshot';
-import type { Attempt, OutboundDatabase } from './outboundTypes';
+import type {
+  OutboundAttemptSnapshot,
+  OutboundDatabase,
+  OutboundDocumentSnapshot,
+} from './outboundTypes';
 
 export async function persistResultToDatabase(
   db: OutboundDatabase,
-  a: Attempt,
+  a: OutboundAttemptSnapshot,
   token: string,
   state: string,
   reason: string,
@@ -41,12 +45,25 @@ export async function persistResultToDatabase(
 
 export async function loadOutboundAttempt(db: OutboundDatabase, documentId: string) {
   const [attempt, document] = await Promise.all([
-    db.from('nfe_outbound_attempts').select('*').eq('document_id', documentId).maybeSingle(),
-    db.from('nfe_documents').select('*').eq('id', documentId).maybeSingle(),
+    db
+      .from('nfe_outbound_attempts')
+      .select(
+        'document_id,order_id,emission_request_id,snapshot_id,access_key,number,series,model,environment,xml_sha256,state'
+      )
+      .eq('document_id', documentId)
+      .maybeSingle(),
+    db
+      .from('nfe_documents')
+      .select('id,status,xml_nfe,xml_protocolo,numero_protocolo,motivo_status')
+      .eq('id', documentId)
+      .maybeSingle(),
   ]);
 
   if (attempt.error || document.error || !attempt.data || !document.data)
     throw new Error('FISCAL_ATTEMPT_UNAVAILABLE');
 
-  return { attempt: attempt.data, document: document.data };
+  return {
+    attempt: attempt.data as OutboundAttemptSnapshot,
+    document: document.data as OutboundDocumentSnapshot,
+  };
 }

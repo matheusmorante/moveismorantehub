@@ -14,7 +14,7 @@ async function getCurrentNcmSuggestion(
 ): Promise<PendingNcmSuggestion | null> {
   const code = candidate.code.replace(/\D/g, '');
   if (!/^\d{8}$/.test(code)) return null;
-  const current = await ncmService.getCatalogEntry(code);
+  const current = await ncmService.getCatalogEntry(code, { includeInternalAliases: false });
   const today = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'America/Sao_Paulo',
     year: 'numeric',

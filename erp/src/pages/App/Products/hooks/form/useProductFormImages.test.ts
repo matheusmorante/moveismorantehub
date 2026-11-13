@@ -3,10 +3,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useProductFormImages } from './useProductFormImages';
 import { uploadFile } from '@/pages/utils/storageService';
-import { compressImageToFile } from '@/pages/utils/imageUtils';
+import { compressImageToFile } from '@/pages/utils/images/imageUtils';
 import { toast } from 'react-toastify';
 
-vi.mock('@/pages/utils/imageUtils', () => ({
+vi.mock('@/pages/utils/images/imageUtils', () => ({
   compressImageToFile: vi.fn().mockImplementation((file) => Promise.resolve(file)),
 }));
 

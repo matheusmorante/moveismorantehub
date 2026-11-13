@@ -29,8 +29,42 @@ export async function resolveWhatsAppSupportCatalogMessage(
   withTimeout: WithTimeout,
 ): Promise<ResolvedCatalogMessage> {
   const nativeDelivery = selection.deliveryMode === 'native';
-  if (nativeDelivery && (selection.bulkScope || selection.items.length > 30 || selection.hidePrices)) {
-    throw new RequestBodyError('Cards nativos aceitam até 30 produtos individuais e exibem o preço publicado na Meta. Use o link para listas maiores ou sem preço.', 400);
+  if (nativeDelivery) {
+    if (selection.hidePrices) {
+      throw new RequestBodyError('Cards nativos exibem o preço publicado na Meta. Desative “Ocultar preços” ou use o link.', 400);
+    }
+    const effectiveBulkTotal = selection.bulkScope
+      ? Math.max(0, selection.bulkScope.total - selection.bulkScope.excludedProductIds.length)
+      : 0;
+    if (selection.bulkScope && effectiveBulkTotal > 30) {
+      throw new RequestBodyError('Cards nativos aceitam até 30 produtos. Reduza a seleção ou use o link.', 400);
+    }
+    if (!selection.bulkScope && selection.items.length > 30) {
+      throw new RequestBodyError('Cards nativos aceitam até 30 produtos. Use o link para listas maiores.', 400);
+    }
+
+    if (selection.bulkScope && effectiveBulkTotal > 0 && (selection.items.length === 0 || selection.items.length < effectiveBulkTotal)) {
+      const scopeResult = await withTimeout<any>(userDb.rpc('customer_support_catalog_summary_page', {
+        p_category_id: selection.bulkScope.filters.categoryId,
+        p_search: selection.bulkScope.filters.search,
+        p_brand: selection.bulkScope.filters.brand,
+        p_page: 1,
+        p_page_size: 30,
+        p_excluded_product_ids: selection.bulkScope.excludedProductIds,
+        p_include_product_ids: [],
+        p_include_only: false,
+      }), 15_000);
+      if (scopeResult.error || !scopeResult.data || !Array.isArray(scopeResult.data.products)) {
+        throw new RequestBodyError('Não foi possível carregar os produtos da categoria. Tente novamente.', 503);
+      }
+      const bulkProducts = scopeResult.data.products as Array<{ id: string; hasVariations?: boolean; variations?: Array<{ id: string }> }>;
+      selection.items = bulkProducts.map((p) => ({
+        productId: p.id,
+        variationId: p.hasVariations ? p.variations?.[0]?.id : undefined,
+      }));
+    } else if (selection.items.length === 0) {
+      throw new RequestBodyError('Nenhum produto selecionado para envio.', 400);
+    }
   }
 
   const productIds = Array.from(new Set(selection.items.map((item) => item.productId)));
@@ -68,9 +102,12 @@ export async function resolveWhatsAppSupportCatalogMessage(
 
   const resolvedItems = selection.items.map((item) => {
     const product = productById.get(item.productId);
-    const variation = item.variationId ? variationById.get(item.variationId) : null;
+    let variation = item.variationId ? variationById.get(item.variationId) : null;
     if (!product || (item.variationId && (!variation || String(variation.product_id) !== item.productId))) {
       throw new RequestBodyError('Uma variação foi ocultada ou ficou indisponível. Atualize a seleção antes de enviar.', 409);
+    }
+    if (!variation && nativeDelivery) {
+      variation = variations.find((v) => String(v.product_id) === String(product.id)) || null;
     }
     const basePrice = Number(product.unit_price ?? product.price ?? 0);
     const basePromo = Number(product.promo_price ?? 0);
@@ -79,7 +116,7 @@ export async function resolveWhatsAppSupportCatalogMessage(
     const effectivePrice = promoPrice > 0 ? promoPrice : price;
     return {
       productId: item.productId,
-      variationId: item.variationId || null,
+      variationId: variation?.id ? String(variation.id) : (item.variationId || null),
       name: String(product.marketplace_title || product.name || 'Produto'),
       variationName: variation ? String(variation.name || '') : '',
       price: Number.isFinite(effectivePrice) && effectivePrice >= 0 ? effectivePrice : 0,
@@ -100,7 +137,13 @@ export async function resolveWhatsAppSupportCatalogMessage(
 
     const nativeProducts = resolvedItems.map((item) => {
       const catalogItemId = item.variationId || item.productId;
-      const retailerId = retailerIdByItemId.get(catalogItemId);
+      let retailerId = retailerIdByItemId.get(catalogItemId);
+      if (!retailerId && !item.variationId) {
+        const firstVar = variations.find((v) => String(v.product_id) === String(item.productId));
+        if (firstVar) {
+          retailerId = retailerIdByItemId.get(String(firstVar.id));
+        }
+      }
       if (!retailerId) {
         throw new RequestBodyError('Um produto ou variação não está publicado no catálogo da Meta. Sincronize o catálogo e selecione novamente.', 409);
       }

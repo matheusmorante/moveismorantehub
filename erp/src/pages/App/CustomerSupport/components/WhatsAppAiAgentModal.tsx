@@ -8,6 +8,7 @@ import {
   AiAgentTabRules,
   AiAgentTabKnowledge,
   AiAgentTabWorkflows,
+  AiAgentTabSimulator,
   AiAgentToolsSection,
   AiAgentPromptSection,
   AiAgentTabQuotas,
@@ -128,15 +129,24 @@ export const WhatsAppAiAgentModal: React.FC<WhatsAppAiAgentModalProps> = ({
             />
           )}
 
-          {activeTab === 'regras_situacoes' && (
-            <AiAgentTabRules
-              rules={watchedRules}
-              setValue={setValue}
-              isAdministrator={isAdministrator}
-            />
+          {activeTab === 'comportamento' && (
+            <div className="space-y-5">
+              <AiAgentTabRules
+                rules={watchedRules}
+                setValue={setValue}
+                isAdministrator={isAdministrator}
+              />
+              <AiAgentPromptSection
+                register={register}
+                watchedPrompt={watchedPrompt}
+                isAdministrator={isAdministrator}
+                error={errors.systemPrompt}
+                onRestoreDefault={handleRestoreDefaultPrompt}
+              />
+            </div>
           )}
 
-          {activeTab === 'base_conhecimento' && (
+          {activeTab === 'conhecimento' && (
             <AiAgentTabKnowledge
               articles={watchedKnowledge}
               setValue={setValue}
@@ -144,7 +154,7 @@ export const WhatsAppAiAgentModal: React.FC<WhatsAppAiAgentModalProps> = ({
             />
           )}
 
-          {activeTab === 'fluxos' && (
+          {activeTab === 'procedimentos' && (
             <AiAgentTabWorkflows
               workflows={watchedWorkflows}
               setValue={setValue}
@@ -161,18 +171,18 @@ export const WhatsAppAiAgentModal: React.FC<WhatsAppAiAgentModalProps> = ({
             />
           )}
 
-          {activeTab === 'limites_cotas' && (
-            <AiAgentTabQuotas isAdministrator={isAdministrator} />
+          {activeTab === 'testes' && (
+            <AiAgentTabSimulator
+              rules={watchedRules}
+              knowledgeBase={watchedKnowledge}
+              workflows={watchedWorkflows}
+              enabledTools={watchedTools}
+              systemPrompt={watchedPrompt}
+            />
           )}
 
-          {activeTab === 'prompt' && (
-            <AiAgentPromptSection
-              register={register}
-              watchedPrompt={watchedPrompt}
-              isAdministrator={isAdministrator}
-              error={errors.systemPrompt}
-              onRestoreDefault={handleRestoreDefaultPrompt}
-            />
+          {activeTab === 'limites_cotas' && (
+            <AiAgentTabQuotas isAdministrator={isAdministrator} />
           )}
 
         </form>

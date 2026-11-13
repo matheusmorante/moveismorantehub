@@ -219,7 +219,7 @@ function Router() {
             <Route
               path="/atendimento"
               element={
-                <PermissionRoute action="viewCustomerSupport">
+                <PermissionRoute action="viewCustomerSupport" allowRealAdministrator>
                   <Suspense fallback={<LoadingFallback />}>
                     <CustomerSupport />
                   </Suspense>

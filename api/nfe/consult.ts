@@ -189,7 +189,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     const { data: doc, error } = await supabase
       .from('nfe_documents')
-      .select('*')
+      .select(
+        'id,fiscal_ruleset_version,status,order_id,modelo,ambiente,chave_acesso,numero_protocolo,numero_nfe,serie,emission_request_id'
+      )
       .eq('id', documentId)
       .maybeSingle();
     if (error || !doc)

@@ -8,8 +8,8 @@ import { withNfeEmissionStage } from '../nfeEmissionPerformance';
 import { matchesSefazAuthorization } from '../authorizationResponseIdentity';
 import { matchesConsultedDocument } from '../consultAuthorizedDocument';
 import {
-  type Attempt,
-  type Document,
+  type OutboundAttemptSnapshot,
+  type OutboundDocumentSnapshot,
   type OutboundDatabase,
   type OutboundResult,
   metadata,
@@ -18,7 +18,11 @@ import {
 import { loadOutboundAttempt, persistResultToDatabase } from './outboundPersistence';
 import { transmitPreparedOutbound } from './outboundTransmission';
 
-export function finalResult(a: Attempt, doc: Document, isReversed = false): OutboundResult {
+export function finalResult(
+  a: OutboundAttemptSnapshot,
+  doc: OutboundDocumentSnapshot,
+  isReversed = false
+): OutboundResult {
   const parsed = parseSefazAuthorization(String(doc.xml_protocolo || ''));
   const isCancelled = doc.status === 'cancelada';
   return {

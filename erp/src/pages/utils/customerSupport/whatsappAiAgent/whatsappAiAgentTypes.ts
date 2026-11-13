@@ -11,6 +11,11 @@ export interface WhatsAppAiAgentDependencies {
   durableJob?: { id: string; token: string };
 }
 
+export interface WhatsAppNativeCatalogProduct {
+  retailerId: string;
+  name: string;
+}
+
 export interface InboundMessageParams {
   conversationId: string;
   messageId: string;

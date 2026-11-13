@@ -15,7 +15,7 @@
 
 import JSZip from 'jszip';
 import { toast } from 'react-toastify';
-import { buildImageFetchCandidates } from '@/pages/utils/imageFetchCandidates';
+import { buildImageFetchCandidates } from '@/pages/utils/images/imageFetchCandidates';
 import { PostCreationSpecification } from '../types/postSpecification';
 import { ElementModel } from '../types/postCreator';
 import { renderSpecificationAsPrompt } from './postSpecificationBuilder';

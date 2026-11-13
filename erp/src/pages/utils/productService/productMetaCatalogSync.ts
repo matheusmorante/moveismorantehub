@@ -25,7 +25,16 @@ const DATA_TIMEOUT_MS = 15_000;
  * Cache de temporizadores para debounce por productId,
  * evitando disparos múltiplos durante mutações sequenciais.
  */
-const pendingSyncs = new Map<string, ReturnType<typeof setTimeout>>();
+type ProductMetaCatalogSyncResult = { success: boolean; count: number; error?: string };
+
+type PendingProductMetaCatalogSync = {
+  timer: ReturnType<typeof setTimeout> | null;
+  promise: Promise<ProductMetaCatalogSyncResult>;
+  resolve: (result: ProductMetaCatalogSyncResult) => void;
+};
+
+const pendingSyncs = new Map<string, PendingProductMetaCatalogSync>();
+const inFlightSyncs = new Map<string, Promise<ProductMetaCatalogSyncResult>>();
 
 let cachedOpportunities: { timestamp: number; data: MetaCatalogOpportunitySource[] } | null = null;
 const OPP_CACHE_TTL_MS = 5 * 60 * 1000;
@@ -72,7 +81,7 @@ export async function syncAllProductsToMetaCatalog(
  */
 export async function syncProductToMetaCatalog(
   productId: string
-): Promise<{ success: boolean; count: number; error?: string }> {
+): Promise<ProductMetaCatalogSyncResult> {
   try {
     const { whatsappConfig } = getSettings();
     if (!whatsappConfig?.catalogId) {
@@ -179,28 +188,72 @@ export async function syncProductToMetaCatalog(
   }
 }
 
+function runProductMetaCatalogSync(productId: string): Promise<ProductMetaCatalogSyncResult> {
+  const existing = inFlightSyncs.get(productId);
+  if (existing) return existing;
+
+  let trackedSync: Promise<ProductMetaCatalogSyncResult>;
+  trackedSync = syncProductToMetaCatalog(productId).finally(() => {
+    if (inFlightSyncs.get(productId) === trackedSync) inFlightSyncs.delete(productId);
+  });
+  inFlightSyncs.set(productId, trackedSync);
+  return trackedSync;
+}
+
+function logProductMetaCatalogSyncResult(
+  productId: string,
+  result: ProductMetaCatalogSyncResult
+): void {
+  if (result.success && result.count > 0) {
+    console.log(`[MetaCatalogSync] Produto ${productId} sincronizado automaticamente com a Meta (${result.count} itens).`);
+  } else if (!result.success) {
+    console.warn(`[MetaCatalogSync] Falha ao sincronizar produto ${productId}:`, result.error);
+  }
+}
+
 /**
  * Dispara a sincronização de um produto com a Meta em segundo plano,
  * com debounce de 400ms para agregar mutações sequenciais.
  */
-export function triggerProductMetaCatalogSync(productId: string): void {
-  if (!productId) return;
+export function triggerProductMetaCatalogSync(
+  productId: string
+): Promise<ProductMetaCatalogSyncResult> {
+  if (!productId) {
+    return Promise.resolve({ success: false, count: 0, error: 'ID do produto ausente.' });
+  }
 
-  const existing = pendingSyncs.get(productId);
-  if (existing) clearTimeout(existing);
+  let pending = pendingSyncs.get(productId);
+  if (pending?.timer) clearTimeout(pending.timer);
 
-  const timer = setTimeout(() => {
+  if (!pending) {
+    let resolvePending!: (result: ProductMetaCatalogSyncResult) => void;
+    const promise = new Promise<ProductMetaCatalogSyncResult>((resolve) => {
+      resolvePending = resolve;
+    });
+    pending = { timer: null, promise, resolve: resolvePending };
+  }
+
+  const scheduled = pending;
+  scheduled.timer = setTimeout(() => {
+    if (pendingSyncs.get(productId) !== scheduled) return;
     pendingSyncs.delete(productId);
-    void syncProductToMetaCatalog(productId).then((res) => {
-      if (res.success && res.count > 0) {
-        console.log(`[MetaCatalogSync] Produto ${productId} sincronizado automaticamente com a Meta (${res.count} itens).`);
-      } else if (!res.success) {
-        console.warn(`[MetaCatalogSync] Falha ao sincronizar produto ${productId}:`, res.error);
-      }
+    scheduled.timer = null;
+
+    void (async () => {
+      const inFlight = inFlightSyncs.get(productId);
+      if (inFlight) await inFlight;
+      return runProductMetaCatalogSync(productId);
+    })().then((result) => {
+      logProductMetaCatalogSyncResult(productId, result);
+      scheduled.resolve(result);
     }).catch((err) => {
-      console.warn(`[MetaCatalogSync] Erro no background sync de ${productId}:`, err);
+      const error = err instanceof Error ? err.message : 'Erro desconhecido na sincronização com a Meta.';
+      const result = { success: false, count: 0, error };
+      logProductMetaCatalogSyncResult(productId, result);
+      scheduled.resolve(result);
     });
   }, 400);
 
-  pendingSyncs.set(productId, timer);
+  pendingSyncs.set(productId, scheduled);
+  return scheduled.promise;
 }

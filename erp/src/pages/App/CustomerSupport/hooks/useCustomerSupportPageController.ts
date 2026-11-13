@@ -24,6 +24,11 @@ export function useCustomerSupportPageController() {
 
   const roles = profile ? getProfileRoles(profile) : [];
   const canViewCommercialInfo = canPerform('viewCustomerCommercialInfo', roles);
+  const canViewScheduledOperations = [
+    'viewDeliverySchedule',
+    'viewAssistanceOrders',
+    'viewReturns',
+  ].some((permission) => canPerform(permission, roles));
 
   const {
     folders,
@@ -88,6 +93,7 @@ export function useCustomerSupportPageController() {
   } = useCustomerSupportConversations({
     agentId: activeAgentId,
     canViewCommercialInfo,
+    canViewScheduledOperations,
   });
 
   // 2. Mensagens da conversa ativa

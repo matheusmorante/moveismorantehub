@@ -6,8 +6,9 @@ import {
   recordDispatchOutcomeSafe,
   persistOutboundMessageAndSyncConversation,
 } from './dispatchOutcomeRecorder.js';
-import { sendMetaTextMessage } from './metaGraphSender.js';
+import { sendMetaNativeCatalogMessage, sendMetaTextMessage, type MetaMessageResult } from './metaGraphSender.js';
 import { prepareDispatchIdempotency } from './prepareDispatchIdempotency.js';
+import { markLatestCustomerMessageAsRead } from '../../whatsappReadReceipt.js';
 
 export async function dispatchAutomaticMode(
   params: DispatchAiResponseParams
@@ -19,6 +20,7 @@ export async function dispatchAutomaticMode(
     settings,
     aiResponseText,
     toolsUsed,
+    nativeCatalogProducts: requestedCatalogProducts,
     situationKey,
     matchedKeywords,
     enforcedPhrases,
@@ -34,10 +36,30 @@ export async function dispatchAutomaticMode(
     durableJob,
   } = params;
 
+  const nativeCatalogProducts = (requestedCatalogProducts || [])
+    .filter((product) => product?.retailerId && product?.name)
+    .slice(0, 30);
+  const catalogId = String(settings?.whatsappConfig?.catalogId || '').trim();
+  const sendCatalogCards = /^\d{1,32}$/.test(catalogId) && nativeCatalogProducts.length > 0;
+  const responseText = sendCatalogCards && aiResponseText.length > 1024
+    ? 'Separei estas opções do nosso catálogo para você:'
+    : aiResponseText;
+  const storedText = sendCatalogCards
+    ? [
+        responseText,
+        nativeCatalogProducts.length === 1
+          ? `Produto do catálogo: ${nativeCatalogProducts[0].name}`
+          : `Lista nativa com ${nativeCatalogProducts.length} produtos: ${nativeCatalogProducts.slice(0, 4).map((product) => product.name).join(', ')}`,
+      ].join('\n\n')
+    : responseText;
+  const messageType = sendCatalogCards ? 'interactive' as const : 'text' as const;
+
   if (durableJob) {
     const { data, error } = await supabase.rpc('customer_support_stage_ai_job', {
       p_job_id: durableJob.id, p_lock_token: durableJob.token,
-      p_payload: { aiResponseText, toolsUsed, situationKey, matchedKeywords, enforcedPhrases,
+      p_payload: { aiResponseText: responseText, storedText, messageType,
+        ...(sendCatalogCards ? { nativeCatalogProducts } : {}),
+        toolsUsed, situationKey, matchedKeywords, enforcedPhrases,
         relevantArticleIds, workflowKey, executionTimeMs, modelEffective, fallbackReason },
     });
     if (error || data !== true) throw new Error('Não foi possível salvar a resposta antes do envio.');
@@ -48,7 +70,7 @@ export async function dispatchAutomaticMode(
     conversationId: inbound.conversationId,
     wamid: inbound.wamid,
     turnId,
-    aiResponseText,
+    aiResponseText: responseText,
     toolsUsed,
     situationKey,
   });
@@ -82,23 +104,113 @@ export async function dispatchAutomaticMode(
     };
   }
 
+  const quotaResult = await Promise.resolve(supabase.rpc('customer_support_outside_window_quota', {
+    p_business_phone_number_id: phoneNumberId,
+    p_conversation_id: inbound.conversationId,
+    p_source: 'ai_auto',
+    p_reserve: true,
+  })).catch((error: unknown) => ({ data: null, error }));
+  const quota = quotaResult.data as {
+    allowed?: unknown;
+    exempt?: unknown;
+    reservation_id?: unknown;
+  } | null;
+  if (quotaResult.error || !quota || typeof quota.allowed !== 'boolean') {
+    const outcomeRecorded = await recordDispatchOutcomeSafe(
+      supabase, dispatchId, 'failed', null, 'whatsapp_send_quota_unavailable'
+    );
+    markMessageProcessed(inbound.wamid);
+    return {
+      executed: false,
+      reason: outcomeRecorded ? 'whatsapp_send_quota_unavailable' : 'meta_api_result_state_unrecorded',
+      toolsUsed,
+      situationDetected: situationKey,
+    };
+  }
+  if (!quota.allowed) {
+    const outcomeRecorded = await recordDispatchOutcomeSafe(
+      supabase, dispatchId, 'failed', null, 'whatsapp_send_quota_exhausted'
+    );
+    markMessageProcessed(inbound.wamid);
+    return {
+      executed: false,
+      reason: outcomeRecorded ? 'whatsapp_send_quota_exhausted' : 'meta_api_result_state_unrecorded',
+      toolsUsed,
+      situationDetected: situationKey,
+    };
+  }
+
+  const quotaReservationId = typeof quota.reservation_id === 'string' ? quota.reservation_id : '';
+  if (!quotaReservationId && quota.exempt !== true) {
+    const outcomeRecorded = await recordDispatchOutcomeSafe(
+      supabase, dispatchId, 'failed', null, 'whatsapp_send_quota_reservation_missing'
+    );
+    markMessageProcessed(inbound.wamid);
+    return {
+      executed: false,
+      reason: outcomeRecorded ? 'whatsapp_send_quota_unavailable' : 'meta_api_result_state_unrecorded',
+      toolsUsed,
+      situationDetected: situationKey,
+    };
+  }
+
+  const finishSendQuota = async (status: 'sent' | 'failed' | 'uncertain' | 'released') => {
+    if (!quotaReservationId) return;
+    const { error } = await Promise.resolve(supabase.rpc('customer_support_finish_whatsapp_send_quota', {
+      p_reservation_id: quotaReservationId,
+      p_status: status,
+    })).catch((error: unknown) => ({ data: null, error }));
+    if (error) console.error('[AI Dispatcher] Não foi possível finalizar a reserva da cota de envio.');
+  };
+
   if (durableJob) {
     const { data, error } = await supabase.rpc('customer_support_mark_ai_job_sending', {
       p_job_id: durableJob.id, p_lock_token: durableJob.token, p_dispatch_id: dispatchId,
     });
-    if (error || data !== true) throw new Error('Não foi possível confirmar o início do envio.');
+    if (error || data !== true) {
+      await finishSendQuota('released');
+      await recordDispatchOutcomeSafe(supabase, dispatchId, 'failed', null, 'ai_job_send_claim_failed');
+      throw new Error('Não foi possível confirmar o início do envio.');
+    }
   }
 
-  const sendResult = await sendMetaTextMessage({
-    fetchMeta,
-    phoneNumberId,
-    accessToken,
-    recipientPhone: inbound.from,
-    textContent: aiResponseText,
-    replyToWamid: inbound.wamid,
-  });
+  let sendResult: MetaMessageResult;
+  try {
+    sendResult = sendCatalogCards
+      ? await sendMetaNativeCatalogMessage({
+        fetchMeta,
+        phoneNumberId,
+        accessToken,
+        recipientPhone: inbound.from,
+        catalogId,
+        bodyText: responseText,
+        products: nativeCatalogProducts,
+        replyToWamid: inbound.wamid,
+      })
+      : await sendMetaTextMessage({
+        fetchMeta,
+        phoneNumberId,
+        accessToken,
+        recipientPhone: inbound.from,
+        textContent: responseText,
+        replyToWamid: inbound.wamid,
+      });
+  } catch (error) {
+    await finishSendQuota('uncertain');
+    await recordDispatchOutcomeSafe(
+      supabase, dispatchId, 'uncertain', null, error instanceof Error ? error.message : 'Meta send result uncertain'
+    );
+    markMessageProcessed(inbound.wamid);
+    return {
+      executed: false,
+      reason: 'meta_api_network_error_outcome_uncertain',
+      toolsUsed,
+      situationDetected: situationKey,
+    };
+  }
 
   if (!sendResult.ok) {
+    await finishSendQuota(sendResult.status === 'uncertain' ? 'uncertain' : 'failed');
     const outcomeRecorded = await recordDispatchOutcomeSafe(
       supabase,
       dispatchId,
@@ -118,7 +230,16 @@ export async function dispatchAutomaticMode(
     };
   }
 
+  await finishSendQuota('sent');
+
   const apiMessageId = sendResult.apiMessageId || `ai_out_${Date.now()}`;
+  const readReceiptPromise = markLatestCustomerMessageAsRead(supabase, {
+    conversationId: inbound.conversationId,
+    messageId: inbound.wamid,
+    businessPhoneNumberId: phoneNumberId,
+    accessToken,
+    fetchMeta,
+  });
 
   // 3. Persiste mensagem enviada e atualiza última mensagem da conversa
   const rawPayload = buildAiMessagePayload({
@@ -134,6 +255,14 @@ export async function dispatchAutomaticMode(
     modelEffective: modelEffective || config.model,
     fallbackReason,
   });
+  if (sendCatalogCards) {
+    rawPayload.provider_message_type = nativeCatalogProducts.length === 1 ? 'product' : 'product_list';
+    rawPayload.catalog_product_count = nativeCatalogProducts.length;
+    rawPayload.catalog_products = nativeCatalogProducts.map((product) => ({
+      retailer_id: product.retailerId,
+      name: product.name,
+    }));
+  }
 
   const sendAt = now.toISOString();
 
@@ -144,7 +273,8 @@ export async function dispatchAutomaticMode(
       conversationId: inbound.conversationId,
       apiMessageId,
       replyToWamid: inbound.wamid,
-      textContent: aiResponseText,
+      textContent: storedText,
+      messageType,
       status: 'sent',
       rawPayload,
       sendAt,
@@ -154,6 +284,10 @@ export async function dispatchAutomaticMode(
     messagePersisted = true;
   } catch (persistError) {
     console.error('[AI Dispatcher] A mensagem foi enviada, mas não foi persistida:', persistError);
+  }
+
+  if (await readReceiptPromise === 'failed') {
+    console.warn('[AI Dispatcher] A resposta foi enviada, mas a confirmação de leitura não foi aceita pela Meta.');
   }
 
   markMessageProcessed(inbound.wamid);
@@ -173,7 +307,7 @@ export async function dispatchAutomaticMode(
   return {
     executed: true,
     reason: 'automatic_sent',
-    replyText: aiResponseText,
+    replyText: responseText,
     apiMessageId,
     toolsUsed,
     situationDetected: situationKey,

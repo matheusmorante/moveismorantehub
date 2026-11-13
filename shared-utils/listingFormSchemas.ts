@@ -34,7 +34,7 @@ export const productListQueryFiltersFormSchema = z.object({
   includeDeactivated: z.boolean().optional(),
   itemType: z.enum(['product', 'composition', 'service']).optional(),
   excludeItemType: z.enum(['product', 'composition', 'service']).optional(),
-  sortBy: z.enum(['description', 'unitPrice', 'stock', 'code', 'createdAt', 'category']).optional(),
+  sortBy: z.enum(['description', 'unitPrice', 'stock', 'code', 'createdAt', 'updatedAt', 'category']).optional(),
   sortOrder: z.enum(['asc', 'desc']).optional(),
   excludeTestProducts: z.boolean().optional(),
 });

@@ -66,13 +66,13 @@ export function useNfeEmissionModalState({
   const recipientTaxIdPrefilledOrderId = React.useRef<string | null>(null);
 
   React.useEffect(() => {
-    let active = true;
     const orderId = order?.id;
-    if (!isOpen || !orderId) {
+    if (!isOpen || !orderId || initialEnvironment) {
       setFiscalStatuses(null);
       return;
     }
 
+    let active = true;
     fetchOrderFiscalBadgeStatuses([orderId])
       .then((res) => {
         if (active && res[orderId]) {
@@ -86,7 +86,7 @@ export function useNfeEmissionModalState({
     return () => {
       active = false;
     };
-  }, [isOpen, order?.id]);
+  }, [isOpen, order?.id, initialEnvironment]);
 
   React.useEffect(() => {
     if (!isOpen || !emissionOrder?.id || isLoadingCustomerType) return;

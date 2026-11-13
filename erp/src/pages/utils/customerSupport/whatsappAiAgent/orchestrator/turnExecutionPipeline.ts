@@ -16,6 +16,7 @@ import {
 import { enforceMandatoryPhrases } from '../whatsappAiRuleEngine.js';
 import { runAiTurnWithFallback } from '../whatsappAiModelRunner.js';
 import { dispatchAiResponse } from '../whatsappAiAgentDispatcher.js';
+import { buildAiFailureHandoffReason, recordHandoffToHuman } from '../tools/handoffService.js';
 import {
   buildTurnContext,
   fetchAndFormatConversationHistory,
@@ -47,6 +48,7 @@ export async function executeWhatsAppAiTurn(
 
   // Trava a mensagem localmente no processo
   markMessageInFlight(inbound.wamid);
+  let aiHandoffConfirmed = false;
 
   try {
     // 1. Composição de contexto cognitivo (situações, conhecimento e workflows)
@@ -111,27 +113,13 @@ export async function executeWhatsAppAiTurn(
       },
     });
 
-    const rawAiText = aiTurnResult.text;
+    let rawAiText = aiTurnResult.text?.trim() || '';
     const toolsUsed = aiTurnResult.toolsCalled;
+    aiHandoffConfirmed = aiTurnResult.handoffConfirmed === true;
 
     if (!rawAiText) {
-      if (turnLock) {
-        await completeDistributedAiTurnLock(supabase, {
-          turnId: turnLock.turnId,
-          lockToken: turnLock.lockToken,
-          conversationId: inbound.conversationId,
-          status: 'failed',
-          modelEffective: aiTurnResult.modelEffective,
-          fallbackReason: aiTurnResult.fallbackReason || 'empty_model_response',
-        });
-      }
-      markMessageProcessed(inbound.wamid);
-      return {
-        executed: false,
-        reason: 'empty_model_response',
-        toolsUsed,
-        situationDetected: situation?.situationKey || null,
-      };
+      if (aiHandoffConfirmed) rawAiText = 'Atendimento encaminhado à equipe.';
+      else throw new Error('O agente não gerou uma resposta após consultar as informações disponíveis.');
     }
 
     // 6. Garantia determinística de Frases Obrigatórias
@@ -150,6 +138,7 @@ export async function executeWhatsAppAiTurn(
       settings,
       aiResponseText: validatedResponseText,
       toolsUsed,
+      nativeCatalogProducts: aiTurnResult.nativeCatalogProducts,
       situationKey: situation?.situationKey || null,
       matchedKeywords,
       enforcedPhrases,
@@ -167,6 +156,27 @@ export async function executeWhatsAppAiTurn(
       durableJob: dependencies.durableJob,
     });
 
+    const dispatchSkipReasons = new Set([
+      'conversation_archived_during_processing',
+      'assigned_to_human_during_processing',
+      'handoff_to_human_during_processing',
+      'disabled_during_processing',
+      'support_mode_changed_during_processing',
+      'unauthorized_phone_number_pre_dispatch_guard',
+      'conversation_archived',
+      'assigned_to_human',
+      'ai_status_needs_human',
+      'ai_status_human_active',
+      'ai_status_paused',
+      'already_dispatched_or_dispatching',
+    ]);
+    if (!dispatchResult.executed && !dispatchSkipReasons.has(dispatchResult.reason || '')) {
+      throw new Error([
+        `Não foi possível entregar a resposta ao cliente (${dispatchResult.reason || 'falha sem motivo informado'})`,
+        dispatchResult.error,
+      ].filter(Boolean).join(': '));
+    }
+
     // 8. Finalização atômica do turno no PostgreSQL e conferência de mensagens pendentes em cadeia
     return await finalizeTurnAndChainPending({
       supabase,
@@ -182,25 +192,58 @@ export async function executeWhatsAppAiTurn(
       toolsUsed,
       startTime,
       now,
-      isHandoff: false,
+      isHandoff: aiHandoffConfirmed,
       targetModel,
       executeTurnFn: executeWhatsAppAiTurn,
     });
   } catch (err: any) {
+    const reason = buildAiFailureHandoffReason(err, 'processamento do atendimento');
+    let handoffConfirmed = aiHandoffConfirmed;
+    if (!handoffConfirmed) {
+      try {
+        const handoff = await recordHandoffToHuman(supabase, {
+          conversationId: inbound.conversationId,
+          reason,
+          isSilent: true,
+        });
+        handoffConfirmed = handoff.success;
+      } catch {
+        handoffConfirmed = false;
+      }
+    }
+
+    if (handoffConfirmed) {
+      if (turnLock) {
+        await completeDistributedAiTurnLock(supabase, {
+          turnId: turnLock.turnId,
+          lockToken: turnLock.lockToken,
+          conversationId: inbound.conversationId,
+          status: 'completed',
+          fallbackReason: reason,
+          metadata: { aiFailureHandoff: true },
+        });
+      }
+      markMessageProcessed(inbound.wamid);
+      return {
+        executed: true,
+        reason: 'silent_handoff_no_customer_message',
+        toolsUsed: ['encaminharParaAtendimentoHumano'],
+      };
+    }
+
     if (turnLock) {
       await completeDistributedAiTurnLock(supabase, {
         turnId: turnLock.turnId,
         lockToken: turnLock.lockToken,
         conversationId: inbound.conversationId,
         status: 'failed',
-        fallbackReason: err?.message || String(err),
+        fallbackReason: reason,
       });
     }
     releaseMessageInFlight(inbound.wamid);
     return {
       executed: false,
-      reason: 'exception',
-      error: err?.message || String(err),
+      reason: 'human_handoff_unconfirmed',
     };
   } finally {
     releaseConversationInFlight(inbound.conversationId);

@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({ compress: vi.fn(), upload: vi.fn() }));
-vi.mock('@/pages/utils/imageUtils', () => ({ compressImageToFile: mocks.compress }));
+vi.mock('@/pages/utils/images/imageUtils', () => ({ compressImageToFile: mocks.compress }));
 vi.mock('@/pages/utils/storageService', () => ({ uploadFile: mocks.upload }));
 import { uploadOptimizedProductImage } from './productImageUpload';
 const file = () => new File(['image'], 'photo.webp', { type: 'image/webp' });

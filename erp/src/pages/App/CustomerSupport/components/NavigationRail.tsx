@@ -60,15 +60,23 @@ export const NavigationRail: React.FC<NavigationRailProps> = ({
           />
         )}
 
-        <NavigationRailItem
-          icon="bi-robot"
-          title="Conversa de teste com o agente de IA"
-          ariaLabel="Conversa de teste com o agente de IA"
-          isActive={isAiAgentChatOpen}
-          ariaExpanded={isAiAgentChatOpen}
-          ariaControls="customer-support-ai-test-chat"
-          onClick={onOpenAiAgentChat}
-        />
+        <div className="relative">
+          <NavigationRailItem
+            icon="bi-robot"
+            imageSrc="/lizandro.png"
+            title="Conversa de teste do Seu Lizandro (IA)"
+            ariaLabel="Conversa de teste com o agente de IA Seu Lizandro"
+            isActive={isAiAgentChatOpen}
+            activeAppearance="circular-outline"
+            ariaExpanded={isAiAgentChatOpen}
+            ariaControls="customer-support-ai-test-chat"
+            onClick={onOpenAiAgentChat}
+          />
+          <i
+            aria-hidden="true"
+            className="bi bi-stars pointer-events-none absolute -right-0.5 -top-0.5 z-10 text-base leading-none text-purple-600 dark:text-purple-400"
+          />
+        </div>
       </div>
 
       {/* Opções da Central */}

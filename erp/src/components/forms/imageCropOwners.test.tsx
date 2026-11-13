@@ -7,7 +7,7 @@ import { SquareImageCropper } from '../../pages/App/Products/components/tabs/ima
 import { rectangularImageCropFormSchema, squareImageCropFormSchema } from '../../../../shared-utils/fileFormSchemas';
 
 const mocks = vi.hoisted(() => ({ compress: vi.fn(), error: vi.fn(), draw: vi.fn(), createUrl: vi.fn() }));
-vi.mock('@/pages/utils/imageUtils', () => ({ compressImageToFile: mocks.compress }));
+vi.mock('@/pages/utils/images/imageUtils', () => ({ compressImageToFile: mocks.compress }));
 vi.mock('react-toastify', () => ({ toast: { error: mocks.error } }));
 afterEach(() => { cleanup(); vi.useRealTimers(); vi.unstubAllGlobals(); });
 beforeEach(() => {

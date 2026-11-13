@@ -22,7 +22,7 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
   canCreateOrders = false,
   shareOrderRequest = null,
   onShareOrderRequestHandled,
-  careWindowOpen = false,
+  careWindowOpen,
   isChannelConnected = false,
   onSendCustomerMessage,
   onRefreshMessages,
@@ -48,7 +48,7 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
     handleSendDraft,
     draftErrors,
     isDraftSubmitting,
-    textareaRef,
+    messageInputRef,
     insertEmoji,
     photoInputRef,
     documentInputRef,
@@ -56,7 +56,6 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
     removeAttachment,
     addFiles,
     addStoreContact,
-    addCatalogSelection,
     sendControl,
     orderPicker,
     audioRecording,
@@ -68,7 +67,6 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
     canCreateOrders,
     shareOrderRequest,
     onShareOrderRequestHandled,
-    careWindowOpen,
     isChannelConnected,
     onSendCustomerMessage,
     onRefreshMessages,
@@ -83,6 +81,9 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
     <div className="relative border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 select-text">
       {/* Indicadores de Status e Mensagens de Erro/Incerteza */}
       <ChatComposerStatus
+        careWindowOpen={careWindowOpen}
+        canSend={canSend}
+        isChannelConnected={isChannelConnected}
         sendError={sendControl.sendError}
         sendFeedback={sendControl.sendFeedback}
         recordingError={audioRecording.recordingError}
@@ -108,19 +109,21 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
       {/* Rascunho de Áudio Gravado */}
       {audioRecording.audioPreview && (
         <RecordedAudioPreview
-          audioPreview={audioRecording.audioPreview}
-          onRemove={audioRecording.clearAudioPreview}
+          audioUrl={audioRecording.audioPreview.url}
+          onDiscard={audioRecording.clearAudioPreview}
         />
       )}
 
       {/* Controles de Gravação de Áudio ao Vivo */}
-      {audioRecording.isRecording && (
+      {(audioRecording.isRecording || audioRecording.isPreparingAudio) && (
         <ChatAudioRecordingControls
-          recordingSeconds={audioRecording.recordingSeconds}
+          isRecording={audioRecording.isRecording}
           isRecordingPaused={audioRecording.isRecordingPaused}
+          isPreparingAudio={audioRecording.isPreparingAudio}
+          durationLabel={audioRecording.recordingDurationLabel}
           onCancel={audioRecording.cancelRecording}
           onTogglePause={audioRecording.toggleRecordingPause}
-          onFinish={audioRecording.stopRecording}
+          onStop={audioRecording.stopRecording}
         />
       )}
 
@@ -134,9 +137,16 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
       )}
 
       {/* Barra de Digitação e Ações Principais */}
-      {!audioRecording.isRecording && composerMode === 'whatsapp' && (
+      {!audioRecording.isRecording && !audioRecording.isPreparingAudio && composerMode === 'whatsapp'
+        && (conversation.channel === 'instagram' || conversation.channel === 'messenger') && (
+          <div role="status" className="px-4 py-3 text-center text-xs text-slate-500 dark:text-slate-400">
+            O recebimento de mensagens está ativo. O envio por {conversation.channel === 'instagram' ? 'Instagram' : 'Messenger'} ainda não foi configurado.
+          </div>
+        )}
+      {!audioRecording.isRecording && !audioRecording.isPreparingAudio && composerMode === 'whatsapp'
+        && conversation.channel !== 'instagram' && conversation.channel !== 'messenger' && (
         <ChatComposerInputBar
-          textareaRef={textareaRef}
+          messageInputRef={messageInputRef}
           messageRegister={registerDraft('message')}
           message={message}
           hasAttachments={attachments.length > 0}
@@ -147,7 +157,6 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
           replyTarget={replyTarget}
           onClearReplyTarget={onClearReplyTarget}
           onOpenSnippets={onOpenSnippets}
-          onSwitchToCommentMode={() => setComposerMode('comment')}
           onSendDraft={() => void handleSendDraft()}
           onStartRecording={audioRecording.startRecording}
           onSelectPhotos={() => photoInputRef.current?.click()}
@@ -169,7 +178,10 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
         orderPicker={orderPicker}
         isCatalogOpen={isCatalogOpen}
         setIsCatalogOpen={setIsCatalogOpen}
-        addCatalogSelection={addCatalogSelection}
+        sendCatalogSelection={sendControl.executeSendCatalogSelection}
+        canSendCatalogSelection={sendControl.sendAllowed}
+        catalogSendDisabledReason={sendControl.sendBlockedReason}
+        isSendingCatalogSelection={sendControl.isSending}
         newOrderType={newOrderType}
         setNewOrderType={setNewOrderType}
       />

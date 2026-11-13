@@ -186,6 +186,7 @@ export const fetchProductsPage = async (
       stock: 'stock',
       code: 'code',
       createdAt: 'created_at',
+      updatedAt: 'updated_at',
       category: 'category',
     };
     const orderColumn = columnMap[sortBy] || 'created_at';

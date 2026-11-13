@@ -23,7 +23,7 @@ export interface UseOrderFormSubmissionParams {
   customerData: Order['customerData'];
   latestState: React.MutableRefObject<any>;
   getOrderData: (newStatus?: Order['status']) => Order;
-  ensureOrderCode: () => Promise<string | null>;
+  ensureOrderCode: () => Promise<number | null>;
   cancelAutoSave: () => void;
   waitForActiveSave: () => Promise<void>;
   setIsSaving: React.Dispatch<React.SetStateAction<boolean>>;
@@ -206,8 +206,8 @@ export const useOrderFormSubmission = ({
       latestState.current.isSaving = true;
       setIsSaving(true);
       try {
-        await waitForActiveSave();
-        cancelAutoSave();
+        // Validação e código podem avançar enquanto um autosave já iniciado termina.
+        const activeDraftSave = waitForActiveSave();
         const savedStatus = resolveCompletedOrderStatus(latestState.current);
         const snapshot = getOrderData(savedStatus);
         const persistValidatedOrder = async (
@@ -215,11 +215,17 @@ export const useOrderFormSubmission = ({
         ) => {
           const orderData = data as unknown as Order;
           setErrors({});
+          const [currentIdx] = await Promise.all([
+            orderData.is_test === true ? Promise.resolve(null) : ensureOrderCode(),
+            activeDraftSave,
+          ]);
           if (orderData.is_test !== true) {
-            const currentIdx = await ensureOrderCode();
             if (!currentIdx) return false;
             orderData.orderIndex = currentIdx;
             orderData.orderNumber = currentIdx;
+          }
+          if (!orderData.id && latestState.current.currentOrderId) {
+            orderData.id = latestState.current.currentOrderId;
           }
           try {
             const savedId = await saveOrder(orderData);

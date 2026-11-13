@@ -1,3 +1,6 @@
+import { buildWhatsAppNativeCatalogMessage } from '../../../../../../../shared-utils/whatsappNativeCatalogMessage.js';
+import type { WhatsAppNativeCatalogProduct } from '../whatsappAiAgentTypes.js';
+
 export interface SendMetaMessageParams {
   fetchMeta: typeof fetch;
   phoneNumberId: string;
@@ -7,6 +10,12 @@ export interface SendMetaMessageParams {
   replyToWamid?: string;
 }
 
+export interface SendMetaNativeCatalogParams extends Omit<SendMetaMessageParams, 'textContent'> {
+  catalogId: string;
+  bodyText: string;
+  products: WhatsAppNativeCatalogProduct[];
+}
+
 export interface MetaMessageResult {
   ok: boolean;
   status: 'sent' | 'failed' | 'uncertain';
@@ -14,25 +23,11 @@ export interface MetaMessageResult {
   error?: string;
 }
 
-/**
- * Envia mensagem de texto via Meta Cloud API com proteção contra timeout e resultados incertos
- */
-export async function sendMetaTextMessage(
-  params: SendMetaMessageParams
+async function sendMetaPayloadMessage(
+  params: Pick<SendMetaMessageParams, 'fetchMeta' | 'phoneNumberId' | 'accessToken'>,
+  metaPayload: Record<string, unknown>,
 ): Promise<MetaMessageResult> {
-  const { fetchMeta, phoneNumberId, accessToken, recipientPhone, textContent, replyToWamid } = params;
-
-  const metaPayload: Record<string, any> = {
-    messaging_product: 'whatsapp',
-    recipient_type: 'individual',
-    to: recipientPhone,
-    type: 'text',
-    text: { body: textContent },
-  };
-
-  if (replyToWamid) {
-    metaPayload.context = { message_id: replyToWamid };
-  }
+  const { fetchMeta, phoneNumberId, accessToken } = params;
 
   let metaRes: Response;
   const controller = new AbortController();
@@ -82,4 +77,34 @@ export async function sendMetaTextMessage(
     status: 'sent',
     apiMessageId,
   };
+}
+
+/** Envia texto ou catálogo nativo via Meta com o mesmo tratamento de timeout e resultado incerto. */
+export async function sendMetaTextMessage(
+  params: SendMetaMessageParams
+): Promise<MetaMessageResult> {
+  const { recipientPhone, textContent, replyToWamid } = params;
+  const metaPayload: Record<string, unknown> = {
+    messaging_product: 'whatsapp',
+    recipient_type: 'individual',
+    to: recipientPhone,
+    type: 'text',
+    text: { body: textContent },
+  };
+  if (replyToWamid) metaPayload.context = { message_id: replyToWamid };
+  return sendMetaPayloadMessage(params, metaPayload);
+}
+
+export async function sendMetaNativeCatalogMessage(
+  params: SendMetaNativeCatalogParams
+): Promise<MetaMessageResult> {
+  const { catalogId, recipientPhone, bodyText, products, replyToWamid } = params;
+  const metaPayload = buildWhatsAppNativeCatalogMessage({
+    recipient: recipientPhone,
+    catalogId,
+    bodyText,
+    retailerIds: products.map((product) => product.retailerId),
+  });
+  if (replyToWamid) metaPayload.context = { message_id: replyToWamid };
+  return sendMetaPayloadMessage(params, metaPayload);
 }

@@ -30,7 +30,7 @@ export const TestChatInputBar: React.FC<TestChatInputBarProps> = ({
           aria-label="Mensagem para o agente de IA"
           aria-invalid={Boolean(error)}
           aria-describedby={error ? 'ai-test-message-error' : undefined}
-          placeholder="Digite uma mensagem para o Lizandro testar no ERP..."
+          placeholder="Digite uma mensagem para testar o Seu Lizandro no ERP..."
           value={inputText}
           onChange={(e) => setInputText(e.target.value)}
           disabled={isGenerating}

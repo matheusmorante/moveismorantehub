@@ -1,7 +1,8 @@
 'use client';
 
-import { Info, CreditCard, AlertCircle, TrendingDown } from 'lucide-react';
+import { Info, CreditCard, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import {
   Dialog,
   DialogContent,
@@ -14,9 +15,10 @@ import { formatCurrency } from '@/lib/utils';
 interface PaymentInfoProps {
   price: number;
   originalPrice?: number;
+  isSalvados?: boolean;
 }
 
-export function PaymentInfo({ price, originalPrice }: PaymentInfoProps) {
+export function PaymentInfo({ price, originalPrice, isSalvados = false }: PaymentInfoProps) {
   const installmentValue = price / 10;
 
   return (
@@ -24,13 +26,19 @@ export function PaymentInfo({ price, originalPrice }: PaymentInfoProps) {
       {/* Preços */}
       <div className="space-y-1">
         {originalPrice && originalPrice > price && (
-          <div className="flex items-center gap-2 flex-wrap">
-            <p className="text-xs sm:text-sm text-muted-foreground line-through decoration-primary/30 font-medium">
-              De {formatCurrency(originalPrice)}
-            </p>
-            <span className="inline-flex items-center gap-1 text-[10px] sm:text-xs font-black text-white bg-[#00A650] px-2 py-0.5 rounded-md shadow-sm leading-none">
-              <TrendingDown className="h-3 w-3 text-white shrink-0 stroke-[3]" />
-              <span>{Math.floor(((originalPrice - price) / originalPrice) * 100)}% OFF</span>
+          <div className="flex min-h-4 flex-wrap items-center gap-x-2 gap-y-1">
+            <span className="shrink-0 whitespace-nowrap text-[10px] text-muted-foreground line-through">
+              {formatCurrency(originalPrice)}
+            </span>
+            <span
+              className={cn(
+                'shrink-0 whitespace-nowrap rounded border px-1 text-[9px] font-bold',
+                isSalvados
+                  ? 'border-orange-500 text-orange-500'
+                  : 'border-[#00A650] text-[#00A650]'
+              )}
+            >
+              {Math.floor(((originalPrice - price) / originalPrice) * 100)}% OFF
             </span>
           </div>
         )}

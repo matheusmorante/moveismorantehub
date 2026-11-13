@@ -11,6 +11,10 @@ const supabaseUrl =
   'https://hkoxhourxwlddgsfdgws.supabase.co';
 const serviceKey = getSupabaseSecretKey() || '';
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const operationDraftDetailsColumns =
+  'id,operation_kind,environment,status,reason,created_at,updated_at,document_id,access_key,protocol_number,original_document_id,signed_xml,generated_xml,sefaz_response_xml';
+const sourceDocumentSummaryColumns =
+  'id,order_id,modelo,ambiente,numero_nfe,serie,chave_acesso,valor_total,destinatario_nome,destinatario_documento';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -48,7 +52,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!fiscalDoc) {
     const { data: draft, error: draftError } = await db
       .from('nfe_operation_drafts')
-      .select('*')
+      .select(operationDraftDetailsColumns)
       .eq('id', documentId)
       .maybeSingle();
 
@@ -78,7 +82,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (draft.original_document_id) {
         const { data: orig, error: originalError } = await db
           .from('nfe_documents')
-          .select('*')
+          .select(sourceDocumentSummaryColumns)
           .eq('id', draft.original_document_id)
           .maybeSingle();
         if (originalError || !orig)

@@ -9,13 +9,30 @@ export function useOrderCodeGenerator(
   const [orderIndex, setOrderIndex] = useState<number | null>(null);
   const [isGeneratingCode, setIsGeneratingCode] = useState(false);
   const isGeneratingCodeRef = useRef(false);
+  const orderCodeRequestRef = useRef<Promise<number> | null>(null);
+
+  const requestOrderCode = useCallback(() => {
+    if (orderCodeRequestRef.current) return orderCodeRequestRef.current;
+
+    const request = getNextOrderIndex();
+    orderCodeRequestRef.current = request;
+    void request.then(
+      () => {
+        if (orderCodeRequestRef.current === request) orderCodeRequestRef.current = null;
+      },
+      () => {
+        if (orderCodeRequestRef.current === request) orderCodeRequestRef.current = null;
+      }
+    );
+    return request;
+  }, []);
 
   // Gerar código sequencial único imediatamente ao abrir novo formulário
   useEffect(() => {
     if (!currentOrderId && orderIndex === null && !isGeneratingCodeRef.current) {
       isGeneratingCodeRef.current = true;
       setIsGeneratingCode(true);
-      getNextOrderIndex()
+      requestOrderCode()
         .then((code) => {
           setOrderIndex(code);
           if (latestStateRef.current) {
@@ -34,14 +51,14 @@ export function useOrderCodeGenerator(
           setIsGeneratingCode(false);
         });
     }
-  }, [currentOrderId, orderIndex, latestStateRef]);
+  }, [currentOrderId, orderIndex, latestStateRef, requestOrderCode]);
 
   const generateCodeForCopyOrNew = useCallback(async (): Promise<number | null> => {
     if (isGeneratingCodeRef.current) return null;
     isGeneratingCodeRef.current = true;
     setIsGeneratingCode(true);
     try {
-      const newCode = await getNextOrderIndex();
+      const newCode = await requestOrderCode();
       setOrderIndex(newCode);
       if (latestStateRef.current) {
         latestStateRef.current.orderIndex = newCode;
@@ -58,14 +75,15 @@ export function useOrderCodeGenerator(
       isGeneratingCodeRef.current = false;
       setIsGeneratingCode(false);
     }
-  }, [latestStateRef]);
+  }, [latestStateRef, requestOrderCode]);
 
   const ensureOrderCode = useCallback(async (): Promise<number | null> => {
     let currentIdx = latestStateRef.current?.orderIndex || orderIndex;
     if (!currentIdx) {
+      isGeneratingCodeRef.current = true;
       try {
         setIsGeneratingCode(true);
-        currentIdx = await getNextOrderIndex();
+        currentIdx = await requestOrderCode();
         setOrderIndex(currentIdx);
         if (latestStateRef.current) {
           latestStateRef.current.orderIndex = currentIdx;
@@ -77,11 +95,12 @@ export function useOrderCodeGenerator(
         );
         return null;
       } finally {
+        isGeneratingCodeRef.current = false;
         setIsGeneratingCode(false);
       }
     }
     return currentIdx;
-  }, [orderIndex, latestStateRef]);
+  }, [orderIndex, latestStateRef, requestOrderCode]);
 
   return {
     orderIndex,

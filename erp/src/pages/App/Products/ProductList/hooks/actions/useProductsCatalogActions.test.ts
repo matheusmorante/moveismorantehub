@@ -110,4 +110,33 @@ describe('persistCatalogStatus query invalidation', () => {
       '123e4567-e89b-42d3-a456-426614174000'
     );
   });
+
+  it('aguarda a confirmação de exclusão da Meta e informa quando ela falha', async () => {
+    const events: string[] = [];
+    createVariationHideQueries(events, { data: [], error: null });
+    triggerProductMetaCatalogSync.mockImplementation(() =>
+      Promise.resolve({ success: false, count: 0, error: 'batch falhou' }).then((result) => {
+        events.push('meta-failure-received');
+        return result;
+      })
+    );
+
+    await expect(
+      persistCatalogStatus(
+        '123e4567-e89b-42d3-a456-426614174000',
+        'hidden',
+        { id: '123e4567-e89b-42d3-a456-426614174000' } as any,
+        { id: '123e4567-e89b-42d3-a456-426614174001' }
+      )
+    ).rejects.toThrow(
+      'O status foi salvo no ERP, mas a Meta não confirmou a exclusão: batch falhou'
+    );
+
+    expect(events).toEqual([
+      'variation-write',
+      'remaining-variations-read',
+      'parent-write',
+      'meta-failure-received',
+    ]);
+  });
 });

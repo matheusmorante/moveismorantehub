@@ -1,4 +1,4 @@
-import { compressImageToFile } from '@/pages/utils/imageUtils';
+import { compressImageToFile } from '@/pages/utils/images/imageUtils';
 import { uploadFile } from '@/pages/utils/storageService';
 import { imageFilesFormSchema } from '../../../../../../../../shared-utils/fileFormSchemas';
 import { withTimeout } from '../../../../../../../../shared-utils/withTimeout';

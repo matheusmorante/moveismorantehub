@@ -2,6 +2,7 @@ import React from 'react';
 import type { WhatsAppMessage } from '../../types';
 import type { CustomerSupportSendResult } from '@/pages/utils/customerSupport/customerSupportService';
 import { MessageBubble } from '../MessageBubble';
+import { CatalogProductCardsBoundary } from './CatalogProductCardsBoundary';
 import { useCustomerSupportMessageSearch } from '../../hooks/useCustomerSupportMessageSearch';
 import {
   groupMessagesByDate,
@@ -24,7 +25,10 @@ interface ChatMessageTimelineProps {
   hasOlderMessages?: boolean;
   isLoadingOlderMessages?: boolean;
   onLoadOlderMessages?: () => Promise<number>;
+  canSelectForActions?: boolean;
+  isMessageSelectionMode?: boolean;
   selectedMessageId?: string | null;
+  selectedMessageIds?: ReadonlySet<string>;
   onSelectMessage?: (
     message: WhatsAppMessage,
     capabilities: { canReply: boolean; canForward: boolean }
@@ -50,7 +54,10 @@ export const ChatMessageTimeline: React.FC<ChatMessageTimelineProps> = ({
   isLoadingOlderMessages = false,
   error = '',
   onLoadOlderMessages,
+  canSelectForActions = true,
+  isMessageSelectionMode = false,
   selectedMessageId = null,
+  selectedMessageIds,
   onSelectMessage,
   onResolveReplyTarget,
   onJumpToMessage,
@@ -124,49 +131,59 @@ export const ChatMessageTimeline: React.FC<ChatMessageTimelineProps> = ({
         </div>
       )}
 
-      {isLoadingTimeline ? (
-        <div className="py-16 flex flex-col items-center justify-center gap-2">
-          <div className="w-7 h-7 border-2 border-emerald-500/30 border-t-emerald-500 rounded-full animate-spin" />
-          <span role="status" className="text-xs text-slate-400">
-            {isSearching ? 'Pesquisando mensagens…' : 'Carregando mensagens...'}
-          </span>
-        </div>
-      ) : visibleTimelineMessages.length === 0 && !timelineError ? (
-        <div className="py-16 text-center text-slate-400 text-xs flex flex-col items-center justify-center">
-          <i className="bi bi-chat-square-text text-3xl block mb-2 opacity-40"></i>
-          {inChatSearch
-            ? 'Nenhuma mensagem encontrada para a busca.'
-            : 'Nenhuma mensagem registrada nesta conversa.'}
-        </div>
-      ) : (
-        grouped.map((group) => (
-          <div key={group.dateLabel} className="space-y-1.5">
-            <TimelineDatePill label={group.dateLabel} />
-
-            {group.items.map((msg) => (
-              <div
-                key={msg.id}
-                data-message-id={msg.id}
-                className={msg.id === jumpToMessageId ? 'rounded-xl ring-2 ring-emerald-500' : ''}
-              >
-                <MessageBubble
-                  message={msg}
-                  contactName={displayName}
-                  reactions={msg.apiMessageId ? reactionProjection.reactionsByWamid.get(msg.apiMessageId) : undefined}
-                  quotedMessage={(msg.replyToMessageId ? messagesById.get(msg.replyToMessageId) : undefined)
-                    || (msg.replyToWamid ? messagesByApiId.get(msg.replyToWamid) : undefined)}
-                  isSelected={msg.id === selectedMessageId}
-                  onSelectMessage={onSelectMessage}
-                  onResolveReplyTarget={onResolveReplyTarget}
-                  onJumpToMessage={onJumpToMessage}
-                  onApproveAiSuggestion={onApproveAiSuggestion}
-                  aiSuggestionAuthorName={aiSuggestionAuthorName}
-                />
+      <CatalogProductCardsBoundary key={conversationId} messages={visibleTimelineMessages}>
+        {(cardsByRetailerId, loadingRetailerIds) => (
+          <>
+            {isLoadingTimeline ? (
+              <div className="py-16 flex flex-col items-center justify-center gap-2">
+                <div className="w-7 h-7 border-2 border-emerald-500/30 border-t-emerald-500 rounded-full animate-spin" />
+                <span role="status" className="text-xs text-slate-400">
+                  {isSearching ? 'Pesquisando mensagens…' : 'Carregando mensagens...'}
+                </span>
               </div>
-            ))}
-          </div>
-        ))
-      )}
+            ) : visibleTimelineMessages.length === 0 && !timelineError ? (
+              <div className="py-16 text-center text-slate-400 text-xs flex flex-col items-center justify-center">
+                <i className="bi bi-chat-square-text text-3xl block mb-2 opacity-40"></i>
+                {inChatSearch
+                  ? 'Nenhuma mensagem encontrada para a busca.'
+                  : 'Nenhuma mensagem registrada nesta conversa.'}
+              </div>
+            ) : (
+              grouped.map((group) => (
+                <div key={group.dateLabel} className="space-y-1.5">
+                  <TimelineDatePill label={group.dateLabel} />
+
+                  {group.items.map((msg) => (
+                    <div
+                      key={msg.id}
+                      data-message-id={msg.id}
+                      className={msg.id === jumpToMessageId ? 'rounded-xl ring-2 ring-emerald-500' : ''}
+                    >
+                      <MessageBubble
+                        message={msg}
+                        catalogProductCards={cardsByRetailerId}
+                        loadingCatalogRetailerIds={loadingRetailerIds}
+                        contactName={displayName}
+                        reactions={msg.apiMessageId ? reactionProjection.reactionsByWamid.get(msg.apiMessageId) : undefined}
+                        quotedMessage={(msg.replyToMessageId ? messagesById.get(msg.replyToMessageId) : undefined)
+                          || (msg.replyToWamid ? messagesByApiId.get(msg.replyToWamid) : undefined)}
+                        isSelected={selectedMessageIds?.has(msg.id) ?? msg.id === selectedMessageId}
+                        canSelectForActions={canSelectForActions}
+                        isMessageSelectionMode={isMessageSelectionMode}
+                        onSelectMessage={onSelectMessage}
+                        onResolveReplyTarget={onResolveReplyTarget}
+                        onJumpToMessage={onJumpToMessage}
+                        onApproveAiSuggestion={onApproveAiSuggestion}
+                        aiSuggestionAuthorName={aiSuggestionAuthorName}
+                      />
+                    </div>
+                  ))}
+                </div>
+              ))
+            )}
+          </>
+        )}
+      </CatalogProductCardsBoundary>
 
       {isSearching && (search.hasMore || search.error) && (
         <button

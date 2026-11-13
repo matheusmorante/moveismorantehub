@@ -2,12 +2,12 @@ import React, { memo } from 'react';
 
 export type AiAgentTabKey =
   | 'visao_geral'
-  | 'regras_situacoes'
-  | 'base_conhecimento'
-  | 'fluxos'
+  | 'comportamento'
+  | 'conhecimento'
+  | 'procedimentos'
   | 'ferramentas'
-  | 'limites_cotas'
-  | 'prompt';
+  | 'testes'
+  | 'limites_cotas';
 
 export interface TabItem {
   key: AiAgentTabKey;
@@ -32,26 +32,26 @@ export const AiAgentModalTabs: React.FC<AiAgentModalTabsProps> = memo(({
   const tabs: TabItem[] = [
     { key: 'visao_geral', label: 'Visão Geral', icon: 'bi-speedometer2' },
     {
-      key: 'regras_situacoes',
-      label: 'Regras & Frases',
-      icon: 'bi-diagram-3',
+      key: 'comportamento',
+      label: 'Comportamento',
+      icon: 'bi-person-check',
       badge: rulesCount,
     },
     {
-      key: 'base_conhecimento',
+      key: 'conhecimento',
       label: 'Conhecimento',
       icon: 'bi-book',
       badge: knowledgeCount,
     },
-    { key: 'fluxos', label: 'Fluxos', icon: 'bi-signpost-split' },
+    { key: 'procedimentos', label: 'Procedimentos', icon: 'bi-signpost-split' },
     { key: 'ferramentas', label: 'Ferramentas ERP', icon: 'bi-tools' },
+    { key: 'testes', label: 'Testes', icon: 'bi-clipboard2-check' },
     { key: 'limites_cotas', label: 'Limites & Cotas', icon: 'bi-shield-check' },
-    { key: 'prompt', label: 'Instruções', icon: 'bi-chat-square-text' },
   ];
 
   return (
     <div className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/40 px-3 sm:px-6 shrink-0 overflow-x-auto no-scrollbar">
-      <nav className="flex space-x-1 sm:space-x-2 py-2 min-w-max" aria-label="Abas de configuração do Agente de IA">
+      <nav className="flex space-x-1 sm:space-x-2 py-2 min-w-max" aria-label="Áreas de configuração e treinamento do Agente de IA">
         {tabs.map((tab) => {
           const isActive = activeTab === tab.key;
           return (

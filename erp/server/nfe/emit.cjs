@@ -2384,12 +2384,17 @@ async function persistResultToDatabase(db, a, token, state, reason, response, pr
 }
 async function loadOutboundAttempt(db, documentId) {
   const [attempt, document] = await Promise.all([
-    db.from("nfe_outbound_attempts").select("*").eq("document_id", documentId).maybeSingle(),
-    db.from("nfe_documents").select("*").eq("id", documentId).maybeSingle()
+    db.from("nfe_outbound_attempts").select(
+      "document_id,order_id,emission_request_id,snapshot_id,access_key,number,series,model,environment,xml_sha256,state"
+    ).eq("document_id", documentId).maybeSingle(),
+    db.from("nfe_documents").select("id,status,xml_nfe,xml_protocolo,numero_protocolo,motivo_status").eq("id", documentId).maybeSingle()
   ]);
   if (attempt.error || document.error || !attempt.data || !document.data)
     throw new Error("FISCAL_ATTEMPT_UNAVAILABLE");
-  return { attempt: attempt.data, document: document.data };
+  return {
+    attempt: attempt.data,
+    document: document.data
+  };
 }
 
 // api/nfe/normal-sale/attemptPolicy.ts
@@ -2442,7 +2447,9 @@ function productionTransmissionGate(environment, confirmed) {
   return null;
 }
 async function describeActiveNormalSaleConflict(db, command, issuerCnpj) {
-  const active = await db.from("nfe_outbound_attempts").select("*").eq("order_id", command.orderId).eq("environment", command.environment).eq("issuer_cnpj", issuerCnpj).in("state", ["prepared", "transmitting", "reconciling", "authorized"]);
+  const active = await db.from("nfe_outbound_attempts").select(
+    "document_id,order_id,emission_request_id,snapshot_id,access_key,number,series,model,environment,state"
+  ).eq("order_id", command.orderId).eq("environment", command.environment).eq("issuer_cnpj", issuerCnpj).in("state", ["prepared", "transmitting", "reconciling", "authorized"]);
   if (active.error || active.data?.length !== 1)
     return outboundFailure(
       503,
@@ -2472,7 +2479,9 @@ async function describeActiveNormalSaleConflict(db, command, issuerCnpj) {
   );
 }
 async function recoverNormalSale(db, command, reconcileFn) {
-  const prior = await db.from("nfe_outbound_attempts").select("*").eq("emission_request_id", command.emissionRequestId).maybeSingle();
+  const prior = await db.from("nfe_outbound_attempts").select(
+    "document_id,order_id,emission_request_id,snapshot_id,access_key,number,series,model,environment,state,request_command"
+  ).eq("emission_request_id", command.emissionRequestId).maybeSingle();
   if (prior.error)
     return outboundFailure(
       503,
@@ -2488,24 +2497,20 @@ async function recoverNormalSale(db, command, reconcileFn) {
       "A chave de idempot\xEAncia j\xE1 pertence a outro payload fiscal.",
       metadata(prior.data)
     );
-  if (!["authorized", "rejected"].includes(prior.data.state)) {
-    try {
-      await loadOutboundAttempt(db, prior.data.document_id);
-    } catch {
-      return outboundFailure(
-        503,
-        "FISCAL_RECOVERY_UNAVAILABLE",
-        "N\xE3o foi poss\xEDvel revalidar o XML da tentativa reservada.",
-        { ...metadata(prior.data), sefazContacted: false }
-      );
-    }
-  }
-  return reconcileFn(
+  const result = await reconcileFn(
     db,
     prior.data.document_id,
     true,
     command.productionConfirmed === true
   );
+  if (result.body.code === "FISCAL_ATTEMPT_UNAVAILABLE")
+    return outboundFailure(
+      503,
+      "FISCAL_RECOVERY_UNAVAILABLE",
+      "N\xE3o foi poss\xEDvel revalidar o XML da tentativa reservada.",
+      { ...metadata(prior.data), sefazContacted: false }
+    );
+  return result;
 }
 
 // api/nfe/normal-sale/outboundTransmission.ts
@@ -6870,7 +6875,9 @@ async function consultExisting(db, doc, cert, attemptToken) {
 
 // api/nfe/hml-technical/retryAndRecovery.ts
 async function retryHmlTechnical(db, documentId, allowRetransmission = true) {
-  const { data: doc, error } = await db.from("nfe_documents").select("*").eq("id", documentId).maybeSingle();
+  const { data: doc, error } = await db.from("nfe_documents").select(
+    "id,order_id,ambiente,modelo,fiscal_ruleset_version,status,chave_acesso,numero_nfe,serie,numero_protocolo,xml_nfe,xml_protocolo,motivo_status,emission_request_id,fiscal_snapshot_id"
+  ).eq("id", documentId).maybeSingle();
   if (error || !doc || doc.ambiente !== 2 || !["55", "65"].includes(doc.modelo) || !isHmlRuleSet(doc.fiscal_ruleset_version))
     return failure(404, "HML_DOCUMENT_NOT_FOUND", "Tentativa HML original n\xE3o encontrada.");
   if (doc.status === "homologada")

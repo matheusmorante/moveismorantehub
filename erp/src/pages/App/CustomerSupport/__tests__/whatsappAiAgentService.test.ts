@@ -85,6 +85,9 @@ describe('Central de Atendimento WhatsApp — Agente de IA Comercial (Lizandro)'
       _insertedMessages: insertedMessages,
       _conversationUpdates: conversationUpdates,
       rpc: vi.fn(async (name: string, args: any) => {
+        if (name === 'customer_support_outside_window_quota') {
+          return { data: { allowed: true, exempt: true, reservation_id: null }, error: null };
+        }
         if (name === 'customer_support_acquire_ai_turn') {
           return {
             data: {

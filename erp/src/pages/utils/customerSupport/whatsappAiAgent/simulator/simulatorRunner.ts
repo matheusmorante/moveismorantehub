@@ -3,6 +3,7 @@ import type { WhatsAppAiAgentConfig } from '../../../settings/types.js';
 import type { WhatsAppAiAgentDependencies } from '../whatsappAiAgentTypes.js';
 import { enforceMandatoryPhrases } from '../whatsappAiRuleEngine.js';
 import { runAiTurnWithFallback } from '../whatsappAiModelRunner.js';
+import { buildAiFailureHandoffReason, recordHandoffToHuman } from '../tools/handoffService.js';
 import type {
   SimulationTurnResult,
   SimulationHistoryTurn,
@@ -19,6 +20,7 @@ export async function simulateWhatsAppAiTurn(
   history: SimulationHistoryTurn[] = []
 ): Promise<SimulationTurnResult> {
   const startTime = Date.now();
+  try {
   const fetchOpenAi = dependencies.fetchOpenAi;
 
   const {
@@ -58,13 +60,13 @@ export async function simulateWhatsAppAiTurn(
     },
   });
 
-  const aiResponseText = modelResult.text;
+  if (!modelResult.handoffConfirmed && !modelResult.text?.trim()) {
+    throw new Error('O modelo não gerou uma resposta após consultar as informações disponíveis.');
+  }
 
-  const { text: validatedResponseText, enforcedPhrases } = enforceMandatoryPhrases(
-    aiResponseText || 'Não foi possível gerar a resposta no momento.',
-    situation?.mandatoryPhrases || [],
-    userQuery
-  );
+  const enforced = modelResult.handoffConfirmed
+    ? { text: '', enforcedPhrases: [] as string[] }
+    : enforceMandatoryPhrases(modelResult.text, situation?.mandatoryPhrases || [], userQuery);
 
   return {
     executed: true,
@@ -86,10 +88,34 @@ export async function simulateWhatsAppAiTurn(
     })),
     workflowApplied: activeWorkflow?.workflowKey || null,
     toolsCalled,
-    mandatoryPhrasesEnforced: enforcedPhrases,
-    aiResponseText: validatedResponseText,
+    mandatoryPhrasesEnforced: enforced.enforcedPhrases,
+    aiResponseText: modelResult.handoffConfirmed ? '' : enforced.text,
     executionTimeMs: Date.now() - startTime,
+    nativeCatalogProducts: modelResult.handoffConfirmed ? undefined : modelResult.nativeCatalogProducts,
   };
+  } catch (error) {
+    const reason = buildAiFailureHandoffReason(error, 'simulação do atendimento');
+    const args = { motivo: reason, silencioso: true };
+    const handoffResult = await recordHandoffToHuman(supabase, {
+      conversationId: 'simulated_test_chat',
+      reason,
+      isSilent: true,
+      isSimulation: true,
+    });
+
+    return {
+      executed: handoffResult.success,
+      userQuery,
+      situation: null,
+      matchedKeywords: [],
+      articlesUsed: [],
+      workflowApplied: null,
+      toolsCalled: [{ name: 'encaminharParaAtendimentoHumano', args, result: handoffResult }],
+      mandatoryPhrasesEnforced: [],
+      aiResponseText: '',
+      executionTimeMs: Date.now() - startTime,
+    };
+  }
 }
 
 /** Cria o transporte autenticado do simulador; a chave OpenAI fica no servidor. */

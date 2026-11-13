@@ -7,7 +7,7 @@ const mocks = vi.hoisted(() => ({
   bounds: { x: 100, y: 60, width: 300, height: 200 },
   draw: vi.fn(),
 }));
-vi.mock('@/pages/utils/imageContentBounds', () => ({ imageContentBounds: () => ({ ...mocks.bounds }) }));
+vi.mock('@/pages/utils/images/imageContentBounds', () => ({ imageContentBounds: () => ({ ...mocks.bounds }) }));
 
 beforeAll(() => {
   if (!HTMLDialogElement.prototype.showModal) HTMLDialogElement.prototype.showModal = function () { this.setAttribute('open', ''); };

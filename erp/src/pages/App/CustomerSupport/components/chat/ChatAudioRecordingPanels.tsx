@@ -16,8 +16,8 @@ export const RecordedAudioPreview: React.FC<RecordedAudioPreviewProps> = ({ audi
 interface ChatAudioRecordingControlsProps {
   isRecording: boolean;
   isRecordingPaused: boolean;
+  isPreparingAudio: boolean;
   durationLabel: string;
-  recordingError: string;
   onCancel: () => void;
   onTogglePause: () => void;
   onStop: () => void;
@@ -26,29 +26,37 @@ interface ChatAudioRecordingControlsProps {
 export const ChatAudioRecordingControls: React.FC<ChatAudioRecordingControlsProps> = ({
   isRecording,
   isRecordingPaused,
+  isPreparingAudio,
   durationLabel,
-  recordingError,
   onCancel,
   onTogglePause,
   onStop,
 }) => (
   <>
-    {isRecording && (
+    {(isRecording || isPreparingAudio) && (
       <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs dark:border-rose-900/70 dark:bg-rose-950/30">
-        <span className="inline-flex items-center gap-2 font-semibold text-rose-700 dark:text-rose-300"><span className={`h-2 w-2 rounded-full bg-rose-500 ${isRecordingPaused ? '' : 'animate-pulse'}`} />{isRecordingPaused ? 'Gravação pausada' : 'Gravando'} · {durationLabel}</span>
-        <span aria-hidden="true" className="flex h-6 items-center gap-0.5">
-          {Array.from({ length: 18 }, (_, index) => (
-            <span key={index} className={`w-0.5 rounded-full bg-rose-400 ${isRecordingPaused ? '' : 'animate-pulse'}`} style={{ height: `${6 + ((index * 7) % 15)}px`, animationDelay: `${index * 35}ms` }} />
-          ))}
-        </span>
-        <div className="flex items-center gap-1">
-          <button type="button" onClick={onCancel} className="rounded-lg px-2 py-1.5 text-slate-600 hover:bg-white dark:text-slate-300 dark:hover:bg-slate-800">Cancelar</button>
-          <button type="button" onClick={onTogglePause} className="rounded-lg px-2 py-1.5 font-semibold text-slate-700 hover:bg-white dark:text-slate-200 dark:hover:bg-slate-800">{isRecordingPaused ? 'Continuar' : 'Pausar'}</button>
-          <button type="button" onClick={onStop} className="rounded-lg bg-rose-600 px-3 py-1.5 font-bold text-white hover:bg-rose-700">Finalizar e ouvir</button>
-        </div>
+        {isPreparingAudio ? (
+          <span role="status" className="inline-flex items-center gap-2 font-semibold text-rose-700 dark:text-rose-300">
+            <span className="h-3 w-3 animate-spin rounded-full border-2 border-rose-300 border-t-rose-700" />
+            Preparando áudio para envio…
+          </span>
+        ) : (
+          <>
+            <span className="inline-flex items-center gap-2 font-semibold text-rose-700 dark:text-rose-300"><span className={`h-2 w-2 rounded-full bg-rose-500 ${isRecordingPaused ? '' : 'animate-pulse'}`} />{isRecordingPaused ? 'Gravação pausada' : 'Gravando'} · {durationLabel}</span>
+            <span aria-hidden="true" className="flex h-6 items-center gap-0.5">
+              {Array.from({ length: 18 }, (_, index) => (
+                <span key={index} className={`w-0.5 rounded-full bg-rose-400 ${isRecordingPaused ? '' : 'animate-pulse'}`} style={{ height: `${6 + ((index * 7) % 15)}px`, animationDelay: `${index * 35}ms` }} />
+              ))}
+            </span>
+            <div className="flex items-center gap-1">
+              <button type="button" onClick={onCancel} className="rounded-lg px-2 py-1.5 text-slate-600 hover:bg-white dark:text-slate-300 dark:hover:bg-slate-800">Cancelar</button>
+              <button type="button" onClick={onTogglePause} className="rounded-lg px-2 py-1.5 font-semibold text-slate-700 hover:bg-white dark:text-slate-200 dark:hover:bg-slate-800">{isRecordingPaused ? 'Continuar' : 'Pausar'}</button>
+              <button type="button" onClick={onStop} className="rounded-lg bg-rose-600 px-3 py-1.5 font-bold text-white hover:bg-rose-700">Finalizar e ouvir</button>
+            </div>
+          </>
+        )}
       </div>
     )}
 
-    {recordingError && <p role="alert" className="px-1 text-[11px] text-amber-700 dark:text-amber-300">{recordingError}</p>}
   </>
 );

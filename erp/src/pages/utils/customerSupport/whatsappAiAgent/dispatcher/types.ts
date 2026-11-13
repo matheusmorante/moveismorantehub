@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { WhatsAppAiAgentConfig } from '../../../settings/types.js';
 import type {
   InboundMessageParams,
+  WhatsAppNativeCatalogProduct,
   WhatsAppConversationLike,
 } from '../whatsappAiAgentTypes.js';
 
@@ -13,6 +14,7 @@ export interface DispatchAiResponseParams {
   settings: any;
   aiResponseText: string;
   toolsUsed: string[];
+  nativeCatalogProducts?: WhatsAppNativeCatalogProduct[];
   situationKey: string | null;
   matchedKeywords: string[];
   enforcedPhrases: string[];

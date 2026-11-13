@@ -11,7 +11,10 @@ import { hmlEndpoint, failure, hasProtocolKey, isHmlRuleSet } from './constants'
 
 export async function consultExisting(
   db: Database,
-  doc: HmlDocumentRow,
+  doc: Pick<
+    HmlDocumentRow,
+    'id' | 'order_id' | 'numero_nfe' | 'serie' | 'chave_acesso' | 'modelo' | 'xml_nfe'
+  >,
   cert: ReturnType<typeof extractCertificateAndKey>,
   attemptToken: string
 ): Promise<Result> {

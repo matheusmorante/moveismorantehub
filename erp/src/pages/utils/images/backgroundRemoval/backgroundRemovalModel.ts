@@ -1,0 +1,2 @@
+export const BACKGROUND_REMOVAL_REVISION = '5349b617911fd60c619b52f32e2b593517b78df3';
+export const BACKGROUND_REMOVAL_MODEL = 'Ko033/isnet-general-use-onnx';

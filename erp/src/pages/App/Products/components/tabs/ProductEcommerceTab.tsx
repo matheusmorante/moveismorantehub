@@ -1,18 +1,19 @@
 import type React from 'react';
 import { useState } from 'react';
 import { toast } from 'react-toastify';
-import { compressImageToFile } from '@/pages/utils/imageUtils';
+import { compressImageToFile } from '@/pages/utils/images/imageUtils';
 import {
   getMaxParentProductImages,
   MAX_PARENT_PRODUCT_IMAGES,
   MAX_VARIATION_IMAGES,
 } from '@/pages/utils/productImageLimits';
 import { uploadFile } from '@/pages/utils/storageService';
-import { createBackgroundRemovedPngFile } from '@/pages/utils/backgroundRemoval';
+import { createBackgroundRemovedPngFile } from '@/pages/utils/images/backgroundRemoval';
 import type Product from '../../../../types/product.type';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { imageFilesFormSchema } from '../../../../../../../shared-utils/fileFormSchemas';
 import { moveProductImageGlobally, replaceProductImage, replaceProductImageGlobally } from './images/productImageOrdering';
+import { ProductGalleryPhotoCard } from './images/ProductGalleryPhotoCard';
 import { SquareImageCropper } from './images/SquareImageCropper';
 import { uploadOptimizedProductImage } from './images/productImageUpload';
 
@@ -158,168 +159,34 @@ const ProductEcommerceTab: React.FC<ProductEcommerceTabProps> = ({
 
         <div className="transition-colors rounded-[2rem] border-2 border-dashed border-slate-150 dark:border-slate-800 p-4 sm:p-6 bg-slate-50/50 dark:bg-slate-955/10">
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4 select-none min-w-0 w-full">
-            {(formData.images || []).map((url, index) => {
-              const isCover = isSimpleProduct && index === 0;
-              const isSecondary = isSimpleProduct && index === 1;
-              const borderClass = isCover
-                ? 'border-blue-500 ring-2 ring-blue-500/30'
-                : isSecondary
-                  ? 'border-emerald-500 ring-2 ring-emerald-500/20'
-                  : 'border-slate-200 dark:border-slate-800';
-              const isLinkedToVariation = (formData.variations || []).some((variation) =>
-                (variation.images || []).includes(url)
-              );
-              return (
-                // biome-ignore lint/a11y/noStaticElementInteractions: item de galeria arrastavel
-                <div
-                  key={url}
-                  draggable={!processingImage}
-                  onClick={() => {
-                    if (processingImage) return;
-                    setActiveImageIndex((prev) => (prev === index ? null : index));
-                  }}
-                  onDragStart={(event) => {
-                    if (processingImage) { event.preventDefault(); return; }
-                    event.dataTransfer.setData('text/plain', String(index));
-                    event.dataTransfer.effectAllowed = 'move';
-                    setActiveImageIndex(null);
-                    setDraggedIndex(index);
-                  }}
-                  onDragOver={(e) => {
-                    if (processingImage) return;
-                    e.preventDefault();
-                    e.dataTransfer.dropEffect = 'move';
-                    if (draggedIndex === null || draggedIndex === index) return;
-                    setDraggedIndex(index);
-                    setFormData((prev) => moveProductImageGlobally(prev, draggedIndex, index));
-                    onImagesSaved?.();
-                  }}
-                  onDrop={(event) => {
-                    event.preventDefault();
-                    setDraggedIndex(null);
-                  }}
-                  onDragEnd={() => setDraggedIndex(null)}
-                  className={`group relative aspect-square w-full rounded-none overflow-hidden border-2 cursor-move transition-all shadow-sm ${borderClass}`}
-                  title="Clique para ver opções ou arraste para reordenar"
-                >
-                  <img
-                    src={url}
-                    alt={`Foto ${index + 1}`}
-                    className="object-cover w-full h-full pointer-events-none"
-                  />
-
-                  {isCover && (
-                    <span className="absolute top-2 left-2 z-20 flex items-center gap-1 rounded-full border border-white/40 bg-blue-600 px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-white shadow-md">
-                      <i className="bi bi-star-fill text-[8px]" aria-hidden="true" />
-                      Capa
-                    </span>
-                  )}
-                  {isSecondary && (
-                    <span className="absolute top-2 left-2 z-20 flex items-center gap-1 rounded-full border border-white/40 bg-emerald-600 px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-white shadow-md">
-                      <i className="bi bi-images text-[8px]" aria-hidden="true" />
-                      Secundária
-                    </span>
-                  )}
-
-                  {!isLinkedToVariation && (
-                    <span
-                      className="absolute top-2 right-2 z-20 text-amber-500 drop-shadow-md"
-                      title="Nenhuma variação está usando esta foto."
-                      aria-label="Nenhuma variação está usando esta foto."
-                      role="img"
-                    >
-                      <i className="bi bi-exclamation-triangle-fill text-lg" aria-hidden="true" />
-                    </span>
-                  )}
-
-                  {processingImage?.index === index && (
-                    <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center gap-1 z-30 text-white">
-                      <i className="bi bi-hourglass-split animate-spin text-xl"></i>
-                      <span className="text-[9px] font-black uppercase tracking-wider">
-                        {processingImage.message}
-                      </span>
-                    </div>
-                  )}
-
-                  <div
-                    className={`absolute inset-0 bg-black/60 flex flex-col items-center justify-center gap-2 z-10 p-2 transition-all duration-200 ${
-                      activeImageIndex === index
-                        ? 'opacity-100 pointer-events-auto visible'
-                        : 'opacity-0 pointer-events-none invisible group-hover:opacity-100 group-hover:pointer-events-auto group-hover:visible'
-                    }`}
-                  >
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        disabled={Boolean(processingImage)}
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          setActiveImageIndex(null);
-                          setCroppingIndex(index);
-                        }}
-                        className="bg-purple-600 hover:bg-purple-700 text-white p-2 rounded-xl transition-all shadow-md hover:scale-110 active:scale-95 flex items-center justify-center cursor-pointer"
-                        title="Recortar foto em 1:1"
-                      >
-                        <i className="bi bi-crop text-xs"></i>
-                      </button>
-                      {/* Substituir foto (Câmera) */}
-                      <label
-                        className={`bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-xl transition-all shadow-md flex items-center justify-center ${processingImage ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:scale-110 active:scale-95'}`}
-                        title="Substituir foto"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          if (processingImage) event.preventDefault();
-                        }}
-                      >
-                        <i className="bi bi-camera text-xs"></i>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          className="hidden"
-                          disabled={Boolean(processingImage)}
-                          onChange={(e) => {
-                            setActiveImageIndex(null);
-                            const file = e.target.files?.[0];
-                            if (file) {
-                              handleReplacePhoto(index, file);
-                            }
-                          }}
-                        />
-                      </label>
-
-                      <button
-                        type="button"
-                        disabled={Boolean(processingImage)}
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          void handleRemoveBackground(index, url);
-                        }}
-                        className="bg-emerald-600 hover:bg-emerald-700 text-white p-2 rounded-xl transition-all shadow-md hover:scale-110 active:scale-95 flex items-center justify-center cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
-                        title="Remover fundo da foto"
-                        aria-label={`Remover fundo da foto ${index + 1}`}
-                      >
-                        <i className="bi bi-eraser-fill text-xs" aria-hidden="true"></i>
-                      </button>
-
-                      {/* Apagar foto (Lixeira) */}
-                      <button
-                        type="button"
-                        disabled={Boolean(processingImage)}
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          setActiveImageIndex(null);
-                          removePhoto(url);
-                        }}
-                        className="bg-red-500 hover:bg-red-600 text-white p-2 rounded-xl transition-all shadow-md hover:scale-110 active:scale-95 flex items-center justify-center cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
-                        title="Apagar foto"
-                      >
-                        <i className="bi bi-trash text-xs"></i>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+            {(formData.images || []).map((url, index) => (
+              <ProductGalleryPhotoCard
+                key={url}
+                url={url}
+                index={index}
+                isSimpleProduct={isSimpleProduct}
+                isLinkedToVariation={(formData.variations || []).some((variation) =>
+                  (variation.images || []).includes(url)
+                )}
+                isActive={activeImageIndex === index}
+                isBusy={Boolean(processingImage)}
+                processingMessage={processingImage?.index === index ? processingImage.message : null}
+                draggedIndex={draggedIndex}
+                onToggleActive={() => setActiveImageIndex((prev) => (prev === index ? null : index))}
+                onClearActive={() => setActiveImageIndex(null)}
+                onDragStart={() => setDraggedIndex(index)}
+                onDragReorder={(fromIndex) => {
+                  setDraggedIndex(index);
+                  setFormData((prev) => moveProductImageGlobally(prev, fromIndex, index));
+                  onImagesSaved?.();
+                }}
+                onDragEnd={() => setDraggedIndex(null)}
+                onOpenCrop={() => setCroppingIndex(index)}
+                onReplaceFile={(file) => handleReplacePhoto(index, file)}
+                onRemoveBackground={() => void handleRemoveBackground(index, url)}
+                onDelete={() => removePhoto(url)}
+              />
+            ))}
             {Array.from({ length: isDraggingPhoto }, (_, index) => (
               <div
                 // biome-ignore lint/suspicious/noArrayIndexKey: placeholder list during upload

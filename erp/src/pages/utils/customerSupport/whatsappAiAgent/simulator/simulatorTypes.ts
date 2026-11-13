@@ -25,6 +25,7 @@ export interface SimulationTurnResult {
   mandatoryPhrasesEnforced: string[];
   aiResponseText: string;
   executionTimeMs: number;
+  nativeCatalogProducts?: Array<{ retailerId: string; name: string }>;
 }
 
 export interface SimulationHistoryTurn {

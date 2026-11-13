@@ -21,16 +21,20 @@ Nenhuma migration, fixture, gravação no banco, alteração de configuração M
 
 A **Central de Atendimento** é o novo módulo principal do MoranteHub ERP projetado com a experiência visual e operacional familiar do WhatsApp Web para computadores, enriquecido com integração profunda e em tempo real aos cadastros de clientes e pedidos de venda do ERP.
 
-### Política de envio
-A página oficial de preços da [WhatsApp Business Platform](https://whatsappbusiness.com/products/platform-pricing/) informa que mensagens de serviço dentro da janela de atendimento de 24 horas não são cobradas. Isso diverge da franquia mensal de 1.000 mensagens descrita em versões antigas desta documentação; esse número não é uma fonte confirmada para o produto e foi removido da interface.
+### Política de envio e cobrança — atualizada em 12/11/2026
+A Meta cobra quando entrega uma mensagem, conforme a categoria e o país do destinatário. Desde 01/10/2026, cada número empresarial tem 1.000 mensagens de serviço entregues sem cobrança por mês; as mensagens de serviço seguintes podem ser cobradas. Esse limite é por número e por mês, não por conversa. Modelos de utilidade também podem ser cobrados mesmo com a janela de atendimento aberta; marketing e autenticação seguem suas tarifas por entrega. A análise de preços da Meta identifica entregas regulares, serviços gratuitos e entradas gratuitas.
+
+A janela de atendimento e a cobrança são regras distintas. Cada mensagem recebida do cliente abre ou renova a janela de 24 horas em que respostas sem modelo são permitidas; isso não garante que a resposta seja gratuita. Fora dessa janela comum, a Meta exige um modelo aprovado, salvo se houver uma janela especial de entrada gratuita. Uma tentativa de texto livre recusada pela Meta não gera cobrança. Se o cliente iniciar por anúncio elegível Click-to-WhatsApp ou botão de chamada para ação da Página, pode haver essa janela especial. O prazo varia conforme a origem e as atualizações da Meta; a Central só considera a isenção quando a classificação da própria Meta indica `free_entry_point`.
+
+O limite interno do ERP, de 10 envios por minuto e 50 por hora, é uma proteção de ritmo e conta todas as tentativas iniciadas pela Central ou pela IA, sem depender da janela de atendimento ou de a mensagem ser gratuita. Não é uma franquia de cobrança da Meta. Envios que falham antes da chamada à Meta liberam a reserva; tentativas recusadas depois da chamada contam no limite de ritmo. A contagem diária mostra tentativas, aceites pela API, recusas e resultados incertos; aceite pela API não confirma entrega nem cobrança. O valor e as classificações exibidos no modal são agregados da análise de preços da Meta para os números do WABA e podem atualizar com atraso.
 
 A empresa mantém bloqueado o envio comercial e em Production. Para validar a integração sem usar o número comercial, o Development admite apenas o fluxo do número sandbox da Meta:
 1. O atendimento permite consulta, organização e recebimento nos ambientes autorizados.
-2. O compositor só habilita quando a conversa foi recebida pelo Phone Number ID sandbox, o destinatário abriu a janela de 24 horas e o atendente tem permissão na Central.
-3. O backend repete a validação de ambiente, remetente, janela, sessão e permissão antes de chamar a Graph API. O adaptador local da porta `3000` encaminha `/api/whatsapp-dispatch` para esse mesmo handler.
+2. O compositor exige conversa recebida pelo Phone Number ID sandbox e permissão na Central. A janela de atendimento não bloqueia a tentativa de texto livre; a Meta decide se pode entregá-la e aplica a categoria de cobrança correspondente.
+3. O backend valida ambiente, remetente, sessão e permissão antes de chamar a Graph API. O adaptador local da porta `3000` encaminha `/api/whatsapp-dispatch` para esse mesmo handler.
 4. `WHATSAPP_TEST_PHONE_NUMBER`, `WHATSAPP_TEST_PHONE_NUMBER_ID` e `WHATSAPP_TEST_WABA_ID` ficam somente em Development; `WHATSAPP_ACCESS_TOKEN` permanece server-side.
 5. Em 24/10/2026, a consulta RLS da conta de teste encontrou zero conversas para o Phone Number ID sandbox. Nenhuma mensagem foi enviada; uma conversa recebida pelo número de teste e um destinatário autorizado na Meta ainda são necessários para comprovar entrega.
-6. A interface não exibe contagem ou limite numérico de mensagens.
+6. A interface exibe o limite interno de 10 envios por minuto e 50 por hora separadamente do gasto e das classificações informadas pela Meta.
 
 ---
 
@@ -97,6 +101,14 @@ A migração `supabase/migrations/20261021032348_customer_support_inbox_completi
 Ela adiciona pastas compartilhadas e RPCs de consulta paginada, contagem e diretório de atendentes. Substitui o acesso anônimo às tabelas da Central por políticas que exigem `viewCustomerSupport`, limita as colunas atualizáveis e encaminha dados comerciais por funções que também exigem `viewCustomerCommercialInfo`. As políticas existentes foram atualizadas sem `DROP`. O predicado de pastas foi corrigido antes da aplicação para que a exclusão padrão de fechadas não anule uma pasta de fechadas/todos os estados.
 
 No checkpoint de 21/10, metadados e seis checks Vitest confirmaram acesso anônimo negado; naquele momento, ainda não comprovavam CRUD compartilhado autenticado nem filtros em múltiplas páginas. A revalidação posterior do catálogo, CRUD/pastas e paginação real está registrada nas seções de 23/10 abaixo. Registro detalhado da migration e reversão: [migração de 21/10/2026](central-de-atendimento-migracao-2026-10-21.md).
+
+### 3.5. Recebimento do Instagram Direct e Messenger — implementação local em 12/11/2026
+
+A migration `20261112233400_customer_support_meta_social_channels.sql` adiciona `channel`, `channel_account_id` e `channel_contact_id` às conversas, com valores permitidos `whatsapp`, `instagram` e `messenger`. O novo RPC `customer_support_receive_social_message` grava eventos de entrada e ecos de saída da Meta com deduplicação, atualiza a conversa na mesma transação e não cria jobs para o atendente IA. As identidades sociais não são tratadas como telefone nem vinculadas automaticamente a clientes do ERP.
+
+O caminho público `GET/POST /api/meta-social-webhook` aceita objetos `instagram` e `page`, valida o token de verificação no GET e HMAC do corpo bruto no POST. No ERP, um rewrite encaminha essa URL para a operação `meta-social` do webhook existente, preservando o limite de 12 funções serverless. Usa `META_SOCIAL_VERIFY_TOKEN`/`META_APP_SECRET`, com fallback para `WHATSAPP_VERIFY_TOKEN`/`WHATSAPP_APP_SECRET`. O endpoint foi implementado e compilado localmente; ele ainda precisa ser publicado para a Meta validar o callback. Para Instagram, use uma conta profissional. O modo de login define as permissões: Instagram Login usa `instagram_business_manage_messages`; Facebook Login usa `instagram_manage_messages` com a conta profissional vinculada a uma Página e `pages_manage_metadata` para assinatura dos webhooks. Para Messenger, é necessária uma Página e as permissões `pages_messaging` e `pages_manage_metadata`. O acesso de pessoas que não têm papel no app pode exigir Advanced Access/App Review. Referências oficiais: [Instagram API da Meta](https://www.postman.com/meta/instagram/documentation/6yqw8pt/instagram-api) e [Messenger Platform API da Meta](https://www.postman.com/meta/messenger-platform-api/documentation/iyp204x/messenger-platform-api). O compositor da Central permanece em leitura para esses canais até que os respectivos envios sejam configurados; as conversas sociais não passam pelo endpoint de envio do WhatsApp.
+
+O painel do app Meta foi observado sem callback ou eventos inscritos nesta revisão. Nenhuma configuração Meta foi gravada. Após publicar a rota, o callback previsto será `https://morantehub.vercel.app/api/meta-social-webhook`; então a Meta deve verificar o token e receber a assinatura de mensagens de cada canal. A Central não existe como módulo no aplicativo mobile.
 
 ---
 
@@ -390,5 +402,12 @@ Por especificação de produto:
 2. **Histórico e Pedidos por Telefone:** Se o número da conversa estiver associado a algum pedido pelo snapshot (`order_data -> customerData -> phone` ou `additionalContacts`), esses pedidos aparecem na listagem de pedidos do perfil do contato na Central de Atendimento, mesmo se a conversa não estiver formalmente vinculada a um registro na tabela `people` (`customer_id` nulo ou `isLinked = false`).
 3. **RPCs e Migrations:**
    * `customer_support_list_customer_records_page`: aceita tanto UUID de cliente quanto telefone de contato com variações de DDI/DDD e nono dígito, buscando em `order_data #>> '{customerData,phone}'` e `additionalContacts`, e retorna `customer_name` do snapshot.
-   * `customer_support_count_customer_orders`: conta pedidos por telefone e cliente, alimentando os badges da Inbox e o filtro de conversas com pedidos (`with_orders`).
+   * `customer_support_count_customer_orders`: RPC anterior de contagem para hidratação da Inbox. A hidratação atual usa `customer_support_list_customer_order_indicators`; o filtro `with_orders` continua aplicado pela RPC paginada `customer_support_list_conversations`.
    * Migration aplicada: `supabase/migrations/20261028154127_customer_support_orders_snapshot_phone_lookup.sql` e `20261028160000_customer_support_count_orders_additional_contacts.sql` no projeto Supabase operacional `hkoxhourxwlddgsfdgws`.
+
+## Indicadores de agendamentos na lista de conversas — 12/11/2026
+
+1. A lista não exibe mais o marcador genérico **Pedidos**. Exibe etiquetas com ícone de agenda somente para operações com data confirmada: **Entrega agendada** (verde), **Retirada agendada** (roxo), **Assistência agendada** (laranja) e **Coleta de devolução agendada** (laranja).
+2. A RPC `customer_support_list_customer_order_indicators` combina a contagem usada para hidratar os pedidos do contato com os quatro indicadores em uma chamada por página. Ela identifica clientes pelo vínculo ERP ou pelo telefone do pedido e contatos adicionais, sem carregar registros de pedido completos para os cards da Inbox. O filtro `with_orders` continua na consulta paginada de conversas.
+3. A RPC verifica a permissão comercial para retornar contagens. Indicadores de entrega/retirada, assistência e devolução são liberados separadamente conforme as permissões de agenda, ordens de assistência e devoluções. Um perfil de logística pode ver seus indicadores de entrega sem receber a contagem comercial. A execução é concedida a `authenticated`; `PUBLIC` e `anon` não recebem acesso.
+4. Migration aplicada: `supabase/migrations/20261112172953_customer_support_conversation_schedule_badges.sql` no projeto Supabase operacional `hkoxhourxwlddgsfdgws`.

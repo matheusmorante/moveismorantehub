@@ -17,7 +17,7 @@ export function buildDefaultAiAgentFormValues(
     enabled: config?.enabled ?? false,
     testMode: true,
     testPhoneNumbers: config?.testPhoneNumbers ? [...config.testPhoneNumbers] : [],
-    supportMode: config?.supportMode ?? 'automatico',
+    supportMode: __MORANTE_BETA__ ? 'assistido' : config?.supportMode ?? 'automatico',
     provider: 'openai',
     model: 'gpt-6-luna',
     systemPrompt: config?.systemPrompt || DEFAULT_WHATSAPP_AI_AGENT_PROMPT,

@@ -1,15 +1,8 @@
 import { getSettings } from '@/pages/utils/settingsService';
 import type { WhatsAppConversation, WhatsAppMessage } from '../../../types';
 
-const CARE_WINDOW_MS = 24 * 60 * 60 * 1000;
-
 export function recipientBlockReason(conversation: WhatsAppConversation): string {
   if (conversation.isArchived) return 'Reabra o atendimento para encaminhar.';
-  const lastMessageAt = Date.parse(String(conversation.lastCustomerMessageAt || ''));
-  const elapsed = Date.now() - lastMessageAt;
-  if (!Number.isFinite(lastMessageAt) || elapsed < 0 || elapsed >= CARE_WINDOW_MS) {
-    return 'Janela de 24 horas fechada.';
-  }
   const configuredPhoneNumberId = getSettings().whatsappConfig?.phoneNumberId;
   if (!configuredPhoneNumberId || configuredPhoneNumberId !== conversation.businessPhoneNumberId) {
     return 'Canal WhatsApp desconectado.';

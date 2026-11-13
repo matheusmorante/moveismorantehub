@@ -2686,7 +2686,9 @@ async function consultAuthorizedHmlTechnical(doc) {
 
 // api/nfe/hml-technical/retryAndRecovery.ts
 async function retryHmlTechnical(db, documentId, allowRetransmission = true) {
-  const { data: doc, error } = await db.from("nfe_documents").select("*").eq("id", documentId).maybeSingle();
+  const { data: doc, error } = await db.from("nfe_documents").select(
+    "id,order_id,ambiente,modelo,fiscal_ruleset_version,status,chave_acesso,numero_nfe,serie,numero_protocolo,xml_nfe,xml_protocolo,motivo_status,emission_request_id,fiscal_snapshot_id"
+  ).eq("id", documentId).maybeSingle();
   if (error || !doc || doc.ambiente !== 2 || !["55", "65"].includes(doc.modelo) || !isHmlRuleSet(doc.fiscal_ruleset_version))
     return failure(404, "HML_DOCUMENT_NOT_FOUND", "Tentativa HML original n\xE3o encontrada.");
   if (doc.status === "homologada")
@@ -2940,12 +2942,17 @@ async function persistResultToDatabase(db, a, token, state, reason, response, pr
 }
 async function loadOutboundAttempt(db, documentId) {
   const [attempt, document] = await Promise.all([
-    db.from("nfe_outbound_attempts").select("*").eq("document_id", documentId).maybeSingle(),
-    db.from("nfe_documents").select("*").eq("id", documentId).maybeSingle()
+    db.from("nfe_outbound_attempts").select(
+      "document_id,order_id,emission_request_id,snapshot_id,access_key,number,series,model,environment,xml_sha256,state"
+    ).eq("document_id", documentId).maybeSingle(),
+    db.from("nfe_documents").select("id,status,xml_nfe,xml_protocolo,numero_protocolo,motivo_status").eq("id", documentId).maybeSingle()
   ]);
   if (attempt.error || document.error || !attempt.data || !document.data)
     throw new Error("FISCAL_ATTEMPT_UNAVAILABLE");
-  return { attempt: attempt.data, document: document.data };
+  return {
+    attempt: attempt.data,
+    document: document.data
+  };
 }
 
 // api/nfe/normal-sale/outboundRecovery.ts
@@ -4205,7 +4212,9 @@ async function handler(req, res) {
   if (!documentId)
     return res.status(400).json({ success: false, error: "Documento fiscal n\xE3o informado." });
   try {
-    const { data: doc, error } = await supabase.from("nfe_documents").select("*").eq("id", documentId).maybeSingle();
+    const { data: doc, error } = await supabase.from("nfe_documents").select(
+      "id,fiscal_ruleset_version,status,order_id,modelo,ambiente,chave_acesso,numero_protocolo,numero_nfe,serie,emission_request_id"
+    ).eq("id", documentId).maybeSingle();
     if (error || !doc)
       return res.status(404).json({ success: false, error: "Documento fiscal n\xE3o encontrado." });
     if (doc.fiscal_ruleset_version === NORMAL_SALE_RULESET_VERSION) {

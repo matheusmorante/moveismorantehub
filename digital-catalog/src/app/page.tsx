@@ -1,7 +1,7 @@
 'use client';
 import { useState, useCallback, useEffect, Suspense, useMemo, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { SlidersHorizontal, X, ArrowUpDown } from 'lucide-react';
+import { SlidersHorizontal, X } from 'lucide-react';
 
 import { HeroBanner } from '@/components/layout';
 import { FeaturedProducts } from '@/features/products/components/featured-products';
@@ -11,13 +11,6 @@ import { FilterContent } from '@/features/products/components/filter-sidebar';
 import { GoogleReviews } from '@/components/sections/google-reviews';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { supabase } from '@/lib/supabase/client';
 import { catalogCategoriesQuery, catalogRelationshipsQuery } from '@/lib/catalog-menu-queries';
 import { ProductFilter } from '@/features/products/components/product-filter';
@@ -103,7 +96,6 @@ function HomeContent() {
     const catsParam = searchParams.get('categorias') || searchParams.get('cats');
     const searchParam = searchParams.get('search') || '';
     const rawType = searchParams.get('type') || 'all';
-    const sortByParam = searchParams.get('sortBy') || 'newest';
     const minPriceParam = searchParams.get('minPrice');
     const maxPriceParam = searchParams.get('maxPrice');
 
@@ -136,7 +128,7 @@ function HomeContent() {
       cats,
       search: searchParam,
       type,
-      sortBy: sortByParam,
+      sortBy: 'newest',
       minPrice: minPriceParam ? parseInt(minPriceParam) : 0,
       maxPrice: maxPriceParam ? parseInt(maxPriceParam) : 10000,
     };
@@ -207,11 +199,7 @@ function HomeContent() {
           params.delete('type');
         }
       }
-      if (nextFilters.sortBy !== undefined) {
-        if (nextFilters.sortBy && nextFilters.sortBy !== 'newest')
-          params.set('sortBy', nextFilters.sortBy);
-        else params.delete('sortBy');
-      }
+      params.delete('sortBy');
       if (nextFilters.minPrice !== undefined) {
         if (nextFilters.minPrice > 0) params.set('minPrice', String(nextFilters.minPrice));
         else params.delete('minPrice');
@@ -230,7 +218,7 @@ function HomeContent() {
         ...(nextFilters.cats !== undefined && { cats: nextFilters.cats }),
         ...(nextFilters.search !== undefined && { search: nextFilters.search }),
         ...(nextFilters.type !== undefined && { type: nextFilters.type }),
-        ...(nextFilters.sortBy !== undefined && { sortBy: nextFilters.sortBy }),
+        sortBy: 'newest',
         ...(nextFilters.minPrice !== undefined && { minPrice: nextFilters.minPrice }),
         ...(nextFilters.maxPrice !== undefined && { maxPrice: nextFilters.maxPrice }),
       }));
@@ -265,6 +253,10 @@ function HomeContent() {
     filters.cats.length > 0 ||
     !!filters.search ||
     filters.type !== 'all';
+
+  useEffect(() => {
+    if (!hasActiveFilters) setIsSidebarOpen(false);
+  }, [hasActiveFilters]);
 
   const filterBadges = useMemo(() => {
     const hasPriceRange = filters.minPrice > 0 || filters.maxPrice < 10000;
@@ -336,98 +328,84 @@ function HomeContent() {
             <h2 className="text-2xl md:text-3xl font-black text-primary">{pageTitle}</h2>
 
             {/* Controles de pesquisa e filtros do catálogo */}
-            <ProductFilter
-              filters={filters}
-              categories={categories}
-              relationships={relationships}
-              onFilterChange={handleFilterChange}
-              isSidebarOpen={isSidebarOpen}
-              onToggleSidebar={() => setIsSidebarOpen((v) => !v)}
-            />
+            {hasActiveFilters && (
+              <ProductFilter
+                filters={filters}
+                categories={categories}
+                relationships={relationships}
+                onFilterChange={handleFilterChange}
+                isSidebarOpen={isSidebarOpen}
+                onToggleSidebar={() => setIsSidebarOpen((v) => !v)}
+              />
+            )}
 
-            {/* Filtros ativos + ordenação */}
-            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+            {/* Filtros ativos */}
+            {hasActiveFilters && <div className="flex items-center gap-3">
               {/* Badges de filtros ativos */}
-              <div className="flex-1 flex items-center gap-3 bg-white border-none p-3 rounded-2xl min-w-0 overflow-hidden shadow-xs">
-                {/* Botão de abrir drawer apenas em telas menores que lg */}
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => setIsSidebarOpen((v) => !v)}
-                  className={`lg:hidden h-8 w-8 rounded-full border-2 shrink-0 transition-all ${
-                    isSidebarOpen
-                      ? 'bg-primary border-primary text-white hover:bg-primary/95'
-                      : 'border-primary/30 text-primary hover:border-primary hover:bg-primary/5'
-                  }`}
-                  title={isSidebarOpen ? 'Fechar Filtros' : 'Abrir Filtros'}
-                >
-                  <SlidersHorizontal className="h-4 w-4" />
-                </Button>
-
-                <div className="flex-1 overflow-x-auto overflow-y-hidden min-w-0">
-                  <div className="flex flex-row flex-nowrap items-center gap-2 py-0.5">
-                    {filterBadges.length === 0 && (
-                      <span className="text-xs text-muted-foreground italic whitespace-nowrap">
-                        Nenhum filtro aplicado
-                      </span>
-                    )}
-                    {filterBadges.map((badge) => (
-                      <Badge
-                        key={badge.id}
-                        variant="secondary"
-                        className="bg-white border text-gray-800 gap-1.5 py-1.5 px-3 rounded-xl font-bold text-xs shadow-sm hover:bg-gray-50 h-8 flex items-center shrink-0"
-                      >
-                        <span>{badge.label}</span>
-                        <button
-                          onClick={badge.onRemove}
-                          className="hover:text-destructive transition-colors flex items-center"
-                        >
-                          <X className="h-3.5 w-3.5" />
-                        </button>
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-
-                {activeFilterCount > 0 && (
-                  <button
-                    onClick={clearFilters}
-                    className="text-xs font-bold text-muted-foreground hover:text-destructive transition-colors shrink-0 pl-3 border-l border-gray-200 h-8 flex items-center whitespace-nowrap"
+              {hasActiveFilters && (
+                <div className="flex-1 flex items-center gap-3 bg-white border-none p-3 rounded-2xl min-w-0 overflow-hidden shadow-xs">
+                  {/* Botão de abrir drawer apenas em telas menores que lg */}
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setIsSidebarOpen((v) => !v)}
+                    className={`lg:hidden h-8 w-8 rounded-full border-2 shrink-0 transition-all ${
+                      isSidebarOpen
+                        ? 'bg-primary border-primary text-white hover:bg-primary/95'
+                        : 'border-primary/30 text-primary hover:border-primary hover:bg-primary/5'
+                    }`}
+                    title={isSidebarOpen ? 'Fechar Filtros' : 'Abrir Filtros'}
                   >
-                    Limpar Tudo
-                  </button>
-                )}
-              </div>
+                    <SlidersHorizontal className="h-4 w-4" />
+                  </Button>
 
-              {/* Ordenação */}
-              <div className="w-full sm:w-44 shrink-0">
-                <Select
-                  value={filters.sortBy}
-                  onValueChange={(val) => handleFilterChange({ sortBy: val })}
-                >
-                  <SelectTrigger className="h-12 rounded-2xl border-2 bg-white px-4 font-bold text-sm">
-                    <div className="flex items-center gap-2">
-                      <ArrowUpDown className="h-4 w-4 text-muted-foreground shrink-0" />
-                      <SelectValue placeholder="Ordenar" />
+                  <div className="flex-1 overflow-x-auto overflow-y-hidden min-w-0">
+                    <div className="flex flex-row flex-nowrap items-center gap-2 py-0.5">
+                      {filterBadges.length === 0 && (
+                        <span className="text-xs text-muted-foreground italic whitespace-nowrap">
+                          Nenhum filtro aplicado
+                        </span>
+                      )}
+                      {filterBadges.map((badge) => (
+                        <Badge
+                          key={badge.id}
+                          variant="secondary"
+                          className="bg-white border text-gray-800 gap-1.5 py-1.5 px-3 rounded-xl font-bold text-xs shadow-sm hover:bg-gray-50 h-8 flex items-center shrink-0"
+                        >
+                          <span>{badge.label}</span>
+                          <button
+                            onClick={badge.onRemove}
+                            className="hover:text-destructive transition-colors flex items-center"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </Badge>
+                      ))}
                     </div>
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="newest">Novidades</SelectItem>
-                    <SelectItem value="price-asc">Menor Preço</SelectItem>
-                    <SelectItem value="price-desc">Maior Preço</SelectItem>
-                    <SelectItem value="title-asc">A-Z (Título)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
+                  </div>
+
+                  {activeFilterCount > 0 && (
+                    <button
+                      onClick={clearFilters}
+                      className="text-xs font-bold text-muted-foreground hover:text-destructive transition-colors shrink-0 pl-3 border-l border-gray-200 h-8 flex items-center whitespace-nowrap"
+                    >
+                      Limpar Tudo
+                    </button>
+                  )}
+                </div>
+              )}
+
+            </div>}
           </div>
 
           {/* Layout: Sidebar fixa à esquerda em telas LG+ (estilo Magazine Luiza) + Grade de produtos */}
           <div className="flex gap-8 items-start relative">
             {/* Sidebar Desktop LG+ */}
-            <aside className="hidden lg:block w-72 xl:w-80 shrink-0 self-start">
-              <FilterContent filters={filters} onApply={handleFilterChange} />
-            </aside>
+            {hasActiveFilters && (
+              <aside className="hidden lg:block w-72 xl:w-80 shrink-0 self-start">
+                <FilterContent filters={filters} onApply={handleFilterChange} />
+              </aside>
+            )}
 
             {/* Conteúdo do Catálogo */}
             <div className="flex-1 min-w-0">
@@ -440,7 +418,7 @@ function HomeContent() {
       <GoogleReviews />
 
       {/* Overlay escuro — Apenas visível em telas menores que lg quando aberto */}
-      {isSidebarOpen && (
+      {hasActiveFilters && isSidebarOpen && (
         <div
           className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm lg:hidden animate-in fade-in duration-200"
           onClick={() => setIsSidebarOpen(false)}
@@ -449,29 +427,31 @@ function HomeContent() {
       )}
 
       {/* Sidebar drawer — Apenas ativo em telas menores que lg (mobile/tablet) */}
-      <div
-        ref={sidebarRef}
-        className={`fixed top-0 left-0 z-50 h-full w-full sm:w-96 shadow-2xl transition-transform duration-300 ease-in-out lg:hidden ${
-          isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
-        }`}
-        aria-label="Painel de filtros"
-      >
-        <div className="relative h-full w-full bg-white flex flex-col">
-          {/* Botão de Fechar no topo do Drawer */}
-          <button
-            onClick={() => setIsSidebarOpen(false)}
-            className="absolute top-5 right-5 z-50 p-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors"
-          >
-            <X className="h-6 w-6" />
-          </button>
+      {hasActiveFilters && (
+        <div
+          ref={sidebarRef}
+          className={`fixed top-0 left-0 z-50 h-full w-full sm:w-96 shadow-2xl transition-transform duration-300 ease-in-out lg:hidden ${
+            isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
+          }`}
+          aria-label="Painel de filtros"
+        >
+          <div className="relative h-full w-full bg-white flex flex-col">
+            {/* Botão de Fechar no topo do Drawer */}
+            <button
+              onClick={() => setIsSidebarOpen(false)}
+              className="absolute top-5 right-5 z-50 p-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors"
+            >
+              <X className="h-6 w-6" />
+            </button>
 
-          <FilterContent
-            filters={filters}
-            onApply={handleFilterChange}
-            onClose={() => setIsSidebarOpen(false)}
-          />
+            <FilterContent
+              filters={filters}
+              onApply={handleFilterChange}
+              onClose={() => setIsSidebarOpen(false)}
+            />
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

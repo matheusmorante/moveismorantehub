@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 
 interface MediaLightboxModalProps {
   isOpen: boolean;
@@ -13,10 +14,13 @@ export const MediaLightboxModal: React.FC<MediaLightboxModalProps> = ({
 }) => {
   if (!isOpen || !mediaUrl) return null;
 
-  return (
+  return createPortal(
     <div
       onClick={onClose}
-      className="fixed inset-0 z-[999999] bg-black/85 backdrop-blur-sm flex items-center justify-center p-4 cursor-zoom-out"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Visualização da imagem em tela cheia"
+      className="fixed inset-0 z-[2147483647] bg-black/85 backdrop-blur-sm flex items-center justify-center p-4 cursor-zoom-out"
     >
       <div className="relative max-w-4xl max-h-[90vh] flex flex-col items-center">
         <img
@@ -33,6 +37,7 @@ export const MediaLightboxModal: React.FC<MediaLightboxModalProps> = ({
           <i className="bi bi-x-lg"></i>
         </button>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

@@ -46,6 +46,54 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.clearAllMocks(); });
 
 describe('Mídias da Central no navegador', () => {
+  it.each(['inbound', 'outbound'] as const)('mostra o card de produto %s sem o balão da mensagem e mantém a seleção', (direction) => {
+    const item = message({
+      direction, messageType: 'interactive', mediaId: null, status: direction === 'outbound' ? 'sent' : 'received',
+      textContent: '🔘 Resposta interativa',
+      rawPayload: { interactive: { type: 'product', product: { retailer_id: 'BALCAO', title: 'Balcão para pia' } } },
+    });
+    const onSelectMessage = vi.fn();
+    const { container } = render(<MessageBubble
+      message={item}
+      onSelectMessage={onSelectMessage}
+      catalogProductCards={{ BALCAO: { retailerId: 'BALCAO', name: 'Balcão para pia', imageUrl: 'https://images.example/balcao.jpg', salesPrice: 279, promoPrice: null } }}
+    />);
+
+    const card = screen.getByRole('article');
+    const messageContainer = card.closest('[data-catalog-message="true"]');
+    expect(messageContainer).toBeTruthy();
+    expect(messageContainer?.className).not.toContain('bg-[#d9fdd3]');
+    expect(messageContainer?.className).not.toContain('px-3.5');
+    expect(card.textContent).toContain('Balcão para pia');
+    expect(card.textContent).toContain('279,00');
+    expect(messageContainer?.textContent).toContain(new Date(item.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
+    if (direction === 'outbound') expect(container.querySelector('[title="Enviada"]')).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('img', { name: 'Balcão para pia' }));
+    expect(onSelectMessage).toHaveBeenCalledWith(item, expect.objectContaining({ canReply: true }));
+  });
+
+  it('mantém legenda e vários produtos acessíveis sem aplicar o estilo do card a outras interações', () => {
+    const item = message({
+      direction: 'outbound', messageType: 'interactive', mediaId: null, textContent: 'Veja estas opções',
+      rawPayload: { interactive: { action: { sections: [{ product_items: [{ product_retailer_id: 'A' }, { product_retailer_id: 'B' }] }] } } },
+    });
+    const { rerender } = render(<MessageBubble message={item} />);
+
+    expect(screen.getByText('Veja estas opções')).toBeTruthy();
+    expect(screen.getByText(/2 produtos/)).toBeTruthy();
+    const products = screen.getByRole('region', { name: 'Produtos do catálogo' });
+    expect(products.getAttribute('tabindex')).toBe('0');
+    expect(products.querySelectorAll('article')).toHaveLength(2);
+
+    rerender(<MessageBubble message={message({
+      direction: 'outbound', messageType: 'interactive', mediaId: null, textContent: 'Sim',
+      rawPayload: { interactive: { type: 'button_reply', button_reply: { title: 'Sim' } } },
+    })} />);
+    expect(screen.getByText('Sim').closest('[data-catalog-message]')).toBeNull();
+    expect(screen.getByText('Sim').parentElement?.className).toContain('bg-[#d9fdd3]');
+  });
+
   it('renderiza eco enviado pelo app como mensagem de saída e identifica sua origem', () => {
     const { container } = render(<MessageBubble message={message({
       direction: 'outbound', messageType: 'text', textContent: 'Respondido no celular',

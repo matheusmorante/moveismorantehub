@@ -70,6 +70,7 @@
       "destination": "https://moveismorante.com.br/api/facebook-catalog/sync"
     },
     { "source": "/api/whatsapp-media", "destination": "/api/whatsapp-webhook?operation=media" },
+    { "source": "/api/meta-social-webhook", "destination": "/api/whatsapp-webhook?operation=meta-social" },
     { "source": "/api/whatsapp-dispatch", "destination": "/api/whatsapp-webhook?operation=dispatch" },
     { "source": "/api/whatsapp-support-send", "destination": "/api/whatsapp-webhook?operation=support-send" },
     { "source": "/api/meta-graph", "destination": "/api/secure-integrations?operation=meta-graph" },

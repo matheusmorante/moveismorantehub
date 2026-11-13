@@ -71,7 +71,7 @@ export function filterAndSortProducts(
     })
     .sort((a, b) => {
       let comparison = 0;
-      const sortBy = filters.sortBy || 'createdAt';
+      const sortBy = filters.sortBy || 'updatedAt';
 
       if (sortBy === 'description')
         comparison = (a.description || '').localeCompare(b.description || '');
@@ -80,6 +80,10 @@ export function filterAndSortProducts(
       else if (sortBy === 'code') comparison = (a.code || '').localeCompare(b.code || '');
       else if (sortBy === 'createdAt')
         comparison = new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime();
+      else if (sortBy === 'updatedAt') {
+        comparison = new Date(a.updatedAt || a.createdAt || 0).getTime()
+          - new Date(b.updatedAt || b.createdAt || 0).getTime();
+      }
       else if (sortBy === 'category')
         comparison = (a.category || '').localeCompare(b.category || '');
 

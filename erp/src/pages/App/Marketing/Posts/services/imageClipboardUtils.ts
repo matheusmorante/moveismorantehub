@@ -9,7 +9,7 @@
 
 import { toast } from 'react-toastify';
 import { PostProductImagesSpec } from '../types/postSpecification';
-import { buildImageFetchCandidates } from '@/pages/utils/imageFetchCandidates';
+import { buildImageFetchCandidates } from '@/pages/utils/images/imageFetchCandidates';
 
 /**
  * Converte qualquer imagem (JPG, WebP, PNG) em um Blob PNG

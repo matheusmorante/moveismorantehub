@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { SafeToolContext } from '../whatsappAiAgentTools.js';
+import type { WhatsAppNativeCatalogProduct } from '../whatsappAiAgentTypes.js';
 import type { AiModelErrorInfo } from '../whatsappAiErrorClassifier.js';
 
 export interface RunAiTurnWithFallbackOptions {
@@ -34,4 +35,5 @@ export interface RunAiTurnResult {
   quotaBlocked?: boolean;
   handoffConfirmed?: boolean;
   reservationId?: string;
+  nativeCatalogProducts?: WhatsAppNativeCatalogProduct[];
 }

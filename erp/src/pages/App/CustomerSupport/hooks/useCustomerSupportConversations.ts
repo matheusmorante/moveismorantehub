@@ -12,6 +12,7 @@ interface UseCustomerSupportConversationsParams {
   agentId?: string | null;
   folderCriteria?: CustomerSupportFolderCriteria | null;
   canViewCommercialInfo?: boolean;
+  canViewScheduledOperations?: boolean;
 }
 
 const PAGE_SIZE = 50;
@@ -20,6 +21,7 @@ export function useCustomerSupportConversations({
   agentId = null,
   folderCriteria = null,
   canViewCommercialInfo = false,
+  canViewScheduledOperations = false,
 }: UseCustomerSupportConversationsParams) {
   const [conversations, setConversations] = useState<WhatsAppConversation[]>([]);
   const [selectedConversation, setSelectedConversation] = useState<WhatsAppConversation | null>(null);
@@ -38,7 +40,7 @@ export function useCustomerSupportConversations({
   const requestIdRef = useRef(0);
   const pendingRequestRef = useRef<number | null>(null);
   const moreRequestRef = useRef<number | null>(null);
-  const queryKey = JSON.stringify([filter, agentId, folderCriteria, canViewCommercialInfo, sortOrder]);
+  const queryKey = JSON.stringify([filter, agentId, folderCriteria, canViewCommercialInfo, canViewScheduledOperations, sortOrder]);
   const activeQueryKeyRef = useRef(queryKey);
   activeQueryKeyRef.current = queryKey;
 
@@ -69,6 +71,7 @@ export function useCustomerSupportConversations({
               agentId: folderCriteria ? null : agentId,
               criteria: folderCriteria,
               canViewCommercialInfo,
+              canViewScheduledOperations,
               sortOrder,
             })
           )
@@ -101,7 +104,7 @@ export function useCustomerSupportConversations({
         }
       }
     },
-    [filter, agentId, folderCriteria, canViewCommercialInfo, sortOrder, queryKey]
+    [filter, agentId, folderCriteria, canViewCommercialInfo, canViewScheduledOperations, sortOrder, queryKey]
   );
 
   const loadMoreConversations = useCallback(async () => {
@@ -120,6 +123,7 @@ export function useCustomerSupportConversations({
         agentId: folderCriteria ? null : agentId,
         criteria: folderCriteria,
         canViewCommercialInfo,
+        canViewScheduledOperations,
         sortOrder,
       });
       if (requestId !== requestIdRef.current || activeQueryKeyRef.current !== queryKey) return;
@@ -156,6 +160,7 @@ export function useCustomerSupportConversations({
     filter,
     agentId,
     canViewCommercialInfo,
+    canViewScheduledOperations,
     sortOrder,
     queryKey,
     loadConversations,

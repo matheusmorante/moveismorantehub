@@ -15,9 +15,21 @@ export function computeConversationStatus(row: any): ConversationStatus {
 }
 
 export function mapRowToConversation(row: any): WhatsAppConversation {
+  const businessPhoneNumberId = String(row.business_phone_number_id || '');
+  const inferredChannel = businessPhoneNumberId.startsWith('meta-social:instagram:')
+    ? 'instagram'
+    : businessPhoneNumberId.startsWith('meta-social:messenger:')
+      ? 'messenger'
+      : 'whatsapp';
+  const channel = row.channel == null
+    ? inferredChannel
+    : ['whatsapp', 'instagram', 'messenger'].includes(row.channel)
+      ? row.channel
+      : 'unknown';
   return {
     id: row.id,
-    businessPhoneNumberId: row.business_phone_number_id || '',
+    channel,
+    businessPhoneNumberId,
     contactPhone: row.contact_phone,
     contactWaId: row.contact_wa_id,
     contactName: row.contact_name,

@@ -10,7 +10,6 @@ import {
   metadata,
   outboundFailure,
 } from './outboundTypes';
-import { loadOutboundAttempt } from './outboundPersistence';
 
 export function productionTransmissionGate(
   environment: 1 | 2,
@@ -33,7 +32,9 @@ export async function describeActiveNormalSaleConflict(
 ): Promise<OutboundResult> {
   const active = await db
     .from('nfe_outbound_attempts')
-    .select('*')
+    .select(
+      'document_id,order_id,emission_request_id,snapshot_id,access_key,number,series,model,environment,state'
+    )
     .eq('order_id', command.orderId)
     .eq('environment', command.environment)
     .eq('issuer_cnpj', issuerCnpj)
@@ -81,7 +82,9 @@ export async function recoverNormalSale(
 ): Promise<OutboundResult | null> {
   const prior = await db
     .from('nfe_outbound_attempts')
-    .select('*')
+    .select(
+      'document_id,order_id,emission_request_id,snapshot_id,access_key,number,series,model,environment,state,request_command'
+    )
     .eq('emission_request_id', command.emissionRequestId)
     .maybeSingle();
 
@@ -106,23 +109,18 @@ export async function recoverNormalSale(
       metadata(prior.data)
     );
 
-  if (!['authorized', 'rejected'].includes(prior.data.state)) {
-    try {
-      await loadOutboundAttempt(db, prior.data.document_id);
-    } catch {
-      return outboundFailure(
-        503,
-        'FISCAL_RECOVERY_UNAVAILABLE',
-        'Não foi possível revalidar o XML da tentativa reservada.',
-        { ...metadata(prior.data), sefazContacted: false }
-      );
-    }
-  }
-
-  return reconcileFn(
+  const result = await reconcileFn(
     db,
     prior.data.document_id,
     true,
     command.productionConfirmed === true
   );
+  if (result.body.code === 'FISCAL_ATTEMPT_UNAVAILABLE')
+    return outboundFailure(
+      503,
+      'FISCAL_RECOVERY_UNAVAILABLE',
+      'Não foi possível revalidar o XML da tentativa reservada.',
+      { ...metadata(prior.data), sefazContacted: false }
+    );
+  return result;
 }

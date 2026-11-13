@@ -1,6 +1,11 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { withTimeout } from '../../../../../../shared-utils/withTimeout';
 import type { ProductCatalogSendSelection } from '../../../../../../shared-utils/productCatalogFormSchemas';
+import {
+  CUSTOMER_SUPPORT_WHATSAPP_SEND_QUOTA,
+  type CustomerSupportMetaMonthlyUsage,
+  type CustomerSupportWhatsAppSendQuota,
+} from '../../../../../../shared-utils/customerSupportWhatsAppSendQuota';
 import { supportCustomerSendSchema } from '../../../../../../shared-utils/customerSupportFormSchemas';
 
 export class CustomerSupportSendError extends Error {
@@ -25,6 +30,51 @@ export interface CustomerSupportSendResult {
   persisted: boolean;
   apiMessageId?: string;
   warning?: string;
+}
+
+export type { CustomerSupportMetaMonthlyUsage, CustomerSupportWhatsAppSendQuota };
+
+function isSendQuota(value: unknown): value is CustomerSupportWhatsAppSendQuota {
+  if (!value || typeof value !== 'object') return false;
+  const quota = value as Partial<CustomerSupportWhatsAppSendQuota>;
+  return typeof quota.allowed === 'boolean'
+    && typeof quota.day_start === 'string'
+    && ['minute_limit', 'minute_used', 'minute_remaining', 'hour_limit', 'hour_used', 'hour_remaining',
+      'day_attempts', 'day_sent', 'day_failed', 'day_uncertain', 'remaining_percent', 'retry_after_seconds']
+      .every((key) => Number.isFinite(quota[key as keyof CustomerSupportWhatsAppSendQuota]));
+}
+
+async function fetchQuotaResponse(supabase: SupabaseClient, includeCost: boolean) {
+  const sessionResponse = await withTimeout<any>(supabase.auth.getSession(), 10_000, null, 'central:cota-envio-sessao');
+  const accessToken = sessionResponse?.data?.session?.access_token;
+  if (sessionResponse?.error || !accessToken) throw new CustomerSupportSendError('Sessão inválida. Entre novamente.');
+
+  const response = await withTimeout(fetch(`/api/whatsapp-support-send${includeCost ? '?include_cost=1' : ''}`, {
+    method: 'GET',
+    headers: { Authorization: `Bearer ${accessToken}` },
+    cache: 'no-store',
+  }), includeCost ? 32_000 : 12_000, null, 'central:cota-envio');
+  if (!response?.ok) throw new CustomerSupportSendError('Não foi possível consultar a cota de envio.');
+  const data = await response.json().catch(() => ({}));
+  if (!isSendQuota(data?.quota)) throw new CustomerSupportSendError('A cota de envio retornou dados inválidos.');
+  return data as { quota: CustomerSupportWhatsAppSendQuota; metaUsage?: CustomerSupportMetaMonthlyUsage };
+}
+
+/** Consulta a cota compartilhada do número do WhatsApp conectado. */
+export async function fetchCustomerSupportWhatsAppSendQuota(
+  supabase: SupabaseClient
+): Promise<CustomerSupportWhatsAppSendQuota> {
+  return (await fetchQuotaResponse(supabase, false)).quota;
+}
+
+export async function fetchCustomerSupportWhatsAppUsageDetails(supabase: SupabaseClient) {
+  return fetchQuotaResponse(supabase, true);
+}
+
+function notifySendQuotaUpdated(): void {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event(CUSTOMER_SUPPORT_WHATSAPP_SEND_QUOTA.updatedEvent));
+  }
 }
 
 /** Envia uma mensagem do atendimento pela rota autenticada, vinculada à conversa ativa. */
@@ -123,5 +173,6 @@ export async function sendCustomerSupportMessage(
     throw new CustomerSupportSendError(error instanceof Error ? error.message : 'Não foi possível enviar a mensagem.');
   } finally {
     clearTimeout(timeout);
+    if (responseReceived) notifySendQuotaUpdated();
   }
 }

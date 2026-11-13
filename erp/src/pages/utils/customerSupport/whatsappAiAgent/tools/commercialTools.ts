@@ -16,8 +16,8 @@ export async function handleObterInformacoesComerciaisLoja(
       telefoneWhatsapp: s.companyPhone || '(41) 99749-3547',
       horarioAtendimento: 'Segunda a Sexta das 09h às 18h | Sábados das 09h às 17h (Domingos e feriados fechado)',
       condicoesFrete:
-        'Frete grátis para entregas a menos de 5 km da loja física em Colombo/PR (Rua Cascavel, 306). Para distâncias maiores, solicitar endereço completo para cálculo do frete.',
-      montagem: 'Montagem própria por nossa conta tanto para retirada na loja quanto para entrega.',
+        'Realizamos entregas somente em Curitiba/PR e na Região Metropolitana de Curitiba. A loja fica na Rua Cascavel, 306, em Colombo/PR. Fora dessa área não realizamos entrega. Dentro da área atendida, o frete é grátis somente para endereços a menos de 5 km da loja; para distâncias maiores, a equipe precisa confirmar valor e prazo com o endereço completo.',
+      montagem: 'Montagem própria por nossa conta na retirada na loja e nas entregas dentro de Curitiba e da Região Metropolitana.',
       formasPagamento: [
         'À vista com desconto especial via Pix ou dinheiro',
         'Cartão de crédito em até 10x sem juros (Visa, Mastercard, Elo, Hiper/Hipercard)',

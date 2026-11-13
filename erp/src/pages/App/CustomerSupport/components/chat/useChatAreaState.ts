@@ -25,7 +25,7 @@ export function useChatAreaState({
   const [isSnippetsModalOpen, setIsSnippetsModalOpen] = useState(false);
   const [replyTarget, setReplyTarget] = useState<WhatsAppMessage | null>(null);
   const [forwardMessage, setForwardMessage] = useState<WhatsAppMessage | null>(null);
-  const [selectedMessage, setSelectedMessage] = useState<SelectedSupportMessage | null>(null);
+  const [selectedMessages, setSelectedMessages] = useState<SelectedSupportMessage[]>([]);
   const [insertedSnippet, setInsertedSnippet] = useState<{ id: number; text: string } | null>(null);
   const snippetRevision = useRef(0);
 
@@ -36,8 +36,22 @@ export function useChatAreaState({
   }, [jumpToMessageId]);
 
   useEffect(() => {
-    setSelectedMessage(null);
+    setSelectedMessages([]);
   }, [conversationId]);
+
+  const toggleSelectedMessage = (
+    message: WhatsAppMessage,
+    capabilities: Pick<SelectedSupportMessage, 'canReply' | 'canForward'>
+  ) => {
+    setSelectedMessages((current) => current.some((item) => item.message.id === message.id)
+      ? current.filter((item) => item.message.id !== message.id)
+      : [...current, { message, ...capabilities }]);
+  };
+
+  const clearSelectedMessages = () => setSelectedMessages([]);
+
+  const selectedMessage = selectedMessages[0] ?? null;
+  const selectedMessageIds = new Set(selectedMessages.map(({ message }) => message.id));
 
   const handleInsertSnippet = (snippet: QuickSnippet) => {
     snippetRevision.current += 1;
@@ -45,7 +59,7 @@ export function useChatAreaState({
     setIsSnippetsModalOpen(false);
   };
 
-  const isMessageSelectionMode = Boolean(selectedMessage && canSend);
+  const isMessageSelectionMode = selectedMessages.length > 0 && canSend;
 
   const selectedMessagePreview =
     selectedMessage?.message.textContent?.trim() ||
@@ -78,7 +92,10 @@ export function useChatAreaState({
     forwardMessage,
     setForwardMessage,
     selectedMessage,
-    setSelectedMessage,
+    selectedMessages,
+    selectedMessageIds,
+    toggleSelectedMessage,
+    clearSelectedMessages,
     insertedSnippet,
     handleInsertSnippet,
     isMessageSelectionMode,

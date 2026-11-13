@@ -20,14 +20,27 @@ export function useChatAreaConversationMeta(
   user: UserAuth | null | undefined
 ) {
   return useMemo(() => {
+    const isSocialChannel = conversation.channel === 'instagram' || conversation.channel === 'messenger';
+    const channelLabel = conversation.channel === 'instagram'
+      ? 'Instagram'
+      : conversation.channel === 'messenger'
+        ? 'Messenger'
+        : 'WhatsApp';
     const displayName =
-      conversation.contactName?.trim() || formatPhoneForDisplay(conversation.contactPhone);
+      conversation.contactName?.trim()
+      || (isSocialChannel
+        ? `Contato do ${channelLabel} · ${String(conversation.contactWaId || '').slice(-4)}`
+        : formatPhoneForDisplay(conversation.contactPhone));
 
-    const formattedPhone = formatPhoneForDisplay(conversation.contactPhone);
+    const formattedPhone = isSocialChannel
+      ? `ID ${String(conversation.contactWaId || '').slice(-4)}`
+      : formatPhoneForDisplay(conversation.contactPhone);
     const careWindow = whatsappSupportGuard.calculateCareWindow(conversation.lastCustomerMessageAt);
     const configuredPhoneNumberId = getSettings().whatsappConfig?.phoneNumberId;
     const isChannelConnected = Boolean(
-      configuredPhoneNumberId && configuredPhoneNumberId === conversation.businessPhoneNumberId
+      !isSocialChannel
+      && configuredPhoneNumberId
+      && configuredPhoneNumberId === conversation.businessPhoneNumberId
     );
 
     const initials = conversation.contactName?.trim()

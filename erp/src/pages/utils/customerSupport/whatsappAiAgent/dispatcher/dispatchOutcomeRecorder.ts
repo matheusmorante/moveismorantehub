@@ -33,6 +33,7 @@ export async function persistOutboundMessageAndSyncConversation(
     apiMessageId: string;
     replyToWamid?: string;
     textContent: string;
+    messageType?: 'text' | 'interactive';
     status: 'sent' | 'suggested';
     rawPayload: Record<string, any>;
     sendAt: string;
@@ -44,7 +45,7 @@ export async function persistOutboundMessageAndSyncConversation(
     conversation_id: params.conversationId,
     api_message_id: params.apiMessageId,
     direction: 'outbound',
-    message_type: 'text',
+    message_type: params.messageType || 'text',
     text_content: params.textContent,
     reply_to_wamid: params.replyToWamid,
     status: params.status,
@@ -64,10 +65,16 @@ export async function persistOutboundMessageAndSyncConversation(
       .update({
         last_message_text: params.textContent,
         last_message_at: params.sendAt,
+        ...(params.status === 'sent' ? { unread_count: 0 } : {}),
         updated_at: params.sendAt,
       })
       .eq('id', params.conversationId);
-    if (params.idempotent) update = update.lte('last_message_at', params.sendAt);
+    if (params.status === 'sent' && typeof (update as any).lte === 'function') {
+      update = (update as any).lte('last_customer_message_at', params.sendAt);
+    }
+    if ((params.status === 'sent' || params.idempotent) && typeof (update as any).lte === 'function') {
+      update = (update as any).lte('last_message_at', params.sendAt);
+    }
     const { error: conversationError } = await update;
     if (conversationError) throw new Error('Falha ao atualizar a última mensagem da conversa.');
   }

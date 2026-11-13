@@ -158,7 +158,13 @@ export function NcmManagementPanel() {
   }, [loadCatalog]);
 
   useEffect(() => {
-    if (destinationQuery.trim().length < 2) {
+    const selectedDestinationLabel = destination
+      ? `${destination.code} · ${destination.official_description}`
+      : null;
+    if (
+      destinationQuery.trim().length < 2 ||
+      (selectedDestinationLabel && destinationQuery === selectedDestinationLabel)
+    ) {
       setDestinationResults([]);
       return;
     }
@@ -167,7 +173,9 @@ export function NcmManagementPanel() {
       try {
         const values = await validateDestination({ search: destinationQuery });
         if (!values || cancelled) return;
-        const results = await ncmService.searchNcms(values.search, 8);
+        const results = await ncmService.searchNcms(values.search, 8, {
+          includeInternalAliases: false,
+        });
         if (!cancelled) setDestinationResults(results);
       } catch {
         if (!cancelled) setDestinationResults([]);
@@ -177,7 +185,7 @@ export function NcmManagementPanel() {
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [destinationQuery, validateDestination]);
+  }, [destination, destinationQuery, validateDestination]);
 
   const loadDetails = async (row: NcmRow) => {
     setSelectedRow(row);

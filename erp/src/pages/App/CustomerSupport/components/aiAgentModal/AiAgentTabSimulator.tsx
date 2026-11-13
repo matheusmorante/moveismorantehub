@@ -17,6 +17,7 @@ import {
 } from '@/pages/utils/customerSupport/whatsappAiAgent/whatsappAiAgentOrchestrator';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { getSettings } from '@/pages/utils/settings';
+import { buildAiFailureHandoffReason, recordHandoffToHuman } from '@/pages/utils/customerSupport/whatsappAiAgent/tools/handoffService';
 import {
   QUICK_TEST_QUERIES,
   SimulatorInputCard,
@@ -102,18 +103,25 @@ export const AiAgentTabSimulator: React.FC<AiAgentTabSimulatorProps> = memo(({
       );
       setRealResult(res);
     } catch (err: any) {
+      const reason = buildAiFailureHandoffReason(err, 'simulação do atendimento');
+      const args = { motivo: reason, silencioso: true };
+      const handoffResult = await recordHandoffToHuman(supabase, {
+        conversationId: 'simulated_test_chat',
+        reason,
+        isSilent: true,
+        isSimulation: true,
+      });
       setRealResult({
-        executed: false,
+        executed: handoffResult.success,
         userQuery: text,
         situation: null,
         matchedKeywords: [],
         articlesUsed: [],
         workflowApplied: null,
-        toolsCalled: [],
+        toolsCalled: [{ name: 'encaminharParaAtendimentoHumano', args, result: handoffResult }],
         mandatoryPhrasesEnforced: [],
         aiResponseText: '',
         executionTimeMs: 0,
-        error: err?.message || String(err),
       });
     } finally {
       setIsRunningReal(false);
@@ -127,7 +135,7 @@ export const AiAgentTabSimulator: React.FC<AiAgentTabSimulatorProps> = memo(({
           Simulador & Diagnóstico de Atendimento
         </h4>
         <p className="text-xs text-slate-500 dark:text-slate-400">
-          Teste em tempo real como o assistente, as regras, o ERP e as frases obrigatórias respondem a qualquer pergunta do cliente.
+          Teste em sandbox como o assistente, as regras, o conhecimento e o ERP respondem. Para validar continuidade entre mensagens, use a conversa de teste do Lizandro no painel esquerdo.
         </p>
       </div>
 

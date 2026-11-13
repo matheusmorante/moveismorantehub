@@ -8,7 +8,7 @@ const mocks = vi.hoisted(() => ({ save: vi.fn(), prepare: vi.fn() }));
 const originalAsset = { id: 'a'.repeat(64), webp_base64: 'b3JpZ2luYWw=' };
 const croppedAsset = { id: 'b'.repeat(64), webp_base64: 'Y3JvcHBlZA==' };
 vi.mock('@/context/AuthContext', () => ({ useAuth: () => ({ profile: { role: 'manager' } }) }));
-vi.mock('@/pages/utils/imageContentBounds', () => ({ imageContentBounds: () => ({ x: 100, y: 60, width: 300, height: 200 }) }));
+vi.mock('@/pages/utils/images/imageContentBounds', () => ({ imageContentBounds: () => ({ x: 100, y: 60, width: 300, height: 200 }) }));
 vi.mock('./TemplateProductPreview', () => ({ TemplateProductPreview: () => null,
   useTemplateProductPreview: () => ({ product: null, productId: '', detail: {} }) }));
 vi.mock('./renderImageTemplate', () => ({ createTemplatePictureLoader: () => vi.fn(),

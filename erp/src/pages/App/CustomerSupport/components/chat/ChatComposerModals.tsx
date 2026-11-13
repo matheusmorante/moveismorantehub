@@ -1,6 +1,7 @@
 import React from 'react';
 import { ProductCatalogPanel } from '@/components/catalog/ProductCatalogPanel';
 import NewSaleOrder from '@/pages/App/SalesOrder/pages/NewSaleOrder';
+import type { ProductCatalogPrepareInput } from '../../../../../../../shared-utils/productCatalogFormSchemas';
 import type { WhatsAppConversation } from '../../types';
 import { SupportOrderPickerDialog } from './SupportOrderPickerDialog';
 import { isQuoteOrder } from './supportOrderSummaryPdf';
@@ -28,7 +29,10 @@ interface ChatComposerModalsProps {
   };
   isCatalogOpen: boolean;
   setIsCatalogOpen: (open: boolean) => void;
-  addCatalogSelection: (selection: any, url: string, onClose: () => void) => void;
+  sendCatalogSelection: (selection: ProductCatalogPrepareInput) => Promise<boolean>;
+  canSendCatalogSelection: boolean;
+  catalogSendDisabledReason: string;
+  isSendingCatalogSelection: boolean;
   newOrderType: 'sale' | 'budget' | null;
   setNewOrderType: (type: 'sale' | 'budget' | null) => void;
 }
@@ -42,7 +46,10 @@ export const ChatComposerModals: React.FC<ChatComposerModalsProps> = ({
   orderPicker,
   isCatalogOpen,
   setIsCatalogOpen,
-  addCatalogSelection,
+  sendCatalogSelection,
+  canSendCatalogSelection,
+  catalogSendDisabledReason,
+  isSendingCatalogSelection,
   newOrderType,
   setNewOrderType,
 }) => {
@@ -99,9 +106,10 @@ export const ChatComposerModals: React.FC<ChatComposerModalsProps> = ({
         <ProductCatalogPanel
           isOpen={isCatalogOpen}
           onClose={() => setIsCatalogOpen(false)}
-          onSelectProducts={(selection, url) =>
-            addCatalogSelection(selection, url, () => setIsCatalogOpen(false))
-          }
+          onSendSelection={sendCatalogSelection}
+          canSendSelection={canSendCatalogSelection}
+          sendDisabledReason={catalogSendDisabledReason}
+          isSendingSelection={isSendingCatalogSelection}
         />
       )}
 

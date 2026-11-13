@@ -16,6 +16,17 @@ export interface HandoffResult {
   erro?: string;
 }
 
+export function buildAiFailureHandoffReason(error: unknown, stage: string): string {
+  const detail = String(error instanceof Error ? error.message : error || '')
+    .replace(/sk-[A-Za-z0-9_-]+/gi, '[chave de API ocultada]')
+    .replace(/Bearer\s+\S+/gi, 'Bearer [oculto]')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 260);
+
+  return `A IA não conseguiu responder durante ${stage}${detail ? `: ${detail}` : '.'}`.slice(0, 500);
+}
+
 /**
  * Registra o escalonamento para atendimento humano (silencioso ou com aviso)
  * Atualiza o status da conversa para 'needs_human', anexa notas internas e registra

@@ -48,11 +48,7 @@ export const productCatalogSendSelectionSchema = z.object({
     productId: z.string().uuid('Produto inválido.'),
     variationId: z.string().uuid('Variação inválida.').optional(),
   })).max(50),
-  bulkScope: z.object({
-    selectionMode: z.literal('all_matching'),
-    filters: productCatalogFiltersSchema,
-    excludedProductIds: z.array(z.string().uuid()).max(100),
-  }).nullable(),
+  bulkScope: productCatalogScopeSchema.nullable(),
   hidePrices: z.boolean(),
   deliveryMode: productCatalogDeliveryModeSchema,
 }).refine((selection) => selection.items.length > 0 || selection.bulkScope !== null, {
