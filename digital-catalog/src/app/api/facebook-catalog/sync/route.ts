@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase/client';
 import {
   getMetaCatalogCredentials,
+  getMetaCatalogSyncSnapshot,
   checkMetaBatchStatus,
   type MetaBatchRequest,
 } from '@/services/meta-catalog';
@@ -74,7 +75,8 @@ export async function GET(request: Request) {
  */
 export async function POST(request: Request) {
   try {
-    const credentials = await getMetaCatalogCredentials();
+    const syncSnapshot = await getMetaCatalogSyncSnapshot();
+    const credentials = syncSnapshot.credentials;
     if (!credentials) {
       return NextResponse.json(
         { error: 'Access Token ou Catalog ID do Meta não configurados no sistema.' },
@@ -84,25 +86,16 @@ export async function POST(request: Request) {
 
     const { accessToken, catalogId } = credentials;
 
-    // 1. Carregar configurações de descrição e mapeamentos
-    const settings: CatalogSyncSettings = { ...DEFAULT_SYNC_SETTINGS };
-    try {
-      const { data: catSettings } = await supabase
-        .from('facebook_catalog_settings')
-        .select('global_description_prefix, column_mappings')
-        .eq('id', true)
-        .maybeSingle();
-
-      if (catSettings) {
-        if (catSettings.global_description_prefix) {
-          settings.globalDescPrefix = catSettings.global_description_prefix;
-        }
-        if (catSettings.column_mappings) {
-          settings.columnMappings = { ...settings.columnMappings, ...catSettings.column_mappings };
-        }
-      }
-    } catch (dbErr) {
-      console.warn('[MetaCatalogSync] Erro ao carregar facebook_catalog_settings:', dbErr);
+    // 1. Usar as preferências lidas junto com as credenciais
+    const settings: CatalogSyncSettings = {
+      ...DEFAULT_SYNC_SETTINGS,
+      columnMappings: {
+        ...DEFAULT_SYNC_SETTINGS.columnMappings,
+        ...(syncSnapshot.columnMappings || {}),
+      },
+    };
+    if (syncSnapshot.globalDescriptionPrefix) {
+      settings.globalDescPrefix = syncSnapshot.globalDescriptionPrefix;
     }
 
     // 2. Buscar todos os produtos com relações necessárias

@@ -52,6 +52,11 @@ function colorDifferenceFromBackground(data: Uint8ClampedArray, offset: number, 
   );
 }
 
+function getColorBin(data: Uint8ClampedArray, pixel: number): number {
+  const offset = pixel * 4;
+  return ((data[offset] >> 4) << 8) | ((data[offset + 1] >> 4) << 4) | (data[offset + 2] >> 4);
+}
+
 export function findConnectedForegroundPixels(
   data: Uint8ClampedArray,
   mask: ArrayLike<number>,
@@ -72,18 +77,30 @@ export function findConnectedForegroundPixels(
   }
 
   const queue = new Uint32Array(pixelCount);
+  const seenForegroundColors = new Uint32Array(16 * 16 * 16);
+  const similarForegroundColors = new Uint32Array(16 * 16 * 16);
+  let componentId = 0;
   for (let pixel = 0; pixel < pixelCount; pixel++) {
     if (candidates[pixel] !== 1) continue;
+    componentId += 1;
     let head = 0;
     let tail = 0;
     let containsConfidentForeground = false;
     let touchesImageEdge = false;
+    const foregroundColorBins: number[] = [];
     queue[tail++] = pixel;
     candidates[pixel] = 2;
 
     while (head < tail) {
       const current = queue[head++];
-      if (mask[current] >= MASK_FOREGROUND_THRESHOLD) containsConfidentForeground = true;
+      if (mask[current] >= MASK_FOREGROUND_THRESHOLD) {
+        containsConfidentForeground = true;
+        const colorBin = getColorBin(data, current);
+        if (seenForegroundColors[colorBin] !== componentId) {
+          seenForegroundColors[colorBin] = componentId;
+          foregroundColorBins.push(colorBin);
+        }
+      }
       const y = (current / width) | 0;
       const x = current - y * width;
       if (x === 0 || y === 0 || x === width - 1 || y === height - 1) touchesImageEdge = true;
@@ -104,11 +121,41 @@ export function findConnectedForegroundPixels(
       }
     }
 
-    // Fundo conectado à borda, como o piso atrás dos pés, não deve ser recuperado
-    // como primeiro plano só por tocar numa parte confiante do móvel.
-    if (containsConfidentForeground && !touchesImageEdge) {
+    if (!containsConfidentForeground) continue;
+
+    if (touchesImageEdge) {
+      // Na borda, recupera apenas cores próximas às partes confiáveis do próprio móvel.
+      for (const colorBin of foregroundColorBins) {
+        const red = (colorBin >> 8) & 15;
+        const green = (colorBin >> 4) & 15;
+        const blue = colorBin & 15;
+        for (let redOffset = -1; redOffset <= 1; redOffset++) {
+          const neighborRed = red + redOffset;
+          if (neighborRed < 0 || neighborRed > 15) continue;
+          for (let greenOffset = -1; greenOffset <= 1; greenOffset++) {
+            const neighborGreen = green + greenOffset;
+            if (neighborGreen < 0 || neighborGreen > 15) continue;
+            for (let blueOffset = -1; blueOffset <= 1; blueOffset++) {
+              const neighborBlue = blue + blueOffset;
+              if (neighborBlue < 0 || neighborBlue > 15) continue;
+              similarForegroundColors[(neighborRed << 8) | (neighborGreen << 4) | neighborBlue] = componentId;
+            }
+          }
+        }
+      }
+    }
+
+    if (!touchesImageEdge) {
       for (let index = 0; index < tail; index++) {
         protectedPixels[queue[index]] = 1;
+      }
+      continue;
+    }
+
+    for (let index = 0; index < tail; index++) {
+      const current = queue[index];
+      if (similarForegroundColors[getColorBin(data, current)] === componentId) {
+        protectedPixels[current] = 1;
       }
     }
   }

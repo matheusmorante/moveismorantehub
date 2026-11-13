@@ -18,7 +18,7 @@ export type TemplatePictureLoader = ((url: string, cutout: boolean, options?: Te
   getCached: (url: string, cutout: boolean) => TemplatePicture | undefined;
 };
 
-export const BACKGROUND_REMOVAL_MASK_REVISION = 'protect-uncertain-foreground-v9';
+export const BACKGROUND_REMOVAL_MASK_REVISION = 'protect-edge-foreground-colors-v10';
 const PICTURE_CACHE_LIMIT = 48;
 
 const framedPictureBounds = new WeakMap<TemplatePicture, ImageContentBounds>();

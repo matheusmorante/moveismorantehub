@@ -191,16 +191,17 @@ export async function renderImageTemplate({ canvas, format, layout, product, ass
         }
         const cachedSource = getPicture.getCached(url, false);
         const removeNow = needsBackgroundRemoval && !(preview && onBackgroundRemovalReady);
+        // Source requests are deduplicated and cached; a canvas redraw must not cancel their shared work.
         const source = !removeNow && cachedSource
           ? cachedSource
-          : await getPicture(url, removeNow, { preview, priority: 'high', signal });
+          : await getPicture(url, removeNow, { preview, priority: 'high' });
         if (removeNow && source.flatBackground === false) {
           notices.push(`Não foi possível concluir o recorte de “${layer.name}”; a foto original foi mantida.`);
         }
         sources[layerIndex] = source;
         if (preview && needsBackgroundRemoval && onBackgroundRemovalReady && !signal?.aborted) {
           backgroundRemovalPending = true;
-          void getPicture(url, true, { preview: true, priority: 'high', signal }).then((processed) => {
+          void getPicture(url, true, { preview: true, priority: 'high' }).then((processed) => {
             if (!signal?.aborted) onBackgroundRemovalReady(backgroundCacheKey, processed);
           }).catch(() => {});
         }
@@ -220,11 +221,17 @@ export async function renderImageTemplate({ canvas, format, layout, product, ass
 
   const { width, height } = FORMAT_DIMENSIONS[format];
   const scale = preview ? .65 : 1;
-  canvas.width = Math.round(width * scale);
-  canvas.height = Math.round(height * scale);
+  const canvasWidth = Math.round(width * scale);
+  const canvasHeight = Math.round(height * scale);
+  if (canvas.width !== canvasWidth) canvas.width = canvasWidth;
+  if (canvas.height !== canvasHeight) canvas.height = canvasHeight;
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error('O navegador não oferece suporte à edição de imagens.');
-  ctx.scale(canvas.width / width, canvas.height / height);
+  if (typeof ctx.setTransform === 'function') {
+    ctx.setTransform(canvas.width / width, 0, 0, canvas.height / height, 0, 0);
+  } else {
+    ctx.scale(canvas.width / width, canvas.height / height);
+  }
 
   const fonts = [...new Set(layers.flatMap((layer) => ('font' in layer ? [canvasFont(layer)] : [])))];
   const fontsReady = document.fonts?.load

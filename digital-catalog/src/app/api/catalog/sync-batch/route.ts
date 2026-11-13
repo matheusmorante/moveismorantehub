@@ -64,7 +64,7 @@ export async function POST(req: Request) {
     const { data: product, error: productError } = await supabase
       .from('products')
       .select(
-        '*, product_categories(categories(name, type)), product_images(*), product_variations(*), opportunities(*)'
+        'id, code, sku, name, slug, description, price, unit_price, promo_price, status, deleted_at, deleted, is_draft, is_salvado, material, stock, product_categories(categories(name, type)), product_images(image_url, is_main), product_variations(id, name, sku, price, promo_price, description, image_url, attributes, status, stock, use_parent_price, use_parent_promo_price, use_parent_description), opportunities(name, observations)'
       )
       .eq('id', productId)
       .single();

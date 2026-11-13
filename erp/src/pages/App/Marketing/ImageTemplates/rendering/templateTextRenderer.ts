@@ -6,7 +6,7 @@ import {
 export type TextLayer = Extract<PositionedLayer, { type: 'text' | 'sticker' }>;
 export type ResizableTextLayer = Extract<PositionedLayer, { type: 'text' }>;
 
-export const TEXT_SELECTION_MARGIN = 7.56; // Aproximadamente 2 mm a 96 dpi.
+export const TEXT_SELECTION_MARGIN = 15.12; // Aproximadamente 4 mm a 96 dpi.
 
 let textMeasurementContext: CanvasRenderingContext2D | null | undefined;
 
@@ -21,6 +21,21 @@ const layerTextEffect = (layer: TextLayer): ImageTextEffect =>
 
 const layerTextEffectSize = (layer: TextLayer) =>
   Math.min(32, Math.max(1, layer.textEffectSize ?? Math.round(layer.fontSize * .12)));
+
+function textEffectMargin(layer: TextLayer): number {
+  const effect = layerTextEffect(layer);
+  const effectSize = layerTextEffectSize(layer);
+  if (effect === 'outline' || effect === '3d') return effectSize;
+  if (effect === 'neon') return Math.ceil(effectSize * 3.5);
+  if (effect === 'shadow') {
+    const blur = isLegacyTextShadow(layer) ? Math.max(2, layer.fontSize * .12) : effectSize;
+    const offset = isLegacyTextShadow(layer) ? Math.max(1, layer.fontSize * .04) : effectSize * .5;
+    return Math.ceil(blur * 2 + offset);
+  }
+  return 0;
+}
+
+const textSelectionPadding = (layer: TextLayer) => TEXT_SELECTION_MARGIN + textEffectMargin(layer);
 
 const withOpacity = (color: string, opacity: number) => {
   const channels = [1, 3, 5].map((offset) => Number.parseInt(color.slice(offset, offset + 2), 16));
@@ -38,6 +53,26 @@ function text3dVector(layer: TextLayer) {
   return { x: Math.cos(radians), y: Math.sin(radians) };
 }
 
+function textEffectVerticalExtents(layer: TextLayer) {
+  const effect = layerTextEffect(layer);
+  const effectSize = layerTextEffectSize(layer);
+  if (effect === 'outline') return { top: effectSize, bottom: effectSize };
+  if (effect === '3d') {
+    const offset = text3dVector(layer).y * effectSize;
+    return { top: Math.max(0, -offset), bottom: Math.max(0, offset) };
+  }
+  if (effect === 'neon') {
+    const extent = Math.ceil(effectSize * 2.5);
+    return { top: extent, bottom: extent };
+  }
+  if (effect === 'shadow') {
+    const blur = isLegacyTextShadow(layer) ? Math.max(2, layer.fontSize * .12) : effectSize;
+    const offset = isLegacyTextShadow(layer) ? Math.max(1, layer.fontSize * .04) : effectSize * .5;
+    return { top: Math.ceil(blur * 2 + Math.max(0, -offset)), bottom: Math.ceil(blur * 2 + Math.max(0, offset)) };
+  }
+  return { top: 0, bottom: 0 };
+}
+
 function measureTextInk(ctx: CanvasRenderingContext2D, lines: string[], fontSize: number) {
   const fallbackAscent = fontSize * .8;
   const fallbackDescent = fontSize * .2;
@@ -52,17 +87,6 @@ function measureTextInk(ctx: CanvasRenderingContext2D, lines: string[], fontSize
     })),
     descent: Math.max(0, ...metrics.map((metric, index) => (Number.isFinite(metric.actualBoundingBoxDescent)
       ? metric.actualBoundingBoxDescent : lines[index].trim() ? fallbackDescent : 0))),
-  };
-}
-
-function measureTextFontBox(ctx: CanvasRenderingContext2D, lines: string[], fontSize: number) {
-  const sample = lines.find((line) => line.trim()) || 'Mg';
-  const metrics = ctx.measureText(sample);
-  const ascent = metrics.fontBoundingBoxAscent;
-  const descent = metrics.fontBoundingBoxDescent;
-  return {
-    ascent: Number.isFinite(ascent) && ascent > 0 ? ascent : fontSize * .8,
-    descent: Number.isFinite(descent) && descent > 0 ? descent : fontSize * .2,
   };
 }
 
@@ -163,7 +187,7 @@ export function drawTemplateText(
   if (!text) return;
   const effect = layerTextEffect(layer);
   const effectSize = layerTextEffectSize(layer);
-  const padding = TEXT_SELECTION_MARGIN;
+  const padding = textSelectionPadding(layer);
   const available = Math.max(1, width - 2 * padding);
   const letterSpacing = layer.letterSpacing ?? 0;
 
@@ -218,15 +242,16 @@ export function drawTemplateText(
   const underlineOverflow = layer.underline
     ? Math.max(0, Math.max(1, ink.descent * .5) + Math.max(2, layer.fontSize / 20) - ink.descent)
     : 0;
-  const fontBox = measureTextFontBox(ctx, lines, layer.fontSize);
-  const verticalContentHeight = (fontBox.ascent + fontBox.descent) + Math.max(0, lines.length - 1) * lineHeight + underlineOverflow;
+  const effectExtents = textEffectVerticalExtents(layer);
+  const verticalContentHeight = effectExtents.top + ink.ascent + ink.descent
+    + Math.max(0, lines.length - 1) * lineHeight + underlineOverflow + effectExtents.bottom;
   const verticalSlack = Math.max(0, height - padding * 2 - verticalContentHeight);
   const verticalOffset = (layer.verticalAlign ?? 'middle') === 'top'
     ? 0
     : layer.verticalAlign === 'bottom'
       ? verticalSlack
       : verticalSlack / 2;
-  const startY = padding + verticalOffset + fontBox.ascent;
+  const startY = padding + verticalOffset + effectExtents.top + ink.ascent;
   const alpha = Number.isFinite(ctx.globalAlpha) ? ctx.globalAlpha : 1;
   ctx.globalAlpha = alpha * ((layer.textOpacity ?? 100) / 100);
 
@@ -293,7 +318,7 @@ export function measureTextLayerSafetyBounds(
 ) {
   const safeRequestedWidth = Math.min(3840, Math.max(16, requestedWidth));
   const text = interpolateTemplateFields(layer.text, product, !product);
-  const padding = TEXT_SELECTION_MARGIN;
+  const padding = textSelectionPadding(layer);
   const available = Math.max(1, safeRequestedWidth - 2 * padding);
   const letterSpacing = layer.letterSpacing ?? 0;
   if (textMeasurementContext === undefined) {

@@ -84,7 +84,8 @@ export function TemplateLayerSettings({ layer, product, assetPreview, palette, o
   useEffect(() => {
     if (layer.type !== 'text') return;
     const signature = JSON.stringify([layer.id, interpolateTemplateFields(layer.text, product, !product), layer.font, layer.fontSize,
-      layer.bold, layer.italic, layer.letterSpacing, layer.lineSpacing, layer.underline, layer.strike]);
+      layer.bold, layer.italic, layer.letterSpacing, layer.lineSpacing, layer.underline, layer.strike, layer.textShadow,
+      layer.textEffect, layer.textEffectSize]);
     if (fittedTextSelection.current?.layerId !== layer.id) {
       fittedTextSelection.current = { layerId: layer.id, signature };
     } else {
@@ -110,7 +111,8 @@ export function TemplateLayerSettings({ layer, product, assetPreview, palette, o
       next.textEffect ??= next.textShadow ? 'shadow' : 'none';
       next.textShadow = false;
     }
-    const textGeometryChanged = ['text', 'font', 'fontSize', 'bold', 'italic', 'letterSpacing', 'lineSpacing', 'underline', 'strike', 'width', 'height']
+    const textGeometryChanged = ['text', 'font', 'fontSize', 'bold', 'italic', 'letterSpacing', 'lineSpacing', 'underline', 'strike',
+      'width', 'height', 'textShadow', 'textEffect', 'textEffectSize']
       .some((key) => Object.prototype.hasOwnProperty.call(patch, key));
     if (next.type === 'text' && textGeometryChanged) {
       if (layer.type === 'text' && 'fontSize' in patch && typeof patch.fontSize === 'number' && patch.fontSize > layer.fontSize) {

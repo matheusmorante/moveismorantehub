@@ -44,13 +44,13 @@ export async function fetchFeedSettings(): Promise<MetaCatalogSettings> {
 }
 
 /**
- * Busca os produtos cadastrados com todas as relações necessárias para o catálogo
+ * Busca os campos e relações usados pelo mapeador do feed.
  */
 export async function fetchFeedProducts(): Promise<RawCatalogProduct[]> {
   const { data, error } = await supabase
     .from('products')
     .select(
-      '*, product_categories(categories(name, type)), product_images(*), product_variations(*), opportunities(*)'
+      'id, code, name, slug, description, price, promo_price, active, status, is_draft, deleted, deleted_at, is_salvado, product_kind, material, images, variations, product_categories(categories(name, type)), product_images(image_url, is_main), product_variations(id, sku, name, price, promo_price, description, image_url, active, status, attributes, use_parent_price, use_parent_promo_price, use_parent_description), opportunities(name, observations)'
     )
     .is('deleted_at', null);
 
@@ -58,7 +58,9 @@ export async function fetchFeedProducts(): Promise<RawCatalogProduct[]> {
     throw new Error(`Erro ao buscar produtos para o catálogo Meta: ${error.message}`);
   }
 
-  return (data as RawCatalogProduct[]) || [];
+  // O tipo inferido do select aninhado não coincide com RawCatalogProduct;
+  // manter o contrato local consumido pelo mapeador.
+  return (data as unknown as RawCatalogProduct[]) || [];
 }
 
 /**
