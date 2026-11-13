@@ -170,6 +170,7 @@ export const fetchProductsPage = async (
     includeTrashEligibility?: boolean;
     includeTotal?: boolean;
     productProjection?: 'componentAutocomplete';
+    searchVariationsAsEmbed?: boolean;
   } = {}
 ): Promise<{ data: Product[]; total: number }> => {
   try {
@@ -193,16 +194,20 @@ export const fetchProductsPage = async (
 
     const isComponentAutocompleteProjection =
       requestOptions.productProjection === 'componentAutocomplete';
+    const searchVariationsAsEmbed = Boolean(requestOptions.searchVariationsAsEmbed && options?.search);
+    const projection = isComponentAutocompleteProjection
+      ? PRODUCT_COMPONENT_AUTOCOMPLETE_COLUMNS
+      : LIGHT_COLUMNS_WITH_CATS;
     const baseQuery = supabase.from(TABLE_NAME).select(
-      isComponentAutocompleteProjection
-        ? PRODUCT_COMPONENT_AUTOCOMPLETE_COLUMNS
-        : LIGHT_COLUMNS_WITH_CATS,
+      searchVariationsAsEmbed ? `${projection},search_variations:product_variations()` : projection,
       requestOptions.includeTotal === false ? {} : { count: 'exact' }
     );
 
-    const filters = isComponentAutocompleteProjection
-      ? { ...options, excludeCombos: true }
-      : options;
+    const filters = {
+      ...options,
+      ...(isComponentAutocompleteProjection ? { excludeCombos: true } : {}),
+      searchVariationsAsEmbed,
+    };
     const { data, error, count } = await applyProductFiltersAndSort(baseQuery, filters, {
       orderColumn,
       ascending,

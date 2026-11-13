@@ -64,7 +64,7 @@ var require_dist = __commonJS({
     var _supabase_realtime_js = require("@supabase/realtime-js");
     var _supabase_storage_js = require("@supabase/storage-js");
     var _supabase_auth_js = require("@supabase/auth-js");
-    var version = "2.119.0";
+    var version = "2.118.0";
     var JS_ENV = "";
     var JS_RUNTIME_VERSION;
     if (typeof Deno !== "undefined") {
@@ -588,8 +588,7 @@ var require_dist = __commonJS({
         this.rest = new _supabase_postgrest_js.PostgrestClient(new URL("rest/v1", baseUrl).href, {
           headers: this.headers,
           schema: settings.db.schema,
-          fetch: resolveFetch(settings.global.fetch),
-          wrapFetch: (fetch$1) => fetchWithAuth(supabaseKey, supabaseUrl, this._getSessionToken.bind(this), fetch$1, settings.tracePropagation),
+          fetch: this.fetch,
           timeout: settings.db.timeout,
           urlLengthLimit: settings.db.urlLengthLimit,
           retry: settings.db.retry
@@ -609,24 +608,10 @@ var require_dist = __commonJS({
       /**
       * Perform a query on a table or a view.
       *
-      * A per-request `fetch` is wrapped the same way as the client-level fetch: the
-      * `apikey`, `Authorization` and trace headers are added before it is called.
-      * The same applies to clients returned by `.schema()`.
-      *
       * @param relation - The table or view name to query
-      * @param options - Per-request options that override client-level defaults
-      *
-      * @example Per-request fetch options
-      * ```ts
-      * const { data } = await supabase
-      *   .from('countries', {
-      *     fetch: (input, init) => fetch(input, { ...init, cache: 'force-cache' }),
-      *   })
-      *   .select('*')
-      * ```
       */
-      from(relation, options) {
-        return this.rest.from(relation, options);
+      from(relation) {
+        return this.rest.from(relation);
       }
       /**
       * Select a schema to query or perform an function (rpc) call.

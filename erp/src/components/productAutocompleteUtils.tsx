@@ -42,6 +42,7 @@ export const fetchAllProductSearchResults = async (
     throwOnError: true,
     includeTrashEligibility,
     includeTotal: false,
+    searchVariationsAsEmbed: true,
     productProjection: compactComponentProjection ? 'componentAutocomplete' : undefined,
   });
 

@@ -11,7 +11,7 @@ afterEach(() => { cleanup(); vi.useRealTimers(); });
 describe('shared product search form', () => {
   it('uses parsed supplier/query before service and selects only the current suggestion', async () => {
     const select = vi.fn(); render(<ProductAutocomplete onSelect={select} supplierId=" supplier " />); fireEvent.change(screen.getByRole('textbox'), { target: { value: ' Armário ' } });
-    const suggestion = await screen.findByRole('button', { name: /Armário/ }); expect(mocks.search).toHaveBeenCalledWith('Armário', 'supplier', false, 25); fireEvent.click(suggestion); expect(select).toHaveBeenCalledWith(product, undefined);
+    const suggestion = await screen.findByRole('button', { name: /Armário/ }); expect(mocks.search).toHaveBeenCalledWith('Armário', 'supplier', false, 25, undefined, true, false, false); fireEvent.click(suggestion); expect(select).toHaveBeenCalledWith(product, undefined);
   });
   it('does not search an already selected product until the input is edited', async () => {
     vi.useFakeTimers();
@@ -27,7 +27,17 @@ describe('shared product search form', () => {
     view.rerender(<ProductAutocomplete onSelect={onSelect} onChange={onChange} value="Armario" />);
     await act(async () => { await vi.advanceTimersByTimeAsync(350); });
 
-    expect(mocks.search).toHaveBeenCalledWith('Armario', undefined, false, 25);
+    expect(mocks.search).toHaveBeenCalledWith('Armario', undefined, false, 25, undefined, true, false, false);
+  });
+  it('encontra variações pelo código do produto pai', async () => {
+    const selected = vi.fn();
+    const variation = { id: 'variation', name: 'Armário branco', sku: 'outra-ref', active: true };
+    mocks.search.mockResolvedValueOnce([{ ...product, code: '000212', variations: [variation] }]);
+    render(<ProductAutocomplete onSelect={selected} />);
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: '000212' } });
+    const suggestion = await screen.findByRole('button', { name: /Armário branco/ });
+    fireEvent.click(suggestion);
+    expect(selected).toHaveBeenCalledWith(expect.objectContaining({ code: '000212' }), variation);
   });
   it('shows a resolver error before dispatch for an invalid supplier', async () => {
     render(<ProductAutocomplete onSelect={vi.fn()} supplierId="  " />); fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Armário' } });

@@ -5,7 +5,7 @@ const mocks = vi.hoisted(() => ({
   from: vi.fn(),
   getNextOrderIndex: vi.fn(async () => 123),
   resolveCustomerSnapshot: vi.fn(async (order: any) => order),
-  ensureFiscalSnapshots: vi.fn(async (items: any[], _nfeData: any, resolveActual?: Function) =>
+  ensureFiscalSnapshots: vi.fn(async (items: any[], _nfeData: any, resolveActual?: (items: any[], nfeData: any) => Promise<any[]>) =>
     resolveActual ? resolveActual(items, _nfeData) : items
   ),
   recordHistory: vi.fn(),
@@ -94,9 +94,14 @@ const splitPayments = [
 describe('cadastro de pedido com estoque atômico', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.from.mockReset();
+    mocks.from.mockImplementation((table: string) => {
+      if (table !== 'products') throw new Error(`Unexpected table: ${table}`);
+      return { select: () => ({ in: () => Promise.resolve({ data: [], error: null }) }) };
+    });
     mocks.resolveCustomerSnapshot.mockImplementation(async (order: any) => order);
     mocks.ensureFiscalSnapshots.mockImplementation(
-      async (items: any[], nfeData: any, resolveActual?: Function) =>
+      async (items: any[], nfeData: any, resolveActual?: (items: any[], nfeData: any) => Promise<any[]>) =>
         resolveActual ? resolveActual(items, nfeData) : items
     );
     clearTestArtifactContext();
@@ -117,11 +122,11 @@ describe('cadastro de pedido com estoque atômico', () => {
     let fiscalStarted = false;
     let resolveCustomer!: (order: any) => void;
     let resolveFiscal!: (items: any[]) => void;
-    mocks.resolveCustomerSnapshot.mockImplementation((order: any) => {
+    mocks.resolveCustomerSnapshot.mockImplementation((_order: any) => {
       customerStarted = true;
       return new Promise((resolve) => { resolveCustomer = resolve; });
     });
-    mocks.ensureFiscalSnapshots.mockImplementation((items: any[]) => {
+    mocks.ensureFiscalSnapshots.mockImplementation((_items: any[]) => {
       fiscalStarted = true;
       return new Promise((resolve) => { resolveFiscal = resolve; });
     });
@@ -147,11 +152,11 @@ describe('cadastro de pedido com estoque atômico', () => {
     let fiscalStarted = false;
     let resolveCustomer!: (order: any) => void;
     let resolveFiscal!: (items: any[]) => void;
-    mocks.resolveCustomerSnapshot.mockImplementation((order: any) => {
+    mocks.resolveCustomerSnapshot.mockImplementation((_order: any) => {
       customerStarted = true;
       return new Promise((resolve) => { resolveCustomer = resolve; });
     });
-    mocks.ensureFiscalSnapshots.mockImplementation((items: any[]) => {
+    mocks.ensureFiscalSnapshots.mockImplementation((_items: any[]) => {
       fiscalStarted = true;
       return new Promise((resolve) => { resolveFiscal = resolve; });
     });
@@ -170,12 +175,43 @@ describe('cadastro de pedido com estoque atômico', () => {
       current,
       current.updatedAt
     );
+    await vi.waitFor(() => expect(customerStarted && fiscalStarted).toBe(true));
     const startedInParallel = customerStarted && fiscalStarted;
     resolveCustomer(current);
     resolveFiscal(scheduledSale.items);
     await pendingUpdate;
 
     expect(startedInParallel).toBe(true);
+  });
+
+  it('consulta o pedido e valida os produtos em paralelo antes de concluir o rascunho', async () => {
+    let resolveOrder!: (value: unknown) => void;
+    let productLookupStarted = false;
+    const orderQuery: any = {};
+    orderQuery.select = vi.fn(() => orderQuery);
+    orderQuery.eq = vi.fn(() => orderQuery);
+    orderQuery.single = vi.fn(() => new Promise((resolve) => { resolveOrder = resolve; }));
+    mocks.from.mockImplementation((table: string) => table === 'orders'
+      ? orderQuery
+      : { select: () => ({ in: () => {
+        productLookupStarted = true;
+        return Promise.resolve({ data: [], error: null });
+      } }) });
+    mocks.rpc.mockResolvedValue({ data: { order_data: scheduledSale }, error: null });
+
+    const update = executeUpdateOrder('draft-id', {
+      ...scheduledSale,
+      orderIndex: 123,
+      customerData: { id: 'customer' },
+    } as any);
+    expect(orderQuery.single).toHaveBeenCalledTimes(1);
+    expect(productLookupStarted).toBe(true);
+    expect(mocks.rpc).not.toHaveBeenCalled();
+    expect(orderQuery.select).toHaveBeenCalledWith(expect.not.stringContaining('*'));
+
+    resolveOrder({ data: { order_data: { ...scheduledSale, status: 'draft' }, status: 'draft' }, error: null });
+    await update;
+    expect(mocks.rpc).toHaveBeenCalledTimes(1);
   });
 
   it('preserva snapshot, itens e pagamentos não editados ao salvar metadados fiscais', async () => {
@@ -269,7 +305,7 @@ describe('cadastro de pedido com estoque atômico', () => {
       'create_order_with_inventory_transaction',
       expect.objectContaining({ p_order_id: expect.any(String), p_items: scheduledSale.items })
     );
-    expect(mocks.from).not.toHaveBeenCalled();
+    expect(mocks.from.mock.calls.every(([table]) => table === 'products')).toBe(true);
     expect(mocks.dispatchNotifications).toHaveBeenCalledTimes(1);
     expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['orders'] });
   });
@@ -288,7 +324,7 @@ describe('cadastro de pedido com estoque atômico', () => {
       'create_order_with_inventory_transaction',
       expect.objectContaining({ p_order_payload: expect.objectContaining({ status: 'quoted' }) })
     );
-    expect(mocks.from).not.toHaveBeenCalled();
+    expect(mocks.from.mock.calls.every(([table]) => table === 'products')).toBe(true);
   });
 
   it('bloqueia status quoted para registros que não são orçamentos', async () => {
@@ -531,7 +567,7 @@ describe('cadastro de pedido com estoque atômico', () => {
     await expect(executeSaveOrder(scheduledSale as any, vi.fn())).rejects.toThrow(
       'falha na movimentação'
     );
-    expect(mocks.from).not.toHaveBeenCalled();
+    expect(mocks.from.mock.calls.every(([table]) => table === 'products')).toBe(true);
     expect(mocks.recordHistory).not.toHaveBeenCalled();
     expect(mocks.invalidateQueries).not.toHaveBeenCalled();
   });

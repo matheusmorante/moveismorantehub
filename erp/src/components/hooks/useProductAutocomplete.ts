@@ -217,11 +217,13 @@ export function useProductAutocomplete({
                 const fullName = getVariationDisplayName(p, v);
                 const normFullName = normalizeProductSearchSeparators(fullName);
                 const normSku = normalizeProductSearch(v.sku || '');
+                const normProductCode = normalizeProductSearch(p.code || '');
 
                 const matchesAll = searchNormWords.every(
                   (nw, index) =>
                     normFullName.includes(searchNormNameWords[index]) ||
-                    normSku.includes(nw)
+                    normSku.includes(nw) ||
+                    normProductCode.includes(nw)
                 );
 
                 if (matchesAll) {

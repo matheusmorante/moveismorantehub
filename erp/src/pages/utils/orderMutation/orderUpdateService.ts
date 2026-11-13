@@ -140,6 +140,9 @@ export const executeUpdateOrder = async (
       }
     }
     const { cleanUpdates, isStatusOnlyUpdate } = sanitizeOrderUpdateFields(orderToUpdate);
+    const compositionValidatedWithLookup = !currentOrder && !options.metadataOnly
+      && Array.isArray(cleanUpdates.items)
+      && (cleanUpdates.orderType === 'sale' || cleanUpdates.orderType === 'budget');
     let merged: any;
     let previousOrderData: any = currentOrder || null;
     let currentCirculationState: OrderCirculationState | undefined = currentOrder;
@@ -154,11 +157,15 @@ export const executeUpdateOrder = async (
       const { id: _id, ...rest } = { ...currentOrder, ...cleanUpdates } as any;
       merged = rest;
     } else {
-      const { data: current, error: fetchError } = await supabase
-        .from(TABLE_NAME)
-        .select('*')
-        .eq('id', id)
-        .single();
+      const [{ data: current, error: fetchError }] = await Promise.all([
+        supabase.from(TABLE_NAME)
+          .select('order_data,status,order_type,delivery_method,delivery_status,delivery_started_at,delivery_arrived_at,delivery_finished_at')
+          .eq('id', id)
+          .single(),
+        compositionValidatedWithLookup
+          ? assertOrderHasNoCompositionLines(cleanUpdates as Order)
+          : Promise.resolve(),
+      ]);
 
       if (fetchError || !current) {
         console.error(
@@ -186,7 +193,9 @@ export const executeUpdateOrder = async (
         orderToUpdate.status === 'scheduled' ||
         orderToUpdate.status === 'fulfilled')
     ) {
-      await assertOrderHasNoCompositionLines(merged as Order);
+      if (!compositionValidatedWithLookup) {
+        await assertOrderHasNoCompositionLines(merged as Order);
+      }
     }
 
     const persistedCodeSource = getOrderIndex(previousOrderData) ? previousOrderData : currentOrder;

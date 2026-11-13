@@ -310,6 +310,39 @@ describe('productFilterBuilder', () => {
     expect(productQuery.or).not.toHaveBeenCalled();
   });
 
+  it('filtra produtos e variações no servidor antes da paginação no autocomplete', async () => {
+    mocks.from.mockClear();
+    const variationQuery: any = {
+      select: vi.fn().mockReturnThis(),
+      or: vi.fn().mockReturnThis(),
+      limit: vi.fn(async () => ({
+        data: Array.from({ length: 101 }, (_, index) => ({ product_id: `parent-${index}` })),
+        error: null,
+      })),
+    };
+    mocks.from.mockReturnValue(variationQuery);
+    const productQuery: any = {
+      eq: vi.fn().mockReturnThis(),
+      or: vi.fn().mockReturnThis(),
+      order: vi.fn().mockReturnThis(),
+      range: vi.fn().mockReturnThis(),
+      abortSignal: vi.fn(async () => ({ data: [], error: null })),
+    };
+
+    await applyProductFiltersAndSort(productQuery, {
+      search: 'arm',
+      searchVariationsAsEmbed: true,
+    }, { orderColumn: 'created_at', ascending: false, from: 0, to: 24 });
+
+    expect(mocks.from).toHaveBeenCalledWith('product_variations');
+    expect(productQuery.or).toHaveBeenCalledWith(
+      expect.stringContaining('sku.imatch.'),
+      { referencedTable: 'search_variations' },
+    );
+    expect(productQuery.or).toHaveBeenCalledWith(expect.stringContaining('search_variations.not.is.null'));
+    expect(productQuery.range).toHaveBeenCalledWith(0, 24);
+  });
+
   it('recusa resultado truncado quando a busca excede o limite de variações', async () => {
     const variationQuery: any = {
       select: vi.fn(() => variationQuery),

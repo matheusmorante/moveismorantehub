@@ -32,6 +32,7 @@ export interface ProductQueryFilterOptions {
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
   excludeTestProducts?: boolean;
+  searchVariationsAsEmbed?: boolean;
 }
 
 export interface ProductPaginationOptions {
@@ -99,28 +100,27 @@ export const applyProductFiltersAndSort = async (
     const { searchTerms, wordTerms } = buildProductSearchTerms(options.search);
     if (searchTerms.length > 0) {
 
-      // 1. Buscar nome e SKU das variações para o catálogo de atendimento aceitar código/SKU.
-      let variationParentIds: string[] = [];
+      // Specific searches can use the compact index lookup. When many variations
+      // match, filter through the relationship before pagination instead of truncating IDs.
       const { data: matchedVariations, error: variationSearchError } = await withAbortTimeout(
-        supabase
-          .from('product_variations')
-          .select('product_id')
-          .or(buildProductVariationSearchFilter(searchTerms))
-          .limit(PRODUCT_VARIATION_SEARCH_MATCH_LIMIT + 1),
-        'products:variation-search',
-      );
-      if (variationSearchError) throw variationSearchError;
-      if ((matchedVariations?.length ?? 0) > PRODUCT_VARIATION_SEARCH_MATCH_LIMIT)
-        throw createProductVariationSearchTooBroadError();
-
-      if (matchedVariations && matchedVariations.length > 0) {
-        variationParentIds = Array.from(
-          new Set(matchedVariations.map((v) => v.product_id).filter(Boolean))
+          supabase
+            .from('product_variations')
+            .select('product_id')
+            .or(buildProductVariationSearchFilter(searchTerms))
+            .limit(PRODUCT_VARIATION_SEARCH_MATCH_LIMIT + 1),
+          'products:variation-search',
         );
+      if (variationSearchError) throw variationSearchError;
+      if ((matchedVariations?.length ?? 0) > PRODUCT_VARIATION_SEARCH_MATCH_LIMIT) {
+        if (!options.searchVariationsAsEmbed) throw createProductVariationSearchTooBroadError();
+        q = q.or(buildProductVariationSearchFilter(searchTerms), { referencedTable: 'search_variations' });
+        q = q.or(`${buildProductParentSearchFilter({ searchTerms, wordTerms })},search_variations.not.is.null`);
+      } else {
+        const variationParentIds: string[] = Array.from(
+          new Set((matchedVariations || []).map((v) => v.product_id).filter(Boolean))
+        );
+        q = q.or(buildProductParentSearchFilter({ searchTerms, wordTerms }, variationParentIds));
       }
-
-      // 2. Montar filtro OR com nome/código do produto e pais encontrados por nome/SKU da variação.
-      q = q.or(buildProductParentSearchFilter({ searchTerms, wordTerms }, variationParentIds));
     }
   }
 

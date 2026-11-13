@@ -37,9 +37,9 @@ export const executeSaveOrder = async (
   }
 
   try {
-    await assertOrderHasNoCompositionLines(order);
     const sanitizedOrder = removeNonStockItemLinks(order);
-    const [orderWithCustomerSnapshot, itemsWithFiscalSnapshots] = await Promise.all([
+    const [, orderWithCustomerSnapshot, itemsWithFiscalSnapshots] = await Promise.all([
+      assertOrderHasNoCompositionLines(order),
       resolveOrderCustomerSnapshot(sanitizedOrder),
       ensureOrderItemsHaveFiscalSnapshots(
         sanitizedOrder.items || [],
