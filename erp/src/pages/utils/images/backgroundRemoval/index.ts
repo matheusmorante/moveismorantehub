@@ -31,22 +31,42 @@ function centerForeground(canvas: HTMLCanvasElement): HTMLCanvasElement {
   const { width, height } = canvas;
   const bounds = imageAlphaContentBounds(canvas, width, height);
   if (bounds.x === 0 && bounds.y === 0 && bounds.width === width && bounds.height === height) return canvas;
+  const source = canvas.getContext('2d', { willReadFrequently: true });
+  if (!source) return canvas;
+  let left = width;
+  let top = height;
+  let right = -1;
+  let bottom = -1;
+  try {
+    const rowsPerStrip = Math.max(1, Math.floor(1_000_000 / width));
+    for (let stripY = 0; stripY < height; stripY += rowsPerStrip) {
+      const rows = Math.min(rowsPerStrip, height - stripY);
+      const { data } = source.getImageData(0, stripY, width, rows);
+      for (let pixel = 0; pixel < width * rows; pixel++) {
+        if (!data[pixel * 4 + 3]) continue;
+        const x = pixel % width;
+        const y = stripY + Math.floor(pixel / width);
+        left = Math.min(left, x);
+        right = Math.max(right, x);
+        top = Math.min(top, y);
+        bottom = Math.max(bottom, y);
+      }
+    }
+  } catch {
+    return canvas;
+  }
+  if (right < left || bottom < top) return canvas;
+  const desiredX = Math.round((width - bounds.width) / 2 - bounds.x);
+  const desiredY = Math.round((height - bounds.height) / 2 - bounds.y);
+  const offsetX = Math.max(-left, Math.min(width - 1 - right, desiredX));
+  const offsetY = Math.max(-top, Math.min(height - 1 - bottom, desiredY));
+  if (!offsetX && !offsetY) return canvas;
   const centered = document.createElement('canvas');
   centered.width = width;
   centered.height = height;
   const context = centered.getContext('2d');
   if (!context) return canvas;
-  context.drawImage(
-    canvas,
-    bounds.x,
-    bounds.y,
-    bounds.width,
-    bounds.height,
-    Math.round((width - bounds.width) / 2),
-    Math.round((height - bounds.height) / 2),
-    bounds.width,
-    bounds.height,
-  );
+  context.drawImage(canvas, offsetX, offsetY);
   return centered;
 }
 

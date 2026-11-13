@@ -46,6 +46,10 @@ export const AddressAutocompleteInput: React.FC<Props> = ({
   const contextKey = JSON.stringify([value, cityHint, stateHint]);
   const searchContext = useRef(contextKey);
   const addressKey = addressStateKey(currentAddress);
+  const hasSelectedAddress = Boolean(
+    addressValue?.placeId && value.trim() && addressValue.street?.trim() === value.trim()
+  );
+  const canShowSelection = hasSelectedAddress && !hasError && !lookupError;
   const searchForm = useZodForm(routeAddressSearchFormSchema, { search: value, city: cityHint, state: stateHint });
   const choiceForm = useZodForm(createAddressChoiceFormSchema(suggestions.map(addressSelectionKey)), { choice: '' });
   const selectionForm = useZodForm(addressSelectionFormSchema, { street: value });
@@ -206,13 +210,28 @@ export const AddressAutocompleteInput: React.FC<Props> = ({
           }}
           onBlur={onBlur}
           placeholder={placeholder}
-          className={resolvedInputClass}
+          className={`${resolvedInputClass} ${canShowSelection ? '!text-slate-900 dark:!text-slate-100 focus:!ring-0' : ''}`}
+          style={canShowSelection ? {
+            borderTopWidth: 0,
+            borderLeftWidth: 0,
+            borderRightWidth: 0,
+            borderBottomWidth: 2,
+            borderBottomStyle: 'solid',
+            borderBottomColor: '#10b981',
+            borderRadius: 0,
+            backgroundColor: 'transparent',
+            boxShadow: 'none',
+            paddingRight: '2.5rem',
+          } : undefined}
         />
 
         {(loading || enriching) && (
           <div className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none">
             <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
           </div>
+        )}
+        {canShowSelection && !loading && !enriching && (
+          <i className="bi bi-check-lg absolute right-3.5 top-1/2 -translate-y-1/2 text-emerald-600 dark:text-emerald-400 pointer-events-none" aria-label="Endereço selecionado" />
         )}
       </div>
 

@@ -85,9 +85,10 @@ export const ChoiceSearch: React.FC<ChoiceSearchProps> = ({
 
   const filtered = matchingOptions;
   const isSelected =
-    term.length === 0
+    !multiple &&
+    (term.length === 0
       ? selected.length > 0
-      : isSearchActive && selected.some((item) => normalizeSearchTerm(item) === debouncedTerm);
+      : isSearchActive && selected.some((item) => normalizeSearchTerm(item) === debouncedTerm));
 
   useEffect(() => {
     const closeSuggestions = (event: MouseEvent) => {
@@ -183,10 +184,10 @@ export const ChoiceSearch: React.FC<ChoiceSearchProps> = ({
             }
           }}
           placeholder={inputPlaceholder}
-          className={`w-full border-b-2 bg-transparent py-2 pr-8 text-xs outline-none focus:border-blue-600 ${
+          className={`w-full border-b-2 border-t-0 border-x-0 rounded-none bg-transparent py-2 pr-8 text-xs outline-none ${
             isSelected
-              ? 'border-emerald-500 text-emerald-700 dark:text-emerald-400'
-              : 'border-slate-300'
+              ? 'border-emerald-500 text-slate-900 focus:border-emerald-600 dark:border-emerald-400 dark:text-slate-100 dark:focus:border-emerald-300'
+              : 'border-slate-300 focus:border-blue-600 dark:border-slate-700 dark:focus:border-blue-400'
           }`}
         />
         {isSelected && (

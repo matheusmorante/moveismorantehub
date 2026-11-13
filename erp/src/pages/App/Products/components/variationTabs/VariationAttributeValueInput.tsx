@@ -209,7 +209,7 @@ export const VariationAttributeValueInput: React.FC<VariationAttributeValueInput
             onKeyDown={handleKeyDown}
             className={`box-border h-[34px] w-full bg-transparent border-b-2 border-t-0 border-x-0 outline-none px-1 py-0 pr-8 text-xs font-bold transition-all ${
               isRegisteredValue
-                ? 'border-emerald-500 dark:border-emerald-400 text-emerald-700 dark:text-emerald-400 focus:border-emerald-600 dark:focus:border-emerald-300'
+                ? 'border-emerald-500 dark:border-emerald-400 text-slate-900 dark:text-slate-100 focus:border-emerald-600 dark:focus:border-emerald-300'
                 : isUnregisteredValue
                   ? 'border-amber-400 dark:border-amber-500/80 text-slate-800 dark:text-slate-100 focus:border-blue-600 dark:focus:border-blue-400'
                   : 'border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 focus:border-blue-600 dark:focus:border-blue-400'

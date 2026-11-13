@@ -131,6 +131,21 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
     },
   });
   const multilineInputRef = React.useRef<HTMLTextAreaElement>(null);
+  const selectedInputStyle: React.CSSProperties | undefined = isSelected
+    ? {
+        borderTopWidth: 0,
+        borderLeftWidth: 0,
+        borderRightWidth: 0,
+        borderBottomWidth: 2,
+        borderBottomStyle: 'solid',
+        borderBottomColor: '#10b981',
+        borderRadius: 0,
+        boxShadow: 'none',
+      }
+    : undefined;
+  const selectedInputClasses = isSelected
+    ? `${inputEndAdornment ? 'pr-14' : 'pr-9'} !text-slate-900 dark:!text-slate-100 focus:!border-emerald-600`
+    : '';
 
   React.useLayoutEffect(() => {
     if (!multiline) return;
@@ -181,10 +196,11 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
                     : isTemporary
                       ? 'border-amber-400 text-amber-950 dark:text-amber-100 focus:border-amber-500'
                       : isSelected
-                        ? 'border-emerald-500 text-emerald-950 dark:text-emerald-100 font-semibold focus:border-emerald-600 pr-9'
+                        ? 'border-emerald-500 text-slate-900 dark:text-slate-100 font-semibold focus:border-emerald-600 pr-9'
                         : 'border-slate-200 dark:border-slate-800 focus:border-blue-600 dark:focus:border-blue-500'
                 } ${disabled ? 'opacity-60 cursor-not-allowed' : ''} ${className}`
-              } resize-none overflow-hidden leading-4`}
+              } resize-none overflow-hidden leading-4 ${selectedInputClasses}`}
+              style={selectedInputStyle}
             />
           ) : (
             <input
@@ -209,10 +225,11 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
                     : isTemporary
                       ? 'border-amber-400 text-amber-950 dark:text-amber-100 focus:border-amber-500'
                       : isSelected
-                        ? 'border-emerald-500 text-emerald-950 dark:text-emerald-100 font-semibold focus:border-emerald-600 pr-9'
+                        ? 'border-emerald-500 text-slate-900 dark:text-slate-100 font-semibold focus:border-emerald-600 pr-9'
                         : 'border-slate-200 dark:border-slate-800 focus:border-blue-600 dark:focus:border-blue-500'
-                } ${disabled ? 'opacity-60 cursor-not-allowed' : ''} ${className}`
+                } ${disabled ? 'opacity-60 cursor-not-allowed' : ''} ${className} ${selectedInputClasses}`
               }`}
+              style={selectedInputStyle}
             />
           )}
 
@@ -238,7 +255,7 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
               className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none"
               title="Produto vinculado ao catálogo"
             >
-              <i className="bi bi-check-circle-fill text-emerald-500 text-sm"></i>
+              <i className="bi bi-check-lg text-emerald-600 dark:text-emerald-400 text-sm"></i>
             </div>
           ) : isAiSuggestion ? (
             <div

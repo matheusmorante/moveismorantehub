@@ -21,7 +21,7 @@ export type TemplatePictureLoader = ((url: string, cutout: boolean, options?: Te
   getCached: (url: string, cutout: boolean, options?: TemplatePictureLoadOptions) => TemplatePicture | undefined;
 };
 
-export const BACKGROUND_REMOVAL_MASK_REVISION = 'birefnet-opencv-v1';
+export const BACKGROUND_REMOVAL_MASK_REVISION = 'birefnet-main-object-v3';
 const PICTURE_CACHE_LIMIT = 48;
 
 const framedPictureBounds = new WeakMap<TemplatePicture, ImageContentBounds>();

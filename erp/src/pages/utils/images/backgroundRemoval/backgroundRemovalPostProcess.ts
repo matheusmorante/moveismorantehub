@@ -2,6 +2,7 @@ const SOLID_FOREGROUND = 200;
 const SOLID_BACKGROUND = 42;
 const BORDER_COLOR_TOLERANCE = 20;
 const MIN_FOREGROUND_MASK_RATIO = .05;
+const MAIN_COMPONENT_THRESHOLD = 24;
 
 export const INVALID_BACKGROUND_MASK = 'A ferramenta não conseguiu separar o móvel do fundo nesta foto.';
 export type AlphaMatte = { data: ArrayLike<number>; width: number; height: number };
@@ -90,6 +91,46 @@ export function colorRefinementCandidates(
   return candidates;
 }
 
+/** Connects dark product pixels to confident foreground on proven flat backgrounds. */
+export function colorForegroundCandidates(
+  data: Uint8ClampedArray, mask: Uint8Array, background: readonly number[],
+) {
+  const candidates = new Uint8Array(mask.length);
+  for (let pixel = 0; pixel < mask.length; pixel++) {
+    const offset = pixel * 4;
+    if (mask[pixel] >= SOLID_FOREGROUND || (data[offset + 3] >= 245 && colorDistance(data, offset, background) >= 48)) {
+      candidates[pixel] = 255;
+    }
+  }
+  return candidates;
+}
+
+export function restoreConnectedForeground(
+  mask: Uint8Array, data: Uint8ClampedArray, background: readonly number[], labels: Int32Array,
+  labelCount: number, width: number, height: number,
+) {
+  const core = new Uint32Array(labelCount);
+  let left = width, right = -1, top = height, bottom = -1;
+  for (let pixel = 0; pixel < mask.length; pixel++) {
+    if (mask[pixel] < SOLID_FOREGROUND) continue;
+    const x = pixel % width;
+    const y = Math.floor(pixel / width);
+    left = Math.min(left, x); right = Math.max(right, x);
+    top = Math.min(top, y); bottom = Math.max(bottom, y);
+    core[labels[pixel]]++;
+  }
+  if (right < left || bottom < top) return;
+  for (let pixel = 0; pixel < mask.length; pixel++) {
+    const label = labels[pixel];
+    if (!label || core[label] < 8) continue;
+    const x = pixel % width;
+    const y = Math.floor(pixel / width);
+    if (x < left || x > right || y < top || y > bottom) continue;
+    const distance = colorDistance(data, pixel * 4, background);
+    if (distance >= 48) mask[pixel] = Math.max(mask[pixel], Math.min(255, Math.round((distance - 32) * 255 / 24)));
+  }
+}
+
 export function polishAlpha(mask: Uint8Array, softened: Uint8Array) {
   for (let index = 0; index < mask.length; index++) {
     const alpha = mask[index];
@@ -131,6 +172,125 @@ export function removeBackgroundComponents(
   for (let index = 0; index < mask.length; index++) {
     if (remove[labels[index]]) mask[index] = 0;
   }
+}
+
+type ForegroundComponent = {
+  area: number;
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+  centerX: number;
+  centerY: number;
+};
+
+/** Keeps the largest centered foreground object and its tiny, nearby details. */
+export function keepPrimaryForeground(mask: Uint8Array, width: number, height: number) {
+  const length = width * height;
+  if (!width || !height || mask.length !== length) return mask;
+
+  const labels = new Int32Array(length);
+  const queue = new Int32Array(length);
+  const components: ForegroundComponent[] = [];
+  let label = 0;
+  for (let start = 0; start < length; start++) {
+    if (mask[start] < MAIN_COMPONENT_THRESHOLD || labels[start]) continue;
+    label++;
+    let head = 0;
+    let tail = 0;
+    queue[tail++] = start;
+    labels[start] = label;
+    let minX = width;
+    let minY = height;
+    let maxX = -1;
+    let maxY = -1;
+    let sumX = 0;
+    let sumY = 0;
+    while (head < tail) {
+      const pixel = queue[head++];
+      const x = pixel % width;
+      const y = Math.floor(pixel / width);
+      minX = Math.min(minX, x);
+      minY = Math.min(minY, y);
+      maxX = Math.max(maxX, x);
+      maxY = Math.max(maxY, y);
+      sumX += x;
+      sumY += y;
+      for (let dy = -1; dy <= 1; dy++) {
+        const ny = y + dy;
+        if (ny < 0 || ny >= height) continue;
+        for (let dx = -1; dx <= 1; dx++) {
+          if (!dx && !dy) continue;
+          const nx = x + dx;
+          if (nx < 0 || nx >= width) continue;
+          const neighbor = ny * width + nx;
+          if (labels[neighbor] || mask[neighbor] < MAIN_COMPONENT_THRESHOLD) continue;
+          labels[neighbor] = label;
+          queue[tail++] = neighbor;
+        }
+      }
+    }
+    components.push({
+      area: tail,
+      minX,
+      minY,
+      maxX,
+      maxY,
+      centerX: sumX / tail,
+      centerY: sumY / tail,
+    });
+  }
+
+  if (components.length < 2) return mask;
+  const imageCenterX = (width - 1) / 2;
+  const imageCenterY = (height - 1) / 2;
+  const maxCenterDistance = Math.hypot(imageCenterX, imageCenterY) || 1;
+  let primary = 0;
+  let primaryScore = -1;
+  let secondScore = -1;
+  components.forEach((component, index) => {
+    const centerDistance = Math.hypot(component.centerX - imageCenterX, component.centerY - imageCenterY) / maxCenterDistance;
+    const score = component.area * (1 - .25 * centerDistance);
+    if (score > primaryScore) {
+      secondScore = primaryScore;
+      primary = index + 1;
+      primaryScore = score;
+    } else secondScore = Math.max(secondScore, score);
+  });
+  if (secondScore > 0 && primaryScore < secondScore * 1.5) return mask;
+
+  const main = components[primary - 1];
+  const keep = new Uint8Array(components.length + 1);
+  keep[primary] = 1;
+  const detailLimit = Math.max(4, Math.ceil(main.area * .1));
+  const detailGap = Math.max(3, Math.ceil(Math.max(width, height) * .01));
+  components.forEach((component, index) => {
+    if (index + 1 === primary) return;
+    const inside = component.centerX >= main.minX && component.centerX <= main.maxX
+      && component.centerY >= main.minY && component.centerY <= main.maxY;
+    const dx = Math.max(0, main.minX - component.maxX - 1, component.minX - main.maxX - 1);
+    const dy = Math.max(0, main.minY - component.maxY - 1, component.minY - main.maxY - 1);
+    if (inside || (component.area <= detailLimit && Math.hypot(dx, dy) <= detailGap)) keep[index + 1] = 1;
+  });
+
+  const retained = new Uint8Array(length);
+  for (let pixel = 0; pixel < length; pixel++) {
+    if (!keep[labels[pixel]]) continue;
+    const x = pixel % width;
+    const y = Math.floor(pixel / width);
+    for (let dy = -2; dy <= 2; dy++) {
+      const ny = y + dy;
+      if (ny < 0 || ny >= height) continue;
+      for (let dx = -2; dx <= 2; dx++) {
+        const nx = x + dx;
+        if (nx >= 0 && nx < width) retained[ny * width + nx] = 1;
+      }
+    }
+  }
+  for (let pixel = 0; pixel < length; pixel++) {
+    if (!retained[pixel]) mask[pixel] = 0;
+  }
+  return mask;
 }
 
 export function resizeMatte(mask: AlphaMatte, width: number, height: number): Uint8Array {

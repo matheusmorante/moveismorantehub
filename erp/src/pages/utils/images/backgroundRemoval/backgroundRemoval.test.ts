@@ -2,9 +2,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   colorRefinementCandidates,
+  colorForegroundCandidates,
   hasTransparentBackground,
   inferUniformBackground,
+  keepPrimaryForeground,
   removeBackgroundComponents,
+  restoreConnectedForeground,
   resizeMatte,
   validateSegmentationMask,
 } from './backgroundRemovalPostProcess';
@@ -73,6 +76,78 @@ describe('refinamento conservador do canal alfa', () => {
     expect(mask[11 * width + 11]).toBe(0);
     expect(mask[door]).toBe(115);
     expect(mask[handle]).toBe(246);
+  });
+
+  it('restaura parte escura ligada ao móvel em fundo uniforme, sem restaurar objeto separado', () => {
+    const width = 20;
+    const height = 16;
+    const pixels = makeImage(width, height, [250, 250, 250, 255]);
+    const mask = new Uint8Array(width * height);
+    const labels = new Int32Array(width * height);
+    for (let y = 5; y < 9; y++) for (let x = 2; x < 16; x++) {
+      const index = y * width + x;
+      pixels.set([125, 75, 35, 255], index * 4);
+      labels[index] = 1;
+      if (x < 5 || x > 12) mask[index] = 255;
+    }
+    const unrelated = 12 * width + 18;
+    pixels.set([100, 60, 30, 255], unrelated * 4);
+    labels[unrelated] = 2;
+    const candidates = colorForegroundCandidates(pixels, mask, [250, 250, 250]);
+    expect(candidates[6 * width + 8]).toBe(255);
+    restoreConnectedForeground(mask, pixels, [250, 250, 250], labels, 3, width, height);
+    expect(mask[6 * width + 8]).toBe(255);
+    expect(mask[unrelated]).toBe(0);
+    expect(mask[0]).toBe(0);
+  });
+
+  it('mantém o móvel principal, remove objeto lateral e preserva um detalhe próximo', () => {
+    const width = 64;
+    const height = 64;
+    const mask = new Uint8Array(width * height);
+    const fill = (left: number, top: number, right: number, bottom: number, alpha: number) => {
+      for (let y = top; y < bottom; y++) {
+        for (let x = left; x < right; x++) mask[y * width + x] = alpha;
+      }
+    };
+    fill(20, 18, 42, 48, 255);
+    fill(50, 20, 62, 42, 255);
+    fill(44, 30, 45, 31, 255);
+
+    keepPrimaryForeground(mask, width, height);
+
+    expect(mask[30 * width + 30]).toBe(255);
+    expect(mask[30 * width + 55]).toBe(0);
+    expect(mask[30 * width + 44]).toBe(255);
+  });
+
+  it('preserva componentes de tamanho parecido quando há dúvida sobre o produto principal', () => {
+    const width = 64;
+    const height = 64;
+    const mask = new Uint8Array(width * height);
+    for (let y = 25; y < 35; y++) for (let x = 27; x < 37; x++) mask[y * width + x] = 255;
+    for (let y = 3; y < 13; y++) for (let x = 3; x < 13; x++) mask[y * width + x] = 255;
+
+    keepPrimaryForeground(mask, width, height);
+
+    expect(mask[30 * width + 32]).toBe(255);
+    expect(mask[8 * width + 8]).toBe(255);
+  });
+
+  it('preserva regiões de confiança média ligadas ao móvel e um pé separado próximo', () => {
+    const width = 64;
+    const height = 64;
+    const mask = new Uint8Array(width * height);
+    for (let y = 10; y < 35; y++) for (let x = 20; x < 40; x++) mask[y * width + x] = 255;
+    for (let y = 15; y < 30; y++) for (let x = 40; x < 48; x++) mask[y * width + x] = 80;
+    for (let y = 37; y < 44; y++) for (let x = 25; x < 28; x++) mask[y * width + x] = 255;
+    for (let y = 5; y < 15; y++) for (let x = 2; x < 8; x++) mask[y * width + x] = 255;
+
+    keepPrimaryForeground(mask, width, height);
+
+    expect(mask[20 * width + 45]).toBe(80);
+    expect(mask[40 * width + 26]).toBe(255);
+    expect(mask[10 * width + 4]).toBe(0);
   });
 
   it('rejeita máscaras vazias e mantém a geometria ao redimensionar', () => {

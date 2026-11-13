@@ -46,9 +46,10 @@ export const FamilySearchSelector: React.FC<FamilySearchSelectorProps> = ({
           onFocus={() => setIsFamilySuggestionsOpen(true)}
           placeholder="Digite ao menos 2 letras do nome ou código do produto pai..."
           autoComplete="off"
+          style={targetFamilyId ? { borderBottomColor: '#10b981' } : undefined}
           className={`w-full rounded-none border-0 border-b-2 border-slate-200 bg-transparent py-4 pl-4 pr-12 text-base font-medium outline-none transition-all placeholder:text-slate-400 focus:border-indigo-500 focus:ring-0 dark:border-slate-700 dark:text-slate-100 ${
             targetFamilyId
-              ? 'text-emerald-600 dark:text-emerald-400 font-bold border-emerald-500 dark:border-emerald-500/50'
+              ? 'text-slate-900 dark:text-slate-100 font-bold border-emerald-500 dark:border-emerald-400 focus:border-emerald-600'
               : ''
           }`}
         />

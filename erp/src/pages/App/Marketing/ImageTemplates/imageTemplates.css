@@ -374,6 +374,9 @@
 .ct-preview-product { flex: 1 1 12rem; }
 .ct-preview-product-trigger { width: 100%; justify-content: space-between; overflow: hidden; }
 .ct-preview-product-trigger > span { overflow: hidden; text-overflow: ellipsis; }
+.ct-preview-product-trigger.is-selected { border: 0; border-bottom: 2px solid #10b981; border-radius: 0; background: transparent; color: var(--ct-ink); }
+.ct-preview-product-trigger.is-selected:hover:not(:disabled) { background: transparent; }
+.ct-preview-selected-check { flex: 0 0 auto; color: #059669; }
 .ct-preview-picker { padding: .5rem; border: 1px solid var(--ct-line); border-radius: .45rem; background: var(--ct-paper); box-shadow: 0 .5rem 1.5rem #0f172a2e; }
 .ct-preview-picker-search { display: grid; gap: .3rem; padding: .1rem .1rem .45rem; font-size: .74rem; font-weight: 650; }
 .ct-preview-picker-search input { width: 100%; min-height: 2.25rem; border: 1px solid var(--ct-line); border-radius: .32rem;

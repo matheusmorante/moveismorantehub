@@ -109,7 +109,7 @@ export function TemplateProductPreview({
           <span id="ct-preview-product-label">Produto do preview</span>
           <button
             type="button"
-            className="ct-button ct-preview-product-trigger"
+            className={`ct-button ct-preview-product-trigger ${selectedProduct ? 'is-selected' : ''}`}
             aria-labelledby="ct-preview-product-label ct-preview-product-selected"
             aria-haspopup="listbox"
             aria-expanded={productPickerOpen}
@@ -119,6 +119,7 @@ export function TemplateProductPreview({
           >
             <span id="ct-preview-product-selected">{selectedProduct?.name || 'Produto de exemplo'}</span>
             <i className={`bi ${productPickerOpen ? 'bi-chevron-up' : 'bi-chevron-down'}`} aria-hidden="true" />
+            {selectedProduct && <i className="bi bi-check-lg ct-preview-selected-check" aria-hidden="true" />}
           </button>
           <DropdownPortal anchorRef={pickerAnchorRef} isOpen={productPickerOpen} placement="top" onClose={closeProductPicker}>
             <div className="ct-preview-picker ct-surface">

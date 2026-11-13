@@ -183,10 +183,12 @@ export const NcmSelect: React.FC<NcmSelectProps> = ({
             setTimeout(() => onBlur?.(), 150);
           }}
           placeholder={placeholder}
-          className={`h-[62px] w-full pl-3 pr-7 pt-2 pb-7 bg-white dark:bg-slate-950 border-0 border-b-2 rounded-none outline-none text-xs leading-4 font-mono font-bold transition-all ${
+          className={`h-[62px] w-full pl-3 pr-12 pt-2 pb-7 bg-white dark:bg-slate-950 border-0 border-b-2 rounded-none outline-none text-xs leading-4 font-mono font-bold transition-all ${
             hasError
               ? 'border-rose-500 bg-rose-50/50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 focus:border-rose-600 ring-1 ring-rose-500/30'
-              : isNcmValid
+              : hasDescription
+                ? 'border-emerald-500 dark:border-emerald-400 text-slate-900 dark:text-slate-100 focus:border-emerald-600 dark:focus:border-emerald-300'
+                : isNcmValid
                 ? 'border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 focus:border-blue-500'
                 : 'border-red-400 bg-red-50/40 dark:bg-red-950/30 text-red-700 dark:text-red-300 focus:border-red-500'
           }`}
@@ -196,22 +198,22 @@ export const NcmSelect: React.FC<NcmSelectProps> = ({
             id={descriptionId}
             data-testid={id ? `${id}-description` : 'ncm-select-description'}
             title={displayDescription}
-            className="pointer-events-none absolute left-3 right-7 top-8 line-clamp-2 text-[9px] leading-3 text-slate-500 dark:text-slate-400"
+            className="pointer-events-none absolute left-3 right-12 top-8 line-clamp-2 text-[9px] leading-3 text-slate-500 dark:text-slate-400"
           >
             {displayDescription}
           </p>
         )}
         <button
           type="button"
+          aria-label="Abrir ou fechar opções de NCM"
           onClick={(e) => {
             e.stopPropagation();
             setIsDropdownOpen((prev) => !prev);
           }}
-          className="absolute right-2 top-3 text-slate-400 hover:text-slate-600 transition-transform p-0.5"
+          className={`absolute right-2 top-3 inline-flex items-center gap-1 p-0.5 transition-colors ${hasDescription && !hasError ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400 hover:text-slate-600'}`}
         >
-          <i
-            className={`bi bi-chevron-down text-[10px] transition-transform block ${isDropdownOpen ? 'rotate-180' : ''}`}
-          />
+          <i className={`bi bi-chevron-down text-[10px] transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} aria-hidden="true" />
+          {hasDescription && !hasError && <i className="bi bi-check-lg text-sm" aria-hidden="true" />}
         </button>
       </div>
 

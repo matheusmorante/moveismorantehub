@@ -59,6 +59,9 @@ export const ProductSearchInput: React.FC<ProductSearchInputProps> = ({
   const [dropdownMaxHeight, setDropdownMaxHeight] = useState(288);
   const containerRef = useRef<HTMLDivElement>(null);
   const selectedProductTitle = getProductTitle(selectedProduct);
+  const isShowingSelectedProduct = Boolean(
+    selectedProduct && filterText.trim() === selectedProductTitle.trim()
+  );
 
   useEffect(() => {
     if (!selectedProduct) {
@@ -245,7 +248,7 @@ export const ProductSearchInput: React.FC<ProductSearchInputProps> = ({
 
   return (
     <div ref={containerRef} className={`relative flex-1 ${className}`}>
-      <div className="flex items-center gap-3 w-full px-2 py-2 bg-transparent border-b-2 border-slate-200 dark:border-slate-800 focus-within:border-blue-500 transition-colors cursor-text min-w-[240px]">
+      <div className={`flex items-center gap-3 w-full px-2 py-2 bg-transparent border-b-2 transition-colors cursor-text min-w-[240px] ${isShowingSelectedProduct ? 'border-emerald-500 focus-within:border-emerald-600 dark:border-emerald-400' : 'border-slate-200 dark:border-slate-800 focus-within:border-blue-500'}`}>
         {!hideIcon && (
           <span className="w-6 h-6 rounded-xl flex items-center justify-center shrink-0">
             {isLoading ? (
@@ -288,6 +291,9 @@ export const ProductSearchInput: React.FC<ProductSearchInputProps> = ({
           >
             <i className="bi bi-x-circle-fill text-sm" />
           </button>
+        )}
+        {isShowingSelectedProduct && (
+          <i className="bi bi-check-lg shrink-0 text-emerald-600 dark:text-emerald-400" aria-label="Produto selecionado" />
         )}
       </div>
 

@@ -85,6 +85,7 @@ export const TechnicalFieldRow: React.FC<TechnicalFieldRowProps> = ({
     onToggleCharacteristic &&
     field.characteristicActive !== undefined &&
     !isCategoryMandatory &&
+    !isMandatoryForProductEntry &&
     !field.characteristicToggleDisabled
   );
   const isCharacteristicInactive = hasCharacteristicActivation && !field.characteristicActive;
@@ -102,12 +103,15 @@ export const TechnicalFieldRow: React.FC<TechnicalFieldRowProps> = ({
     isDependencySatisfied;
   const scope = effectiveIsVariable
     ? 'variation'
-    : isExplicitlyNotApplicable
-      ? 'not_inform'
-      : shouldDefaultToGlobal
-        ? 'global'
-        : 'not_inform';
-  const availableScopeOptions = isCategoryMandatory || hasCharacteristicActivation
+    : isCategoryMandatory || isMandatoryForProductEntry
+      ? 'global'
+      : isExplicitlyNotApplicable
+        ? 'not_inform'
+        : shouldDefaultToGlobal
+          ? 'global'
+          : 'not_inform';
+  const availableScopeOptions =
+    isCategoryMandatory || isMandatoryForProductEntry || hasCharacteristicActivation
     ? REQUIRED_TECHNICAL_FIELD_SCOPES
     : TECHNICAL_FIELD_SCOPES;
   const selectedScope = TECHNICAL_FIELD_SCOPES.find((option) => option.value === scope)!;

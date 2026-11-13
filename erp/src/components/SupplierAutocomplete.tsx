@@ -87,8 +87,8 @@ const SupplierAutocomplete: React.FC<SupplierAutocompleteProps> = ({
           <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5">
             {customLabel}
             {showSelectedBadge && isSelected && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 text-[9px] font-bold tracking-wider">
-                <i className="bi bi-check2-circle text-[10px]" /> Selecionado
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300 text-[9px] font-bold tracking-wider">
+                <i className="bi bi-check2-circle text-[10px] text-slate-400" /> Selecionado
               </span>
             )}
           </label>
@@ -103,8 +103,8 @@ const SupplierAutocomplete: React.FC<SupplierAutocompleteProps> = ({
         {disabled && showDisabledReasonOnClick ? (
           <button
             type="button"
-            className={`${inputClassName} block text-left pr-10 ${isSelected ? '' : 'opacity-70'} cursor-pointer bg-slate-100 dark:bg-slate-800/60`}
-            style={isSelected ? { borderBottomColor: '#10b981' } : undefined}
+            className={`${inputClassName} block text-left pr-10 ${isSelected ? '!border-t-0 !border-x-0 !border-b-2 !rounded-none !text-slate-900 dark:!text-slate-100' : 'opacity-70'} cursor-pointer bg-slate-100 dark:bg-slate-800/60`}
+            style={isSelected ? { borderTopWidth: 0, borderLeftWidth: 0, borderRightWidth: 0, borderBottomWidth: 2, borderBottomStyle: 'solid', borderBottomColor: '#10b981', borderRadius: 0, boxShadow: 'none' } : undefined}
             aria-label="Ver por que o fornecedor está bloqueado"
             aria-expanded={showDisabledReason}
             aria-controls={disabledReasonId}
@@ -122,7 +122,7 @@ const SupplierAutocomplete: React.FC<SupplierAutocompleteProps> = ({
             onChange={(e) => handleInputChange(e.target.value)}
             onFocus={handleFocus}
             placeholder={disabled ? 'Fornecedor fixado para os itens atuais' : placeholder}
-            style={isSelected ? { borderBottomColor: '#10b981' } : undefined}
+            style={isSelected ? { borderTopWidth: 0, borderLeftWidth: 0, borderRightWidth: 0, borderBottomWidth: 2, borderBottomStyle: 'solid', borderBottomColor: '#10b981', borderRadius: 0, boxShadow: 'none' } : undefined}
             className={`${inputClassName} ${
               disabled
                 ? 'opacity-70 cursor-not-allowed bg-slate-100 dark:bg-slate-800/60'
@@ -150,14 +150,14 @@ const SupplierAutocomplete: React.FC<SupplierAutocompleteProps> = ({
               <i className="bi bi-x-lg text-xs" />
             </button>
           )}
-          {isSelected && (
-            <i className="bi bi-check-circle-fill text-emerald-600 dark:text-emerald-400 text-base" />
-          )}
           {disabled ? (
             <i className="bi bi-lock-fill text-amber-500 text-base" />
           ) : !isSelected ? (
             <i className="bi bi-truck text-slate-400 text-base" />
           ) : null}
+          {isSelected && (
+            <i className="bi bi-check-lg text-emerald-600 dark:text-emerald-400 text-base" />
+          )}
         </div>
         {disabled && showDisabledReasonOnClick && showDisabledReason && disabledReason && (
           <div

@@ -221,7 +221,9 @@ export const ProductNcmSelector: React.FC<ProductNcmSelectorProps> = ({
           className={`h-[62px] w-full pl-1 pr-8 pt-2 pb-7 bg-transparent border-b-2 border-t-0 border-x-0 outline-none text-xs leading-4 font-bold dark:text-slate-200 tracking-wider font-mono transition-colors ${
             hasError
               ? 'border-red-500 focus:border-red-600'
-              : 'border-slate-200 dark:border-slate-800 focus:border-blue-600 dark:focus:border-blue-400'
+              : hasSubtitle
+                ? 'border-emerald-500 dark:border-emerald-400 text-slate-900 dark:text-slate-100 focus:border-emerald-600 dark:focus:border-emerald-300'
+                : 'border-slate-200 dark:border-slate-800 focus:border-blue-600 dark:focus:border-blue-400'
           }`}
         />
         {hasSubtitle && (
@@ -235,7 +237,7 @@ export const ProductNcmSelector: React.FC<ProductNcmSelectorProps> = ({
           </p>
         )}
         <i
-          className={`bi bi-chevron-down absolute right-4 top-3 text-slate-400 transition-transform pointer-events-none ${isDropdownOpen ? 'rotate-180' : ''}`}
+          className={`bi ${hasSubtitle && !hasError ? 'bi-check-lg text-emerald-600 dark:text-emerald-400' : `bi-chevron-down text-slate-400 ${isDropdownOpen ? 'rotate-180' : ''}`} absolute right-4 top-3 transition-transform pointer-events-none`}
         />
       </div>
       {hasError && (

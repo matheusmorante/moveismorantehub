@@ -37,33 +37,34 @@ export function PreviewProductPicker({
     <div ref={container} className="relative text-xs font-semibold">
       Produto para preview padrão
       <div
-        className={`mt-1 flex items-center rounded border ${selected ? 'border-emerald-500/60 bg-emerald-500/10' : 'border-slate-700 bg-slate-950'}`}
+        className={`mt-1 flex items-center border-0 border-b-2 rounded-none ${selected ? 'border-b-emerald-500 bg-white dark:bg-white' : 'border-b-slate-700 bg-slate-950'}`}
       >
         <i
-          className={`bi ${selected ? 'bi-check-circle-fill text-emerald-400' : 'bi-search text-slate-500'} ml-2`}
+          className="bi bi-search ml-2 text-slate-500"
         />
         <input
           value={selected ? selected.name || selected.title || '' : search}
-          onFocus={() => setOpen(true)}
+          readOnly={Boolean(selected)}
+          onFocus={() => { if (!selected) setOpen(true); }}
           onChange={(event) => {
             onSearch(event.target.value);
             setOpen(true);
           }}
           placeholder="Buscar produto"
-          className="min-w-0 flex-1 bg-transparent p-2 outline-none"
+          className={`min-w-0 flex-1 bg-transparent p-2 outline-none placeholder:text-slate-400 ${selected ? 'text-slate-900' : 'text-slate-800 dark:text-slate-100'}`}
         />
         {selected && (
           <button
             type="button"
             onClick={clear}
             aria-label="Limpar produto selecionado"
-            className="px-2 text-slate-300 hover:text-white"
+            className="px-2 text-slate-400 hover:text-slate-700 dark:hover:text-slate-900"
           >
             ✕
           </button>
         )}
+        {selected && <i className="bi bi-check-lg mr-2 text-emerald-600" aria-label="Produto selecionado" />}
       </div>
-      {selected && <p className="mt-1 text-[10px] text-emerald-300">Produto selecionado</p>}
       {showSuggestions && (
         <div className="absolute z-40 mt-1 max-h-64 w-full overflow-auto rounded-lg border border-slate-700 bg-slate-950 p-1 shadow-xl">
           {products.map((product) => (

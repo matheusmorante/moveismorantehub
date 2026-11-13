@@ -101,6 +101,8 @@ export const TechnicalCombobox: React.FC<TechnicalComboboxProps> = ({
   };
 
   const hasSelectedValue = Boolean(value && String(value).trim() !== '');
+  const isShowingSelectedValue =
+    hasSelectedValue && searchTerm.trim() === String(value || '').trim();
   const isNotApplicable =
     String(value || '')
       .trim()
@@ -118,12 +120,10 @@ export const TechnicalCombobox: React.FC<TechnicalComboboxProps> = ({
         <i
           className={`bi bi-search absolute left-0.5 top-1/2 -translate-y-1/2 text-[11px] pointer-events-none transition-colors ${
             disabled
-              ? 'text-emerald-500'
+              ? 'text-slate-400'
               : isInvalid
                 ? 'text-red-500'
-                : hasSelectedValue
-                  ? 'text-blue-600 dark:text-blue-400'
-                  : 'text-slate-400'
+                : 'text-slate-400'
           }`}
         />
 
@@ -139,15 +139,22 @@ export const TechnicalCombobox: React.FC<TechnicalComboboxProps> = ({
             placeholder ||
             `Digite pelo menos ${PRODUCT_TECHNICAL_CHOICE_SEARCH_MIN_CHARACTERS} caracteres para pesquisar ${fieldName}...`
           }
-          className={`w-full pl-6 pr-2 py-2 border-b-2 border-t-0 border-x-0 rounded-none text-xs outline-none transition-all ${
+          className={`w-full pl-6 pr-7 py-2 border-b-2 border-t-0 border-x-0 rounded-none text-xs outline-none transition-all ${
             disabled || isNotApplicable
               ? 'bg-slate-100 dark:bg-slate-800/60 border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-400 font-semibold cursor-not-allowed'
               : isInvalid
                 ? 'bg-transparent border-red-500 text-red-600 dark:text-red-400 placeholder:text-red-300'
-                : 'bg-transparent border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 placeholder:text-slate-400 focus:border-blue-600 dark:focus:border-blue-400'
-          } ${!disabled && !isNotApplicable && hasSelectedValue ? 'font-bold' : ''}`}
+                : isShowingSelectedValue
+                  ? 'bg-transparent border-emerald-500 dark:border-emerald-400 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:border-emerald-600 dark:focus:border-emerald-300'
+                  : 'bg-transparent border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 placeholder:text-slate-400 focus:border-blue-600 dark:focus:border-blue-400'
+          } ${!disabled && !isNotApplicable && isShowingSelectedValue ? 'font-bold' : ''}`}
         />
-
+        {!disabled && !isNotApplicable && !isInvalid && isShowingSelectedValue && (
+          <i
+            className="bi bi-check-lg absolute right-1 top-1/2 -translate-y-1/2 text-emerald-600 dark:text-emerald-400 pointer-events-none"
+            aria-label="Opção selecionada"
+          />
+        )}
       </div>
 
       {/* Painel de Resultados logo abaixo do input */}

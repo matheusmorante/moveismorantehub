@@ -65,34 +65,32 @@ export const PurchaseSupplierFilter: React.FC<PurchaseSupplierFilterProps> = ({
         role="combobox"
         aria-expanded={isOpen && !selectedSupplier}
         aria-label="Buscar fornecedor"
-        value={selectedSupplier ? '' : query}
-        onFocus={() => setIsOpen(true)}
+        value={selectedSupplier?.fullName || query}
+        readOnly={Boolean(selectedSupplier)}
+        onFocus={() => { if (!selectedSupplier) setIsOpen(true); }}
         onChange={(event) => {
           onSelect('');
           setQuery(event.target.value);
           setIsOpen(true);
         }}
         placeholder="Buscar e selecionar fornecedor..."
-        className="w-full pl-12 pr-4 py-3 bg-slate-50 dark:bg-slate-950 border-none rounded-2xl text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all dark:text-slate-200"
+        className={`w-full pl-12 ${selectedSupplier ? 'pr-16 border-t-0 border-x-0 border-b-2 border-emerald-500 rounded-none bg-transparent text-slate-900 font-bold focus:border-emerald-600 focus:ring-0 dark:border-emerald-400 dark:text-slate-100' : 'pr-4 border-none rounded-2xl bg-slate-50 text-slate-800 outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-950 dark:text-slate-200'} py-3 text-sm transition-all`}
       />
       {selectedSupplier && (
-        <div className="absolute inset-y-1.5 left-11 right-1.5 flex items-center justify-between gap-2 rounded-xl bg-blue-600 px-3 text-sm font-bold text-white shadow-sm">
-          <span className="truncate">
-            <i className="bi bi-truck mr-2" aria-hidden="true" />
-            {selectedSupplier.fullName}
-          </span>
+        <div className="absolute inset-y-0 right-2 flex items-center gap-1">
           <button
             type="button"
             onClick={() => {
               onSelect('');
               setQuery('');
             }}
-            className="rounded-md px-1 text-blue-100 hover:bg-blue-700 hover:text-white"
+            className="rounded-md px-1 text-slate-400 hover:text-red-600"
             title="Limpar fornecedor"
             aria-label="Limpar fornecedor selecionado"
           >
             <i className="bi bi-x-lg" aria-hidden="true" />
           </button>
+          <i className="bi bi-check-lg text-emerald-600 dark:text-emerald-400" aria-label="Fornecedor selecionado" />
         </div>
       )}
       <DropdownPortal anchorRef={wrapperRef} isOpen={isOpen && !selectedSupplier}>

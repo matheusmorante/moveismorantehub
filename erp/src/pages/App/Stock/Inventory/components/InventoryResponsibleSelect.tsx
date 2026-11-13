@@ -141,16 +141,16 @@ export const InventoryResponsibleSelect: React.FC<InventoryResponsibleSelectProp
             hasError
               ? 'border-rose-400 focus:border-rose-500 text-rose-900 dark:text-rose-100'
               : selectedEmployee
-                ? 'border-emerald-500 bg-emerald-50/20 dark:bg-emerald-950/20 text-emerald-900 dark:text-emerald-100 focus:border-blue-600'
+                ? 'border-emerald-500 dark:border-emerald-400 text-slate-900 dark:text-slate-100 focus:border-emerald-600 dark:focus:border-emerald-300'
                 : 'border-slate-200 dark:border-slate-700 focus:border-blue-600 text-slate-700 dark:text-slate-200'
           }`}
         />
         {selectedEmployee && !hasError && (
           <span
             aria-label="Responsável selecionado"
-            className="absolute right-2 top-1/2 -translate-y-1/2 text-emerald-500"
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-emerald-600 dark:text-emerald-400"
           >
-            <i className="bi bi-check2 text-lg" />
+            <i className="bi bi-check-lg text-base" />
           </span>
         )}
       </div>
