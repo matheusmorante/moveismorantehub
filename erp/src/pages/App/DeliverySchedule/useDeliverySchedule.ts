@@ -15,6 +15,7 @@ import {
 import { resolveEffectiveSchedule } from '../../../../../shared-utils/commercialOrderRules';
 import { schedulePeriodFilters } from '../../../../../shared-utils/schedulePeriodFilters';
 import { withAbortTimeout } from '../../../../../shared-utils/withAbortTimeout';
+import { expandOrderAppointments } from '../../../../../shared-utils/orderAppointmentOccurrences';
 
 export type ScheduleFilter = 'custom' | 'default' | 'week' | 'month' | 'year' | 'all';
 export type OrderTypeFilter = 'delivery' | 'pickup' | 'assistance' | 'assembly';
@@ -56,15 +57,19 @@ const processOrders = (
   };
 
   const tasks: any[] = [];
-  orders.forEach((o) => {
+  orders.flatMap(expandOrderAppointments).forEach((o: any) => {
     if (!shouldShowOrderInSchedule(o) || (o as any).status === 'deleted') return;
     const isAssistance = o.orderType === 'assistance';
     const isShowroom = o.orderType === 'showroom';
     const isBudget = o.orderType === 'budget';
     if (isBudget) return;
 
-    // Rascunhos só entram quando já possuem agendamento; ainda não movimentam estoque.
-    if (!['draft', 'scheduled'].includes(normalizeScheduleStatus(o))) return;
+    // A retirada imediata permanece na agenda mesmo após o pedido ser atendido.
+    const isCompletedImmediatePickup =
+      ['fulfilled', 'atendido'].includes(normalizeScheduleStatus(o)) &&
+      o.shipping?.deliveryMethod === 'pickup' &&
+      o.shipping?.scheduling?.immediatePickup === true;
+    if (!['draft', 'scheduled'].includes(normalizeScheduleStatus(o)) && !isCompletedImmediatePickup) return;
 
     const rawDateStr = getOperationalScheduleDate(o);
 
@@ -99,18 +104,19 @@ const processOrders = (
       ...(settings.pickupHandlingOptions || []),
     ];
 
-    const checkItems = (itemsList: any[]) =>
-      itemsList?.some((item) => {
-        const hLabel = (item?.handlingType || '').trim().toLowerCase();
-        if (!hLabel) return false;
-        const foundOpt = allHandlingOptions.find(
-          (opt) => (opt?.label || '').trim().toLowerCase() === hLabel
-        );
-        return foundOpt?.includeInAssemblySchedule === true;
-      });
-
-    const hasAssembly =
-      isShowroom || checkItems(o.items) || checkItems((o as any).assistanceItems || []);
+    const assemblyItems = [
+      ...(o.items || []),
+      ...((o as any).assistanceItems || []),
+    ].filter((item) => {
+      if (isShowroom) return true;
+      const hLabel = (item.handlingType || '').trim().toLowerCase();
+      const foundOpt = allHandlingOptions.find(
+        (opt) => (opt?.label || '').trim().toLowerCase() === hLabel
+      );
+      return foundOpt?.includeInAssemblySchedule === true;
+    });
+    const hasAssembly = isShowroom || assemblyItems.length > 0;
+    const occurrenceKey = o.scheduleAppointment?.key || o.id || 'order';
 
     // Create tasks based on typeFilter and hasAssembly
     const hasDelivery =
@@ -137,23 +143,13 @@ const processOrders = (
             : isDelivery
               ? 'delivery'
               : 'showroom',
-        _taskKey: `${o.id}_orig`,
+        _taskKey: `${occurrenceKey}_orig`,
         hasLinkedAssembly: hasAssembly || isShowroom,
       };
 
       // Attach assembly items for the Hammer Button
       if (hasAssembly || isShowroom) {
-        (deliveryTask as any).assemblyItems = [
-          ...(o.items || []),
-          ...((o as any).assistanceItems || []),
-        ].filter((item) => {
-          if (isShowroom) return true;
-          const hLabel = (item.handlingType || '').trim().toLowerCase();
-          const foundOpt = allHandlingOptions.find(
-            (opt) => (opt?.label || '').trim().toLowerCase() === hLabel
-          );
-          return foundOpt?.includeInAssemblySchedule === true;
-        });
+        (deliveryTask as any).assemblyItems = assemblyItems;
       }
 
       tasks.push(deliveryTask);
@@ -165,8 +161,9 @@ const processOrders = (
       if (!isOriginalShown) {
         tasks.push({
           ...o,
+          ...(o.scheduleAppointment ? { items: assemblyItems } : {}),
           taskType: 'assembly',
-          _taskKey: `${o.id}_assembly`,
+          _taskKey: `${occurrenceKey}_assembly`,
           hasLinkedDelivery: isDelivery || isPickup || isAssistance,
         });
       }
@@ -268,6 +265,8 @@ export const useDeliverySchedule = () => {
   }), [filter, startDate, endDate, typeFilter]);
   const lastLoadedQueryKey = useRef<string | null>(null);
   const queryFiltersKey = JSON.stringify(queryFilters);
+  const showroomRefreshRef = useRef<(() => Promise<void>) | null>(null);
+  const showShowroomAssemblies = typeFilter.includes('assembly');
 
   // Subscribe to settings for real-time reactivity (important for public/anon users)
   useEffect(() => {
@@ -324,14 +323,20 @@ export const useDeliverySchedule = () => {
     };
   }, [queryFilters, queryFiltersKey]);
 
-  // Fetch Showroom Assemblies
+  // Fetch showroom assemblies for the current period. Keep this separate from
+  // the channel so changing dates does not restart the Realtime subscription.
   useEffect(() => {
+    if (!showShowroomAssemblies) {
+      showroomRefreshRef.current = null;
+      setShowroomAssemblies([]);
+      return;
+    }
+
     let active = true;
     const controller = new AbortController();
     const fetchShowroom = async () => {
-      if (!typeFilter.includes('assembly')) { setShowroomAssemblies([]); return; }
       try {
-        let query = supabase.from('showroom_assemblies').select('*');
+        let query = supabase.from('showroom_assemblies').select('id,date,time,item');
         if (queryFilters.startDate) query = query.gte('date', queryFilters.startDate);
         if (queryFilters.endDate) query = query.lte('date', queryFilters.endDate);
         const { data, error } = await withAbortTimeout(query, 'agenda:montagens-mostruario', 15_000, controller.signal);
@@ -340,16 +345,32 @@ export const useDeliverySchedule = () => {
         if (active) console.error('[Agenda] Falha ao consultar mostruário:', error);
       }
     };
-    fetchShowroom();
+    showroomRefreshRef.current = fetchShowroom;
+    void fetchShowroom();
 
+    return () => {
+      active = false;
+      controller.abort();
+      if (showroomRefreshRef.current === fetchShowroom) showroomRefreshRef.current = null;
+    };
+  }, [queryFilters.startDate, queryFilters.endDate, showShowroomAssemblies]);
+
+  // Listen only while showroom assemblies are part of the visible schedule.
+  useEffect(() => {
+    if (!showShowroomAssemblies) return;
+
+    let active = true;
     let debounceTimer: ReturnType<typeof setTimeout> | null = null;
     const requestFetchShowroom = () => {
       if (debounceTimer) clearTimeout(debounceTimer);
       debounceTimer = setTimeout(() => {
-        fetchShowroom();
+        debounceTimer = null;
+        void showroomRefreshRef.current?.();
       }, 3000);
     };
 
+    let hasConnected = false;
+    let disconnected = false;
     const channel = supabase
       .channel(`showroom-assemblies-schedule-${Date.now()}`)
       .on(
@@ -357,15 +378,27 @@ export const useDeliverySchedule = () => {
         { event: '*', schema: 'public', table: 'showroom_assemblies' },
         requestFetchShowroom
       )
-      .subscribe();
+      .subscribe((status) => {
+        if (!active) return;
+
+        if (status === 'SUBSCRIBED') {
+          if (hasConnected && disconnected) requestFetchShowroom();
+          hasConnected = true;
+          disconnected = false;
+        } else if (
+          hasConnected &&
+          (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED')
+        ) {
+          disconnected = true;
+        }
+      });
 
     return () => {
       active = false;
-      controller.abort();
       if (debounceTimer) clearTimeout(debounceTimer);
       supabase.removeChannel(channel);
     };
-  }, [queryFilters, typeFilter]);
+  }, [showShowroomAssemblies]);
 
   // Transforma apenas os pedidos já selecionados pelo servidor em tarefas e grupos.
   useEffect(() => {

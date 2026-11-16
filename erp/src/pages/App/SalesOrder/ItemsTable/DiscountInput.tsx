@@ -12,6 +12,7 @@ interface DiscountInputProps {
   onFixedBlur: () => void;
   onPercentageBlur: () => void;
   onToggleType: () => void;
+  compactOnNarrow?: boolean;
 }
 
 const DiscountInput: React.FC<DiscountInputProps> = ({
@@ -24,6 +25,7 @@ const DiscountInput: React.FC<DiscountInputProps> = ({
   onFixedBlur,
   onPercentageBlur,
   onToggleType,
+  compactOnNarrow = false,
 }) => (
   <div className="flex min-w-0 items-center border-b-2 border-slate-200 bg-transparent transition-colors focus-within:border-blue-600 dark:border-slate-700 dark:focus-within:border-blue-500">
     <div className="min-w-0 flex-1">
@@ -35,25 +37,25 @@ const DiscountInput: React.FC<DiscountInputProps> = ({
         max={discountType === 'fixed' ? unitPrice : 100}
         onBlur={discountType === 'fixed' ? onFixedBlur : onPercentageBlur}
         showBadge={false}
-        className="w-full min-w-[50px] border-0 bg-transparent px-2.5 py-2 text-right text-xs font-bold text-slate-800 outline-none focus:ring-0 dark:text-slate-100"
+        className={`w-full min-w-[50px] border-0 bg-transparent px-2.5 py-2 text-right text-xs font-bold text-slate-800 outline-none focus:ring-0 dark:text-slate-100 ${compactOnNarrow ? 'max-[520px]:!min-w-0 max-[520px]:!px-1 max-[520px]:text-[10px]' : ''}`}
       />
     </div>
-    <div role="group" aria-label="Unidade do desconto" className="flex shrink-0 rounded-md bg-slate-100 p-0.5 dark:bg-slate-800">
+    <div role="group" aria-label="Unidade do desconto unitário" className="flex shrink-0 rounded-md bg-slate-100 p-0.5 dark:bg-slate-800">
       <button
         type="button"
-        aria-label="Desconto em reais"
+        aria-label="Desconto unitário em reais"
         aria-pressed={discountType === 'fixed'}
         onClick={() => discountType !== 'fixed' && onToggleType()}
-        className={`rounded px-1.5 py-1 text-[10px] font-bold transition-colors ${discountType === 'fixed' ? 'bg-white text-blue-700 shadow-sm dark:bg-slate-700 dark:text-blue-300' : 'text-slate-500 dark:text-slate-400'}`}
+        className={`rounded px-1.5 py-1 text-[10px] font-bold transition-colors ${compactOnNarrow ? 'max-[520px]:!px-0.5 max-[520px]:text-[9px]' : ''} ${discountType === 'fixed' ? 'bg-white text-blue-700 shadow-sm dark:bg-slate-700 dark:text-blue-300' : 'text-slate-500 dark:text-slate-400'}`}
       >
         R$
       </button>
       <button
         type="button"
-        aria-label="Desconto em porcentagem"
+        aria-label="Desconto unitário em porcentagem"
         aria-pressed={discountType === 'percentage'}
         onClick={() => discountType !== 'percentage' && onToggleType()}
-        className={`rounded px-1.5 py-1 text-[10px] font-bold transition-colors ${discountType === 'percentage' ? 'bg-white text-blue-700 shadow-sm dark:bg-slate-700 dark:text-blue-300' : 'text-slate-500 dark:text-slate-400'}`}
+        className={`rounded px-1.5 py-1 text-[10px] font-bold transition-colors ${compactOnNarrow ? 'max-[520px]:!px-0.5 max-[520px]:text-[9px]' : ''} ${discountType === 'percentage' ? 'bg-white text-blue-700 shadow-sm dark:bg-slate-700 dark:text-blue-300' : 'text-slate-500 dark:text-slate-400'}`}
       >
         %
       </button>

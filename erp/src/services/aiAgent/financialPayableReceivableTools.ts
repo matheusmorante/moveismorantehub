@@ -353,7 +353,7 @@ export const financialPayableReceivableTools = {
 
       const { data: current } = await supabase
         .from(table)
-        .select('id, description, amount, category_id, payment_method, status')
+        .select('description, amount, category_id, payment_method, status')
         .eq('id', id)
         .maybeSingle();
 

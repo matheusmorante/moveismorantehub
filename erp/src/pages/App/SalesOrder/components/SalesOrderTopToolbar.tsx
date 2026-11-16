@@ -97,7 +97,7 @@ export const SalesOrderTopToolbar: React.FC<SalesOrderTopToolbarProps> = ({
 
   return (
     <div className="flex flex-col gap-3 mb-3">
-      <div className="flex min-h-12 items-center justify-between gap-3 w-full py-1">
+      <div className={`flex ${isSalesOrderRoute ? 'min-h-10 py-0' : 'min-h-12 py-1'} items-center justify-between gap-3 w-full`}>
         {/* Lado esquerdo: no Pedidos de Venda fica o campo de busca de cliente; nas outras abas fica o título */}
         {isSalesOrderRoute ? (
           <div className="flex-1 min-w-0 lg:max-w-md">
@@ -182,7 +182,7 @@ export const SalesOrderTopToolbar: React.FC<SalesOrderTopToolbarProps> = ({
                                 : 'text-slate-300 dark:text-slate-700'
                             }`}
                           >
-                            {col.label}
+                            {col.key === 'deliveryDate' && isSalesOrderRoute ? 'Agendamentos' : col.label}
                           </span>
                           <div
                             className={`w-8 h-4 rounded-full p-0.5 transition-colors ${

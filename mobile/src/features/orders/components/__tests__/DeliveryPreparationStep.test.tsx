@@ -9,6 +9,7 @@ vi.mock('react-native-safe-area-context', () => ({
 }));
 
 vi.mock('react-native', () => ({
+  Platform: { OS: 'web' },
   View: ({ children, ...props }: any) => React.createElement('div', props, children),
   Text: ({ children, ...props }: any) => React.createElement('span', props, children),
   TouchableOpacity: ({ children, onPress, ...props }: any) =>

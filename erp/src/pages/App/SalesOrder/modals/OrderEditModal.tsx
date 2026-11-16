@@ -1,4 +1,5 @@
-import React, { useState, useRef } from 'react';
+import React, { useCallback, useState, useRef } from 'react';
+import { toast } from 'react-toastify';
 import type { z } from 'zod';
 import { useSalesOrderForm } from '../hooks/useSalesOrderForm';
 import { useZodForm } from '@/hooks/useZodForm';
@@ -8,6 +9,7 @@ import {
 } from '../../../../../../shared-utils/orderDomainValidation';
 import { getSettings } from '@/pages/utils/settingsService';
 import OrderSavingOverlay from '../components/OrderSavingOverlay';
+import OrderFormLoadingOverlay from '../components/OrderFormLoadingOverlay';
 import OrderEditFiscalContinuation from './OrderEditFiscalContinuation';
 import {
   useOrderEditLoader,
@@ -31,10 +33,14 @@ const OrderEditModal: React.FC<OrderEditModalProps> = ({
   highlightTemporaryItems,
   reconciliationMode,
 }) => {
-  const form = useSalesOrderForm(undefined, 'sale', { autoSaveExistingDrafts: false });
+  const form = useSalesOrderForm(undefined, 'sale', {
+    autoSaveExistingDrafts: !reconciliationMode,
+  });
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [view] = useState<'form' | 'timeline'>('form');
   const [isSavingOrder, setIsSavingOrder] = useState(false);
+  const [isClosing, setIsClosing] = useState(false);
+  const closingRef = useRef(false);
   const [fiscalReissue, setFiscalReissue] = useState<FiscalReissueState | null>(null);
 
   // Carregamento do pedido e sincronização com formulário
@@ -103,15 +109,35 @@ const OrderEditModal: React.FC<OrderEditModalProps> = ({
     onClose,
   });
 
+  const handleUserClose = useCallback(async () => {
+    if (closingRef.current || isSavingOrder || form.state.isSaving) return;
+    closingRef.current = true;
+    setIsClosing(true);
+    try {
+      const saved = await form.actions.flushDraftAutoSave();
+      if (saved) onClose();
+      else toast.error('Não foi possível confirmar o salvamento do rascunho. Confira os dados e tente novamente.');
+    } catch {
+      toast.error('Não foi possível confirmar o salvamento do rascunho. Confira os dados e tente novamente.');
+    } finally {
+      closingRef.current = false;
+      setIsClosing(false);
+    }
+  }, [form.actions.flushDraftAutoSave, form.state.isSaving, isSavingOrder, onClose]);
+
   if (loadError) {
     return (
-      <div className="w-full min-h-[60vh] flex flex-col items-center justify-center gap-4 px-6 text-center">
-        <p role="alert" className="max-w-md text-sm font-semibold text-slate-600 dark:text-slate-300">
-          {loadError}
-        </p>
-        <button type="button" onClick={onClose} className="rounded-lg bg-slate-200 px-4 py-2 text-sm font-bold text-slate-700 dark:bg-slate-800 dark:text-slate-200">
-          Fechar
-        </button>
+      <div role="dialog" aria-modal="true" aria-label="Falha ao carregar a venda" className="fixed inset-0 z-[999999] w-screen h-screen flex flex-col bg-slate-900/60 backdrop-blur-sm animate-fade-in overflow-hidden">
+        <div className="bg-white dark:bg-slate-900 w-full h-full flex flex-col overflow-hidden animate-reveal">
+          <div className="flex flex-1 flex-col items-center justify-center gap-4 px-6 text-center">
+            <p role="alert" className="max-w-md text-sm font-semibold text-slate-600 dark:text-slate-300">
+              {loadError}
+            </p>
+            <button type="button" onClick={onClose} className="rounded-lg bg-slate-200 px-4 py-2 text-sm font-bold text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+              Fechar
+            </button>
+          </div>
+        </div>
       </div>
     );
   }
@@ -119,11 +145,8 @@ const OrderEditModal: React.FC<OrderEditModalProps> = ({
   // 1. Estado de Carregamento
   if (isLoadingOrder || !effectiveOrder) {
     return (
-      <div className="w-full min-h-[60vh] flex flex-col items-center justify-center gap-4">
-        <div className="w-12 h-12 border-4 border-blue-600/30 border-t-blue-600 rounded-full animate-spin" />
-        <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 dark:text-slate-500 animate-pulse">
-          Carregando Pedido...
-        </p>
+      <div role="dialog" aria-modal="true" aria-label="Formulário de venda" aria-busy="true" className="fixed inset-0 z-[999999] w-screen h-screen flex flex-col bg-slate-900/60 backdrop-blur-sm animate-fade-in overflow-hidden">
+        <OrderFormLoadingOverlay key="loading" />
       </div>
     );
   }
@@ -159,7 +182,7 @@ const OrderEditModal: React.FC<OrderEditModalProps> = ({
   return (
     <div
       className="fixed inset-0 z-[999999] w-screen h-screen flex flex-col bg-slate-900/60 backdrop-blur-sm animate-fade-in overflow-hidden"
-      onClick={onClose}
+      onClick={() => { void handleUserClose(); }}
     >
       <OrderEditModalContent
         effectiveOrder={effectiveOrder}
@@ -167,7 +190,7 @@ const OrderEditModal: React.FC<OrderEditModalProps> = ({
         reconciliationMode={reconciliationMode}
         highlightTemporaryItems={highlightTemporaryItems}
         view={view}
-        onClose={onClose}
+        onClose={() => { void handleUserClose(); }}
         scrollContainerRef={scrollContainerRef}
         isSellerSearchOpen={subModals.isSellerSearchOpen}
         isSellerRegistrationOpen={subModals.isSellerRegistrationOpen}
@@ -198,7 +221,7 @@ const OrderEditModal: React.FC<OrderEditModalProps> = ({
         handleUpdate={handleUpdate}
         handleFinalize={handleFinalize}
       />
-      {(isSavingOrder || form.state.isSaving) && <OrderSavingOverlay />}
+      {(isSavingOrder || form.state.isSaving || isClosing) && <OrderSavingOverlay />}
       <style
         dangerouslySetInnerHTML={{
           __html: `

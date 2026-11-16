@@ -119,6 +119,7 @@ export const OrderCardHeader: React.FC<OrderCardHeaderProps> = ({
           <OrderOperationalBadges
             order={order}
             showTrash={showTrash}
+            showMethodBadge={order.orderType !== 'sale'}
             isPaidTraffic={isPaidTraffic}
             statusConfig={statusConfig}
             onStatusUpdate={onStatusUpdate}

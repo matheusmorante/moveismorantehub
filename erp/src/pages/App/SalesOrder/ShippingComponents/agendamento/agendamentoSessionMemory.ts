@@ -191,19 +191,14 @@ export const getCardContainerClasses = (
   hasCardError?: boolean,
   isFilled: boolean = true
 ) => {
+  if (hasCardError) {
+    return 'rounded-2xl border-2 border-red-500 bg-red-50/30 dark:border-red-500 dark:bg-red-950/20 transition-all duration-200';
+  }
   if (isSelected) {
     if (!isFilled) {
-      return `rounded-2xl border-2 transition-all duration-200 ${
-        hasCardError
-          ? 'border-amber-500 bg-amber-50/30 dark:border-amber-500 dark:bg-amber-950/20 ring-1 ring-red-500/30'
-          : 'border-amber-500 bg-amber-50/40 dark:border-amber-500 dark:bg-amber-950/20 shadow-sm'
-      }`;
+      return 'rounded-2xl border-2 border-amber-500 bg-amber-50/40 dark:border-amber-500 dark:bg-amber-950/20 shadow-sm transition-all duration-200';
     }
-    return `rounded-2xl border-2 transition-all duration-200 ${
-      hasCardError
-        ? 'border-emerald-500 bg-emerald-50/30 dark:border-emerald-500 dark:bg-emerald-950/20 ring-1 ring-red-500/30'
-        : 'border-emerald-500 bg-emerald-50/40 dark:border-emerald-500 dark:bg-emerald-950/20 shadow-sm'
-    }`;
+    return 'rounded-2xl border-2 border-emerald-500 bg-emerald-50/40 dark:border-emerald-500 dark:bg-emerald-950/20 shadow-sm transition-all duration-200';
   }
   return 'rounded-2xl border border-slate-200 bg-white hover:border-slate-300 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700 transition-all duration-200';
 };

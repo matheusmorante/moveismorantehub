@@ -5,6 +5,7 @@ import {
   formatCurrency,
 } from '../formatters';
 import { calcItemTotalValue, calcPaymentTotalValue } from '../calculations';
+import { getEffectiveOrderDeliveryAddress } from '../orderDeliveryAddress';
 
 /**
  * Monta e sanitiza os parâmetros para modelos de mensagem (Templates) da Meta Cloud API.
@@ -59,13 +60,20 @@ export const buildOrderMetaTemplateParams = (order: Order, config?: any): string
   if (order.shipping?.value && order.shipping.value > 0) {
     itemsList.push(`Frete: ${formatCurrency(order.shipping.value)}`);
   }
-  const itemsBlock = itemsList.length > 0 ? itemsList.join(' • ') : 'Produtos do pedido';
+  const operationPrefix = order.operationContext
+    ? `Operação ${order.operationContext.operationNumber}/${order.operationContext.operationCount} · `
+    : '';
+  const itemsBlock = `${operationPrefix}${itemsList.length > 0 ? itemsList.join(' • ') : 'Produtos do pedido'}`;
 
   const addressStr = order.shipping?.noAddress
     ? isPickup
       ? 'Retirada em loja'
       : 'Não informado'
-    : stringifyFullAddressWithObservation(customer?.fullAddress);
+    : order.operationContext && order.shipping?.deliveryMethod === 'delivery'
+      ? order.shipping.useCustomerAddress !== false
+        ? 'No mesmo endereço do cliente'
+        : stringifyFullAddressWithObservation(getEffectiveOrderDeliveryAddress(order))
+      : stringifyFullAddressWithObservation(customer?.fullAddress);
 
   const cleanTotalVal = (order.paymentsSummary?.totalOrderValue || 0).toLocaleString('pt-BR', {
     minimumFractionDigits: 2,

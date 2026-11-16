@@ -26,6 +26,7 @@ export interface OrderCardBadgesProps {
   isAssistance: boolean;
   isReturn: boolean;
   pickup: boolean;
+  showMethodBadge?: boolean;
   isDraft: boolean;
   cancelled: boolean;
   isStockChecked: boolean;
@@ -51,6 +52,7 @@ export const OrderCardBadges: React.FC<OrderCardBadgesProps> = ({
   isAssistance,
   isReturn,
   pickup,
+  showMethodBadge = true,
   isDraft,
   cancelled,
   isStockChecked,
@@ -92,7 +94,7 @@ export const OrderCardBadges: React.FC<OrderCardBadgesProps> = ({
       )}
 
       {/* 2. Selo de Tipo de Pedido (Entrega / Retirada / Assistência / Devolução) */}
-      <View
+      {showMethodBadge && <View
         style={[
           styles.iconBadge,
           isAssistance
@@ -113,7 +115,7 @@ export const OrderCardBadges: React.FC<OrderCardBadgesProps> = ({
         ) : (
           <Truck size={16} color="#ffffff" />
         )}
-      </View>
+      </View>}
 
       {/* 3. Selo de Etiquetado (Stock Check - idêntico ao ERP) */}
       {!isReturn && !isAssistance && !cancelled && (

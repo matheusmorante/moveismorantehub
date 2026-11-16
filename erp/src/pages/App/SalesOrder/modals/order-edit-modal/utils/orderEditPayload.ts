@@ -11,7 +11,7 @@ interface BuildUpdatedOrderParams {
     currentOrder: Order;
     schedulingSessionRef?: {
       current?: {
-        dateMode?: string;
+        dateMode?: string | null;
       } | null;
     };
   };

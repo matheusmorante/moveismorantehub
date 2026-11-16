@@ -6,6 +6,7 @@ import {
 } from '../../../../../shared-utils/testArtifactContext';
 import { isIdentifiedTestArtifact } from '../../../../../shared-utils/testArtifactPolicy';
 import { validateShippingScheduling } from '../../../../../shared-utils/commercialShippingRules';
+import { hasSeparateFulfillments } from '../../../../../shared-utils/fulfillmentScheduleGuard';
 
 export const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -50,6 +51,16 @@ export const assertValidOrderQuotedStatus = (status?: string, orderType?: string
   }
 };
 
+export const assertNoSeparateFulfillments = (order: Partial<Order>, resultingStatus?: string): void => {
+  if (
+    resultingStatus === 'fulfilled' &&
+    order.orderType === 'sale' &&
+    hasSeparateFulfillments(order.shipping?.scheduling, order.items)
+  ) {
+    throw new Error('Este pedido possui agendamentos por itens. A conclusão individual de cada agendamento ainda não está disponível.');
+  }
+};
+
 export const assertValidMutationScheduling = (
   order: Partial<Order>,
   resultingStatus?: string
@@ -66,12 +77,14 @@ export const assertValidMutationScheduling = (
     const schedulingErrors = validateShippingScheduling(
       order.shipping.scheduling,
       order.shipping.deliveryMethod || 'delivery',
-      false
+      false,
+      order.items
     );
     const firstSchedulingError =
       schedulingErrors['shipping_date'] ||
       schedulingErrors['shipping_time'] ||
-      schedulingErrors['shipping_scheduling'];
+      schedulingErrors['shipping_scheduling'] ||
+      Object.values(schedulingErrors)[0];
     if (firstSchedulingError) {
       throw new Error(firstSchedulingError);
     }

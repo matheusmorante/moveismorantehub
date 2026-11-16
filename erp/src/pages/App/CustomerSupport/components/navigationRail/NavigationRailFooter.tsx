@@ -62,17 +62,44 @@ export const NavigationRailFooter: React.FC<NavigationRailFooterProps> = memo(({
   useEffect(() => {
     active.current = true;
     void refreshQuota();
-    const intervalId = window.setInterval(() => void refreshQuota(), 30_000);
-    const onFocus = () => void refreshQuota();
-    window.addEventListener('focus', onFocus);
-    window.addEventListener(CUSTOMER_SUPPORT_WHATSAPP_SEND_QUOTA.updatedEvent, onFocus);
+    let intervalId: number | undefined;
+    let lastResumeRefreshAt = 0;
+    const startInterval = () => {
+      if (intervalId === undefined && document.visibilityState !== 'hidden') {
+        intervalId = window.setInterval(() => void refreshQuota(), 30_000);
+      }
+    };
+    const stopInterval = () => {
+      if (intervalId !== undefined) {
+        window.clearInterval(intervalId);
+        intervalId = undefined;
+      }
+    };
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === 'hidden') {
+        stopInterval();
+        return;
+      }
+      startInterval();
+      const now = Date.now();
+      if (now - lastResumeRefreshAt >= 1_000) {
+        lastResumeRefreshAt = now;
+        void refreshQuota();
+      }
+    };
+    const refreshAfterSend = () => void refreshQuota();
+    startInterval();
+    window.addEventListener('focus', refreshWhenVisible);
+    document.addEventListener('visibilitychange', refreshWhenVisible);
+    window.addEventListener(CUSTOMER_SUPPORT_WHATSAPP_SEND_QUOTA.updatedEvent, refreshAfterSend);
     return () => {
       active.current = false;
       quotaRequest.current += 1;
       detailsRequest.current += 1;
-      window.clearInterval(intervalId);
-      window.removeEventListener('focus', onFocus);
-      window.removeEventListener(CUSTOMER_SUPPORT_WHATSAPP_SEND_QUOTA.updatedEvent, onFocus);
+      stopInterval();
+      window.removeEventListener('focus', refreshWhenVisible);
+      document.removeEventListener('visibilitychange', refreshWhenVisible);
+      window.removeEventListener(CUSTOMER_SUPPORT_WHATSAPP_SEND_QUOTA.updatedEvent, refreshAfterSend);
     };
   }, [refreshQuota]);
 

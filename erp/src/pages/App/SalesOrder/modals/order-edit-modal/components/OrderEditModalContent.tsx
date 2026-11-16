@@ -78,7 +78,7 @@ export const OrderEditModalContent: React.FC<OrderEditModalContentProps> = ({
 }) => {
   return (
     <div
-      className="bg-white dark:bg-slate-900 w-full h-full flex flex-col overflow-hidden"
+      className="bg-white dark:bg-slate-900 w-full h-full flex flex-col overflow-hidden animate-reveal"
       onClick={(e) => e.stopPropagation()}
     >
       <OrderEditModalHeader

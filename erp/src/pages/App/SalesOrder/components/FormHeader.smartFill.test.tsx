@@ -27,6 +27,15 @@ const submitManual = () => {
 };
 
 describe('FormHeader with real SmartAIFillModal', () => {
+  it('oculta a modalidade para vendas quando definida na logística e preserva os demais fluxos', () => {
+    const view = render(<FormHeader {...baseProps} hideDeliveryMethod onLoadJSON={vi.fn()} />);
+    expect(screen.queryByRole('button', { name: 'Entrega' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Retirada' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Preenchimento Inteligente IA' })).toBeTruthy();
+    view.rerender(<FormHeader {...baseProps} onLoadJSON={vi.fn()} />);
+    expect(screen.getByRole('button', { name: 'Entrega' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Retirada' })).toBeTruthy();
+  });
   it('preserves the parent promise until confirmation and then closes the modal', async () => {
     const pending = deferred<boolean>();
     const apply = vi.fn(() => pending.promise);

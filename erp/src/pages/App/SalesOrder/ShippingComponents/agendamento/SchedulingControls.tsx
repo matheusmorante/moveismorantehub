@@ -1,4 +1,5 @@
 import React from 'react';
+import { ChevronDown } from 'lucide-react';
 
 interface SchedulingControlsProps {
   title: string;
@@ -6,10 +7,11 @@ interface SchedulingControlsProps {
   hideSchedulingShortcuts?: boolean;
   isImmediatePickup: boolean;
   isPendingScheduling: boolean;
-  scheduleMode: 'defined' | 'alternatives';
+  headerActions?: React.ReactNode;
   onTogglePending: () => void;
   onToggleImmediatePickup: () => void;
-  onSelectScheduleMode: (mode: 'defined' | 'alternatives') => void;
+  isPrimaryExpanded?: boolean;
+  onTogglePrimary?: () => void;
 }
 
 export const SchedulingControls: React.FC<SchedulingControlsProps> = ({
@@ -18,16 +20,29 @@ export const SchedulingControls: React.FC<SchedulingControlsProps> = ({
   hideSchedulingShortcuts,
   isImmediatePickup,
   isPendingScheduling,
-  scheduleMode,
+  headerActions,
   onTogglePending,
   onToggleImmediatePickup,
-  onSelectScheduleMode,
+  isPrimaryExpanded,
+  onTogglePrimary,
 }) => (
   <>
-    <div className="flex flex-wrap items-center justify-between gap-3 mb-4 ml-1">
-      <label className="text-sm font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">
-        {title}
-      </label>
+    {(title || headerActions || !hideSchedulingShortcuts) && <div className={`flex flex-wrap items-center gap-3 mb-4 ${onTogglePrimary
+      ? 'w-full border-b border-slate-200 pb-2 dark:border-slate-700'
+      : 'ml-1 justify-between'
+    }`}>
+      {title && onTogglePrimary ? (
+        <button type="button" aria-expanded={isPrimaryExpanded} onClick={onTogglePrimary} className="flex min-h-10 w-full items-center justify-between gap-2 rounded-lg py-2 text-left text-sm font-semibold text-slate-700 hover:text-slate-900 dark:text-slate-200 dark:hover:text-white">
+          <span>{title}</span>
+          <ChevronDown className={`h-4 w-4 shrink-0 transition-transform ${isPrimaryExpanded ? 'rotate-180' : ''}`} />
+        </button>
+      ) : title ? (
+        <label className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+          {title}
+        </label>
+      ) : null}
+
+      {headerActions}
 
       {!hideSchedulingShortcuts && (
         <div
@@ -39,7 +54,7 @@ export const SchedulingControls: React.FC<SchedulingControlsProps> = ({
             aria-hidden={isImmediatePickup}
             className={`flex items-center gap-2 ${isImmediatePickup ? 'invisible' : ''}`}
           >
-            <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">
+            <span className="text-xs font-semibold text-slate-600 dark:text-slate-400">
               Agendamento pendente?
             </span>
             <button
@@ -65,7 +80,7 @@ export const SchedulingControls: React.FC<SchedulingControlsProps> = ({
 
           {isPickup && (
             <div className="flex items-center gap-2">
-              <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">
+              <span className="text-xs font-semibold text-slate-600 dark:text-slate-400">
                 Retirada imediata?
               </span>
               <button
@@ -90,31 +105,7 @@ export const SchedulingControls: React.FC<SchedulingControlsProps> = ({
           )}
         </div>
       )}
-    </div>
+    </div>}
 
-    {!hideSchedulingShortcuts && (
-      <div
-        className="mb-4 ml-1 flex w-fit rounded-xl border border-slate-200 bg-slate-100 p-1 dark:border-slate-700 dark:bg-slate-800"
-        role="tablist"
-        aria-label="Tipo de agendamento"
-      >
-        {(['defined', 'alternatives'] as const).map((mode) => (
-          <button
-            key={mode}
-            type="button"
-            role="tab"
-            aria-selected={scheduleMode === mode}
-            onClick={() => onSelectScheduleMode(mode)}
-            className={`rounded-lg px-3 py-2 text-xs font-bold transition-colors ${
-              scheduleMode === mode
-                ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-700 dark:text-white'
-                : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white'
-            }`}
-          >
-            {mode === 'defined' ? 'Data definida' : 'Datas alternativas'}
-          </button>
-        ))}
-      </div>
-    )}
   </>
 );

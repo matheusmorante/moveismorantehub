@@ -16,6 +16,16 @@ import {
   updateAuthenticatedPassword,
 } from '@/services/authPasswordRecovery';
 
+const DEFAULT_POSITION_BY_ROLE: Record<string, string> = {
+  seller: 'Vendedor',
+  manager: 'Gerente',
+  administrator: 'Gerente',
+  deliverer: 'Entregador',
+};
+
+const normalizeProfileFormValue = (value: unknown): string =>
+  typeof value === 'string' ? value.trim() : '';
+
 const Profile = () => {
   const { user, profile, logout } = useAuth();
   const [loading, setLoading] = useState(false);
@@ -56,19 +66,33 @@ const Profile = () => {
 
       // Auto-set position if empty based on role
       if (!profile.position && !position && profile.role) {
-        const roleMap: Record<string, string> = {
-          seller: 'Vendedor',
-          manager: 'Gerente',
-          administrator: 'Gerente',
-          deliverer: 'Entregador',
-        };
-        setPosition(roleMap[profile.role] || '');
+        setPosition(DEFAULT_POSITION_BY_ROLE[profile.role] || '');
       }
     }
     if (user) setEmail(user.email || '');
   }, [profile, user]);
 
   const handleUpdateProfile = async (data: z.output<typeof profileFormSchema>) => {
+    if (profile) {
+      const baseline = {
+        fullName: profile.full_name || user?.user_metadata?.full_name || '',
+        position: profile.position || DEFAULT_POSITION_BY_ROLE[profile.role] || '',
+        phone: profile.phone || user?.phone || user?.user_metadata?.phone || '',
+        address: profile.address || '',
+        city: profile.city || '',
+        state: profile.state || '',
+      };
+      const fields = Object.keys(baseline) as Array<keyof typeof baseline>;
+      const unchanged = fields.every((field) =>
+        normalizeProfileFormValue(data[field]) === normalizeProfileFormValue(baseline[field])
+      );
+
+      if (unchanged) {
+        toast.info('Nenhum campo foi alterado. Nada foi enviado ao servidor.');
+        return;
+      }
+    }
+
     setLoading(true);
     try {
       const now = new (window as any).Date().toISOString();

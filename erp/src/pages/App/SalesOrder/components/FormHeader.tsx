@@ -18,6 +18,7 @@ interface FormHeaderProps {
   errors: Record<string, string>;
   deliveryMethod: 'delivery' | 'pickup';
   setDeliveryMethod: (method: 'delivery' | 'pickup') => void;
+  hideDeliveryMethod?: boolean;
   onMainAction?: (e?: React.MouseEvent) => void;
   isSaving?: boolean;
   status: string;
@@ -37,6 +38,7 @@ const FormHeader = ({
   currentOrderId,
   deliveryMethod,
   setDeliveryMethod,
+  hideDeliveryMethod = false,
   onMainAction,
   isSaving,
   status,
@@ -62,7 +64,7 @@ const FormHeader = ({
       {!isBudget && (
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
           {/* Toggle de Modalidade */}
-          <div className="flex bg-slate-200/70 dark:bg-slate-900 p-1 rounded-xl border border-slate-300/50 dark:border-slate-700/50 shadow-inner flex-1 sm:flex-none">
+          {!hideDeliveryMethod && <div className="flex bg-slate-200/70 dark:bg-slate-900 p-1 rounded-xl border border-slate-300/50 dark:border-slate-700/50 shadow-inner flex-1 sm:flex-none">
             <button
               type="button"
               onClick={() => setDeliveryMethod('delivery')}
@@ -85,14 +87,14 @@ const FormHeader = ({
             >
               <PickupIcon white={deliveryMethod === 'pickup'} className="h-3 w-3" /> Retirada
             </button>
-          </div>
+          </div>}
 
           {/* Preenchimento IA */}
           {onLoadJSON && (
             <button
               type="button"
               onClick={() => setIsAIModalOpen(true)}
-              className="group flex items-center justify-center gap-2 px-3.5 py-2 bg-gradient-to-r from-violet-600/10 via-indigo-600/10 to-blue-600/10 hover:from-violet-600/20 hover:to-blue-600/20 dark:from-violet-950/40 dark:to-blue-950/40 border border-violet-300/60 dark:border-violet-700/50 rounded-xl text-[10px] font-black uppercase tracking-wider text-violet-700 dark:text-violet-300 transition-all shadow-sm active:scale-95 shrink-0"
+              className="group flex items-center justify-center gap-2 px-3.5 py-2 bg-gradient-to-r from-violet-600/10 via-indigo-600/10 to-blue-600/10 hover:from-violet-600/20 hover:to-blue-600/20 dark:from-violet-950/40 dark:to-blue-950/40 border border-violet-300/60 dark:border-violet-700/50 rounded-xl text-[10px] font-black uppercase tracking-wider text-violet-700 dark:text-violet-300 transition-all shadow-sm active:scale-95 shrink-0 sm:ml-auto"
             >
               <i className="bi bi-stars text-xs text-violet-600 dark:text-violet-400 group-hover:scale-125 transition-transform" />
               <span>Preenchimento Inteligente IA</span>

@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import type Order from '@/pages/types/order.type';
 import { fetchOrderById } from '@/pages/utils/orderHistoryService';
+import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 import type { useSalesOrderForm } from '../../../hooks/useSalesOrderForm';
 import { withTimeout } from '../../../../../../../../shared-utils/withTimeout';
 
@@ -32,13 +33,18 @@ export function useOrderEditLoader({
   const shouldNavigateOnMissing = !orderId && !order;
   const [loadedOrder, setLoadedOrder] = useState<Order | null>(null);
   const [loadFailure, setLoadFailure] = useState<{ id: string; message: string } | null>(null);
+  const [hydratedOrderId, setHydratedOrderId] = useState<string | null>(null);
 
   const effectiveOrder = id
     ? loadedOrder?.id === id ? loadedOrder : null
     : order || loadedOrder;
   const loadError = loadFailure?.id === id ? loadFailure?.message ?? null : null;
-  const isLoadingOrder = Boolean(id && !effectiveOrder && !loadError);
+  const isLoadingOrder = Boolean(
+    id && (!effectiveOrder || hydratedOrderId !== id) && !loadError
+  );
   const loadedOrderIdRef = useRef<string | null>(null);
+
+  useBodyScrollLock();
 
   const onClose = useCallback(() => {
     if (propOnClose) propOnClose();
@@ -52,15 +58,6 @@ export function useOrderEditLoader({
     },
     [propOnSaveSuccess, navigate]
   );
-
-  // Bloqueia scroll do body enquanto o modal estiver aberto
-  useEffect(() => {
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.body.style.overflow = previousOverflow;
-    };
-  }, []);
 
   // Recarrega a versão persistida: ações fiscais podem atualizar metadados enquanto a lista está aberta.
   useEffect(() => {
@@ -98,6 +95,7 @@ export function useOrderEditLoader({
       if (initialStep && initialStep > 1) {
         formActions.jumpToStep(initialStep);
       }
+      setHydratedOrderId(effectiveOrder.id);
     }
   }, [effectiveOrder, formActions, initialStep]);
 

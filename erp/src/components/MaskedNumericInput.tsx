@@ -36,6 +36,7 @@ export interface MaskedNumericInputProps {
   error?: string | boolean;
   helperText?: string;
   testID?: string;
+  size?: number;
   onKeyDown?: React.KeyboardEventHandler<HTMLInputElement>;
   inputMode?: 'decimal' | 'numeric' | 'text';
 
@@ -73,6 +74,7 @@ export const MaskedNumericInput = ({
   error,
   helperText,
   testID,
+  size,
   onKeyDown,
   inputMode: inputModeProp,
   'aria-label': ariaLabel,
@@ -262,6 +264,7 @@ export const MaskedNumericInput = ({
       placeholder,
       autoFocus,
       'data-testid': testID,
+      size,
       'aria-label': ariaLabel,
       'aria-invalid': ariaInvalid !== undefined ? ariaInvalid : hasError ? true : undefined,
       'aria-describedby': ariaDescribedBy,

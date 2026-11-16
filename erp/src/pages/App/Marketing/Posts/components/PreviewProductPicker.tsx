@@ -1,9 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Product } from '@/pages/types/product.type';
+import type { ProductPreviewOption } from '@/pages/utils/productService';
 
 type Props = {
   search: string;
-  products: Product[];
+  products: ProductPreviewOption[];
   selected: Product | null;
   loading: boolean;
   onSearch: (value: string) => void;

@@ -1,4 +1,4 @@
-export type PrintDocumentType = 'sales_order' | 'receipt' | 'danfe';
+export type PrintDocumentType = 'sales_order' | 'operation_info' | 'receipt' | 'danfe';
 
 export interface PrintJobResult {
   success: boolean;

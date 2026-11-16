@@ -70,6 +70,7 @@ const SalesOrderFormSection = ({
                   onSelectProduct={actions.handleSelectProduct}
                   isBudget={isBudget}
                   isReturn={isReturn}
+                  hideHandling={state.currentOrder.orderType === 'sale'}
                   highlightTemporaryItems={highlightTemporaryItems}
                 />
               </SectionCard>

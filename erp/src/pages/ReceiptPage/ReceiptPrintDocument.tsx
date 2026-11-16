@@ -6,10 +6,7 @@ import PaymentsTable from './PaymentsTable';
 import ShippingData from './ShippingData';
 import DigitalSignatureBadge from './DigitalSignatureBadge';
 import Order from '@/pages/types/order.type';
-import {
-  getEffectiveOrderDeliveryAddress,
-  getEffectiveOrderDeliveryMapUrl,
-} from '@/pages/utils/orderDeliveryAddress';
+import { getEffectiveOrderDeliveryAddress } from '@/pages/utils/orderDeliveryAddress';
 
 interface ReceiptPrintDocumentProps {
   order: Order;
@@ -17,6 +14,13 @@ interface ReceiptPrintDocumentProps {
 }
 
 export const ReceiptPrintDocument: React.FC<ReceiptPrintDocumentProps> = ({ order, settings }) => {
+  const appointments = order.shipping?.scheduling?.appointments;
+  const hasDeliveryOperation = appointments?.length
+    ? appointments.some(
+        (appointment) =>
+          (appointment.deliveryMethod ?? order.shipping?.deliveryMethod) === 'delivery'
+      )
+    : order.shipping?.deliveryMethod !== 'pickup';
   const printableCustomerData = {
     ...order.customerData,
     fullAddress: getEffectiveOrderDeliveryAddress(order) || {},
@@ -27,7 +31,7 @@ export const ReceiptPrintDocument: React.FC<ReceiptPrintDocumentProps> = ({ orde
       <Header seller={order.seller} />
       <CustomerData
         customerData={printableCustomerData}
-        isPickup={order.shipping?.deliveryMethod === 'pickup'}
+        isPickup={!hasDeliveryOperation}
         noAddress={order.shipping?.noAddress}
       />
 
@@ -37,7 +41,6 @@ export const ReceiptPrintDocument: React.FC<ReceiptPrintDocumentProps> = ({ orde
         <div className="flex flex-col gap-2 w-1/2">
           <ShippingData
             shipping={order.shipping}
-            routeUrl={getEffectiveOrderDeliveryMapUrl(order)}
           />
 
           <div className="mt-4 pt-2">

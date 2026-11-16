@@ -139,6 +139,9 @@ export const recurringPayableCommandSchema = z.object({
 export const recurringPayableResultSchema = z.object({
   recurring_expense_id: z.uuid(), payable_ids: z.array(z.uuid()).length(12), already_applied: z.boolean(),
 });
+export const recurringPayableCompactResultSchema = z.object({
+  recurring_expense_id: z.uuid(), payable_count: z.literal(12), already_applied: z.boolean(),
+});
 
 /** Civil dates do not pass through the browser's UTC offset. */
 export function financialToday(now = new Date()) {

@@ -20,6 +20,7 @@ export const BasicInfoStepSection: React.FC<BasicInfoStepSectionProps> = ({
   onOpenSellerSearch,
 }) => {
   const { state, actions } = form;
+  const orderDateError = state.errors.order_date || state.errors.date;
 
   return (
     <div className="max-w-4xl mx-auto animate-fade-in space-y-6">
@@ -34,6 +35,7 @@ export const BasicInfoStepSection: React.FC<BasicInfoStepSectionProps> = ({
         errors={state.errors}
         deliveryMethod={state.shipping.deliveryMethod}
         setDeliveryMethod={actions.setDeliveryMethod}
+        hideDeliveryMethod={state.currentOrder.orderType === 'sale'}
         status={state.status}
         isSaving={state.isSaving}
         onMainAction={
@@ -53,6 +55,7 @@ export const BasicInfoStepSection: React.FC<BasicInfoStepSectionProps> = ({
           <SellerInput
             value={state.seller}
             sellerId={state.sellerId}
+            error={state.errors.seller}
             onChange={actions.setSeller}
             onSelectSeller={(sellerData) => {
               if (actions.setSellerData) {
@@ -66,7 +69,7 @@ export const BasicInfoStepSection: React.FC<BasicInfoStepSectionProps> = ({
 
           <div className="flex flex-col relative w-full group">
             <div className="flex items-center justify-between mb-2 ml-1">
-              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 flex items-center gap-1.5">
+              <label className={`text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 ${orderDateError ? 'text-red-600 dark:text-red-400' : 'text-slate-400 dark:text-slate-500'}`}>
                 <i className="bi bi-calendar-event text-blue-500 text-xs" />
                 Data do Pedido <span className="text-red-500">*</span>
               </label>
@@ -76,8 +79,15 @@ export const BasicInfoStepSection: React.FC<BasicInfoStepSectionProps> = ({
               type="datetime-local"
               value={state.orderDate}
               onChange={(e) => actions.setOrderDate(e.target.value)}
-              className="w-full border-b-2 border-slate-200 bg-transparent px-3 py-3 text-sm font-bold text-slate-800 outline-none transition-colors focus:border-blue-600 dark:border-slate-700 dark:text-slate-100 dark:focus:border-blue-500 [color-scheme:light] dark:[color-scheme:dark]"
+              aria-invalid={Boolean(orderDateError)}
+              aria-describedby={orderDateError ? 'order-date-error' : undefined}
+              className={`w-full border-b-2 bg-transparent px-3 py-3 text-sm font-bold outline-none transition-colors [color-scheme:light] dark:[color-scheme:dark] ${orderDateError ? 'border-red-500 text-red-700 focus:border-red-600 dark:text-red-300 dark:focus:border-red-500' : 'border-slate-200 text-slate-800 focus:border-blue-600 dark:border-slate-700 dark:text-slate-100 dark:focus:border-blue-500'}`}
             />
+            {orderDateError && (
+              <p id="order-date-error" role="alert" className="mt-1 text-xs font-bold text-red-600 dark:text-red-400">
+                {orderDateError}
+              </p>
+            )}
           </div>
         </div>
       </SectionCard>

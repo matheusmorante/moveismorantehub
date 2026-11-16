@@ -14,9 +14,10 @@ export const ensureInboundInvoiceAttachment = async (
   try {
     let docPath = invoice.originalDocumentPath;
     let xmlContent = invoice.rawXml;
+    const documentPathWasProvided = Boolean(docPath);
 
-    // Se faltar path ou xml e tiver ID válido, busca do Supabase para garantir
-    if ((!docPath || !xmlContent) && isValidUuid(invoice.id)) {
+    // Sem caminho original no objeto, uma leitura pode descobrir o documento e o XML de uma vez.
+    if (!docPath && isValidUuid(invoice.id)) {
       const { data } = await supabase
         .from('inbound_invoices')
         .select('documento_original_path, documento_original_mime, xml_conteudo')
@@ -57,6 +58,17 @@ export const ensureInboundInvoiceAttachment = async (
           .createSignedUrl(docPath, 60 * 60 * 24 * 365 * 10);
         if (signed?.signedUrl) return signed.signedUrl;
       }
+    }
+
+    // O XML só é buscado quando o documento original não resolveu o anexo.
+    if (!xmlContent && documentPathWasProvided && isValidUuid(invoice.id)) {
+      const { data } = await supabase
+        .from('inbound_invoices')
+        .select('xml_conteudo')
+        .eq('id', invoice.id)
+        .maybeSingle();
+
+      if (data?.xml_conteudo) xmlContent = data.xml_conteudo;
     }
 
     // 2. Se tem XML disponível (importação por XML ou consulta SEFAZ), salva o XML como anexo no recebimento

@@ -55,7 +55,16 @@ const CustomerDataInputs: React.FC<Props> = ({
     isTestMode,
   });
 
-  const hasError = !isFinalConsumer && Boolean(errors.customer_fullName || errors.customer_phone);
+  const customerError = !isFinalConsumer
+    ? errors.customer_fullName ||
+      errors.customer_phone ||
+      errors.customer_cpfCnpj ||
+      errors.customer_street ||
+      errors.customer_number ||
+      errors.customer_city ||
+      errors.customer
+    : undefined;
+  const hasError = Boolean(customerError);
 
   return (
     <div ref={wrapperRef} className="relative w-full">
@@ -101,7 +110,7 @@ const CustomerDataInputs: React.FC<Props> = ({
         </div>
       </div>
       <div className="relative">
-        {isCustomerSelected && (
+        {isCustomerSelected && !hasError && (
           <div className="pointer-events-none absolute left-3 top-1/2 flex -translate-y-1/2 items-center text-emerald-600 dark:text-emerald-400 animate-fade-in">
             <i className="bi bi-check-circle-fill text-sm sm:text-base" />
           </div>
@@ -109,6 +118,8 @@ const CustomerDataInputs: React.FC<Props> = ({
         <input
           type="text"
           disabled={isFinalConsumer}
+          aria-invalid={hasError}
+          aria-describedby={hasError ? 'customer-selection-error' : undefined}
           value={searchTerm}
           onKeyDown={handleSearchInputKeyDown}
           onChange={(e) => handleSearchInputChange(e.target.value)}
@@ -154,8 +165,8 @@ const CustomerDataInputs: React.FC<Props> = ({
       </div>
 
       {hasError && (
-        <p className="mt-2 text-xs font-bold text-red-500">
-          {errors.customer_fullName || errors.customer_phone}
+        <p id="customer-selection-error" role="alert" className="mt-2 text-xs font-bold text-red-600 dark:text-red-400">
+          {customerError}
         </p>
       )}
 

@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import React from 'react';
-import { render, cleanup } from '@testing-library/react';
+import { act, fireEvent, render, renderHook, cleanup, screen, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 
 if (typeof window !== 'undefined' && !window.URL.createObjectURL) {
@@ -18,11 +18,16 @@ vi.mock('maplibre-gl', () => ({
 // Mock dependencies
 import OrderEditModal from '../modals/OrderEditModal';
 import NewSaleOrder from '../pages/NewSaleOrder';
+import FormFooter from '../components/FormFooter';
 import Order from '@/pages/types/order.type';
+import { fetchOrderById } from '@/pages/utils/orderHistoryService';
+import { useOrderEditActions } from '../modals/order-edit-modal/hooks/useOrderEditActions';
 import { bindTestArtifactContext, clearTestArtifactContext } from '../../../../../../shared-utils/testArtifactContext';
 
-const { mockUseAuth } = vi.hoisted(() => ({
+const { mockUseAuth, mockFormHookOptions, mockFlushDraft } = vi.hoisted(() => ({
   mockUseAuth: vi.fn((): { isAdministrator: boolean } => ({ isAdministrator: false })),
+  mockFormHookOptions: vi.fn(),
+  mockFlushDraft: vi.fn(),
 }));
 
 vi.mock('react-router-dom', () => ({
@@ -66,7 +71,7 @@ vi.mock('../components/SalesOrderFormSection', () => ({
 vi.mock('@/context/AuthContext', () => ({ useAuth: mockUseAuth }));
 
 vi.mock('../hooks/useSalesOrderForm', () => ({
-  useSalesOrderForm: () => ({
+  useSalesOrderForm: (...args: unknown[]) => (mockFormHookOptions(...args), {
     state: {
       currentStep: 1,
       currentOrder: { id: 'order-123', orderType: 'sale' },
@@ -81,6 +86,7 @@ vi.mock('../hooks/useSalesOrderForm', () => ({
       jumpToStep: vi.fn(),
       handleSaveOrder: vi.fn(),
       handleCompleteOrder: vi.fn(),
+      flushDraftAutoSave: mockFlushDraft,
       setSeller: vi.fn(),
       setCustomerData: vi.fn(),
       loadOrderForEditing: vi.fn(),
@@ -93,6 +99,8 @@ describe('Etapa 1.6: Modal de pedido em tela cheia e scroll lock [TESTE_AUT]', (
   beforeEach(() => {
     document.body.style.overflow = 'auto';
     mockUseAuth.mockReturnValue({ isAdministrator: false });
+    mockFormHookOptions.mockClear();
+    mockFlushDraft.mockReset().mockResolvedValue(true);
     clearTestArtifactContext();
   });
 
@@ -101,7 +109,7 @@ describe('Etapa 1.6: Modal de pedido em tela cheia e scroll lock [TESTE_AUT]', (
     document.body.style.overflow = 'auto';
   });
 
-  it('OrderEditModal bloqueia o scroll do body (overflow: hidden) e o restaura ao desmontar', () => {
+  it('OrderEditModal bloqueia o scroll do body (overflow: hidden) e o restaura ao desmontar', async () => {
     document.body.style.overflow = 'scroll';
 
     const mockOrder: Order = {
@@ -110,12 +118,15 @@ describe('Etapa 1.6: Modal de pedido em tela cheia e scroll lock [TESTE_AUT]', (
       items: [],
     } as any;
 
+    vi.mocked(fetchOrderById).mockResolvedValueOnce(mockOrder);
+
     const { unmount, container } = render(<OrderEditModal order={mockOrder} onClose={vi.fn()} />);
 
     // Body scroll deve estar bloqueado com hidden
     expect(document.body.style.overflow).toBe('hidden');
 
     // Modal deve estar em tela cheia (fixed, inset-0, w-screen, h-screen)
+    await waitFor(() => expect(container.firstElementChild?.className).toContain('fixed'));
     const modalContainer = container.firstElementChild as HTMLElement;
     expect(modalContainer.className).toContain('fixed');
     expect(modalContainer.className).toContain('inset-0');
@@ -144,6 +155,88 @@ describe('Etapa 1.6: Modal de pedido em tela cheia e scroll lock [TESTE_AUT]', (
     unmount();
 
     expect(document.body.style.overflow).toBe('auto');
+  });
+
+  it('ativa o autosave de rascunhos na edição comum e mantém a conciliação explícita', () => {
+    const order = { id: 'order-123', orderType: 'sale', status: 'draft', items: [] } as unknown as Order;
+    const editing = render(<OrderEditModal order={order} onClose={vi.fn()} />);
+    expect(mockFormHookOptions).toHaveBeenCalledWith(undefined, 'sale', { autoSaveExistingDrafts: true });
+    editing.unmount();
+    mockFormHookOptions.mockClear();
+    render(<OrderEditModal order={order} onClose={vi.fn()} reconciliationMode />);
+    expect(mockFormHookOptions).toHaveBeenCalledWith(undefined, 'sale', { autoSaveExistingDrafts: false });
+  });
+
+  it('espera a confirmação do autosave antes de fechar uma nova venda', async () => {
+    let finish!: (value: boolean) => void;
+    mockFlushDraft.mockReturnValueOnce(new Promise<boolean>((resolve) => { finish = resolve; }));
+    const onClose = vi.fn();
+    render(<NewSaleOrder onClose={onClose} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Fechar pedido' }));
+    expect(mockFlushDraft).toHaveBeenCalledOnce();
+    expect(onClose).not.toHaveBeenCalled();
+    await act(async () => { finish(true); });
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it('mantém a nova venda aberta quando o rascunho não é confirmado', async () => {
+    mockFlushDraft.mockResolvedValueOnce(false);
+    const onClose = vi.fn();
+    render(<NewSaleOrder onClose={onClose} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Fechar pedido' }));
+    await waitFor(() => expect(mockFlushDraft).toHaveBeenCalledOnce());
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'Fechar pedido' })).toBeTruthy();
+  });
+
+  it('avisa quando a confirmação do salvamento ainda não chegou', () => {
+    render(<FormFooter currentOrder={{ orderType: 'sale' } as Order} totalOrderValue={0}
+      isSaving={false} draftAutoSaveStatus="error" showDraftAutoSave
+      onCompleteOrder={vi.fn()} currentStep={1} />);
+    expect(screen.getByRole('status').textContent).toContain('Não foi possível confirmar o salvamento');
+  });
+
+  it('usa o salvamento de rascunho ao salvar a edição e espera sua confirmação', async () => {
+    let finish!: (value: string | false) => void;
+    const handleSaveOrder = vi.fn(() => new Promise<string | false>((resolve) => { finish = resolve; }));
+    const onSaveSuccess = vi.fn();
+    const onClose = vi.fn();
+    const saveWithFiscalAudit = vi.fn();
+    const { result } = renderHook(() => useOrderEditActions({
+      effectiveOrder: { id: 'order-123', status: 'draft' } as Order,
+      formState: { status: 'draft', isDraftAutoSaveEnabled: true } as any,
+      formActions: { handleSaveOrder } as any,
+      saveWithFiscalAudit,
+      setPendingUpdate: vi.fn(),
+      onSaveSuccess,
+      onClose,
+    }));
+
+    let saving!: Promise<string | false>;
+    await act(async () => { saving = result.current.handleUpdate(); });
+    expect(onClose).not.toHaveBeenCalled();
+    await act(async () => { finish('order-123'); await saving; });
+    expect(onSaveSuccess).toHaveBeenCalledWith('order-123');
+    expect(onClose).toHaveBeenCalledOnce();
+    expect(saveWithFiscalAudit).not.toHaveBeenCalled();
+  });
+
+  it('mantém a edição do rascunho aberta se o salvamento falhar', async () => {
+    const onClose = vi.fn();
+    const onSaveSuccess = vi.fn();
+    const { result } = renderHook(() => useOrderEditActions({
+      effectiveOrder: { id: 'order-123', status: 'draft' } as Order,
+      formState: { status: 'draft', isDraftAutoSaveEnabled: true } as any,
+      formActions: { handleSaveOrder: vi.fn().mockResolvedValue(false) } as any,
+      saveWithFiscalAudit: vi.fn(),
+      setPendingUpdate: vi.fn(),
+      onSaveSuccess,
+      onClose,
+    }));
+
+    await act(async () => { expect(await result.current.handleUpdate()).toBe(false); });
+    expect(onSaveSuccess).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
   });
 
   it('mostra o modo teste somente para administrador com contexto autorizado em nova venda', () => {

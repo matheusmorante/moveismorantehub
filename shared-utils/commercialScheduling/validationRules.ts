@@ -6,6 +6,16 @@ import {
   extractScheduleTimes,
 } from './formattingUtils';
 import type { ValidationErrors } from './types';
+import { requiresAssemblyResponsible } from '../orderHandlingRules';
+
+export type AppointmentItem = {
+  orderItemId?: string;
+  quantity: number;
+  itemType?: 'product' | 'service';
+  isComboItem?: boolean;
+  handlingType?: string;
+  assemblyResponsible?: 'Nossa equipe' | 'Montador terceirizado' | '';
+};
 
 const hasScheduleOptionInput = (
   option?: Partial<Shipping['scheduling']> | null
@@ -76,7 +86,7 @@ const getScheduleOptionSignature = (option: Partial<Shipping['scheduling']>): st
   ]);
 };
 
-export const validateShippingScheduling = (
+const validateSingleScheduling = (
   scheduling?: Shipping['scheduling'] | null,
   deliveryMethod: Shipping['deliveryMethod'] = 'delivery',
   isBudget: boolean = false
@@ -96,13 +106,12 @@ export const validateShippingScheduling = (
     return errors;
   }
 
-  const isAlternativesMode = scheduling.scheduleMode === 'alternatives';
+  const hasAlternatives = Boolean(scheduling.alternatives?.length);
   const hasPrimaryInput = hasScheduleOptionInput(scheduling);
 
-  // The primary schedule remains required in alternatives mode too.
   Object.assign(errors, validateScheduleOption(scheduling));
 
-  if (isAlternativesMode) {
+  if (hasAlternatives) {
     const seen = new Set<string>();
     if (hasPrimaryInput) seen.add(getScheduleOptionSignature(scheduling));
 
@@ -123,6 +132,101 @@ export const validateShippingScheduling = (
       }
       if (hasAlternativeInput) seen.add(key);
     });
+  }
+
+  return errors;
+};
+
+export const validateShippingScheduling = (
+  scheduling?: Shipping['scheduling'] | null,
+  deliveryMethod: Shipping['deliveryMethod'] = 'delivery',
+  isBudget: boolean = false,
+  items?: ReadonlyArray<AppointmentItem>
+): ValidationErrors => {
+  const firstDeliveryMethod = scheduling?.appointments?.[0]?.deliveryMethod ?? deliveryMethod;
+  const errors = validateSingleScheduling(scheduling, firstDeliveryMethod, isBudget);
+  if (!scheduling || isBudget) return errors;
+
+  const totals = new Map<string, number>();
+  const available = items && new Map(items.filter((item) => item.orderItemId).map((item) => [item.orderItemId!, item.quantity]));
+  const itemsById = items && new Map(items.filter((item) => item.orderItemId).map((item) => [item.orderItemId!, item]));
+  scheduling.appointments?.forEach((appointment, index) => {
+    const prefix = `shipping_appointment_${appointment.id}`;
+    if (!appointment.deliveryMethod) {
+      errors[`${prefix}_deliveryMethod`] = 'Selecione Entrega ou Retirada para este agendamento.';
+    }
+    if (appointment.itemIds.length === 0) {
+      errors[`${prefix}_items`] = 'Selecione os itens deste agendamento.';
+    }
+    if (new Set(appointment.itemIds).size !== appointment.itemIds.length) {
+      errors[`${prefix}_items`] = 'Um item não pode ser selecionado duas vezes no mesmo agendamento.';
+    }
+    appointment.itemIds.forEach((itemId) => {
+      if (available && !available.has(itemId)) {
+        errors[`${prefix}_items`] = 'Um item selecionado não está mais no pedido.';
+      }
+      const hasExplicitQuantity = Boolean(
+        appointment.itemQuantities &&
+          Object.prototype.hasOwnProperty.call(appointment.itemQuantities, itemId)
+      );
+      if (hasExplicitQuantity) {
+        const quantity = appointment.itemQuantities?.[itemId];
+        if (typeof quantity !== 'number' || !Number.isFinite(quantity) || quantity <= 0) {
+          errors[`${prefix}_items`] = 'Informe uma quantidade maior que zero para cada item selecionado.';
+        } else {
+          totals.set(itemId, (totals.get(itemId) || 0) + quantity);
+        }
+      } else if (available?.has(itemId)) {
+        // Older/partial snapshots can contain itemIds before quantities were persisted.
+        // In that case the selected item represents its full order quantity.
+        totals.set(itemId, (totals.get(itemId) || 0) + available.get(itemId)!);
+      }
+      const item = itemsById?.get(itemId);
+      if (item && item.itemType !== 'service' && !item.isComboItem) {
+        const handling = appointment.itemHandlings === undefined
+          ? { handlingType: item.handlingType, assemblyResponsible: item.assemblyResponsible }
+          : appointment.itemHandlings[itemId];
+        if (!handling?.handlingType?.trim()) {
+          errors[`${prefix}_handling_${itemId}`] = 'Selecione o manuseio do item.';
+        } else if (
+          requiresAssemblyResponsible(handling.handlingType, appointment.deliveryMethod ?? deliveryMethod) &&
+          !handling.assemblyResponsible
+        ) {
+          errors[`${prefix}_assembly_${itemId}`] = 'Selecione o responsável pela montagem.';
+        }
+      }
+    });
+    if (appointment.itemQuantities && Object.keys(appointment.itemQuantities).some((id) => !appointment.itemIds.includes(id))) {
+      errors[`${prefix}_items`] = 'Há quantidade informada para um item não selecionado.';
+    }
+    // The first appointment is mirrored at the root for legacy consumers.
+    if (index === 0) return;
+    const appointmentErrors = validateSingleScheduling(
+      appointment.scheduling,
+      appointment.deliveryMethod ?? deliveryMethod,
+      false
+    );
+    Object.entries(appointmentErrors).forEach(([key, message]) => {
+      const suffix = key.startsWith('shipping_') ? key.slice('shipping_'.length) : key;
+      errors[`${prefix}_${suffix}`] = message;
+    });
+  });
+
+  if (available) {
+    scheduling.appointments?.forEach((appointment) => {
+      if (appointment.itemIds.some((id) => (totals.get(id) || 0) > (available.get(id) ?? Infinity) + 1e-9)) {
+        errors[`shipping_appointment_${appointment.id}_items`] = 'A quantidade agendada supera a quantidade do pedido.';
+      }
+    });
+    if (scheduling.appointments?.length) {
+      const missing = [...available.entries()].some(([id, quantity]) =>
+        (totals.get(id) || 0) + 1e-9 < quantity
+      );
+      if (missing) {
+        const last = scheduling.appointments[scheduling.appointments.length - 1];
+        errors[`shipping_appointment_${last.id}_items`] ||= 'Distribua todas as unidades dos itens entre os agendamentos.';
+      }
+    }
   }
 
   return errors;

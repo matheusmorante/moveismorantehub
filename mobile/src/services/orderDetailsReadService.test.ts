@@ -35,4 +35,29 @@ describe('detalhes de pedidos e cache offline', () => {
     mocks.from.mockReturnValue(query);
     await expect(loadMobileOrderDetails({ id: 'order', __orderSummary: true })).rejects.toMatchObject({ code: '42501' });
   });
+  it('mantém a operação selecionada e seus itens ao carregar os detalhes completos', async () => {
+    const full = { id: 'order', status: 'scheduled', order_delivery_operations: [
+      { appointment_id: 'two', revision: 1, state: { deliveryStatus: 'in_progress' } },
+    ], order_payments: [{ payment_index: 1, payment_method: 'Pix', amount: 25, fee: 0,
+      fee_type: 'fixed', status: 'PAGO', installments: 1, paid_at: null }], order_data: {
+      payments: [{ method: 'Pix', amount: 25, status: 'Pendente' }],
+      items: [{ orderItemId: 'a', quantity: 3 }, { orderItemId: 'b', quantity: 1 }],
+      deliveryOperations: { two: { deliveryStatus: 'in_progress' } },
+      shipping: { scheduling: { appointments: [
+        { id: 'one', itemIds: ['a'], itemQuantities: { a: 2 } },
+        { id: 'two', itemIds: ['b'], itemQuantities: { b: 1 } },
+      ] } },
+    } };
+    const query: any = { select: () => query, eq: () => query, maybeSingle: vi.fn().mockResolvedValue({ data: full, error: null }) };
+    mocks.from.mockReturnValue(query);
+    const selected = await loadMobileOrderDetails({ id: 'order', scheduleAppointment: { appointmentId: 'two' } });
+    expect(selected.scheduleAppointment).toMatchObject({ appointmentId: 'two', index: 2, total: 2 });
+    expect(selected.order_data.items).toEqual([{ orderItemId: 'b', quantity: 1 }]);
+    expect(selected.order_data.deliveryStatus).toBe('in_progress');
+    expect(selected._sourceOrderData.items).toEqual(full.order_data.items);
+    expect(selected._sourceOrderData.deliveryOperations.two).toMatchObject({ revision: 1, deliveryStatus: 'in_progress' });
+    expect(selected.order_data.payments[0].status).toBe('PAGO');
+    expect(selected._sourceOrderData.__sharedPaymentSnapshot.orderData[0].status).toBe('Pendente');
+    expect(selected._sourceOrderData.__sharedPaymentSnapshot.normalized[0].status).toBe('PAGO');
+  });
 });

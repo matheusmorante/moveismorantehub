@@ -9,6 +9,13 @@ export type ReturnMethod = 'store_delivery' | 'store_collection';
 export type ReturnPaymentMethod = 'Estorno de crédito' | 'Pix' | 'Dinheiro';
 export type FiscalAcquisitionPurpose = 'resale' | 'use_consumption' | 'fixed_asset';
 
+/** Contexto temporário usado ao executar uma ação para uma operação específica. */
+export type OrderOperationContext = {
+  appointmentId: string;
+  operationNumber: number;
+  operationCount: number;
+};
+
 export type AssistanceItem = {
   id: string; // ID for internal keying
   description: string;
@@ -21,6 +28,8 @@ export type AssistanceItem = {
 export type Order = {
   /** Leitura compacta: hidratar pelo ID antes de editar, salvar ou executar ações. */
   __orderSummary?: boolean;
+  /** Não persistido como dado comercial; identifica o escopo de uma ação pós-venda. */
+  operationContext?: OrderOperationContext;
   /** Marcador de rastreabilidade exclusivo de pedidos sintéticos de teste. */
   syntheticFixture?: { scenarioKey: string; version: 1; payloadHash?: string };
   /** Marcador explícito do domínio já persistido em order_data.is_test. */
@@ -184,6 +193,7 @@ export type OrderAction =
 export type PdvAction = OrderAction;
 
 export type IsButtonsClicked = {
+  [key: string]: boolean | undefined;
   printReceipt?: boolean;
   printPromissoryNote?: boolean;
   printShippingOrder?: boolean;

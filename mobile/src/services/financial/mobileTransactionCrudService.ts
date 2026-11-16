@@ -71,9 +71,16 @@ export const fetchTransactionsForMonth = async (
   return list;
 };
 
-export const createFinancialTransaction = async (
-  payload: Partial<FinancialTransaction>
-): Promise<{ success: boolean; data?: FinancialTransaction; error?: string }> => {
+type FinancialTransactionCreateResult = {
+  success: boolean;
+  data?: FinancialTransaction | { id: string };
+  error?: string;
+};
+
+const createFinancialTransactionInternal = async (
+  payload: Partial<FinancialTransaction>,
+  idOnly: boolean
+): Promise<FinancialTransactionCreateResult> => {
   if (payload.amount === null || payload.amount === undefined) {
     return { success: false, error: 'O valor da movimentação não foi informado.' };
   }
@@ -118,18 +125,24 @@ export const createFinancialTransaction = async (
     status: payload.status || 'ACTIVE',
   };
 
-  const insertRes = await supabase
-    .from('financial_transactions')
-    .insert([fullRecord])
-    .select()
-    .single();
+  const insertQuery = supabase.from('financial_transactions').insert([fullRecord]);
+  const insertRes = idOnly
+    ? await insertQuery.select('id').single()
+    : await insertQuery.select().single();
 
   if (insertRes.error) {
     console.error('Erro ao salvar movimentação financeira:', insertRes.error);
     return { success: false, error: insertRes.error.message };
   }
 
-  const data = insertRes.data;
+  const data = insertRes.data as any;
+  if (idOnly) {
+    if (!data?.id) {
+      return { success: false, error: 'Não foi possível confirmar o identificador da movimentação.' };
+    }
+    return { success: true, data: { id: data.id } };
+  }
+
   const inserted: FinancialTransaction = {
     id: data.id,
     type: data.type,
@@ -163,6 +176,19 @@ export const createFinancialTransaction = async (
   return { success: true, data: inserted };
 };
 
+export const createFinancialTransaction = async (
+  payload: Partial<FinancialTransaction>
+): Promise<{ success: boolean; data?: FinancialTransaction; error?: string }> => {
+  const result = await createFinancialTransactionInternal(payload, false);
+  return { ...result, data: result.data as FinancialTransaction | undefined };
+};
+
+export const createFinancialTransactionId = async (
+  payload: Partial<FinancialTransaction>
+): Promise<{ success: boolean; data?: { id: string }; error?: string }> => {
+  const result = await createFinancialTransactionInternal(payload, true);
+  return { ...result, data: result.data as { id: string } | undefined };
+};
 export const reverseFinancialTransaction = async (
   id: string
 ): Promise<{ success: boolean; error?: string }> => {
@@ -190,7 +216,14 @@ export const updateFinancialTransaction = async (
   if (payload.date !== undefined) updatePayload.date = payload.date;
   if (payload.description !== undefined) updatePayload.description = payload.description.trim();
   if (payload.payment_method !== undefined) updatePayload.payment_method = payload.payment_method;
-  if (payload.category_id !== undefined) updatePayload.category_id = payload.category_id || null;
+  if (payload.category_id !== undefined) {
+    updatePayload.category_id = payload.category_id || null;
+    updatePayload.category_name = payload.category_name || null;
+    updatePayload.result_nature = payload.result_nature || null;
+  } else {
+    if (payload.category_name !== undefined) updatePayload.category_name = payload.category_name || null;
+    if (payload.result_nature !== undefined) updatePayload.result_nature = payload.result_nature || null;
+  }
   if (payload.notes !== undefined) updatePayload.notes = payload.notes || null;
   if (payload.transaction_time !== undefined) updatePayload.transaction_time = payload.transaction_time || null;
   if (payload.account_id !== undefined) updatePayload.account_id = payload.account_id || null;
@@ -203,22 +236,15 @@ export const updateFinancialTransaction = async (
   if (payload.origin !== undefined) updatePayload.origin = payload.origin;
   if (payload.created_by !== undefined) updatePayload.created_by = payload.created_by || null;
   if (payload.status !== undefined) updatePayload.status = payload.status;
+  if (payload.purpose !== undefined) updatePayload.purpose = payload.purpose || null;
+  if (payload.vehicle_id !== undefined) updatePayload.vehicle_id = payload.vehicle_id || null;
+  if (payload.collaborator_id !== undefined) updatePayload.collaborator_id = payload.collaborator_id || null;
+  if (payload.collaborator_name !== undefined) updatePayload.collaborator_name = payload.collaborator_name || null;
 
-  const fullUpdate = {
-    ...updatePayload,
-    category_name: payload.category_name || null,
-    result_nature: payload.result_nature || null,
-    purpose: payload.purpose || null,
-    vehicle_id: payload.vehicle_id || null,
-    collaborator_id: payload.collaborator_id || null,
-    collaborator_name: payload.collaborator_name || null,
-  };
-
-  const updateRes = await supabase.from('financial_transactions').update(fullUpdate).eq('id', id);
+  const updateRes = await supabase.from('financial_transactions').update(updatePayload).eq('id', id);
 
   return updateRes.error ? { success: false, error: updateRes.error.message } : { success: true };
 };
-
 export const deleteFinancialTransaction = async (
   id: string
 ): Promise<{ success: boolean; error?: string }> => {

@@ -17,14 +17,14 @@ interface Props {
   cityHint?: string; stateHint?: string; label?: string; placeholder?: string;
   required?: boolean; routeUrl?: string; disabled?: boolean; className?: string;
   inputClassName?: string; showLabel?: boolean; variant?: 'default' | 'underline';
-  hasError?: boolean; onBlur?: () => void;
+  hasError?: boolean; validationError?: string; onBlur?: () => void;
 }
 
 export const AddressAutocompleteInput: React.FC<Props> = ({
   value, addressValue, onChange, onSelectAddress, cityHint, stateHint = 'PR', label = 'Logradouro',
   placeholder = 'Ex: Rua das Flores, Avenida Brasil, Travessa, Marginal...', required = false,
   routeUrl, disabled = false, className = 'flex flex-col gap-2', inputClassName, showLabel = true,
-  variant = 'default', hasError = false, onBlur,
+  variant = 'default', hasError = false, validationError, onBlur,
 }) => {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -173,7 +173,7 @@ export const AddressAutocompleteInput: React.FC<Props> = ({
             htmlFor={inputId}
             className={
               variant === 'underline'
-                ? 'text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1 ml-1 block'
+                ? `text-[10px] font-black uppercase tracking-widest mb-1 ml-1 block ${hasError ? 'text-red-600 dark:text-red-400' : 'text-slate-400'}`
                 : 'text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500'
             }
           >
@@ -200,6 +200,7 @@ export const AddressAutocompleteInput: React.FC<Props> = ({
           aria-label={showLabel ? undefined : label}
           aria-invalid={hasError}
           aria-describedby={lookupError ? inputId + '-error' : undefined}
+          title={validationError || undefined}
           aria-required={required}
           type="text"
           value={value || ''}

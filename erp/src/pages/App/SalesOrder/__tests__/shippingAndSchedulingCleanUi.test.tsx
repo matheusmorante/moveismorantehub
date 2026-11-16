@@ -164,7 +164,7 @@ describe('Aba Logística - Interface Limpa para Endereço e Agendamento Pendente
     expect(screen.getByDisplayValue('14:00')).toBeTruthy();
   });
 
-  it('em pedido de retirada (pickup), não deve exibir endereço pendente nem opções de endereço de entrega', () => {
+  it('em pedido de retirada (pickup), mantém frete e distância disponíveis sem exibir campos de endereço de entrega', () => {
     const shippingPickup: Shipping = {
       ...baseShipping,
       deliveryMethod: 'pickup',
@@ -188,7 +188,7 @@ describe('Aba Logística - Interface Limpa para Endereço e Agendamento Pendente
     expect(screen.queryByText('Local de Retirada / Endereço')).toBeNull();
     expect(screen.queryByText('Endereço de Entrega')).toBeNull();
     expect(screen.queryByText('Usar o mesmo endereço do cliente?')).toBeNull();
-    expect(screen.queryByTestId('frete-distancia')).toBeNull();
+    expect(screen.getByTestId('frete-distancia')).toBeTruthy();
   });
 
   it('em pedido de entrega (delivery), deve exibir o cabeçalho de Endereço de Entrega e o botão de Endereço Pendente', () => {

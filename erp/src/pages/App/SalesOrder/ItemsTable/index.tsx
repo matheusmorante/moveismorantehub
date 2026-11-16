@@ -46,7 +46,8 @@ const ItemsTable = ({
   hideHandling: propHideHandling,
   highlightTemporaryItems,
 }: Props) => {
-  const hideHandling = Boolean(propHideHandling || isBudget || isReturn);
+  const onlyServiceItems = items.length > 0 && items.every((item) => item.itemType === 'service');
+  const hideHandling = Boolean(propHideHandling || isBudget || isReturn || onlyServiceItems);
 
   // Uma única linha expandida nos layouts compactos.
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
@@ -131,6 +132,7 @@ const ItemsTable = ({
           productsCount={productsCount}
           servicesCount={servicesCount}
           onAddItem={handleAddItem}
+          error={errors.items_summary}
         />
       )}
 
@@ -170,7 +172,7 @@ const ItemsTable = ({
       ) : (
         <div className="min-w-0 rounded-2xl border border-slate-200/70 dark:border-slate-800">
           <table className="w-full border-collapse table-fixed">
-            <ItemsTableDesktopHeader hideHandling={hideHandling || isCompactDesktop} compactDesktop={isCompactDesktop} />
+            <ItemsTableDesktopHeader hideHandling={hideHandling || isCompactDesktop} />
             <Body
               items={items}
               setItems={setItems}

@@ -204,9 +204,9 @@ describe('ações pós-venda do pedido de venda', () => {
     expect(screen.queryByText(/^cadastrado$/i)).toBeNull();
   });
 
-  it('exibe o botão Informações da Entrega (ou Informações da Retirada) e oculta botões soltos de entrega na grade principal', async () => {
+  it('exibe o botão de informações das operações e oculta botões soltos de entrega na grade principal', async () => {
     const { unmount } = render(<PostOrderActionsModal order={saleOrder} onClose={vi.fn()} />);
-    expect(screen.getByRole('button', { name: /Informações da Entrega/i })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Informações sobre as operações/i })).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Imprimir Pedido' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Enviar Entrega para a equipe' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Enviar entrega para o cliente' })).toBeNull();
@@ -217,18 +217,20 @@ describe('ações pós-venda do pedido de venda', () => {
       shipping: { ...saleOrder.shipping, deliveryMethod: 'pickup' },
     } as Order;
     render(<PostOrderActionsModal order={pickupOrder} onClose={vi.fn()} />);
-    expect(screen.getByRole('button', { name: /Informações da Retirada/i })).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: /Informações da Retirada/i }));
-    expect(await screen.findByRole('heading', { name: 'Informações da Retirada' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Informações sobre as operações/i })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /Informações sobre as operações/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'Operação 1/1 · Retirada' }));
+    expect(await screen.findByRole('heading', { name: 'Operação 1/1' })).toBeTruthy();
   });
 
-  it('ao clicar em Informações da Entrega abre o modal sem campos de resumo e executa suas ações', async () => {
+  it('ao selecionar uma operação mostra e executa as ações com os dados dela', async () => {
     render(<PostOrderActionsModal order={saleOrder} onClose={vi.fn()} isAdministrator={true} />);
 
-    // Abre o modal de Informações da Entrega
-    fireEvent.click(screen.getByRole('button', { name: /Informações da Entrega/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Informações sobre as operações/i }));
+    expect(screen.queryByRole('button', { name: /Enviar para a Equipe/i })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Operação 1/1 · Entrega' }));
 
-    expect(await screen.findByRole('heading', { name: 'Informações da Entrega' })).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'Operação 1/1' })).toBeTruthy();
 
     // Garante que não há campos com resumo da entrega (endereço/data/cliente) dentro do modal
     expect(screen.queryByText(/Entrega no Endereço/i)).toBeNull();
@@ -240,7 +242,7 @@ describe('ações pós-venda do pedido de venda', () => {
     });
     const sendDirectApiBtn = screen.getByRole('button', { name: /Enviar para o cliente diretamente \(Cloud WhatsApp\)/i });
     const sendTeamBtn = screen.getByRole('button', { name: /Enviar para a Equipe/i });
-    const printDeliveryBtn = screen.getByRole('button', { name: /Imprimir informações da entrega/i });
+    const printDeliveryBtn = screen.getByRole('button', { name: /Imprimir informações da operação/i });
 
     expect(sendCustomerBtn).toBeTruthy();
     expect(sendDirectApiBtn).toBeTruthy();
@@ -250,30 +252,110 @@ describe('ações pós-venda do pedido de venda', () => {
     // Executa as ações
     fireEvent.click(sendCustomerBtn);
     await waitFor(() => {
-      expect(mockActionsMap.SEND_CUSTOMER_ORDER).toHaveBeenCalledWith(saleOrder);
+      expect(mockActionsMap.SEND_CUSTOMER_ORDER).toHaveBeenCalledWith(
+        expect.objectContaining({
+          operationContext: { appointmentId: 'legacy-operation', operationNumber: 1, operationCount: 1 },
+        })
+      );
     });
 
     fireEvent.click(sendDirectApiBtn);
     await waitFor(() => {
-      expect(mockActionsMap.SEND_CUSTOMER_ORDER_DIRECT_API).toHaveBeenCalledWith(saleOrder);
+      expect(mockActionsMap.SEND_CUSTOMER_ORDER_DIRECT_API).toHaveBeenCalledWith(
+        expect.objectContaining({
+          operationContext: { appointmentId: 'legacy-operation', operationNumber: 1, operationCount: 1 },
+        })
+      );
     });
 
     fireEvent.click(sendTeamBtn);
     await waitFor(() => {
-      expect(mockActionsMap.SEND_SHIPPING_ORDER).toHaveBeenCalledWith(saleOrder);
+      expect(mockActionsMap.SEND_SHIPPING_ORDER).toHaveBeenCalledWith(
+        expect.objectContaining({
+          operationContext: { appointmentId: 'legacy-operation', operationNumber: 1, operationCount: 1 },
+        })
+      );
     });
 
     fireEvent.click(printDeliveryBtn);
     await waitFor(() => {
-      expect(mockActionsMap.PRINT_SHIPPING_ORDER).toHaveBeenCalledWith(saleOrder);
+      expect(mockActionsMap.PRINT_SHIPPING_ORDER).toHaveBeenCalledWith(
+        expect.objectContaining({
+          operationContext: { appointmentId: 'legacy-operation', operationNumber: 1, operationCount: 1 },
+        })
+      );
     });
+  });
+
+  it('filtra os itens e mantém o estado de envio isolado por operação', async () => {
+    mockActionsMap.SEND_SHIPPING_ORDER.mockClear();
+    const multiOperationOrder = {
+      ...saleOrder,
+      items: [
+        { orderItemId: 'delivery-item', description: 'Mesa', quantity: 1 },
+        { orderItemId: 'pickup-item', description: 'Cadeira', quantity: 2 },
+      ],
+      shipping: {
+        ...saleOrder.shipping,
+        scheduling: {
+          ...saleOrder.shipping.scheduling,
+          appointments: [
+            {
+              id: 'delivery-operation',
+              itemIds: ['delivery-item'],
+              itemQuantities: { 'delivery-item': 1 },
+              deliveryMethod: 'delivery',
+              useCustomerAddress: true,
+              freightValue: 20,
+              scheduling: { ...saleOrder.shipping.scheduling, date: '2026-10-21' },
+            },
+            {
+              id: 'pickup-operation',
+              itemIds: ['pickup-item'],
+              itemQuantities: { 'pickup-item': 2 },
+              deliveryMethod: 'pickup',
+              freightValue: 0,
+              scheduling: { ...saleOrder.shipping.scheduling, immediatePickup: true },
+            },
+          ],
+        },
+      },
+    } as unknown as Order;
+
+    render(<PostOrderActionsModal order={multiOperationOrder} onClose={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: /Informações sobre as operações/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'Operação 2/2 · Retirada' }));
+
+    const sendTeamButton = screen.getByRole('button', { name: /Enviar para a Equipe/i });
+    fireEvent.click(sendTeamButton);
+    await waitFor(() => {
+      expect(mockActionsMap.SEND_SHIPPING_ORDER).toHaveBeenCalledWith(
+        expect.objectContaining({
+          items: [expect.objectContaining({ orderItemId: 'pickup-item', quantity: 2 })],
+          shipping: expect.objectContaining({ deliveryMethod: 'pickup', value: 0 }),
+          operationContext: {
+            appointmentId: 'pickup-operation',
+            operationNumber: 2,
+            operationCount: 2,
+          },
+        })
+      );
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /Voltar às operações/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'Operação 1/2 · Entrega' }));
+    expect(screen.getByRole('button', { name: /Enviar para a Equipe/i }).querySelector('.bi-check')).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: /Voltar às operações/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'Operação 2/2 · Retirada' }));
+    expect(screen.getByRole('button', { name: /Enviar para a Equipe/i }).querySelector('.bi-check')).toBeTruthy();
   });
 
   it('exibe o botão de envio direto Cloud WhatsApp dentro do modal como desativado para quem não é administrador', async () => {
     render(<PostOrderActionsModal order={saleOrder} onClose={vi.fn()} isAdministrator={false} />);
 
-    // Abre o modal de Informações da Entrega
-    fireEvent.click(screen.getByRole('button', { name: /Informações da Entrega/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Informações sobre as operações/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'Operação 1/1 · Entrega' }));
 
     const directApiBtn = screen.getByRole('button', {
       name: /Enviar para o cliente diretamente \(Cloud WhatsApp\)/i,
@@ -287,8 +369,8 @@ describe('ações pós-venda do pedido de venda', () => {
   it('permite envio direto via Cloud WhatsApp dentro do modal quando o usuário é administrador', async () => {
     render(<PostOrderActionsModal order={saleOrder} onClose={vi.fn()} isAdministrator={true} />);
 
-    // Abre o modal de Informações da Entrega
-    fireEvent.click(screen.getByRole('button', { name: /Informações da Entrega/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Informações sobre as operações/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'Operação 1/1 · Entrega' }));
 
     const directApiBtn = screen.getByRole('button', {
       name: /Enviar para o cliente diretamente \(Cloud WhatsApp\)/i,
@@ -298,11 +380,15 @@ describe('ações pós-venda do pedido de venda', () => {
 
     fireEvent.click(directApiBtn);
     await waitFor(() => {
-      expect(mockActionsMap.SEND_CUSTOMER_ORDER_DIRECT_API).toHaveBeenCalledWith(saleOrder);
+      expect(mockActionsMap.SEND_CUSTOMER_ORDER_DIRECT_API).toHaveBeenCalledWith(
+        expect.objectContaining({
+          operationContext: { appointmentId: 'legacy-operation', operationNumber: 1, operationCount: 1 },
+        })
+      );
     });
   });
 
-  it('o botão externo Informações da Entrega não recebe check nem borda verde, mas os botões internos do modal recebem', async () => {
+  it('o botão externo de operações não recebe check nem borda verde, mas as ações concluídas recebem', async () => {
     const clickedOrder = {
       ...saleOrder,
       isButtonsClicked: {
@@ -314,12 +400,13 @@ describe('ações pós-venda do pedido de venda', () => {
     render(<PostOrderActionsModal order={clickedOrder} onClose={vi.fn()} isAdministrator={true} />);
 
     // Botão externo não tem ring-emerald-500 nem check
-    const outerBtn = screen.getByRole('button', { name: /Informações da Entrega/i });
+    const outerBtn = screen.getByRole('button', { name: /Informações sobre as operações/i });
     expect(outerBtn.className).not.toContain('ring-emerald-500');
     expect(outerBtn.querySelector('.bi-check')).toBeNull();
 
-    // Abre o modal
+    // Abre a lista e seleciona a operação
     fireEvent.click(outerBtn);
+    fireEvent.click(screen.getByRole('button', { name: 'Operação 1/1 · Entrega' }));
 
     // Botão interno sendCustomerOrder possui borda verde e check
     const sendCustomerBtn = screen.getByRole('button', {
@@ -330,7 +417,7 @@ describe('ações pós-venda do pedido de venda', () => {
     expect(sendCustomerBtn.querySelector('.bi-check')).toBeTruthy();
 
     // Botão interno printShippingOrder possui borda verde e check
-    const printDeliveryBtn = screen.getByRole('button', { name: /Imprimir informações da entrega/i });
+    const printDeliveryBtn = screen.getByRole('button', { name: /Imprimir informações da operação/i });
     expect(printDeliveryBtn.className).toContain('border-emerald-500');
     expect(printDeliveryBtn.className).toContain('ring-emerald-500');
     expect(printDeliveryBtn.querySelector('.bi-check')).toBeTruthy();

@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { withTimeout } from '../../../../../../../../shared-utils/withTimeout';
 import { postProductQueryFormSchema, postPreviewProductFormSchema, postEditorCampaignFormSchema, postCompositionFormSchema } from '../../../../../../../../shared-utils/postEditorFormSchemas';
-import { fetchProductsPage, getFullProduct } from '@/pages/utils/productService';
+import { fetchPreviewProductOptionsPage, getFullProduct } from '@/pages/utils/productService';
+import type { ProductPreviewOption } from '@/pages/utils/productService';
 import { Product } from '@/pages/types/product.type';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { Layer, MarketingTemplate, MarketingCampaign, MarketingAsset } from '../../types';
@@ -16,12 +17,21 @@ import { marketingTemplateFormSchema, marketingTemplateFormValues } from '../../
 
 const defaultPreviewProductKey = 'morante_post_creator_default_preview_product_id';
 
+type PostEditorOpportunity = {
+  id: string;
+  name: string;
+  slug?: string;
+  badge_color?: string;
+  border_color?: string;
+  image_url?: string;
+};
+
 export function usePostEditor() {
-  const [products, setProducts] = useState<Product[]>([]),
+  const [products, setProducts] = useState<ProductPreviewOption[]>([]),
     [product, setProduct] = useState<Product | null>(null);
   const [search, setSearch] = useState(''),
     [page, setPage] = useState(1),
-    [total, setTotal] = useState(0);
+    [hasMore, setHasMore] = useState(false);
   const [campaign, setCampaign] = useState<MarketingCampaign | null>(null);
   const [template, setTemplate] = useState(compositionTemplate),
     [layers, setLayers] = useState<Layer[]>(compositionTemplate.layers);
@@ -31,9 +41,8 @@ export function usePostEditor() {
     [busy, setBusy] = useState(''),
     [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
-  const [opportunities, setOpportunities] = useState<
-    Array<{ id: string; name: string; slug?: string; image_url?: string }>
-  >([]);
+  const [opportunities, setOpportunities] = useState<PostEditorOpportunity[]>([]);
+  const [opportunitiesError, setOpportunitiesError] = useState('');
   const revision = useRef(0), active = useRef(true), inFlight = useRef(false), saveUncertain = useRef(false), attemptId = useRef<string | undefined>(undefined);
   const { user } = useAuth();
   const actor = useRef({ id: user?.id }); if (actor.current.id !== user?.id) actor.current = { id: user?.id };
@@ -53,11 +62,11 @@ export function usePostEditor() {
     const timer = setTimeout(() => {
       void queryProducts({ page, search }, async (values) => {
         if (!alive || !active.current || actor.current !== actorScope || !actorScope.id) return false;
-        const result = await withTimeout(fetchProductsPage(values.page, 30, { activeOnly: true, isDraft: false, search: values.search }), 15_000, null, 'Buscar produtos de prévia');
+        const result = await withTimeout(fetchPreviewProductOptionsPage(values.page, 30, { activeOnly: true, isDraft: false, search: values.search }), 15_000, null, 'Buscar produtos de prévia');
         if (!alive || !active.current || actor.current !== actorScope) return false;
-        if (!result || !Array.isArray(result.data) || !Number.isFinite(result.total)) throw new Error('A busca de produtos não foi confirmada. Tente novamente.');
+        if (!result || !Array.isArray(result.data)) throw new Error('A busca de produtos não foi confirmada. Tente novamente.');
         setProducts((current) => values.page === 1 ? result.data : [...current, ...result.data.filter((item) => !current.some((existing) => existing.id === item.id))]);
-        setTotal(result.total); return true;
+        setHasMore(result.hasMore === true); return true;
       }, (errors) => { if (alive && active.current && actor.current === actorScope) setMessage(Object.values(flattenFormErrors(errors))[0]); }).catch((error) => {
         if (alive && active.current && actor.current === actorScope) setMessage(error instanceof Error ? error.message : 'A busca não foi confirmada.');
       }).finally(() => { if (alive && active.current && actor.current === actorScope) setListLoading(false); });
@@ -66,16 +75,17 @@ export function usePostEditor() {
   }, [page, search, queryProducts, actorScope]);
   const selectProductCurrent = useRef<(id: string) => Promise<boolean | undefined>>(async () => false);
   useEffect(() => {
-    setProduct(null); setProducts([]); setTotal(0); setOverrides({}); setLayers(compositionTemplate.layers); setTemplate(compositionTemplate); setCampaign(null); setMessage(''); setSlogan(''); setLoading(false);
+    setProduct(null); setProducts([]); setHasMore(false); setOverrides({}); setLayers(compositionTemplate.layers); setTemplate(compositionTemplate); setCampaign(null); setMessage(''); setSlogan(''); setLoading(false);
+    setOpportunities([]); setOpportunitiesError('');
     revision.current++; saveUncertain.current = false; attemptId.current = undefined;
     if (!actorScope.id) return;
     let alive = true;
-    void withTimeout(supabase.from('opportunities').select('*').eq('active', true), 15_000, null, 'Consultar oportunidades do editor').then((result) => {
+    void withTimeout(supabase.from('opportunities').select('id, name, slug, badge_color, border_color, image_url').eq('active', true).order('name'), 15_000, null, 'Consultar oportunidades do editor').then((result) => {
       if (alive && active.current && actor.current === actorScope) {
-        if (!result || result.error || !Array.isArray(result.data)) { setMessage('A consulta das oportunidades não foi confirmada.'); return; }
+        if (!result || result.error || !Array.isArray(result.data)) { setOpportunitiesError('Não foi possível consultar as oportunidades.'); return; }
         setOpportunities(result.data);
       }
-    }).catch(() => { if (alive && active.current && actor.current === actorScope) setMessage('A consulta das oportunidades não foi confirmada.'); });
+    }).catch(() => { if (alive && active.current && actor.current === actorScope) setOpportunitiesError('Não foi possível consultar as oportunidades.'); });
     try { const savedProductId = localStorage.getItem(defaultPreviewProductKey); if (savedProductId) void selectProductCurrent.current(savedProductId); } catch { setMessage('A preferência de produto não está disponível neste navegador.'); }
     return () => { alive = false; };
   }, [actorScope]);
@@ -241,6 +251,8 @@ export function usePostEditor() {
   }
   return {
     products,
+    opportunities,
+    opportunitiesError,
     product,
     selectProduct,
     search,
@@ -250,7 +262,7 @@ export function usePostEditor() {
     },
     page,
     setPage,
-    total,
+    hasMore,
     campaign,
     selectCampaign,
     template,

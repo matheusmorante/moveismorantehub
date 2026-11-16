@@ -1,11 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { financeService } from '@/pages/services/financeService';
+import { financeService, FinanceDashboardForecastSummary } from '@/pages/services/financeService';
 import { getLocalISODate } from '@/pages/utils/formatters';
-import {
-  FinancialTransaction,
-  AccountPayable,
-  AccountReceivable,
-} from '../../../types/finance.type';
 import {
   BarChart,
   Bar,
@@ -24,9 +19,17 @@ const formatCurrency = (value: number) => {
 export default function FinanceDashboard() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [transactions, setTransactions] = useState<FinancialTransaction[]>([]);
-  const [payables, setPayables] = useState<AccountPayable[]>([]);
-  const [receivables, setReceivables] = useState<AccountReceivable[]>([]);
+  const [summary, setSummary] = useState({
+    totalIncome: 0,
+    totalExpense: 0,
+    balance: 0,
+    payables: { pendingTotal: 0, overdueTotal: 0, total: 0, count: 0 },
+    receivables: { pendingTotal: 0, overdueTotal: 0, total: 0, count: 0 },
+  } satisfies {
+    totalIncome: number;
+    totalExpense: number;
+    balance: number;
+  } & FinanceDashboardForecastSummary);
   const requestId = useRef(0);
   const today = new Date();
   const currentMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
@@ -38,19 +41,13 @@ export default function FinanceDashboard() {
     setLoading(true);
     setLoadError(null);
     try {
-      const [transData, pendingPayables, overduePayables, pendingReceivables, overdueReceivables] =
-        await Promise.all([
-          financeService.getReportTransactions(monthStart, monthEnd),
-          financeService.getReportPayables('pending'),
-          financeService.getReportPayables('overdue'),
-          financeService.getReportReceivables('pending'),
-          financeService.getReportReceivables('overdue'),
-        ]);
+      const [transactionSummary, forecastSummary] = await Promise.all([
+        financeService.getFinancialSummary(monthStart, monthEnd),
+        financeService.getDashboardForecastSummary(),
+      ]);
 
       if (currentRequestId !== requestId.current) return;
-      setTransactions(transData || []);
-      setPayables([...(pendingPayables || []), ...(overduePayables || [])]);
-      setReceivables([...(pendingReceivables || []), ...(overdueReceivables || [])]);
+      setSummary({ ...transactionSummary, ...forecastSummary });
     } catch {
       if (currentRequestId === requestId.current) {
         setLoadError('Não foi possível carregar os dados financeiros. Tente novamente.');
@@ -67,20 +64,11 @@ export default function FinanceDashboard() {
     };
   }, [fetchDashboardData]);
 
-  // Calcula Totais Realizados (Fluxo de Caixa)
-  const currentMonthTrans = transactions.filter((t) => t.date.startsWith(currentMonth));
-
-  const receitasRealizadas = currentMonthTrans
-    .filter((t) => t.type === 'income')
-    .reduce((acc, curr) => acc + curr.amount, 0);
-  const despesasRealizadas = currentMonthTrans
-    .filter((t) => t.type === 'expense')
-    .reduce((acc, curr) => acc + curr.amount, 0);
-  const saldoAtual = receitasRealizadas - despesasRealizadas;
-
-  // Calcula Previsões (A Pagar / A Receber)
-  const contasAPagarTotal = payables.reduce((acc, curr) => acc + curr.amount, 0);
-  const contasAReceberTotal = receivables.reduce((acc, curr) => acc + curr.amount, 0);
+  const receitasRealizadas = summary.totalIncome;
+  const despesasRealizadas = summary.totalExpense;
+  const saldoAtual = summary.balance;
+  const contasAPagarTotal = summary.payables.total;
+  const contasAReceberTotal = summary.receivables.total;
 
   // Preparar dados para o gráfico de barras (Receitas vs Despesas dos últimos 6 meses - MOCK simplificado por enquanto usando o mes atual)
   const chartData = [
@@ -205,7 +193,7 @@ export default function FinanceDashboard() {
               </p>
               <p className="text-sm font-medium text-slate-500 flex items-center gap-2">
                 <i className="bi bi-calendar-check text-emerald-500"></i>
-                {receivables.length} títulos em aberto
+                {summary.receivables.count} títulos em aberto
               </p>
             </div>
 
@@ -219,7 +207,7 @@ export default function FinanceDashboard() {
               </p>
               <p className="text-sm font-medium text-slate-500 flex items-center gap-2">
                 <i className="bi bi-calendar-x text-rose-500"></i>
-                {payables.length} compromissos em aberto
+                {summary.payables.count} compromissos em aberto
               </p>
             </div>
           </div>

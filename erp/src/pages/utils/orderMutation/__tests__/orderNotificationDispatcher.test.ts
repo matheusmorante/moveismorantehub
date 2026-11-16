@@ -61,6 +61,34 @@ describe('notificações de orçamento', () => {
   });
 });
 
+describe('notificações de rascunho', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.notifyNewSaleAndAssemblies.mockResolvedValue(undefined);
+    mocks.detectOrderChangedAreas.mockReturnValue([]);
+  });
+
+  it('não notifica montagem nem alterações ao salvar um rascunho', () => {
+    const previous = { orderType: 'sale', status: 'draft' };
+    const updated = { ...previous, items: [{ handlingType: 'Montagem no depósito' }] };
+    dispatchOrderUpdateNotifications('draft-1', previous, updated as any, 'draft', 'draft');
+
+    expect(mocks.getOrderAssemblyKinds).not.toHaveBeenCalled();
+    expect(mocks.notifyNewAssemblies).not.toHaveBeenCalled();
+    expect(mocks.notifyNewSaleAndAssemblies).not.toHaveBeenCalled();
+    expect(mocks.dispatchAppNotification).not.toHaveBeenCalled();
+  });
+
+  it('notifica a venda e as montagens quando o rascunho é concluído', () => {
+    const draft = { orderType: 'sale', status: 'draft' };
+    const scheduled = { ...draft, status: 'scheduled' };
+    dispatchOrderUpdateNotifications('draft-1', draft, scheduled as any, 'draft', 'scheduled');
+
+    expect(mocks.notifyNewSaleAndAssemblies).toHaveBeenCalledOnce();
+    expect(mocks.notifyNewAssemblies).not.toHaveBeenCalled();
+  });
+});
+
 describe('notificação de cancelamento comercial', () => {
   beforeEach(() => {
     vi.clearAllMocks(); mocks.dispatchAppNotification.mockResolvedValue(undefined);

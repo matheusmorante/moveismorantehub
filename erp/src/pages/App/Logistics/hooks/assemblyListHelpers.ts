@@ -2,6 +2,7 @@ import { AppSettings } from '@/pages/utils/settingsService';
 import { formatOrderCode } from '@/pages/utils/orderCode';
 import { shouldShowOrderInSchedule } from '@/pages/utils/scheduleOrderVisibility';
 import { getOperationalScheduleDate } from '@/pages/utils/operationalSchedule';
+import { expandOrderAppointments, getOrderOperationLabel } from '../../../../../../shared-utils/orderAppointmentOccurrences';
 
 export const parseOrderDate = (rawDate: unknown): string => {
   if (!rawDate) return '';
@@ -164,6 +165,7 @@ export const mapOrderRow = (row: any) => {
   return {
     ...data,
     id: String(row.id),
+    scheduleAppointment: row.scheduleAppointment,
     status: row.status || data.status,
     orderNumber: row.order_number ?? data.orderNumber,
     orderIndex: row.order_index ?? data.orderIndex,
@@ -185,7 +187,7 @@ export const getOrderAssemblyTasks = (rows: any[], settings: AppSettings) => {
     ...(settings.pickupHandlingOptions || []),
   ];
 
-  return rows.flatMap((row) => {
+  return rows.flatMap(expandOrderAppointments).flatMap((row) => {
     const data = row.order_data || {};
     const order = mapOrderRow(row);
     const shipping = data.shipping || {};
@@ -228,10 +230,10 @@ export const getOrderAssemblyTasks = (rows: any[], settings: AppSettings) => {
 
       return [
         {
-          id: `${order.id}-${index}-${normalizeLabel(handling)}`,
+          id: `${row.scheduleAppointment?.key || order.id}-${index}-${normalizeLabel(handling)}`,
           origin: 'order' as const,
           title: formatAssemblyItemName(item),
-          subtitle: `PEDIDO #${formatOrderCode(order)}`,
+          subtitle: `PEDIDO #${formatOrderCode(order)}${getOrderOperationLabel(row) ? ` · ${getOrderOperationLabel(row)}` : ''}`,
           customerName,
           orderIndex: order.orderIndex,
           date,
@@ -245,7 +247,7 @@ export const getOrderAssemblyTasks = (rows: any[], settings: AppSettings) => {
           isOutside,
           pendingScheduling: Boolean(
             schedule.pendingScheduling ||
-              schedule.notInformed ||
+              (schedule.notInformed && !schedule.immediatePickup) ||
               data.pendingScheduling ||
               row.pending_scheduling
           ),

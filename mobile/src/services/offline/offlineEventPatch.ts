@@ -5,6 +5,9 @@ export const eventPatch = (event: SyncEvent): Record<string, unknown> => {
     ...(event.payload as Record<string, unknown>),
     lastSyncEventId: event.eventId,
   };
+  // Independent delivery operations have their own server-side revision and patch.
+  // Never convert them into the legacy whole-order delivery patch.
+  if (typeof (event.payload as any)?.operationId === 'string') return base;
   if (event.type === 'DELIVERY_START_PREPARATION')
     return {
       ...base,

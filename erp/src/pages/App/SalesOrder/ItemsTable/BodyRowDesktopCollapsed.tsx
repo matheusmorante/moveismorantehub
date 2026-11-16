@@ -32,7 +32,12 @@ export const BodyRowDesktopCollapsed: React.FC<Props> = ({
 }) => {
   const quantity = Number(item.quantity) || 0;
   const unitDiscount = getFixedDiscount(item);
-  const totalDiscount = unitDiscount * quantity;
+  const discountPercent =
+    item.discountType === 'percentage'
+      ? Number(item.unitDiscount) || 0
+      : item.unitPrice > 0
+        ? Math.round((unitDiscount / item.unitPrice) * 100 * 100) / 100
+        : 0;
 
   return (
     <tr
@@ -57,14 +62,16 @@ export const BodyRowDesktopCollapsed: React.FC<Props> = ({
             #{displayNumber}
           </span>
           <i className={`bi ${isService ? 'bi-tools text-amber-500' : 'bi-box-seam text-blue-600 dark:text-blue-400'}`} aria-hidden="true" />
-          <span className="min-w-0 flex-1 truncate text-xs font-semibold text-slate-700 dark:text-slate-200">
+          <span
+            className={`line-clamp-2 min-w-0 flex-1 whitespace-normal break-words text-xs leading-4 text-slate-700 dark:text-slate-200 ${isService ? 'font-semibold' : 'font-bold'}`}
+            title={item.description || (isService ? 'Serviço sem descrição' : 'Produto sem descrição')}
+          >
             {item.description || (isService ? 'Serviço sem descrição' : 'Produto sem descrição')}
+            {isLinkedProduct && <i className="bi bi-check-circle-fill ml-1 inline-block text-[10px] text-emerald-500 align-middle" aria-label="Produto vinculado" />}
           </span>
           {item.promotionId && <span className="shrink-0 rounded-full bg-blue-50 px-1.5 py-0.5 text-[9px] font-bold text-blue-700 dark:bg-blue-950/50 dark:text-blue-300" title={`Desconto informativo de ${item.promotionDiscountPercent || 0}%, sujeito às condições; não aplicado automaticamente${item.promotionName ? ` (${item.promotionName})` : ''}.`}>Campanha</span>}
-          {isLinkedProduct && <i className="bi bi-check-circle-fill shrink-0 text-[10px] text-emerald-500" aria-label="Produto vinculado" />}
-          {showTemporaryProductLabel && <i className="bi bi-clock-history shrink-0 text-[10px] text-amber-500" aria-label="Produto temporário" />}
+          {showTemporaryProductLabel && <i className="bi bi-exclamation-triangle-fill shrink-0 text-[10px] text-amber-500" aria-label="Temporário — Pendente de conciliação" title="Temporário — Pendente de conciliação" />}
           {itemHasError && <i className="bi bi-exclamation-circle-fill shrink-0 text-[10px] text-red-500" aria-label="Pendência no item" />}
-          <i className="bi bi-pencil-square shrink-0 text-[10px] text-blue-500" aria-hidden="true" />
         </button>
       </td>
       {!hideHandling && !compactDesktop && (
@@ -72,21 +79,28 @@ export const BodyRowDesktopCollapsed: React.FC<Props> = ({
           {isService ? '—' : item.handlingType || '—'}
         </td>
       )}
-      <td className="px-2 py-2 text-center text-xs text-slate-600 dark:text-slate-300">
-        {quantity.toLocaleString('pt-BR')} un.
+      <td className="px-2 py-2 text-center text-[13px] text-slate-600 dark:text-slate-300">
+        {quantity.toLocaleString('pt-BR')} un
       </td>
-      <td className="px-2 py-2 text-right text-xs text-slate-600 dark:text-slate-300">
+      <td className="px-2 py-2 text-right text-[13px] text-slate-600 dark:text-slate-300">
         {item.isComboItem ? '—' : <CurrencyDisplay value={item.unitPrice} />}
       </td>
-      <td colSpan={2} className="w-[150px] px-2 py-2 text-center text-xs text-slate-600 dark:text-slate-300">
-        {item.isComboItem || totalDiscount <= 0 ? '—' : <>−<CurrencyDisplay value={totalDiscount} /></>}
+      <td colSpan={2} className="w-[150px] px-2 py-2 text-center text-[13px] text-slate-600 dark:text-slate-300">
+        {item.isComboItem || unitDiscount <= 0 ? (
+          '—'
+        ) : (
+          <span className="flex flex-col items-center whitespace-nowrap leading-tight">
+            <span>−<CurrencyDisplay value={unitDiscount} /></span>
+            <span className="text-[11px] text-slate-500 dark:text-slate-400">
+              {discountPercent.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}%
+            </span>
+          </span>
+        )}
       </td>
-      {!compactDesktop && (
-        <td className="px-2 py-2 text-right text-xs text-slate-600 dark:text-slate-300">
-          {item.isComboItem ? '—' : <CurrencyDisplay value={Math.max(0, item.unitPrice - unitDiscount)} />}
-        </td>
-      )}
-      <td className="px-2 py-2 text-right text-xs font-bold text-slate-700 dark:text-slate-200">
+      <td className="px-2 py-2 text-right text-[13px] text-slate-600 dark:text-slate-300">
+        {item.isComboItem ? '—' : <CurrencyDisplay value={Math.max(0, item.unitPrice - unitDiscount)} />}
+      </td>
+      <td className="px-2 py-2 text-right text-[13px] font-bold text-slate-700 dark:text-slate-200">
         <CurrencyDisplay value={calcItemTotalValue(item)} />
       </td>
       <td className="px-2 py-2 text-center">

@@ -7,7 +7,7 @@ export interface MobileProductType {
 }
 
 export const fetchMobileProductTypes = async (): Promise<MobileProductType[]> => {
-  const { data, error } = await supabase.from('product_types').select('*').order('name');
+  const { data, error } = await supabase.from('product_types').select('id,name').order('name');
   if (error) throw error;
   return data || [];
 };

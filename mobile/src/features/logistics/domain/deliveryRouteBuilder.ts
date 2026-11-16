@@ -52,6 +52,9 @@ export interface DeliveryRouteItem {
   activityBackgroundColor: string;
 }
 
+const getRouteOccurrenceId = (order: any): string =>
+  order?.scheduleAppointment?.key || order?.id || '';
+
 export type DeliveryRouteDateScope = 'today' | 'tomorrow' | 'next_days';
 
 /** Identifica o responsável principal salvo no fluxo operacional. */
@@ -133,9 +136,9 @@ export const buildDeliveryRouteItems = (
       o.delivery_status ||
       (o.status === 'fulfilled' ? 'completed' : 'pending');
     if (dStatus === 'in_progress' || dStatus === 'arrived' || dStatus === 'in_service') {
-      if (!firstInProgressId) firstInProgressId = o.id;
+      if (!firstInProgressId) firstInProgressId = getRouteOccurrenceId(o);
     } else if (dStatus !== 'completed' && dStatus !== 'unattended') {
-      if (!firstPendingId) firstPendingId = o.id;
+      if (!firstPendingId) firstPendingId = getRouteOccurrenceId(o);
     }
   }
 
@@ -154,7 +157,7 @@ export const buildDeliveryRouteItems = (
       dStatus !== 'in_service'
     );
   });
-  const topPendingId = topPendingItem?.id;
+  const topPendingId = topPendingItem ? getRouteOccurrenceId(topPendingItem) : undefined;
 
   return sorted.map((o, idx) => {
     const oData = o.order_data || {};
@@ -210,10 +213,11 @@ export const buildDeliveryRouteItems = (
     const deliveryAddressObservation = shipping.deliveryAddress?.observation;
     const isCurrent =
       status === 'in_progress' || status === 'arrived' || status === 'in_service';
-    const isNext = !firstInProgressId && o.id === activeTargetId;
+    const occurrenceId = getRouteOccurrenceId(o);
+    const isNext = !firstInProgressId && occurrenceId === activeTargetId;
 
     const periodInfo = getDeliverySchedulePeriod(shipping);
-    const isSuggestedFirst = o.id === topPendingId;
+    const isSuggestedFirst = occurrenceId === topPendingId;
     const activity = getOperationActivityPresentation(o);
 
     let restrictionLevel: DeliveryRouteItem['restrictionLevel'] = 'free';
@@ -224,7 +228,7 @@ export const buildDeliveryRouteItems = (
     }
 
     return {
-      id: o.id,
+      id: occurrenceId,
       order: o,
       orderIndex: formatOrderCode(o),
       customerName: (customer.fullName || o.customer_name || 'Consumidor').toUpperCase(),

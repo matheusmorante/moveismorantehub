@@ -99,9 +99,8 @@ const CompleteOrderDetailsModal = ({ order: initialOrder, onClose, onEdit, isRea
                   {splitNoticeTags(order.observation).map((tag: string, idx: number) => (
                     <span
                       key={idx}
-                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-black bg-white dark:bg-slate-900 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-900/40 shadow-sm shadow-red-100/50 dark:shadow-none"
+                      className="inline-flex items-center px-3.5 py-1.5 rounded-xl text-xs font-black bg-white dark:bg-slate-900 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-900/40 shadow-sm shadow-red-100/50 dark:shadow-none"
                     >
-                      <i className="bi bi-exclamation-circle-fill text-[11px] text-red-500" />
                       {tag}
                     </span>
                   ))}

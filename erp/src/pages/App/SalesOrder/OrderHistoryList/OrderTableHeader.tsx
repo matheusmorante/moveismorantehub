@@ -20,10 +20,10 @@ export interface ColumnDef {
 export const COLUMNS_DEF: ColumnDef[] = [
   { key: 'id', label: 'Código' },
   { key: 'orderDate', label: (trash?: boolean) => (trash ? 'Excluído em' : 'Data') },
-  { key: 'deliveryDate', label: 'Agendado' },
+  { key: 'deliveryDate', label: 'Agendamentos' },
   { key: 'customer', label: 'Cliente' },
   { key: 'totalValue', label: 'Valor Total', align: 'text-right' },
-  { key: 'actions', label: 'Ações', align: 'text-center' },
+  { key: 'actions', label: 'Ações', align: 'text-right' },
 ];
 
 export interface OrderTableHeaderProps {
@@ -61,16 +61,16 @@ export const OrderTableHeader: React.FC<OrderTableHeaderProps> = ({
     <thead>
       <tr className="bg-slate-50/50 dark:bg-slate-900/50 border-b border-slate-100 dark:border-slate-800 transition-colors">
         {columns.map((col) => {
+          const currentColumn = COLUMNS_DEF.find((column) => column.key === col.key) ?? col;
           const labelText =
             col.key === 'deliveryDate' && isReturnOnly
               ? 'Data de coleta'
-              : typeof col.label === 'function'
-                ? col.label(showTrash)
-                : col.label;
+              : typeof currentColumn.label === 'function'
+                ? currentColumn.label(showTrash)
+                : currentColumn.label;
           const isVisible = visibilitySettings[col.key] !== false;
           const sortableKeys = [
             'id',
-            'orderDate',
             'deliveryDate',
             'customer',
             'totalValue',
@@ -90,7 +90,7 @@ export const OrderTableHeader: React.FC<OrderTableHeaderProps> = ({
 
           const multiSort = filters?.multiSort || [];
           const sortIndex = multiSort.findIndex((s) => s.key === sortByKey);
-          const isSorted = sortIndex !== -1;
+          const isSorted = isSortable && sortIndex !== -1;
           const activeSort = isSorted ? multiSort[sortIndex] : null;
           const sortOrder = activeSort?.order || 'desc';
 
@@ -112,7 +112,7 @@ export const OrderTableHeader: React.FC<OrderTableHeaderProps> = ({
               onDragOver={onDragOver}
               onDrop={(e) => onDrop(e, col.key as string)}
               onDragEnd={onDragEnd}
-              className={`px-1 py-1 text-[10px] font-black uppercase tracking-widest transition-all ${col.align || ''} ${draggedColumn === col.key ? 'opacity-20' : 'opacity-100'}`}
+              className={`px-2 py-1 text-[10px] font-black uppercase tracking-widest transition-all ${col.align || ''} ${draggedColumn === col.key ? 'opacity-20' : 'opacity-100'}`}
             >
               <div
                 className={`flex items-center gap-1 ${col.align === 'text-right' ? 'justify-end' : col.align === 'text-center' ? 'justify-center' : ''}`}

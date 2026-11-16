@@ -1,27 +1,34 @@
 import React from 'react';
 import Shipping from '@/pages/types/Shipping.type';
+import type Item from '@/pages/types/items.type';
 import CustomerData from '@/pages/types/customerData.type';
 import { getShippingRouteUrl } from '@/pages/utils/maps';
 import { ValidationErrors } from '@/pages/utils/validations';
 import { calculateFreightByDistance } from '@/pages/utils/shippingPricing';
 import FreteDistancia from '../ShippingComponents/FreteDistancia';
-import Agendamento, { SchedulingSessionMemory } from '../ShippingComponents/Agendamento';
+import type { SchedulingSessionMemory } from '../ShippingComponents/Agendamento';
+import { OrderAppointments } from '../ShippingComponents/OrderAppointments';
+import type { DistanceCalculationOptions } from '../hooks/useOrderDistanceCalculator';
 import MapRoute from '../ShippingComponents/MapRoute';
 import { CustomDeliveryAddressFields } from './shipping/CustomDeliveryAddressFields';
 
 interface Props {
   shipping: Shipping;
+  items?: Item[];
   setShipping: React.Dispatch<React.SetStateAction<Shipping>>;
   customerData: CustomerData;
   isCalculatingDistance?: boolean;
-  onAutoCalculateDistance?: () => void;
+  onAutoCalculateDistance?: (customAddress?: unknown, options?: DistanceCalculationOptions) => Promise<void>;
   errors: ValidationErrors;
   orderType?: string;
   schedulingSessionRef?: React.MutableRefObject<SchedulingSessionMemory | null>;
+  isNewSale?: boolean;
+  cardMachineRequired?: boolean;
 }
 
 const ShippingData = ({
   shipping,
+  items = [],
   setShipping,
   customerData,
   isCalculatingDistance,
@@ -29,23 +36,30 @@ const ShippingData = ({
   errors,
   orderType,
   schedulingSessionRef,
+  isNewSale = false,
+  cardMachineRequired = false,
 }: Props) => {
+  const hasDelivery = shipping.scheduling.appointments?.length
+    ? shipping.scheduling.appointments.some((appointment) =>
+        (appointment.deliveryMethod || shipping.deliveryMethod) === 'delivery'
+      )
+    : shipping.deliveryMethod === 'delivery';
   // Auto-enable noAddress for "Consumidor Final" or if it is a Pickup
   React.useEffect(() => {
     const isFinalConsumer = customerData.fullName?.toLowerCase().trim() === 'consumidor final';
-    const isPickup = shipping.deliveryMethod === 'pickup';
+    const isPickup = !hasDelivery;
 
     if ((isFinalConsumer || isPickup) && !shipping.noAddress) {
       setShipping((prev) => ({ ...prev, noAddress: true }));
     }
-  }, [customerData.fullName, shipping.deliveryMethod, shipping.noAddress, setShipping]);
+  }, [customerData.fullName, hasDelivery, shipping.noAddress, setShipping]);
 
   // Ao alternar de Retirada para Entrega, restaura noAddress para false caso o cliente tenha endereço
-  const prevDeliveryMethodRef = React.useRef(shipping.deliveryMethod);
+  const prevHasDeliveryRef = React.useRef(hasDelivery);
   React.useEffect(() => {
-    const wasPickup = prevDeliveryMethodRef.current === 'pickup';
-    const isDelivery = shipping.deliveryMethod === 'delivery';
-    prevDeliveryMethodRef.current = shipping.deliveryMethod;
+    const wasPickup = !prevHasDeliveryRef.current;
+    const isDelivery = hasDelivery;
+    prevHasDeliveryRef.current = hasDelivery;
 
     if (wasPickup && isDelivery) {
       const isFinalConsumer = customerData.fullName?.toLowerCase().trim() === 'consumidor final';
@@ -56,7 +70,7 @@ const ShippingData = ({
         setShipping((prev) => ({ ...prev, noAddress: false }));
       }
     }
-  }, [shipping.deliveryMethod, customerData.fullName, customerData.noAddress, customerData.fullAddress, setShipping]);
+  }, [hasDelivery, customerData.fullName, customerData.noAddress, customerData.fullAddress, setShipping]);
 
   const activeAddress =
     orderType === 'budget'
@@ -84,32 +98,10 @@ const ShippingData = ({
     });
   };
 
-  const onChangeScheduling = (
-    key: keyof Shipping['scheduling'],
-    value: string | Date | boolean | NonNullable<Shipping['scheduling']['alternatives']>
-  ) => {
-    setShipping((prev: Shipping) => {
-      const newScheduling = { ...prev.scheduling, [key]: value };
-
-      if (newScheduling.type === 'fixed') {
-        newScheduling.time = newScheduling.startTime || '';
-      } else {
-        const start = newScheduling.startTime || '';
-        const end = newScheduling.endTime || '';
-        newScheduling.time = start && end ? `${start} às ${end}` : '';
-      }
-
-      return {
-        ...prev,
-        scheduling: newScheduling as Shipping['scheduling'],
-      };
-    });
-  };
-
   return (
     <div className="flex flex-col gap-8 w-full">
       <div className="flex flex-col gap-10 w-full lg:gap-12">
-        {shipping.deliveryMethod === 'delivery' && (
+        {hasDelivery && orderType !== 'sale' && (
           <div className="flex flex-col gap-10">
             {/* Address status toggle */}
             <div className="flex flex-col gap-4">
@@ -171,32 +163,41 @@ const ShippingData = ({
                   />
                 )}
 
-                <FreteDistancia
-                  value={shipping.value}
-                  distance={shipping.distance}
-                  routeUrl={route}
-                  onChangeValue={onChangeShippingValue}
-                  onChangeDistance={onChangeDistance}
-                  onAutoCalculateDistance={onAutoCalculateDistance}
-                  isCalculatingDistance={isCalculatingDistance}
-                  errors={errors}
-                />
               </div>
             )}
           </div>
         )}
-        {orderType !== 'budget' && (
-          <Agendamento
-            scheduling={shipping.scheduling}
-            onChangeScheduling={onChangeScheduling}
+        {(orderType !== 'sale' && (orderType !== 'budget' || (hasDelivery && !shipping.noAddress))) && (
+          <FreteDistancia
+            value={shipping.value}
+            distance={shipping.distance}
+            routeUrl={route}
+            onChangeValue={onChangeShippingValue}
+            onChangeDistance={onChangeDistance}
+            onAutoCalculateDistance={onAutoCalculateDistance}
+            isCalculatingDistance={isCalculatingDistance}
             errors={errors}
-            isPickup={shipping.deliveryMethod === 'pickup'}
+          />
+        )}
+        {orderType !== 'budget' && (
+          <OrderAppointments
+            shipping={shipping}
+            setShipping={setShipping}
+            items={items}
+            customerData={customerData}
+            errors={errors}
+            routeUrl={route}
+            isCalculatingDistance={isCalculatingDistance}
+            onAutoCalculateDistance={onAutoCalculateDistance}
             sessionMemoryRef={schedulingSessionRef}
+            isNewSale={isNewSale}
+            isSale={orderType === 'sale'}
+            cardMachineRequired={cardMachineRequired}
           />
         )}
       </div>
 
-      {shipping.destinationCoords && shipping.deliveryMethod !== 'pickup' && (
+      {shipping.destinationCoords && hasDelivery && (
         <div className="w-full flex flex-col gap-2 relative group -mt-2">
           <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 ml-1">
             Rota de Entrega

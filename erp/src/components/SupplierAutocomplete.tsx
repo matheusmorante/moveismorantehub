@@ -127,7 +127,7 @@ const SupplierAutocomplete: React.FC<SupplierAutocompleteProps> = ({
               disabled
                 ? 'opacity-70 cursor-not-allowed bg-slate-100 dark:bg-slate-800/60'
                 : isSelected
-                  ? 'border-b-2 border-emerald-500 dark:border-emerald-500 focus:border-blue-600'
+                  ? 'border-b-2 border-emerald-500 dark:border-emerald-500 !text-slate-900 dark:!text-slate-100 focus:border-emerald-600 dark:focus:border-emerald-400'
                   : 'bg-white dark:bg-slate-900'
             }`}
             title={

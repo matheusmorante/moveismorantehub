@@ -4,13 +4,14 @@ import PickupIcon from '@/components/shared/PickupIcon';
 import Order from '../../../types/order.type';
 import { getSettings } from '@/pages/utils/settingsService';
 import { resolveEffectiveSchedule } from '../../../../../../shared-utils/commercialOrderRules';
-import { formatCurrency, stringifyFullAddressWithObservation } from '../../../utils/formatters';
+import { formatCurrency, formatDate, stringifyFullAddressWithObservation } from '../../../utils/formatters';
 import {
   getOrderTypeClasses,
   resolveOrderColor,
   translateStatus,
 } from '../../../utils/orderTypeColorUtils';
 import { Drill } from '@/components/shared/DrillIcon';
+import { formatOrderCode, getOrderIndex } from '../../../utils/orderCode';
 
 interface Props {
   schedule: Record<string, Order[]>;
@@ -28,6 +29,7 @@ const TimelineNode = ({
   onOrderClick: (order: Order) => void;
 }) => {
   const settings = getSettings();
+  const orderCode = getOrderIndex(order) ? formatOrderCode(order) : null;
   const colors = settings.orderTypeColors ?? {
     delivery: 'green',
     pickup: 'purple',
@@ -145,8 +147,14 @@ const TimelineNode = ({
               )}
             </div>
             <div className="flex items-center gap-2 text-slate-800 dark:text-slate-200">
+              {orderCode && <span className="text-[10px] font-black tracking-wide">#{orderCode}</span>}
               <i className="bi bi-clock-fill text-xs opacity-50" />
               <span className="text-xs font-black tracking-tight">{displayTime}</span>
+              {(order as any).scheduleAppointment?.total > 1 && (
+                <span className="rounded-full border border-blue-100 bg-blue-50 px-2 py-0.5 text-[9px] font-black uppercase tracking-wide text-blue-700 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-300">
+                  Operação {(order as any).scheduleAppointment.index}/{(order as any).scheduleAppointment.total}
+                </span>
+              )}
               {scheduleRes.isUsingAlternative && activeOption && (
                 <span className="text-[9px] font-black text-amber-900 bg-amber-400 dark:bg-amber-500 dark:text-slate-950 uppercase ml-2 px-2 py-0.5 rounded-md border border-amber-500 shadow-2xs inline-flex items-center gap-1">
                   <i className="bi bi-arrow-repeat text-[10px]" />
@@ -295,7 +303,7 @@ const ScheduleTimelineView = ({
 
             <div className="relative border-l-2 border-orange-100 dark:border-orange-800 ml-3">
               {pendingOrders.map((order, i) => (
-                <TimelineNode key={order.id || i} order={order} onOrderClick={onOrderClick} />
+                <TimelineNode key={(order as any)._taskKey || order.id || i} order={order} onOrderClick={onOrderClick} />
               ))}
             </div>
           </div>
@@ -324,7 +332,7 @@ const ScheduleTimelineView = ({
 
             <div className="relative border-l-2 border-slate-100 dark:border-slate-800 ml-3">
               {orders.map((order, i) => (
-                <TimelineNode key={order.id || i} order={order} onOrderClick={onOrderClick} />
+                <TimelineNode key={(order as any)._taskKey || order.id || i} order={order} onOrderClick={onOrderClick} />
               ))}
             </div>
           </div>

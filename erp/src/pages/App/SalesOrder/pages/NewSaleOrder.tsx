@@ -3,10 +3,12 @@ import { useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { useAuth } from '@/context/AuthContext';
 import Order from '@/pages/types/order.type';
+import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 import PersonFormModal from '@/pages/App/Registrations/shared/modals/PersonFormModal';
 import { useSalesOrderForm } from '../hooks/useSalesOrderForm';
 import SalesOrderFormSection from '../components/SalesOrderFormSection';
 import OrderSavingOverlay from '../components/OrderSavingOverlay';
+import OrderFormLoadingOverlay from '../components/OrderFormLoadingOverlay';
 import SellerSearchModal from '../modals/SellerSearchModal';
 import { NewSaleOrderHeader } from './NewSaleOrderHeader';
 import {
@@ -33,13 +35,7 @@ const NewSaleOrder = ({
   defaultOrderType,
   orderType: orderTypeProp,
 }: NewSaleOrderProps) => {
-  useEffect(() => {
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.body.style.overflow = previousOverflow;
-    };
-  }, []);
+  useBodyScrollLock();
 
   const [searchParams] = useSearchParams();
   const { isAdministrator } = useAuth();
@@ -54,6 +50,8 @@ const NewSaleOrder = ({
   const form = useSalesOrderForm(defaultDeliveryMethod, initialType);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [isScrolled, setIsScrolled] = useState(false);
+  const [isClosing, setIsClosing] = useState(false);
+  const closingRef = useRef(false);
 
   const [isSellerSearchOpen, setIsSellerSearchOpen] = useState(false);
   const [isSellerRegistrationOpen, setIsSellerRegistrationOpen] = useState(false);
@@ -74,6 +72,22 @@ const NewSaleOrder = ({
       window.history.back();
     }
   }, [propOnClose]);
+
+  const handleUserClose = useCallback(async () => {
+    if (closingRef.current || form.state.isSaving) return;
+    closingRef.current = true;
+    setIsClosing(true);
+    try {
+      const saved = await form.actions.flushDraftAutoSave();
+      if (saved) onClose();
+      else toast.error('Não foi possível confirmar o salvamento do rascunho. Confira os dados e tente novamente.');
+    } catch {
+      toast.error('Não foi possível confirmar o salvamento do rascunho. Confira os dados e tente novamente.');
+    } finally {
+      closingRef.current = false;
+      setIsClosing(false);
+    }
+  }, [form.actions.flushDraftAutoSave, form.state.isSaving, onClose]);
 
   const applyOrderData = useCallback(
     (migrated: any) => applyImportedOrderDataToForm(migrated, form.actions),
@@ -107,19 +121,27 @@ const NewSaleOrder = ({
   );
 
   const loadedInitialRef = useRef(false);
+  const [isInitialDataApplied, setIsInitialDataApplied] = useState(false);
+  const [isInitialFormReady, setIsInitialFormReady] = useState(false);
   useEffect(() => {
     if (loadedInitialRef.current) return;
+    loadedInitialRef.current = true;
     if (initialOrder) {
-      loadedInitialRef.current = true;
       form.actions.loadOrderForEditing(initialOrder);
     } else if (searchParams.get('duplicate') === 'true') {
       const duplicatedOrder = consumeDuplicateOrderFromSession();
       if (duplicatedOrder) {
-        loadedInitialRef.current = true;
         form.actions.loadOrderForEditing(duplicatedOrder);
       }
     }
+    setIsInitialDataApplied(true);
   }, [initialOrder, searchParams, form.actions]);
+
+  useEffect(() => {
+    if (isInitialDataApplied && !form.state.isGeneratingCode) {
+      setIsInitialFormReady(true);
+    }
+  }, [form.state.isGeneratingCode, isInitialDataApplied]);
 
   useEffect(() => {
     const el = scrollContainerRef.current;
@@ -171,14 +193,20 @@ const NewSaleOrder = ({
 
   return (
     <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Formulário de venda"
+      aria-busy={!isInitialFormReady}
       className="fixed inset-0 z-[999999] w-screen h-screen flex flex-col bg-slate-900/60 backdrop-blur-sm animate-fade-in overflow-hidden"
-      onClick={onClose}
+      onClick={isInitialFormReady ? () => { void handleUserClose(); } : undefined}
     >
+      {isInitialFormReady ? (
       <div
-        className="relative bg-white dark:bg-slate-900 w-full h-full flex flex-col overflow-hidden"
+        key="form"
+        className="relative bg-white dark:bg-slate-900 w-full h-full flex flex-col overflow-hidden animate-reveal"
         onClick={(e) => e.stopPropagation()}
       >
-        {form.state.isSaving && <OrderSavingOverlay />}
+        {(form.state.isSaving || isClosing) && <OrderSavingOverlay />}
 
         <NewSaleOrderHeader
           isScrolled={isScrolled}
@@ -190,7 +218,7 @@ const NewSaleOrder = ({
           currentStep={form.state.currentStep}
           jumpToStep={form.actions.jumpToStep}
           errors={form.state.errors}
-          onClose={onClose}
+          onClose={() => { void handleUserClose(); }}
         />
 
         {isSellerSearchOpen && (
@@ -268,6 +296,9 @@ const NewSaleOrder = ({
           />
         </div>
       </div>
+      ) : (
+        <OrderFormLoadingOverlay key="loading" />
+      )}
 
       <style
         dangerouslySetInnerHTML={{

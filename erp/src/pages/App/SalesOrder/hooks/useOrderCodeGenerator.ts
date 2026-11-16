@@ -34,6 +34,7 @@ export function useOrderCodeGenerator(
       setIsGeneratingCode(true);
       requestOrderCode()
         .then((code) => {
+          if (latestStateRef.current?.currentOrderId) return;
           setOrderIndex(code);
           if (latestStateRef.current) {
             latestStateRef.current.orderIndex = code;
@@ -41,6 +42,7 @@ export function useOrderCodeGenerator(
           }
         })
         .catch((err) => {
+          if (latestStateRef.current?.currentOrderId) return;
           console.error('[useOrderCodeGenerator] Erro ao gerar código sequencial do pedido:', err);
           toast.error(
             `Erro ao gerar código do pedido: ${err.message || 'Falha de comunicação'}. Não é permitido cadastrar sem código.`
@@ -59,6 +61,7 @@ export function useOrderCodeGenerator(
     setIsGeneratingCode(true);
     try {
       const newCode = await requestOrderCode();
+      if (latestStateRef.current?.currentOrderId) return null;
       setOrderIndex(newCode);
       if (latestStateRef.current) {
         latestStateRef.current.orderIndex = newCode;
@@ -66,6 +69,7 @@ export function useOrderCodeGenerator(
       }
       return newCode;
     } catch (err: any) {
+      if (latestStateRef.current?.currentOrderId) return null;
       console.error('[useOrderCodeGenerator] Erro ao gerar novo código:', err);
       toast.error(
         `Erro ao gerar novo código para o pedido: ${err.message || 'Falha de comunicação'}.`
@@ -80,16 +84,19 @@ export function useOrderCodeGenerator(
   const ensureOrderCode = useCallback(async (): Promise<number | null> => {
     let currentIdx = latestStateRef.current?.orderIndex || orderIndex;
     if (!currentIdx) {
+      const orderIdAtRequest = latestStateRef.current?.currentOrderId;
       isGeneratingCodeRef.current = true;
       try {
         setIsGeneratingCode(true);
         currentIdx = await requestOrderCode();
+        if (latestStateRef.current?.currentOrderId !== orderIdAtRequest) return null;
         setOrderIndex(currentIdx);
         if (latestStateRef.current) {
           latestStateRef.current.orderIndex = currentIdx;
           latestStateRef.current.orderNumber = currentIdx as any;
         }
       } catch (codeErr: any) {
+        if (latestStateRef.current?.currentOrderId !== orderIdAtRequest) return null;
         toast.error(
           `Não foi possível gerar um código único para o pedido: ${codeErr.message || 'Erro no banco'}. O pedido não pode ser salvo/cadastrado.`
         );

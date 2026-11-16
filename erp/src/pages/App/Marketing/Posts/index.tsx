@@ -3,7 +3,6 @@ import { useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { marketingImageSelectionFormSchema, marketingImageSelectionResetFormSchema } from '../../../../../../shared-utils/marketingFormSchemas';
-import { supabase } from '@/pages/utils/supabaseConfig';
 import { useAuth } from '@/context/AuthContext';
 import { withTimeout } from '../../../../../../shared-utils/withTimeout';
 import { campaignRulesFormSchema } from '../../../../../../shared-utils/campaignFormSchemas';
@@ -47,7 +46,7 @@ export default function MarketingPostsManager() {
   const [creating, setCreating] = useState<{ type: ElementType; opportunityId?: string }>();
   const [editing, setEditing] = useState<ElementModel>();
   const [viewing, setViewing] = useState<ElementModel>();
-  const [opportunities, setOpportunities] = useState<any[]>([]);
+  const opportunities = editor.opportunities;
   const [manualSelection, setManualSelection] = useState<ProductImageSelectionState | null>(null);
   const [operationBusy, setOperationBusy] = useState(false), [operationError, setOperationError] = useState(''), [loadingConfiguration, setLoadingConfiguration] = useState(false);
   const active = useRef(true), inFlight = useRef(false), uncertain = useRef(new Set<string>()), confirmed = useRef(new Map<string, string>());
@@ -220,14 +219,22 @@ export default function MarketingPostsManager() {
     (/queima|salvado/i.test(matchedOpportunity?.name || '') ? OFFICIAL_QUEIMA_BADGE_URL : null) ||
     (/liquida/i.test(matchedOpportunity?.name || '') ? OFFICIAL_LIQUIDACAO_BADGE_URL : null);
 
-  const reload = async (id = campaignId) => {
+  const reload = async (id = campaignId, options: { reuseLists?: boolean } = {}) => {
     const sequence = ++querySequence.current; setLoadingConfiguration(true);
     try {
       return await queryConfiguration({ id }, async (values) => {
         if (!currentActor() || !actorScope.id) return false;
-        const result = await withTimeout(Promise.all([postCreatorService.campaigns({ confirm: true }), postCreatorService.models({ confirm: true })]), 15_000, null, 'Consultar configuração de campanhas');
-        if (!result || !result.every(Array.isArray)) throw new Error('A configuração das campanhas não foi confirmada. Tente atualizar.');
-        const [nextCampaigns, nextModels] = result, nextId = values.id || nextCampaigns[0]?.id || '';
+        let nextCampaigns: PostCampaign[];
+        let nextModels: ElementModel[];
+        if (options.reuseLists) {
+          nextCampaigns = campaigns;
+          nextModels = models;
+        } else {
+          const result = await withTimeout(Promise.all([postCreatorService.campaigns({ confirm: true }), postCreatorService.models({ confirm: true })]), 15_000, null, 'Consultar configuração de campanhas');
+          if (!result || !result.every(Array.isArray)) throw new Error('A configuração das campanhas não foi confirmada. Tente atualizar.');
+          [nextCampaigns, nextModels] = result;
+        }
+        const nextId = values.id || nextCampaigns[0]?.id || '';
         const nextLinks = nextId ? await withTimeout(postCreatorService.links(nextId, { confirm: true }), 15_000, null, 'Consultar vínculos da campanha') : [];
         if (!currentActor() || sequence !== querySequence.current) return false;
         if (!Array.isArray(nextLinks)) throw new Error('Os vínculos da campanha não foram confirmados.');
@@ -245,14 +252,7 @@ export default function MarketingPostsManager() {
     setCampaigns([]); setModels([]); setLinks([]); setCampaignId(''); setManagerOpen(false); setCreating(undefined); setEditing(undefined); setManualSelection(getProductImageSelection(productScope.current)); setLastUpdated(null); setOperationError('');
     confirmed.current.clear(); uncertain.current.clear(); newCampaignId.current = undefined;
     if (!user?.id) return;
-    const scope = actor.current;
     void initialReload.current('');
-    void withTimeout(supabase.from('opportunities').select('id, name, slug, badge_color, border_color, image_url').eq('active', true).order('name'), 15_000, null, 'Consultar oportunidades').then((result) => {
-      if (active.current && actor.current === scope) {
-        if (!result || result.error || !Array.isArray(result.data)) throw new Error('A consulta das oportunidades não foi confirmada.');
-        setOpportunities(result.data);
-      }
-    }).catch(() => { if (active.current && actor.current === scope) setOperationError('Não foi possível consultar as oportunidades.'); });
   }, [user?.id]);
 
   // Abre direto na aba "Preview de Prompt + Assets" com o produto pré-selecionado
@@ -266,7 +266,7 @@ export default function MarketingPostsManager() {
     }
   }, [searchParams]);
 
-  const selectCampaign = async (id: string) => { if (inFlight.current) return; setCampaignId(id); setLinks([]); await reload(id); };
+  const selectCampaign = async (id: string) => { if (inFlight.current) return; setCampaignId(id); setLinks([]); await reload(id, { reuseLists: !loadingConfiguration }); };
   const refresh = async (id: string) => { if (!await reload(id)) throw new Error('A operação foi confirmada, mas a lista não foi atualizada. Tente novamente para atualizar.'); };
   const saveCampaign = async (value: Partial<PostCampaign>) => {
     const id = value.id || (newCampaignId.current ||= crypto.randomUUID());
@@ -310,9 +310,10 @@ export default function MarketingPostsManager() {
   return (
     <section className="min-h-screen bg-slate-950 p-3 sm:p-5 lg:p-6 pb-24 sm:pb-20 text-white">
       {operationError && <p role="alert" className="mb-3 text-sm text-red-300">{operationError}</p>}
+      {editor.opportunitiesError && <p role="alert" className="mb-3 text-sm text-red-300">{editor.opportunitiesError}</p>}
       {editor.message && <p role="alert" className="mb-3 text-sm text-amber-300">{editor.message}</p>}
       {operationError && !operationBusy && <button type="button" onClick={() => void reload()}>Tentar atualizar campanhas</button>}
-      {(operationBusy || loadingConfiguration || savingChanges) && <p role="status" className="mb-3"><i className="bi bi-arrow-repeat animate-spin inline-block mr-2" aria-hidden="true" />{operationBusy || savingChanges ? 'Confirmando alterações da campanha...' : 'Consultando campanhas e modelos...'}</p>}
+      {(operationBusy || loadingConfiguration || savingChanges) && <p role="status" className="mb-3"><i className="bi bi-arrow-repeat animate-spin inline-block mr-2" aria-hidden="true" />{operationBusy || savingChanges ? 'Confirmando alterações da campanha...' : 'Atualizando configuração da campanha...'}</p>}
       {lastUpdated && !operationBusy && <p className="mb-3 text-xs text-slate-400">Alterações confirmadas às {lastUpdated.toLocaleTimeString()}.</p>}
       {/* Header Superior */}
       <header className="mb-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 border-b border-slate-800/80 pb-4">

@@ -103,6 +103,7 @@ export const CustomDeliveryAddressFields: React.FC<CustomDeliveryAddressFieldsPr
           stateHint={shipping.deliveryAddress?.state || 'PR'}
           variant="underline"
           hasError={!!errors['deliveryAddress_street']}
+          validationError={errors['deliveryAddress_street']}
           label="Rua/Avenida"
           placeholder="Nome da rua"
           required
@@ -125,6 +126,8 @@ export const CustomDeliveryAddressFields: React.FC<CustomDeliveryAddressFieldsPr
                 ? 'border-red-500 focus:border-red-500'
                 : 'border-slate-200 dark:border-slate-800 focus:border-blue-600 dark:focus:border-blue-500'
             }`}
+            aria-invalid={Boolean(errors['deliveryAddress_number'])}
+            title={errors['deliveryAddress_number'] || undefined}
             placeholder="Ex: 123"
             value={shipping.deliveryAddress?.number || ''}
             onChange={(e) => updateDeliveryAddress('number', e.target.value.replace(/\D/g, ''))}
@@ -146,7 +149,7 @@ export const CustomDeliveryAddressFields: React.FC<CustomDeliveryAddressFieldsPr
           />
         </div>
         <div className="flex-1 relative group/field">
-          <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1 ml-1 block">
+          <label className={`text-[10px] font-black uppercase tracking-widest mb-1 ml-1 block ${errors['deliveryAddress_neighborhood'] ? 'text-red-600 dark:text-red-400' : 'text-slate-400'}`}>
             Bairro
           </label>
           <input
@@ -156,6 +159,8 @@ export const CustomDeliveryAddressFields: React.FC<CustomDeliveryAddressFieldsPr
                 ? 'border-red-500 focus:border-red-500'
                 : 'border-slate-200 dark:border-slate-800 focus:border-blue-600 dark:focus:border-blue-500'
             }`}
+            aria-invalid={Boolean(errors['deliveryAddress_neighborhood'])}
+            title={errors['deliveryAddress_neighborhood'] || undefined}
             placeholder="Seu bairro"
             value={shipping.deliveryAddress?.neighborhood || ''}
             onChange={(e) => updateDeliveryAddress('neighborhood', e.target.value)}
@@ -176,6 +181,8 @@ export const CustomDeliveryAddressFields: React.FC<CustomDeliveryAddressFieldsPr
                 ? 'border-red-500 focus:border-red-500'
                 : 'border-slate-200 dark:border-slate-800 focus:border-blue-600 dark:focus:border-blue-500'
             }`}
+            aria-invalid={Boolean(errors['deliveryAddress_city'])}
+            title={errors['deliveryAddress_city'] || undefined}
             placeholder="Nome da cidade"
             value={shipping.deliveryAddress?.city || ''}
             onChange={(e) => updateDeliveryAddress('city', e.target.value)}
@@ -198,7 +205,7 @@ export const CustomDeliveryAddressFields: React.FC<CustomDeliveryAddressFieldsPr
 
       <div className="flex flex-col md:flex-row gap-4">
         <div className="flex-1 relative group/field">
-          <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1 ml-1 block">
+          <label className={`text-[10px] font-black uppercase tracking-widest mb-1 ml-1 block ${errors['deliveryAddress_housingType'] ? 'text-red-600 dark:text-red-400' : 'text-slate-400'}`}>
             Tipo de Moradia
           </label>
           <select
@@ -207,6 +214,8 @@ export const CustomDeliveryAddressFields: React.FC<CustomDeliveryAddressFieldsPr
                 ? 'border-red-500 focus:border-red-500'
                 : 'border-slate-200 dark:border-slate-800 focus:border-blue-600 dark:focus:border-blue-500'
             }`}
+            aria-invalid={Boolean(errors['deliveryAddress_housingType'])}
+            title={errors['deliveryAddress_housingType'] || undefined}
             value={shipping.deliveryAddress?.housingType || ''}
             onChange={(e) => updateDeliveryAddress('housingType', e.target.value)}
           >

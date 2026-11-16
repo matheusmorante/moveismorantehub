@@ -88,9 +88,16 @@ export const OrderStepPickerModal = ({
                   onSelectStep(step.step);
                   onClose();
                 }}
+                aria-label={
+                  status === 'error'
+                    ? `Passo ${step.step}: ${step.label}. Há erros para revisar.`
+                    : `Passo ${step.step}: ${step.label}`
+                }
                 className={`flex items-center gap-3 rounded-xl p-2 text-left transition-colors ${
                   status === 'active'
                     ? 'bg-blue-50 dark:bg-blue-950/40'
+                    : status === 'error'
+                      ? 'bg-rose-50/70 dark:bg-rose-950/20'
                     : 'hover:bg-slate-50 dark:hover:bg-slate-800'
                 }`}
               >
@@ -99,10 +106,21 @@ export const OrderStepPickerModal = ({
                   <span className="text-[9px] font-black uppercase tracking-wider text-slate-500">
                     Passo {step.step}
                   </span>
-                  <span className="text-xs font-bold text-slate-800 dark:text-slate-100">
+                  <span
+                    className={`text-xs font-bold ${
+                      status === 'error'
+                        ? 'text-rose-600 dark:text-rose-400'
+                        : 'text-slate-800 dark:text-slate-100'
+                    }`}
+                  >
                     {step.label}
                   </span>
                 </span>
+                {status === 'error' && (
+                  <span className="ml-auto rounded-full bg-rose-100 px-2 py-0.5 text-[9px] font-bold text-rose-700 dark:bg-rose-950/50 dark:text-rose-300">
+                    Revisar
+                  </span>
+                )}
                 {status === 'active' && (
                   <i className="bi bi-check2 ml-auto text-blue-600" aria-label="Etapa atual" />
                 )}

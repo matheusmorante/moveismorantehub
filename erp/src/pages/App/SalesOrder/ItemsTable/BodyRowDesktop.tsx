@@ -8,11 +8,11 @@ import CurrencyDisplay from '../../../../components/CurrencyDisplay';
 import ProductAutocomplete from '../../../../components/ProductAutocomplete';
 import TemporaryProductWarning from './TemporaryProductWarning';
 import { getSettings } from '@/pages/utils/settingsService';
-import { isGenericHandlingLabel } from '@/pages/utils/handlingMigration';
 import { BodyRowViewProps } from './BodyRowMobile';
 import DiscountInput from './DiscountInput';
 import { STOCK_ORIGIN_PRODUCT_KINDS } from './stockOriginProductKinds';
 import { BodyRowDesktopCollapsed } from './BodyRowDesktopCollapsed';
+import { HandlingSelect } from './HandlingSelect';
 
 export const BodyRowDesktop: React.FC<BodyRowViewProps> = ({
   item,
@@ -69,39 +69,25 @@ export const BodyRowDesktop: React.FC<BodyRowViewProps> = ({
   } = pricing;
 
   const settings = propSettings || getSettings();
+  const stockOriginLockedTitle =
+    'Bloqueado porque há um produto cadastrado vinculado ao item. Remova o produto selecionado no campo Produto para liberar e alterar a origem do estoque.';
   const handlingOptions =
     (deliveryMethod === 'pickup'
       ? settings.pickupHandlingOptions
       : settings.deliveryHandlingOptions) || [];
-  const isSelectedHandlingInOptions =
-    item.handlingType && handlingOptions.some((option) => option.label === item.handlingType);
   const handlingControl = !item.isComboItem ? (
     <div className="relative group/hsel">
-      <select
-        aria-label="Manuseio"
-        className={`w-full appearance-none border-b-2 bg-transparent px-2 py-1 text-[11px] font-bold text-slate-600 outline-none transition-colors dark:text-slate-400 ${
+      <HandlingSelect
+        options={handlingOptions}
+        value={item.handlingType}
+        error={handlingError}
+        className={`w-full appearance-none border-b-2 bg-transparent px-2 py-1 text-[11px] font-bold outline-none transition-colors dark:bg-slate-900 ${
           handlingError
             ? 'border-red-500 focus:border-red-500'
             : 'border-slate-200 focus:border-blue-600 dark:border-slate-800 dark:focus:border-blue-500'
         }`}
-        value={item.handlingType || ''}
-        onChange={(event) => {
-          const value = event.target.value;
-          if (value && item.handlingType !== value) handleHandlingChange(value);
-        }}
-      >
-        <option value="" disabled className="dark:bg-slate-900">Selecione</option>
-        {handlingOptions.map((option) => (
-          <option key={option.label} value={option.label} className="dark:bg-slate-900">
-            {option.label}
-          </option>
-        ))}
-        {item.handlingType && !isSelectedHandlingInOptions && !isGenericHandlingLabel(item.handlingType) && (
-          <option value={item.handlingType} className="italic text-slate-400">
-            {item.handlingType} (Atual)
-          </option>
-        )}
-      </select>
+        onChange={handleHandlingChange}
+      />
       {assemblyResponsibleRequired && (
         <div className="mt-2">
           <label className="mb-1 block text-[9px] font-black uppercase tracking-wider text-slate-400">
@@ -167,7 +153,7 @@ export const BodyRowDesktop: React.FC<BodyRowViewProps> = ({
   if (isCompositionComponent && !isExpanded) {
     return (
       <tr className="border-b border-slate-100 bg-white hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:hover:bg-slate-800/40">
-        <td colSpan={compactDesktop ? 7 : hideHandling ? 8 : 9} className="px-3 py-1.5">
+        <td colSpan={compactDesktop ? 8 : hideHandling ? 8 : 9} className="px-3 py-1.5">
           <button
             type="button"
             onClick={onToggleExpand}
@@ -183,7 +169,7 @@ export const BodyRowDesktop: React.FC<BodyRowViewProps> = ({
                 <i className="bi bi-box-seam mr-1 text-blue-600 dark:text-blue-400" aria-hidden="true" />
                 {item.description}
               </span>
-              <span className="shrink-0 text-[10px] text-slate-400">{item.quantity} un.</span>
+              <span className="shrink-0 text-[10px] text-slate-400">{item.quantity} un</span>
             </span>
             <span className="flex shrink-0 items-center gap-3">
               <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400">
@@ -199,8 +185,9 @@ export const BodyRowDesktop: React.FC<BodyRowViewProps> = ({
   }
 
   return (
+    <>
     <tr
-      className={`group transition-colors border-b border-slate-100 dark:border-slate-800 last:border-0 font-sans ${
+      className={`group transition-colors font-sans ${compactDesktop && !item.isComboItem ? 'border-b-0' : 'border-b border-slate-100 dark:border-slate-800 last:border-0'} ${
         highlightAsTemporary
           ? 'bg-amber-50/50 dark:bg-amber-950/20 ring-2 ring-inset ring-amber-400/50'
           : 'hover:bg-slate-50/50 dark:hover:bg-slate-800/20'
@@ -225,16 +212,18 @@ export const BodyRowDesktop: React.FC<BodyRowViewProps> = ({
                 placeholder="Descrição do serviço..."
                 className={`w-full border-x-0 border-t-0 border-b-2 rounded-none bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-b-blue-500 dark:bg-slate-800 dark:text-slate-200 ${error ? 'border-b-red-500 dark:border-b-red-500 focus:border-b-red-500 dark:focus:border-b-red-500' : 'border-b-slate-200 dark:border-b-slate-700'}`}
               />
-              <div className="mt-1 flex items-center gap-2">
-                <input
-                  type="text"
-                  value={tempObservation}
-                  onChange={(e) => setTempObservation(e.target.value)}
-                  onBlur={commitObservation}
-                  placeholder="Observação..."
-                  className="w-full bg-slate-50/60 dark:bg-slate-800/40 border-x-0 border-t-0 border-b-2 border-b-slate-200/80 dark:border-b-slate-700/80 focus:border-b-blue-500 px-2 py-0.5 rounded-none text-[11px] font-medium text-slate-700 dark:text-slate-200 outline-none transition-all placeholder:text-slate-400"
-                />
-              </div>
+              {!compactDesktop && (
+                <div className="mt-1 flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={tempObservation}
+                    onChange={(e) => setTempObservation(e.target.value)}
+                    onBlur={commitObservation}
+                    placeholder="Observação..."
+                    className="w-full bg-slate-50/60 dark:bg-slate-800/40 border-x-0 border-t-0 border-b-2 border-b-slate-200/80 dark:border-b-slate-700/80 focus:border-b-blue-500 px-2 py-0.5 rounded-none text-[11px] font-medium text-slate-700 dark:text-slate-200 outline-none transition-all placeholder:text-slate-400"
+                  />
+                </div>
+              )}
               {serviceProductLink}
             </div>
           </div>
@@ -261,18 +250,22 @@ export const BodyRowDesktop: React.FC<BodyRowViewProps> = ({
                 <i className="bi bi-chevron-up text-[10px]" />
               </button>
             </div>
-            <div className="mt-1 flex items-center gap-2">
+            {!compactDesktop && (
+            <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
               {shouldShowStockOrigin && (
                 <>
+                  <span className="relative inline-flex items-center" title={isLinkedProduct ? stockOriginLockedTitle : undefined}>
+                    {isLinkedProduct && <i className="bi bi-lock-fill pointer-events-none absolute right-6 z-10 text-[9px] text-amber-500" aria-hidden="true" />}
                   <select
-                    className={`w-[110px] shrink-0 bg-slate-50/60 dark:bg-slate-800/40 border-x-0 border-t-0 border-b-2 px-2 py-0.5 rounded-none text-[10px] font-bold text-slate-700 dark:text-slate-200 outline-none transition-all ${
+                    className={`${isLinkedProduct ? 'w-[130px]' : 'w-[110px]'} shrink-0 bg-slate-50/60 dark:bg-slate-800/40 border-x-0 border-t-0 border-b-2 px-2 py-0.5 rounded-none text-[10px] font-bold text-slate-700 dark:text-slate-200 outline-none transition-all ${
                       stockOriginError
                         ? 'border-b-red-500 focus:border-b-red-500'
                         : 'border-b-slate-200/80 dark:border-b-slate-700/80 focus:border-b-blue-500'
-                    }`}
+                    } ${isLinkedProduct ? 'cursor-not-allowed opacity-60 !bg-slate-100 !pr-8 dark:!bg-slate-800' : ''}`}
                     value={item.condition ?? ''}
+                    disabled={isLinkedProduct}
                     onChange={(event) => handleStockOriginChange(event.target.value)}
-                    title="Origem do estoque"
+                    title={isLinkedProduct ? stockOriginLockedTitle : 'Origem do estoque'}
                     aria-label="Origem do estoque (obrigatória)"
                     aria-required="true"
                     aria-invalid={Boolean(stockOriginError)}
@@ -282,6 +275,7 @@ export const BodyRowDesktop: React.FC<BodyRowViewProps> = ({
                     <option value="salvado">Salvados</option>
                     <option value="usado">Usados</option>
                   </select>
+                  </span>
                   <span className="text-[10px] font-black text-red-500" aria-hidden="true">
                     *
                   </span>
@@ -297,7 +291,8 @@ export const BodyRowDesktop: React.FC<BodyRowViewProps> = ({
                 className="w-full bg-slate-50/60 dark:bg-slate-800/40 border-x-0 border-t-0 border-b-2 border-b-slate-200/80 dark:border-b-slate-700/80 focus:border-b-blue-500 px-2 py-0.5 rounded-none text-[11px] font-medium text-slate-700 dark:text-slate-200 outline-none transition-all placeholder:text-slate-400"
               />
             </div>
-            {stockOriginError && (
+            )}
+            {!compactDesktop && stockOriginError && (
               <span className="mt-1 block text-[10px] text-red-600 dark:text-red-400">
                 {stockOriginError}
               </span>
@@ -314,6 +309,7 @@ export const BodyRowDesktop: React.FC<BodyRowViewProps> = ({
             </div>
             <ProductAutocomplete
               value={item.description}
+              title={item.description}
               onChange={(val) => onChange(idx, 'description', val)}
               onSelect={(p, v) => onSelectProduct(idx, p, v)}
               autoFocus={autoFocusDescription}
@@ -327,20 +323,24 @@ export const BodyRowDesktop: React.FC<BodyRowViewProps> = ({
               isTemporary={showTemporaryProductLabel}
               inputEndAdornment={showTemporaryProductLabel ? <TemporaryProductWarning /> : undefined}
               isSelected={isLinkedProduct}
-              className={error ? 'border-red-500 focus:border-red-500 dark:border-red-500 dark:focus:border-red-500' : ''}
+              className={`font-bold text-ellipsis ${error ? 'border-red-500 focus:border-red-500 dark:border-red-500 dark:focus:border-red-500' : ''}`}
             />
+            {!compactDesktop && (
             <div className="mt-1 flex items-center gap-2">
               {shouldShowStockOrigin && (
                 <>
+                  <span className="relative inline-flex items-center" title={isLinkedProduct ? stockOriginLockedTitle : undefined}>
+                    {isLinkedProduct && <i className="bi bi-lock-fill pointer-events-none absolute right-6 z-10 text-[9px] text-amber-500" aria-hidden="true" />}
                   <select
-                    className={`w-[110px] shrink-0 bg-slate-50/60 dark:bg-slate-800/40 border-x-0 border-t-0 border-b-2 px-2 py-0.5 rounded-none text-[10px] font-bold text-slate-700 dark:text-slate-200 outline-none transition-all ${
+                    className={`${isLinkedProduct ? 'w-[130px]' : 'w-[110px]'} shrink-0 bg-slate-50/60 dark:bg-slate-800/40 border-x-0 border-t-0 border-b-2 px-2 py-0.5 rounded-none text-[10px] font-bold text-slate-700 dark:text-slate-200 outline-none transition-all ${
                       stockOriginError
                         ? 'border-b-red-500 focus:border-b-red-500'
                         : 'border-b-slate-200/80 dark:border-b-slate-700/80 focus:border-b-blue-500'
-                    }`}
+                    } ${isLinkedProduct ? 'cursor-not-allowed opacity-60 !bg-slate-100 !pr-8 dark:!bg-slate-800' : ''}`}
                     value={item.condition ?? ''}
+                    disabled={isLinkedProduct}
                     onChange={(e) => handleStockOriginChange(e.target.value)}
-                    title="Origem do estoque"
+                    title={isLinkedProduct ? stockOriginLockedTitle : 'Origem do estoque'}
                     aria-label="Origem do estoque (obrigatória)"
                     aria-required="true"
                     aria-invalid={Boolean(stockOriginError)}
@@ -350,6 +350,7 @@ export const BodyRowDesktop: React.FC<BodyRowViewProps> = ({
                     <option value="salvado">Salvados</option>
                     <option value="usado">Usados</option>
                   </select>
+                  </span>
                   <span className="text-[10px] font-black text-red-500" aria-hidden="true">
                     *
                   </span>
@@ -361,19 +362,14 @@ export const BodyRowDesktop: React.FC<BodyRowViewProps> = ({
                 onChange={(e) => setTempObservation(e.target.value)}
                 onBlur={commitObservation}
                 placeholder="Observação (ex: salvados, peça do mostruário com avaria)..."
-                className="w-full bg-slate-50/60 dark:bg-slate-800/40 border-x-0 border-t-0 border-b-2 border-b-slate-200/80 dark:border-b-slate-700/80 focus:border-b-blue-500 px-2 py-0.5 rounded-none text-[11px] font-medium text-slate-700 dark:text-slate-200 outline-none transition-all placeholder:text-slate-400"
+                className="min-w-[140px] flex-1 bg-slate-50/60 dark:bg-slate-800/40 border-x-0 border-t-0 border-b-2 border-b-slate-200/80 dark:border-b-slate-700/80 focus:border-b-blue-500 px-2 py-0.5 rounded-none text-[11px] font-medium text-slate-700 dark:text-slate-200 outline-none transition-all placeholder:text-slate-400"
               />
             </div>
-            {stockOriginError && (
+            )}
+            {!compactDesktop && stockOriginError && (
               <span className="mt-1 block text-[10px] text-red-600 dark:text-red-400">
                 {stockOriginError}
               </span>
-            )}
-            {isLinkedProduct && (
-              <div className="flex items-center gap-1 mt-0.5 text-[9px] font-bold text-emerald-600 dark:text-emerald-400 ml-1">
-                <i className="bi bi-check-circle-fill text-emerald-500 text-[10px]" />
-                <span>Produto vinculado ao catálogo</span>
-              </div>
             )}
           </>
         ) : (
@@ -383,12 +379,6 @@ export const BodyRowDesktop: React.FC<BodyRowViewProps> = ({
             <span className="text-xs italic text-slate-500 dark:text-slate-400">
               {item.description}
             </span>
-          </div>
-        )}
-        {compactDesktop && !shouldHideHandling && !item.isComboItem && (
-          <div className="mt-2 flex items-center gap-2">
-            <span className="shrink-0 text-[9px] font-black uppercase tracking-wider text-slate-400">Manuseio</span>
-            <div className="min-w-0 w-full max-w-[260px]">{handlingControl}</div>
           </div>
         )}
         {error && (
@@ -408,14 +398,14 @@ export const BodyRowDesktop: React.FC<BodyRowViewProps> = ({
           -
         </td>
       )}
-      <td className="px-2 py-1.5 w-[105px]">
+      <td className="px-2 py-1.5 w-[105px] align-bottom">
         <UnitInput
           value={item.quantity}
           onChange={(value: number) => onChange(idx, 'quantity', value)}
           disabled={item.isComboItem || isCompositionComponent}
         />
       </td>
-      <td className="px-2 py-1.5 w-[110px]">
+      <td className="px-2 py-1.5 w-[110px] align-bottom">
         {!item.isComboItem ? (
           <CurrencyInput
             value={tempUnitPrice}
@@ -426,40 +416,24 @@ export const BodyRowDesktop: React.FC<BodyRowViewProps> = ({
           <div className="text-right text-xs font-bold text-slate-400">-</div>
         )}
       </td>
-      <td colSpan={2} className="w-[150px] px-2 py-1.5">
+      <td colSpan={2} className="w-[150px] px-2 py-1.5 align-bottom">
         {!item.isComboItem ? (
-          <>
-            <DiscountInput
-              discountType={item.discountType}
-              fixedValue={tempDiscountValue}
-              percentageValue={tempDiscountPercent}
-              unitPrice={item.unitPrice}
-              onFixedValueChange={setTempDiscountValue}
-              onPercentageValueChange={setTempDiscountPercent}
-              onFixedBlur={commitDiscountValue}
-              onPercentageBlur={commitDiscountPercent}
-              onToggleType={onToggleDiscountType}
-            />
-            {compactDesktop && (
-              <div className="mt-2">
-                <label className="mb-1 ml-1 block text-[9px] font-black uppercase tracking-wider text-slate-400">
-                  Preço final unitário
-                </label>
-                <CurrencyInput
-                  value={tempSubtotal}
-                  max={item.unitPrice || undefined}
-                  onChange={(value: number) => setTempSubtotal(value)}
-                  onBlur={commitSubtotal}
-                />
-              </div>
-            )}
-          </>
+          <DiscountInput
+            discountType={item.discountType}
+            fixedValue={tempDiscountValue}
+            percentageValue={tempDiscountPercent}
+            unitPrice={item.unitPrice}
+            onFixedValueChange={setTempDiscountValue}
+            onPercentageValueChange={setTempDiscountPercent}
+            onFixedBlur={commitDiscountValue}
+            onPercentageBlur={commitDiscountPercent}
+            onToggleType={onToggleDiscountType}
+          />
         ) : (
           <div className="text-right text-xs font-bold text-slate-400">-</div>
         )}
       </td>
-      {!compactDesktop && (
-      <td className="px-2 py-1.5 w-[110px]">
+      <td className="px-2 py-1.5 w-[110px] align-bottom">
         {!item.isComboItem ? (
           <CurrencyInput
             value={tempSubtotal}
@@ -471,18 +445,17 @@ export const BodyRowDesktop: React.FC<BodyRowViewProps> = ({
           <div className="text-right text-xs font-bold text-slate-400">-</div>
         )}
       </td>
-      )}
-      <td className="px-2 py-1.5 w-[105px] text-right">
-        <div className="font-bold text-slate-700 dark:text-slate-200 text-xs whitespace-nowrap">
+      <td className="px-2 py-1.5 w-[105px] text-right align-bottom">
+        <div className="relative -top-2.5 whitespace-nowrap text-xs font-bold text-slate-700 dark:text-slate-200">
           <CurrencyDisplay value={calcItemTotalValue(item)} />
         </div>
       </td>
-      <td className="px-2 py-1.5 w-[50px] text-center">
+      <td rowSpan={compactDesktop && !item.isComboItem ? 2 : undefined} className="px-2 py-1.5 w-[50px] text-center align-middle">
         {!item.isComboItem && !isCompositionComponent && (
           <button
             type="button"
             onClick={onDelete}
-            className="w-7 h-7 mx-auto flex items-center justify-center text-slate-300 dark:text-slate-600 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+            className={`mx-auto flex h-7 w-7 items-center justify-center rounded-lg text-slate-300 transition-all hover:bg-red-50 hover:text-red-500 dark:text-slate-600 dark:hover:bg-red-900/20 dark:hover:text-red-400 ${compactDesktop ? '' : 'opacity-0 group-hover:opacity-100'}`}
             title="Excluir item"
           >
             <i className="bi bi-trash text-xs" />
@@ -490,5 +463,87 @@ export const BodyRowDesktop: React.FC<BodyRowViewProps> = ({
         )}
       </td>
     </tr>
+    {compactDesktop && !item.isComboItem && (
+      <tr
+        className={`border-b border-slate-100 dark:border-slate-800 ${
+          highlightAsTemporary
+            ? 'bg-amber-50/50 dark:bg-amber-950/20'
+            : itemHasError
+              ? 'bg-red-50/30 dark:bg-red-950/10'
+              : 'bg-white dark:bg-slate-900'
+        }`}
+      >
+        <td colSpan={7} className="px-3 pb-2 pt-0">
+          <div className="flex min-w-0 flex-wrap items-center gap-3">
+            {!shouldHideHandling && (
+              <div className="flex min-w-0 max-w-[55%] flex-none items-center">
+                <div className="min-w-0 max-w-full flex-none">
+                  <HandlingSelect
+                    options={handlingOptions}
+                    value={item.handlingType}
+                    error={handlingError}
+                    placeholder="Manuseio"
+                    fitContent
+                    className={`appearance-none border-b-2 bg-transparent px-2 py-1 pr-6 text-[11px] font-bold outline-none transition-colors dark:bg-slate-900 ${
+                      handlingError
+                        ? 'border-red-500 focus:border-red-500'
+                        : 'border-slate-200 focus:border-blue-600 dark:border-slate-800 dark:focus:border-blue-500'
+                    }`}
+                    onChange={handleHandlingChange}
+                  />
+                </div>
+              </div>
+            )}
+            {shouldShowStockOrigin && (
+              <div
+                className={`relative flex shrink-0 items-center gap-1 ${isLinkedProduct ? 'cursor-not-allowed' : ''}`}
+                title={isLinkedProduct ? stockOriginLockedTitle : undefined}
+              >
+                <span className="relative inline-flex items-center">
+                {isLinkedProduct && <i className="bi bi-lock-fill pointer-events-none absolute right-6 z-10 text-[9px] text-amber-500" aria-hidden="true" />}
+                <select
+                  className={`${isLinkedProduct ? 'w-[140px]' : 'w-[120px]'} shrink-0 bg-slate-50/60 dark:bg-slate-800/40 border-x-0 border-t-0 border-b-2 px-2 py-1 rounded-none text-[10px] font-bold text-slate-700 dark:text-slate-200 outline-none transition-all ${
+                    stockOriginError
+                      ? 'border-b-red-500 focus:border-b-red-500'
+                      : 'border-b-slate-200/80 dark:border-b-slate-700/80 focus:border-b-blue-500'
+                  } ${isLinkedProduct ? 'cursor-not-allowed opacity-60 !bg-slate-100 !pr-8 dark:!bg-slate-800' : ''}`}
+                  value={item.condition ?? ''}
+                  disabled={isLinkedProduct}
+                  onChange={(event) => handleStockOriginChange(event.target.value)}
+                  title={isLinkedProduct ? stockOriginLockedTitle : 'Origem do estoque'}
+                  aria-label="Origem do estoque (obrigatória)"
+                  aria-required="true"
+                  aria-invalid={Boolean(stockOriginError)}
+                >
+                  <option value="">Selecione</option>
+                  <option value="novo">Convencional</option>
+                  <option value="salvado">Salvados</option>
+                  <option value="usado">Usados</option>
+                </select>
+                </span>
+                <span className="text-[10px] font-black text-red-500" aria-hidden="true">
+                  *
+                </span>
+              </div>
+            )}
+            <input
+              type="text"
+              value={tempObservation}
+              onChange={(event) => setTempObservation(event.target.value)}
+              onBlur={commitObservation}
+              placeholder={isService ? 'Observação...' : 'Observação (ex: salvados, peça do mostruário com avaria)...'}
+              aria-label={isCompositionComponent ? `Observação do componente ${displayNumber}` : undefined}
+              className="min-w-[220px] flex-1 bg-slate-50/60 dark:bg-slate-800/40 border-x-0 border-t-0 border-b-2 border-b-slate-200/80 dark:border-b-slate-700/80 focus:border-b-blue-500 px-2 py-1 rounded-none text-[11px] font-medium text-slate-700 dark:text-slate-200 outline-none transition-all placeholder:text-slate-400"
+            />
+          </div>
+          {stockOriginError && (
+            <span className="mt-1 block text-[10px] text-red-600 dark:text-red-400">
+              {stockOriginError}
+            </span>
+          )}
+        </td>
+      </tr>
+    )}
+    </>
   );
 };

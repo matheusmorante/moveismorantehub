@@ -3,7 +3,7 @@ import { act, cleanup, fireEvent, render, renderHook, screen, waitFor } from '@t
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({ products: vi.fn(), product: vi.fn(), bounds: vi.fn(), templates: vi.fn(), save: vi.fn(), compose: vi.fn(), user: { id: 'operator' } }));
 vi.mock('@/context/AuthContext', () => ({ useAuth: () => ({ user: mocks.user }) }));
-vi.mock('@/pages/utils/productService', () => ({ fetchProductsPage: mocks.products, getFullProduct: mocks.product }));
+vi.mock('@/pages/utils/productService', () => ({ fetchPreviewProductOptionsPage: mocks.products, getFullProduct: mocks.product }));
 vi.mock('@/pages/utils/supabaseConfig', () => ({ supabase: { from: () => { const query = { select: () => query, eq: async () => ({ data: [], error: null }) }; return query; } } }));
 vi.mock('../../services/imageSubjectBounds', () => ({ detectImageSubjectBounds: mocks.bounds }));
 vi.mock('../../services/templateService', () => ({ templateService: { getAll: mocks.templates, save: mocks.save } }));
@@ -15,7 +15,7 @@ const product = { id: 'product', name: 'Mesa', unitPrice: 100, images: ['https:/
 const preference = 'morante_post_creator_default_preview_product_id';
 const deferred = () => { let resolve!: (value: any) => void; const promise = new Promise<any>((yes) => { resolve = yes; }); return { promise, resolve }; };
 beforeEach(() => {
-  vi.resetAllMocks(); localStorage.clear(); mocks.user = { id: 'operator' }; mocks.products.mockResolvedValue({ data: [product], total: 1 }); mocks.product.mockResolvedValue(product); mocks.bounds.mockResolvedValue(undefined); mocks.templates.mockResolvedValue([]);
+  vi.resetAllMocks(); localStorage.clear(); mocks.user = { id: 'operator' }; mocks.products.mockResolvedValue({ data: [{ id: product.id, name: product.name }], hasMore: false }); mocks.product.mockResolvedValue(product); mocks.bounds.mockResolvedValue(undefined); mocks.templates.mockResolvedValue([]);
   mocks.save.mockImplementation(async (values) => ({ ...values, campaignId: values.campaignId || null, persistedRemotely: true })); mocks.compose.mockResolvedValue({ layers: compositionTemplate.layers, slogan: 'Sua mesa', validation: { valid: true, score: 100 }, repaired: false }); vi.stubGlobal('prompt', vi.fn(() => ' Modelo '));
 });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.useRealTimers(); });
@@ -27,7 +27,7 @@ describe('post editor owner', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Mesa' })); await screen.findByText('Produto selecionado'); expect(localStorage.getItem(preference)).toBe('product');
   });
   it('ignores a stale search and rejects invalid pagination before dispatch', async () => {
-    vi.useFakeTimers(); const pending = deferred(); mocks.products.mockReturnValueOnce(pending.promise).mockResolvedValue({ data: [], total: 0 }); const { result } = renderHook(() => usePostEditor());
+    vi.useFakeTimers(); const pending = deferred(); mocks.products.mockReturnValueOnce(pending.promise).mockResolvedValue({ data: [], hasMore: false }); const { result } = renderHook(() => usePostEditor());
     await act(async () => { await vi.advanceTimersByTimeAsync(250); }); act(() => result.current.setSearch('Other'));
     await act(async () => { await vi.advanceTimersByTimeAsync(250); pending.resolve({ data: [product], total: 1 }); }); expect(result.current.products).toEqual([]);
     act(() => result.current.setPage(0)); await act(async () => { await vi.advanceTimersByTimeAsync(250); }); expect(mocks.products).toHaveBeenCalledTimes(2); expect(result.current.message).toBeTruthy();

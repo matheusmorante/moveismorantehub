@@ -11,6 +11,7 @@ import { resolveEffectiveSchedule } from '../../../../../../shared-utils/commerc
 import { LinkedAssemblyOverlay } from './tableCell/LinkedAssemblyOverlay';
 import { LinkedOrderOverlay } from './tableCell/LinkedOrderOverlay';
 import { TableCellBadges } from './tableCell/TableCellBadges';
+import { formatOrderCode, getOrderIndex } from '../../../utils/orderCode';
 
 interface Props {
   order: Order;
@@ -21,6 +22,7 @@ interface Props {
 const TableCell = ({ order, duration, onOrderClick }: Props) => {
   const settings = getSettings();
   const scheduleRes = resolveEffectiveSchedule(order);
+  const orderCode = getOrderIndex(order) ? formatOrderCode(order) : null;
 
   const isAssemblyTask = (order as any).taskType === 'assembly';
   const hasLinkedAssembly = (order as any).hasLinkedAssembly;
@@ -126,6 +128,14 @@ const TableCell = ({ order, duration, onOrderClick }: Props) => {
             orderType={order.orderType}
             isAssemblyTask={isAssemblyTask}
           />
+          <div className="ml-2 flex flex-wrap items-center justify-end gap-1">
+            {orderCode && <span className="text-[10px] font-black text-slate-600 dark:text-slate-300">#{orderCode}</span>}
+            {(order as any).scheduleAppointment?.total > 1 && (
+              <span className="shrink-0 rounded-full border border-blue-100 bg-blue-50 px-2 py-0.5 text-[9px] font-black uppercase tracking-wide text-blue-700 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-300">
+                Operação {(order as any).scheduleAppointment.index}/{(order as any).scheduleAppointment.total}
+              </span>
+            )}
+          </div>
         </div>
 
         <div className="flex justify-between items-start mb-1 pb-1 border-b border-slate-100 dark:border-slate-800">

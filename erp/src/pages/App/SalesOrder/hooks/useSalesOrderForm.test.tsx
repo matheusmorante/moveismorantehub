@@ -1,8 +1,9 @@
 // @vitest-environment happy-dom
 import React from 'react';
-import { act, cleanup, renderHook } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, renderHook, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type Order from '@/pages/types/order.type';
+import { assertValidMutationScheduling } from '@/pages/utils/orderMutation/orderUpdateSchema';
 const mocks = vi.hoisted(() => ({ save: vi.fn(), ensure: vi.fn(), generate: vi.fn(), route: vi.fn(), error: vi.fn(), success: vi.fn(), warn: vi.fn() }));
 vi.mock('@/pages/utils/orderHistoryService', async () => ({
   saveOrder: mocks.save,
@@ -13,6 +14,8 @@ vi.mock('react-toastify', () => ({ toast: { error: mocks.error, success: mocks.s
 vi.mock('@/pages/utils/maps', () => ({ autoCalculateRouteDistance: mocks.route }));
 vi.mock('@/pages/utils/shippingPricing', () => ({ calculateFreightByDistance: (distance: number) => distance * 10 }));
 vi.mock('./useOrderProductSelection', () => ({ useOrderProductSelection: () => ({ handleSelectProduct: vi.fn(), handleItemChange: vi.fn() }) }));
+vi.mock('../ShippingComponents/Agendamento', () => ({ default: () => null }));
+vi.mock('../ShippingComponents/AppointmentHandling', () => ({ AppointmentHandling: () => null }));
 vi.mock('@/pages/utils/orderCode', () => ({ getOrderIndex: (order: any) => order?.orderIndex || null }));
 vi.mock('./useOrderCodeGenerator', () => ({ useOrderCodeGenerator: (_id: unknown, latest: any) => {
   const [orderIndex, setOrderIndex] = React.useState<number | null>(1201);
@@ -21,6 +24,7 @@ vi.mock('./useOrderCodeGenerator', () => ({ useOrderCodeGenerator: (_id: unknown
   };
 } }));
 import { useSalesOrderForm } from './useSalesOrderForm';
+import { OrderAppointments } from '../ShippingComponents/OrderAppointments';
 
 const valid = () => ({
   orderType: 'sale', status: 'draft', date: '2026-10-15T12:00:00.000Z', seller: 'Atendente',
@@ -152,6 +156,232 @@ describe('proprietário do pedido, rascunho e finalização', () => {
     let pending!: Promise<unknown>; await act(async () => { pending = result.current.actions.handleCompleteOrder(); }); expect(mocks.save).toHaveBeenCalledTimes(1);
     await act(async () => { finish('rascunho-id'); await pending; }); expect(mocks.save).toHaveBeenLastCalledWith(expect.objectContaining({ id: 'rascunho-id', status: 'fulfilled' }));
     await act(async () => { await vi.advanceTimersByTimeAsync(6000); }); expect(mocks.save).toHaveBeenCalledTimes(2);
+  });
+
+  it('reabre o rascunho sem gravá-lo e salva um segundo agendamento incompleto', async () => {
+    vi.useFakeTimers();
+    const order = valid();
+    const item = { ...order.items[0], orderItemId: 'item-1' };
+    const first = {
+      id: 'principal', deliveryMethod: 'pickup' as const, itemIds: ['item-1'],
+      itemQuantities: { 'item-1': 1 }, scheduling: order.shipping.scheduling,
+    };
+    const second = {
+      id: 'segundo', itemIds: [], itemQuantities: {},
+      scheduling: { date: '', time: '', type: 'fixed' as const },
+    };
+    const { result } = renderHook(() => useSalesOrderForm());
+    act(() => result.current.actions.loadOrderForEditing({
+      ...order, id: 'rascunho-id', orderIndex: 1201, items: [item],
+      shipping: { ...order.shipping, orderType: 'Na caixa', scheduling: { ...order.shipping.scheduling, appointments: [first] } },
+    }));
+    await act(async () => { await vi.advanceTimersByTimeAsync(4000); });
+    expect(mocks.save).not.toHaveBeenCalled();
+
+    act(() => result.current.actions.setShipping((previous) => ({
+      ...previous,
+      scheduling: { ...previous.scheduling, appointments: [first, second] },
+    })));
+    await act(async () => { await vi.advanceTimersByTimeAsync(3000); });
+    expect(mocks.save).toHaveBeenCalledOnce();
+    expect(mocks.save).toHaveBeenCalledWith(expect.objectContaining({
+      id: 'rascunho-id', status: 'draft',
+      shipping: expect.objectContaining({ scheduling: expect.objectContaining({ appointments: [first, second] }) }),
+    }));
+    expect(() => assertValidMutationScheduling(mocks.save.mock.calls[0][0])).not.toThrow();
+  });
+
+  it('salva o segundo agendamento criado pelo botão da logística em um rascunho reaberto', async () => {
+    vi.useFakeTimers();
+    const order = valid();
+    const item = { ...order.items[0], orderItemId: 'item-1' };
+    const first = {
+      id: 'principal', deliveryMethod: 'pickup' as const, itemIds: ['item-1'],
+      itemQuantities: { 'item-1': 1 }, scheduling: order.shipping.scheduling,
+    };
+    const existing = {
+      ...order, id: 'rascunho-id', orderIndex: 1201, items: [item],
+      shipping: { ...order.shipping, orderType: 'Na caixa', scheduling: { ...order.shipping.scheduling, appointments: [first] } },
+    };
+    const DraftHarness = () => {
+      const form = useSalesOrderForm();
+      React.useEffect(() => { form.actions.loadOrderForEditing(existing); }, []);
+      if (!form.state.currentOrderId) return null;
+      return <OrderAppointments shipping={form.state.shipping} setShipping={form.actions.setShipping}
+        items={form.state.items} errors={{}} isNewSale={form.state.isNewSaleFlow} />;
+    };
+    render(<DraftHarness />);
+    fireEvent.click(screen.getByRole('button', { name: /Adicionar/ }));
+    expect(screen.getByRole('button', { name: /Operação 2/ })).toBeTruthy();
+    await act(async () => { await vi.advanceTimersByTimeAsync(3000); });
+    expect(mocks.save).toHaveBeenCalledWith(expect.objectContaining({
+      id: 'rascunho-id', status: 'draft',
+      shipping: expect.objectContaining({ scheduling: expect.objectContaining({
+        appointments: [expect.objectContaining({ id: 'principal' }), expect.objectContaining({ itemIds: [] })],
+      }) }),
+    }));
+  });
+
+  it.each([
+    ['o identificador do vendedor', (owner: Owner) => owner.actions.setSellerId('vendedor-id'), { sellerId: 'vendedor-id' }],
+    ['a opção de telefone', (owner: Owner) => owner.actions.setCustomerData((current) => ({ ...current, noPhone: true })), { customerData: expect.objectContaining({ noPhone: true }) }],
+    ['a forma de pagamento', (owner: Owner) => owner.actions.setPayments((current) => [{ ...current[0], method: 'Pix' }]), { payments: [expect.objectContaining({ method: 'Pix' })] }],
+    ['o endereço de entrega', (owner: Owner) => owner.actions.setShipping((current) => ({ ...current, noAddress: true })), { shipping: expect.objectContaining({ noAddress: true }) }],
+  ])('salva automaticamente quando apenas %s muda', async (_label, change, expected) => {
+    vi.useFakeTimers();
+    const { result } = renderHook(() => useSalesOrderForm());
+    act(() => change(result.current));
+    await act(async () => { await vi.advanceTimersByTimeAsync(3000); });
+    expect(mocks.save).toHaveBeenCalledWith(expect.objectContaining(expected), expect.objectContaining({ idempotencyKey: expect.any(String) }));
+  });
+
+  it('salva a remoção do último campo preenchido de um rascunho existente', async () => {
+    vi.useFakeTimers();
+    const order = valid();
+    const { result } = renderHook(() => useSalesOrderForm());
+    act(() => result.current.actions.loadOrderForEditing({
+      ...order, id: 'rascunho-id', orderIndex: 1201, seller: '', observation: 'Anotação',
+      items: [{ description: '', unitPrice: 0, unitDiscount: 0, discountType: 'fixed', handlingType: '', quantity: 1, orderItemId: 'item-1' }],
+      customerData: { fullName: '', phone: '', fullAddress: { street: '', cep: '' } } as any,
+      payments: [{ amount: 0 }] as any,
+      shipping: { ...order.shipping, orderType: '', scheduling: { date: '', time: '', type: 'fixed' } },
+    }));
+    act(() => result.current.actions.setObservation(''));
+    await act(async () => { await vi.advanceTimersByTimeAsync(3000); });
+    expect(mocks.save).toHaveBeenCalledWith(expect.objectContaining({ id: 'rascunho-id', observation: '' }));
+  });
+
+  it('mostra o campo inválido quando a validação impede o autosave', async () => {
+    vi.useFakeTimers();
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const { result } = renderHook(() => useSalesOrderForm());
+    act(() => result.current.actions.setItems([{ ...valid().items[0], quantity: -1 }]));
+    await act(async () => { await vi.advanceTimersByTimeAsync(3000); });
+    expect(mocks.save).not.toHaveBeenCalled();
+    expect(result.current.state.draftAutoSaveStatus).toBe('error');
+    expect(result.current.state.errors.item_0_quantity).toBeTruthy();
+    error.mockRestore();
+  });
+
+  it('ao fechar, espera a gravação ativa e salva a alteração mais recente', async () => {
+    vi.useFakeTimers();
+    let finishFirst!: (id: string) => void;
+    mocks.save.mockImplementationOnce(() => new Promise((resolve) => { finishFirst = resolve; }));
+    const { result } = renderHook(() => useSalesOrderForm());
+    act(() => result.current.actions.setObservation('Primeira alteração'));
+    await act(async () => { await vi.advanceTimersByTimeAsync(3000); });
+    act(() => result.current.actions.setObservation('Alteração antes de fechar'));
+    let closing!: Promise<boolean>;
+    await act(async () => { closing = result.current.actions.flushDraftAutoSave(); });
+    expect(mocks.save).toHaveBeenCalledTimes(1);
+    await act(async () => { finishFirst('rascunho-id'); expect(await closing).toBe(true); });
+    expect(mocks.save).toHaveBeenCalledTimes(2);
+    expect(mocks.save).toHaveBeenLastCalledWith(expect.objectContaining({
+      id: 'rascunho-id', observation: 'Alteração antes de fechar', status: 'draft',
+    }));
+  });
+
+  it('ao fechar antes do debounce, grava a alteração pendente uma única vez', async () => {
+    vi.useFakeTimers();
+    const { result } = renderHook(() => useSalesOrderForm());
+    act(() => result.current.actions.setObservation('Fechamento imediato'));
+    await act(async () => { expect(await result.current.actions.flushDraftAutoSave()).toBe(true); });
+    expect(mocks.save).toHaveBeenCalledOnce();
+    expect(mocks.save.mock.calls[0][0]).toEqual(expect.objectContaining({
+      status: 'draft', observation: 'Fechamento imediato',
+    }));
+    await act(async () => { await vi.advanceTimersByTimeAsync(5000); });
+    expect(mocks.save).toHaveBeenCalledOnce();
+  });
+
+  it('retoma o autosave quando a conclusão é recusada pela validação', async () => {
+    vi.useFakeTimers();
+    const { result } = renderHook(() => useSalesOrderForm());
+    act(() => result.current.actions.setObservation('Informação do rascunho'));
+    await act(async () => { expect(await result.current.actions.handleCompleteOrder()).toBe(false); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(3000); });
+    expect(mocks.save).toHaveBeenCalledWith(expect.objectContaining({
+      status: 'draft', observation: 'Informação do rascunho',
+    }), expect.objectContaining({ idempotencyKey: expect.any(String) }));
+  });
+
+  it('não fecha nem repete a gravação enquanto a resposta do salvamento está pendente', async () => {
+    vi.useFakeTimers();
+    const warning = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    mocks.save.mockImplementationOnce(() => new Promise(() => {}));
+    const { result } = renderHook(() => useSalesOrderForm());
+    act(() => result.current.actions.setObservation('Alteração pendente'));
+    await act(async () => { await vi.advanceTimersByTimeAsync(3000); });
+    let closing!: Promise<boolean>;
+    await act(async () => { closing = result.current.actions.flushDraftAutoSave(); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(15000); });
+    expect(await closing).toBe(false);
+    expect(result.current.state.draftAutoSaveStatus).toBe('error');
+    expect(mocks.save).toHaveBeenCalledTimes(1);
+    warning.mockRestore();
+  });
+
+  it('reusa a mesma identidade ao tentar salvar novamente uma criação sem confirmação', async () => {
+    vi.useFakeTimers();
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+    mocks.save.mockRejectedValueOnce(new Error('Conexão interrompida'));
+    const { result } = renderHook(() => useSalesOrderForm());
+    act(() => result.current.actions.setObservation('Rascunho'));
+    await act(async () => { await vi.advanceTimersByTimeAsync(3000); });
+    const firstKey = mocks.save.mock.calls[0][1]?.idempotencyKey;
+    expect(firstKey).toEqual(expect.any(String));
+    await act(async () => { await result.current.actions.handleSaveOrder(); });
+    expect(mocks.save.mock.calls[1][1]).toEqual({ idempotencyKey: firstKey });
+    error.mockRestore();
+  });
+
+  it('não finaliza enquanto a criação automática falha e retoma o rascunho com a mesma identidade', async () => {
+    vi.useFakeTimers();
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+    let fail!: (reason: Error) => void;
+    mocks.save.mockImplementationOnce(() => new Promise((_resolve, reject) => { fail = reject; }));
+    const { result } = renderHook(() => useSalesOrderForm());
+    act(() => fill(result.current));
+    await act(async () => { await vi.advanceTimersByTimeAsync(3000); });
+    const firstKey = mocks.save.mock.calls[0][1]?.idempotencyKey;
+    let completion!: Promise<unknown>;
+    await act(async () => { completion = result.current.actions.handleCompleteOrder(); });
+    await act(async () => { fail(new Error('Resposta não confirmada')); expect(await completion).toBe(false); });
+    expect(mocks.save).toHaveBeenCalledTimes(1);
+    await act(async () => { await vi.advanceTimersByTimeAsync(3000); });
+    expect(mocks.save).toHaveBeenCalledTimes(2);
+    expect(mocks.save.mock.calls[1][0]).toEqual(expect.objectContaining({ status: 'draft' }));
+    expect(mocks.save.mock.calls[1][1]).toEqual({ idempotencyKey: firstKey });
+    error.mockRestore();
+  });
+
+  it('salva alterações de um rascunho de teste reaberto sem código comercial', async () => {
+    vi.useFakeTimers();
+    const { result } = renderHook(() => useSalesOrderForm());
+    act(() => result.current.actions.loadOrderForEditing({
+      ...valid(), id: 'teste-id', is_test: true, testArtifact: { runId: 'execucao' } as any,
+      shipping: { ...valid().shipping, orderType: 'Na caixa' },
+    }));
+    act(() => result.current.actions.setObservation('Alteração do teste'));
+    await act(async () => { await vi.advanceTimersByTimeAsync(3000); });
+    expect(mocks.save).toHaveBeenCalledWith(expect.objectContaining({
+      id: 'teste-id', is_test: true, orderIndex: undefined, observation: 'Alteração do teste',
+    }));
+  });
+
+  it('mantém a identidade de um rascunho antigo que não tem código comercial', async () => {
+    vi.useFakeTimers();
+    const { result } = renderHook(() => useSalesOrderForm());
+    act(() => result.current.actions.loadOrderForEditing({
+      ...valid(), id: 'rascunho-antigo', shipping: { ...valid().shipping, orderType: 'Na caixa' },
+    }));
+    expect(result.current.state.currentOrderId).toBe('rascunho-antigo');
+    expect(mocks.generate).not.toHaveBeenCalled();
+    act(() => result.current.actions.setObservation('Atualização do rascunho antigo'));
+    await act(async () => { await vi.advanceTimersByTimeAsync(3000); });
+    expect(mocks.save).toHaveBeenCalledWith(expect.objectContaining({
+      id: 'rascunho-antigo', status: 'draft', observation: 'Atualização do rascunho antigo',
+    }));
   });
 
   it('conserva o frete do pedido carregado quando o cálculo do pedido anterior termina depois', async () => {
@@ -362,7 +592,7 @@ describe('vinculação de cliente e toggle de usar mesmo endereço (useCustomerA
     act(() => {
       result.current.actions.setSeller('Vendedor Teste');
       result.current.actions.setObservation('Entrega em outro local');
-      result.current.actions.setPayments([{ method: 'Pix', amount: 100, status: 'Pago' }]);
+      result.current.actions.setPayments([{ method: 'Pix', amount: 100, fee: 0, feeType: 'fixed', status: 'Pago' }]);
     });
 
     // O toggle manual do operador deve continuar desligado

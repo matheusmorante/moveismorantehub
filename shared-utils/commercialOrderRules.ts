@@ -7,18 +7,13 @@ import { validateCustomerData, validateShipping } from './commercialShippingRule
 import { validateAssistanceOrder, validateReviews } from './commercialAssistanceRules';
 import type { ValidationErrors } from './commercialSchedulingRules';
 import { getOrderPaymentDueDate, isPromissoryPaymentMethod } from './orderPaymentState';
+import { requiresAssemblyResponsible } from './orderHandlingRules';
 
 export type { ValidationErrors } from './commercialSchedulingRules';
 export * from './commercialShippingRules';
 export { validateAssistanceOrder, validateReviews };
 
-const ASSEMBLY_RESPONSIBLE_HANDLINGS = new Set([
-  'De mostruário > Desmontagem do mostruário > Montagem na entrega',
-  'Na caixa > Montagem no local da entrega',
-]);
-
-export const requiresAssemblyResponsible = (handlingType?: string, deliveryMethod?: string) =>
-  deliveryMethod === 'delivery' && ASSEMBLY_RESPONSIBLE_HANDLINGS.has(handlingType?.trim() || '');
+export { requiresAssemblyResponsible } from './orderHandlingRules';
 
 export const validateItems = (
   items: Item[],
@@ -26,11 +21,12 @@ export const validateItems = (
   isReturn: boolean = false,
   requireStockOrigin: boolean = false,
   requireAssemblyResponsible: boolean = false,
-  deliveryMethod?: string
+  deliveryMethod?: string,
+  handlingByAppointment: boolean = false
 ): ValidationErrors => {
   const errors: ValidationErrors = {};
   if (!items || !Array.isArray(items)) return errors;
-  const hideHandling = isBudget || isReturn;
+  const hideHandling = isBudget || isReturn || handlingByAppointment;
 
   items.forEach((item, idx) => {
     if (!item) return;
@@ -42,6 +38,7 @@ export const validateItems = (
       errors[`item_${idx}_handlingType`] = 'O manuseio do item e obrigatorio.';
     }
     if (
+      !hideHandling &&
       requireAssemblyResponsible &&
       !isService &&
       !item.isComboItem &&
@@ -154,14 +151,18 @@ export const validateOrder = (
       isReturn,
       requireStockOrigin,
       order.orderType === 'sale',
-      order.shipping?.deliveryMethod
+      order.shipping?.deliveryMethod,
+      order.orderType === 'sale' && Boolean(order.shipping?.scheduling?.appointments?.length)
     ),
     ...(!isBudget ? validateCustomerData(order.customerData, isPickup, requiredFields) : {}),
     ...validateSeller(order.seller),
   };
 
   if (!isDraft) {
-    Object.assign(errors, validateShipping(order.shipping, order.customerData, isBudget));
+    Object.assign(
+      errors,
+      validateShipping(order.shipping, order.customerData, isBudget, items, order.orderType === 'sale')
+    );
     if (!isBudget) {
       Object.assign(errors, validatePayments(payments, paymentCoverageDifference));
     }

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
-import { financeService } from '@/pages/services/financeService';
-import { AccountPayable, FinancialCategory, PaymentStatus } from '../../../types/finance.type';
+import { financeService, PayableCategoryOption } from '@/pages/services/financeService';
+import { AccountPayable, PaymentStatus } from '../../../types/finance.type';
 import { useZodForm } from '@/hooks/useZodForm';
 import { payableExpenseFormSchema, payableSettlementFormSchema, financialToday, buildPayableInstallments } from '../../../../../../shared-utils/financialFormSchemas';
 import type { FieldErrors } from 'react-hook-form';
@@ -24,7 +24,7 @@ function PayableModalForm({ onClose, onSaved, payable }: PayableModalProps) {
   const [categoryError, setCategoryError] = useState('');
   const [requestId] = useState(() => crypto.randomUUID());
   const close = () => { if (!operation.isBusy()) onClose(); };
-  const [categories, setCategories] = useState<FinancialCategory[]>([]);
+  const [categories, setCategories] = useState<PayableCategoryOption[]>([]);
 
   const [formData, setFormData] = useState({
     description: payable?.description || '',
@@ -50,7 +50,7 @@ function PayableModalForm({ onClose, onSaved, payable }: PayableModalProps) {
   const showValidationError = (errors: FieldErrors) => { if (operation.current()) toast.error(operation.invalid(errors)); };
   useEffect(() => {
     let active = true;
-    void withTimeout(financeService.getCategories('expense'), 15_000, null, 'financeiro:categorias')
+    void withTimeout(financeService.getPayableCategoryOptions(), 15_000, null, 'financeiro:categorias')
       .then((cats) => {
         if (!active) return;
         if (cats) setCategories(cats);
@@ -72,8 +72,8 @@ function PayableModalForm({ onClose, onSaved, payable }: PayableModalProps) {
   const handleSave = async (input: z.output<typeof payableExpenseFormSchema>) => {
     if (!operation.current()) return;
     const { payable: data, expenseType, recurringFrequency } = input;
-    if (payable?.id) await operation.wait(financeService.updatePayable(payable.id, data));
-    else if (expenseType === 'single') await operation.wait(financeService.createPayable(data));
+    if (payable?.id) await operation.wait(financeService.updatePayableId(payable.id, data));
+    else if (expenseType === 'single') await operation.wait(financeService.createPayableId(data));
     else if (expenseType === 'installments') await operation.wait(financeService.bulkCreatePayables(buildPayableInstallments(input)));
     else await operation.wait(financeService.createRecurringPayableExpense({ request_id: requestId, payable: data, frequency: recurringFrequency }));
     if (!operation.current()) return;

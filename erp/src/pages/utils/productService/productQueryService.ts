@@ -25,6 +25,12 @@ export const LIGHT_COLUMNS_WITH_CATS =
   LIGHT_COLUMNS +
   ', product_categories(*, categories(*)), product_variations(*), product_images(image_url,is_main), category_details:categories!products_category_id_fkey(id, name)';
 
+export type ProductPreviewOption = {
+  id: string;
+  name: string;
+  title?: string;
+};
+
 /** Saldo de um produto composto é a quantidade de kits montáveis com o estoque atual dos componentes. */
 export const applyCompositionAvailability = async (products: Product[]): Promise<Product[]> => {
   const compositions = products.filter((product) => product.itemType === 'composition');
@@ -325,6 +331,51 @@ export const fetchProductsPage = async (
     console.error('[ProductService] Exceção em fetchProductsPage:', e);
     if (requestOptions.throwOnError) throw e;
     return { data: [], total: 0 };
+  }
+};
+
+/** Loads only the labels used by the Publicações product selectors. */
+export const fetchPreviewProductOptionsPage = async (
+  page: number,
+  pageSize: number,
+  options?: ProductQueryFilterOptions
+): Promise<{ data: ProductPreviewOption[]; hasMore: boolean }> => {
+  try {
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
+    const searchVariationsAsEmbed = false;
+    // `description` preserves the existing label fallback for legacy products without a name/title.
+    const projection = 'id,name,title:marketplace_title,description';
+    const baseQuery = supabase.from(TABLE_NAME).select(projection);
+
+    const { data, error } = await applyProductFiltersAndSort(
+      baseQuery,
+      { ...options, searchVariationsAsEmbed },
+      { orderColumn: 'created_at', ascending: false, from, to }
+    );
+
+    if (error) {
+      console.error('[ProductService] Erro na lista compacta de produtos de prévia:', error);
+      return { data: [], hasMore: false };
+    }
+
+    const rows = Array.isArray(data) ? data : [];
+    return {
+      data: rows.map((row: any) => ({
+        id: String(row.id),
+        name: String(
+          row.name ||
+            row.title ||
+            String(row.description || '').split('\n')[0].substring(0, 120) ||
+            ''
+        ),
+        ...(row.title ? { title: String(row.title) } : {}),
+      })),
+      hasMore: rows.length === pageSize,
+    };
+  } catch (error) {
+    console.error('[ProductService] Exceção na lista compacta de produtos de prévia:', error);
+    return { data: [], hasMore: false };
   }
 };
 

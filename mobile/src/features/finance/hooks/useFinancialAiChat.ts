@@ -5,7 +5,7 @@ import { financialCandidateSelectionFormSchema, financialPreparedIntentFormSchem
 import { ScrollView, Alert } from 'react-native';
 import {
   FinancialCategory,
-  createFinancialTransaction,
+  createFinancialTransactionId,
   confirmFinancialDraft,
 } from '../../../services/mobileFinanceService';
 import {
@@ -405,7 +405,7 @@ export function useFinancialAiChat({
       return await transactionForm.validateAndRun(values, async (parsed) => {
         if (!isCurrent()) return false;
         writing = true;
-        const result = await withTimeout(createFinancialTransaction(parsed), 20_000, null, 'Registro financeiro assistido');
+        const result = await withTimeout(createFinancialTransactionId(parsed), 20_000, null, 'Registro financeiro assistido');
         if (!result || (result.success && !result.data?.id)) {
           uncertainWrites.current.add(key);
           if (isCurrent()) Alert.alert('Registro não confirmado', uncertainMessage);

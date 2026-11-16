@@ -100,6 +100,35 @@ const OrderHistoryTable = ({
     enabled: settings.autoScroll?.orderTable ?? false,
   });
 
+  const [tableDimensions, setTableDimensions] = React.useState({ containerWidth: 0, remSize: 16 });
+
+  React.useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const updateDimensions = () => {
+      const next = {
+        containerWidth: container.clientWidth,
+        remSize: Number.parseFloat(getComputedStyle(document.documentElement).fontSize) || 16,
+      };
+      setTableDimensions((current) =>
+        current.containerWidth === next.containerWidth && current.remSize === next.remSize
+          ? current
+          : next
+      );
+    };
+
+    updateDimensions();
+    if (typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', updateDimensions);
+      return () => window.removeEventListener('resize', updateDimensions);
+    }
+
+    const observer = new ResizeObserver(updateDimensions);
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, [isMobile]);
+
   const [orderedColumns, setOrderedColumns] = React.useState<ColumnDef[]>(() => {
     const savedOrder = localStorage.getItem('order_table_column_order');
     if (savedOrder) {
@@ -120,6 +149,44 @@ const OrderHistoryTable = ({
 
   const [draggedColumn, setDraggedColumn] = React.useState<string | null>(null);
   const columnsToRender = orderedColumns.length > 0 ? orderedColumns : COLUMNS_DEF;
+  const visibleColumns = columnsToRender.filter(
+    (column) => visibilitySettings[column.key] !== false
+  );
+  const fixedColumnWidths: Record<string, string> = {
+    id: '6rem',
+    orderDate: '7rem',
+    deliveryDate: '16rem',
+    totalValue: '8rem',
+    actions: '4rem',
+  };
+  const flexibleColumnKey = visibleColumns.some((column) => column.key === 'customer')
+    ? 'customer'
+    : visibleColumns[visibleColumns.length - 1]?.key;
+  const fixedColumnWidthPx = visibleColumns
+    .filter((column) => column.key !== flexibleColumnKey)
+    .reduce(
+      (total, column) =>
+        total +
+        (Number.parseFloat(fixedColumnWidths[column.key] || '0') || 0) *
+          tableDimensions.remSize,
+      0
+    );
+  const flexibleColumnWidthPx = Math.max(
+    0,
+    tableDimensions.containerWidth - fixedColumnWidthPx
+  );
+  const fallbackColumnWidthShares: Record<string, number> = {
+    id: 10,
+    orderDate: 14,
+    customer: 26,
+    totalValue: 14,
+    actions: 8,
+  };
+  const hasScheduleColumn = visibleColumns.some((column) => column.key === 'deliveryDate');
+  const fallbackWidthTotal = visibleColumns.reduce(
+    (total, column) => total + (fallbackColumnWidthShares[column.key] ?? 12),
+    0
+  );
 
   React.useEffect(() => {
     localStorage.setItem(
@@ -175,7 +242,19 @@ const OrderHistoryTable = ({
           ref={containerRef}
           className="overflow-x-auto rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900/50 transition-colors"
         >
-          <table className="w-full text-left border-collapse">
+          <table
+            className="w-full table-fixed text-left border-collapse"
+          >
+            <colgroup>
+              {visibleColumns.map((column) => {
+                const width = hasScheduleColumn
+                  ? column.key === flexibleColumnKey
+                    ? `${flexibleColumnWidthPx}px`
+                    : fixedColumnWidths[column.key]
+                  : `${((fallbackColumnWidthShares[column.key] ?? 12) / fallbackWidthTotal) * 100}%`;
+                return <col key={column.key} style={{ width }} />;
+              })}
+            </colgroup>
             <OrderTableHeader
               columns={columnsToRender}
               visibilitySettings={visibilitySettings}

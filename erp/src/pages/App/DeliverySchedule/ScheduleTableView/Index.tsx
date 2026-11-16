@@ -311,7 +311,7 @@ const ScheduleTableView = ({
             <div className="flex gap-4 overflow-x-auto pt-3 pb-2 custom-scrollbar animate-slide-up">
               {pendingOrders.map((order) => (
                 <button
-                  key={order.id}
+                  key={(order as any)._taskKey || order.id}
                   onClick={() => onOrderClick(order)}
                   className="flex-none w-64 bg-white dark:bg-slate-900 p-4 rounded-2xl border border-amber-200 dark:border-amber-800/50 shadow-sm hover:shadow-md hover:border-amber-400 dark:hover:border-amber-700 transition-all text-left group"
                 >

@@ -48,9 +48,12 @@ export const DeliveryOrderCard: React.FC<DeliveryOrderCardProps> = ({
     pickup: 'purple',
     assistance: 'orange',
   };
+  const isAppointmentOccurrence = Boolean((order as any).scheduleAppointment);
   const colorKey = isAssemblyTask
     ? 'rose'
-    : resolveOrderColor(order.orderType, order.shipping?.deliveryMethod, colors);
+    : isAppointmentOccurrence
+      ? 'blue'
+      : resolveOrderColor(order.orderType, order.shipping?.deliveryMethod, colors);
   const cls = getOrderTypeClasses(colorKey);
 
   const allOptions = [
@@ -107,6 +110,7 @@ export const DeliveryOrderCard: React.FC<DeliveryOrderCardProps> = ({
           isAssemblyTask={isAssemblyTask}
           isUsingAlternative={isUsingAlternative}
           activeOption={activeOption}
+          showDeliveryMethodBadge={!isAppointmentOccurrence}
         />
       </div>
 

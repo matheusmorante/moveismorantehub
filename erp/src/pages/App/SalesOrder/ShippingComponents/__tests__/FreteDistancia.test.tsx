@@ -58,7 +58,7 @@ describe('FreteDistancia Component', () => {
     expect(onChangeDistance).toHaveBeenLastCalledWith('15,4');
   });
 
-  it('deve exibir mensagem de erro quando shipping_distance for inválido', () => {
+  it('deve destacar erro no campo e disponibilizar a mensagem como tooltip', () => {
     render(
       <FreteDistancia
         {...defaultProps}
@@ -66,7 +66,8 @@ describe('FreteDistancia Component', () => {
       />
     );
 
-    expect(screen.getByText('Distância é obrigatória')).toBeDefined();
+    expect(screen.getByTestId('shipping-distance-input').getAttribute('aria-invalid')).toBe('true');
+    expect(screen.getByTitle('Distância é obrigatória')).toBeDefined();
   });
 
   it('deve desabilitar campo durante o cálculo automático', () => {

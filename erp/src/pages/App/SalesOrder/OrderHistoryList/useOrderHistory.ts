@@ -35,7 +35,7 @@ export const useOrderHistory = (filters?: any) => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 15;
+  const itemsPerPage = 10;
   const {
     selectedOrders,
     setSelectedOrders,

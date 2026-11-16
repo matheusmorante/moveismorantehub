@@ -22,6 +22,7 @@ type Props = {
   onClose: () => void;
   invoice: InboundInvoice | null;
   onSaveSuccess: () => void | Promise<void>;
+  onSaveUncertain?: () => void | Promise<void>;
   canAccessReceipts?: boolean;
   onGenerateReceipt?: (invoice: InboundInvoice) => void;
 };
@@ -31,6 +32,7 @@ export function ManageInboundInvoiceMappingsModal({
   onClose,
   invoice: initialInvoice,
   onSaveSuccess,
+  onSaveUncertain,
   canAccessReceipts = false,
   onGenerateReceipt,
 }: Props) {
@@ -268,7 +270,7 @@ export function ManageInboundInvoiceMappingsModal({
         uncertain.current.add(nextInvoice.id);
         try {
           await withTimeout(
-            Promise.resolve(onSaveSuccess()).then(() => true),
+            Promise.resolve((onSaveUncertain || onSaveSuccess)()).then(() => true),
             15000,
             false,
             'entrada:atualizar-lista-incerta'

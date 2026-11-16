@@ -134,9 +134,16 @@ export const ScheduleCard: React.FC<Props> = ({
             {displayPeriodLabel}
           </Text>
         </View>
-        <Text style={[styles.orderIndexText, isDarkMode && styles.textMuted]}>
-          #{item.orderIndex || item.id.substring(0, 5)}
-        </Text>
+        <View style={{ alignItems: 'flex-end', gap: 3 }}>
+          <Text style={[styles.orderIndexText, isDarkMode && styles.textMuted]}>
+            #{item.orderIndex || item.id.substring(0, 5)}
+          </Text>
+          {(item.order as any)?.scheduleAppointment?.total > 1 && (
+            <Text style={{ color: isDarkMode ? '#93c5fd' : '#2563eb', fontSize: 8, fontWeight: '900' }}>
+              OPERAÇÃO {(item.order as any).scheduleAppointment.index}/{(item.order as any).scheduleAppointment.total}
+            </Text>
+          )}
+        </View>
       </View>
 
       <ScheduleCardBadges

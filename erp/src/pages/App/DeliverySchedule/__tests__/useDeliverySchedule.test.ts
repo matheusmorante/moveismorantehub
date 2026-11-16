@@ -107,4 +107,20 @@ describe('useDeliverySchedule', () => {
       expect(result.current.schedule['2099-05-10']?.map((item) => item.id)).toEqual(['repositioned-order'])
     );
   });
+
+  it('mantém retirada imediata atendida na agenda sem incluir entregas atendidas', async () => {
+    const immediatePickup = {
+      ...order('immediate-pickup'),
+      status: 'fulfilled',
+      shipping: { deliveryMethod: 'pickup', scheduling: { date: '2099-01-01', startTime: '09:00', immediatePickup: true } },
+    };
+    const completedDelivery = { ...order('completed-delivery'), status: 'fulfilled' };
+    mocks.fetchScheduledAndDraftOrders.mockResolvedValueOnce([immediatePickup, completedDelivery]);
+
+    const { result } = renderHook(() => useDeliverySchedule());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    await waitFor(() =>
+      expect(result.current.schedule['2099-01-01']?.map((item) => item.id)).toEqual(['immediate-pickup'])
+    );
+  });
 });

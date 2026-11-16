@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 const coordinateSchema = z.tuple([z.number().min(-180).max(180), z.number().min(-90).max(90)]);
 const optionalText = z.string().trim().optional();
-const optionalAddressNumber = z.string().regex(/^[0-9]*$/, 'O número do endereço deve conter apenas números.').optional();
+const optionalAddressNumber = z.string().trim().regex(/^[0-9]*$/, 'O número do endereço deve conter apenas números.').optional();
 
 export const routeAddressFormSchema = z.object({
   street: optionalText, number: optionalAddressNumber, neighborhood: optionalText, city: optionalText,
@@ -45,6 +45,22 @@ export const addressPlaceLookupFormSchema = z.object({
   placeId: z.string().trim().min(1, 'A localização selecionada não é válida.'),
 });
 export const routeFreightFormSchema = routeAddressFormSchema.safeExtend({ street: addressSelectionFormSchema.shape.street });
+
+/** Endereço alternativo de uma operação de venda, validado ao adicionar ou salvar o endereço. */
+export const operationDeliveryAddressFormSchema = routeAddressFormSchema.safeExtend({
+  cep: z.string().trim().default(''),
+  street: z.string().trim().min(1, 'Informe o logradouro.'),
+  number: z.string().trim().min(1, 'Informe o número.').regex(/^\d+$/, 'Informe um número válido.'),
+  complement: z.string().trim().default(''),
+  observation: z.string().trim().default(''),
+  neighborhood: z.string().trim().default(''),
+  city: z.string().trim().min(1, 'Informe a cidade.'),
+  state: z.string().trim().max(2).default('PR'),
+  housingType: z.string().trim().default(''),
+  mapsUrl: z.string().trim().default(''),
+  googleMapsUrl: z.string().trim().default(''),
+  mapsLink: z.string().trim().default(''),
+});
 
 export const routeDistanceResultSchema = z.object({
   distanceKm: z.number().nonnegative(), durationMinutes: z.number().nonnegative(),

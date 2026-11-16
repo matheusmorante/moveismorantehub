@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { getLocalDateString } from '../../../utils/orderUtils';
+import { expandOrderAppointments } from '../../../../../shared-utils/orderAppointmentOccurrences';
 import { useScopedOrderSchedule } from './useScopedOrderSchedule';
 import {
   buildDeliveryRouteItems, countDeliveryRouteOrders, computeDeliveryRouteStats,
@@ -12,7 +13,15 @@ export type { DeliveryRouteDateScope, DeliveryRouteItem };
 export function useDeliveryRoute(dateScope: DeliveryRouteDateScope = 'today') {
   const todayStr = getLocalDateString(new Date());
   const schedule = useScopedOrderSchedule('route', { dateScope, startDate: todayStr });
-  const { orders, showingOffline } = schedule;
+  const orders = useMemo(() => schedule.orders.flatMap((order: any) =>
+    expandOrderAppointments(order).map((occurrence: any) => {
+      if (occurrence.scheduleAppointment && order.order_data) {
+        Object.defineProperty(occurrence, '_sourceOrderData', { value: order.order_data });
+      }
+      return occurrence;
+    })
+  ), [schedule.orders]);
+  const { showingOffline } = schedule;
   const remoteCounts = schedule.counts;
   const routeItems = useMemo<DeliveryRouteItem[]>(
     () => buildDeliveryRouteItems(orders, dateScope, todayStr), [dateScope, orders, todayStr]
@@ -25,5 +34,5 @@ export function useDeliveryRoute(dateScope: DeliveryRouteDateScope = 'today') {
   const currentDelivery = useMemo(() => routeItems.find((item) => item.isCurrent) || null, [routeItems]);
   const nextDelivery = useMemo(() => currentDelivery || routeItems.find((item) => item.isNext) || null, [currentDelivery, routeItems]);
   const stats = useMemo(() => computeDeliveryRouteStats(routeItems), [routeItems]);
-  return { ...schedule, routeItems, dateScopeCounts, currentDelivery, nextDelivery, stats };
+  return { ...schedule, orders, routeItems, dateScopeCounts, currentDelivery, nextDelivery, stats };
 }

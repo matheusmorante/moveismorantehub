@@ -4,6 +4,8 @@ import {
   type AssemblyHandlingOption,
 } from '../../utils/aiSummaryHelper';
 import { getLocalDateString, isCancelledOrder, parseOrderDateStr } from '../../utils/orderUtils';
+import { getOperationalScheduleDate } from '../../utils/operationalSchedule';
+import { expandOrderAppointments } from '../../../../shared-utils/orderAppointmentOccurrences';
 
 export type AssemblyTask = {
   id: string;
@@ -27,6 +29,7 @@ const getSchedule = (order: any) => {
 };
 
 const getScheduleDate = (order: any): string => {
+  if (order.scheduleAppointment) return getOperationalScheduleDate(order);
   const data = order.order_data || {};
   const shipping = data.shipping || {};
   const schedule = getSchedule(order);
@@ -57,7 +60,7 @@ export const getAssemblyTasks = (
 ): AssemblyTask[] => {
   const today = getLocalDateString(new Date());
 
-  return orders.flatMap((order) => {
+  return orders.flatMap(expandOrderAppointments).flatMap((order) => {
     const data = order.order_data || {};
     const shipping = data.shipping || {};
     const schedule = getSchedule(order);
@@ -65,7 +68,7 @@ export const getAssemblyTasks = (
     const status = String(order.status || data.status || '').toLowerCase();
     const hasPendingSchedule =
       schedule.pendingScheduling ||
-      schedule.notInformed ||
+      (schedule.notInformed && !schedule.immediatePickup) ||
       data.pendingScheduling ||
       order.pending_scheduling;
 
@@ -107,7 +110,7 @@ export const getAssemblyTasks = (
 
       return [
         {
-          id: `${order.id || order.orderIndex || 'order'}-${index}-${normalizeLabel(handling)}`,
+          id: `${order.scheduleAppointment?.key || order.id || order.orderIndex || 'order'}-${index}-${normalizeLabel(handling)}`,
           order,
           item,
           dateKey,

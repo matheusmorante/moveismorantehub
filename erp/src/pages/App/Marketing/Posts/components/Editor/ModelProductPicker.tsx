@@ -24,7 +24,7 @@ export function ModelProductPicker({
       node &&
       node.scrollTop + node.clientHeight >= node.scrollHeight - 48 &&
       !e.loading &&
-      e.products.length < e.total
+      e.hasMore
     )
       e.setPage(e.page + 1);
   };

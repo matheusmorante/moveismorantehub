@@ -1,5 +1,29 @@
 import FullAddress from './fullAddress.type';
 
+type Scheduling = {
+  date: string;
+  endDate?: string;
+  dateType?: 'fixed' | 'range';
+  time: string;
+  startTime?: string;
+  endTime?: string;
+  type: 'fixed' | 'range';
+  notInformed?: boolean;
+  pendingScheduling?: boolean;
+  immediatePickup?: boolean;
+  alternatives?: Array<{
+    id: string;
+    date: string;
+    endDate?: string;
+    dateType?: 'fixed' | 'range';
+    time: string;
+    startTime?: string;
+    endTime?: string;
+    type: 'fixed' | 'range';
+  }>;
+  scheduleMode?: 'defined' | 'alternatives';
+};
+
 type Shipping = {
   value: number;
   freightMode?: '0' | '1' | '2' | '3' | '4' | '9';
@@ -17,28 +41,30 @@ type Shipping = {
   deliveryMethod: 'delivery' | 'pickup';
   noAddress?: boolean;
   orderType: string;
-  scheduling: {
-    date: string;
-    endDate?: string; // final do período se dateType for 'range'
-    dateType?: 'fixed' | 'range';
-    time: string; // legacy/display
-    startTime?: string; // HH:mm
-    endTime?: string; // HH:mm
-    type: 'fixed' | 'range';
-    notInformed?: boolean;
-    pendingScheduling?: boolean;
-    immediatePickup?: boolean;
-    alternatives?: Array<{
+  scheduling: Scheduling & {
+    appointments?: Array<{
       id: string;
-      date: string;
-      endDate?: string;
-      dateType?: 'fixed' | 'range';
-      time: string;
-      startTime?: string;
-      endTime?: string;
-      type: 'fixed' | 'range';
+      itemIds: string[];
+      itemQuantities?: Record<string, number>;
+      deliveryMethod?: 'delivery' | 'pickup';
+      /** Quando falso, a operação usa o endereço alternativo salvo abaixo. */
+      useCustomerAddress?: boolean;
+      deliveryAddress?: FullAddress;
+      freightValue?: number;
+      distance?: number;
+      itemHandlings?: Record<string, {
+        handlingType: string;
+        assemblyResponsible?: 'Nossa equipe' | 'Montador terceirizado' | '';
+      }>;
+      /** Avisos e instruções exclusivos desta operação. */
+      notices?: {
+        callBeforeDelivery?: boolean;
+        bringCardMachine?: boolean;
+        callOnArrival?: boolean;
+        instructions?: string;
+      };
+      scheduling: Scheduling;
     }>;
-    scheduleMode?: 'defined' | 'alternatives';
   };
   destinationCoords?: [number, number]; // [lng, lat] (GeoJSON/MapLibre format)
   routeGeoJSON?: any; // GeoJSON geometry from routing API

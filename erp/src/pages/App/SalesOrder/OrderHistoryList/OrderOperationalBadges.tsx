@@ -9,6 +9,7 @@ import PickupIcon from '@/components/shared/PickupIcon';
 interface OrderOperationalBadgesProps {
   order: Order;
   showTrash?: boolean;
+  showMethodBadge?: boolean;
   isPaidTraffic: boolean;
   statusConfig: Record<string, { label: string; bg: string; text: string; dot: string }>;
   onStatusUpdate: (id: string, newStatus: Order['status']) => void;
@@ -18,6 +19,7 @@ interface OrderOperationalBadgesProps {
 export const OrderOperationalBadges = ({
   order,
   showTrash,
+  showMethodBadge = true,
   isPaidTraffic,
   statusConfig,
   onStatusUpdate,
@@ -103,9 +105,19 @@ export const OrderOperationalBadges = ({
         </div>
       )}
 
-      {/* 4. Status Picker Button */}
+      {/* 4. Status Badge / Picker */}
+      {order.status === 'draft' ? (
+        <span
+          className="inline-flex h-6 items-center gap-1 rounded-md border border-slate-200 bg-slate-100 px-2 text-[9px] font-bold text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
+          title={currentStatus.label}
+          aria-label={currentStatus.label}
+        >
+          <i className={`bi ${sIcon} text-[11px] leading-none`} aria-hidden="true" />
+          {currentStatus.label}
+        </span>
+      ) : (
       <div
-        className={order.status === 'draft' ? 'hidden' : 'relative'}
+        className="relative"
         onClick={isCancelled ? undefined : (e) => e.stopPropagation()}
       >
         <button
@@ -170,13 +182,14 @@ export const OrderOperationalBadges = ({
           </>
         )}
       </div>
+      )}
 
       {/* 5. Método de Entrega / Retirada / Devolução Vinculada */}
       {hasLinkedReturn ? (
         <div className="flex h-6 w-6 items-center justify-center rounded-md border border-orange-600 bg-orange-500 text-white shadow-2xs" title="Devolução vinculada">
           <ReturnIcon white className="h-5 w-5" />
         </div>
-      ) : isAssis ? (
+      ) : showMethodBadge && isAssis ? (
         order.linkedOrderId ? (
           <div
             className={`flex items-center justify-center h-6 w-6 rounded-md border shadow-2xs ${
@@ -193,7 +206,7 @@ export const OrderOperationalBadges = ({
             )}
           </div>
         ) : null
-      ) : !isRet ? (
+      ) : showMethodBadge && !isRet ? (
         <div
           className={`flex items-center justify-center h-6 w-6 rounded-md border shadow-2xs ${
             isPick

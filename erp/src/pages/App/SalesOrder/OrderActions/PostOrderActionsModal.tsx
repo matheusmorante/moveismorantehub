@@ -16,7 +16,13 @@ import {
 import { DELIVERY_ACTION_KEYS, getAvailablePostOrderActions } from './postOrderActionsHelpers';
 import { PostOrderActionGridButton } from './components/PostOrderActionGridButton';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
-import PickupIcon from '@/components/shared/PickupIcon';
+import {
+  createOrderForOperation,
+  getOperationActionClicked,
+  getOperationActionStale,
+  getOrderOperations,
+  operationActionStateKey,
+} from './operationActionScope';
 
 interface PostOrderActionsModalProps {
   readonly order: Order;
@@ -68,14 +74,15 @@ const PostOrderActionsModal: React.FC<PostOrderActionsModalProps> = ({
 
   const isReturnOrder = order.orderType === 'return';
   const isPickupOrder = order.shipping?.deliveryMethod === 'pickup';
-  const deliveryModalLabel = isPickupOrder ? 'Informações da Retirada' : 'Informações da Entrega';
+  const deliveryModalLabel = 'Informações sobre as operações';
+  const orderOperations = getOrderOperations(order);
   const isCollectionScheduled =
     order.status === 'scheduled' &&
     (order.returnMethod === 'store_collection' || order.returnMethod == null);
   const modalTitle = isReturnOrder ? 'Ações após cadastro' : 'Ações Pós-Venda';
   const availableActions = getAvailablePostOrderActions(order);
 
-  const [clickedButtons, setClickedButtons] = React.useState<Record<string, boolean>>(
+  const [clickedButtons, setClickedButtons] = React.useState<Record<string, boolean | undefined>>(
     order.isButtonsClicked || {}
   );
   const directApiSendInFlight = React.useRef(false);
@@ -83,17 +90,24 @@ const PostOrderActionsModal: React.FC<PostOrderActionsModalProps> = ({
   const [staleButtons, setStaleButtons] = React.useState<Order['isButtonsStale']>(
     order.isButtonsStale || {}
   );
-  const isDeliveryInfoStale = [...DELIVERY_ACTION_KEYS].some((key) =>
-    staleButtons?.[key as keyof IsButtonsClicked]
+  const trackedDeliveryActionKeys = [...DELIVERY_ACTION_KEYS].filter(
+    (key) => isAdministrator || key !== 'sendCustomerOrderDirectApi'
   );
-  const isDeliveryInfoComplete = [...DELIVERY_ACTION_KEYS]
-    .filter((key) => isAdministrator || key !== 'sendCustomerOrderDirectApi')
-    .every((key) => Boolean(clickedButtons[key]));
+  const isDeliveryInfoStale = orderOperations.some((operation) =>
+    [...DELIVERY_ACTION_KEYS].some((key) =>
+      getOperationActionStale(staleButtons, operation.id, key, orderOperations.length === 1)
+    )
+  );
+  const isDeliveryInfoComplete = orderOperations.length > 0 && orderOperations.every((operation) =>
+    trackedDeliveryActionKeys.every((key) =>
+      getOperationActionClicked(clickedButtons, operation.id, key, orderOperations.length === 1)
+    )
+  );
   const deliveryInfoStatusClasses = isDeliveryInfoStale
     ? 'text-[#3b1900] bg-amber-400 hover:bg-amber-300 border-amber-500 dark:bg-amber-500/20 dark:text-amber-200 dark:border-amber-500/40'
     : `${isPickupOrder ? 'text-purple-600 bg-purple-50 dark:bg-purple-900/20' : 'text-orange-600 bg-orange-50 dark:bg-orange-900/20'} ${isDeliveryInfoComplete ? 'border-emerald-500 ring-2 ring-emerald-500 ring-offset-2 dark:ring-offset-slate-900' : 'border-slate-100 dark:border-slate-800'}`;
 
-  const handleMarkActionCompleted = async (key: keyof IsButtonsClicked) => {
+  const handleMarkActionCompleted = async (key: string) => {
     setClickedButtons((prev) => ({ ...prev, [key]: true }));
     const nextStaleButtons = { ...order.isButtonsStale };
     delete nextStaleButtons[key];
@@ -125,7 +139,8 @@ const PostOrderActionsModal: React.FC<PostOrderActionsModalProps> = ({
 
   const handleExecuteAction = async (
     key: keyof IsButtonsClicked,
-    action: (typeof buttons)[number]['action']
+    action: (typeof buttons)[number]['action'],
+    operationId?: string
   ) => {
     const isDirectApiSend = action === 'SEND_CUSTOMER_ORDER_DIRECT_API';
     if (isDirectApiSend && directApiSendInFlight.current) return;
@@ -136,8 +151,15 @@ const PostOrderActionsModal: React.FC<PostOrderActionsModalProps> = ({
 
     try {
       const module = await import('./orderActionsConfig');
-      const actionResult = module.actionsMap[action]?.(order);
-      await handleMarkActionCompleted(key);
+      const operationEntry = orderOperations.find((operation) => operation.id === operationId);
+      const actionOrder = operationEntry
+        ? createOrderForOperation(order, operationEntry, orderOperations.length)
+        : order;
+      const trackedKey = operationEntry
+        ? operationActionStateKey(operationEntry.id, String(key))
+        : String(key);
+      const actionResult = module.actionsMap[action]?.(actionOrder);
+      await handleMarkActionCompleted(trackedKey);
       if (isDirectApiSend) await actionResult;
     } catch (err: unknown) {
       console.error('Erro ao executar ação pós-venda:', err);
@@ -246,11 +268,7 @@ const PostOrderActionsModal: React.FC<PostOrderActionsModalProps> = ({
                     <i className="bi bi-check text-sm font-black" aria-hidden="true" />
                   </div>
                 )}
-                {isPickupOrder ? (
-                  <PickupIcon className="mb-2 h-7 w-7" />
-                ) : (
-                  <i className="bi bi-truck mb-2 text-2xl" />
-                )}
+                <i className="bi bi-truck mb-2 text-2xl" />
                 <span className="text-[10px] font-black uppercase tracking-widest text-center">
                   {deliveryModalLabel}
                 </span>

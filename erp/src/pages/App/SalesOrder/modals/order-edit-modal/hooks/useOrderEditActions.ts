@@ -28,6 +28,16 @@ export function useOrderEditActions({
     async (e?: React.MouseEvent) => {
       e?.preventDefault();
       if (!effectiveOrder) return false;
+      if (
+        (!effectiveOrder.status || effectiveOrder.status === 'draft') &&
+        formState.status === 'draft' && formState.isDraftAutoSaveEnabled
+      ) {
+        const savedId = await formActions.handleSaveOrder();
+        if (!savedId) return false;
+        onSaveSuccess(String(savedId));
+        onClose();
+        return String(savedId);
+      }
       const updatedOrder = buildUpdatedOrder({
         effectiveOrder,
         formState,
@@ -66,7 +76,7 @@ export function useOrderEditActions({
       }
       return saveWithFiscalAudit(updatedOrder);
     },
-    [effectiveOrder, formActions, formState, saveWithFiscalAudit, setPendingUpdate]
+    [effectiveOrder, formActions, formState, onClose, onSaveSuccess, saveWithFiscalAudit, setPendingUpdate]
   );
 
   const handleSaveReconciliation = useCallback(async () => {

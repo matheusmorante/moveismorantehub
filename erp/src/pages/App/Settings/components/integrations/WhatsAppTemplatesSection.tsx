@@ -37,9 +37,10 @@ const WhatsAppTemplatesSection: React.FC<Props> = ({ settings, onChange }) => {
     {
       id: 'deliveryInfo',
       label: 'Informativo de Entrega',
-      description: 'Enviado para a equipe de logística ou motorista.',
+      description: 'Enviado para a equipe com a programação de cada operação e endereços específicos.',
       variables: [
         '{{customerName}}',
+        '{{operations}}',
         '{{deliveryDate}}',
         '{{deliveryTime}}',
         '{{phone}}',

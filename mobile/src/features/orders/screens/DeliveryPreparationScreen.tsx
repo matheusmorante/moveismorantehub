@@ -56,6 +56,8 @@ export function DeliveryPreparationScreen({
     responsibles,
     availableStaff,
     loadingStaff,
+    staffSearchFeedback,
+    searchStaff,
     handleAddResponsible,
     handleRemoveResponsible,
   } = useDeliveryStaff({ order, userProfile });
@@ -238,6 +240,8 @@ export function DeliveryPreparationScreen({
         onRemoveResponsible={handleRemoveResponsible}
         availableStaff={availableStaff}
         loadingStaff={loadingStaff}
+        staffSearchFeedback={staffSearchFeedback}
+        onSearchStaff={searchStaff}
         userProfile={userProfile}
       />
 

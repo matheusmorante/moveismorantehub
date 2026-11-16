@@ -28,10 +28,13 @@ export const extractNavigationTarget = (order: unknown, fullAddress?: string): N
   const orderData = asRecord(row.order_data);
   const shipping = asRecord(orderData.shipping ?? row.shipping);
   const deliveryAddress = asRecord(shipping.deliveryAddress ?? shipping.address);
+  const useCustomerAddress = shipping.useCustomerAddress !== false;
   const customerData = asRecord(
     orderData.customerData ?? row.customerData ?? orderData.customer ?? row.customer
   );
-  const customerAddress = asRecord(customerData.fullAddress ?? customerData.address);
+  const customerAddress = useCustomerAddress
+    ? asRecord(customerData.fullAddress ?? customerData.address)
+    : {};
   const destinationCoords = Array.isArray(shipping.destinationCoords)
     ? shipping.destinationCoords
     : [];
@@ -43,14 +46,14 @@ export const extractNavigationTarget = (order: unknown, fullAddress?: string): N
       shipping.mapsUrl ??
       shipping.googleMapsUrl ??
       shipping.mapsLink ??
-      customerAddress.mapsUrl ??
-      customerAddress.googleMapsUrl ??
-      customerAddress.mapsLink ??
-      customerData.mapsUrl ??
-      customerData.googleMapsUrl ??
-      customerData.mapsLink ??
-      orderData.mapsUrl ??
-      row.mapsUrl
+      (useCustomerAddress ? customerAddress.mapsUrl : undefined) ??
+      (useCustomerAddress ? customerAddress.googleMapsUrl : undefined) ??
+      (useCustomerAddress ? customerAddress.mapsLink : undefined) ??
+      (useCustomerAddress ? customerData.mapsUrl : undefined) ??
+      (useCustomerAddress ? customerData.googleMapsUrl : undefined) ??
+      (useCustomerAddress ? customerData.mapsLink : undefined) ??
+      (useCustomerAddress ? orderData.mapsUrl : undefined) ??
+      (useCustomerAddress ? row.mapsUrl : undefined)
   );
 
   return {

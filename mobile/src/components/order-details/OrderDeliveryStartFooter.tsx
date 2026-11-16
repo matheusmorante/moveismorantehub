@@ -3,6 +3,7 @@ import { Animated, StyleSheet, Text, TouchableOpacity, View } from 'react-native
 import { Play, Route } from 'lucide-react-native';
 
 export interface OrderDeliveryStartFooterOrder {
+  scheduleAppointment?: { appointmentId?: string };
   status?: string;
   deliveryStatus?: string;
   delivery_status?: string;
@@ -109,7 +110,8 @@ export function OrderDeliveryStartFooter({
   const isFulfilled = status === 'fulfilled' || status === 'atendido';
   const isScheduled = /agendad|scheduled/.test(status);
 
-  if (!allowed || pickup || isFulfilled || !isScheduled) return null;
+  if (!allowed || pickup || isFulfilled || !isScheduled ||
+      (order.scheduleAppointment && ['completed', 'unattended'].includes(String(deliveryStatus)))) return null;
 
   const isInService =
     deliveryStatus === 'in_service' ||

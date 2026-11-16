@@ -51,6 +51,7 @@ export const useSalesOrderForm = (
   const [marketingOrigin, setMarketingOrigin] = useState('organic');
   const [orderDate, setOrderDate] = useState(() => getCurrentDatetimeLocal());
   const [currentOrderId, setCurrentOrderId] = useState<string | undefined>(undefined);
+  const [isNewSaleFlow, setIsNewSaleFlow] = useState(true);
   const [status, setStatus] = useState<string>('draft');
   const [isDraftAutoSaveEnabled, setIsDraftAutoSaveEnabled] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -88,6 +89,7 @@ export const useSalesOrderForm = (
   useEffect(() => {
     latestState.current = {
       currentOrderId,
+      isNewSaleFlow,
       orderIndex,
       isGeneratingCode,
       status,
@@ -146,7 +148,10 @@ export const useSalesOrderForm = (
     [orderIndex]
   );
 
-  const { isSavingDraft, draftAutoSaveStatus, waitForActiveSave, cancelAutoSave } =
+  const {
+    isSavingDraft, draftAutoSaveStatus, waitForActiveSave, cancelAutoSave,
+    flushDraftAutoSave, markLoadedDraftBaseline, resumeAutoSave, getDraftCreationKey,
+  } =
     useOrderAutoSave(
       items,
       shipping,
@@ -162,7 +167,13 @@ export const useSalesOrderForm = (
       setCurrentOrderId,
       latestState,
       isDraftAutoSaveEnabled,
-      testModeFields
+      testModeFields,
+      {
+        sellerId, orderType, assistanceItems, assistanceServiceValue, assistanceCost,
+        linkedOrderId, isButtonsClicked, fiscalContext,
+      },
+      ensureOrderCode,
+      setErrors
     );
 
   const { handleSaveOrder, handleCompleteOrder } = useOrderFormSubmission({
@@ -178,6 +189,8 @@ export const useSalesOrderForm = (
     ensureOrderCode,
     cancelAutoSave,
     waitForActiveSave,
+    resumeAutoSave,
+    getDraftCreationKey,
     setIsSaving,
     setCurrentOrderId,
     setStatus,
@@ -189,12 +202,14 @@ export const useSalesOrderForm = (
     (order: Order) =>
       hydrateOrderFormForEditing(order, {
         autoSaveExistingDrafts,
+        markLoadedDraftBaseline,
         cancelPendingDistanceCalculation,
         schedulingSessionRef,
         resetItemHandlingMemory,
         setIsDraftAutoSaveEnabled,
         setOrderIndex,
         setCurrentOrderId,
+        setIsNewSaleFlow,
         latestState,
         generateCodeForCopyOrNew,
         setItems,
@@ -222,11 +237,13 @@ export const useSalesOrderForm = (
       setPayments,
       setCustomerData,
       setOrderIndex,
+      setIsNewSaleFlow,
       setIsDraftAutoSaveEnabled,
       generateCodeForCopyOrNew,
       cancelPendingDistanceCalculation,
       resetItemHandlingMemory,
       autoSaveExistingDrafts,
+      markLoadedDraftBaseline,
     ]
   );
 
@@ -322,6 +339,7 @@ export const useSalesOrderForm = (
       sellerId,
       marketingOrigin,
       currentOrderId,
+      isNewSaleFlow,
       orderIndex,
       isGeneratingCode,
       status,
@@ -350,6 +368,7 @@ export const useSalesOrderForm = (
       sellerId,
       marketingOrigin,
       currentOrderId,
+      isNewSaleFlow,
       orderIndex,
       isGeneratingCode,
       status,
@@ -387,9 +406,22 @@ export const useSalesOrderForm = (
     setTestModeFields(fields);
   }, []);
 
+  const clearValidationErrors = useCallback((shouldClear: (key: string) => boolean) => {
+    setErrors((previous) => {
+      const next = { ...previous };
+      Object.keys(next).forEach((key) => {
+        if (shouldClear(key)) delete next[key];
+      });
+      return next;
+    });
+  }, []);
+
   const actions = useMemo(
     () => ({
-      setItems: setItemsWithHandlingReset,
+      setItems: (update: React.SetStateAction<Item[]>) => {
+        setItemsWithHandlingReset(update);
+        clearValidationErrors((key) => key.startsWith('item_') || key === 'items_summary');
+      },
       setShipping: (val: React.SetStateAction<Shipping>) => {
         setShipping(val);
         setErrors((prev) => {
@@ -401,10 +433,25 @@ export const useSalesOrderForm = (
         });
       },
       setDeliveryMethod,
-      setPayments,
-      setCustomerData: handleCustomerDataChange,
+      setPayments: (update: React.SetStateAction<typeof payments>) => {
+        setPayments(update);
+        clearValidationErrors((key) => key.startsWith('payment_') || key === 'payments_summary');
+      },
+      setCustomerData: (...args: Parameters<typeof handleCustomerDataChange>) => {
+        handleCustomerDataChange(...args);
+        clearValidationErrors((key) => key.startsWith('customer_') || key === 'customer');
+      },
       setObservation,
-      handleItemChange,
+      handleItemChange: (...args: Parameters<typeof handleItemChange>) => {
+        handleItemChange(...args);
+        const [index] = args;
+        clearValidationErrors((key) => key.startsWith(`item_${index}_`));
+      },
+      handleSelectProduct: (...args: Parameters<typeof handleSelectProduct>) => {
+        handleSelectProduct(...args);
+        const [index] = args;
+        clearValidationErrors((key) => key.startsWith(`item_${index}_`));
+      },
       setSeller: (val: string) => {
         setSeller(val);
         setErrors((prev) => {
@@ -428,13 +475,16 @@ export const useSalesOrderForm = (
       setOrderIndex,
       loadOrderForEditing,
       handleAutoCalculateDistance,
-      handleSelectProduct,
       handleSaveOrder,
       handleCompleteOrder,
+      flushDraftAutoSave,
       clearForm,
       setErrors,
       validateOrder,
-      setOrderDate,
+      setOrderDate: (value: React.SetStateAction<string>) => {
+        setOrderDate(value);
+        clearValidationErrors((key) => key === 'date' || key === 'order_date');
+      },
       goToNextStep,
       goToPrevStep,
       jumpToStep: (step: number) => {
@@ -442,14 +492,18 @@ export const useSalesOrderForm = (
       },
     }),
     [
-      setItems,
       setItemsWithHandlingReset,
+      clearValidationErrors,
       setShipping,
       setDeliveryMethod,
       setPayments,
       handleCustomerDataChange,
+      setOrderDate,
+      setErrors,
+      setCurrentStep,
       setObservation,
       handleItemChange,
+      handleSelectProduct,
       setSeller,
       setSellerId,
       setTestMode,
@@ -457,9 +511,9 @@ export const useSalesOrderForm = (
       setOrderIndex,
       loadOrderForEditing,
       handleAutoCalculateDistance,
-      handleSelectProduct,
       handleSaveOrder,
       handleCompleteOrder,
+      flushDraftAutoSave,
       clearForm,
       goToNextStep,
       goToPrevStep,

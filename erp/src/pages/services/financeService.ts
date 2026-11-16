@@ -1,5 +1,5 @@
 import { supabase } from '@/pages/utils/supabaseConfig';
-import { financialSettlementCommandSchema, financialSettlementResultSchema, recurringPayableCommandSchema, recurringPayableResultSchema, payableWriteSchema, receivableWriteSchema, financialTransactionWriteSchema } from '../../../../shared-utils/financialFormSchemas';
+import { financialSettlementCommandSchema, financialSettlementResultSchema, recurringPayableCommandSchema, recurringPayableCompactResultSchema, payableWriteSchema, receivableWriteSchema, financialTransactionWriteSchema } from '../../../../shared-utils/financialFormSchemas';
 import { redeConfigFormSchema } from '../../../../shared-utils/accountFormSchemas';
 import type { z } from 'zod';
 import {
@@ -51,6 +51,51 @@ export interface FinanceReceivablesPage {
   total_count: number;
 }
 
+export type PayableCategoryOption = Pick<FinancialCategory, 'id' | 'name' | 'parent_id'>;
+
+interface FinanceDashboardAccountSummary {
+  pendingTotal: number;
+  overdueTotal: number;
+  total: number;
+  count: number;
+}
+
+export interface FinanceDashboardForecastSummary {
+  payables: FinanceDashboardAccountSummary;
+  receivables: FinanceDashboardAccountSummary;
+}
+
+type OrderableCategory = { id: string; name: string; parent_id?: string | null };
+
+const orderFinancialCategories = <T extends OrderableCategory>(list: T[]): T[] => {
+  const compare = (a: T, b: T) => {
+    const isAOther = a.name.trim().toLowerCase().startsWith('outra');
+    const isBOther = b.name.trim().toLowerCase().startsWith('outra');
+    if (isAOther && !isBOther) return 1;
+    if (!isAOther && isBOther) return -1;
+    return a.name.localeCompare(b.name, 'pt-BR');
+  };
+  const roots = list.filter((category) => !category.parent_id).sort(compare);
+  const ordered = roots.flatMap((root) => [
+    root,
+    ...list.filter((category) => category.parent_id === root.id).sort(compare),
+  ]);
+  const placed = new Set(ordered.map((category) => category.id));
+  return [...ordered, ...list.filter((category) => !placed.has(category.id)).sort(compare)];
+};
+
+const parseSummaryNumber = (value: unknown): number => {
+  const parsed = typeof value === 'number' || typeof value === 'string' ? Number(value) : Number.NaN;
+  if (!Number.isFinite(parsed)) throw { uncertain: true };
+  return parsed;
+};
+
+const parseSummaryCount = (value: unknown): number => {
+  const parsed = parseSummaryNumber(value);
+  if (!Number.isSafeInteger(parsed) || parsed < 0) throw { uncertain: true };
+  return parsed;
+};
+
 const fetchAllFinancePages = async <T>(buildQuery: (from: number, to: number) => any) => {
   const rows: T[] = [];
   for (let from = 0; ; from += FINANCE_LIST_PAGE_SIZE) {
@@ -95,6 +140,31 @@ export function determineResultNature(
   return type === 'income' ? 'RECEITA' : 'DESPESA';
 }
 
+const prepareFinancialTransactionCreatePayload = async (
+  transaction: Omit<FinancialTransaction, 'id' | 'created_at' | 'updated_at'>
+) => {
+  const parsedTransaction = financialTransactionWriteSchema.parse(transaction);
+  let catName = '';
+  let categoryNature: ResultNature | undefined;
+  if (parsedTransaction.category_id) {
+    const { data: cat, error: categoryError } = await supabase
+      .from('financial_categories')
+      .select('name,type,result_nature')
+      .eq('id', parsedTransaction.category_id)
+      .maybeSingle();
+    if (categoryError) throw categoryError;
+    if (!cat) throw new Error('Categoria financeira indisponível.');
+    if (cat.type !== parsedTransaction.type) throw new Error('Categoria incompatível com a movimentação.');
+    if (cat?.name) catName = cat.name;
+    categoryNature = cat.result_nature || undefined;
+  }
+
+  return {
+    ...parsedTransaction,
+    category_name: catName || parsedTransaction.category_name || null,
+    result_nature: parsedTransaction.result_nature || categoryNature || determineResultNature(catName, parsedTransaction.type),
+  };
+};
 export const financeService = {
   determineResultNature,
 
@@ -114,13 +184,13 @@ export const financeService = {
 
   async createRecurringPayableExpense(input: z.input<typeof recurringPayableCommandSchema>) {
     const command = recurringPayableCommandSchema.parse(input);
-    const { data, error, status } = await supabase.rpc('create_recurring_payable_expense', {
+    const { data, error, status } = await supabase.rpc('create_recurring_payable_expense_compact', {
       p_request_id: command.request_id, p_payload: { payable: command.payable, frequency: command.frequency },
     });
     if (error) throwFinancialWriteError(error, status);
-    const parsed = recurringPayableResultSchema.safeParse(data);
+    const parsed = recurringPayableCompactResultSchema.safeParse(data);
     if (!parsed.success || parsed.data.recurring_expense_id !== command.request_id
-      || new Set(parsed.data.payable_ids).size !== 12) throw { uncertain: true };
+      || parsed.data.payable_count !== 12) throw { uncertain: true };
     return parsed.data;
   },
 
@@ -135,20 +205,16 @@ export const financeService = {
       result_nature: c.result_nature || determineResultNature(c.name, c.type),
     })) as FinancialCategory[];
 
-    const compare = (a: FinancialCategory, b: FinancialCategory) => {
-      const isAOther = a.name.trim().toLowerCase().startsWith('outra');
-      const isBOther = b.name.trim().toLowerCase().startsWith('outra');
-      if (isAOther && !isBOther) return 1;
-      if (!isAOther && isBOther) return -1;
-      return a.name.localeCompare(b.name, 'pt-BR');
-    };
-    const roots = list.filter((category) => !category.parent_id).sort(compare);
-    const ordered = roots.flatMap((root) => [
-      root,
-      ...list.filter((category) => category.parent_id === root.id).sort(compare),
-    ]);
-    const placed = new Set(ordered.map((category) => category.id));
-    return [...ordered, ...list.filter((category) => !placed.has(category.id)).sort(compare)];
+    return orderFinancialCategories(list);
+  },
+
+  async getPayableCategoryOptions(): Promise<PayableCategoryOption[]> {
+    const { data, error } = await supabase
+      .from('financial_categories')
+      .select('id,name,parent_id')
+      .eq('type', 'expense');
+    if (error) throw error;
+    return orderFinancialCategories((data || []) as PayableCategoryOption[]);
   },
 
   // --- Contas a Pagar ---
@@ -189,12 +255,23 @@ export const financeService = {
     return confirmedFinancialRow<AccountPayable>(data);
   },
 
+  async createPayableId(payable: Omit<AccountPayable, 'id' | 'created_at' | 'updated_at'>) {
+    const payload = payableWriteSchema.parse(payable);
+    const { data, error, status } = await supabase
+      .from('accounts_payable')
+      .insert([payload])
+      .select('id')
+      .single();
+    if (error) throwFinancialWriteError(error, status);
+    return confirmedFinancialRow<{ id: string }>(data);
+  },
+
   async bulkCreatePayables(payables: Omit<AccountPayable, 'id' | 'created_at' | 'updated_at'>[]) {
     const payload = payableWriteSchema.array().min(1).parse(payables);
-    const { data, error, status } = await supabase.from('accounts_payable').insert(payload).select();
+    const { data, error, status } = await supabase.from('accounts_payable').insert(payload).select('id');
     if (error) throwFinancialWriteError(error, status);
     if (!Array.isArray(data) || data.length !== payload.length) throw { uncertain: true };
-    const rows = data.map((row) => confirmedFinancialRow<AccountPayable>(row));
+    const rows = data.map((row) => confirmedFinancialRow<{ id: string }>(row));
     if (new Set(rows.map((row) => row.id)).size !== rows.length) throw { uncertain: true };
     return rows;
   },
@@ -209,6 +286,18 @@ export const financeService = {
       .single();
     if (error) throwFinancialWriteError(error, status);
     return confirmedFinancialRow<AccountPayable>(data, id);
+  },
+
+  async updatePayableId(id: string, updates: Partial<AccountPayable>) {
+    const payload = payableWriteSchema.partial().parse(updates);
+    const { data, error, status } = await supabase
+      .from('accounts_payable')
+      .update(payload)
+      .eq('id', id)
+      .select('id')
+      .single();
+    if (error) throwFinancialWriteError(error, status);
+    return confirmedFinancialRow<{ id: string }>(data, id);
   },
 
   // --- Despesas Fixas / Recorrentes ---
@@ -306,6 +395,17 @@ export const financeService = {
     return confirmedFinancialRow<AccountReceivable>(data, id);
   },
 
+  async updateReceivableId(id: string, updates: Partial<AccountReceivable>) {
+    const payload = receivableWriteSchema.partial().parse(updates);
+    const { data, error, status } = await supabase
+      .from('accounts_receivable')
+      .update(payload)
+      .eq('id', id)
+      .select('id')
+      .single();
+    if (error) throwFinancialWriteError(error, status);
+    return confirmedFinancialRow<{ id: string }>(data, id);
+  },
   // --- Fluxo de Caixa / Transações ---
   async getTransactions(startDate?: string, endDate?: string, categories?: FinancialCategory[]) {
     const transactionColumns = 'id,type,amount,date,description,payment_method,category_id,category_name,result_nature,purpose,transaction_time,account_id,counterparty,collaborator_id,collaborator_name,vehicle_id,due_date,due_day,is_recurring,installments_total,installment_number,origin,created_by,status,idempotency_key,payable_id,receivable_id,notes,created_at,updated_at';
@@ -332,7 +432,7 @@ export const financeService = {
   },
 
   async getCollaborators() {
-    const { data, error } = await supabase.from('profiles').select('id,full_name,role').limit(50);
+    const { data, error } = await supabase.from('profiles').select('id,full_name').limit(50);
     if (error) throw error;
     return (data || []).map((profile) => ({ id: profile.id, name: profile.full_name || 'Colaborador' }));
   },
@@ -402,28 +502,7 @@ export const financeService = {
   async createTransaction(
     transaction: Omit<FinancialTransaction, 'id' | 'created_at' | 'updated_at'>
   ) {
-    const parsedTransaction = financialTransactionWriteSchema.parse(transaction);
-    let catName = '';
-    let categoryNature: ResultNature | undefined;
-    if (parsedTransaction.category_id) {
-      const { data: cat, error: categoryError } = await supabase
-        .from('financial_categories')
-        .select('name,type,result_nature')
-        .eq('id', parsedTransaction.category_id)
-        .maybeSingle();
-      if (categoryError) throw categoryError;
-      if (!cat) throw new Error('Categoria financeira indisponível.');
-      if (cat.type !== parsedTransaction.type) throw new Error('Categoria incompatível com a movimentação.');
-      if (cat?.name) catName = cat.name;
-      categoryNature = cat.result_nature || undefined;
-    }
-
-    const payload = {
-      ...parsedTransaction,
-      category_name: catName || parsedTransaction.category_name || null,
-      result_nature: parsedTransaction.result_nature || categoryNature || determineResultNature(catName, parsedTransaction.type),
-    };
-
+    const payload = await prepareFinancialTransactionCreatePayload(transaction);
     const { data, error, status } = await supabase
       .from('financial_transactions')
       .insert([payload])
@@ -433,6 +512,18 @@ export const financeService = {
     return confirmedFinancialRow<FinancialTransaction>(data);
   },
 
+  async createTransactionId(
+    transaction: Omit<FinancialTransaction, 'id' | 'created_at' | 'updated_at'>
+  ) {
+    const payload = await prepareFinancialTransactionCreatePayload(transaction);
+    const { data, error, status } = await supabase
+      .from('financial_transactions')
+      .insert([payload])
+      .select('id')
+      .single();
+    if (error) throwFinancialWriteError(error, status);
+    return confirmedFinancialRow<{ id: string }>(data);
+  },
   async updateTransaction(id: string, updates: Partial<FinancialTransaction>) {
     const payload = financialTransactionWriteSchema.partial().parse(updates);
     const { data, error } = await supabase
@@ -488,6 +579,34 @@ export const financeService = {
       totalExpense,
       balance: Number(summary?.balance) || 0,
       count: Number(summary?.count) || 0,
+    };
+  },
+
+  async getDashboardForecastSummary(): Promise<FinanceDashboardForecastSummary> {
+    const { data, error } = await supabase.rpc('get_finance_dashboard_forecast_summary');
+    if (error) throw error;
+    if (!data || typeof data !== 'object') throw { uncertain: true };
+
+    const summary = data as {
+      payables?: { pending_total?: unknown; overdue_total?: unknown; total?: unknown; count?: unknown };
+      receivables?: { pending_total?: unknown; overdue_total?: unknown; total?: unknown; count?: unknown };
+    };
+    if (!summary.payables || typeof summary.payables !== 'object'
+      || !summary.receivables || typeof summary.receivables !== 'object') throw { uncertain: true };
+
+    return {
+      payables: {
+        pendingTotal: parseSummaryNumber(summary.payables.pending_total),
+        overdueTotal: parseSummaryNumber(summary.payables.overdue_total),
+        total: parseSummaryNumber(summary.payables.total),
+        count: parseSummaryCount(summary.payables.count),
+      },
+      receivables: {
+        pendingTotal: parseSummaryNumber(summary.receivables.pending_total),
+        overdueTotal: parseSummaryNumber(summary.receivables.overdue_total),
+        total: parseSummaryNumber(summary.receivables.total),
+        count: parseSummaryCount(summary.receivables.count),
+      },
     };
   },
 

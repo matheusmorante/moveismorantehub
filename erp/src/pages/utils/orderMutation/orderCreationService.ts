@@ -15,6 +15,7 @@ import { assertOrderHasNoCompositionLines } from './orderCompositionRules';
 import {
   UUID_PATTERN,
   applyTestArtifactCreateRules,
+  assertNoSeparateFulfillments,
   assertValidMutationScheduling,
   assertValidOrderQuotedStatus,
   buildCreateOrderRpcCall,
@@ -29,6 +30,7 @@ export const executeSaveOrder = async (
   options: { idempotencyKey?: string } = {}
 ): Promise<string> => {
   assertValidOrderQuotedStatus(order.status, order.orderType);
+  if (!order.id) assertNoSeparateFulfillments(order, order.status);
   assertValidMutationScheduling(order, order.status);
 
   if (order.id) {

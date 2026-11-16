@@ -47,38 +47,43 @@ export const createOrderDomainSchema = (requiredFields: CommercialRequiredFields
   if (value.status !== 'draft') {
     if (!value.date.trim()) ctx.addIssue({ code: 'custom', path: ['date'], message: 'A data do pedido é obrigatória.' });
     if (!value.seller.trim()) ctx.addIssue({ code: 'custom', path: ['seller'], message: 'Selecione o atendente responsável.' });
-    if (
-      value.orderType === 'sale' &&
-      value.shipping?.deliveryMethod === 'delivery' &&
-      value.shipping.callBeforeDelivery === undefined
-    ) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['shipping', 'callBeforeDelivery'],
-        message: 'Selecione se é necessário ligar antes da entrega.',
-      });
-    }
-    if (
-      value.orderType === 'sale' &&
-      value.shipping?.deliveryMethod === 'delivery' &&
-      value.shipping.bringCardMachine === undefined
-    ) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['shipping', 'bringCardMachine'],
-        message: 'Selecione se é necessário levar máquina de cartão.',
-      });
-    }
-    if (
-      value.orderType === 'sale' &&
-      value.shipping?.deliveryMethod === 'delivery' &&
-      value.shipping.callOnArrival === undefined
-    ) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['shipping', 'callOnArrival'],
-        message: 'Selecione se é necessário ligar ao chegar.',
-      });
+    if (value.orderType === 'sale' && value.shipping) {
+      const appointments = (value.shipping as Record<string, any>).scheduling?.appointments as Array<{
+        deliveryMethod?: 'delivery' | 'pickup';
+        notices?: {
+          callBeforeDelivery?: boolean;
+          bringCardMachine?: boolean;
+          callOnArrival?: boolean;
+        };
+      }> | undefined;
+      const requiredNotices = [
+        ['callBeforeDelivery', 'Selecione se é necessário ligar antes da entrega.'],
+        ['bringCardMachine', 'Selecione se é necessário levar máquina de cartão.'],
+        ['callOnArrival', 'Selecione se é necessário ligar ao chegar.'],
+      ] as const;
+      const deliveryAppointments = appointments?.filter((appointment) =>
+        appointment.deliveryMethod === 'delivery' ||
+        (!appointment.deliveryMethod && value.shipping!.deliveryMethod === 'delivery')
+      );
+
+      if (deliveryAppointments?.length) {
+        deliveryAppointments.forEach((appointment) => {
+          const appointmentIndex = appointments!.indexOf(appointment);
+          for (const [field, message] of requiredNotices) {
+            if (appointment.notices?.[field] !== undefined) continue;
+            ctx.addIssue({
+              code: 'custom',
+              path: ['shipping', 'scheduling', 'appointments', appointmentIndex, 'notices', field],
+              message,
+            });
+          }
+        });
+      } else if (!appointments?.length && value.shipping.deliveryMethod === 'delivery') {
+        for (const [field, message] of requiredNotices) {
+          if (value.shipping[field] !== undefined) continue;
+          ctx.addIssue({ code: 'custom', path: ['shipping', field], message });
+        }
+      }
     }
     value.items.forEach((item, index) => {
       if (item.quantity <= 0) ctx.addIssue({ code: 'custom', path: ['items', index, 'quantity'], message: 'A quantidade deve ser maior que zero.' });
@@ -174,9 +179,16 @@ export function validateOrderWithZod(order: unknown, requiredFields: CommercialR
   const errors: ValidationErrors = {};
   for (const issue of result.error.issues) {
     const [collection, index, ...field] = issue.path;
-    const key = (collection === 'items' || collection === 'payments') && typeof index === 'number'
+    const [shippingSection, appointmentCollection, appointmentIndex, ...appointmentField] = issue.path.slice(1);
+    const appointmentRows = (order as any)?.shipping?.scheduling?.appointments;
+    const appointmentErrorKey = collection === 'shipping' &&
+      shippingSection === 'scheduling' && appointmentCollection === 'appointments' &&
+      typeof appointmentIndex === 'number' && appointmentField[0] === 'notices'
+      ? `shipping_appointment_${appointmentRows?.[appointmentIndex]?.id ?? appointmentIndex}_${appointmentField.join('_')}`
+      : undefined;
+    const key = appointmentErrorKey || ((collection === 'items' || collection === 'payments') && typeof index === 'number'
       ? `${collection === 'items' ? 'item' : 'payment'}_${index}_${field.join('_')}`
-      : issue.path.join('_') || 'order';
+      : issue.path.join('_') || 'order');
     errors[key] ??= issue.message;
   }
   return errors;

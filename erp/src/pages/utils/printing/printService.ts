@@ -15,6 +15,11 @@ export const printSalesOrder = async (order: Order): Promise<PrintJobResult> => 
   return executePrintFallback('sales_order', order);
 };
 
+/** Abre a impressão somente com os dados da operação selecionada no pós-venda. */
+export const printOperationInfo = async (order: Order): Promise<PrintJobResult> => {
+  return executePrintFallback('operation_info', order);
+};
+
 /** Abre o recibo na visualização do navegador para impressão. */
 export const printReceipt = async (order: Order): Promise<PrintJobResult> => {
   if (!order.seller) {
@@ -56,6 +61,7 @@ export const printConventional = (
 
 export default {
   printSalesOrder,
+  printOperationInfo,
   printReceipt,
   printDanfe,
   printConventional,

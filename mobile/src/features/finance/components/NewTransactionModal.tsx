@@ -172,6 +172,8 @@ export const NewTransactionModal: React.FC<Props> = ({
                   {form.isPersonnelCategory && (
                     <TransactionCollaboratorSelector
                       collaborators={form.collaboratorsList}
+                      isLoading={form.collaboratorsLoading}
+                      unavailable={form.collaboratorsUnavailable}
                       selectedCollaboratorId={form.collaboratorId}
                       onSelectCollaborator={(id, name) => {
                         form.setCollaboratorId(id);

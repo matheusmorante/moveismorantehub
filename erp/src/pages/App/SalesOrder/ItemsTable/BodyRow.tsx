@@ -104,6 +104,7 @@ const BodyRow: React.FC<Props> = ({
   );
 
   const handleStockOriginChange = (rawCondition: string) => {
+    if (isLinkedProduct) return;
     const condition = rawCondition as Item['condition'];
     if (condition === 'salvado' || condition === 'usado') {
       onBatchChange(idx, {

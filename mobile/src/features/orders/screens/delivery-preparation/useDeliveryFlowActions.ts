@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useRef } from 'react';
 import { Alert } from 'react-native';
 import { formatOrderCode } from '../../../../utils/orderUtils';
 import {
@@ -12,6 +12,10 @@ import {
   deliveryFinishFormSchema,
 } from '../../../../../../shared-utils/operationsFormSchemas';
 import { deliveryFlowService } from '../../services/deliveryFlowService';
+import { saveDeliveryOperation } from '../../services/deliveryOperationService';
+import { getIndependentOperationId, projectOperationOrder } from '../../services/deliveryOperationState';
+import { DELIVERY_OPERATION_FIELDS } from '../../../../../../shared-utils/orderAppointmentOccurrences';
+import type { SyncEventType } from '../../../../services/offline/offlineTypes';
 import type { LocalDeliveryProofMetadata } from '../../services/deliveryProofRules';
 import {
   DeliveryResponsibleItem,
@@ -56,6 +60,10 @@ export function useDeliveryFlowActions({
   // 2. Dados do Pedido e Pagamentos
   const [deliveryData, setDeliveryData] = useState(() => order.order_data || order);
   const [payments, setPayments] = useState<any[]>(() => resolveInitialDeliveryPayments(order));
+  const operationId = getIndependentOperationId(order);
+  const sourceData = useRef<Record<string, any>>(order._sourceOrderData || order.order_data || order);
+  const originalPayments = useRef(sourceData.current.__sharedPaymentSnapshot ?? null);
+  const operationPendingSync = useRef(false);
 
   // 3. Checklist e Validação de Conclusão
   const checklist = useMemo(() => buildDeliveryChecklist(order), [order]);
@@ -88,14 +96,44 @@ export function useDeliveryFlowActions({
   const syncOrderSnapshot = useCallback(
     (updatedData: any, newStatus?: string) => {
       if (order && typeof order === 'object') {
+        if (operationId) {
+          sourceData.current = updatedData;
+          const occurrence = projectOperationOrder(order, updatedData);
+          order._sourceOrderData = updatedData;
+          order.order_data = occurrence.order_data;
+          order.delivery_status = occurrence.delivery_status;
+          if (updatedData.status === 'fulfilled') order.status = 'fulfilled';
+          setDeliveryData(occurrence.order_data);
+          return occurrence.order_data;
+        }
         order.order_data = updatedData;
         if (newStatus) {
           order.status = newStatus;
         }
       }
+      setDeliveryData(updatedData);
+      return updatedData;
     },
-    [order]
+    [order, operationId]
   );
+
+  const saveOperation = useCallback(async (
+    type: SyncEventType, patch: Record<string, unknown>, nextPayments?: Array<Record<string, unknown>>
+  ) => {
+    if (!operationId) throw new Error('Operação não identificada.');
+    const { updatedData, pendingSync } = await saveDeliveryOperation({
+      orderId: String(order.id), operationId, currentData: sourceData.current, type, patch,
+      ...(nextPayments ? { payments: nextPayments, expectedPayments: originalPayments.current } : {}),
+    });
+    operationPendingSync.current = pendingSync;
+    return syncOrderSnapshot(updatedData);
+  }, [operationId, order.id, syncOrderSnapshot]);
+
+  const canStopLocation = useCallback(() => !operationId || !userProfile?.id ||
+    !Object.entries(sourceData.current.deliveryOperations || {}).some(([id, value]: [string, any]) =>
+      id !== operationId && ['in_progress', 'arrived', 'in_service'].includes(value?.deliveryStatus) &&
+      (value?.deliveryResponsibleId === userProfile.id || value?.deliveryResponsibles?.some((person: any) => person.id === userProfile.id))
+    ), [operationId, userProfile?.id]);
 
   // 6. Iniciar deslocamento (com validação Zod, guarda de checklist e serviço de persistência)
   const handleStartRoute = useCallback(async (): Promise<boolean> => {
@@ -115,16 +153,18 @@ export function useDeliveryFlowActions({
         async (values) => {
           setSaving(true);
           try {
-            const { updatedData } = await deliveryFlowService.startRoute({
-              orderId: values.orderId,
-              currentData: data,
-              checklist: values.checklist,
-              responsibles,
-              userProfileId: userProfile?.id,
-            });
-
-            syncOrderSnapshot(updatedData);
-            setDeliveryData(updatedData);
+            const responsibleName = responsibles.map((person) => person.name).join(', ');
+            const updatedData = operationId
+              ? await saveOperation('DELIVERY_START_ROUTE', {
+                  deliveryStatus: 'in_progress', deliveryStartedAt: new Date().toISOString(),
+                  deliveryPreparationStartedAt: null, deliveryChecklist: values.checklist,
+                  deliveryResponsibles: responsibles, deliveryResponsibleName: responsibleName,
+                  deliveryResponsibleId: responsibles[0]?.id || userProfile?.id || null,
+                })
+              : syncOrderSnapshot((await deliveryFlowService.startRoute({
+                  orderId: values.orderId, currentData: data, checklist: values.checklist,
+                  responsibles, userProfileId: userProfile?.id,
+                })).updatedData);
 
             if (userProfile?.id && updatedData.deliveryResponsibleId === userProfile.id) {
               void broadcastMyLocation(userProfile, null, true, true, {
@@ -163,6 +203,8 @@ export function useDeliveryFlowActions({
     data,
     userProfile,
     syncOrderSnapshot,
+    operationId,
+    saveOperation,
   ]);
 
   const handleConfirmStartRoute = useCallback(async () => {
@@ -177,38 +219,32 @@ export function useDeliveryFlowActions({
     if (saving) return;
     setSaving(true);
     try {
-      const { updatedData } = await deliveryFlowService.arriveAtDestination({
-        orderId: order.id,
-        currentData: data,
+      if (operationId) await saveOperation('DELIVERY_ARRIVE_DESTINATION', {
+        deliveryStatus: 'arrived', deliveryArrivedAt: new Date().toISOString(),
       });
-
-      syncOrderSnapshot(updatedData);
-      setDeliveryData(updatedData);
+      else syncOrderSnapshot((await deliveryFlowService.arriveAtDestination({ orderId: order.id, currentData: data })).updatedData);
     } catch (error: any) {
       Alert.alert('Erro', error?.message || 'Falha ao registrar chegada.');
     } finally {
       setSaving(false);
     }
-  }, [saving, data, order.id, syncOrderSnapshot]);
+  }, [saving, data, order.id, syncOrderSnapshot, operationId, saveOperation]);
 
   // 8. Iniciar Atendimento (Etapa 3 -> Etapa 4)
   const handleStartService = useCallback(async () => {
     if (saving) return;
     setSaving(true);
     try {
-      const { updatedData } = await deliveryFlowService.startService({
-        orderId: order.id,
-        currentData: data,
+      if (operationId) await saveOperation('DELIVERY_START_SERVICE', {
+        deliveryStatus: 'in_service', deliveryServiceStartedAt: new Date().toISOString(),
       });
-
-      syncOrderSnapshot(updatedData);
-      setDeliveryData(updatedData);
+      else syncOrderSnapshot((await deliveryFlowService.startService({ orderId: order.id, currentData: data })).updatedData);
     } catch (error: any) {
       Alert.alert('Erro', error?.message || 'Falha ao iniciar atendimento.');
     } finally {
       setSaving(false);
     }
-  }, [saving, data, order.id, syncOrderSnapshot]);
+  }, [saving, data, order.id, syncOrderSnapshot, operationId, saveOperation]);
 
   // 9. Finalizar Entrega (Etapa 4 -> Conclusão)
   const handleFinishDelivery = useCallback(async () => {
@@ -225,20 +261,20 @@ export function useDeliveryFlowActions({
       async (values) => {
         setSaving(true);
         try {
-          const { updatedData } = await deliveryFlowService.finishDelivery({
-            orderId: values.orderId,
-            currentData: data,
-            payments: values.payments,
-          });
+          if (operationId) await saveOperation('DELIVERY_FINISH', {
+            deliveryStatus: 'completed', deliveryFinishedAt: new Date().toISOString(),
+          }, values.payments);
+          else syncOrderSnapshot((await deliveryFlowService.finishDelivery({
+            orderId: values.orderId, currentData: data, payments: values.payments,
+          })).updatedData, 'fulfilled');
 
-          syncOrderSnapshot(updatedData, 'fulfilled');
-          setDeliveryData(updatedData);
-
-          if (userProfile?.id) {
+          if (userProfile?.id && canStopLocation()) {
             await stopDeliveringBroadcast(userProfile.id);
           }
 
-          Alert.alert('🎉 Entrega Finalizada!', fulfillmentSuccessMessage, [
+          Alert.alert('🎉 Entrega Finalizada!', operationId
+            ? operationPendingSync.current ? 'Operação registrada no aparelho e aguardando sincronização.' : 'Operação de entrega concluída.'
+            : fulfillmentSuccessMessage, [
             { text: 'OK', onPress: () => onBack(true) },
           ]);
         } catch (error: any) {
@@ -260,6 +296,9 @@ export function useDeliveryFlowActions({
     fulfillmentSuccessMessage,
     onBack,
     syncOrderSnapshot,
+    operationId,
+    saveOperation,
+    canStopLocation,
   ]);
 
   // 9. Insucesso / Não Atendido
@@ -271,20 +310,18 @@ export function useDeliveryFlowActions({
       proofMetadata?: LocalDeliveryProofMetadata[]
     ) => {
       try {
-        const { updatedData } = await deliveryFlowService.recordUnattended({
-          orderId: order.id,
-          currentData: data,
-          reason,
-          notes,
-          proofUrls,
-          proofMetadata,
+        if (operationId) await saveOperation('DELIVERY_UNATTENDED', {
+          deliveryStatus: 'unattended', unattendedAt: new Date().toISOString(),
+          unattendedReason: reason, unattendedNotes: notes,
+          unattendedProofUrl: proofUrls[0] || '', unattendedProofUrls: proofUrls,
+          ...(proofMetadata?.length ? { unattendedProofMetadata: proofMetadata } : {}),
         });
-
-        syncOrderSnapshot(updatedData);
-        setDeliveryData(updatedData);
+        else syncOrderSnapshot((await deliveryFlowService.recordUnattended({
+          orderId: order.id, currentData: data, reason, notes, proofUrls, proofMetadata,
+        })).updatedData);
         setShowUnattendedModal(false);
 
-        if (userProfile?.id) {
+        if (userProfile?.id && canStopLocation()) {
           void stopDeliveringBroadcast(userProfile.id);
         }
 
@@ -295,7 +332,7 @@ export function useDeliveryFlowActions({
         Alert.alert('Erro', error?.message || 'Falha ao registrar insucesso.');
       }
     },
-    [data, order.id, userProfile, onBack, setShowUnattendedModal, syncOrderSnapshot]
+    [data, order.id, userProfile, onBack, setShowUnattendedModal, syncOrderSnapshot, operationId, saveOperation, canStopLocation]
   );
 
   // 10. Retroceder Etapa 2 -> 1
@@ -303,12 +340,13 @@ export function useDeliveryFlowActions({
     if (saving) return;
     setSaving(true);
     try {
-      const { updatedData } = await deliveryFlowService.stepBackToPreparation(order.id, data);
+      if (operationId) await saveOperation('DELIVERY_STEP_BACK', {
+        deliveryStatus: null, deliveryPreparationStartedAt: new Date().toISOString(),
+        deliveryStartedAt: null, deliveryArrivedAt: null, deliveryServiceStartedAt: null,
+      });
+      else syncOrderSnapshot((await deliveryFlowService.stepBackToPreparation(order.id, data)).updatedData);
 
-      syncOrderSnapshot(updatedData);
-      setDeliveryData(updatedData);
-
-      if (userProfile?.id) {
+      if (userProfile?.id && canStopLocation()) {
         void stopDeliveringBroadcast(userProfile.id);
       }
     } catch (error: any) {
@@ -316,54 +354,57 @@ export function useDeliveryFlowActions({
     } finally {
       setSaving(false);
     }
-  }, [saving, data, order.id, userProfile, syncOrderSnapshot]);
+  }, [saving, data, order.id, userProfile, syncOrderSnapshot, operationId, saveOperation, canStopLocation]);
 
   // 12. Retroceder Etapa 3 -> 2 (Chegada -> Deslocamento)
   const handleStepBackToRoute = useCallback(async () => {
     if (saving) return;
     setSaving(true);
     try {
-      const { updatedData } = await deliveryFlowService.stepBackToRoute(order.id, data);
-
-      syncOrderSnapshot(updatedData);
-      setDeliveryData(updatedData);
+      if (operationId) await saveOperation('DELIVERY_STEP_BACK', {
+        deliveryStatus: 'in_progress', deliveryPreparationStartedAt: data.deliveryPreparationStartedAt || null,
+        deliveryStartedAt: data.deliveryStartedAt || null, deliveryArrivedAt: null, deliveryServiceStartedAt: null,
+      });
+      else syncOrderSnapshot((await deliveryFlowService.stepBackToRoute(order.id, data)).updatedData);
     } catch (error: any) {
       Alert.alert('Erro', error?.message || 'Falha ao retroceder etapa.');
     } finally {
       setSaving(false);
     }
-  }, [saving, data, order.id, syncOrderSnapshot]);
+  }, [saving, data, order.id, syncOrderSnapshot, operationId, saveOperation]);
 
   // 13. Retroceder Etapa 4 -> 3 (Em Atendimento -> Chegada)
   const handleStepBackToArrival = useCallback(async () => {
     if (saving) return;
     setSaving(true);
     try {
-      const { updatedData } = await deliveryFlowService.stepBackToArrival(order.id, data);
-
-      syncOrderSnapshot(updatedData);
-      setDeliveryData(updatedData);
+      if (operationId) await saveOperation('DELIVERY_STEP_BACK', {
+        deliveryStatus: 'arrived', deliveryPreparationStartedAt: data.deliveryPreparationStartedAt || null,
+        deliveryStartedAt: data.deliveryStartedAt || null, deliveryArrivedAt: data.deliveryArrivedAt || null,
+        deliveryServiceStartedAt: null,
+      });
+      else syncOrderSnapshot((await deliveryFlowService.stepBackToArrival(order.id, data)).updatedData);
     } catch (error: any) {
       Alert.alert('Erro', error?.message || 'Falha ao retroceder etapa.');
     } finally {
       setSaving(false);
     }
-  }, [saving, data, order.id, syncOrderSnapshot]);
+  }, [saving, data, order.id, syncOrderSnapshot, operationId, saveOperation]);
 
   // 14. Cancelar Entrega
   const handleConfirmCancelDelivery = useCallback(async () => {
     setCancelling(true);
     try {
-      const { updatedData } = await deliveryFlowService.cancelDelivery(order.id, data);
+      if (operationId) await saveOperation('DELIVERY_CANCEL', Object.fromEntries(
+        DELIVERY_OPERATION_FIELDS.map((key) => [key, null])
+      ));
+      else syncOrderSnapshot((await deliveryFlowService.cancelDelivery(order.id, data)).updatedData, 'scheduled');
 
       setShowCancelModal(false);
 
-      if (userProfile?.id) {
+      if (userProfile?.id && canStopLocation()) {
         void stopDeliveringBroadcast(userProfile.id);
       }
-
-      syncOrderSnapshot(updatedData, 'scheduled');
-      setDeliveryData(updatedData);
 
       onBack(true);
     } catch (err: any) {
@@ -372,7 +413,7 @@ export function useDeliveryFlowActions({
     } finally {
       setCancelling(false);
     }
-  }, [data, order.id, userProfile, onBack, setShowCancelModal, syncOrderSnapshot]);
+  }, [data, order.id, userProfile, onBack, setShowCancelModal, syncOrderSnapshot, operationId, saveOperation, canStopLocation]);
 
   const handleToggleChecklist = useCallback((id: string) => {
     setChecked((prev) => ({ ...prev, [id]: !prev[id] }));

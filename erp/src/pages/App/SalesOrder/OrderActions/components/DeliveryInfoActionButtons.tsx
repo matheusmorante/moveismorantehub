@@ -6,12 +6,14 @@ interface DeliveryInfoActionButtonsProps {
   readonly order: Order;
   readonly isPickup: boolean;
   readonly isAdministrator: boolean;
+  readonly operationId?: string;
   readonly isDirectApiSending?: boolean;
   readonly clickedButtons: Record<string, boolean>;
   readonly staleButtons: Order['isButtonsStale'];
   readonly onExecuteAction: (
     key: keyof IsButtonsClicked,
-    action: OrderAction
+    action: OrderAction,
+    operationId?: string
   ) => void | Promise<void>;
 }
 
@@ -19,6 +21,7 @@ export const DeliveryInfoActionButtons: React.FC<DeliveryInfoActionButtonsProps>
   order,
   isPickup,
   isAdministrator,
+  operationId,
   isDirectApiSending = false,
   clickedButtons,
   staleButtons,
@@ -48,7 +51,7 @@ export const DeliveryInfoActionButtons: React.FC<DeliveryInfoActionButtonsProps>
       {/* 1. Enviar para o Cliente */}
       <button
         type="button"
-        onClick={() => onExecuteAction('sendCustomerOrder', 'SEND_CUSTOMER_ORDER')}
+        onClick={() => onExecuteAction('sendCustomerOrder', 'SEND_CUSTOMER_ORDER', operationId)}
         title="Enviar confirmação e dados da entrega para o cliente pelo WhatsApp"
         className={`flex items-center gap-3.5 p-3.5 rounded-2xl border transition-all text-left relative ${isCustomerOrderStale ? staleClasses : 'text-emerald-600 bg-emerald-50/70 dark:bg-emerald-950/20 hover:bg-emerald-100/80 dark:hover:bg-emerald-900/30'} hover:-translate-y-0.5 hover:shadow-md ${statusClasses(isCustomerOrderClicked, isCustomerOrderStale)}`}
       >
@@ -79,7 +82,7 @@ export const DeliveryInfoActionButtons: React.FC<DeliveryInfoActionButtonsProps>
           disabled={!isAdministrator || isDirectApiSending}
           aria-busy={isDirectApiSending}
           onClick={() =>
-            onExecuteAction('sendCustomerOrderDirectApi', 'SEND_CUSTOMER_ORDER_DIRECT_API')
+            onExecuteAction('sendCustomerOrderDirectApi', 'SEND_CUSTOMER_ORDER_DIRECT_API', operationId)
           }
           title={
             isDirectApiSending
@@ -135,7 +138,7 @@ export const DeliveryInfoActionButtons: React.FC<DeliveryInfoActionButtonsProps>
       {/* 2. Enviar para a Equipe */}
       <button
         type="button"
-        onClick={() => onExecuteAction('sendShippingOrder', 'SEND_SHIPPING_ORDER')}
+        onClick={() => onExecuteAction('sendShippingOrder', 'SEND_SHIPPING_ORDER', operationId)}
         title="Enviar detalhes da entrega para o grupo da equipe pelo WhatsApp"
         className={`flex items-center gap-3.5 p-3.5 rounded-2xl border transition-all text-left relative ${isShippingOrderStale ? staleClasses : 'text-orange-600 bg-orange-50/70 dark:bg-orange-950/20 hover:bg-orange-100/80 dark:hover:bg-orange-900/30'} hover:-translate-y-0.5 hover:shadow-md ${statusClasses(isShippingOrderClicked, isShippingOrderStale)}`}
       >
@@ -162,8 +165,8 @@ export const DeliveryInfoActionButtons: React.FC<DeliveryInfoActionButtonsProps>
       {/* 3. Imprimir informações da entrega */}
       <button
         type="button"
-        onClick={() => onExecuteAction('printShippingOrder', 'PRINT_SHIPPING_ORDER')}
-        title="Imprimir pedido com as informações da entrega"
+        onClick={() => onExecuteAction('printShippingOrder', 'PRINT_SHIPPING_ORDER', operationId)}
+        title="Imprimir informações desta operação"
         className={`flex items-center gap-3.5 p-3.5 rounded-2xl border transition-all text-left relative ${isPrintShippingOrderStale ? staleClasses : 'text-blue-600 bg-blue-50/70 dark:bg-blue-950/20 hover:bg-blue-100/80 dark:hover:bg-blue-900/30'} hover:-translate-y-0.5 hover:shadow-md ${statusClasses(isPrintShippingOrderClicked, isPrintShippingOrderStale)}`}
       >
         <div className="w-11 h-11 rounded-xl bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 shadow-sm text-2xl">
@@ -171,10 +174,10 @@ export const DeliveryInfoActionButtons: React.FC<DeliveryInfoActionButtonsProps>
         </div>
         <div className="flex-1 min-w-0 pr-6">
           <span className="text-xs font-black uppercase tracking-wider block text-slate-800 dark:text-slate-100">
-            Imprimir informações da entrega
+            Imprimir informações da operação
           </span>
           <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 block mt-0.5 truncate">
-            Imprimir documento com dados da entrega e itens
+            Imprimir documento com os dados e itens desta operação
           </span>
         </div>
         {isPrintShippingOrderClicked && !isPrintShippingOrderStale && (

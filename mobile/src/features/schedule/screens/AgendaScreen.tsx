@@ -18,6 +18,7 @@ import { getOperationalScheduleDate } from '../../../utils/operationalSchedule';
 import { getOperationActivityType } from '../utils/operationActivity';
 import { useAgendaData } from '../hooks/useAgendaData';
 import { AgendaItemCard } from '../components/AgendaItemCard';
+import { expandOrderAppointments, getOrderOperationLabel } from '../../../../../shared-utils/orderAppointmentOccurrences';
 
 export type AgendaFilterType = 'all' | 'deliveries' | 'pickups' | 'assemblies' | 'events';
 
@@ -45,7 +46,7 @@ export const AgendaScreen: React.FC<Props> = ({
     const itemsByDate: Record<string, any[]> = {};
 
     // 1. Inserir Pedidos (Entregas / Retiradas / Montagens)
-    orders.forEach((order) => {
+    orders.flatMap(expandOrderAppointments).forEach((order: any) => {
       const orderData = order.order_data || {};
       const shipping = orderData.shipping || order.shipping || {};
       const customer = orderData.customerData || order.customer || {};
@@ -68,14 +69,13 @@ export const AgendaScreen: React.FC<Props> = ({
       if (!itemsByDate[dDate]) itemsByDate[dDate] = [];
 
       const operationType = getOperationActivityType(order);
-      const isPickup = String(shipping.deliveryType || shipping.deliveryMethod || '')
-        .toLowerCase()
-        .includes('retirada');
+      const isPickup = /pickup|retirada/.test(String(shipping.deliveryMethod || shipping.deliveryType || '')
+        .toLowerCase());
       const isAssembly = orderItems.some((item: { handlingType?: string }) =>
-        item.handlingType?.includes('montagem')
+        item.handlingType?.toLowerCase().includes('montagem')
       );
 
-      let itemKind =
+      const itemKind =
         operationType === 'return'
           ? 'return'
           : operationType === 'assistance'
@@ -83,12 +83,12 @@ export const AgendaScreen: React.FC<Props> = ({
             : isPickup
               ? 'pickup'
               : 'delivery';
-      if (isAssembly) itemKind = 'assembly';
-
       itemsByDate[dDate].push({
-        id: `ord_${order.id}`,
+        id: `ord_${order.id}${order.scheduleAppointment ? `_appointment_${order.scheduleAppointment.appointmentId}` : ''}`,
         kind: itemKind,
         date: dDate,
+        appointmentLabel: getOrderOperationLabel(order),
+        hasAssembly: isAssembly,
         title:
           customer.fullName ||
           order.customer_name ||
@@ -122,7 +122,7 @@ export const AgendaScreen: React.FC<Props> = ({
         let list = itemsByDate[dateKey];
         if (activeFilter === 'deliveries') list = list.filter((i) => i.kind === 'delivery');
         else if (activeFilter === 'pickups') list = list.filter((i) => i.kind === 'pickup');
-        else if (activeFilter === 'assemblies') list = list.filter((i) => i.kind === 'assembly');
+        else if (activeFilter === 'assemblies') list = list.filter((i) => i.hasAssembly);
         else if (activeFilter === 'events') list = list.filter((i) => i.kind === 'event');
 
         return {

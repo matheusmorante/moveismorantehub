@@ -13,6 +13,11 @@ export interface AvailableStaffMember {
   role?: string;
 }
 
+export interface DeliveryStaffSearchFeedback {
+  kind: 'local' | 'offline-empty' | 'error';
+  message: string;
+}
+
 export interface DeliveryPreparationScreenProps {
   order: any;
   isDarkMode: boolean;

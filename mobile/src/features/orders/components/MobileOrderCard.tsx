@@ -91,7 +91,7 @@ export const MobileOrderCard: React.FC<MobileOrderCardProps> = ({
     shipping.scheduling?.pendingScheduling || data.schedule?.pendingScheduling
   );
 
-  const { headerBg, headerBorder } = resolveHeaderColors({
+  const { headerBg: resolvedHeaderBg, headerBorder: resolvedHeaderBorder } = resolveHeaderColors({
     dark,
     cancelled,
     isDraft,
@@ -100,6 +100,9 @@ export const MobileOrderCard: React.FC<MobileOrderCardProps> = ({
     isAssistance,
     pickup,
   });
+  const isNeutralSaleHeader = orderType === 'sale' && !cancelled;
+  const headerBg = isNeutralSaleHeader ? (dark ? '#1e293b' : '#ffffff') : resolvedHeaderBg;
+  const headerBorder = isNeutralSaleHeader ? (dark ? '#334155' : '#e2e8f0') : resolvedHeaderBorder;
 
   const orderStatus = order?.status || data.status || 'scheduled';
   const statusConfig = getStatusConfig(orderStatus);
@@ -144,6 +147,7 @@ export const MobileOrderCard: React.FC<MobileOrderCardProps> = ({
           isAssistance={isAssistance}
           isReturn={isReturn}
           pickup={pickup}
+          showMethodBadge={orderType !== 'sale'}
           isDraft={isDraft}
           cancelled={cancelled}
           isStockChecked={isStockChecked}
@@ -175,6 +179,9 @@ export const MobileOrderCard: React.FC<MobileOrderCardProps> = ({
         scheduleDate={scheduleDate}
         scheduleEndDate={schedule.endDate}
         scheduleDateType={schedule.dateType}
+        scheduleNotInformed={schedule.notInformed}
+        appointments={schedule.appointments}
+        deliveryMethod={shipping.deliveryMethod || data.deliveryMethod}
         startTime={schedule.startTime}
         endTime={schedule.endTime}
         linkedOrderId={linkedOrderId}

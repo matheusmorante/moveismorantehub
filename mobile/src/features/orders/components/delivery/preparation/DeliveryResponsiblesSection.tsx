@@ -1,7 +1,10 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { ChevronRight, Search, Users, UserCheck, X } from 'lucide-react-native';
-import type { DeliveryResponsibleItem } from '../../../screens/delivery-preparation/deliveryPreparation.types';
+import type {
+  DeliveryResponsibleItem,
+  DeliveryStaffSearchFeedback,
+} from '../../../screens/delivery-preparation/deliveryPreparation.types';
 import { filterUnaddedStaff } from '../../../screens/delivery-preparation/deliveryStaffRules';
 import { styles } from './deliveryPreparationStep.styles';
 import { DeliveryResponsibleSearchModal } from './DeliveryResponsibleSearchModal';
@@ -12,6 +15,8 @@ interface Props {
   onRemoveResponsible: (index: number) => void;
   availableStaff?: Array<{ id: string; fullName: string; role?: string }>;
   loadingStaff?: boolean;
+  staffSearchFeedback?: DeliveryStaffSearchFeedback | null;
+  onSearchStaff?: (query: string) => void;
   userProfile?: any;
   isDarkMode?: boolean;
 }
@@ -22,6 +27,8 @@ export const DeliveryResponsiblesSection: React.FC<Props> = ({
   onRemoveResponsible,
   availableStaff = [],
   loadingStaff = false,
+  staffSearchFeedback = null,
+  onSearchStaff = () => {},
   userProfile,
   isDarkMode = false,
 }) => {
@@ -79,35 +86,35 @@ export const DeliveryResponsiblesSection: React.FC<Props> = ({
       </View>
 
       {/* Busca de colaboradores ainda não adicionados */}
-      {(loadingStaff || unaddedStaff.length > 0) && (
-        <View style={styles.suggestionsContainer}>
-          <Text style={[styles.suggestionsLabel, isDarkMode && styles.textMuted]}>
-            Adicionar mais responsáveis pela entrega:
+      <View style={styles.suggestionsContainer}>
+        <Text style={[styles.suggestionsLabel, isDarkMode && styles.textMuted]}>
+          Adicionar mais responsáveis pela entrega:
+        </Text>
+        <TouchableOpacity
+          onPress={() => setSearchVisible(true)}
+          style={[
+            styles.responsibleSearchButton,
+            isDarkMode && styles.responsibleSearchButtonDark,
+          ]}
+          activeOpacity={0.8}
+          accessibilityRole="button"
+          accessibilityLabel="Pesquisar responsáveis pela entrega"
+        >
+          <Search size={17} color={isDarkMode ? '#93c5fd' : '#2563eb'} />
+          <Text style={[styles.responsibleSearchPlaceholder, isDarkMode && styles.textMuted]}>
+            Pesquisar responsável pela entrega
           </Text>
-          <TouchableOpacity
-            onPress={() => setSearchVisible(true)}
-            style={[
-              styles.responsibleSearchButton,
-              isDarkMode && styles.responsibleSearchButtonDark,
-            ]}
-            activeOpacity={0.8}
-            accessibilityRole="button"
-            accessibilityLabel="Pesquisar responsáveis pela entrega"
-          >
-            <Search size={17} color={isDarkMode ? '#93c5fd' : '#2563eb'} />
-            <Text style={[styles.responsibleSearchPlaceholder, isDarkMode && styles.textMuted]}>
-              Pesquisar responsável pela entrega
-            </Text>
-            <ChevronRight size={18} color={isDarkMode ? '#94a3b8' : '#64748b'} />
-          </TouchableOpacity>
-        </View>
-      )}
+          <ChevronRight size={18} color={isDarkMode ? '#94a3b8' : '#64748b'} />
+        </TouchableOpacity>
+      </View>
 
       <DeliveryResponsibleSearchModal
         visible={searchVisible}
         isDarkMode={isDarkMode}
         staff={unaddedStaff}
         loadingStaff={loadingStaff}
+        searchFeedback={staffSearchFeedback}
+        onSearchStaff={onSearchStaff}
         onClose={() => setSearchVisible(false)}
         onSelect={(staff) => {
           onAddResponsible({ id: staff.id, name: staff.fullName, role: staff.role });

@@ -1,7 +1,10 @@
 import React from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
-import { Check, ClipboardCheck, AlertTriangle } from 'lucide-react-native';
-import { DeliveryResponsibleItem } from '../../screens/delivery-preparation/deliveryPreparation.types';
+import { Check, ClipboardCheck, AlertTriangle, Info } from 'lucide-react-native';
+import {
+  DeliveryResponsibleItem,
+  DeliveryStaffSearchFeedback,
+} from '../../screens/delivery-preparation/deliveryPreparation.types';
 import { styles } from './preparation/deliveryPreparationStep.styles';
 import { styles as unattendedStyles } from './arrival/deliveryArrivalStep.styles';
 import { DeliveryDestinationInfoCard } from './preparation/DeliveryDestinationInfoCard';
@@ -21,6 +24,8 @@ interface Props {
   onRemoveResponsible: (index: number) => void;
   availableStaff?: Array<{ id: string; fullName: string; role?: string }>;
   loadingStaff?: boolean;
+  staffSearchFeedback?: DeliveryStaffSearchFeedback | null;
+  onSearchStaff?: (query: string) => void;
   userProfile?: any;
   onStartDelivery?: () => void;
   onOpenUnattendedModal?: () => void;
@@ -45,10 +50,19 @@ export const DeliveryPreparationStep: React.FC<Props> = ({
   onRemoveResponsible,
   availableStaff = [],
   loadingStaff = false,
+  staffSearchFeedback = null,
+  onSearchStaff,
   userProfile,
   onOpenUnattendedModal,
   isDarkMode,
 }) => {
+  const operationShipping = order?.order_data?.shipping || order?.shipping || {};
+  const operationNotices = operationShipping.operationNotices || operationShipping.notices || {};
+  const operationNoticeLines = [
+    operationNotices.callOnArrival === true ? 'Ligar ao chegar.' : '',
+    typeof operationNotices.instructions === 'string' ? operationNotices.instructions.trim() : '',
+  ].filter(Boolean);
+
   return (
     <View style={styles.container}>
       {/* 1. Informações Iniciais do Cliente, Destino e Botão Maps */}
@@ -59,6 +73,20 @@ export const DeliveryPreparationStep: React.FC<Props> = ({
         isDarkMode={isDarkMode}
       />
 
+      {operationNoticeLines.length > 0 && (
+        <View style={[styles.infoCard, isDarkMode && styles.infoCardDark]}>
+          <View style={styles.row}>
+            <Info size={18} color={isDarkMode ? '#93c5fd' : '#2563eb'} />
+            <Text style={[styles.infoText, isDarkMode && styles.textLight]}>Avisos desta operação</Text>
+          </View>
+          {operationNoticeLines.map((line, index) => (
+            <Text key={`${index}-${line}`} style={[styles.address, isDarkMode && styles.textMuted]}>
+              {line}
+            </Text>
+          ))}
+        </View>
+      )}
+
       {/* 2. Seção de Seleção e Gestão de Responsáveis pela Entrega */}
       <DeliveryResponsiblesSection
         responsibles={responsibles}
@@ -66,6 +94,8 @@ export const DeliveryPreparationStep: React.FC<Props> = ({
         onRemoveResponsible={onRemoveResponsible}
         availableStaff={availableStaff}
         loadingStaff={loadingStaff}
+        staffSearchFeedback={staffSearchFeedback}
+        onSearchStaff={onSearchStaff}
         userProfile={userProfile}
         isDarkMode={isDarkMode}
       />

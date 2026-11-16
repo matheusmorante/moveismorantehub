@@ -9,9 +9,12 @@ import {
   getCardIconClasses,
   getCardTitleClasses,
 } from './agendamentoSessionMemory';
+import { ScheduleModeToggle } from './ScheduleModeToggle';
 
 interface ScheduledTimeCardsSectionProps {
   baseId: string;
+  isExpanded: boolean;
+  onToggleExpanded: () => void;
   isScheduleReadOnly: boolean;
   isRequired: boolean;
   effectiveTimeMode: TimeScheduleMode;
@@ -26,6 +29,8 @@ interface ScheduledTimeCardsSectionProps {
 
 export const ScheduledTimeCardsSection = ({
   baseId,
+  isExpanded,
+  onToggleExpanded,
   isScheduleReadOnly,
   isRequired,
   effectiveTimeMode,
@@ -37,29 +42,44 @@ export const ScheduledTimeCardsSection = ({
   onCustomTimeChange,
   onCustomTimeRangeChange,
 }: ScheduledTimeCardsSectionProps) => {
-  const [isExpanded, setIsExpanded] = React.useState(true);
+  const [isCustomTimeRangeExpanded, setIsCustomTimeRangeExpanded] = React.useState(
+    effectiveTimeMode === 'custom_time_range'
+  );
+  const [lastFixedTimeMode, setLastFixedTimeMode] = React.useState<
+    'morning' | 'afternoon' | 'custom_time'
+  >(
+    effectiveTimeMode === 'morning' || effectiveTimeMode === 'afternoon'
+      ? effectiveTimeMode
+      : 'custom_time'
+  );
   const customTimePanelId = `${baseId}-custom-time-panel`;
   const customTimeRangePanelId = `${baseId}-custom-time-range-panel`;
 
   const isCustomTimeSelected = effectiveTimeMode === 'custom_time';
+  React.useEffect(() => {
+    setIsCustomTimeRangeExpanded(effectiveTimeMode === 'custom_time_range');
+    if (
+      effectiveTimeMode === 'morning' ||
+      effectiveTimeMode === 'afternoon' ||
+      effectiveTimeMode === 'custom_time'
+    ) {
+      setLastFixedTimeMode(effectiveTimeMode);
+    }
+  }, [effectiveTimeMode]);
+
   const isCustomTimeFilled = isValidScheduleTime(customTimeValue);
   const isCustomTimeRangeSelected = effectiveTimeMode === 'custom_time_range';
+  const timeModeType = isCustomTimeRangeSelected ? 'period' : 'fixed';
   const isCustomRangeStartFilled = isValidScheduleTime(customRangeStartTimeValue);
   const isCustomRangeEndFilled = isValidScheduleTime(customRangeEndTimeValue);
   const isCustomTimeRangeFilled = isCustomRangeStartFilled && isCustomRangeEndFilled;
-  const selectionSummary = effectiveTimeMode === 'morning'
-    ? 'Manhã · 09:00 às 12:00'
-    : effectiveTimeMode === 'afternoon'
-      ? 'Tarde · 13:00 às 18:00'
-      : effectiveTimeMode === 'custom_time'
-        ? customTimeValue ? `Horário específico · ${customTimeValue}` : 'Horário específico não definido'
-        : effectiveTimeMode === 'custom_time_range'
-          ? customRangeStartTimeValue && customRangeEndTimeValue
-            ? `${customRangeStartTimeValue} às ${customRangeEndTimeValue}`
-            : 'Período de horário não definido'
-          : 'Horário não definido';
-
-  const isCustomTimeInvalid = Boolean(timeError && isCustomTimeSelected);
+  const isCustomTimeInvalid = Boolean(
+    timeError && (isCustomTimeSelected || (!effectiveTimeMode && !isCustomTimeRangeSelected))
+  );
+  const customTimeInputClassName = isCustomTimeSelected || isCustomTimeInvalid
+    ? getBottomBorderInputClasses(isCustomTimeInvalid, isCustomTimeFilled)
+    : 'w-full border-0 border-b-2 border-slate-300 rounded-none bg-transparent px-1 py-2 text-sm font-bold text-slate-500 outline-none shadow-none focus:border-slate-400 focus:ring-0 transition-colors [color-scheme:light] dark:border-slate-600 dark:text-slate-400 dark:focus:border-slate-500 dark:[color-scheme:dark]';
+  const isCustomTimeRangeInvalid = Boolean(timeError && isCustomTimeRangeSelected);
   const isCustomTimeRangeStartInvalid = Boolean(
     timeError && isCustomTimeRangeSelected && !isCustomRangeStartFilled
   );
@@ -69,29 +89,95 @@ export const ScheduledTimeCardsSection = ({
       (!isCustomRangeEndFilled ||
         (isCustomRangeStartFilled && customRangeEndTimeValue <= customRangeStartTimeValue))
   );
+  const isCustomTimeValid = isCustomTimeFilled && !isCustomTimeInvalid;
+  const isCustomTimeRangeValid = Boolean(
+    isCustomTimeRangeFilled &&
+      customRangeEndTimeValue > customRangeStartTimeValue &&
+      !isCustomTimeRangeStartInvalid &&
+      !isCustomTimeRangeEndInvalid
+  );
+  const isTimeSummaryDefined =
+    effectiveTimeMode === 'morning' ||
+    effectiveTimeMode === 'afternoon' ||
+    isCustomTimeValid ||
+    isCustomTimeRangeValid;
+  const selectionSummary = effectiveTimeMode === 'morning'
+    ? 'De manhã · 09:00 às 12:00'
+    : effectiveTimeMode === 'afternoon'
+      ? 'À tarde · 13:00 às 18:00'
+      : isCustomTimeValid
+        ? customTimeValue
+        : isCustomTimeRangeValid
+          ? `${customRangeStartTimeValue} às ${customRangeEndTimeValue}`
+          : '';
 
   return (
-    <div className="flex flex-col gap-3 pt-4 border-t border-slate-100 dark:border-slate-800/50">
-      <button
-        type="button"
-        aria-expanded={isExpanded}
-        aria-controls={`${baseId}-scheduled-time-content`}
-        onClick={() => setIsExpanded((expanded) => !expanded)}
-        className="flex w-full items-center justify-between gap-3 rounded-xl px-2 py-2 text-left hover:bg-slate-50 dark:hover:bg-slate-800/50"
-      >
-        <span
-          className={`text-xs font-black uppercase tracking-widest ${
-            timeError ? 'text-red-600 dark:text-red-400' : 'text-slate-500 dark:text-slate-400'
-          }`}
+    <div className="flex flex-col gap-4 pt-4 border-t border-slate-100 dark:border-slate-800/50">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <button
+          type="button"
+          aria-expanded={isExpanded}
+          aria-controls={`${baseId}-scheduled-time-content`}
+          title={timeError || undefined}
+          onClick={onToggleExpanded}
+          className="flex min-h-10 min-w-[220px] flex-1 items-center justify-between gap-3 rounded-xl px-2 py-2 text-left hover:bg-slate-50 dark:hover:bg-slate-800/50"
         >
-          Horário programado {isRequired && <span className="text-red-500">*</span>}
-        </span>
-        <span className="ml-auto truncate text-xs font-medium text-slate-500 dark:text-slate-400">{selectionSummary}</span>
-        {isExpanded ? <ChevronUp className="h-4 w-4 shrink-0 text-slate-400" /> : <ChevronDown className="h-4 w-4 shrink-0 text-slate-400" />}
-      </button>
+          <span
+            className={`shrink-0 text-[13px] font-semibold ${
+              timeError ? 'text-red-600 dark:text-red-400' : 'text-slate-700 dark:text-slate-200'
+            }`}
+          >
+            Horário programado {isRequired && <span className="text-red-500">*</span>}
+          </span>
+          {!isExpanded && (
+            isTimeSummaryDefined ? (
+              <span className="ml-auto flex min-w-0 items-center gap-1.5 text-xs font-semibold text-emerald-700 dark:text-emerald-400">
+                <Check aria-hidden="true" className="h-4 w-4 shrink-0" />
+                <span className="truncate">{selectionSummary}</span>
+              </span>
+            ) : (
+              <span className="ml-auto inline-flex shrink-0 items-center rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
+                Falta definir
+              </span>
+            )
+          )}
+        </button>
+        {isExpanded && (
+          <ScheduleModeToggle
+            mode={timeModeType}
+            specificLabel="Específico"
+            ariaLabel="Tipo de horário programado"
+            disabled={isScheduleReadOnly}
+            onChange={(mode) => {
+              if (mode === 'period' && !isCustomTimeRangeSelected) {
+                onSelectTimeMode('custom_time_range');
+              } else if (mode === 'fixed' && isCustomTimeRangeSelected) {
+                onSelectTimeMode(lastFixedTimeMode);
+              }
+            }}
+          />
+        )}
+        <button
+          type="button"
+          aria-expanded={isExpanded}
+          aria-controls={`${baseId}-scheduled-time-content`}
+          aria-label={isExpanded ? 'Recolher horários programados' : 'Expandir horários programados'}
+          title={timeError || undefined}
+          onClick={onToggleExpanded}
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
+        >
+          {isExpanded ? (
+            <ChevronUp className="h-4 w-4" />
+          ) : (
+            <ChevronDown className="h-4 w-4" />
+          )}
+        </button>
+      </div>
 
-      {isExpanded && <div id={`${baseId}-scheduled-time-content`} className="flex flex-col gap-3 animate-fade-in">
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      {isExpanded && <div id={`${baseId}-scheduled-time-content`} className="flex flex-col gap-4 animate-fade-in">
+      {!isCustomTimeRangeSelected && (
+      <>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
         <button
           type="button"
           disabled={isScheduleReadOnly}
@@ -99,20 +185,27 @@ export const ScheduledTimeCardsSection = ({
           onClick={() => onSelectTimeMode('morning')}
           className={`${getCardContainerClasses(
             effectiveTimeMode === 'morning'
-          )} flex items-center justify-between px-4 py-3.5 text-left`}
+          )} flex h-full items-center justify-center px-4 py-3.5 text-center`}
         >
-          <div className="flex items-center gap-3 min-w-0">
-            <Sun
-              className={`w-4 h-4 shrink-0 ${getCardIconClasses(effectiveTimeMode === 'morning')}`}
-            />
-            <div className="flex flex-col min-w-0">
+          <div className="flex min-w-0 flex-col items-center justify-center gap-1 text-center">
+            <div className="flex items-center justify-center gap-1">
+              <Sun
+                className={`h-4 w-4 shrink-0 ${getCardIconClasses(effectiveTimeMode === 'morning')}`}
+              />
               <span
                 className={`text-sm font-bold leading-tight ${getCardTitleClasses(
                   effectiveTimeMode === 'morning'
                 )}`}
               >
-                Manhã
+                De manhã
               </span>
+              {effectiveTimeMode === 'morning' && (
+                <Check
+                  data-testid="card-check-morning"
+                  className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400"
+                />
+              )}
+            </div>
               <span
                 className={`text-xs font-medium ${
                   effectiveTimeMode === 'morning'
@@ -122,14 +215,7 @@ export const ScheduledTimeCardsSection = ({
               >
                 (09:00 às 12:00)
               </span>
-            </div>
           </div>
-          {effectiveTimeMode === 'morning' && (
-            <Check
-              data-testid="card-check-morning"
-              className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0"
-            />
-          )}
         </button>
 
         <button
@@ -139,22 +225,29 @@ export const ScheduledTimeCardsSection = ({
           onClick={() => onSelectTimeMode('afternoon')}
           className={`${getCardContainerClasses(
             effectiveTimeMode === 'afternoon'
-          )} flex items-center justify-between px-4 py-3.5 text-left`}
+          )} flex h-full items-center justify-center px-4 py-3.5 text-center`}
         >
-          <div className="flex items-center gap-3 min-w-0">
-            <Sunset
-              className={`w-4 h-4 shrink-0 ${getCardIconClasses(
-                effectiveTimeMode === 'afternoon'
-              )}`}
-            />
-            <div className="flex flex-col min-w-0">
+          <div className="flex min-w-0 flex-col items-center justify-center gap-1 text-center">
+            <div className="flex items-center justify-center gap-1">
+              <Sunset
+                className={`h-4 w-4 shrink-0 ${getCardIconClasses(
+                  effectiveTimeMode === 'afternoon'
+                )}`}
+              />
               <span
                 className={`text-sm font-bold leading-tight ${getCardTitleClasses(
                   effectiveTimeMode === 'afternoon'
                 )}`}
               >
-                Tarde
+                À tarde
               </span>
+              {effectiveTimeMode === 'afternoon' && (
+                <Check
+                  data-testid="card-check-afternoon"
+                  className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400"
+                />
+              )}
+            </div>
               <span
                 className={`text-xs font-medium ${
                   effectiveTimeMode === 'afternoon'
@@ -164,139 +257,133 @@ export const ScheduledTimeCardsSection = ({
               >
                 (13:00 às 18:00)
               </span>
-            </div>
           </div>
-          {effectiveTimeMode === 'afternoon' && (
-            <Check
-              data-testid="card-check-afternoon"
-              className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0"
-            />
-          )}
         </button>
-      </div>
-
       <div
         data-testid="card-container-custom-time"
-        className={getCardContainerClasses(
+        onClick={() => {
+          if (!isScheduleReadOnly && !isCustomTimeSelected) {
+            onSelectTimeMode('custom_time');
+          }
+        }}
+        className={`min-w-0 cursor-pointer ${getCardContainerClasses(
           isCustomTimeSelected,
           isCustomTimeInvalid,
           isCustomTimeFilled
-        )}
+        )}`}
       >
         <button
           type="button"
           disabled={isScheduleReadOnly}
-          aria-expanded={isCustomTimeSelected}
-          aria-controls={customTimePanelId}
-          onClick={() => onSelectTimeMode('custom_time')}
-          className="w-full flex items-center justify-between px-4 py-3.5 text-left"
+          aria-pressed={isCustomTimeSelected}
+          className="w-full flex items-center justify-center px-4 py-1 text-center"
         >
-          <div className="flex items-center gap-3 min-w-0">
+          <div className="flex min-w-0 items-center gap-2">
             <Clock
-              className={`w-4 h-4 shrink-0 ${getCardIconClasses(
+              className={`w-4 h-4 shrink-0 ${isCustomTimeInvalid ? 'text-red-600 dark:text-red-400' : getCardIconClasses(
                 isCustomTimeSelected,
                 isCustomTimeFilled
               )}`}
             />
             <span
-              className={`text-sm font-bold ${getCardTitleClasses(
+              className={`whitespace-nowrap text-sm font-bold ${isCustomTimeInvalid ? 'text-red-600 dark:text-red-400' : getCardTitleClasses(
                 isCustomTimeSelected,
                 isCustomTimeFilled
               )}`}
             >
-              Horário específico
+              Selecionar horário
             </span>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            {isCustomTimeSelected ? (
-              <>
-                <Check
-                  data-testid="card-check-custom-time"
-                  className={`w-4 h-4 ${getCardIconClasses(true, isCustomTimeFilled)}`}
-                />
-                <ChevronUp className={`w-4 h-4 ${getCardIconClasses(true, isCustomTimeFilled)}`} />
-              </>
-            ) : (
-              <ChevronDown className="w-4 h-4 text-slate-400 dark:text-slate-500" />
-            )}
           </div>
         </button>
 
-        {isCustomTimeSelected && (
-          <div id={customTimePanelId} className="px-4 pb-4 pt-1 animate-fade-in">
-            <label
-              htmlFor={`${baseId}-custom-time-input`}
-              className={`block text-[11px] font-bold mb-1 ${getCardFieldLabelClasses(
-                isCustomTimeInvalid,
-                isCustomTimeFilled
-              )}`}
-            >
-              Horário desejado
-            </label>
+        <div id={customTimePanelId} className="flex justify-center px-4 pb-2 pt-0 animate-fade-in">
+          <div className="relative w-fit max-w-full">
             <input
               id={`${baseId}-custom-time-input`}
               type="time"
               disabled={isScheduleReadOnly}
               placeholder="HH:mm"
+              aria-label="Horário desejado"
               aria-invalid={isCustomTimeInvalid}
+              title={isCustomTimeInvalid ? timeError : undefined}
               value={customTimeValue}
-              onChange={(e) => onCustomTimeChange(e.target.value)}
-              className={getBottomBorderInputClasses(isCustomTimeInvalid, isCustomTimeFilled)}
+              onChange={(e) => {
+                if (!isCustomTimeSelected) onSelectTimeMode('custom_time');
+                onCustomTimeChange(e.target.value);
+              }}
+              className={`${customTimeInputClassName} !w-[145px] max-w-full`}
             />
+            {isCustomTimeSelected && isCustomTimeValid && (
+              <Check
+                data-testid="card-check-custom-time"
+                aria-hidden="true"
+                className="pointer-events-none absolute right-7 top-1/2 h-4 w-4 -translate-y-1/2 text-emerald-600 dark:text-emerald-400"
+              />
+            )}
           </div>
-        )}
+        </div>
       </div>
+      </div>
+      </>
+      )}
 
-      <div
+      {isCustomTimeRangeSelected && <div
         data-testid="card-container-custom-time-range"
         className={getCardContainerClasses(
           isCustomTimeRangeSelected,
-          Boolean(timeError && isCustomTimeRangeSelected),
+          isCustomTimeRangeInvalid,
           isCustomTimeRangeFilled
         )}
       >
         <button
           type="button"
           disabled={isScheduleReadOnly}
-          aria-expanded={isCustomTimeRangeSelected}
+          aria-expanded={isCustomTimeRangeExpanded}
           aria-controls={customTimeRangePanelId}
-          onClick={() => onSelectTimeMode('custom_time_range')}
+          onClick={() => {
+            if (isCustomTimeRangeSelected) {
+              setIsCustomTimeRangeExpanded((expanded) => !expanded);
+              return;
+            }
+            onSelectTimeMode('custom_time_range');
+            setIsCustomTimeRangeExpanded(true);
+          }}
           className="w-full flex items-center justify-between px-4 py-3.5 text-left"
         >
           <div className="flex items-center gap-3 min-w-0">
             <Clock
-              className={`w-4 h-4 shrink-0 ${getCardIconClasses(
+              className={`w-4 h-4 shrink-0 ${isCustomTimeRangeInvalid ? 'text-red-600 dark:text-red-400' : getCardIconClasses(
                 isCustomTimeRangeSelected,
                 isCustomTimeRangeFilled
               )}`}
             />
             <span
-              className={`text-sm font-bold ${getCardTitleClasses(
+              className={`text-sm font-bold ${isCustomTimeRangeInvalid ? 'text-red-600 dark:text-red-400' : getCardTitleClasses(
                 isCustomTimeRangeSelected,
                 isCustomTimeRangeFilled
               )}`}
             >
-              Período de horário específico
+              Selecione um período de horário
             </span>
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            {isCustomTimeRangeSelected ? (
-              <>
-                <Check
-                  data-testid="card-check-custom-time-range"
-                  className={`w-4 h-4 ${getCardIconClasses(true, isCustomTimeRangeFilled)}`}
-                />
-                <ChevronUp
-                  className={`w-4 h-4 ${getCardIconClasses(true, isCustomTimeRangeFilled)}`}
-                />
-              </>
+            {isCustomTimeRangeValid && (
+              <Check
+                data-testid="card-check-custom-time-range"
+                className="h-4 w-4 text-emerald-600 dark:text-emerald-400"
+              />
+            )}
+            {isCustomTimeRangeExpanded ? (
+              <ChevronUp
+                className={`w-4 h-4 ${getCardIconClasses(isCustomTimeRangeSelected, isCustomTimeRangeValid)}`}
+              />
             ) : (
               <ChevronDown className="w-4 h-4 text-slate-400 dark:text-slate-500" />
             )}
           </div>
         </button>
 
-        {isCustomTimeRangeSelected && (
+        {isCustomTimeRangeSelected && isCustomTimeRangeExpanded && (
           <div
             id={customTimeRangePanelId}
             className="px-4 pb-4 pt-1 grid grid-cols-1 sm:grid-cols-2 gap-4 animate-fade-in"
@@ -317,6 +404,7 @@ export const ScheduledTimeCardsSection = ({
                 disabled={isScheduleReadOnly}
                 placeholder="HH:mm"
                 aria-invalid={isCustomTimeRangeStartInvalid}
+                title={isCustomTimeRangeStartInvalid ? timeError : undefined}
                 value={customRangeStartTimeValue}
                 onChange={(e) => onCustomTimeRangeChange('startTime', e.target.value)}
                 className={getBottomBorderInputClasses(
@@ -341,6 +429,7 @@ export const ScheduledTimeCardsSection = ({
                 disabled={isScheduleReadOnly}
                 placeholder="HH:mm"
                 aria-invalid={isCustomTimeRangeEndInvalid}
+                title={isCustomTimeRangeEndInvalid ? timeError : undefined}
                 value={customRangeEndTimeValue}
                 onChange={(e) => onCustomTimeRangeChange('endTime', e.target.value)}
                 className={getBottomBorderInputClasses(
@@ -351,13 +440,8 @@ export const ScheduledTimeCardsSection = ({
             </div>
           </div>
         )}
-      </div>
+      </div>}
 
-      {timeError && (
-        <p role="alert" className="text-xs font-bold text-red-600 dark:text-red-400 ml-1 mt-0.5">
-          {timeError}
-        </p>
-      )}
       </div>}
     </div>
   );

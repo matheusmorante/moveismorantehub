@@ -66,7 +66,7 @@ function ReceivableModalForm({ onClose, onSaved, receivable }: ReceivableModalPr
   const handleSave = async (data: z.output<typeof receivableFormSchema>) => {
     if (!operation.current()) return;
     await operation.wait(receivable?.id
-      ? financeService.updateReceivable(receivable.id, data) : financeService.createReceivable(data));
+      ? financeService.updateReceivableId(receivable.id, data) : financeService.createReceivable(data));
     if (!operation.current()) return;
     toast.success('Conta a receber salva!');
     onSaved();

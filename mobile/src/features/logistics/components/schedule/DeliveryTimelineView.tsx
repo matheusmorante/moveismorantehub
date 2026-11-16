@@ -6,19 +6,33 @@ import { supabase } from '../../../../services/supabaseClient';
 import type { AssemblyHandlingOption } from '../../../../utils/aiSummaryHelper';
 import { getOperationalScheduleDate } from '../../../../utils/operationalSchedule';
 import { getDeliveryTimelineMarker } from './deliveryTimelineMarker';
+import type { AssemblyTask } from '../../../assemblies/assemblyTasks';
+import { AssemblyOrderCard } from '../../../assemblies/components/AssemblyOrderCard';
 
 interface Props {
   items: DeliveryRouteItem[];
+  assemblyTasks?: AssemblyTask[];
   refreshing: boolean;
   onRefresh: () => void;
   onViewOrder: (item: DeliveryRouteItem) => void;
+  onViewAssembly?: (order: any) => void;
   handlingOptions?: AssemblyHandlingOption[];
   dateScope?: DeliveryRouteDateScope;
   onChangeDateScope?: (scope: DeliveryRouteDateScope) => void;
   isDarkMode?: boolean;
 }
 
-const getStartTimeMinutes = (item: DeliveryRouteItem) => {
+type TimelineItem = {
+  id: string;
+  order: any;
+  customerName: string;
+  windowStart?: string;
+  periodLabel: string;
+  delivery?: DeliveryRouteItem;
+  assembly?: AssemblyTask;
+};
+
+const getStartTimeMinutes = (item: TimelineItem) => {
   const value = String(item.windowStart || item.periodLabel || '').toLocaleLowerCase('pt-BR');
   const match = value.match(/(\d{1,2}):(\d{2})/);
   if (match) return Number(match[1]) * 60 + Number(match[2]);
@@ -28,7 +42,7 @@ const getStartTimeMinutes = (item: DeliveryRouteItem) => {
   return Number.POSITIVE_INFINITY;
 };
 
-const compareChronologically = (a: DeliveryRouteItem, b: DeliveryRouteItem) => {
+const compareChronologically = (a: TimelineItem, b: TimelineItem) => {
   const dateDiff = getOperationalScheduleDate(a.order).localeCompare(
     getOperationalScheduleDate(b.order)
   );
@@ -44,7 +58,7 @@ const compareChronologically = (a: DeliveryRouteItem, b: DeliveryRouteItem) => {
   return a.customerName.localeCompare(b.customerName, 'pt-BR');
 };
 
-const matchesPeriod = (item: DeliveryRouteItem, period: 'morning' | 'afternoon') => {
+const matchesPeriod = (item: TimelineItem, period: 'morning' | 'afternoon') => {
   const value = String(item.windowStart || item.periodLabel || '').toLocaleLowerCase('pt-BR');
   const startMinutes = getStartTimeMinutes(item);
   if (Number.isFinite(startMinutes)) {
@@ -59,9 +73,11 @@ const matchesPeriod = (item: DeliveryRouteItem, period: 'morning' | 'afternoon')
 
 export const DeliveryTimelineView: React.FC<Props> = ({
   items,
+  assemblyTasks = [],
   refreshing,
   onRefresh,
   onViewOrder,
+  onViewAssembly,
   handlingOptions: sharedHandlingOptions,
   dateScope = 'today',
   isDarkMode = false,
@@ -69,12 +85,23 @@ export const DeliveryTimelineView: React.FC<Props> = ({
   const [periodFilter, setPeriodFilter] = useState<'all' | 'morning' | 'afternoon'>('all');
   const [loadedHandlingOptions, setLoadedHandlingOptions] = useState<AssemblyHandlingOption[]>([]);
 
+  const timelineItems = useMemo<TimelineItem[]>(() => [
+    ...items.map((item) => ({ ...item, delivery: item })),
+    ...assemblyTasks.map((task) => ({
+      id: `assembly-${task.id}`,
+      order: task.order,
+      customerName: String(task.order?.order_data?.customerData?.fullName || task.order?.customer_name || ''),
+      periodLabel: task.scheduledTime || '',
+      assembly: task,
+    })),
+  ], [items, assemblyTasks]);
+
   const shiftCounts = useMemo(
     () => ({
-      morning: items.filter((item) => matchesPeriod(item, 'morning')).length,
-      afternoon: items.filter((item) => matchesPeriod(item, 'afternoon')).length,
+      morning: timelineItems.filter((item) => matchesPeriod(item, 'morning')).length,
+      afternoon: timelineItems.filter((item) => matchesPeriod(item, 'afternoon')).length,
     }),
-    [items]
+    [timelineItems]
   );
 
   // Usa as mesmas modalidades configuradas no ERP para identificar os selos.
@@ -88,7 +115,7 @@ export const DeliveryTimelineView: React.FC<Props> = ({
       .limit(1)
       .then(({ data }) => {
         if (!active) return;
-        const settings = data?.[0] || {};
+        const settings = (data?.[0] || {}) as { delivery?: AssemblyHandlingOption[]; pickup?: AssemblyHandlingOption[] };
         setLoadedHandlingOptions([
           ...(settings.delivery || []),
           ...(settings.pickup || []),
@@ -105,9 +132,9 @@ export const DeliveryTimelineView: React.FC<Props> = ({
   // Filtro por Período (Todas, Manhã, Tarde)
   const filteredItems = useMemo(() => {
     const periodItems =
-      periodFilter === 'all' ? [...items] : items.filter((item) => matchesPeriod(item, periodFilter));
+      periodFilter === 'all' ? [...timelineItems] : timelineItems.filter((item) => matchesPeriod(item, periodFilter));
     return periodItems.sort(compareChronologically);
-  }, [items, periodFilter]);
+  }, [timelineItems, periodFilter]);
 
   return (
     <View style={[styles.container, isDarkMode && styles.containerDark]}>
@@ -201,7 +228,9 @@ export const DeliveryTimelineView: React.FC<Props> = ({
           </View>
         ) : (
           filteredItems.map((item, index) => {
-            const marker = getDeliveryTimelineMarker(item, isDarkMode);
+            const marker = item.assembly
+              ? { color: item.assembly.isOutside ? '#dc2626' : '#d97706' }
+              : getDeliveryTimelineMarker(item.delivery!, isDarkMode);
 
             return (
               <View key={item.id} style={styles.timelineItemWrapper}>
@@ -215,12 +244,24 @@ export const DeliveryTimelineView: React.FC<Props> = ({
 
                 {/* Cartão da atividade */}
                 <View style={styles.timelineContent}>
-                  <ScheduleCard
-                    item={item}
-                    onViewOrder={onViewOrder}
-                    handlingOptions={handlingOptions}
-                    isDarkMode={isDarkMode}
-                  />
+                  {item.assembly ? (
+                    <AssemblyOrderCard
+                      order={item.assembly.order}
+                      item={item.assembly.item}
+                      isOutside={item.assembly.isOutside}
+                      scheduledTime={item.assembly.scheduledTime}
+                      responsibleName={item.assembly.responsibleName}
+                      isDarkMode={isDarkMode}
+                      onPress={() => onViewAssembly?.(item.assembly!.order)}
+                    />
+                  ) : (
+                    <ScheduleCard
+                      item={item.delivery!}
+                      onViewOrder={onViewOrder}
+                      handlingOptions={handlingOptions}
+                      isDarkMode={isDarkMode}
+                    />
+                  )}
                 </View>
               </View>
             );

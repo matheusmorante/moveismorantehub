@@ -10,12 +10,14 @@ import { prepareOrderForFormEditing } from './orderFormSnapshot';
 
 interface OrderFormHydrationParams {
   autoSaveExistingDrafts: boolean;
+  markLoadedDraftBaseline: () => void;
   cancelPendingDistanceCalculation: () => void;
   schedulingSessionRef: MutableRefObject<SchedulingSessionMemory | null>;
   resetItemHandlingMemory: (method: Shipping['deliveryMethod'], items: Item[]) => void;
   setIsDraftAutoSaveEnabled: Dispatch<SetStateAction<boolean>>;
   setOrderIndex: Dispatch<SetStateAction<number | null>>;
   setCurrentOrderId: Dispatch<SetStateAction<string | undefined>>;
+  setIsNewSaleFlow: Dispatch<SetStateAction<boolean>>;
   latestState: MutableRefObject<any>;
   generateCodeForCopyOrNew: () => Promise<number | null>;
   setItems: Dispatch<SetStateAction<Item[]>>;
@@ -42,12 +44,14 @@ export const hydrateOrderFormForEditing = (
   order: Order,
   {
     autoSaveExistingDrafts,
+    markLoadedDraftBaseline,
     cancelPendingDistanceCalculation,
     schedulingSessionRef,
     resetItemHandlingMemory,
     setIsDraftAutoSaveEnabled,
     setOrderIndex,
     setCurrentOrderId,
+    setIsNewSaleFlow,
     latestState,
     generateCodeForCopyOrNew,
     setItems,
@@ -85,6 +89,11 @@ export const hydrateOrderFormForEditing = (
     loadedTestFields,
     formattedDate,
   } = prepareOrderForFormEditing(order);
+
+  setIsNewSaleFlow(!isExistingOrder);
+  latestState.current.isNewSaleFlow = !isExistingOrder;
+
+  if (isExistingOrder) markLoadedDraftBaseline();
 
   resetItemHandlingMemory(normalizedShipping.deliveryMethod, normalizedItems);
 

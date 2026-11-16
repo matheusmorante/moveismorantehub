@@ -56,7 +56,7 @@ export const CardPendingSection: React.FC<CardPendingSectionProps> = ({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 animate-slide-up">
           {pendingOrders.map((order, index) => (
             <DeliveryOrderCard
-              key={order.id || `pending-${index}`}
+              key={(order as any)._taskKey || order.id || `pending-${index}`}
               order={order}
               index={index}
               onOrderClick={onOrderClick}

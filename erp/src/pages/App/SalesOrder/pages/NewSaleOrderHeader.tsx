@@ -34,9 +34,9 @@ export const NewSaleOrderHeader = ({
 
   return (
     <div
-      className={`sticky top-0 z-50 transition-all duration-300 border-b flex flex-row justify-between items-center gap-4 px-2 py-2 sm:gap-6 sm:px-4 sm:py-2.5 lg:px-6 shrink-0 ${theme.containerBg}`}
+      className={`sticky top-0 z-50 transition-all duration-300 border-b flex flex-wrap justify-between items-center gap-x-4 gap-y-2 px-2 py-2 sm:gap-x-6 sm:px-4 sm:py-2.5 lg:px-6 shrink-0 ${theme.containerBg}`}
     >
-      <div className="flex min-w-0 items-center shrink-0">
+      <div className="order-1 flex min-w-0 items-center shrink-0">
         <div className="flex min-w-0 items-center gap-1.5 sm:gap-3">
           <div
             className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg shadow-md transition-all sm:h-10 sm:w-10 sm:rounded-xl ${theme.iconBadgeBg}`}
@@ -76,7 +76,7 @@ export const NewSaleOrderHeader = ({
         </div>
       </div>
 
-      <div className="flex flex-1 min-w-0 justify-center px-1 sm:px-3 2xl:max-w-4xl mx-auto">
+      <div className="order-3 flex basis-full min-w-0 justify-center px-1 sm:px-3 lg:order-2 lg:flex-1 lg:basis-auto 2xl:max-w-4xl mx-auto">
         <OrderStepper
           currentStep={currentStep}
           jumpToStep={jumpToStep}
@@ -88,7 +88,7 @@ export const NewSaleOrderHeader = ({
       <button
         type="button"
         onClick={onClose}
-        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500 transition-colors hover:bg-rose-50 hover:text-rose-500 dark:bg-slate-800 dark:hover:bg-rose-950/30 sm:h-9 sm:w-9 sm:rounded-xl"
+        className="order-2 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500 transition-colors hover:bg-rose-50 hover:text-rose-500 dark:bg-slate-800 dark:hover:bg-rose-950/30 sm:h-9 sm:w-9 sm:rounded-xl lg:order-3"
         title="Fechar"
         aria-label="Fechar pedido"
       >

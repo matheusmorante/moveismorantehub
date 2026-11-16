@@ -17,10 +17,14 @@ const customerData = {
   fullAddress: { street: '', cep: '' },
 } as any;
 
-function renderAutoSave(isDraftAutoSaveEnabled = true) {
+function renderAutoSave(
+  isDraftAutoSaveEnabled = true,
+  orderIndex: number | null = 1201,
+  ensureOrderCode?: () => Promise<number | null>
+) {
   const latestStateRef = {
     current: {
-      orderIndex: 1201,
+      orderIndex,
       currentOrderId: undefined,
       status: 'draft',
       isSaving: false,
@@ -47,11 +51,14 @@ function renderAutoSave(isDraftAutoSaveEnabled = true) {
         'organic',
         '2026-09-30',
         'draft',
-        1201,
+        orderIndex,
         getOrderData,
         setCurrentOrderId,
         latestStateRef,
-        isDraftAutoSaveEnabled
+        isDraftAutoSaveEnabled,
+        undefined,
+        undefined,
+        ensureOrderCode
       );
     },
     { initialProps: { items: emptyItems } }
@@ -109,6 +116,51 @@ describe('useOrderAutoSave', () => {
     expect(result.current.draftAutoSaveStatus).toBe('idle');
   });
 
+  it('obtém o código pendente e salva a alteração automaticamente', async () => {
+    vi.mocked(saveOrder).mockResolvedValue('draft-123');
+    let latestStateRef: ReturnType<typeof renderAutoSave>['latestStateRef'];
+    const ensureOrderCode = vi.fn(async () => {
+      latestStateRef.current.orderIndex = 1201;
+      return 1201;
+    });
+    const hook = renderAutoSave(true, null, ensureOrderCode);
+    latestStateRef = hook.latestStateRef;
+    hook.rerender({ items: changedItems });
+
+    await act(async () => { await vi.advanceTimersByTimeAsync(3000); });
+    expect(ensureOrderCode).toHaveBeenCalledOnce();
+    expect(saveOrder).toHaveBeenCalledOnce();
+    expect(hook.result.current.draftAutoSaveStatus).toBe('saved');
+  });
+
+  it('mostra falha quando não consegue obter o código do rascunho', async () => {
+    const ensureOrderCode = vi.fn().mockResolvedValue(null);
+    const { result, rerender } = renderAutoSave(true, null, ensureOrderCode);
+    rerender({ items: changedItems });
+
+    await act(async () => { await vi.advanceTimersByTimeAsync(3000); });
+    expect(ensureOrderCode).toHaveBeenCalledOnce();
+    expect(saveOrder).not.toHaveBeenCalled();
+    expect(result.current.draftAutoSaveStatus).toBe('error');
+  });
+
+  it('avisa quando a confirmação demora sem iniciar uma gravação duplicada', async () => {
+    let finish!: (value: string) => void;
+    vi.mocked(saveOrder).mockReturnValue(new Promise((resolve) => { finish = resolve; }));
+    const { result, rerender } = renderAutoSave();
+    rerender({ items: changedItems });
+    await act(async () => { await vi.advanceTimersByTimeAsync(3000); });
+    expect(result.current.draftAutoSaveStatus).toBe('saving');
+
+    await act(async () => { await vi.advanceTimersByTimeAsync(15000); });
+    expect(result.current.draftAutoSaveStatus).toBe('error');
+    expect(saveOrder).toHaveBeenCalledOnce();
+
+    await act(async () => { finish('draft-123'); });
+    expect(result.current.draftAutoSaveStatus).toBe('saved');
+    expect(saveOrder).toHaveBeenCalledOnce();
+  });
+
   it('aguarda uma gravação em andamento e confirma somente a alteração mais recente', async () => {
     let resolveFirstSave!: (id: string) => void;
     let resolveLatestSave!: (id: string) => void;
@@ -135,11 +187,6 @@ describe('useOrderAutoSave', () => {
     resolveFirstSave('draft-123');
     await act(async () => {
       await firstSave;
-    });
-    expect(result.current.draftAutoSaveStatus).toBe('pending');
-
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(250);
     });
     expect(result.current.draftAutoSaveStatus).toBe('saving');
 
@@ -211,7 +258,7 @@ describe('useOrderAutoSave', () => {
   it('entrega os valores parseados de um rascunho incompleto ao serviço', async () => {
     vi.mocked(saveOrder).mockResolvedValue('draft-123'); const { rerender } = renderAutoSave();
     rerender({ items: changedItems }); await act(async () => { await vi.advanceTimersByTimeAsync(3000); });
-    expect(saveOrder).toHaveBeenCalledWith(expect.objectContaining({ status: 'draft', seller: '', orderType: 'sale', items: [expect.objectContaining({ unitDiscount: 0, discountType: 'fixed' })] }));
+    expect(saveOrder).toHaveBeenCalledWith(expect.objectContaining({ status: 'draft', seller: '', orderType: 'sale', items: [expect.objectContaining({ unitDiscount: 0, discountType: 'fixed' })] }), expect.objectContaining({ idempotencyKey: expect.any(String) }));
   });
 
   it('cancela o efeito agendado quando a submissão manual já assumiu a operação', async () => {

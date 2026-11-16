@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   fetchPersons: vi.fn(),
+  fetchEmployeeDirectoryPage: vi.fn(),
   updatePerson: vi.fn(),
   moveToTrash: vi.fn(),
   restorePerson: vi.fn(),
@@ -15,6 +16,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('@/pages/utils/personService', () => ({
   fetchPersons: mocks.fetchPersons,
+  fetchEmployeeDirectoryPage: mocks.fetchEmployeeDirectoryPage,
   moveToTrash: mocks.moveToTrash,
   restorePerson: mocks.restorePerson,
   permanentDeletePerson: mocks.permanentDeletePerson,
@@ -74,7 +76,10 @@ describe('usePeople query state', () => {
         finishSync = resolve;
       })
     );
-    mocks.fetchPersons.mockResolvedValue([{ id: 'employee-1', fullName: 'Pessoa' }]);
+    mocks.fetchEmployeeDirectoryPage.mockResolvedValue({
+      people: [{ id: 'employee-1', fullName: 'Pessoa' }],
+      totalItems: 1,
+    });
     const { result } = renderHook(() => usePeople('employees'), {
       wrapper: createQueryWrapper().wrapper,
     });
@@ -87,10 +92,69 @@ describe('usePeople query state', () => {
 
     await waitFor(() => expect(result.current.people[0]?.id).toBe('employee-1'));
     expect(result.current.loading).toBe(false);
-    expect(mocks.fetchPersons).toHaveBeenCalledWith('employees', false, {
-      throwOnError: true,
-      syncEmployeeProfiles: false,
+    expect(mocks.fetchEmployeeDirectoryPage).toHaveBeenCalledWith({
+      page: 1,
+      pageSize: 15,
+      sortBy: 'fullName',
+      sortOrder: 'asc',
     });
+    expect(mocks.fetchPersons).not.toHaveBeenCalledWith('employees', false, expect.anything());
+  });
+
+  it('requests the next employee page and keeps the server total', async () => {
+    mocks.fetchEmployeeDirectoryPage.mockImplementation(async ({ page, sortBy, sortOrder }) => ({
+      people: [{ id: `employee-page-${page}`, fullName: `Pessoa ${page}` }],
+      totalItems: 31,
+      sortBy,
+      sortOrder,
+    }));
+    const { result } = renderHook(() => usePeople('employees'), {
+      wrapper: createQueryWrapper().wrapper,
+    });
+
+    await waitFor(() => expect(result.current.people[0]?.id).toBe('employee-page-1'));
+    expect(result.current.totalItems).toBe(31);
+    expect(result.current.totalPages).toBe(3);
+
+    act(() => result.current.setCurrentPage(2));
+
+    await waitFor(() => expect(result.current.people[0]?.id).toBe('employee-page-2'));
+    expect(mocks.fetchEmployeeDirectoryPage).toHaveBeenLastCalledWith({
+      page: 2,
+      pageSize: 15,
+      sortBy: 'fullName',
+      sortOrder: 'asc',
+    });
+    expect(result.current.totalItems).toBe(31);
+  });
+
+  it('starts a changed employee sort on page one without first loading the old page', async () => {
+    mocks.fetchEmployeeDirectoryPage.mockImplementation(async ({ page, sortBy, sortOrder }) => ({
+      people: [{ id: `employee-${sortBy}-${page}`, fullName: `Pessoa ${page}` }],
+      totalItems: 31,
+      sortBy,
+      sortOrder,
+    }));
+    const firstFilters = { sortBy: 'fullName', sortOrder: 'asc' as const };
+    const { result, rerender } = renderHook(
+      ({ filters }: { filters: typeof firstFilters }) => usePeople('employees', filters),
+      { initialProps: { filters: firstFilters }, wrapper: createQueryWrapper().wrapper }
+    );
+
+    await waitFor(() => expect(result.current.people[0]?.id).toBe('employee-fullName-1'));
+    act(() => result.current.setCurrentPage(2));
+    await waitFor(() => expect(result.current.people[0]?.id).toBe('employee-fullName-2'));
+
+    rerender({ filters: { sortBy: 'createdAt', sortOrder: 'desc' } });
+
+    await waitFor(() => expect(mocks.fetchEmployeeDirectoryPage).toHaveBeenCalledTimes(3));
+    expect(mocks.fetchEmployeeDirectoryPage).toHaveBeenLastCalledWith({
+      page: 1,
+      pageSize: 15,
+      sortBy: 'createdAt',
+      sortOrder: 'desc',
+    });
+    expect(result.current.currentPage).toBe(1);
   });
 
   it('invalidates only the selected collection after a successful update', async () => {

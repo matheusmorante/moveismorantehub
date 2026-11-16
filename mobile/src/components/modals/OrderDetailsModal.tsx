@@ -1,8 +1,11 @@
 import React from 'react';
-import { View, Modal, Text, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { View, Modal, Text, ActivityIndicator, TouchableOpacity, Alert } from 'react-native';
 import { OrderDetailsBody } from '../OrderDetailsBody';
 import { DeliveryPreparationScreen } from '../../features/orders/screens/DeliveryPreparationScreen';
 import { deliveryFlowService } from '../../features/orders/services/deliveryFlowService';
+import { prepareIndependentDelivery } from '../../features/orders/services/deliveryOperationService';
+import { getIndependentOperationId } from '../../features/orders/services/deliveryOperationState';
+import { hasSeparateFulfillments } from '../../../../shared-utils/fulfillmentScheduleGuard';
 import {
   useOrderDetailsModal,
   OrderDetailsModalHeader,
@@ -32,6 +35,7 @@ export const OrderDetailsModal: React.FC<Props> = ({
   userProfile,
 }) => {
   const preparationStartRequestedOrderRef = React.useRef<string | null>(null);
+  const [startingOperation, setStartingOperation] = React.useState(false);
   const {
     detailedOrder,
     setDetailedOrder,
@@ -44,12 +48,15 @@ export const OrderDetailsModal: React.FC<Props> = ({
 
   const markPreparationStarted = React.useCallback(
     (targetOrder: any, currentData?: Record<string, any>) => {
+      if (getIndependentOperationId(targetOrder)) return;
+      const source = targetOrder?._sourceOrderData || targetOrder?.order_data || targetOrder;
+      if (hasSeparateFulfillments(source?.shipping?.scheduling, source?.items)) return;
       if (!targetOrder?.id || preparationStartRequestedOrderRef.current === targetOrder.id) return;
       preparationStartRequestedOrderRef.current = targetOrder.id;
       void deliveryFlowService.startPreparation(
         targetOrder.id,
         currentData || targetOrder.order_data || targetOrder.orderData || {}
-      );
+      ).catch(() => { preparationStartRequestedOrderRef.current = null; });
     },
     []
   );
@@ -59,9 +66,27 @@ export const OrderDetailsModal: React.FC<Props> = ({
     markPreparationStarted(detailedOrder);
   }, [markPreparationStarted, detailedOrder, order?._openDeliveryPreparation, detailsLoading, detailsError]);
 
-  const handleStartDelivery = () => {
-    if (detailsLoading || detailsError) return;
+  const handleStartDelivery = async () => {
+    if (detailsLoading || detailsError || startingOperation) return;
     const targetOrder = detailedOrder || order;
+    const source = targetOrder?._sourceOrderData || targetOrder?.order_data || targetOrder;
+    if (!getIndependentOperationId(targetOrder) && hasSeparateFulfillments(source?.shipping?.scheduling, source?.items)) {
+      Alert.alert('Selecione uma operação', 'Abra a operação desejada na lista de Operações para iniciar a entrega.');
+      return;
+    }
+    if (getIndependentOperationId(targetOrder)) {
+      setStartingOperation(true);
+      try {
+        const prepared = await prepareIndependentDelivery(targetOrder);
+        setDetailedOrder(prepared);
+        setPreparingDelivery(true);
+      } catch (error: any) {
+        Alert.alert('Não foi possível iniciar a operação', error?.message || 'Atualize o pedido e tente novamente.');
+      } finally {
+        setStartingOperation(false);
+      }
+      return;
+    }
     const nestedData =
       targetOrder?.order_data && typeof targetOrder.order_data === 'object'
         ? targetOrder.order_data

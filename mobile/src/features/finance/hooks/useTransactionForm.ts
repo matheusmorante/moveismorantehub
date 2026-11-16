@@ -6,10 +6,11 @@ import { financialTransactionFormSchema } from '../../../../../shared-utils/fina
 import {
   FinancialCategory,
   FinancialTransaction,
-  createFinancialTransaction,
+  createFinancialTransactionId,
   updateFinancialTransaction,
 } from '../../../services/mobileFinanceService';
 import { supabase } from '../../../services/supabaseClient';
+import { connectivityService } from '../../../services/offline/connectivityService';
 import {
   toLocalIsoDate,
   isProLaboreCat,
@@ -71,6 +72,10 @@ export function useTransactionForm({
   const [collaboratorId, setCollaboratorId] = useState('');
   const [collaboratorName, setCollaboratorName] = useState('');
   const [collaboratorsList, setCollaboratorsList] = useState<{ id: string; name: string }[]>([]);
+  const [collaboratorsLoading, setCollaboratorsLoading] = useState(false);
+  const [collaboratorsUnavailable, setCollaboratorsUnavailable] = useState(false);
+  const collaboratorsLoaded = useRef(false);
+  const collaboratorsRequestInFlight = useRef(false);
   const [saving, setSaving] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, boolean>>({});
   const mounted = useRef(true);
@@ -143,28 +148,7 @@ export function useTransactionForm({
     setCollaboratorName('');
   }, [contextRevision]);
 
-  useEffect(() => {
-    let current = true;
-    const loadCollaborators = async () => {
-      try {
-        const response = await withTimeout(supabase.from('profiles').select('id, full_name, role').limit(50), 15_000, null, 'financeiro:colaboradores');
-        if (!current || !response) return;
-        const { data } = response;
-        if (data && data.length > 0) {
-          setCollaboratorsList(
-            data.map((p) => ({
-              id: p.id,
-              name: p.full_name || 'Colaborador',
-            }))
-          );
-        }
-      } catch (err) {
-        console.warn('Erro ao carregar colaboradores no mobile finance modal:', err);
-      }
-    };
-    void loadCollaborators();
-    return () => { current = false; };
-  }, []);
+
 
   const filteredCategories = useMemo(() => {
     const byType = categories.filter((c) => c.type === type);
@@ -246,6 +230,67 @@ export function useTransactionForm({
       ].some((term) => selectedCategory.name.toLowerCase().includes(term))
   );
 
+  useEffect(() => {
+    if (!visible || !isPersonnelCategory) return;
+
+    let wasConnected = connectivityService.connected;
+    let retryAfterCurrentRequest = false;
+    const loadCollaborators = async () => {
+      if (collaboratorsLoaded.current || collaboratorsRequestInFlight.current) return;
+      if (!connectivityService.connected) {
+        setCollaboratorsUnavailable(true);
+        return;
+      }
+
+      collaboratorsRequestInFlight.current = true;
+      setCollaboratorsLoading(true);
+      setCollaboratorsUnavailable(false);
+      try {
+        const response = await withTimeout(
+          supabase.from('profiles').select('id, full_name').limit(50),
+          15_000,
+          null,
+          'financeiro:colaboradores'
+        );
+        if (!mounted.current) return;
+        if (!response || response.error) {
+          throw response?.error || new Error('Consulta de colaboradores indisponível.');
+        }
+        setCollaboratorsList(
+          (response.data || []).map((profile) => ({
+            id: profile.id,
+            name: profile.full_name || 'Colaborador',
+          }))
+        );
+        collaboratorsLoaded.current = true;
+      } catch {
+        if (mounted.current) setCollaboratorsUnavailable(true);
+      } finally {
+        collaboratorsRequestInFlight.current = false;
+        const shouldRetryAfterReconnect =
+          retryAfterCurrentRequest &&
+          !collaboratorsLoaded.current &&
+          connectivityService.connected &&
+          mounted.current;
+        retryAfterCurrentRequest = false;
+        if (shouldRetryAfterReconnect) void loadCollaborators();
+        else if (mounted.current) setCollaboratorsLoading(false);
+      }
+    };
+
+    void loadCollaborators();
+    const unsubscribe = connectivityService.subscribe((isConnected) => {
+      const reconnected = isConnected && !wasConnected;
+      wasConnected = isConnected;
+      if (reconnected) {
+        if (collaboratorsRequestInFlight.current) retryAfterCurrentRequest = true;
+        else void loadCollaborators();
+      }
+    });
+
+    return unsubscribe;
+  }, [visible, isPersonnelCategory]);
+
   const isVehicleCategory = Boolean(
     selectedCategory?.name &&
       [
@@ -307,9 +352,9 @@ export function useTransactionForm({
           collaborator_name: values.collaborator_name || null,
         };
         writing = true;
-        const operation: Promise<{ success: boolean; error?: string; data?: FinancialTransaction }> = transactionId
+        const operation: Promise<{ success: boolean; error?: string; data?: { id: string } }> = transactionId
           ? updateFinancialTransaction(transactionId, editablePayload)
-          : createFinancialTransaction({ ...editablePayload, notes: null, origin: 'MANUAL', created_by, due_date: null, is_recurring: false, status: 'ACTIVE' });
+          : createFinancialTransactionId({ ...editablePayload, notes: null, origin: 'MANUAL', created_by, due_date: null, is_recurring: false, status: 'ACTIVE' });
         const result = await withTimeout(operation, 20_000, null, 'financeiro:lancamento-manual');
         if (!result || (result.success && !transactionId && !result.data?.id)) {
           uncertainContexts.current.add(contextKey);
@@ -379,6 +424,8 @@ export function useTransactionForm({
     collaboratorId,
     collaboratorName,
     collaboratorsList,
+    collaboratorsLoading,
+    collaboratorsUnavailable,
     saving,
     fieldErrors,
     isExpense,

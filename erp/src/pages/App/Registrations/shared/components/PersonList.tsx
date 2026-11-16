@@ -5,13 +5,7 @@ import Person, { PersonVisibilitySettings } from '../../../../types/person.type'
 import ConfirmModal from '@/components/shared/ConfirmModal';
 import { ERPListPagination } from '@/components/shared/ERPListPagination';
 import { supabase } from '@/pages/utils/supabaseConfig';
-import type { CustomerOrderCountRow } from '../customerOrderCounts';
-import {
-  buildCustomerOrderMatchFilter,
-  calculateCustomerOrderCounts,
-  CUSTOMER_ORDER_PAGE_SIZE,
-  fetchPaginatedRows,
-} from '../customerOrderCounts';
+import { fetchCustomerOrderCounts } from '../customerOrderCountService';
 import type { SupplierDeletionCounts } from '../../../../../../../shared-utils/supplierDeletion';
 
 interface PersonListProps {
@@ -92,6 +86,9 @@ const PersonList = forwardRef<PersonListRef, PersonListProps>(
     const [customerOrderCounts, setCustomerOrderCounts] = React.useState<Record<string, number>>(
       {}
     );
+    const [customerOrderCountStatus, setCustomerOrderCountStatus] = React.useState<
+      'idle' | 'loading' | 'error'
+    >('idle');
 
     useEffect(() => {
       let active = true;
@@ -169,33 +166,24 @@ const PersonList = forwardRef<PersonListRef, PersonListProps>(
 
       if (collectionName === 'customers') {
         const loadCustomerOrderCounts = async () => {
-          const customerFilter = buildCustomerOrderMatchFilter(people);
-          if (!customerFilter) {
-            if (active) setCustomerOrderCounts({});
-            return;
-          }
-
-          const rows = await fetchPaginatedRows<CustomerOrderCountRow>(
-            async (from, to) => {
-              const { data, error } = await supabase
-                .from('orders')
-                .select('id, customer_id, customer_name')
-                .or(customerFilter)
-                .order('id', { ascending: true })
-                .range(from, to);
-              return { data, error };
-            },
-            CUSTOMER_ORDER_PAGE_SIZE,
-            () => active
-          );
-
-          if (!active) return;
-          if (!rows) {
-            console.error('Não foi possível carregar os pedidos dos clientes.');
+          setCustomerOrderCounts({});
+          setCustomerOrderCountStatus('loading');
+          try {
+            const counts = await fetchCustomerOrderCounts(
+              people.map((person) => ({ id: person.id, fullName: person.fullName }))
+            );
+            if (!active) return;
+            setCustomerOrderCounts(counts);
+            setCustomerOrderCountStatus('idle');
+          } catch (countError) {
+            console.error(
+              'Não foi possível carregar as contagens de pedidos dos clientes.',
+              countError
+            );
+            if (!active) return;
             setCustomerOrderCounts({});
-            return;
+            setCustomerOrderCountStatus('error');
           }
-          setCustomerOrderCounts(calculateCustomerOrderCounts(people, rows));
         };
         void loadCustomerOrderCounts();
       }
@@ -311,6 +299,19 @@ const PersonList = forwardRef<PersonListRef, PersonListProps>(
               : 'p-4 md:p-8'
           }
         >
+          {collectionName === 'customers' && customerOrderCountStatus === 'loading' && (
+            <p className="mb-3 text-xs text-slate-500 dark:text-slate-400" role="status">
+              Atualizando as contagens de pedidos desta página...
+            </p>
+          )}
+          {collectionName === 'customers' && customerOrderCountStatus === 'error' && (
+            <p
+              className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200"
+              role="alert"
+            >
+              Não foi possível atualizar as contagens de pedidos. A indicação de vínculos está temporariamente indisponível.
+            </p>
+          )}
           <PersonTable
             people={people}
             onEdit={onEdit}

@@ -133,7 +133,7 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
     error,
     onRefresh,
   } = useDeliveryRoute(scheduleDateScope);
-  const summaryAssemblies = useScopedOrderSchedule('assembly_mobile', { dateScope: scheduleDateScope }, 'assemblies_orders', activeTab === 'today');
+  const summaryAssemblies = useScopedOrderSchedule('assembly_mobile', { dateScope: scheduleDateScope }, 'assemblies_orders', activeTab === 'today' || activeTab === 'schedule');
   const todayDate = getLocalDateString(new Date());
   const tomorrowDate = addDaysToLocalDateString(todayDate, 1);
   const assemblyTasks = useMemo(
@@ -157,6 +157,21 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
         ),
     [assemblyTasks, scheduleDateScope, todayDate, tomorrowDate]
   );
+  const activityDateCounts = useMemo(() => {
+    if (activeTab !== 'today' && activeTab !== 'schedule') return dateScopeCounts;
+    const assemblyCounts = summaryAssemblies.showingOffline
+      ? {
+          today: assemblyTasks.filter((task) => task.dateKey === todayDate).length,
+          tomorrow: assemblyTasks.filter((task) => task.dateKey === tomorrowDate).length,
+          next_days: assemblyTasks.filter((task) => task.dateKey > tomorrowDate).length,
+        }
+      : summaryAssemblies.counts;
+    return {
+      today: dateScopeCounts.today + (assemblyCounts.today || 0),
+      tomorrow: dateScopeCounts.tomorrow + (assemblyCounts.tomorrow || 0),
+      next_days: dateScopeCounts.next_days + (assemblyCounts.next_days || 0),
+    };
+  }, [activeTab, dateScopeCounts, summaryAssemblies.showingOffline, summaryAssemblies.counts, assemblyTasks, todayDate, tomorrowDate]);
   const handleSelectDeliveryOrder = useCallback(
     (item: DeliveryRouteItem) => {
       onSelectOrder(item.order);
@@ -174,8 +189,8 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
 
   return (
     <View style={[styles.container, isDarkMode && styles.containerDark]}>
-      {showingOffline ? <Text style={styles.loadingText}>Sem conexão. Exibindo os pedidos salvos neste aparelho.</Text> : null}
-      {error ? <Text accessibilityRole="alert" style={styles.loadingText}>{error}</Text> : null}
+      {(showingOffline || ((activeTab === 'today' || activeTab === 'schedule') && summaryAssemblies.showingOffline)) ? <Text style={styles.loadingText}>Sem conexão. Exibindo os pedidos salvos neste aparelho.</Text> : null}
+      {(error || ((activeTab === 'today' || activeTab === 'schedule') && summaryAssemblies.error)) ? <Text accessibilityRole="alert" style={styles.loadingText}>{error || summaryAssemblies.error}</Text> : null}
       {/* Barra de abas de Operações */}
       <View style={[styles.headerContainer, isDarkMode && styles.headerContainerDark]}>
         <View style={styles.titleRow}>
@@ -198,7 +213,7 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
                   scheduleDateScope === 'today' && styles.dateScopeBtnTextActive,
                 ]}
               >
-                Hoje {dateScopeCounts.today}
+                Hoje {activityDateCounts.today}
               </Text>
             </TouchableOpacity>
 
@@ -220,7 +235,7 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
                   scheduleDateScope === 'tomorrow' && styles.dateScopeBtnTextActive,
                 ]}
               >
-                Amanhã {dateScopeCounts.tomorrow}
+                Amanhã {activityDateCounts.tomorrow}
               </Text>
             </TouchableOpacity>
 
@@ -242,7 +257,7 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
                   scheduleDateScope === 'next_days' && styles.dateScopeBtnTextActive,
                 ]}
               >
-                Próximos {dateScopeCounts.next_days}
+                Próximos {activityDateCounts.next_days}
               </Text>
             </TouchableOpacity>
           </View>
@@ -314,7 +329,7 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
         </ScrollView>
       ) : activeTab === 'schedule' ? (
         /* Aba PROGRAMAÇÃO: timeline vertical de atividades */
-        loading ? (
+        loading || summaryAssemblies.loading ? (
           <View style={styles.loadingCenter}>
             <ActivityIndicator size="large" color="#2563eb" />
             <Text style={[styles.loadingText, isDarkMode && styles.textMuted]}>
@@ -324,9 +339,11 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
         ) : (
           <DeliveryTimelineView
             items={routeItems}
-            refreshing={refreshing}
-            onRefresh={onRefresh}
+            assemblyTasks={visibleAssemblyTasks}
+            refreshing={refreshing || summaryAssemblies.refreshing}
+            onRefresh={() => { onRefresh(); summaryAssemblies.onRefresh(); }}
             onViewOrder={handleViewOrder}
+            onViewAssembly={onSelectOrder}
             handlingOptions={handlingOptions}
             dateScope={scheduleDateScope}
             isDarkMode={isDarkMode}

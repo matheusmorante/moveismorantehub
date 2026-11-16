@@ -27,6 +27,7 @@ interface SellerInputProps {
   placeholder?: string;
   className?: string;
   isAIFilling?: boolean;
+  error?: string;
 }
 
 export const SellerInput: FC<SellerInputProps> = ({
@@ -38,6 +39,7 @@ export const SellerInput: FC<SellerInputProps> = ({
   placeholder = 'Digite para buscar vendedor...',
   className = '',
   isAIFilling = false,
+  error,
 }) => {
   const inputId = useId();
   const [isOpen, setIsOpen] = useState(false);
@@ -94,7 +96,7 @@ export const SellerInput: FC<SellerInputProps> = ({
       <div className="flex items-center justify-between mb-2 ml-1">
         <label
           htmlFor={inputId}
-          className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 flex items-center gap-1.5"
+          className={`text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 ${error ? 'text-red-600 dark:text-red-400' : 'text-slate-400 dark:text-slate-500'}`}
         >
           <i className="bi bi-person-badge text-blue-500 text-xs" />
           Vendedor <span className="text-red-500">*</span>
@@ -129,19 +131,23 @@ export const SellerInput: FC<SellerInputProps> = ({
           }}
           onFocus={() => setIsOpen(true)}
           placeholder={placeholder}
+          aria-invalid={Boolean(error)}
+          aria-describedby={error ? `${inputId}-error` : undefined}
           className={`w-full bg-transparent px-3 py-3 text-sm font-bold placeholder:text-slate-400 outline-none transition-colors dark:placeholder:text-slate-600 ${
-            isSellerSelected
-              ? 'border-b-2 border-emerald-500 text-emerald-700 focus:border-emerald-600 dark:text-emerald-400 dark:border-emerald-500 dark:focus:border-emerald-400'
+            error
+              ? 'border-b-2 border-red-500 text-red-700 focus:border-red-600 dark:text-red-300 dark:focus:border-red-500'
+              : isSellerSelected
+              ? 'border-x-0 border-t-0 border-b-2 border-emerald-500 text-slate-900 focus:border-emerald-600 dark:text-slate-100 dark:border-emerald-500 dark:focus:border-emerald-400'
               : isAIFilling
                 ? 'border-b-2 border-violet-500 animate-pulse bg-violet-50/20 dark:bg-violet-950/20 text-slate-800 dark:text-slate-100'
                 : 'border-b-2 border-slate-200 text-slate-800 dark:text-slate-100 dark:border-slate-700 focus:border-blue-600 dark:focus:border-blue-500'
           }`}
         />
         <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2">
-          {isSellerSelected && (
+          {isSellerSelected && !error && (
             <i
               data-testid="seller-selected-check"
-              className="bi bi-check-circle-fill text-emerald-600 dark:text-emerald-400 text-sm"
+              className="bi bi-check-lg text-emerald-600 dark:text-emerald-400 text-sm"
               aria-hidden="true"
               title="Vendedor selecionado"
             />
@@ -168,6 +174,12 @@ export const SellerInput: FC<SellerInputProps> = ({
           )}
         </div>
       </div>
+
+      {error && (
+        <p id={`${inputId}-error`} role="alert" className="mt-1 text-xs font-bold text-red-600 dark:text-red-400">
+          {error}
+        </p>
+      )}
 
       {/* Dropdown Modal que aparece diretamente abaixo do campo de texto com base no filtro */}
       {isOpen && (

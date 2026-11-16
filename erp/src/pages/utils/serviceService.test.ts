@@ -1,15 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-const mocks = vi.hoisted(() => ({ from: vi.fn(), getUser: vi.fn(), current: { service_data: {} } as any, lookupError: null as any, reply: {} as any, insert: vi.fn(), update: vi.fn() }));
+const mocks = vi.hoisted(() => ({ from: vi.fn(), getUser: vi.fn(), current: { service_data: {} } as any, lookupError: null as any, reply: {} as any, insert: vi.fn(), update: vi.fn(), selectCalls: [] as unknown[] }));
 vi.mock('@/pages/utils/supabaseConfig', () => ({ supabase: { from: mocks.from, auth: { getUser: mocks.getUser } } }));
 import { moveToTrash, saveService, updateService } from './serviceService';
 const service = { description: ' Existing ', unitPrice: 50, costPrice: 20, active: true };
 beforeEach(() => {
-  vi.clearAllMocks(); mocks.current = { service_data: { ...service, id: 'wrong-json-id', retainedMetadata: { source: 'original' } }, is_draft: false }; mocks.lookupError = null;
+  vi.clearAllMocks(); mocks.selectCalls = []; mocks.current = { service_data: { ...service, id: 'wrong-json-id', retainedMetadata: { source: 'original' } }, is_draft: false }; mocks.lookupError = null;
   mocks.getUser.mockResolvedValue({ data: { user: { id: 'operator-1' } }, error: null });
-  mocks.reply = { data: { id: 'service-1', service_data: { ...service }, is_draft: false }, error: null };
+  mocks.reply = { data: { id: 'service-1' }, error: null };
   mocks.from.mockImplementation(() => {
     let writing = false;
-    const query: any = { select: vi.fn(() => query), eq: vi.fn(() => query), insert: vi.fn((payload) => { mocks.insert(payload); writing = true; return query; }), update: vi.fn((payload) => { mocks.update(payload); writing = true; return query; }), single: vi.fn(async () => writing ? mocks.reply : { data: mocks.current, error: mocks.lookupError }) };
+    const query: any = { select: vi.fn((columns) => { mocks.selectCalls.push(columns); return query; }), eq: vi.fn(() => query), insert: vi.fn((payload) => { mocks.insert(payload); writing = true; return query; }), update: vi.fn((payload) => { mocks.update(payload); writing = true; return query; }), single: vi.fn(async () => writing ? mocks.reply : { data: mocks.current, error: mocks.lookupError }) };
     return query;
   });
 });
@@ -40,13 +40,14 @@ describe('real service persistence boundary', () => {
     await updateService('service-1', { active: false });
     expect(mocks.update).toHaveBeenCalledWith(expect.objectContaining({ service_data: { description: '', active: false, retainedMetadata: { source: 'original' } } }));
   });
-  it('uses the row identity instead of an old id inside the JSON snapshot', async () => {
-    mocks.reply.data.service_data.id = 'wrong-json-id';
-    await expect(saveService(service)).resolves.toMatchObject({ id: 'service-1' });
+  it('confirms saves using only the returned row identity', async () => {
+    await expect(saveService(service)).resolves.toEqual({ id: 'service-1' });
+    expect(mocks.selectCalls).toEqual(['id']);
   });
   it('requires an acknowledgment for the same updated service', async () => {
     mocks.reply.data.id = 'other-service';
     await expect(updateService('service-1', { description: 'New' })).rejects.toEqual({ uncertain: true });
+    expect(mocks.selectCalls).toEqual(['service_data,is_draft', 'id']);
   });
   it('records who and when confirmed a validated fiscal composition', async () => {
     await saveService({

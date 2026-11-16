@@ -79,6 +79,7 @@ export const OrderPrintDocument: React.FC<OrderPrintDocumentProps> = ({
                 isBudget={isBudget}
                 itemsTotalValue={order.itemsSummary?.itemsTotalValue}
                 routeUrl={isBudget ? '' : getEffectiveOrderDeliveryMapUrl(order)}
+                customerAddress={order.customerData?.fullAddress}
               />
             </div>
           </div>

@@ -8,6 +8,7 @@ import { isLocalDeliveryProofUri } from './deliveryProofRules';
 import type { LocalDeliveryProofMetadata } from './deliveryProofRules';
 import { syncLocalOrderCaches } from './deliveryOrderCacheSync';
 import { createDeliveryFlowRollbackActions } from './deliveryFlowRollbackActions';
+import { hasSeparateFulfillments } from '../../../../../shared-utils/fulfillmentScheduleGuard';
 
 export interface StartRouteParams {
   orderId: string;
@@ -56,6 +57,12 @@ const safeRecordOfflineEvent = async (
 };
 
 const rollbackActions = createDeliveryFlowRollbackActions(safeRecordOfflineEvent);
+
+const assertSingleFulfillmentSchedule = (data: Record<string, any>) => {
+  if (hasSeparateFulfillments(data.shipping?.scheduling, data.items)) {
+    throw new Error('Selecione uma operação do pedido para realizar a entrega separadamente.');
+  }
+};
 
 /**
  * Serviço de domínio responsável pela persistência e sincronização offline
@@ -117,7 +124,7 @@ export const deliveryFlowService = {
 
     if (remoteOrderSnapshot) {
       try {
-        const [overlaidOrder] = await OrderRepository.overlayPendingLocalOrders([
+        const [overlaidOrder] = await OrderRepository.overlayPendingLocalOrders<Record<string, any>>([
           { ...remoteOrderSnapshot, order_data: baseData },
         ]);
         if (overlaidOrder?.order_data && typeof overlaidOrder.order_data === 'object') {
@@ -127,6 +134,9 @@ export const deliveryFlowService = {
         }
       } catch {}
     }
+
+    // Never begin a whole-order preparation when fulfillment is split by item.
+    assertSingleFulfillmentSchedule(baseData);
 
     const currentStatus = remoteDeliveryStatus || baseData.deliveryStatus;
     if (
@@ -160,6 +170,7 @@ export const deliveryFlowService = {
     responsibles,
     userProfileId,
   }: StartRouteParams) {
+    assertSingleFulfillmentSchedule(currentData);
     const now = new Date().toISOString();
     const primaryResponsible = responsibles[0];
     const responsibleName = responsibles.map((r) => r.name).join(', ');
@@ -173,7 +184,7 @@ export const deliveryFlowService = {
       deliveryResponsibleId: primaryResponsible?.id || userProfileId || null,
     };
 
-    const updatedData = {
+    const updatedData: Record<string, any> = {
       ...currentData,
       ...payload,
     };
@@ -275,6 +286,7 @@ export const deliveryFlowService = {
    * Conclui a entrega e atualiza o resumo de pagamentos.
    */
   async finishDelivery({ orderId, currentData, payments }: FinishDeliveryParams) {
+    assertSingleFulfillmentSchedule(currentData);
     const now = new Date().toISOString();
     const paidAmount = payments.reduce(
       (total, payment) => total + Number(payment.amount || 0),

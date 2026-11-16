@@ -1,79 +1,80 @@
 import Shipping from '../types/Shipping.type';
 import { formatDate } from '../utils/formatters';
-import { resolveEffectiveSchedule } from '../../../../shared-utils/commercialOrderRules';
-import { NumericFormat as NumericFormatBase } from 'react-number-format';
-const NumericFormat = NumericFormatBase as any;
 
 interface Props {
   shipping?: Shipping | null;
-  routeUrl?: string;
 }
 
-const ShippingData = ({ shipping, routeUrl }: Props) => {
-  const shippingDate = shipping?.scheduling?.date || (shipping as any)?.date || '';
-  const shippingValue = Number(shipping?.value ?? 0);
-  const scheduling = shipping?.scheduling;
-  const resolution = resolveEffectiveSchedule(shipping ? { shipping } : null);
+type ReceiptSchedule = Partial<Shipping['scheduling']>;
+
+const formatScheduleOption = (schedule: ReceiptSchedule) => {
+  const date = schedule.dateType === 'range' && schedule.date && schedule.endDate
+    ? `${formatDate(schedule.date || '')} até ${formatDate(schedule.endDate)}`
+    : schedule.date
+      ? formatDate(schedule.date)
+      : 'Data não definida';
+  const time = schedule.type === 'range' && schedule.startTime && schedule.endTime
+    ? `${schedule.startTime} às ${schedule.endTime}`
+    : schedule.startTime || schedule.time || 'Horário não definido';
+
+  return [date, time].filter(Boolean).join(' · ');
+};
+
+const getDeliverySchedules = (shipping?: Shipping | null) => {
+  if (!shipping) return [];
+
+  const appointments = shipping.scheduling?.appointments;
+  if (appointments?.length) {
+    return appointments.flatMap((appointment, index) => {
+      const deliveryMethod = appointment.deliveryMethod ?? shipping.deliveryMethod;
+      if (deliveryMethod !== 'delivery') return [];
+
+      return [{
+        id: appointment.id || `delivery-${index + 1}`,
+        scheduling: appointment.scheduling as ReceiptSchedule,
+      }];
+    });
+  }
+
+  // Compatibilidade com pedidos antigos, que guardam o agendamento no nível do pedido.
+  if (shipping.deliveryMethod === 'pickup') return [];
+  return [{ id: 'legacy-delivery', scheduling: shipping.scheduling as ReceiptSchedule }];
+};
+
+const ShippingData = ({ shipping }: Props) => {
+  const deliverySchedules = getDeliverySchedules(shipping);
+  if (deliverySchedules.length === 0) return null;
+  const isSingleDelivery = deliverySchedules.length === 1;
 
   return (
     <section className="flex flex-col gap-4">
       <h2 className="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em] mb-1 flex items-center gap-3 after:h-[1px] after:bg-slate-100 after:flex-1 text-left">
-        Logística e Entrega
+        {isSingleDelivery ? 'Programação da entrega' : 'Programações das entregas'}
       </h2>
 
-      <div className="grid grid-cols-2 gap-6">
-        <div className="flex flex-col">
-          <span className="text-[9px] font-black uppercase text-slate-400 tracking-wider">
-            Valor do Frete
-          </span>
-          <div className="text-sm font-black text-slate-800">
-            {shippingValue === 0 ? (
-              <span className="text-emerald-600 uppercase tracking-tighter">FRETE GRÁTIS</span>
-            ) : (
-              <NumericFormat
-                value={shippingValue}
-                allowNegative={false}
-                thousandSeparator="."
-                prefix={'R$ '}
-                decimalScale={2}
-                decimalSeparator=","
-                fixedDecimalScale
-              />
-            )}
-          </div>
-        </div>
+      <div className="flex flex-col gap-3">
+        {deliverySchedules.map(({ id, scheduling }, index) => {
+          const isPending = Boolean(scheduling.pendingScheduling);
+          const mainSchedule = isPending ? 'Agendamento pendente' : formatScheduleOption(scheduling);
+          const alternatives = isPending ? [] : (scheduling.alternatives || [])
+            .map(formatScheduleOption)
+            .filter(Boolean);
 
-        <div className="flex flex-col">
-          <span className="text-[9px] font-black uppercase text-slate-400 tracking-wider">
-            Agendamento
-          </span>
-          <span className="text-sm font-bold text-slate-800 lowercase">
-            {scheduling?.dateType === 'range' && scheduling?.endDate
-              ? `de ${formatDate(shippingDate)} até ${formatDate(scheduling.endDate)}`
-              : formatDate(shippingDate)}
-            <span className="text-slate-400 px-1">|</span>
-            {scheduling?.type === 'range' &&
-            scheduling?.startTime &&
-            scheduling?.endTime
-              ? `${scheduling.startTime} às ${scheduling.endTime}`
-              : scheduling?.startTime || scheduling?.time || 'A combinar'}
-          </span>
-          {resolution.alternatives.length > 0 && (
-            <span className="text-xs text-slate-500 mt-1 font-semibold">
-              Datas alternativas: {resolution.alternativesSummaryText}
-            </span>
-          )}
-        </div>
+          return (
+            <div key={id} className="flex flex-col gap-1">
+              <span className="text-[9px] font-black uppercase text-slate-400 tracking-wider">
+                {isSingleDelivery ? 'Entrega' : `Entrega ${index + 1}`}
+              </span>
+              <span className="text-sm font-bold text-slate-800">{mainSchedule}</span>
+              {alternatives.length > 0 && (
+                <span className="text-xs text-slate-500 font-semibold">
+                  Alternativas: {alternatives.join(' · ')}
+                </span>
+              )}
+            </div>
+          );
+        })}
       </div>
-
-      {routeUrl?.trim() && (
-        <div className="break-all rounded-xl border border-blue-100 bg-blue-50/60 p-2 text-[10px] font-semibold text-blue-700 print-exact-bg">
-          <span className="font-black uppercase tracking-wider">Rota no Google Maps: </span>
-          <a href={routeUrl} target="_blank" rel="noreferrer" className="underline">
-            {routeUrl}
-          </a>
-        </div>
-      )}
     </section>
   );
 };

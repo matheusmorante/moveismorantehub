@@ -19,6 +19,8 @@ export const DELIVERY_NOTICE_OPTIONS = [
   { field: 'callOnArrival', label: `${CALL_ON_ARRIVAL_NOTICE}?`, notice: CALL_ON_ARRIVAL_NOTICE },
 ] as const;
 
+export type DeliveryNoticeField = (typeof DELIVERY_NOTICE_OPTIONS)[number]['field'];
+
 export const normalizeNotice = (notice: string) => notice.trim().toLocaleLowerCase('pt-BR');
 
 export const ASSEMBLY_RESPONSIBLE_NOTICES = {
@@ -43,7 +45,7 @@ export interface SyncNoticesParams {
   rawObservation: string;
   isSaleDelivery: boolean;
   shipping: Record<string, any>;
-  items: Array<{ handlingType?: string; assemblyResponsible?: string }>;
+  items: Array<{ orderItemId?: string; handlingType?: string; assemblyResponsible?: string }>;
 }
 
 export const syncDeliveryAndAssemblyNotices = ({
@@ -55,16 +57,10 @@ export const syncDeliveryAndAssemblyNotices = ({
   let notices = splitNoticeTags(rawObservation);
   let noticesChanged = false;
 
+  // These tags represented order-wide radio fields in older sales orders.
+  // Their values now live on each operation, so keep only general notes here.
   for (const option of DELIVERY_NOTICE_OPTIONS) {
-    const shouldShowNotice = isSaleDelivery && shipping[option.field] === true;
-    const hasNotice = notices.some(
-      (notice) => normalizeNotice(notice) === normalizeNotice(option.notice)
-    );
-
-    if (shouldShowNotice && !hasNotice) {
-      notices = [...notices, option.notice];
-      noticesChanged = true;
-    } else if (!shouldShowNotice && hasNotice) {
+    if (notices.some((notice) => normalizeNotice(notice) === normalizeNotice(option.notice))) {
       notices = notices.filter(
         (notice) => normalizeNotice(notice) !== normalizeNotice(option.notice)
       );
@@ -72,10 +68,22 @@ export const syncDeliveryAndAssemblyNotices = ({
     }
   }
 
+  const appointments = shipping.scheduling?.appointments;
+  const assemblyItems: Array<{ handlingType?: string; assemblyResponsible?: string; deliveryMethod?: string }> =
+    Array.isArray(appointments) && appointments.length > 0
+      ? appointments.flatMap((appointment: any) =>
+          (appointment.itemIds || []).flatMap((id: string) => {
+            const item = items.find((entry) => entry.orderItemId === id);
+            if (!item) return [];
+            const handling = appointment.itemHandlings === undefined ? item : appointment.itemHandlings[id];
+            return handling ? [{ ...handling, deliveryMethod: appointment.deliveryMethod || shipping.deliveryMethod }] : [];
+          })
+        )
+      : items.map((item) => ({ ...item, deliveryMethod: shipping.deliveryMethod }));
   const assemblyNotices = new Set(
     isSaleDelivery
-      ? items.flatMap((item) => {
-          if (!requiresAssemblyResponsible(item.handlingType, shipping.deliveryMethod)) {
+      ? assemblyItems.flatMap((item) => {
+          if (!requiresAssemblyResponsible(item.handlingType, item.deliveryMethod)) {
             return [];
           }
           if (item.assemblyResponsible === 'Nossa equipe') {

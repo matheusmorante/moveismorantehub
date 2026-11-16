@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import {
-  Modal,
   Pressable,
   StyleSheet,
   Text,
@@ -12,6 +11,7 @@ import {
   resolveWebAlert,
   type WebAlertEntry,
 } from '../../utils/webAlertService';
+import { AlertPortal } from './AlertPortal';
 
 interface WebAlertHostProps {
   isDarkMode: boolean;
@@ -33,11 +33,8 @@ export const WebAlertHost: React.FC<WebAlertHostProps> = ({ isDarkMode }) => {
   );
 
   return (
-    <Modal
+    <AlertPortal
       visible={Boolean(entry)}
-      transparent
-      animationType="fade"
-      statusBarTranslucent
       onRequestClose={dismiss}
     >
       <View style={styles.overlay}>
@@ -96,7 +93,7 @@ export const WebAlertHost: React.FC<WebAlertHostProps> = ({ isDarkMode }) => {
           </View>
         </View>
       </View>
-    </Modal>
+    </AlertPortal>
   );
 };
 

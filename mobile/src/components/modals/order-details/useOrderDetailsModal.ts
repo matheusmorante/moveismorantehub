@@ -3,6 +3,9 @@ import { Platform, StatusBar } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../../contexts/AuthContext';
 import { loadMobileOrderDetails } from '../../../services/orderDetailsReadService';
+import { prepareIndependentDelivery } from '../../../features/orders/services/deliveryOperationService';
+import { getIndependentOperationId } from '../../../features/orders/services/deliveryOperationState';
+import { hasSeparateFulfillments } from '../../../../../shared-utils/fulfillmentScheduleGuard';
 
 const DEFAULT_ALLOWED_DELIVERY_ROLES = [
   'administrator',
@@ -53,7 +56,15 @@ export function useOrderDetailsModal({ order, userRole }: UseOrderDetailsModalPr
     setDetailsLoading(Boolean(order?.id));
     setDetailsError('');
     if (!order?.id) return () => controller.abort();
-    void loadMobileOrderDetails(order, controller.signal).then((full) => {
+    void loadMobileOrderDetails(order, controller.signal).then(async (loaded) => {
+      if (controller.signal.aborted) return;
+      const source = loaded?._sourceOrderData || loaded?.order_data || loaded;
+      if (order._openDeliveryPreparation && !getIndependentOperationId(loaded) &&
+          hasSeparateFulfillments(source?.shipping?.scheduling, source?.items)) {
+        throw new Error('Não foi possível carregar esta operação separadamente. Atualize a lista e tente novamente.');
+      }
+      const full = order._openDeliveryPreparation && getIndependentOperationId(loaded)
+        ? await prepareIndependentDelivery(loaded) : loaded;
       if (controller.signal.aborted) return;
       setDetailedOrder(full);
       setPreparingDelivery(Boolean(order._openDeliveryPreparation));

@@ -242,7 +242,7 @@ const OrderHistoryList = forwardRef<OrderHistoryListRef, OrderHistoryListProps>(
               orders={orders}
               fiscalBadgeStatusByOrderId={fiscalBadgeStatusByOrderId}
               fiscalBadgeLoadingByOrderId={fiscalBadgeLoadingByOrderId}
-              onEdit={(order, ...args) => { void withCompleteOrder(order, (full) => onEdit(full, ...args)); }}
+              onEdit={onEdit}
               onViewDetails={onViewDetails ? (order) => { void withCompleteOrder(order, onViewDetails); } : undefined}
               onViewFiscalDocument={onViewFiscalDocument}
               onShowPostSaleActions={onShowPostSaleActions ? (order) => { void withCompleteOrder(order, onShowPostSaleActions); } : undefined}

@@ -62,7 +62,8 @@ export const dispatchOrderUpdateNotifications = (
     isBudgetOrder(previousOrderData) ||
     isBudgetOrder(merged) ||
     isIdentifiedTestArtifact(previousOrderData) ||
-    isIdentifiedTestArtifact(merged)
+    isIdentifiedTestArtifact(merged) ||
+    newStatus === 'draft'
   )
     return;
 

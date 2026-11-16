@@ -17,7 +17,7 @@ interface OrderPaginationProps {
 const OrderPagination: React.FC<OrderPaginationProps> = ({
   currentPage,
   totalItems,
-  itemsPerPage = 15,
+  itemsPerPage = 10,
   onPageChange,
   onPageSizeChange,
   loading = false,
@@ -29,7 +29,7 @@ const OrderPagination: React.FC<OrderPaginationProps> = ({
     <ERPListPagination
       ariaLabel={ariaLabel}
       page={currentPage}
-      pageSize={itemsPerPage}
+      fixedPageSize={itemsPerPage}
       totalItems={totalItems}
       onPageChange={onPageChange}
       onPageSizeChange={onPageSizeChange}

@@ -14,8 +14,10 @@ export const getPostSaleActionsStaleAfterEdit = (
   order: Pick<Order, 'isButtonsClicked' | 'isButtonsStale'>
 ): IsButtonsStale => {
   const staleActions = { ...order.isButtonsStale };
-  POST_SALE_ACTION_KEYS_TO_REFRESH_AFTER_EDIT.forEach((key) => {
-    if (order.isButtonsClicked?.[key]) staleActions[key] = true;
+  const refreshableKeys = new Set<string>(POST_SALE_ACTION_KEYS_TO_REFRESH_AFTER_EDIT.map(String));
+  Object.entries(order.isButtonsClicked || {}).forEach(([key, clicked]) => {
+    const actionKey = key.startsWith('operation:') ? key.slice(key.lastIndexOf(':') + 1) : key;
+    if (clicked && refreshableKeys.has(actionKey)) staleActions[key] = true;
   });
   return staleActions;
 };

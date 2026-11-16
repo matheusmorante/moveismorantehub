@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef } from 'react';
 import OrderPrintDocument from './OrderPrintDocument';
+import OperationInfoPrintDocument from './OperationInfoPrintDocument';
 
 const OrderPage = () => {
   const storedOrder = sessionStorage.getItem('order');
@@ -13,6 +14,7 @@ const OrderPage = () => {
   }, [storedOrder]);
   const queryParams = new URLSearchParams(window.location.search);
   const isBudget = queryParams.get('type') === 'budget' || order?.orderType === 'budget';
+  const isOperationInfo = queryParams.get('type') === 'operation-info';
   const isSilent = queryParams.get('silent') === '1';
   const hasPrintedRef = useRef(false);
 
@@ -40,7 +42,9 @@ const OrderPage = () => {
     );
   }
 
-  return <OrderPrintDocument order={order} isBudget={isBudget} />;
+  return isOperationInfo
+    ? <OperationInfoPrintDocument order={order} />
+    : <OrderPrintDocument order={order} isBudget={isBudget} />;
 };
 
 export default OrderPage;

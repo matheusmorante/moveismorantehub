@@ -1,12 +1,10 @@
-import React, { useState } from 'react';
+import React from 'react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import {
   getOrderStepStatus,
   getVisibleOrderSteps,
 } from './stepper/orderStepperConfig';
-import {
-  OrderStepIconBadge,
-  OrderStepPickerModal,
-} from './stepper/OrderStepIconBadge';
+import { OrderStepIconBadge } from './stepper/OrderStepIconBadge';
 
 interface OrderStepperProps {
   currentStep: number;
@@ -21,40 +19,53 @@ const OrderStepper = ({
   errors = {},
   isBudget = false,
 }: OrderStepperProps) => {
-  const [isStepPickerOpen, setIsStepPickerOpen] = useState(false);
   const visibleSteps = getVisibleOrderSteps(isBudget);
   const getStepStatus = (step: number) => getOrderStepStatus(step, currentStep, errors);
-
-  const activeStep = visibleSteps.find((step) => step.step === currentStep) || visibleSteps[0];
-  const activeStatus = getStepStatus(activeStep.step);
+  const matchedActiveStepIndex = visibleSteps.findIndex((step) => step.step === currentStep);
+  const activeStepIndex = matchedActiveStepIndex >= 0 ? matchedActiveStepIndex : 0;
+  const activeStep = visibleSteps[activeStepIndex];
+  const activeStepStatus = getStepStatus(activeStep.step);
+  const previousStep = visibleSteps[activeStepIndex - 1];
+  const nextStep = visibleSteps[activeStepIndex + 1];
 
   return (
-    <div className="relative flex w-auto max-w-full min-w-0 items-center justify-center py-0.5 md:w-full">
-      <button
-        type="button"
-        onClick={() => setIsStepPickerOpen(true)}
-        className="group flex min-w-0 items-center gap-2 rounded-xl px-1 py-0.5 text-left transition-colors hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:hover:bg-slate-800 md:hidden"
-        aria-haspopup="dialog"
-        aria-expanded={isStepPickerOpen}
-        title="Selecionar etapa do pedido"
-      >
-        <OrderStepIconBadge step={activeStep} status={activeStatus} size="h-8 w-8" />
-        <span className="flex min-w-0 flex-col">
-          <span
-            className={`text-[8px] font-black uppercase tracking-wider leading-none ${
-              activeStatus === 'error' ? 'text-rose-500' : 'text-blue-600 dark:text-blue-400'
-            }`}
+    <div className="relative w-full max-w-full min-w-0 py-0.5">
+      <div className="relative flex min-h-12 items-center justify-between lg:hidden" role="group" aria-label="Navegação entre etapas do pedido">
+        {previousStep && (
+          <button
+            type="button"
+            aria-label={`Voltar para ${previousStep.label}`}
+            onClick={() => jumpToStep(previousStep.step)}
+            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:text-slate-300 dark:hover:bg-slate-800 sm:h-10 sm:w-10"
           >
-            Passo {activeStep.step}
+            <ChevronLeft className="h-4 w-4 sm:h-5 sm:w-5" aria-hidden="true" />
+          </button>
+        )}
+        <div className="absolute left-1/2 w-[calc(100%-5rem)] -translate-x-1/2 text-center sm:w-[calc(100%-6rem)]" aria-live="polite">
+          <span className={`block text-[9px] font-semibold uppercase tracking-wider sm:text-[10px] ${
+            activeStepStatus === 'error' ? 'text-rose-500' : 'text-slate-400 dark:text-slate-500'
+          }`}>
+            Etapa {activeStepIndex + 1} de {visibleSteps.length}
           </span>
-          <span className="max-w-[118px] truncate text-[10px] font-black uppercase tracking-tight text-slate-800 dark:text-slate-100">
+          <span className={`block truncate text-xs font-bold sm:text-sm ${
+            activeStepStatus === 'error' ? 'text-rose-600 dark:text-rose-400' : 'text-slate-800 dark:text-slate-100'
+          }`}>
             {activeStep.label}
           </span>
-        </span>
-        <i className="bi bi-chevron-down ml-0.5 text-[10px] text-slate-400" aria-hidden="true" />
-      </button>
+        </div>
+        {nextStep && (
+          <button
+            type="button"
+            aria-label={`Avançar para ${nextStep.label}`}
+            onClick={() => jumpToStep(nextStep.step)}
+            className="ml-auto inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:text-slate-300 dark:hover:bg-slate-800 sm:h-10 sm:w-10"
+          >
+            <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5" aria-hidden="true" />
+          </button>
+        )}
+      </div>
 
-      <div className="hidden w-full items-center justify-between gap-1 md:flex md:gap-1.5 2xl:gap-2">
+      <div className="hidden w-full items-center justify-between gap-1 lg:flex lg:gap-1.5 2xl:gap-2">
         {visibleSteps.map((s, idx) => {
           const status = getStepStatus(s.step);
           return (
@@ -63,7 +74,11 @@ const OrderStepper = ({
                 type="button"
                 onClick={() => jumpToStep(s.step)}
                 className="group flex min-w-0 shrink-0 items-center gap-1.5 rounded-xl px-0.5 py-0.5 text-left outline-none transition-colors hover:bg-slate-100 focus-visible:ring-2 focus-visible:ring-blue-500 dark:hover:bg-slate-800 2xl:flex-1 2xl:gap-2"
-                title={`Passo ${s.step}: ${s.label}`}
+                title={
+                  status === 'error'
+                    ? `Passo ${s.step}: ${s.label}. Há erros para revisar.`
+                    : `Passo ${s.step}: ${s.label}`
+                }
               >
                 <OrderStepIconBadge step={s} status={status} size="h-8 w-8 sm:h-9 sm:w-9" />
                 <span
@@ -98,7 +113,7 @@ const OrderStepper = ({
 
               {idx < visibleSteps.length - 1 && (
                 <div
-                  className={`hidden h-0.5 min-w-2 flex-1 md:block 2xl:max-w-8 ${
+                  className={`hidden h-0.5 min-w-2 flex-1 lg:block 2xl:max-w-8 ${
                     status === 'done'
                       ? 'bg-emerald-500/40'
                       : status === 'error'
@@ -112,14 +127,6 @@ const OrderStepper = ({
         })}
       </div>
 
-      {isStepPickerOpen && (
-        <OrderStepPickerModal
-          visibleSteps={visibleSteps}
-          getStepStatus={getStepStatus}
-          onSelectStep={jumpToStep}
-          onClose={() => setIsStepPickerOpen(false)}
-        />
-      )}
     </div>
   );
 };

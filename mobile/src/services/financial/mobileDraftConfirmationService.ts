@@ -1,6 +1,6 @@
 import { supabase } from '../supabaseClient';
 import { FinancialTransaction, ConfirmDraftResult } from './mobileFinanceTypes';
-import { createFinancialTransaction } from './mobileTransactionCrudService';
+import { createFinancialTransactionId } from './mobileTransactionCrudService';
 import { payPayableAccount } from './mobilePayablesService';
 
 export const confirmFinancialDraft = async (
@@ -90,7 +90,7 @@ export const confirmFinancialDraft = async (
       idempotency_key: idempotencyKey || null,
     };
 
-    const res = await createFinancialTransaction(insertPayload);
+    const res = await createFinancialTransactionId(insertPayload);
 
     if (!res.success) {
       if (

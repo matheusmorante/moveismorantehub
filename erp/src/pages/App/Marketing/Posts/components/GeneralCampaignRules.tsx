@@ -13,11 +13,13 @@ type Props = {
 export function GeneralCampaignRules({ load, save, onSavingChange }: Props) {
   const [value, setValue] = useState('');
   const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [saveError, setSaveError] = useState('');
   const initialValue = useRef(true);
   const active = useRef(true);
+  const loadInFlight = useRef(false);
   useEffect(() => { active.current = true; return () => { active.current = false; }; }, []);
   const form = useZodForm(campaignRulesFormSchema, { content: value });
   const { enqueueAndRun } = form;
@@ -39,17 +41,30 @@ export function GeneralCampaignRules({ load, save, onSavingChange }: Props) {
   const persistRef = useRef(persist);
   useEffect(() => { persistRef.current = persist; }, [persist]);
 
-  useEffect(() => {
-    initialValue.current = true;
-    let current = true;
-    setLoaded(false);
-    void load().then((text) => {
-      if (!current || !active.current) return;
+  const loadRules = useCallback(async () => {
+    if (loaded || loadInFlight.current) return;
+    loadInFlight.current = true;
+    setLoading(true);
+    setSaveError('');
+    try {
+      const text = await load();
+      if (!active.current) return;
+      initialValue.current = true;
       setValue(text);
       setLoaded(true);
-    }).catch(() => { if (current && active.current) setSaveError('Não foi possível carregar as regras.'); });
-    return () => { current = false; };
-  }, [load]);
+    } catch {
+      if (active.current) setSaveError('Não foi possível carregar as regras.');
+    } finally {
+      loadInFlight.current = false;
+      if (active.current) setLoading(false);
+    }
+  }, [load, loaded]);
+
+  const toggleOpen = () => {
+    const nextOpen = !open;
+    setOpen(nextOpen);
+    if (nextOpen) void loadRules();
+  };
   useEffect(() => {
     if (!loaded) return;
     if (initialValue.current) {
@@ -65,7 +80,7 @@ export function GeneralCampaignRules({ load, save, onSavingChange }: Props) {
       {saveError && <p role="alert" className="p-4 text-sm text-red-300">{saveError}</p>}
       <button
         type="button"
-        onClick={() => setOpen((current) => !current)}
+        onClick={toggleOpen}
         className="flex w-full items-center justify-between p-4 text-left"
       >
         <span>
@@ -92,6 +107,7 @@ export function GeneralCampaignRules({ load, save, onSavingChange }: Props) {
             className="w-full rounded-lg border border-slate-700 bg-slate-950 p-3 text-xs leading-relaxed text-white outline-none focus:border-indigo-400"
             placeholder="Descreva as regras globais de posicionamento..."
           />
+          {loading && <p role="status" className="mt-2 text-xs text-slate-400">Carregando as regras atuais...</p>}
           <div className="mt-2 flex justify-end">
             <button
               disabled={saving || !loaded}

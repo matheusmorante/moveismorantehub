@@ -271,7 +271,8 @@ export function InboundInvoiceReceiptPickerModal({
           }}
           invoice={mappingInvoice}
           canAccessReceipts={canAccessReceipts}
-          onSaveSuccess={() => {
+          onSaveSuccess={() => undefined}
+          onSaveUncertain={() => {
             void loadInvoices();
           }}
         />

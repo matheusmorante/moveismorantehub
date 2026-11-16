@@ -361,7 +361,7 @@ export const mobileAgentPayableReceivableTools = {
 
       const { data: current } = await supabase
         .from(table)
-        .select('id, description, amount, category_id, payment_method, status')
+        .select('description, amount, category_id')
         .eq('id', id)
         .maybeSingle();
 

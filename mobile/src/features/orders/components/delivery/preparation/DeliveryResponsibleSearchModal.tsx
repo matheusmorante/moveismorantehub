@@ -16,7 +16,10 @@ import { z } from 'zod';
 import { FormTextInput } from '../../../../../components/shared/FormTextInput';
 import { useZodForm } from '../../../../../hooks/useZodForm';
 import { matchesSearchText } from '../../../../../../../shared-utils/searchText';
-import type { AvailableStaffMember } from '../../../screens/delivery-preparation/deliveryPreparation.types';
+import type {
+  AvailableStaffMember,
+  DeliveryStaffSearchFeedback,
+} from '../../../screens/delivery-preparation/deliveryPreparation.types';
 
 const responsibleSearchSchema = z.object({ query: z.string().trim().max(120) });
 
@@ -25,6 +28,8 @@ interface Props {
   isDarkMode: boolean;
   staff: AvailableStaffMember[];
   loadingStaff: boolean;
+  searchFeedback?: DeliveryStaffSearchFeedback | null;
+  onSearchStaff: (query: string) => void;
   onClose: () => void;
   onSelect: (staff: AvailableStaffMember) => void;
 }
@@ -34,6 +39,8 @@ export const DeliveryResponsibleSearchModal: React.FC<Props> = ({
   isDarkMode,
   staff,
   loadingStaff,
+  searchFeedback = null,
+  onSearchStaff,
   onClose,
   onSelect,
 }) => {
@@ -77,6 +84,13 @@ export const DeliveryResponsibleSearchModal: React.FC<Props> = ({
     };
   }, [search, validateSearch, visible]);
 
+  useEffect(() => {
+    const nextQuery = query.length >= 3 && query === debouncedSearch && visible
+      ? debouncedSearch
+      : '';
+    onSearchStaff(nextQuery);
+  }, [debouncedSearch, onSearchStaff, query, visible]);
+
   const results = useMemo(() => {
     if (query.length < 3 || query !== debouncedSearch) return [];
     return staff
@@ -91,6 +105,7 @@ export const DeliveryResponsibleSearchModal: React.FC<Props> = ({
   const resetAndClose = () => {
     setSearch('');
     setDebouncedSearch('');
+    onSearchStaff('');
     onClose();
   };
 
@@ -166,10 +181,17 @@ export const DeliveryResponsibleSearchModal: React.FC<Props> = ({
             keyExtractor={(person) => person.id}
             keyboardShouldPersistTaps="handled"
             contentContainerStyle={styles.listContent}
+            ListHeaderComponent={searchFeedback && results.length > 0 ? (
+              <Text style={[styles.feedbackText, { color: muted }]}>
+                {searchFeedback.message}
+              </Text>
+            ) : null}
             ListEmptyComponent={
               <View style={styles.emptyState}>
                 <Text style={[styles.emptyText, { color: muted }]}>
-                  {query.length < 3
+                  {searchFeedback?.kind === 'offline-empty' || searchFeedback?.kind === 'error'
+                    ? searchFeedback.message
+                    : query.length < 3
                     ? 'Digite ao menos 3 caracteres para buscar responsáveis.'
                     : 'Nenhum responsável encontrado.'}
                 </Text>
@@ -227,6 +249,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 24,
+  },
+  feedbackText: {
+    fontSize: 12,
+    lineHeight: 18,
+    paddingBottom: 8,
   },
   emptyText: { fontSize: 13, lineHeight: 19, textAlign: 'center' },
   resultRow: {

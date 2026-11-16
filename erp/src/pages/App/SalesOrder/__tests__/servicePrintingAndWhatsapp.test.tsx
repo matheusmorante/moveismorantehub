@@ -114,6 +114,130 @@ describe('Serviços como itens normais no Recibo, Pedido Impresso e WhatsApp', (
     expect(html).toContain('Serviço de Montagem e Fixação');
   });
 
+  it('gera um recibo único com a programação de cada entrega e omite retiradas', () => {
+    const orderWithMultipleOperations = {
+      ...mockOrder,
+      shipping: {
+        ...mockOrder.shipping,
+        deliveryMethod: 'delivery',
+        scheduling: {
+          date: '2026-11-30',
+          time: '08:00',
+          type: 'fixed',
+          appointments: [
+            {
+              id: 'pickup-operation',
+              deliveryMethod: 'pickup',
+              itemIds: ['item-1'],
+              scheduling: { date: '2026-11-20', time: '21:00', type: 'fixed' },
+            },
+            {
+              id: 'first-delivery',
+              deliveryMethod: 'delivery',
+              itemIds: ['item-2'],
+              scheduling: {
+                date: '2026-11-18',
+                dateType: 'fixed',
+                time: '13:00',
+                startTime: '13:00',
+                endTime: '18:00',
+                type: 'range',
+              },
+            },
+            {
+              id: 'second-delivery',
+              deliveryMethod: 'delivery',
+              itemIds: ['item-3'],
+              scheduling: {
+                date: '2026-11-19',
+                endDate: '2026-11-20',
+                dateType: 'range',
+                time: '09:00',
+                startTime: '09:00',
+                endTime: '12:00',
+                type: 'range',
+                alternatives: [{ id: 'alternate-date', date: '2026-11-25', time: '10:00', type: 'fixed' }],
+              },
+            },
+          ],
+        },
+      },
+    } as Order;
+
+    const html = buildReceiptHtml(orderWithMultipleOperations);
+
+    expect(html.match(/<title>Recibo de Venda/g)).toHaveLength(1);
+    expect(html).toContain('Programações das entregas');
+    expect(html).toContain('Entrega 1');
+    expect(html).toContain('Entrega 2');
+    expect(html).toContain('18/11/2026');
+    expect(html).toContain('13:00 às 18:00');
+    expect(html).toContain('19/11/2026');
+    expect(html).toContain('20/11/2026');
+    expect(html).toContain('Alternativas:');
+    expect(html).toContain('25/11/2026');
+    expect(html).not.toContain('20/11/2026 · 21:00');
+    expect(html).not.toContain('30/11/2026');
+    expect(html).not.toContain('Retirada');
+  });
+
+  it('omite a seção de programação quando o pedido contém somente retiradas', () => {
+    const pickupOrder = {
+      ...mockOrder,
+      shipping: {
+        ...mockOrder.shipping,
+        deliveryMethod: 'pickup',
+        scheduling: {
+          date: '2026-11-30',
+          time: '08:00',
+          type: 'fixed',
+          appointments: [{
+            id: 'pickup-operation',
+            deliveryMethod: 'pickup',
+            itemIds: ['item-1'],
+            scheduling: { date: '2026-11-20', time: '21:00', type: 'fixed' },
+          }],
+        },
+      },
+    } as Order;
+
+    const html = buildReceiptHtml(pickupOrder);
+
+    expect(html).not.toContain('Programação da entrega');
+    expect(html).not.toContain('20/11/2026');
+    expect(html).not.toContain('30/11/2026');
+  });
+
+  it('mostra agendamento pendente sem reaproveitar data ou horário antigos', () => {
+    const pendingDeliveryOrder = {
+      ...mockOrder,
+      shipping: {
+        ...mockOrder.shipping,
+        scheduling: {
+          ...mockOrder.shipping.scheduling,
+          appointments: [{
+            id: 'pending-delivery',
+            deliveryMethod: 'delivery',
+            itemIds: ['item-1'],
+            scheduling: {
+              date: '2026-11-20',
+              time: '21:00',
+              startTime: '21:00',
+              type: 'fixed',
+              pendingScheduling: true,
+            },
+          }],
+        },
+      },
+    } as Order;
+
+    const html = buildReceiptHtml(pendingDeliveryOrder);
+
+    expect(html).toContain('Agendamento pendente');
+    expect(html).not.toContain('20/11/2026');
+    expect(html).not.toContain('21:00');
+  });
+
   it('deve incluir o serviço na mensagem do WhatsApp de entrega e confirmação', () => {
     const deliveryMsg = buildDeliveryMessage(mockOrder);
     expect(deliveryMsg).toContain('Guarda-Roupa Casal 6 Portas');
@@ -187,7 +311,7 @@ describe('Serviços como itens normais no Recibo, Pedido Impresso e WhatsApp', (
     expect(salesOrderHtml).toContain('https://maps.google.com/?q=Avenida+Destino+456');
     expect(receiptHtml).toContain('Avenida Destino');
     expect(receiptHtml).not.toContain('Rua Residencial');
-    expect(receiptHtml).toContain('https://maps.google.com/?q=Avenida+Destino+456');
+    expect(receiptHtml).not.toContain('https://maps.google.com/?q=Avenida+Destino+456');
     expect(deliveryMessage).toContain('Google Maps Rota');
     expect(deliveryMessage).toContain('https://maps.google.com/?q=Avenida+Destino+456');
   });

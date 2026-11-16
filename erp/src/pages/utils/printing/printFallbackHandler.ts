@@ -98,9 +98,9 @@ export const executePrintFallback = (
   toast.info('Selecione a impressora na janela de impressão do navegador.');
 
   try {
-    if (type === 'sales_order' && order) {
+    if ((type === 'sales_order' || type === 'operation_info') && order) {
       sessionStorage.setItem('order', JSON.stringify(order));
-      window.open('/order', '_blank');
+      window.open(type === 'operation_info' ? '/order?type=operation-info' : '/order', '_blank');
       return {
         success: true,
         status: 'fallback_browser',

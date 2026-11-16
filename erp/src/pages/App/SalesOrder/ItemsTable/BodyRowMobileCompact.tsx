@@ -31,7 +31,12 @@ export const BodyRowMobileCompact: React.FC<BodyRowMobileCompactProps> = ({
 }) => {
   const quantity = Number(item.quantity) || 0;
   const unitDiscount = getFixedDiscount(item);
-  const totalDiscount = unitDiscount * quantity;
+  const discountPercent =
+    item.discountType === 'percentage'
+      ? Number(item.unitDiscount) || 0
+      : item.unitPrice > 0
+        ? Math.round((unitDiscount / item.unitPrice) * 100 * 100) / 100
+        : 0;
   const description = item.description?.trim() || (isService ? 'Serviço sem descrição' : 'Produto sem descrição');
 
   const itemIdentity = (
@@ -41,7 +46,18 @@ export const BodyRowMobileCompact: React.FC<BodyRowMobileCompactProps> = ({
         {displayNumber}
       </span>
       <div className="min-w-0 flex-1">
-        <div className="truncate text-xs font-bold text-slate-800 dark:text-slate-100">{description}</div>
+        <div
+          className="line-clamp-2 whitespace-normal break-words text-xs font-bold leading-snug text-slate-800 dark:text-slate-100"
+          title={description}
+        >
+          {description}
+          {isLinkedProduct && (
+            <i
+              className="bi bi-check-circle-fill ml-1 inline-block text-[10px] text-emerald-500 align-middle"
+              aria-label="Produto vinculado"
+            />
+          )}
+        </div>
         <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
           {isCompositionComponent && (
             <span className="rounded-md bg-blue-50 px-1.5 py-0.5 text-[9px] font-bold text-blue-700 dark:bg-blue-950/50 dark:text-blue-300">
@@ -49,7 +65,6 @@ export const BodyRowMobileCompact: React.FC<BodyRowMobileCompactProps> = ({
             </span>
           )}
           {item.promotionId && <span className="rounded-md bg-blue-50 px-1.5 py-0.5 text-[9px] font-bold text-blue-700 dark:bg-blue-950/50 dark:text-blue-300" title={`Desconto informativo de ${item.promotionDiscountPercent || 0}%, sujeito às condições; não aplicado automaticamente${item.promotionName ? ` (${item.promotionName})` : ''}.`}>Campanha</span>}
-          {isLinkedProduct && <i className="bi bi-check-circle-fill text-[10px] text-emerald-500" aria-label="Produto vinculado" />}
           {showTemporaryProductLabel && <TemporaryProductWarning />}
           {itemHasError && <span className="text-[9px] font-bold text-red-600 dark:text-red-400">Pendência</span>}
         </div>
@@ -58,31 +73,38 @@ export const BodyRowMobileCompact: React.FC<BodyRowMobileCompactProps> = ({
   );
 
   const quantityCell = (
-    <div className="text-right">
-      <span className="block text-[8px] font-black uppercase tracking-wider text-slate-400">Qtd.</span>
-      <span className="text-[10px] font-semibold text-slate-600 dark:text-slate-300">{quantity.toLocaleString('pt-BR')} un.</span>
+    <div className="min-w-0 text-right">
+      <span className="block text-[11px] font-black uppercase tracking-wider text-slate-400">Qtd.</span>
+      <span className="whitespace-nowrap text-[13px] font-semibold text-slate-600 dark:text-slate-300">{quantity.toLocaleString('pt-BR')} un</span>
     </div>
   );
   const unitPriceCell = (
-    <div className="text-right">
-      <span className="block text-[8px] font-black uppercase tracking-wider text-slate-400">Unitário</span>
-      <span className="text-[10px] font-semibold text-slate-600 dark:text-slate-300">
+    <div className="min-w-0 text-right">
+      <span className="block text-[11px] font-black uppercase tracking-wider text-slate-400">Unitário</span>
+      <span className="whitespace-nowrap text-[13px] font-semibold text-slate-600 dark:text-slate-300">
         {item.isComboItem ? '—' : <CurrencyDisplay value={item.unitPrice} />}
       </span>
     </div>
   );
   const discountCell = (
-    <div className="text-right">
-      <span className="block text-[8px] font-black uppercase tracking-wider text-slate-400">Desconto</span>
-      <span className="text-[10px] font-semibold text-slate-600 dark:text-slate-300">
-        {item.isComboItem || totalDiscount <= 0 ? '—' : <>−<CurrencyDisplay value={totalDiscount} /></>}
+    <div className="min-w-0 text-right">
+      <span className="block text-[11px] font-black uppercase tracking-wider text-slate-400">Desconto UN</span>
+      <span className="flex flex-wrap items-center justify-end gap-x-1 text-xs font-semibold leading-tight text-slate-600 dark:text-slate-300">
+        {item.isComboItem || unitDiscount <= 0 ? '—' : (
+          <>
+            <span className="whitespace-nowrap">−<CurrencyDisplay value={unitDiscount} /></span>
+            <span className="whitespace-nowrap text-[11px] text-slate-500 dark:text-slate-400">
+              {discountPercent.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}%
+            </span>
+          </>
+        )}
       </span>
     </div>
   );
   const totalCell = (
-    <div className="text-right">
-      <span className="block text-[8px] font-black uppercase tracking-wider text-slate-400">Total</span>
-      <span className="text-xs font-black text-blue-600 dark:text-blue-400">
+    <div className="min-w-0 text-right">
+      <span className="block text-[11px] font-black uppercase tracking-wider text-slate-400">Total</span>
+      <span className="whitespace-nowrap text-sm font-black text-blue-600 dark:text-blue-400">
         <CurrencyDisplay value={calcItemTotalValue(item)} />
       </span>
     </div>
@@ -91,7 +113,7 @@ export const BodyRowMobileCompact: React.FC<BodyRowMobileCompactProps> = ({
   if (isTablet) {
     return (
       <div
-        className={`grid grid-cols-[minmax(180px,2fr)_repeat(4,minmax(68px,1fr))_28px] items-center gap-3 border-b px-3.5 py-2.5 transition-colors last:border-b-0 group ${
+        className={`grid grid-cols-[minmax(0,1fr)_64px_96px_128px_112px_28px] items-center gap-1.5 border-b px-2.5 py-2.5 transition-colors last:border-b-0 group ${
           highlightAsTemporary
             ? 'border-b-amber-400 bg-amber-50/20 dark:border-b-amber-500 dark:bg-amber-950/10'
             : itemHasError
@@ -130,7 +152,7 @@ export const BodyRowMobileCompact: React.FC<BodyRowMobileCompactProps> = ({
       <div className="flex min-w-0 items-start justify-between gap-3">
         {itemIdentity}
         <div className="flex shrink-0 items-start gap-2">
-          {totalCell}
+          {quantityCell}
           <button
             type="button"
             aria-label={`Expandir item ${displayNumber}`}
@@ -142,10 +164,10 @@ export const BodyRowMobileCompact: React.FC<BodyRowMobileCompactProps> = ({
           </button>
         </div>
       </div>
-      <div className="grid grid-cols-3 gap-2 border-t border-slate-100 pt-2 dark:border-slate-800">
-        {quantityCell}
+      <div className="grid grid-cols-3 gap-x-1 gap-y-2 border-t border-slate-100 pt-2 dark:border-slate-800">
         {unitPriceCell}
         {discountCell}
+        {totalCell}
       </div>
     </div>
   );

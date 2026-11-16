@@ -175,7 +175,7 @@ export default function Transactions() {
     };
     await operation.wait(editingTransaction
       ? financeService.updateTransaction(editingTransaction.id, editableFields)
-      : financeService.createTransaction({
+      : financeService.createTransactionId({
         ...data,
         ...editableFields,
         account_id: data.account_id || 'Caixa Geral',

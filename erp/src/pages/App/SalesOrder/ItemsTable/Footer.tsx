@@ -14,61 +14,39 @@ interface Props {
 
 const Footer = ({
   summary,
-  items = [],
   isMobile,
   isBudget,
   hideHandling,
   compactDesktop,
   physicalProductQuantity = 0,
 }: Props) => {
-  // Apuração dos subtotais segregados por tipo
-  const productsSubtotal = items
-    .filter((i) => i.itemType !== 'service')
-    .reduce((acc, i) => acc + (Number(i.unitPrice) || 0) * (Number(i.quantity) || 0), 0);
-
-  const servicesSubtotal = items
-    .filter((i) => i.itemType === 'service')
-    .reduce((acc, i) => acc + (Number(i.unitPrice) || 0) * (Number(i.quantity) || 0), 0);
-
-  const hasServices = items.some((item) => item.itemType === 'service');
   const hasDiscounts = (summary.totalFixedDiscount || 0) > 0;
 
   if (isMobile) {
     return (
-      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 text-xs">
+      <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-3 text-xs">
         {/* Detalhamento compacto dos subtotais */}
-        <div className="flex items-center gap-3 sm:gap-4 flex-wrap text-slate-500 dark:text-slate-400 font-bold text-[11px]">
-          <div className="flex items-center gap-1.5">
+        <div className="flex flex-wrap items-end gap-x-4 gap-y-3 text-slate-500 dark:text-slate-400 font-bold text-[11px]">
+          <div className="flex flex-col items-start gap-0.5">
             <span className="text-slate-400 uppercase tracking-wider text-[9px] font-black">
-              Unidades físicas:
+              Produtos
             </span>
             <span className="text-slate-700 dark:text-slate-300 font-extrabold">
               {physicalProductQuantity.toLocaleString('pt-BR')}
             </span>
           </div>
-          <div className="flex items-center gap-1.5">
+          <div className="flex flex-col items-start gap-0.5">
             <span className="text-slate-400 uppercase tracking-wider text-[9px] font-black">
-              Subtotal produtos:
+              Subtotal
             </span>
             <span className="text-slate-700 dark:text-slate-300 font-extrabold">
-              <CurrencyDisplay value={productsSubtotal} />
+              <CurrencyDisplay value={summary.itemsSubtotal} />
             </span>
           </div>
 
-          {hasServices && (
-            <div className="flex items-center gap-1.5">
-              <span className="text-slate-400 uppercase tracking-wider text-[9px] font-black">
-                Subtotal serviços:
-              </span>
-              <span className="text-slate-700 dark:text-slate-300 font-extrabold">
-                <CurrencyDisplay value={servicesSubtotal} />
-              </span>
-            </div>
-          )}
-
           {hasDiscounts && (
-            <div className="flex items-center gap-1.5 text-rose-500">
-              <span className="uppercase tracking-wider text-[9px] font-black">Descontos:</span>
+            <div className="flex flex-col items-start gap-0.5 text-rose-500">
+              <span className="uppercase tracking-wider text-[9px] font-black">Descontos</span>
               <span className="font-extrabold">
                 -<CurrencyDisplay value={summary.totalFixedDiscount} />
               </span>
@@ -77,9 +55,9 @@ const Footer = ({
         </div>
 
         {/* Total consolidado dos itens */}
-        <div className="flex items-center gap-2 ml-auto">
+        <div className="ml-auto flex flex-col items-end gap-0.5">
           <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
-            Total dos itens:
+            Total
           </span>
           <span className="text-sm sm:text-base font-black text-blue-600 dark:text-blue-400 leading-none">
             <CurrencyDisplay value={summary.itemsTotalValue} />
@@ -89,44 +67,33 @@ const Footer = ({
     );
   }
 
-  const colSpanValue = compactDesktop ? 4 : isBudget || hideHandling ? 5 : 6;
+  const colSpanValue = compactDesktop ? 5 : isBudget || hideHandling ? 5 : 6;
 
   return (
     <tfoot className="bg-slate-50/50 dark:bg-slate-800/30 border-t border-slate-200/80 dark:border-slate-800">
       <tr>
         <td colSpan={colSpanValue} className="px-4 py-2.5">
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs font-bold text-slate-500 dark:text-slate-400">
-            <div className="flex items-center gap-1.5">
+          <div className="flex flex-wrap items-end gap-x-5 gap-y-3 text-xs font-bold text-slate-500 dark:text-slate-400">
+            <div className="flex flex-col items-start gap-0.5">
               <span className="text-slate-400 uppercase tracking-wider text-[9px] font-black">
-                Unidades físicas:
+                Produtos
               </span>
               <span className="text-slate-700 dark:text-slate-300">
                 {physicalProductQuantity.toLocaleString('pt-BR')}
               </span>
             </div>
-            <div className="flex items-center gap-1.5">
+            <div className="flex flex-col items-start gap-0.5">
               <span className="text-slate-400 uppercase tracking-wider text-[9px] font-black">
-              Subtotal produtos:
+                Subtotal
               </span>
               <span className="text-slate-700 dark:text-slate-300">
-                <CurrencyDisplay value={productsSubtotal} />
+                <CurrencyDisplay value={summary.itemsSubtotal} />
               </span>
             </div>
 
-            {hasServices && (
-              <div className="flex items-center gap-1.5">
-                <span className="text-slate-400 uppercase tracking-wider text-[9px] font-black">
-                Subtotal serviços:
-                </span>
-                <span className="text-slate-700 dark:text-slate-300">
-                  <CurrencyDisplay value={servicesSubtotal} />
-                </span>
-              </div>
-            )}
-
             {hasDiscounts && (
-              <div className="flex items-center gap-1.5 text-rose-500">
-                <span className="uppercase tracking-wider text-[9px] font-black">Descontos:</span>
+              <div className="flex flex-col items-start gap-0.5 text-rose-500">
+                <span className="uppercase tracking-wider text-[9px] font-black">Descontos</span>
                 <span>
                   -<CurrencyDisplay value={summary.totalFixedDiscount} />
                 </span>
@@ -134,12 +101,14 @@ const Footer = ({
             )}
           </div>
         </td>
-        <td className="px-3 py-2.5 text-right text-[10px] font-black uppercase tracking-widest text-slate-400">
-          Total dos itens:
-        </td>
-        <td className="px-4 py-2.5 text-right">
-          <div className="text-base font-black text-blue-600 dark:text-blue-400 whitespace-nowrap">
-            <CurrencyDisplay value={summary.itemsTotalValue} />
+        <td colSpan={2} className="px-4 py-2.5 text-right">
+          <div className="flex flex-col items-end gap-0.5">
+            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+              Total
+            </span>
+            <span className="text-base font-black text-blue-600 dark:text-blue-400 whitespace-nowrap">
+              <CurrencyDisplay value={summary.itemsTotalValue} />
+            </span>
           </div>
         </td>
         <td></td>

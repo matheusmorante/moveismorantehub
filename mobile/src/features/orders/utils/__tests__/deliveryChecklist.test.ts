@@ -1,7 +1,51 @@
 import { describe, it, expect } from 'vitest';
 import { buildDeliveryChecklist } from '../deliveryChecklist';
+import { expandOrderAppointments } from '../../../../../../shared-utils/orderAppointmentOccurrences';
 
 describe('deliveryChecklist — Checklist do Fluxo de Entrega', () => {
+  it('usa avisos próprios ao montar o checklist de cada operação', () => {
+    const [first, second] = expandOrderAppointments({
+      id: 'order-ops',
+      order_data: {
+        items: [{ id: 'line-1', orderItemId: 'line-1', description: 'Mesa', quantity: 2 }],
+        payments: [],
+        shipping: {
+          deliveryMethod: 'delivery',
+          callBeforeDelivery: true,
+          bringCardMachine: true,
+          scheduling: {
+            appointments: [
+              {
+                id: 'operation-1', deliveryMethod: 'delivery', itemIds: ['line-1'],
+                itemQuantities: { 'line-1': 1 },
+                notices: { callBeforeDelivery: true, bringCardMachine: false, callOnArrival: false, instructions: 'Ligar antes da primeira operação.' },
+                scheduling: {},
+              },
+              {
+                id: 'operation-2', deliveryMethod: 'delivery', itemIds: ['line-1'],
+                itemQuantities: { 'line-1': 1 },
+                notices: { callBeforeDelivery: false, bringCardMachine: false, callOnArrival: true, instructions: 'Avisar ao chegar na segunda operação.' },
+                scheduling: {},
+              },
+            ],
+          },
+        },
+      },
+    } as any);
+
+    const firstChecklist = buildDeliveryChecklist(first);
+    const secondChecklist = buildDeliveryChecklist(second);
+
+    expect(firstChecklist.some((item) => item.id === 'call_customer')).toBe(true);
+    expect(secondChecklist.some((item) => item.id === 'call_customer')).toBe(false);
+    expect(firstChecklist.some((item) => item.id === 'card_machine')).toBe(false);
+    expect(secondChecklist.some((item) => item.id === 'card_machine')).toBe(false);
+    expect(second.order_data.shipping.operationNotices).toMatchObject({
+      callOnArrival: true,
+      instructions: 'Avisar ao chegar na segunda operação.',
+    });
+  });
+
   it('inclui "Carregado: Máquina de cartão" quando marcado em shipping.bringCardMachine = true', () => {
     const order = {
       id: 'ord-1',

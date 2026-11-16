@@ -1,13 +1,7 @@
 import React from 'react';
 import SectionCard from '@/components/SectionCard';
 import PaymentsTable from '../../PaymentsTable/Index';
-import { joinNoticeTags, splitNoticeTags } from '@/pages/utils/noticeTags';
 import { useSalesOrderForm } from '../../hooks/useSalesOrderForm';
-import {
-  BRING_CARD_MACHINE_NOTICE,
-  hasPendingCardOnDelivery,
-  normalizeNotice,
-} from './logisticsNoticeRules';
 
 type FormInstance = ReturnType<typeof useSalesOrderForm>;
 
@@ -21,28 +15,7 @@ export const PaymentsStepSection: React.FC<PaymentsStepSectionProps> = ({
   isBudget,
 }) => {
   const { state, actions } = form;
-  const cardMachineRequired = hasPendingCardOnDelivery(
-    state.currentOrder.orderType,
-    state.shipping.deliveryMethod,
-    state.payments
-  );
-
-  React.useEffect(() => {
-    if (!cardMachineRequired) return;
-    if (state.shipping.bringCardMachine !== true) {
-      actions.setShipping((previous) => ({ ...previous, bringCardMachine: true }));
-    }
-    const notices = splitNoticeTags(state.observation);
-    if (!notices.some((notice) => normalizeNotice(notice) === normalizeNotice(BRING_CARD_MACHINE_NOTICE))) {
-      actions.setObservation(joinNoticeTags([...notices, BRING_CARD_MACHINE_NOTICE]));
-    }
-  }, [
-    actions.setObservation,
-    actions.setShipping,
-    cardMachineRequired,
-    state.observation,
-    state.shipping.bringCardMachine,
-  ]);
+  const paymentsError = state.errors.payments_summary;
 
   return (
     <div className="max-w-5xl mx-auto animate-fade-in">
@@ -65,14 +38,21 @@ export const PaymentsStepSection: React.FC<PaymentsStepSectionProps> = ({
                 },
               ])
             }
-            className="flex items-center gap-2 rounded-xl bg-indigo-600 px-3 py-2 text-[10px] font-black uppercase tracking-wider text-white transition-all hover:bg-indigo-700 active:scale-95"
+            aria-invalid={Boolean(paymentsError && state.payments.length === 0)}
+            aria-describedby={paymentsError ? 'payments-summary-error' : undefined}
+            className={`flex items-center gap-2 rounded-xl bg-indigo-600 px-3 py-2 text-[10px] font-black uppercase tracking-wider text-white transition-all hover:bg-indigo-700 active:scale-95 ${paymentsError && state.payments.length === 0 ? 'ring-2 ring-red-500 ring-offset-2 dark:ring-offset-slate-900' : ''}`}
           >
             <i className="bi bi-plus-lg" />
             <span className="hidden sm:inline">Adicionar pagamento</span>
           </button>
         }
       >
-        <div className="overflow-x-auto rounded-3xl border border-slate-100 bg-white transition-colors duration-300 dark:border-slate-800 dark:bg-slate-900">
+        <div className={`overflow-x-auto rounded-3xl border bg-white transition-colors duration-300 dark:bg-slate-900 ${paymentsError ? 'border-red-300 dark:border-red-800' : 'border-slate-100 dark:border-slate-800'}`}>
+          {paymentsError && (
+            <p id="payments-summary-error" role="alert" className="border-b border-red-200 bg-red-50 px-4 py-3 text-xs font-bold text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300">
+              {paymentsError}
+            </p>
+          )}
           {isBudget && state.payments.length === 0 && (
             <div className="p-8 bg-slate-50/50 dark:bg-slate-800/30 border-b border-slate-100 dark:border-slate-800 flex flex-col items-center gap-4 text-center">
               <div className="flex flex-col gap-1">

@@ -3,7 +3,7 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Clock, MapPin, Navigation, Package, Truck, Wrench } from 'lucide-react-native';
 import { MobileDrill } from '../../../components/shared/MobileDrill';
 import { OrderItemChip } from '../../../components/orders/OrderItemChip';
-import { formatFullAddress } from '../../../utils/orderUtils';
+import { formatFullAddress, formatOrderCode } from '../../../utils/orderUtils';
 import {
   isAssemblyOutsideType,
   isAssemblyInternalType,
@@ -11,6 +11,7 @@ import {
   type AssemblyHandlingOption,
 } from '../../../utils/aiSummaryHelper';
 import { OrderCardDeliveryFooter } from '../../../components/cards/OrderCardDeliveryFooter';
+import { getOperationalScheduleDate } from '../../../utils/operationalSchedule';
 
 export interface LogisticsOrderCardProps {
   order: any;
@@ -32,6 +33,13 @@ const formatDisplayTime = (sched: any, order: any): string => {
   return 'Horário não definido';
 };
 
+const formatDisplayDate = (value: unknown): string => {
+  const raw = String(value || '').trim();
+  const iso = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (iso) return `${iso[3]}/${iso[2]}/${iso[1]}`;
+  return raw || 'Data não definida';
+};
+
 export const LogisticsOrderCard: React.FC<LogisticsOrderCardProps> = ({
   order: o,
   handlingOptions,
@@ -47,7 +55,11 @@ export const LogisticsOrderCard: React.FC<LogisticsOrderCardProps> = ({
   const shipping = oData.shipping || {};
   const fullAddress = formatFullAddress(shipping, oData.customerData);
   const sched = shipping.scheduling || oData.schedule || {};
+  const isDraft = ['draft', 'rascunho', 'drafts'].includes(String(o?.status || oData.status || '').toLowerCase());
+  const isPending = Boolean(sched.pendingScheduling || oData.pendingScheduling || o?.pending_scheduling || o?.pendingScheduling);
   const displayTime = formatDisplayTime(sched, o);
+  const displayDate = formatDisplayDate(getOperationalScheduleDate(o) || sched.date || sched.startDate);
+  const orderCode = formatOrderCode(o);
   const items = oData.items || o?.items || oData.assistanceItems || o?.assistance_items || [];
 
   const orderType = (o?.order_type || oData.orderType || '').toLowerCase();
@@ -84,7 +96,8 @@ export const LogisticsOrderCard: React.FC<LogisticsOrderCardProps> = ({
     shipping.durationMinutes != null ? Math.round(Number(shipping.durationMinutes)) : null;
 
   let cardBorderColor = '#10b981';
-  if (isAssistance) cardBorderColor = '#f59e0b';
+  if (o?.scheduleAppointment) cardBorderColor = '#2563eb';
+  else if (isAssistance) cardBorderColor = '#f59e0b';
   else if (isPickup) cardBorderColor = '#a855f7';
 
   const primaryBadgeConfig = isAssistance
@@ -100,7 +113,7 @@ export const LogisticsOrderCard: React.FC<LogisticsOrderCardProps> = ({
       style={[styles.card, { borderColor: cardBorderColor }, isDarkMode && styles.cardDark]}
       activeOpacity={0.85}
       accessibilityRole="button"
-      accessibilityLabel={`Pedido ${customerName}`}
+      accessibilityLabel={`Pedido ${orderCode}, ${customerName}${o?.scheduleAppointment?.total > 1 ? `, operação ${o.scheduleAppointment.index} de ${o.scheduleAppointment.total}` : ''}`}
     >
       {/* Top Badges Row */}
       <View style={styles.cardHeaderTop}>
@@ -123,6 +136,14 @@ export const LogisticsOrderCard: React.FC<LogisticsOrderCardProps> = ({
               <Text style={styles.handlingBadgeText}>MONTAGEM FORA</Text>
             </View>
           )}
+
+          {o?.scheduleAppointment?.total > 1 && (
+            <View style={[styles.handlingBadge, styles.badgeAppointment]}>
+              <Text style={styles.handlingBadgeText}>
+                OPERAÇÃO {o.scheduleAppointment.index}/{o.scheduleAppointment.total}
+              </Text>
+            </View>
+          )}
         </View>
       </View>
 
@@ -130,15 +151,23 @@ export const LogisticsOrderCard: React.FC<LogisticsOrderCardProps> = ({
       <View style={[styles.timeRow, isDarkMode && styles.timeRowDark]}>
         <View style={styles.timeLabelContainer}>
           <Clock size={15} color={cardBorderColor} />
-          <Text style={[styles.timeText, isDarkMode && styles.textDark]}>{displayTime}</Text>
+          <Text style={[styles.timeText, isDarkMode && styles.textDark]}>
+            {o?.scheduleAppointment ? `${displayDate} · ${displayTime}` : displayTime}
+          </Text>
         </View>
-        <View style={styles.statusBadge}>
-          <Text style={styles.statusBadgeText}>AGENDADO</Text>
+        <View style={styles.statusBadges}>
+          {isDraft && <View style={styles.statusBadge}><Text style={styles.statusBadgeText}>RASCUNHO</Text></View>}
+          <View style={styles.statusBadge}>
+            <Text style={styles.statusBadgeText}>
+              {isPending ? 'AGENDAMENTO PENDENTE' : isPickup && sched.immediatePickup ? 'RETIRADA IMEDIATA' : 'AGENDADO'}
+            </Text>
+          </View>
         </View>
       </View>
 
       {/* Customer Name */}
       <Text style={[styles.customerName, isDarkMode && styles.textDark]}>{customerName}</Text>
+      {orderCode !== '—' && <Text style={[styles.orderCode, isDarkMode && styles.textDark]}>#{orderCode}</Text>}
 
       {/* Address Box */}
       <View style={[styles.addressBox, isDarkMode && styles.addressBoxDark]}>
@@ -242,6 +271,7 @@ const styles = StyleSheet.create({
   badgeDelivery: { backgroundColor: '#10b981' },
   badgePickup: { backgroundColor: '#a855f7' },
   badgeAssistance: { backgroundColor: '#f59e0b' },
+  badgeAppointment: { backgroundColor: '#2563eb' },
   badgeInternal: { backgroundColor: '#f59e0b', borderColor: '#d97706', borderWidth: 1 },
   badgeOutside: { backgroundColor: '#dc2626', borderColor: '#b91c1c', borderWidth: 1 },
   handlingBadgeText: {
@@ -268,9 +298,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+    flexShrink: 1,
   },
-  timeText: { fontSize: 12, fontWeight: '800', color: '#1e293b' },
+  timeText: { fontSize: 12, fontWeight: '800', color: '#1e293b', flexShrink: 1 },
   textDark: { color: '#f8fafc' },
+  statusBadges: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'flex-end', gap: 4, flexShrink: 1 },
   statusBadge: {
     backgroundColor: '#e2e8f0',
     paddingHorizontal: 6,
@@ -288,6 +320,11 @@ const styles = StyleSheet.create({
     color: '#0f172a',
     marginBottom: 4,
     flexShrink: 1,
+  },
+  orderCode: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#64748b',
   },
   addressBox: {
     flexDirection: 'row',

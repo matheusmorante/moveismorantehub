@@ -54,6 +54,27 @@ describe('Fluxo de Navegação Externa (Google Maps Delivery)', () => {
       expect(result.longitude).toBe(-49.2733);
       expect(result.fullAddress).toBe('Rua Teste, 123');
     });
+
+    it('não reutiliza o link do cliente quando a operação usa outro endereço', () => {
+      const order = {
+        order_data: {
+          customerData: { fullAddress: { mapsUrl: 'https://maps.example/customer' } },
+          shipping: {
+            useCustomerAddress: false,
+            deliveryAddress: { street: 'Rua da Operação', mapsUrl: 'https://maps.example/operation' },
+          },
+        },
+      };
+
+      expect(extractNavigationTarget(order).mapsUrl).toBe('https://maps.example/operation');
+      expect(extractNavigationTarget({
+        ...order,
+        order_data: {
+          ...order.order_data,
+          shipping: { ...order.order_data.shipping, deliveryAddress: { street: 'Rua sem link' } },
+        },
+      }).mapsUrl).toBeUndefined();
+    });
   });
 
   describe('openExternalNavigation', () => {

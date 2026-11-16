@@ -181,9 +181,11 @@ export const getLocationMapsUrl = (orderOrData: any): string | null => {
   if (!orderOrData) return null;
   const data = orderOrData.order_data || orderOrData;
   const customer = data.customerData || orderOrData.customerData || {};
-  const custAddr = customer.fullAddress || customer.address || {};
   const shipping = data.shipping || {};
   const shippingAddr = shipping.deliveryAddress || shipping.address || {};
+  const custAddr = shipping.useCustomerAddress === false
+    ? {}
+    : customer.fullAddress || customer.address || {};
 
   // Prioridade Absoluta: 1º shippingAddr.mapsUrl -> 2º shipping.mapsUrl -> 3º custAddr.mapsUrl
   const url =
@@ -196,11 +198,11 @@ export const getLocationMapsUrl = (orderOrData: any): string | null => {
     custAddr.mapsUrl ||
     custAddr.googleMapsUrl ||
     custAddr.mapsLink ||
-    customer.mapsUrl ||
-    customer.googleMapsUrl ||
-    customer.mapsLink ||
-    data.mapsUrl ||
-    orderOrData.mapsUrl ||
+    (shipping.useCustomerAddress === false ? '' : customer.mapsUrl) ||
+    (shipping.useCustomerAddress === false ? '' : customer.googleMapsUrl) ||
+    (shipping.useCustomerAddress === false ? '' : customer.mapsLink) ||
+    (shipping.useCustomerAddress === false ? '' : data.mapsUrl) ||
+    (shipping.useCustomerAddress === false ? '' : orderOrData.mapsUrl) ||
     '';
 
   return url && typeof url === 'string' && url.trim().length > 5 ? url.trim() : null;
@@ -302,7 +304,7 @@ export const groupOrdersByDate = (ordersList: any[]): DateGroupedOrders[] => {
 
     const isPendingScheduling =
       sched.pendingScheduling === true ||
-      sched.notInformed === true ||
+      (sched.notInformed === true && sched.immediatePickup !== true) ||
       oData.pendingScheduling === true ||
       o.pending_scheduling === true ||
       o.pendingScheduling === true;

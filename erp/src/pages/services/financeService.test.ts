@@ -8,6 +8,10 @@ const mocks = vi.hoisted(() => ({
   statusFilters: [''],
   dateFilters: [['', '']],
   selectColumns: [''],
+  tableNames: [''],
+  categoryRows: [] as Record<string, unknown>[],
+  insertPayloads: [] as unknown[],
+  writeResult: { id: 'payable-created' } as unknown,
   failingPage: -1,
   queryError: new Error('falha financeira simulada'),
 }));
@@ -26,10 +30,17 @@ describe('finance list services', () => {
     mocks.selectColumns.length = 0;
     mocks.failingPage = -1;
     mocks.queryError = new Error('falha financeira simulada');
-    mocks.from.mockReset().mockImplementation(() => {
+    mocks.tableNames.length = 0;
+    mocks.categoryRows = [];
+    mocks.insertPayloads.length = 0;
+    mocks.writeResult = { id: 'payable-created' };
+    mocks.from.mockReset().mockImplementation((table: string) => {
+      mocks.tableNames.push(table);
       let pageIndex = -1;
       const query: any = {
-        select: vi.fn((columns: string) => { mocks.selectColumns.push(columns); return query; }),
+        select: vi.fn((columns?: string) => { if (columns) mocks.selectColumns.push(columns); return query; }),
+        insert: vi.fn((payload: unknown) => { mocks.insertPayloads.push(payload); return query; }),
+        single: vi.fn(() => Promise.resolve({ data: mocks.writeResult, error: null, status: 201 })),
         order: vi.fn(() => query),
         eq: vi.fn((_column: string, value: string) => {
           mocks.statusFilters.push(value);
@@ -52,7 +63,8 @@ describe('finance list services', () => {
           if (pageIndex === mocks.failingPage) {
             return Promise.resolve({ data: null, error: mocks.queryError }).then(resolve, reject);
           }
-          return Promise.resolve({ data: mocks.pages[pageIndex] || [], error: null }).then(resolve, reject);
+          const data = pageIndex < 0 ? mocks.categoryRows : mocks.pages[pageIndex] || [];
+          return Promise.resolve({ data, error: null }).then(resolve, reject);
         },
       };
       return query;
@@ -72,6 +84,20 @@ describe('finance list services', () => {
       p_page: 2,
     });
     expect(mocks.from).not.toHaveBeenCalled();
+  });
+
+  it('creates a manual payable with the same validation and returns only its confirmed ID', async () => {
+    const payload = {
+      description: 'Rent', amount: 120, due_date: '2026-10-15', status: 'pending' as const,
+      category_id: 'category-1', supplier_name: '', notes: '',
+    };
+    mocks.writeResult = { id: 'payable-created' };
+
+    await expect(financeService.createPayableId(payload)).resolves.toEqual({ id: 'payable-created' });
+    expect(mocks.tableNames).toEqual(['accounts_payable']);
+    expect(mocks.selectColumns).toEqual(['id']);
+    expect(mocks.insertPayloads).toHaveLength(1);
+    expect(mocks.insertPayloads[0]).toMatchObject([payload]);
   });
 
   it('propagates query errors from receivables instead of returning a partial list', async () => {
@@ -169,10 +195,7 @@ describe('consultas financeiras de relatórios', () => {
 
   it('mantém o resumo financeiro fora da consulta operacional de movimentações', async () => {
     mocks.rpc.mockResolvedValue({
-      data: [
-        { amount: 300, type: 'income' },
-        { amount: 80, type: 'expense' },
-      ],
+      data: { total_income: '300', total_expense: '80', balance: '220', count: '2' },
       error: null,
     });
 
@@ -183,10 +206,57 @@ describe('consultas financeiras de relatórios', () => {
       count: 2,
     });
     expect(mocks.rpc).toHaveBeenCalledTimes(1);
-    expect(mocks.rpc).toHaveBeenCalledWith('get_report_financial_transactions', {
+    expect(mocks.rpc).toHaveBeenCalledWith('get_financial_assistant_summary', {
       p_start_date: '2026-10-01',
       p_end_date: '2026-10-31',
-      p_end_exclusive: false,
     });
+  });
+
+  it('carrega categorias de despesa com os campos do seletor e mantém a ordem hierárquica', async () => {
+    mocks.selectColumns.length = 0;
+    mocks.statusFilters.length = 0;
+    mocks.categoryRows = [
+      { id: 'root-other', name: 'Outra categoria', parent_id: null },
+      { id: 'child-water', name: 'Luz', parent_id: 'root-rent' },
+      { id: 'orphan', name: 'Filha sem categoria principal', parent_id: 'missing-root' },
+      { id: 'root-rent', name: 'Aluguel', parent_id: null },
+    ];
+    const query: any = {};
+    query.select = vi.fn((columns: string) => { mocks.selectColumns.push(columns); return query; });
+    query.eq = vi.fn((_column: string, value: string) => {
+      mocks.statusFilters.push(value);
+      return Promise.resolve({ data: mocks.categoryRows, error: null });
+    });
+    mocks.from.mockReset().mockReturnValue(query);
+
+    const categories = await financeService.getPayableCategoryOptions();
+
+    expect(mocks.from).toHaveBeenCalledWith('financial_categories');
+    expect(mocks.selectColumns).toEqual(['id,name,parent_id']);
+    expect(mocks.statusFilters).toEqual(['expense']);
+    expect(categories.map(({ id }) => id)).toEqual(['root-rent', 'child-water', 'root-other', 'orphan']);
+  });
+
+  it('obtém os totais e as contagens das previsões do painel em uma resposta compacta', async () => {
+    mocks.rpc.mockResolvedValueOnce({
+      data: {
+        payables: { pending_total: '100.25', overdue_total: '50', total: '150.25', count: 3 },
+        receivables: { pending_total: 400, overdue_total: 20, total: 420, count: '2' },
+      },
+      error: null,
+    });
+
+    await expect(financeService.getDashboardForecastSummary()).resolves.toEqual({
+      payables: { pendingTotal: 100.25, overdueTotal: 50, total: 150.25, count: 3 },
+      receivables: { pendingTotal: 400, overdueTotal: 20, total: 420, count: 2 },
+    });
+    expect(mocks.rpc).toHaveBeenCalledTimes(1);
+    expect(mocks.rpc).toHaveBeenCalledWith('get_finance_dashboard_forecast_summary');
+  });
+
+  it('não transforma uma resposta incompleta das previsões em saldo zero', async () => {
+    mocks.rpc.mockResolvedValueOnce({ data: { payables: { total: 10 } }, error: null });
+
+    await expect(financeService.getDashboardForecastSummary()).rejects.toEqual({ uncertain: true });
   });
 });

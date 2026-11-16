@@ -20,7 +20,7 @@ export default function TemporaryProductWarning() {
       <button
         ref={anchorRef}
         type="button"
-        aria-label="Aviso: produto sem cadastro"
+        aria-label="Temporário — Pendente de conciliação"
         aria-describedby={isOpen ? tooltipId : undefined}
         onMouseEnter={keepOpen}
         onMouseLeave={closeSoon}

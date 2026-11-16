@@ -183,23 +183,28 @@ export function createWhatsAppTestDispatchHandler(dependencies: WhatsAppTestDisp
     const adminDb = createSupabaseClient(supabaseUrl, serviceKey, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
-    const { error: messageError } = await withTimeout(adminDb.from('whatsapp_messages').insert({
-      conversation_id: conversationId,
-      api_message_id: apiMessageId,
-      direction: 'outbound',
-      message_type: 'text',
-      text_content: message,
-      status: 'sent',
-      raw_payload: { author_id: auth.user.id, author_name: authorName, test_sender: true },
-      timestamp: sentAt,
-    }), 12_000);
-    if (messageError) throw new Error('message persistence failed');
-
-    await withTimeout(adminDb.from('whatsapp_conversations').update({
-      last_message_text: message,
-      last_message_at: sentAt,
-      updated_at: sentAt,
-    }).eq('id', conversationId), 12_000);
+    const { data: persistenceResult, error: persistenceError } = await withTimeout(adminDb.rpc(
+      'persist_customer_support_test_message',
+      {
+        p_conversation_id: conversationId,
+        p_api_message_id: apiMessageId,
+        p_author_id: auth.user.id,
+        p_author_name: authorName,
+        p_message: message,
+        p_sent_at: sentAt,
+      },
+    ), 12_000);
+    if (persistenceError || !persistenceResult || persistenceResult.persisted !== true) {
+      throw new Error('message persistence failed');
+    }
+    if (persistenceResult.conversation_updated !== true) {
+      return res.status(200).json({
+        accepted: true,
+        persisted: true,
+        apiMessageId,
+        warning: 'A Meta aceitou a mensagem e a Central salvou o registro, mas não atualizou o resumo da conversa. Não a reenvie; atualize a conversa.',
+      });
+    }
   } catch {
     return res.status(200).json({
       accepted: true,

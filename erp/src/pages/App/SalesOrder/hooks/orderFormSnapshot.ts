@@ -1,5 +1,6 @@
 import Order from '@/pages/types/order.type';
 import Shipping from '@/pages/types/Shipping.type';
+import type Item from '@/pages/types/items.type';
 import CustomerData from '@/pages/types/customerData.type';
 import { calcItemsSummary } from '@/pages/utils/calculations';
 import { migrateOrderHandlings } from '@/pages/utils/handlingMigration';
@@ -9,6 +10,7 @@ import { resolveInitialUseCustomerAddress } from './customerAddressRules';
 import { getSaoPauloDayInfo } from '../../../../../../shared-utils/commercialOrderRules';
 import type { SchedulingSessionMemory } from '../ShippingComponents/Agendamento';
 import { resolveFirstItemHandlingType } from '../orderItemHandling';
+import { getOperationsFreightTotal, getPrimaryOperationDistance, normalizeOperationFreight } from '../ShippingComponents/operationFreight';
 
 type CurrentOrderFormValues = Pick<
   Order,
@@ -69,16 +71,42 @@ export const buildCurrentOrder = (state: CurrentOrderFormValues): Order => {
 
 export const buildSalesOrderSnapshot = (
   stateSnapshot: any,
-  orderIndex: string | null | undefined,
+  orderIndex: number | null | undefined,
   schedulingSession: SchedulingSessionMemory | null,
   newStatus?: Order['status']
 ): Order => {
   const s = stateSnapshot;
   const currentItemsSummary = calcItemsSummary(s.items);
-  const firstHandling = resolveFirstItemHandlingType(s.items);
   const isTestArtifact = s.isTestMode === true;
 
   let resolvedScheduling = s.shipping?.scheduling;
+  if (
+    s.orderType === 'sale' && resolvedScheduling && !resolvedScheduling.appointments?.length &&
+    Array.isArray(s.items) && s.items.length > 0 && s.items.every((item: Item) => Boolean(item.orderItemId))
+  ) {
+    const scheduledItems = (s.items || []).filter((item: Item) => item.orderItemId && item.description?.trim());
+    const { appointments: _appointments, ...legacySchedule } = resolvedScheduling;
+    resolvedScheduling = {
+      ...legacySchedule,
+      appointments: [{
+        id: 'principal',
+        deliveryMethod: s.isNewSaleFlow ? undefined : s.shipping.deliveryMethod,
+        itemIds: scheduledItems.map((item: Item) => item.orderItemId!),
+        itemQuantities: Object.fromEntries(scheduledItems.map((item: Item) => [item.orderItemId!, item.quantity])),
+        ...(s.isNewSaleFlow ? {
+          itemHandlings: Object.fromEntries(scheduledItems
+            .filter((item: Item) => item.itemType !== 'service' && !item.isComboItem)
+            .map((item: Item) => [item.orderItemId!, { handlingType: '', assemblyResponsible: '' }]))
+        } : {}),
+        notices: {
+          ...(s.shipping?.callBeforeDelivery === undefined ? {} : { callBeforeDelivery: s.shipping.callBeforeDelivery }),
+          ...(s.shipping?.bringCardMachine === undefined ? {} : { bringCardMachine: s.shipping.bringCardMachine }),
+          ...(s.shipping?.callOnArrival === undefined ? {} : { callOnArrival: s.shipping.callOnArrival }),
+        },
+        scheduling: legacySchedule,
+      }],
+    };
+  }
   const sessionDateMode = schedulingSession?.dateMode;
   if (
     resolvedScheduling &&
@@ -93,8 +121,54 @@ export const buildSalesOrderSnapshot = (
       date: dayInfo.isoDate,
       endDate: '',
       dateType: 'fixed',
+      appointments: resolvedScheduling.appointments?.map((
+        appointment: NonNullable<Shipping['scheduling']['appointments']>[number],
+        index: number
+      ) =>
+        index === 0
+          ? {
+              ...appointment,
+              scheduling: {
+                ...appointment.scheduling,
+                date: dayInfo.isoDate,
+                endDate: '',
+                dateType: 'fixed',
+              },
+            }
+          : appointment
+      ),
     };
   }
+
+  let operationFreightTotal: number | undefined;
+  let operationDistance: number | undefined;
+  if (s.orderType === 'sale' && resolvedScheduling?.appointments?.length) {
+    const defaultDeliveryMethod = s.shipping?.deliveryMethod || 'delivery';
+    const operationAppointments = resolvedScheduling.appointments.map((appointment: NonNullable<Shipping['scheduling']['appointments']>[number]) => ({
+      ...appointment,
+      ...(!s.isNewSaleFlow && !appointment.deliveryMethod
+        ? { deliveryMethod: defaultDeliveryMethod }
+        : {}),
+    }));
+    const appointments = normalizeOperationFreight(
+      operationAppointments,
+      defaultDeliveryMethod,
+      s.shipping?.value,
+      s.shipping?.distance,
+    );
+    resolvedScheduling = { ...resolvedScheduling, appointments };
+    operationFreightTotal = getOperationsFreightTotal(appointments, defaultDeliveryMethod);
+    operationDistance = getPrimaryOperationDistance(appointments, defaultDeliveryMethod);
+  }
+
+  const snapshotItems = (s.items || []).map((item: Item) => {
+    const appointment = resolvedScheduling?.appointments?.find((entry: NonNullable<Shipping['scheduling']['appointments']>[number]) =>
+      item.orderItemId && entry.itemIds.includes(item.orderItemId)
+    );
+    const handling = item.orderItemId && appointment?.itemHandlings?.[item.orderItemId];
+    return handling ? { ...item, ...handling } : item;
+  });
+  const firstHandling = resolveFirstItemHandlingType(snapshotItems);
 
   return {
     id: s.currentOrderId,
@@ -102,10 +176,11 @@ export const buildSalesOrderSnapshot = (
     orderNumber: isTestArtifact ? undefined : orderIndex || s.orderIndex || undefined,
     orderType: s.orderType,
     status: newStatus || s.status,
-    items: s.items,
+    items: snapshotItems,
     itemsSummary: currentItemsSummary,
     shipping: {
       ...s.shipping,
+      ...(operationFreightTotal === undefined ? {} : { value: operationFreightTotal, distance: operationDistance }),
       scheduling: resolvedScheduling,
       orderType: firstHandling || s.shipping?.orderType || '',
     },
@@ -176,8 +251,8 @@ export const prepareOrderForFormEditing = (order: Order) => {
   const migratedOrder = migrateOrderHandlings(order);
   const existingIndex = getOrderIndex(order);
   const isLoadedTestArtifact = Boolean(order.id && order.is_test === true);
-  const isExistingOrder = Boolean(order.id && (existingIndex || isLoadedTestArtifact));
   const loadedStatus = order.status || 'draft';
+  const isExistingOrder = Boolean(order.id && (existingIndex || isLoadedTestArtifact || loadedStatus === 'draft'));
 
   const normalizedItems = (migratedOrder.items || []).map((item) => ({
     ...item,
@@ -190,7 +265,7 @@ export const prepareOrderForFormEditing = (order: Order) => {
   );
 
   const defaultShipping = createDefaultFormShipping(resolvedUseCustomerAddress);
-  const normalizedShipping: Shipping = migratedOrder.shipping
+  let normalizedShipping: Shipping = migratedOrder.shipping
     ? {
         ...defaultShipping,
         ...migratedOrder.shipping,
@@ -206,6 +281,25 @@ export const prepareOrderForFormEditing = (order: Order) => {
         },
       }
     : defaultShipping;
+
+  if (order.orderType === 'sale' && normalizedShipping.scheduling.appointments?.length) {
+    const deliveryMethod = normalizedShipping.deliveryMethod || 'delivery';
+    const appointments = normalizeOperationFreight(
+      normalizedShipping.scheduling.appointments.map((appointment) => ({
+        ...appointment,
+        deliveryMethod: appointment.deliveryMethod || deliveryMethod,
+      })),
+      deliveryMethod,
+      normalizedShipping.value,
+      normalizedShipping.distance,
+    );
+    normalizedShipping = {
+      ...normalizedShipping,
+      value: getOperationsFreightTotal(appointments, deliveryMethod),
+      distance: getPrimaryOperationDistance(appointments, deliveryMethod),
+      scheduling: { ...normalizedShipping.scheduling, appointments },
+    };
+  }
 
   const normalizedPayments = Array.isArray(order.payments) ? order.payments : [];
   const normalizedCustomerData: CustomerData = order.customerData

@@ -206,7 +206,7 @@ const Body = ({
     return (
       <tbody>
         <tr>
-          <td colSpan={compactDesktop ? 7 : hideHandling ? 8 : 9}>{emptyState}</td>
+          <td colSpan={compactDesktop ? 8 : hideHandling ? 8 : 9}>{emptyState}</td>
         </tr>
       </tbody>
     );
@@ -260,7 +260,7 @@ const Body = ({
           }
           onQuantityChange={(quantity) => changeCompositionQuantity(row.groupId, quantity)}
           onDelete={() => deleteItem(row.firstIndex)}
-          columnCount={compactDesktop ? 7 : hideHandling ? 8 : 9}
+          columnCount={compactDesktop ? 8 : hideHandling ? 8 : 9}
           hasPending={row.items.some(({ originalIndex }) => hasItemErrors(originalIndex))}
           quantityError={row.items
             .map(({ originalIndex }) => errors[`item_${originalIndex}_quantity`])
@@ -366,7 +366,7 @@ const Body = ({
       </div>
     ) : (
       <tr>
-        <td colSpan={hideHandling ? 8 : 9} className="border-b border-slate-200/80 bg-white px-3 py-2.5 dark:border-slate-800 dark:bg-slate-900">
+        <td colSpan={compactDesktop || hideHandling ? 8 : 9} className="border-b border-slate-200/80 bg-white px-3 py-2.5 dark:border-slate-800 dark:bg-slate-900">
           <div className="flex items-center gap-3">
             <i className="bi bi-boxes text-blue-600 dark:text-blue-400" aria-hidden="true" />
             <span className="shrink-0 text-xs font-semibold text-slate-600 dark:text-slate-300">

@@ -25,7 +25,9 @@ export interface UseOrderFormSubmissionParams {
   getOrderData: (newStatus?: Order['status']) => Order;
   ensureOrderCode: () => Promise<number | null>;
   cancelAutoSave: () => void;
-  waitForActiveSave: () => Promise<void>;
+  waitForActiveSave: () => Promise<boolean>;
+  resumeAutoSave: () => void;
+  getDraftCreationKey: () => string | undefined;
   setIsSaving: React.Dispatch<React.SetStateAction<boolean>>;
   setCurrentOrderId: React.Dispatch<React.SetStateAction<string | undefined>>;
   setStatus: React.Dispatch<React.SetStateAction<string>>;
@@ -46,6 +48,8 @@ export const useOrderFormSubmission = ({
   ensureOrderCode,
   cancelAutoSave,
   waitForActiveSave,
+  resumeAutoSave,
+  getDraftCreationKey,
   setIsSaving,
   setCurrentOrderId,
   setStatus,
@@ -89,22 +93,23 @@ export const useOrderFormSubmission = ({
         ])
       );
       setErrors(fields);
-      const shippingError = fields['shipping_date'] || fields['shipping_time'];
-      const firstKey = Object.keys(fields)[0];
-      if (latestState.current.currentStep === 4 && shippingError) {
-        toast.error(shippingError);
+      const hasShippingError = Object.keys(fields).some(
+        (key) => key.startsWith('shipping_') || key.startsWith('deliveryAddress_')
+      );
+      if (hasShippingError) {
+        setCurrentStep(4);
+        const firstNonShippingError = Object.entries(fields).find(
+          ([key]) => !key.startsWith('shipping_') && !key.startsWith('deliveryAddress_')
+        )?.[1];
+        if (firstNonShippingError) toast.error(firstNonShippingError);
         return;
       }
-      if (firstKey?.startsWith('shipping_') || firstKey?.startsWith('deliveryAddress_')) {
-        setCurrentStep(4);
-      } else if (
-        Object.keys(fields).some((key) => key.startsWith('payment_') || key === 'payments_summary')
-      ) {
+      if (Object.keys(fields).some((key) => key.startsWith('payment_') || key === 'payments_summary')) {
         setCurrentStep(5);
       }
       toast.error(Object.values(fields)[0] || 'Confira os dados do pedido.');
     },
-    [latestState, setCurrentStep, setErrors]
+    [setCurrentStep, setErrors]
   );
 
   const handleSaveOrder = useCallback(
@@ -116,8 +121,12 @@ export const useOrderFormSubmission = ({
       cancelAutoSave();
       latestState.current.isSaving = true;
       setIsSaving(true);
+      let succeeded = false;
       try {
-        await waitForActiveSave();
+        if (!(await waitForActiveSave())) {
+          toast.error('Não foi possível confirmar o salvamento do rascunho. Tente novamente.');
+          return false;
+        }
         cancelAutoSave();
         const savedStatus =
           latestState.current.currentOrderId && latestState.current.status !== 'draft'
@@ -136,7 +145,10 @@ export const useOrderFormSubmission = ({
             orderData.orderNumber = currentIdx;
           }
           try {
-            const savedId = await saveOrder(orderData);
+            const creationKey = getDraftCreationKey();
+            const savedId = !orderData.id && creationKey
+              ? await saveOrder(orderData, { idempotencyKey: creationKey })
+              : await saveOrder(orderData);
             if (savedId) {
               setCurrentOrderId(savedId);
               latestState.current.currentOrderId = savedId;
@@ -161,7 +173,7 @@ export const useOrderFormSubmission = ({
             return false;
           }
         };
-        return savedStatus === 'draft'
+        const result = savedStatus === 'draft'
           ? await validateOrderDraft(
               snapshot as unknown as z.input<typeof orderDraftFormSchema>,
               persistValidatedOrder,
@@ -172,12 +184,15 @@ export const useOrderFormSubmission = ({
               persistValidatedOrder,
               showOrderValidationErrors
             );
+        succeeded = Boolean(result);
+        return result;
       } finally {
         cancelAutoSave();
         latestState.current.isSaving = false;
         latestState.current.submissionInFlight = false;
         setIsSaving(false);
         submissionInFlightRef.current = false;
+        if (!succeeded) resumeAutoSave();
       }
     },
     [
@@ -185,6 +200,8 @@ export const useOrderFormSubmission = ({
       ensureOrderCode,
       cancelAutoSave,
       waitForActiveSave,
+      resumeAutoSave,
+      getDraftCreationKey,
       validateOrderForm,
       validateOrderDraft,
       showOrderValidationErrors,
@@ -205,6 +222,7 @@ export const useOrderFormSubmission = ({
       cancelAutoSave();
       latestState.current.isSaving = true;
       setIsSaving(true);
+      let succeeded = false;
       try {
         // Validação e código podem avançar enquanto um autosave já iniciado termina.
         const activeDraftSave = waitForActiveSave();
@@ -215,10 +233,14 @@ export const useOrderFormSubmission = ({
         ) => {
           const orderData = data as unknown as Order;
           setErrors({});
-          const [currentIdx] = await Promise.all([
+          const [currentIdx, activeSaveConfirmed] = await Promise.all([
             orderData.is_test === true ? Promise.resolve(null) : ensureOrderCode(),
             activeDraftSave,
           ]);
+          if (!activeSaveConfirmed) {
+            toast.error('Não foi possível confirmar o salvamento do rascunho. Tente novamente.');
+            return false;
+          }
           if (orderData.is_test !== true) {
             if (!currentIdx) return false;
             orderData.orderIndex = currentIdx;
@@ -228,7 +250,10 @@ export const useOrderFormSubmission = ({
             orderData.id = latestState.current.currentOrderId;
           }
           try {
-            const savedId = await saveOrder(orderData);
+            const creationKey = getDraftCreationKey();
+            const savedId = !orderData.id && creationKey
+              ? await saveOrder(orderData, { idempotencyKey: creationKey })
+              : await saveOrder(orderData);
             if (savedId) {
               setCurrentOrderId(savedId);
               latestState.current.currentOrderId = savedId;
@@ -255,7 +280,7 @@ export const useOrderFormSubmission = ({
             return false;
           }
         };
-        return savedStatus === 'draft'
+        const result = savedStatus === 'draft'
           ? await validateOrderDraft(
               snapshot as unknown as z.input<typeof orderDraftFormSchema>,
               persistValidatedOrder,
@@ -266,12 +291,15 @@ export const useOrderFormSubmission = ({
               persistValidatedOrder,
               showOrderValidationErrors
             );
+        succeeded = Boolean(result);
+        return result;
       } finally {
         cancelAutoSave();
         latestState.current.isSaving = false;
         latestState.current.submissionInFlight = false;
         setIsSaving(false);
         submissionInFlightRef.current = false;
+        if (!succeeded) resumeAutoSave();
       }
     },
     [
@@ -279,6 +307,8 @@ export const useOrderFormSubmission = ({
       ensureOrderCode,
       cancelAutoSave,
       waitForActiveSave,
+      resumeAutoSave,
+      getDraftCreationKey,
       validateOrderForm,
       validateOrderDraft,
       showOrderValidationErrors,

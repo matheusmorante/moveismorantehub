@@ -25,6 +25,7 @@ export interface CurrencyInputProps {
   error?: string | boolean;
   helperText?: string;
   testID?: string;
+  size?: number;
   onKeyDown?: React.KeyboardEventHandler<HTMLInputElement>;
 }
 
@@ -53,6 +54,7 @@ const CurrencyInput = ({
   error,
   helperText,
   testID,
+  size,
   onKeyDown,
 }: CurrencyInputProps) => {
   const handleChange = onChangeValue || onChange;
@@ -186,6 +188,7 @@ const CurrencyInput = ({
       placeholder,
       autoFocus,
       'data-testid': testID,
+      size,
       inputMode: 'numeric' as const,
     };
 

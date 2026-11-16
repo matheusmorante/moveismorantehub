@@ -10,6 +10,7 @@ import { getOrderAssemblyFlags, isPaidTrafficOrder } from './orderItemHandlingUt
 import { OrderAssemblyBadges } from './OrderAssemblyBadges';
 import { OrderDeliveryPrompt } from './OrderDeliveryPrompt';
 import { OrderOperationalBadges } from './OrderOperationalBadges';
+import { OrderScheduleSummary } from './OrderScheduleSummary';
 import { OrderOptionsMenu } from './OrderOptionsMenu';
 import { OrderFiscalBadge } from './OrderFiscalBadge';
 import { OrderCancellationFailureNotice } from './OrderCancellationFailureNotice';
@@ -184,7 +185,7 @@ const OrderHistoryRow = ({
   const cellBgClass = isCancelled
     ? 'bg-red-50/80 dark:bg-red-950/40'
     : 'bg-white dark:bg-slate-900';
-  const baseTdClass = `px-1 py-1 ${cellBgClass} ${isCancelled ? 'border-b border-red-200 dark:border-red-900/50' : 'border-b border-white dark:border-slate-800/50'} align-middle relative`;
+  const baseTdClass = `px-2 py-1 ${cellBgClass} ${isCancelled ? 'border-b border-red-200 dark:border-red-900/50' : 'border-b border-white dark:border-slate-800/50'} align-middle relative`;
   const rowColumnKeys = orderedColumnKeys ?? [
     'id',
     'orderDate',
@@ -265,20 +266,26 @@ const OrderHistoryRow = ({
         }
 
         return (
-          <td key={key} className={`${baseTdClass} whitespace-nowrap`}>
-            <div className="flex flex-col gap-0.5 relative">
-              <span
-                className={`text-sm font-bold ${sched?.pendingScheduling ? 'text-slate-400 dark:text-slate-500' : 'text-slate-700 dark:text-slate-200'}`}
-              >
-                {sched?.pendingScheduling
-                  ? 'AGENDAMENTO PENDENTE'
-                  : sched?.dateType === 'range' && sched?.endDate
-                    ? `${formatToBRDate(deliveryDateStr)} até ${formatToBRDate(sched.endDate)}`
-                    : formatToBRDate(deliveryDateStr)}
-              </span>
-              <span className="text-[10px] text-slate-400 dark:text-slate-600 font-bold uppercase tracking-widest">
-                {timeDisplay}
-              </span>
+          <td key={key} className={`${baseTdClass} min-w-0`}>
+            <div className="relative flex min-w-0 flex-col items-start gap-1.5">
+              {order.orderType === 'sale' ? (
+                <OrderScheduleSummary order={order} showLabel={false} layout="table" className="w-full" />
+              ) : (
+                <div className="flex min-w-0 flex-col gap-0.5">
+                  <span
+                    className={`text-sm font-bold ${sched?.pendingScheduling ? 'text-slate-400 dark:text-slate-500' : 'text-slate-700 dark:text-slate-200'}`}
+                  >
+                    {sched?.pendingScheduling
+                      ? 'AGENDAMENTO PENDENTE'
+                      : sched?.dateType === 'range' && sched?.endDate
+                        ? `${formatToBRDate(deliveryDateStr)} até ${formatToBRDate(sched.endDate)}`
+                        : formatToBRDate(deliveryDateStr)}
+                  </span>
+                  <span className="text-[10px] text-slate-400 dark:text-slate-600 font-bold uppercase tracking-widest">
+                    {timeDisplay}
+                  </span>
+                </div>
+              )}
               <OrderDeliveryPrompt
                 order={order}
                 showTrash={showTrash}
@@ -292,7 +299,7 @@ const OrderHistoryRow = ({
       }
       case 'customer':
         return (
-          <td key={key} className={`${baseTdClass} relative`}>
+          <td key={key} className={`${baseTdClass} relative pl-3`}>
             <div className="flex flex-col py-1">
               <span
                 className="text-[13px] font-black text-slate-700 dark:text-slate-200 tracking-tight leading-tight mb-1 truncate"
@@ -339,6 +346,7 @@ const OrderHistoryRow = ({
                 <OrderOperationalBadges
                   order={order}
                   showTrash={showTrash}
+                  showMethodBadge={order.orderType !== 'sale'}
                   isPaidTraffic={isPaidTraffic}
                   statusConfig={statusConfig}
                   onStatusUpdate={onStatusUpdate}
@@ -363,10 +371,10 @@ const OrderHistoryRow = ({
         return (
           <td
             key={key}
-            className={`${baseTdClass} text-center`}
+            className={`${baseTdClass} text-right`}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-center gap-2 relative z-20">
+            <div className="relative z-20 flex items-center justify-end gap-2">
               <OrderOptionsMenu
                 order={order}
                 showTrash={showTrash}

@@ -8,8 +8,14 @@ export async function prepareDeliveryProofs(item: SyncQueueItem): Promise<SyncQu
   }
 
   let preparedItem = item;
-  const readPatch = () =>
+  const readEnvelope = () =>
     (preparedItem.payload.order_data_patch as Record<string, unknown> | undefined) || {};
+  const readPatch = () => {
+    const envelope = readEnvelope();
+    return envelope.operationId && envelope.operationPatch && typeof envelope.operationPatch === 'object'
+      ? envelope.operationPatch as Record<string, unknown>
+      : envelope;
+  };
   const initialProofs = readPatch().unattendedProofUrls;
   if (!Array.isArray(initialProofs)) return item;
 
@@ -58,7 +64,9 @@ export async function prepareDeliveryProofs(item: SyncQueueItem): Promise<SyncQu
     }
     const nextPayload = {
       ...preparedItem.payload,
-      order_data_patch: nextPatch,
+      order_data_patch: readEnvelope().operationId
+        ? { ...readEnvelope(), operationPatch: nextPatch }
+        : nextPatch,
     };
     await SyncQueueRepository.updatePayload(preparedItem.id, nextPayload);
     preparedItem = { ...preparedItem, payload: nextPayload };

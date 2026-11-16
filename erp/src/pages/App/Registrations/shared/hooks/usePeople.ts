@@ -2,23 +2,35 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   fetchPersons,
+  fetchEmployeeDirectoryPage,
   moveToTrash,
   restorePerson,
   permanentDeletePerson,
   updatePerson,
   syncMissingEmployeesFromProfiles,
 } from '@/pages/utils/personService';
-import type { PersonMutationOptions } from '@/pages/utils/personService';
+import type { EmployeeDirectorySortBy, PersonMutationOptions } from '@/pages/utils/personService';
 import { getProfileRoles } from '@/pages/utils/accessRoles';
 import { toast } from 'react-toastify';
 import { requestConfirmation } from '@/components/shared/confirmationService';
 import { matchesSearchText } from '@/pages/utils/textUtils';
 
 const EMPTY_PEOPLE: Awaited<ReturnType<typeof fetchPersons>> = [];
+const EMPTY_PEOPLE_PAGE = { people: EMPTY_PEOPLE, totalItems: 0 };
 
 export const usePeople = (collectionName: string, filters?: any) => {
   const queryClient = useQueryClient();
+  const isEmployeeDirectory = collectionName === 'employees';
   const showTrash = Boolean(filters?.showTrash);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPageState] = useState(15);
+  const previousFilters = useRef(filters);
+  const employeePage = isEmployeeDirectory && previousFilters.current !== filters
+    ? 1
+    : currentPage;
+  const employeeSortBy: EmployeeDirectorySortBy =
+    filters?.sortBy === 'createdAt' ? 'createdAt' : 'fullName';
+  const employeeSortOrder = filters?.sortOrder === 'desc' ? 'desc' : 'asc';
   const employeeSyncStarted = useRef(false);
   const {
     mutate: syncEmployees,
@@ -45,24 +57,38 @@ export const usePeople = (collectionName: string, filters?: any) => {
       ? { throwOnError: true as const, syncEmployeeProfiles: false }
       : { throwOnError: true as const };
 
-  const { data: people = EMPTY_PEOPLE, isLoading: loadingActive, error: activeError } = useQuery({
-    queryKey: ['people', collectionName, 'active'],
-    queryFn: () => fetchPersons(collectionName, false, queryOptions),
+  const { data: activePage = EMPTY_PEOPLE_PAGE, isLoading: loadingActive, error: activeError } = useQuery({
+    queryKey: isEmployeeDirectory
+      ? ['people', collectionName, 'active', employeePage, itemsPerPage, employeeSortBy, employeeSortOrder]
+      : ['people', collectionName, 'active'],
+    queryFn: async () => {
+      if (isEmployeeDirectory) {
+        return fetchEmployeeDirectoryPage({
+          page: employeePage,
+          pageSize: itemsPerPage,
+          sortBy: employeeSortBy,
+          sortOrder: employeeSortOrder,
+        });
+      }
+      const rows = await fetchPersons(collectionName, false, queryOptions);
+      return { people: rows, totalItems: rows.length };
+    },
     enabled: employeeQueryReady,
     staleTime: 2 * 60 * 1000, // 2 minutos em cache fresco
     gcTime: 5 * 60 * 1000,
   });
 
-  const { data: trashedPeople = EMPTY_PEOPLE, isLoading: loadingTrash, error: trashError } = useQuery({
+  const { data: trashPage = EMPTY_PEOPLE_PAGE, isLoading: loadingTrash, error: trashError } = useQuery({
     queryKey: ['people', collectionName, 'trash'],
-    queryFn: () => fetchPersons(collectionName, true, queryOptions),
+    queryFn: async () => {
+      const rows = await fetchPersons(collectionName, true, queryOptions);
+      return { people: rows, totalItems: rows.length };
+    },
     enabled: showTrash, // Apenas busca lixeira quando a aba lixeira estiver aberta!
     staleTime: 2 * 60 * 1000,
     gcTime: 5 * 60 * 1000,
   });
 
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPageState] = useState(15);
   const [selectedPeople, setSelectedPeople] = useState<string[]>([]);
 
   const setItemsPerPage = useCallback((pageSize: number) => {
@@ -109,6 +135,7 @@ export const usePeople = (collectionName: string, filters?: any) => {
   );
 
   useEffect(() => {
+    previousFilters.current = filters;
     setCurrentPage(1);
     setSelectedPeople([]);
   }, [filters]);
@@ -117,7 +144,12 @@ export const usePeople = (collectionName: string, filters?: any) => {
     const showTrash = filters?.showTrash || false;
 
     // Use the appropriate list from DB — already filtered server-side
-    const sourceList = showTrash ? trashedPeople : people;
+    const sourceList = showTrash ? trashPage.people : activePage.people;
+
+    // The employee directory has already applied these filters, de-duplication
+    // and ordering on the server before paging. Re-applying them here would
+    // make the page incomplete and the total count incorrect.
+    if (isEmployeeDirectory && !showTrash) return sourceList;
 
     return sourceList
       .filter((person) => {
@@ -159,22 +191,26 @@ export const usePeople = (collectionName: string, filters?: any) => {
         const sortOrder = filters?.sortOrder || 'asc';
         return sortOrder === 'asc' ? comparison : -comparison;
       });
-  }, [people, trashedPeople, filters, collectionName]);
+  }, [activePage.people, trashPage.people, filters, collectionName, isEmployeeDirectory]);
 
-  const totalPages = Math.ceil(filteredPeople.length / itemsPerPage);
-  const totalItems = filteredPeople.length;
+  const totalItems = isEmployeeDirectory && !showTrash
+    ? activePage.totalItems
+    : filteredPeople.length;
+  const totalPages = Math.ceil(totalItems / itemsPerPage);
 
   useEffect(() => {
+    if (loadingActive) return;
     setCurrentPage((page) => {
       const lastValidPage = Math.max(1, totalPages);
       return Math.min(page, lastValidPage);
     });
-  }, [totalPages]);
+  }, [totalPages, loadingActive]);
 
   const paginatedPeople = useMemo(() => {
+    if (isEmployeeDirectory && !showTrash) return filteredPeople;
     const start = (currentPage - 1) * itemsPerPage;
     return filteredPeople.slice(start, start + itemsPerPage);
-  }, [filteredPeople, currentPage, itemsPerPage]);
+  }, [filteredPeople, currentPage, itemsPerPage, isEmployeeDirectory, showTrash]);
 
   const loading =
     (showTrash ? loadingTrash : loadingActive) ||
@@ -291,7 +327,7 @@ export const usePeople = (collectionName: string, filters?: any) => {
   return {
     people: paginatedPeople,
     totalItems,
-    currentPage,
+    currentPage: employeePage,
     itemsPerPage,
     totalPages,
     setCurrentPage,

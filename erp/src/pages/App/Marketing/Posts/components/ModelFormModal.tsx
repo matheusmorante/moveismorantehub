@@ -322,14 +322,12 @@ export function ModelFormModal({ value, onClose, onSave }: Props) {
               />
               {productResultsOpen && (
                 <div className="absolute z-30 mt-1 max-h-56 w-full overflow-y-auto rounded-lg border border-slate-700 bg-slate-950 p-1 shadow-xl">
-                  {editor.products
-                    .filter((p) => p.id)
-                    .map((p) => (
+                  {editor.products.map((p) => (
                       <button
                         key={p.id}
                         type="button"
                         onClick={() => {
-                          void editor.selectProduct(p.id!);
+                          void editor.selectProduct(p.id);
                           setProductResultsOpen(false);
                         }}
                         className="block w-full rounded px-3 py-2 text-left text-xs text-slate-200 hover:bg-slate-800"

@@ -7,14 +7,17 @@ import PayableModal from './Payables/PayableModal';
 import type { AccountPayable } from '../../types/finance.type';
 
 const mocks = vi.hoisted(() => ({
-  createTransaction: vi.fn(), createPayable: vi.fn(), updatePayable: vi.fn(),
+  createTransaction: vi.fn(), createPayable: vi.fn(), createPayableId: vi.fn(), updatePayable: vi.fn(),
   bulkCreatePayables: vi.fn(), createRecurringPayableExpense: vi.fn(), settleAccount: vi.fn(), error: vi.fn(),
   getTransactionPage: vi.fn(),
 }));
 vi.mock('@/pages/services/financeService', () => ({ financeService: {
   ...mocks,
   getTransactionPage: mocks.getTransactionPage,
+  createPayableId: mocks.createPayableId,
+  updatePayableId: mocks.updatePayable,
   getCategories: async () => [{ id: 'category-1', name: 'Expense category', type: 'expense' }],
+  getPayableCategoryOptions: async () => [{ id: 'category-1', name: 'Expense category', parent_id: null }],
 } }));
 vi.mock('@/context/AuthContext', () => ({
   useAuth: () => ({ isAdmin: true, profile: { full_name: 'Operador' }, user: { email: 'operador@example.com' } }),
@@ -26,7 +29,7 @@ vi.mock('react-toastify', () => ({ toast: { error: mocks.error, success: vi.fn()
 afterEach(cleanup);
 beforeEach(() => {
   vi.clearAllMocks();
-  for (const mock of [mocks.createTransaction, mocks.createPayable, mocks.updatePayable, mocks.bulkCreatePayables, mocks.createRecurringPayableExpense, mocks.settleAccount]) {
+  for (const mock of [mocks.createTransaction, mocks.createPayable, mocks.createPayableId, mocks.updatePayable, mocks.bulkCreatePayables, mocks.createRecurringPayableExpense, mocks.settleAccount]) {
     mock.mockResolvedValue({});
   }
   mocks.getTransactionPage.mockResolvedValue({ rows: [], total_count: 0, income_total: 0, expense_total: 0 });
@@ -78,10 +81,10 @@ describe('financial form resolver submits', () => {
     const view = renderPayable();
     fireEvent.click(screen.getByRole('button', { name: 'Salvar' }));
     await waitFor(() => expect(mocks.error).toHaveBeenCalledWith('Informe a descrição.'));
-    expect(mocks.createPayable).not.toHaveBeenCalled();
+    expect(mocks.createPayableId).not.toHaveBeenCalled();
     await fillPayable(view);
     fireEvent.click(screen.getByRole('button', { name: 'Salvar' }));
-    await waitFor(() => expect(mocks.createPayable).toHaveBeenCalledWith(expect.objectContaining({ description: 'Rent', amount: 120, category_id: 'category-1', status: 'pending' })));
+    await waitFor(() => expect(mocks.createPayableId).toHaveBeenCalledWith(expect.objectContaining({ description: 'Rent', amount: 120, category_id: 'category-1', status: 'pending' })));
     expect(mocks.bulkCreatePayables).not.toHaveBeenCalled();
   });
 
@@ -116,7 +119,7 @@ describe('financial form resolver submits', () => {
     await fillPayable(view);
     fireEvent.click(screen.getByRole('button', { name: 'Salvar' }));
     await waitFor(() => expect(mocks.updatePayable).toHaveBeenCalledWith('payable-1', expect.objectContaining({ status: 'paid', description: 'Rent', amount: 120 })));
-    expect(mocks.createPayable).not.toHaveBeenCalled();
+    expect(mocks.createPayableId).not.toHaveBeenCalled();
     expect(mocks.bulkCreatePayables).not.toHaveBeenCalled();
   });
 
@@ -183,6 +186,6 @@ describe('financial form resolver submits', () => {
     view.unmount();
     await act(async () => {});
     expect(mocks.error).not.toHaveBeenCalled();
-    expect(mocks.createPayable).not.toHaveBeenCalled();
+    expect(mocks.createPayableId).not.toHaveBeenCalled();
   });
 });

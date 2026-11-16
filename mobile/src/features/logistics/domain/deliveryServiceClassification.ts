@@ -87,7 +87,7 @@ export function classifyDeliveryService(order: any): DeliveryServiceClassificati
       ''
   ).toLowerCase();
 
-  const isPickup = !isReturn && !isAssistance && deliveryMethod === 'pickup';
+  const isPickup = !isReturn && !isAssistance && ['pickup', 'retirada'].includes(deliveryMethod);
   const isDelivery = !isReturn && !isAssistance && !isPickup;
 
   let serviceType: DeliveryServiceType = 'delivery';

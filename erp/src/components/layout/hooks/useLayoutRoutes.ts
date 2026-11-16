@@ -26,6 +26,7 @@ export function useLayoutRoutes(): LayoutRoutesState {
 
   const isProductsPage = location.pathname === '/products';
   const isAssistancePage = location.pathname === '/assistance-orders';
+  const isSalesOrderPage = location.pathname === '/sales-order';
 
   let mainContentClassName = 'p-3 sm:p-4 md:p-6 lg:p-6 xl:p-8';
   if (isTemplateEditor || isCustomerSupport) {
@@ -34,6 +35,8 @@ export function useLayoutRoutes(): LayoutRoutesState {
     mainContentClassName = 'p-2';
   } else if (isProductsPage || isAssistancePage) {
     mainContentClassName = 'px-3 sm:px-4 md:px-6 lg:px-6 xl:px-8 pt-0 pb-6 xl:pb-8';
+  } else if (isSalesOrderPage) {
+    mainContentClassName = 'px-3 sm:px-4 md:px-6 lg:px-6 xl:px-8 pt-0 pb-0';
   }
 
   return {

@@ -22,6 +22,7 @@ import { TodayDeliveriesScreen } from './TodayDeliveriesScreen';
 import { LogisticsOrderCard } from '../components/LogisticsOrderCard';
 import { useLogisticsScheduleData } from '../hooks/useLogisticsScheduleData';
 import { LogisticsDateSectionHeader } from '../components/LogisticsDateSectionHeader';
+import { expandOrderAppointments } from '../../../../../shared-utils/orderAppointmentOccurrences';
 
 interface Props {
   isDarkMode: boolean;
@@ -54,12 +55,10 @@ export const NativeLogisticsScreen: React.FC<Props> = ({
     }));
   };
 
-  const deliveryOrders = orders.filter((o) => {
+  const deliveryOrders = orders.flatMap(expandOrderAppointments).filter((o: any) => {
     const oData = o.order_data || {};
     if (oData.deleted || o.deleted || isCancelledOrder(o)) return false;
     const orderStatus = (o.status || oData.status || '').toLowerCase();
-    if (orderStatus === 'draft' || orderStatus === 'rascunho' || orderStatus === 'drafts')
-      return false;
 
     const shipping = oData.shipping || {};
     const sched = shipping.scheduling || oData.schedule || oData.scheduling || o.schedule || {};
@@ -221,7 +220,9 @@ export const NativeLogisticsScreen: React.FC<Props> = ({
       ) : (
         <SectionList
           sections={sections}
-          keyExtractor={(item, index) => item.id || `item-${index}`}
+          keyExtractor={(item: any, index) => item.scheduleAppointment
+            ? `${item.id}_appointment_${item.scheduleAppointment.appointmentId}`
+            : item.id || `item-${index}`}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
           ListHeaderComponent={renderHeader}

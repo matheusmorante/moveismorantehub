@@ -12,11 +12,12 @@ const mapFromDB = (data: any): Service => ({
   updatedAt: data.updated_at,
 });
 
-const confirmedService = (data: any, expectedId?: string): Service => {
+type SavedService = { id: string };
+
+const confirmedServiceId = (data: any, expectedId?: string): SavedService => {
   if (data?.id === undefined || data.id === null || String(data.id) === ''
-    || (expectedId !== undefined && String(data.id) !== expectedId)
-    || !data.service_data || typeof data.service_data !== 'object' || Array.isArray(data.service_data)) throw { uncertain: true };
-  return mapFromDB(data);
+    || (expectedId !== undefined && String(data.id) !== expectedId)) throw { uncertain: true };
+  return { id: String(data.id) };
 };
 const throwWriteError = (error: any): never => {
   if (!error?.code || error.code === 'PGRST116' || error.code === '40003' || error.code.startsWith('08')) throw { uncertain: true };
@@ -82,7 +83,7 @@ export const subscribeToServices = (callback: (services: Service[]) => void) => 
   };
 };
 
-export const saveService = async (service: Service): Promise<Service> => {
+export const saveService = async (service: Service): Promise<SavedService> => {
   const flags = servicePatchSchema.parse(service);
   const values = (flags.isDraft ? serviceDraftSchema : serviceFormSchema).parse(flags);
   if (service.id) {
@@ -104,17 +105,17 @@ export const saveService = async (service: Service): Promise<Service> => {
         updated_at: new Date().toISOString(),
       },
     ])
-    .select()
+    .select('id')
     .single();
 
   if (error) throwWriteError(error);
-  return confirmedService(data);
+  return confirmedServiceId(data);
 };
 
 export const updateService = async (
   id: string,
   serviceToUpdate: Partial<Service>
-): Promise<Service> => {
+): Promise<SavedService> => {
   const patch = servicePatchSchema.parse(serviceToUpdate);
   if (typeof id !== 'string' || !id.trim()) throw new Error('Serviço não encontrado.');
   const { data: current, error: lookupError } = await supabase
@@ -149,11 +150,11 @@ export const updateService = async (
     .from(TABLE_NAME)
     .update(updateData)
     .eq('id', id)
-    .select()
+    .select('id')
     .single();
 
   if (error) throwWriteError(error);
-  return confirmedService(data, id);
+  return confirmedServiceId(data, id);
 };
 
 export const moveToTrash = async (id: string): Promise<void> => {

@@ -42,8 +42,176 @@ const removeOptionalRouteUrlSection = (template: string) => {
   return visibleLines.join('\n').replace(/\n{3,}/g, '\n\n');
 };
 
+const removeLegacyOperationSections = (template: string) => {
+  const lines = template.split(/\r?\n/);
+  const visibleLines: string[] = [];
+
+  for (const line of lines) {
+    const hasSchedulePlaceholder = /{{deliveryDate}}|{{deliveryTime}}/.test(line);
+    const hasAddressPlaceholder = line.includes('{{address}}');
+    if (!hasSchedulePlaceholder && !hasAddressPlaceholder) {
+      visibleLines.push(line);
+      continue;
+    }
+
+    let headingIndex = visibleLines.length - 1;
+    while (headingIndex >= 0 && !visibleLines[headingIndex].trim()) headingIndex -= 1;
+    const heading = visibleLines[headingIndex] || '';
+    const isScheduleHeading = hasSchedulePlaceholder && /(agendamento|programação|horário|data|período)/i.test(heading);
+    const isAddressHeading = hasAddressPlaceholder && /(endereço|local|destino)/i.test(heading);
+    if (isScheduleHeading || isAddressHeading) visibleLines.splice(headingIndex, 1);
+  }
+
+  return visibleLines.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+};
+
+type OperationScheduleOption = {
+  date?: string;
+  endDate?: string;
+  dateType?: 'fixed' | 'range';
+  time?: string;
+  startTime?: string;
+  endTime?: string;
+  type?: 'fixed' | 'range';
+};
+
+type OperationSchedule = OperationScheduleOption & {
+  pendingScheduling?: boolean;
+  immediatePickup?: boolean;
+  notInformed?: boolean;
+  alternatives?: OperationScheduleOption[];
+};
+
+const formatOperationScheduleOption = (schedule: OperationScheduleOption) => {
+  const date = schedule.dateType === 'range' && schedule.date && schedule.endDate
+    ? `de ${formatDate(schedule.date)} até ${formatDate(schedule.endDate)}`
+    : schedule.date
+      ? formatDate(schedule.date)
+      : 'Data não definida';
+  const time = schedule.type === 'range' && schedule.startTime && schedule.endTime
+    ? `${schedule.startTime} às ${schedule.endTime}`
+    : schedule.startTime || schedule.time || 'Horário não definido';
+  return `${date} | ${time}`;
+};
+
+const normalizeAddressForComparison = (address: unknown) =>
+  stringifyFullAddressWithObservation(address)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLocaleLowerCase('pt-BR')
+    .replace(/[^a-z0-9]/g, '');
+
+const buildDeliveryOperationsBlock = (order: Order) => {
+  const shipping = order.shipping;
+  const appointments = shipping?.scheduling?.appointments || [];
+  const operations = appointments.length
+    ? appointments.map((appointment, index) => ({
+        id: appointment.id,
+        index: order.operationContext ? order.operationContext.operationNumber - 1 : index,
+        deliveryMethod: appointment.deliveryMethod ?? shipping.deliveryMethod ?? 'delivery',
+        scheduling: appointment.scheduling as OperationSchedule,
+        useCustomerAddress: appointment.useCustomerAddress ?? (index === 0 ? shipping.useCustomerAddress !== false : true),
+        deliveryAddress: appointment.deliveryAddress ?? (index === 0 && shipping.useCustomerAddress === false ? shipping.deliveryAddress : undefined),
+        freightValue: appointment.freightValue ?? (index === 0 ? shipping.value : 0),
+        distance: appointment.distance ?? (index === 0 ? shipping.distance : undefined),
+        notices: appointment.notices ?? (index === 0 ? {
+          callBeforeDelivery: shipping.callBeforeDelivery,
+          bringCardMachine: shipping.bringCardMachine,
+          callOnArrival: shipping.callOnArrival,
+        } : undefined),
+      }))
+    : [{
+        id: 'legacy-operation',
+        index: 0,
+        deliveryMethod: shipping.deliveryMethod ?? 'delivery',
+        scheduling: shipping.scheduling as OperationSchedule,
+        useCustomerAddress: shipping.useCustomerAddress !== false,
+        deliveryAddress: shipping.deliveryAddress,
+      freightValue: shipping.value,
+      distance: shipping.distance,
+      notices: {
+        callBeforeDelivery: shipping.callBeforeDelivery,
+        bringCardMachine: shipping.bringCardMachine,
+        callOnArrival: shipping.callOnArrival,
+      },
+      }];
+
+  const customerAddressText = stringifyFullAddressWithObservation(order.customerData?.fullAddress);
+  const normalizedCustomerAddress = normalizeAddressForComparison(order.customerData?.fullAddress);
+  const operationAddresses = operations.map((operation) => {
+    const address = operation.useCustomerAddress
+      ? order.customerData?.fullAddress
+      : operation.deliveryAddress;
+    const addressText = !shipping?.noAddress && operation.deliveryMethod === 'delivery'
+      ? stringifyFullAddressWithObservation(address)
+      : '';
+    const usesCustomerAddress = operation.useCustomerAddress || Boolean(
+      addressText && normalizeAddressForComparison(address) === normalizedCustomerAddress
+    );
+    return {
+      ...operation,
+      addressText: addressText && !usesCustomerAddress ? addressText : '',
+      usesCustomerAddress,
+    };
+  });
+
+  const shouldShowCustomerAddress = !order.operationContext && !shipping?.noAddress && operationAddresses.some((operation) =>
+    operation.deliveryMethod === 'delivery' && operation.usesCustomerAddress
+  );
+  const sections: string[] = [];
+  if (shouldShowCustomerAddress && customerAddressText) {
+    sections.push(`🏠 *Endereço do cliente (operações sem endereço específico):*\n${customerAddressText}`);
+  }
+
+  const operationCount = order.operationContext?.operationCount || operationAddresses.length;
+  sections.push(...operationAddresses.map((operation) => {
+    const methodLabel = operation.deliveryMethod === 'pickup' ? 'Retirada' : 'Entrega';
+    const schedule = operation.scheduling.immediatePickup && operation.deliveryMethod === 'pickup'
+      ? 'Retirada imediata'
+      : operation.scheduling.pendingScheduling
+        ? 'Agendamento pendente'
+        : operation.scheduling.notInformed
+          ? 'Programação não informada'
+          : formatOperationScheduleOption(operation.scheduling);
+    const lines = [
+      `*Operação ${operation.index + 1}${operationCount > 1 ? `/${operationCount}` : ''} · ${methodLabel}*`,
+      `🗓️ *Programação:* ${schedule}`,
+    ];
+    if (operation.deliveryMethod === 'delivery' && operation.usesCustomerAddress && customerAddressText && !shipping?.noAddress) {
+      lines.push('🏠 *Endereço:* No mesmo endereço do cliente');
+    }
+    if (operation.deliveryMethod === 'delivery' && (operation.freightValue || 0) > 0) {
+      lines.push(`🚚 *Frete:* ${formatCurrency(operation.freightValue)}`);
+    }
+    if (operation.deliveryMethod === 'delivery' && operation.distance) {
+      lines.push(`📍 *Distância:* ${operation.distance} km`);
+    }
+    if (operation.deliveryMethod === 'delivery' && operation.notices) {
+      const noticeLines = [
+        ['Ligar antes da entrega', operation.notices.callBeforeDelivery],
+        ['Levar máquina de cartão', operation.notices.bringCardMachine],
+        ['Ligar ao chegar', operation.notices.callOnArrival],
+      ].filter(([, value]) => typeof value === 'boolean')
+        .map(([label, value]) => `• ${label}: ${value ? 'Sim' : 'Não'}`);
+      if (noticeLines.length) lines.push(`📞 *Avisos: *\n${noticeLines.join('\n')}`);
+      const instructions = (operation.notices as { instructions?: string } | undefined)?.instructions?.trim();
+      if (instructions) lines.push(`📝 *Instruções:* ${instructions}`);
+    }
+    const alternatives = operation.scheduling.pendingScheduling
+      ? []
+      : (operation.scheduling.alternatives || []).map(formatOperationScheduleOption);
+    if (alternatives.length > 0) lines.push(`🗓️ *Alternativas:* ${alternatives.join(' • ')}`);
+    if (operation.addressText) lines.push(`🏠 *Endereço desta operação:* ${operation.addressText}`);
+    return lines.join('\n');
+  }));
+
+  return sections.join('\n\n');
+};
+
 export const buildDeliveryMessage = (order: Order) => {
   const settings = getSettings();
+  const appointments = order.shipping?.scheduling?.appointments || [];
+  const operationBlock = buildDeliveryOperationsBlock(order);
   const sched = order.shipping?.scheduling;
   const date =
     sched?.dateType === 'range' && sched?.endDate
@@ -72,6 +240,14 @@ export const buildDeliveryMessage = (order: Order) => {
       order.shipping?.deliveryMethod === 'pickup'
         ? `*REIRA: Novo Pedido para Retirada de ${customerNameFormatted}*`
         : `Novo Pedido para ${customerNameFormatted}...`;
+  }
+
+  if (message.includes('{{operations}}')) {
+    message = message.replace(/{{operations}}/g, () => operationBlock);
+  } else if (appointments.length > 0) {
+    const templateWithoutLegacySections = removeLegacyOperationSections(message);
+    message = `${templateWithoutLegacySections}\n\n🗓️ *Programação por operação:*\n{{operations}}`;
+    message = message.replace(/{{operations}}/g, () => operationBlock);
   }
 
   let itemsBlock = stringifyItemsWithValues(order.items || []);
@@ -103,7 +279,7 @@ export const buildDeliveryMessage = (order: Order) => {
     .replace(/{{seller}}/g, () => order.seller || 'Não informado')
     .replace(/{{routeUrl}}/g, () => routeUrl);
 
-  if (order.shipping?.deliveryMethod === 'pickup') {
+  if (order.shipping?.deliveryMethod === 'pickup' && appointments.length === 0) {
     finalMessage = finalMessage
       .replace(/Entrega/g, 'Retirada')
       .replace(/entrega/g, 'retirada')
@@ -116,6 +292,44 @@ export const buildDeliveryMessage = (order: Order) => {
 };
 
 export const buildCustomerOrderMessage = (order: Order) => {
+  if (order.operationContext) {
+    const customer = order.customerData;
+    const shipping = order.shipping;
+    const schedule = shipping?.scheduling;
+    const isPickup = shipping?.deliveryMethod === 'pickup';
+    const scheduleLabel = schedule?.immediatePickup && isPickup
+      ? 'Retirada imediata'
+      : schedule?.pendingScheduling
+        ? 'Agendamento pendente'
+        : schedule?.notInformed
+          ? 'Programação não informada'
+          : schedule
+            ? formatOperationScheduleOption(schedule)
+            : 'Programação não informada';
+    const address = isPickup
+      ? 'Retirada em loja'
+      : shipping?.noAddress
+        ? 'Endereço não informado'
+        : shipping?.useCustomerAddress !== false
+          ? 'No mesmo endereço do cliente'
+          : stringifyFullAddressWithObservation(shipping?.deliveryAddress) || 'Endereço não informado';
+    const itemLines = (order.items || []).map((item) =>
+      `• ${item.description} · ${item.quantity} UN`
+    );
+    const items = itemLines.length ? itemLines.join('\n') : 'Nenhum item informado';
+    const methodLabel = isPickup ? 'Retirada' : 'Entrega';
+
+    return [
+      `*Atualização da Operação ${order.operationContext.operationNumber}/${order.operationContext.operationCount} · ${methodLabel}*`,
+      `Pedido #${formatOrderCode(order)}`,
+      `Cliente: ${customer?.fullName || 'Cliente'}`,
+      `Programação: ${scheduleLabel}`,
+      `Endereço: ${address}`,
+      `Itens desta operação:\n${items}`,
+      !isPickup && (shipping?.value || 0) > 0 ? `Frete: ${formatCurrency(shipping.value)}` : '',
+    ].filter(Boolean).join('\n\n');
+  }
+
   const settings = getSettings();
   const sched = order.shipping?.scheduling;
   const date =

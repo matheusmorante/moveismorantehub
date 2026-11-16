@@ -9,10 +9,10 @@ import ProductAutocomplete from '../../../../components/ProductAutocomplete';
 import TemporaryProductWarning from './TemporaryProductWarning';
 import { BodyRowPricing } from './useBodyRowPricing';
 import { getSettings, AppSettings } from '@/pages/utils/settingsService';
-import { isGenericHandlingLabel } from '@/pages/utils/handlingMigration';
 import DiscountInput from './DiscountInput';
 import { STOCK_ORIGIN_PRODUCT_KINDS } from './stockOriginProductKinds';
 import { BodyRowMobileCompact } from './BodyRowMobileCompact';
+import { HandlingSelect } from './HandlingSelect';
 
 export interface BodyRowViewProps {
   item: Item;
@@ -172,14 +172,9 @@ export const BodyRowMobile: React.FC<BodyRowViewProps> = ({
             <i className={`bi ${isService ? 'bi-tools' : 'bi-box-seam'} mr-1`} aria-hidden="true" />
             {isService ? 'Serviço' : isCompositionComponent ? `Componente ${Number(item.compositionGroup?.componentIndex ?? 0) + 1}/${item.compositionGroup?.componentCount}` : 'Produto'}
           </span>
-          {isLinkedProduct && (
-            <span className="inline-flex items-center gap-1 text-[9px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-md border border-emerald-100 dark:border-emerald-900/40">
-              <i className="bi bi-check-circle-fill" /> Vinculado
-            </span>
-          )}
           {showTemporaryProductLabel && (
             <span className="inline-flex max-w-full flex-wrap items-center gap-1 text-[9px] leading-tight font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 rounded-md border border-amber-100 dark:border-amber-900/40">
-              <i className="bi bi-clock-history" /> Temporário — Pendente de conciliação
+              <i className="bi bi-exclamation-triangle-fill" aria-hidden="true" /> Temporário — Pendente de conciliação
             </span>
           )}
         </div>
@@ -211,7 +206,11 @@ export const BodyRowMobile: React.FC<BodyRowViewProps> = ({
       {/* Linha 2: Busca e Descrição */}
       <div className="flex flex-col gap-1.5">
         <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 ml-1">
-          {isService ? 'Descrição do Serviço' : 'Busque ou descreva o produto'}{' '}
+          {isService
+            ? 'Descrição do Serviço'
+            : item.productId?.trim()
+              ? 'Produto selecionado'
+              : 'Busque ou descreva o produto'}{' '}
           <span className="text-red-500">*</span>
         </label>
         {isService ? (
@@ -238,6 +237,7 @@ export const BodyRowMobile: React.FC<BodyRowViewProps> = ({
         ) : !item.isComboItem ? (
           <ProductAutocomplete
             value={item.description}
+            title={item.description}
             onChange={(val) => onChange(idx, 'description', val)}
             onSelect={handleProductSelect}
             onBlur={(event) => handleDescriptionBlur(event.currentTarget.value)}
@@ -250,7 +250,7 @@ export const BodyRowMobile: React.FC<BodyRowViewProps> = ({
             isTemporary={showTemporaryProductLabel}
             inputEndAdornment={showTemporaryProductLabel ? <TemporaryProductWarning /> : undefined}
             isSelected={isLinkedProduct}
-            className={error ? 'border-red-500 focus:border-red-500 dark:border-red-500 dark:focus:border-red-500' : ''}
+            className={`text-ellipsis ${error ? 'border-red-500 focus:border-red-500 dark:border-red-500 dark:focus:border-red-500' : ''}`}
           />
         ) : (
           <div className="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/20 text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center justify-between">
@@ -271,53 +271,25 @@ export const BodyRowMobile: React.FC<BodyRowViewProps> = ({
       {!item.isComboItem && (
         <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-slate-100 dark:border-slate-800/60">
           {!shouldHideHandling && (
-            <div className="min-w-[140px] flex-1 sm:flex-initial">
+            <div className="min-w-0 flex-[2] max-[480px]:w-full max-[480px]:basis-full max-[480px]:flex-none">
               <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1 block ml-1">
                 Manuseio <span className="text-red-500">*</span>
               </label>
-              <select
-                aria-label="Manuseio"
-                className={`w-full bg-slate-50/70 dark:bg-slate-800/40 border-x-0 border-t-0 border-b-2 px-3 py-1.5 rounded-none text-xs font-bold text-slate-700 dark:text-slate-200 outline-none transition-all ${
+              <HandlingSelect
+                options={
+                  deliveryMethod === 'pickup'
+                    ? settings.pickupHandlingOptions || []
+                    : settings.deliveryHandlingOptions || []
+                }
+                className={`w-full bg-slate-50/70 dark:bg-slate-800/40 border-x-0 border-t-0 border-b-2 px-3 py-1.5 rounded-none text-xs font-bold outline-none transition-all ${
                   handlingError
                     ? 'border-b-red-500 focus:border-b-red-500'
                     : 'border-b-slate-200 dark:border-b-slate-700 focus:border-b-blue-500'
                 }`}
-                value={item.handlingType || ''}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  if (!val || item.handlingType === val) return;
-                  handleHandlingChange(val);
-                }}
-              >
-                <option value="" disabled className="dark:bg-slate-900">
-                  Selecione
-                </option>
-                {(() => {
-                  const options =
-                    deliveryMethod === 'pickup'
-                      ? settings.pickupHandlingOptions || []
-                      : settings.deliveryHandlingOptions || [];
-                  const isSelectedInOptions =
-                    item.handlingType && options.some((o) => o.label === item.handlingType);
-
-                  return (
-                    <>
-                      {options.map((opt) => (
-                        <option key={opt.label} value={opt.label} className="dark:bg-slate-900">
-                          {opt.label}
-                        </option>
-                      ))}
-                      {item.handlingType &&
-                        !isSelectedInOptions &&
-                        !isGenericHandlingLabel(item.handlingType) && (
-                          <option value={item.handlingType} className="italic text-slate-400">
-                            {item.handlingType} (Atual)
-                          </option>
-                        )}
-                    </>
-                  );
-                })()}
-              </select>
+                value={item.handlingType}
+                error={handlingError}
+                onChange={handleHandlingChange}
+              />
               {handlingError && (
                 <span className="mt-1 block text-[10px] text-red-600 dark:text-red-400">
                   {handlingError}
@@ -357,24 +329,36 @@ export const BodyRowMobile: React.FC<BodyRowViewProps> = ({
           )}
 
           {shouldShowStockOrigin && (
-            <div className="min-w-[140px] flex-1 sm:flex-initial">
+            <div className="min-w-[120px] flex-1">
               <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1 block ml-1">
                 Estoque <span className="text-red-500">*</span>
               </label>
+              <div
+                className="relative"
+                title={isLinkedProduct
+                  ? 'Bloqueado porque há um produto cadastrado vinculado ao item. Remova o produto selecionado no campo Produto para liberar e alterar a origem do estoque.'
+                  : undefined}
+              >
+              {isLinkedProduct && <i className="bi bi-lock-fill pointer-events-none absolute right-8 top-1/2 z-10 -translate-y-1/2 text-[9px] text-amber-500" aria-hidden="true" />}
               <select
                 className={`w-full bg-slate-50/70 dark:bg-slate-800/40 border-x-0 border-t-0 border-b-2 px-3 py-1.5 rounded-none text-xs font-bold text-slate-700 dark:text-slate-200 outline-none transition-all ${
                   stockOriginError
                     ? 'border-b-red-500 focus:border-b-red-500'
                     : 'border-b-slate-200 dark:border-b-slate-700 focus:border-b-blue-500'
-                }`}
+                } ${isLinkedProduct ? 'cursor-not-allowed opacity-60 !bg-slate-100 !pr-10 dark:!bg-slate-800' : ''}`}
                 value={item.condition ?? ''}
+                disabled={isLinkedProduct}
                 onChange={(e) => handleStockOriginChange(e.target.value)}
+                title={isLinkedProduct
+                  ? 'Bloqueado porque há um produto cadastrado vinculado ao item. Remova o produto selecionado no campo Produto para liberar e alterar a origem do estoque.'
+                  : 'Origem do estoque'}
               >
                 <option value="">Selecione</option>
                 <option value="novo">Convencional</option>
                 <option value="salvado">Salvados</option>
                 <option value="usado">Usados</option>
               </select>
+              </div>
               {stockOriginError && (
                 <span className="mt-1 block text-[10px] text-red-600 dark:text-red-400">
                   {stockOriginError}
@@ -389,32 +373,34 @@ export const BodyRowMobile: React.FC<BodyRowViewProps> = ({
       {/* Linha 3: Grid de Valores */}
       {!item.isComboItem && (
         <div className="space-y-2 pt-1">
-          <div className={`grid ${isNarrowMobile ? 'grid-cols-1' : isTablet ? 'grid-cols-3' : 'grid-cols-2'} items-end gap-2.5`}>
+          <div className={`grid ${isNarrowMobile ? '!grid-cols-1' : 'grid-cols-2 min-[460px]:grid-cols-3 min-[600px]:grid-cols-4 min-[700px]:grid-cols-5'} items-end gap-2.5 min-[460px]:gap-x-1.5`}>
           <div className="w-full">
             <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1 block ml-1">
-              Quantidade <span className="text-red-500">*</span>
+              Quant <span className="text-red-500">*</span>
             </label>
             <UnitInput
               value={item.quantity}
               onChange={(value: number) => onChange(idx, 'quantity', value)}
               disabled={item.isComboItem || isCompositionComponent}
+              compactOnNarrow
             />
           </div>
 
           <div className="w-full">
             <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1 block ml-1">
-              Preço unitário <span className="text-red-500">*</span>
+              Preço un <span className="text-red-500">*</span>
             </label>
             <CurrencyInput
               value={tempUnitPrice}
               onChange={(val: number) => setTempUnitPrice(val)}
               onBlur={commitUnitPrice}
+              className="max-[520px]:!min-w-0 max-[520px]:!px-1 max-[520px]:text-[10px]"
             />
           </div>
 
           <div className="w-full min-w-0">
             <label className="mb-1 ml-1 block text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">
-              Desconto
+              Desconto UN
             </label>
             <DiscountInput
               discountType={item.discountType}
@@ -426,27 +412,29 @@ export const BodyRowMobile: React.FC<BodyRowViewProps> = ({
               onFixedBlur={commitDiscountValue}
               onPercentageBlur={commitDiscountPercent}
               onToggleType={onToggleDiscountType}
+              compactOnNarrow
             />
           </div>
 
-          <div className="w-full">
+          <div className={`w-full ${isNarrowMobile ? '' : 'min-[460px]:col-start-2 min-[600px]:col-start-auto'}`}>
             <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1 block ml-1">
-              Preço final unitário
+              Preço final un
             </label>
             <CurrencyInput
               value={tempSubtotal}
               max={item.unitPrice || undefined}
               onChange={(val: number) => setTempSubtotal(val)}
               onBlur={commitSubtotal}
+              className="max-[520px]:!min-w-0 max-[520px]:!px-1 max-[520px]:text-[10px]"
             />
           </div>
 
           {/* Total do Item */}
-          <div className="w-full flex flex-col items-end justify-center px-3 py-1.5 bg-blue-50/70 dark:bg-blue-950/30 border border-blue-100/80 dark:border-blue-900/40 rounded-xl min-h-[44px]">
+          <div className={`min-w-0 flex flex-col items-end justify-center px-1 min-[700px]:px-3 py-1.5 bg-blue-50/70 dark:bg-blue-950/30 border border-blue-100/80 dark:border-blue-900/40 rounded-xl min-h-[44px] ${isNarrowMobile ? 'col-start-1 w-fit justify-self-end' : 'w-full col-start-2 min-[460px]:col-start-3 min-[600px]:col-start-4 min-[700px]:col-start-auto'}`}>
             <span className="text-[8px] font-black uppercase text-blue-600/70 dark:text-blue-400/70 tracking-widest">
               Total
             </span>
-            <div className="text-xs font-black text-blue-600 dark:text-blue-400">
+            <div className="whitespace-nowrap text-[10px] min-[700px]:text-xs font-black text-blue-600 dark:text-blue-400">
               <CurrencyDisplay value={calcItemTotalValue(item)} />
             </div>
           </div>

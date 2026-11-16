@@ -2,11 +2,12 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   from: vi.fn(),
+  rpc: vi.fn(),
   mapFromDB: vi.fn((person) => person),
   syncMissingEmployeesFromProfiles: vi.fn(),
 }));
 
-vi.mock('@/pages/utils/supabaseConfig', () => ({ supabase: { from: mocks.from } }));
+vi.mock('@/pages/utils/supabaseConfig', () => ({ supabase: { from: mocks.from, rpc: mocks.rpc } }));
 vi.mock('./personMapper', () => ({ TABLE_NAME: 'people', mapFromDB: mocks.mapFromDB }));
 vi.mock('./personSyncService', () => ({
   syncMissingEmployeesFromProfiles: mocks.syncMissingEmployeesFromProfiles,
@@ -15,6 +16,7 @@ vi.mock('./personSyncService', () => ({
 import {
   fetchPersonById,
   fetchPersons,
+  fetchEmployeeDirectoryPage,
   PERSON_QUERY_COLUMNS,
   preloadPersonById,
   searchPeople,
@@ -27,6 +29,38 @@ afterEach(() => {
 });
 
 describe('person query projection', () => {
+  it('loads a mapped employee page with its server-side total and sort', async () => {
+    mocks.rpc.mockResolvedValue({
+      data: [{ total_count: 26, rows: [{ id: 'employee-16', full_name: 'Pessoa 16' }] }],
+      error: null,
+    });
+
+    await expect(fetchEmployeeDirectoryPage({
+      page: 2,
+      pageSize: 15,
+      sortBy: 'fullName',
+      sortOrder: 'asc',
+    })).resolves.toEqual({ people: [{ id: 'employee-16', full_name: 'Pessoa 16' }], totalItems: 26 });
+
+    expect(mocks.rpc).toHaveBeenCalledWith('list_admin_employee_page', {
+      p_page: 2,
+      p_page_size: 15,
+      p_sort_by: 'fullName',
+      p_sort_order: 'asc',
+    });
+  });
+
+  it('rejects an invalid employee-page response instead of presenting a false count', async () => {
+    mocks.rpc.mockResolvedValue({ data: [{ total_count: 'not-a-count', rows: [] }], error: null });
+
+    await expect(fetchEmployeeDirectoryPage({
+      page: 1,
+      pageSize: 15,
+      sortBy: 'createdAt',
+      sortOrder: 'desc',
+    })).rejects.toThrow('A consulta paginada de colaboradores retornou um resultado inválido.');
+  });
+
   it.each(['search', 'recent'] as const)('selects only canonical customers from the requested test run before pagination (%s)', async (kind) => {
     const identity = { runId: '702b921e-fd31-488d-925e-560602a65510', ownerId: 'eccde09e-72d8-4efe-a387-eb34114dea39' };
     const person = (id: string, metadata?: object) => ({ id, fullAddress: { testArtifact: metadata } });

@@ -1,8 +1,9 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { Calendar, CalendarCheck, Clock, Link2 } from 'lucide-react-native';
+import { Calendar, CalendarCheck, Clock, Link2, Truck } from 'lucide-react-native';
 import { formatOrderDate, formatOrderTotal, toTitleCase } from '../../../../utils/orderUtils';
 import { OrderCardDeliveryFooter } from '../../../../components/cards/OrderCardDeliveryFooter';
+import PickupIcon from '../../../../components/shared/PickupIcon';
 import { OrderFiscalCancellationState } from '../../domain/types';
 import { OrderCancellationFailureNotice } from './OrderCancellationFailureNotice';
 
@@ -15,6 +16,22 @@ export interface OrderCardBodyProps {
   scheduleDate?: string;
   scheduleEndDate?: string;
   scheduleDateType?: string;
+  scheduleNotInformed?: boolean;
+  appointments?: Array<{
+    id?: string;
+    deliveryMethod?: 'delivery' | 'pickup';
+    scheduling?: {
+      date?: string;
+      endDate?: string;
+      dateType?: string;
+      time?: string;
+      startTime?: string;
+      endTime?: string;
+      pendingScheduling?: boolean;
+      notInformed?: boolean;
+    };
+  }>;
+  deliveryMethod?: string;
   startTime?: string;
   endTime?: string;
   linkedOrderId?: string | null;
@@ -33,6 +50,9 @@ export const OrderCardBody: React.FC<OrderCardBodyProps> = ({
   scheduleDate,
   scheduleEndDate,
   scheduleDateType,
+  scheduleNotInformed,
+  appointments = [],
+  deliveryMethod,
   startTime,
   endTime,
   linkedOrderId,
@@ -58,6 +78,38 @@ export const OrderCardBody: React.FC<OrderCardBodyProps> = ({
       : scheduleDate
         ? formatOrderDate(scheduleDate)
         : 'Não informada';
+  const isSale = String(order?.order_type || order?.orderType || data.orderType || 'sale') === 'sale';
+  const appointmentEntries = appointments.length
+    ? appointments.map((appointment, index) => ({
+        id: appointment.id || `appointment-${index + 1}`,
+        deliveryMethod: appointment.deliveryMethod || deliveryMethod || (pickup ? 'pickup' : 'delivery'),
+        schedule: appointment.scheduling || {
+          date: scheduleDate,
+          endDate: scheduleEndDate,
+          dateType: scheduleDateType,
+          time: undefined,
+          startTime,
+          endTime,
+          pendingScheduling,
+          notInformed: scheduleNotInformed,
+        },
+      }))
+    : [{
+        id: 'primary',
+        deliveryMethod: deliveryMethod || (pickup ? 'pickup' : 'delivery'),
+        schedule: {
+          date: scheduleDate,
+          endDate: scheduleEndDate,
+          dateType: scheduleDateType,
+          time: undefined,
+          startTime,
+          endTime,
+          pendingScheduling,
+          notInformed: scheduleNotInformed,
+        },
+      }];
+  const hasScheduleInfo =
+    appointments.length > 0 || Boolean(scheduleDate || pendingScheduling || scheduleNotInformed);
 
   return (
     <View style={styles.body}>
@@ -109,27 +161,113 @@ export const OrderCardBody: React.FC<OrderCardBodyProps> = ({
             </Text>
           </View>
         </View>
-        <View style={styles.column}>
-          <Text style={styles.label}>
-            {isReturn ? 'COLETA' : pickup ? 'RETIRADA' : 'ENTREGA'}
-          </Text>
-          <Text
-            style={[
-              styles.date,
-              dark && styles.light,
-              pendingScheduling && styles.pendingSchedulingText,
-            ]}
-          >
-            {formattedDeliveryDate}
-          </Text>
-          {Boolean(startTime) && (
-            <View style={styles.time}>
-              <Clock size={12} color="#2563eb" />
-              <Text style={styles.timeText}>
-                {startTime}
-                {endTime ? ` ÀS ${endTime}` : ''}
+        <View style={[styles.column, isSale && styles.appointmentsColumn]}>
+          {isSale ? (
+            hasScheduleInfo && (
+              <>
+                <Text style={styles.label}>
+                  {appointmentEntries.length > 1 ? 'AGENDAMENTOS' : 'AGENDAMENTO'}
+                </Text>
+                {appointmentEntries.map((entry) => {
+                  const schedule = entry.schedule;
+                  const isPending = Boolean(schedule.pendingScheduling);
+                  const dateText = schedule.date
+                    ? schedule.dateType === 'range' && schedule.endDate
+                      ? `${formatOrderDate(schedule.date)} até ${formatOrderDate(schedule.endDate)}`
+                      : formatOrderDate(schedule.date)
+                    : '';
+                  const timeText = schedule.startTime && schedule.endTime
+                    ? `${schedule.startTime} às ${schedule.endTime}`
+                    : schedule.startTime || schedule.time || '';
+                  const entryPickup = entry.deliveryMethod === 'pickup';
+
+                  return (
+                    <View key={entry.id} style={styles.appointmentRow}>
+                      <View
+                        style={[
+                          styles.appointmentMethodBadge,
+                          entryPickup ? styles.appointmentPickupBadge : styles.appointmentDeliveryBadge,
+                          dark &&
+                            (entryPickup
+                              ? styles.appointmentPickupBadgeDark
+                              : styles.appointmentDeliveryBadgeDark),
+                        ]}
+                      >
+                        {entryPickup ? <PickupIcon size={12} color="#7c3aed" /> : <Truck size={12} color="#059669" />}
+                        <Text
+                          style={[
+                            styles.appointmentMethod,
+                            entryPickup
+                              ? dark
+                                ? styles.appointmentPickupTextDark
+                                : styles.appointmentPickupText
+                              : dark
+                                ? styles.appointmentDeliveryTextDark
+                                : styles.appointmentDeliveryText,
+                          ]}
+                        >
+                          {entryPickup ? 'Retirada' : 'Entrega'}
+                        </Text>
+                      </View>
+                      {isPending ? (
+                        <Text style={[styles.appointmentPending, dark && styles.appointmentPendingDark]}>Falta definir</Text>
+                      ) : dateText ? (
+                        <View
+                          style={[
+                            styles.appointmentDateDetails,
+                            dark && styles.appointmentDateDetailsDark,
+                          ]}
+                        >
+                          <Calendar size={12} color={dark ? '#94a3b8' : '#64748b'} />
+                          <Text style={[styles.appointmentDate, dark && styles.light]}>
+                            {dateText}
+                          </Text>
+                        </View>
+                      ) : appointments.length > 0 || schedule.notInformed ? (
+                        <Text style={[styles.appointmentPending, dark && styles.appointmentPendingDark]}>Falta definir</Text>
+                      ) : null}
+                      {Boolean(timeText) && !isPending && (
+                        <View style={[styles.appointmentTime, dark && styles.appointmentTimeDark]}>
+                          <Clock size={12} color={dark ? '#94a3b8' : '#64748b'} />
+                          <Text
+                            style={[
+                              styles.appointmentTimeText,
+                              dark && styles.appointmentTimeTextDark,
+                            ]}
+                          >
+                            {timeText}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                  );
+                })}
+              </>
+            )
+          ) : (
+            <>
+              <Text style={styles.label}>
+                {isReturn ? 'COLETA' : pickup ? 'RETIRADA' : 'ENTREGA'}
               </Text>
-            </View>
+              <Text
+                style={[
+                  styles.date,
+                  dark && styles.light,
+                  pendingScheduling && styles.pendingSchedulingText,
+                ]}
+              >
+                {formattedDeliveryDate}
+              </Text>
+              {Boolean(startTime) && (
+                <View style={styles.time}>
+                  <Clock size={12} color="#2563eb" />
+                  <Text style={styles.timeText}>
+                    {startTime}
+                    {endTime ? ` ÀS ${endTime}` : ''}
+                  </Text>
+                </View>
+              )}
+            </>
           )}
         </View>
       </View>
@@ -189,6 +327,118 @@ const styles = StyleSheet.create({
   column: {
     flex: 1,
     gap: 4,
+  },
+  appointmentsColumn: {
+    alignItems: 'flex-start',
+  },
+  appointmentRow: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  appointmentMethodBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderRadius: 12,
+  },
+  appointmentDeliveryBadge: {
+    backgroundColor: '#ecfdf5',
+    borderColor: '#d1fae5',
+  },
+  appointmentDeliveryBadgeDark: {
+    backgroundColor: 'rgba(6, 78, 59, 0.3)',
+    borderColor: '#065f46',
+  },
+  appointmentPickupBadge: {
+    backgroundColor: '#f5f3ff',
+    borderColor: '#ede9fe',
+  },
+  appointmentPickupBadgeDark: {
+    backgroundColor: 'rgba(76, 29, 149, 0.3)',
+    borderColor: '#5b21b6',
+  },
+  appointmentMethod: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  appointmentDeliveryText: {
+    color: '#047857',
+  },
+  appointmentDeliveryTextDark: {
+    color: '#6ee7b7',
+  },
+  appointmentPickupText: {
+    color: '#6d28d9',
+  },
+  appointmentPickupTextDark: {
+    color: '#c4b5fd',
+  },
+  appointmentDateDetails: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 12,
+    backgroundColor: '#f8fafc',
+  },
+  appointmentDateDetailsDark: {
+    borderColor: '#475569',
+    backgroundColor: '#1e293b',
+  },
+  appointmentDate: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#334155',
+  },
+  appointmentPending: {
+    overflow: 'hidden',
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#a16207',
+    backgroundColor: '#fef3c7',
+    borderWidth: 1,
+    borderColor: '#fde68a',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  appointmentPendingDark: {
+    color: '#fcd34d',
+    backgroundColor: 'rgba(120, 53, 15, 0.3)',
+    borderColor: '#92400e',
+  },
+  appointmentTime: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    backgroundColor: '#f1f5f9',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  appointmentTimeDark: {
+    backgroundColor: '#334155',
+    borderColor: '#475569',
+  },
+  appointmentTimeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#475569',
+  },
+  appointmentTimeTextDark: {
+    color: '#e2e8f0',
   },
   inline: {
     flexDirection: 'row',

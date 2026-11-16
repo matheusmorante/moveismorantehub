@@ -232,7 +232,7 @@ export const NfeEnvironmentChoiceModal: React.FC<NfeEnvironmentChoiceModalProps>
                     : 'Emitir nota fiscal no ambiente de homologação (testes)'
               }
               onClick={() => void selectEnvironment(2)}
-              className={`flex flex-col items-center justify-center p-5 rounded-2xl border text-center transition-all relative min-h-[140px] ${
+              className={`order-2 flex flex-col items-center justify-center p-5 rounded-2xl border text-center transition-all relative min-h-[140px] ${
                 isHmlIssued || isHmlRegularizationBlocked || isPreparingSnapshot
                   ? 'opacity-50 cursor-not-allowed text-slate-400 bg-slate-100 dark:bg-slate-800/40 border-slate-200 dark:border-slate-800 pointer-events-auto'
                   : 'border-amber-200 dark:border-amber-900/40 bg-amber-50/70 dark:bg-amber-950/20 text-amber-700 dark:text-amber-300 hover:bg-amber-100/80 dark:hover:bg-amber-900/30 hover:-translate-y-1 hover:shadow-lg cursor-pointer'
@@ -267,7 +267,7 @@ export const NfeEnvironmentChoiceModal: React.FC<NfeEnvironmentChoiceModalProps>
                     : 'Abrir emissão real em Produção (tpAmb=1); transmitir somente ao clicar em Emitir em Produção.'
               }
               onClick={() => void selectEnvironment(1)}
-              className={`flex flex-col items-center justify-center p-5 rounded-2xl border text-center transition-all relative min-h-[140px] ${
+              className={`order-1 flex flex-col items-center justify-center p-5 rounded-2xl border text-center transition-all relative min-h-[140px] ${
                 isProdIssued || isProdRegularizationBlocked || isPreparingSnapshot
                   ? 'opacity-50 cursor-not-allowed text-slate-400 bg-slate-100 dark:bg-slate-800/40 border-slate-200 dark:border-slate-800 pointer-events-auto'
                   : 'border-rose-200 dark:border-rose-900/40 bg-rose-50/70 dark:bg-rose-950/20 text-rose-700 dark:text-rose-300 hover:bg-rose-100/80 dark:hover:bg-rose-900/30 hover:-translate-y-1 hover:shadow-lg cursor-pointer'

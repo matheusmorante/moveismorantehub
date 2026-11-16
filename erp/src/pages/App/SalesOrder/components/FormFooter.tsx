@@ -43,7 +43,7 @@ const FormFooter = ({
       <div className="max-w-[1400px] mx-auto flex flex-col gap-4">
         <div className="flex flex-col md:flex-row items-center justify-between gap-4 w-full">
           {/* Totals Section */}
-          <div className="flex flex-col sm:flex-row items-center gap-4">
+          <div className="flex flex-col sm:flex-row items-center gap-4 self-end md:self-auto">
             <div className="bg-slate-50 dark:bg-slate-800/60 px-5 py-2 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm min-w-fit flex flex-col items-center md:items-start transition-all">
               <span className="text-slate-400 dark:text-slate-500 text-[9px] font-black uppercase tracking-widest mb-0.5">
                 Total do Pedido
@@ -129,7 +129,7 @@ const FormFooter = ({
                     : draftAutoSaveStatus === 'saved'
                       ? 'Alteração processada e salva'
                       : draftAutoSaveStatus === 'error'
-                        ? 'Falha ao salvar alteração'
+                        ? 'Não foi possível confirmar o salvamento'
                         : draftAutoSaveStatus === 'pending'
                           ? 'Alteração pendente'
                           : 'Salvamento automático ativo'}

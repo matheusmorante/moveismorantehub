@@ -1,4 +1,4 @@
-import React, { useEffect, useId, useRef, useState } from 'react';
+import React, { useId, useRef, useState } from 'react';
 import Shipping from '../../../types/Shipping.type';
 import { ValidationErrors } from '../../../utils/validations';
 import {
@@ -55,7 +55,13 @@ interface AgendamentoProps {
   isPickup?: boolean;
   hideSchedulingShortcuts?: boolean;
   hideNotice?: boolean;
+  hideTitle?: boolean;
   title?: string;
+  headerActions?: React.ReactNode;
+  modeSelector?: React.ReactNode;
+  groupPrimarySections?: boolean;
+  primarySectionExpanded?: boolean;
+  onTogglePrimarySection?: () => void;
   sessionMemoryRef?: React.MutableRefObject<SchedulingSessionMemory | null>;
 }
 
@@ -66,44 +72,29 @@ const Agendamento = ({
   isPickup,
   hideSchedulingShortcuts,
   hideNotice,
+  hideTitle,
   title,
+  headerActions,
+  modeSelector,
+  groupPrimarySections,
+  primarySectionExpanded,
+  onTogglePrimarySection,
   sessionMemoryRef,
 }: AgendamentoProps) => {
   const fallbackMemoryRef = useRef<SchedulingSessionMemory | null>(null);
-  const optionMemoryRefs = useRef<Map<string, React.MutableRefObject<SchedulingSessionMemory | null>>>(
-    new Map()
-  );
-  const [scheduleMode, setScheduleMode] = useState<'defined' | 'alternatives'>(
-    scheduling?.scheduleMode || 'defined'
-  );
-  const [expandedOptionId, setExpandedOptionId] = useState('primary');
+  const [expandedAlternativeId, setExpandedAlternativeId] = useState<string | null>(null);
+  const [isPrimaryExpanded, setIsPrimaryExpanded] = useState(true);
+  const isPrimarySectionExpanded = primarySectionExpanded ?? isPrimaryExpanded;
+  const togglePrimarySection = onTogglePrimarySection ?? (() => setIsPrimaryExpanded((current) => !current));
+  const [expandedScheduleSection, setExpandedScheduleSection] = useState<
+    'date' | 'time' | 'alternatives' | null
+  >(null);
+  const isAlternativesExpanded = expandedScheduleSection === 'alternatives';
   const alternatives = scheduling?.alternatives || [];
-  const activeOptionId = scheduleMode === 'alternatives' ? expandedOptionId : 'primary';
-  const hasExpandedOption = scheduleMode !== 'alternatives' || Boolean(expandedOptionId);
-  const expandedOptionIndex =
-    expandedOptionId === 'primary'
-      ? 0
-      : alternatives.findIndex((option) => option.id === expandedOptionId) + 1;
-  const activeScheduling =
-    activeOptionId === 'primary'
-      ? scheduling
-      : alternatives.find((option) => option.id === activeOptionId) || scheduling;
-
-  let activeMemoryRef =
-    activeOptionId === 'primary'
-      ? sessionMemoryRef || fallbackMemoryRef
-      : optionMemoryRefs.current.get(activeOptionId);
-
-  if (!activeMemoryRef) {
-    activeMemoryRef = { current: null };
-    optionMemoryRefs.current.set(activeOptionId, activeMemoryRef);
-  }
+  const activeScheduling = scheduling;
+  const activeMemoryRef = sessionMemoryRef || fallbackMemoryRef;
 
   const baseId = useId();
-
-  useEffect(() => {
-    setScheduleMode(scheduling?.scheduleMode || 'defined');
-  }, [scheduling?.scheduleMode]);
 
   const forceRender = useSchedulingMemoryHydration(activeMemoryRef, activeScheduling);
 
@@ -112,53 +103,21 @@ const Agendamento = ({
   const memory = activeMemoryRef.current!;
   const isImmediatePickup = Boolean(isPickup && scheduling.immediatePickup);
   const isPendingScheduling = Boolean(scheduling.pendingScheduling && !isImmediatePickup);
+  const hasExplicitModeSelector = modeSelector !== undefined;
   const isScheduleReadOnly = isPendingScheduling || isImmediatePickup;
-  const dateError = !isScheduleReadOnly
-    ? activeOptionId === 'primary'
-      ? errors['shipping_date']
-      : errors[`shipping_alternative_${activeOptionId}_date`]
-    : undefined;
-  const timeError = !isScheduleReadOnly
-    ? activeOptionId === 'primary'
-      ? errors['shipping_time']
-      : errors[`shipping_alternative_${activeOptionId}_time`]
-    : undefined;
+  const dateError = !isScheduleReadOnly ? errors['shipping_date'] : undefined;
+  const timeError = !isScheduleReadOnly ? errors['shipping_time'] : undefined;
 
   type ScheduleOptionField = 'date' | 'endDate' | 'dateType' | 'type' | 'startTime' | 'endTime';
   type ScheduleOptionFields = Partial<Pick<Shipping['scheduling'], ScheduleOptionField>>;
 
   const updateScheduleFields = (fields: ScheduleOptionFields) => {
-    if (activeOptionId === 'primary') {
-      onChangeScheduling('immediatePickup', false);
-      Object.entries(fields).forEach(([key, value]) => {
-        if (value !== undefined) {
-          onChangeScheduling(
-            key as ScheduleOptionField,
-            value as string
-          );
-        }
-      });
-    } else {
-      onChangeScheduling(
-        'alternatives',
-        alternatives.map((option) => {
-          if (option.id !== activeOptionId) return option;
-          return {
-            ...option,
-            date: fields.date ?? option.date,
-            endDate: fields.endDate ?? option.endDate,
-            dateType: fields.dateType ?? option.dateType,
-            type: fields.type ?? option.type,
-            startTime: fields.startTime ?? option.startTime,
-            endTime: fields.endTime ?? option.endTime,
-          };
-        })
-      );
-    }
-  };
-
-  const updateScheduleField = (key: ScheduleOptionField, value: string) => {
-    updateScheduleFields({ [key]: value });
+    onChangeScheduling('immediatePickup', false);
+    Object.entries(fields).forEach(([key, value]) => {
+      if (value !== undefined) {
+        onChangeScheduling(key as ScheduleOptionField, value as string);
+      }
+    });
   };
 
   const effectiveDateMode = resolveEffectiveDateMode(memory, activeScheduling, dateError);
@@ -307,12 +266,6 @@ const Agendamento = ({
     forceRender();
   };
 
-  const handleScheduleModeChange = (mode: 'defined' | 'alternatives') => {
-    setScheduleMode(mode);
-    onChangeScheduling('scheduleMode', mode);
-    if (mode === 'alternatives' && !expandedOptionId) setExpandedOptionId('primary');
-  };
-
   const customDateValue =
     effectiveDateMode === 'custom_date'
       ? normalizeScheduleDate(activeScheduling.date) || memory.customDate
@@ -362,122 +315,155 @@ const Agendamento = ({
   );
 
   return (
-    <div className="flex-1 flex flex-col min-w-0 gap-2">
+    <div className="flex-1 flex flex-col min-w-0 gap-3">
       <SchedulingControls
-        title={title || (isPickup ? 'Agendamento da Retirada' : 'Agendamento da Entrega')}
+        title={hideTitle ? '' : title || (isPickup ? 'Agendamento da Retirada' : 'Agendamento da Entrega')}
+        headerActions={headerActions}
         isPickup={isPickup}
         hideSchedulingShortcuts={hideSchedulingShortcuts}
         isImmediatePickup={isImmediatePickup}
         isPendingScheduling={isPendingScheduling}
-        scheduleMode={scheduleMode}
         onTogglePending={handlePendingSchedulingToggle}
         onToggleImmediatePickup={handleImmediatePickupToggle}
-        onSelectScheduleMode={handleScheduleModeChange}
+        isPrimaryExpanded={groupPrimarySections ? isPrimarySectionExpanded : undefined}
+        onTogglePrimary={groupPrimarySections ? togglePrimarySection : undefined}
       />
 
-      {scheduleMode === 'alternatives' && (
-        <AlternativesAccordion
-          scheduling={scheduling}
-          alternatives={alternatives}
-          expandedOptionId={expandedOptionId}
-          errors={errors}
-          onToggleExpand={(id) => setExpandedOptionId(expandedOptionId === id ? '' : id)}
-          onRemoveAlternative={(id) => {
-            const next = alternatives.filter((item) => item.id !== id);
-            onChangeScheduling('alternatives', next);
-            if (expandedOptionId === id) setExpandedOptionId('primary');
-          }}
-          onAddAlternative={() => {
-            const next = [...alternatives, emptyAlternative()];
-            onChangeScheduling('alternatives', next);
-            setExpandedOptionId(next[next.length - 1].id);
-          }}
-        />
-      )}
+      {(!groupPrimarySections || isPrimarySectionExpanded) && modeSelector}
 
-      {hasExpandedOption && (
-        <div
-          style={scheduleMode === 'alternatives' ? { order: expandedOptionIndex * 2 + 1 } : undefined}
-          className={`w-full transition-opacity ${isScheduleReadOnly ? 'opacity-90' : ''} ${
-            scheduleMode === 'alternatives'
-              ? 'rounded-b-2xl border border-t-0 border-slate-200 p-4 dark:border-slate-700'
-              : ''
-          }`}
-        >
-          {isPendingScheduling ? (
-            <div className="flex items-center gap-4 py-4 px-4 bg-orange-50/50 dark:bg-orange-900/10 border border-dashed border-orange-200 dark:border-orange-800 rounded-2xl animate-fade-in">
-              <div className="w-10 h-10 rounded-xl bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center text-orange-600 dark:text-orange-400 shrink-0">
+      {(!groupPrimarySections || isPrimarySectionExpanded) && (
+        hasExplicitModeSelector && isImmediatePickup ? (
+          <div className="flex min-w-0 items-center gap-3 rounded-xl border border-purple-200 bg-purple-50 px-4 py-3 dark:border-purple-900/50 dark:bg-purple-900/10">
+            <span className="inline-flex shrink-0 rounded-full bg-purple-100 px-3 py-1 text-xs font-bold text-purple-800 dark:bg-purple-900/40 dark:text-purple-200">
+              Retirada imediata
+            </span>
+          </div>
+        ) : isPendingScheduling ? (
+          hasExplicitModeSelector ? (
+            <div className="flex min-w-0 items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-900/50 dark:bg-amber-900/10">
+              <span className="inline-flex shrink-0 rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">
+                Agendamento pendente
+              </span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-4 rounded-2xl border border-dashed border-orange-200 bg-orange-50/50 px-4 py-4 animate-fade-in dark:border-orange-800 dark:bg-orange-900/10">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400">
                 <i className="bi bi-clock-history text-xl" />
               </div>
               <div className="flex flex-col">
-                <h4 className="text-[11px] font-black text-orange-700 dark:text-orange-400 uppercase tracking-widest leading-none mb-1">
+                <h4 className="mb-1 text-[11px] font-black uppercase leading-none tracking-widest text-orange-700 dark:text-orange-400">
                   Agendamento em Aberto
                 </h4>
-                <p className="text-[9px] font-bold text-orange-600/70 dark:text-orange-500/70 uppercase leading-tight">
+                <p className="text-[9px] font-bold uppercase leading-tight text-orange-600/70 dark:text-orange-500/70">
                   Este pedido será agendado em breve.
                 </p>
               </div>
             </div>
-          ) : !scheduling.notInformed || hideNotice ? (
-            <div
-              className={`flex flex-col gap-6 w-full transition-all duration-300 ${
-                isScheduleReadOnly ? 'opacity-40 grayscale-[0.5] pointer-events-none' : ''
-              }`}
-            >
-              <ScheduledDateCardsSection
-                key={`date-${activeOptionId}`}
-                baseId={baseId}
-                isScheduleReadOnly={isScheduleReadOnly}
-                isRequired={!isScheduleReadOnly}
-                effectiveDateMode={effectiveDateMode}
-                dateError={dateError}
-                customDateValue={customDateValue}
-                customRangeStartDateValue={customRangeStartDateValue}
-                customRangeEndDateValue={customRangeEndDateValue}
-                onSelectDateMode={handleSelectDateMode}
-                onCustomDateChange={handleCustomDateChange}
-                onCustomDateRangeChange={handleCustomDateRangeChange}
-              />
+          )
+        ) : !scheduling.notInformed || hideNotice ? (
+          <div
+            className={`flex w-full flex-col gap-6 transition-all duration-300 ${
+              isScheduleReadOnly ? 'pointer-events-none opacity-40 grayscale-[0.5]' : ''
+            }`}
+          >
+            <ScheduledDateCardsSection
+              baseId={baseId}
+              isExpanded={expandedScheduleSection === 'date'}
+              onToggleExpanded={() =>
+                setExpandedScheduleSection((current) => (current === 'date' ? null : 'date'))
+              }
+              isScheduleReadOnly={isScheduleReadOnly}
+              isRequired={!isScheduleReadOnly}
+              effectiveDateMode={effectiveDateMode}
+              dateError={dateError}
+              customDateValue={customDateValue}
+              customRangeStartDateValue={customRangeStartDateValue}
+              customRangeEndDateValue={customRangeEndDateValue}
+              onSelectDateMode={handleSelectDateMode}
+              onCustomDateChange={handleCustomDateChange}
+              onCustomDateRangeChange={handleCustomDateRangeChange}
+            />
 
-              <ScheduledTimeCardsSection
-                key={`time-${activeOptionId}`}
-                baseId={baseId}
-                isScheduleReadOnly={isScheduleReadOnly}
-                isRequired={!isScheduleReadOnly}
-                effectiveTimeMode={effectiveTimeMode}
-                timeError={timeError}
-                customTimeValue={customTimeValue}
-                customRangeStartTimeValue={customRangeStartTimeValue}
-                customRangeEndTimeValue={customRangeEndTimeValue}
-                onSelectTimeMode={handleSelectTimeMode}
-                onCustomTimeChange={handleCustomTimeChange}
-                onCustomTimeRangeChange={handleCustomTimeRangeChange}
-              />
+            <ScheduledTimeCardsSection
+              baseId={baseId}
+              isExpanded={expandedScheduleSection === 'time'}
+              onToggleExpanded={() =>
+                setExpandedScheduleSection((current) => (current === 'time' ? null : 'time'))
+              }
+              isScheduleReadOnly={isScheduleReadOnly}
+              isRequired={!isScheduleReadOnly}
+              effectiveTimeMode={effectiveTimeMode}
+              timeError={timeError}
+              customTimeValue={customTimeValue}
+              customRangeStartTimeValue={customRangeStartTimeValue}
+              customRangeEndTimeValue={customRangeEndTimeValue}
+              onSelectTimeMode={handleSelectTimeMode}
+              onCustomTimeChange={handleCustomTimeChange}
+              onCustomTimeRangeChange={handleCustomTimeRangeChange}
+            />
+          </div>
+        ) : (
+          <div className="flex flex-1 items-center gap-4 rounded-2xl border border-dashed border-amber-200 bg-amber-50/50 px-6 py-4 dark:border-amber-900/30 dark:bg-amber-900/10">
+            <div className="flex h-10 w-10 shrink-0 grow-0 items-center justify-center rounded-full bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-500">
+              <i className="bi bi-exclamation-triangle-fill text-xl" />
+            </div>
+            <div className="flex flex-col">
+              <span className="text-xs font-black uppercase tracking-widest text-amber-700 dark:text-amber-400">
+                Aviso de Agendamento
+              </span>
+              <span className="text-[11px] font-medium uppercase tracking-tight text-amber-600/80 dark:text-amber-500/80">
+                Data e horário não serão informados para esta {isPickup ? 'retirada' : 'entrega'}
+              </span>
+            </div>
+          </div>
+        )
+      )}
 
-              <SchedulingSummaryBox
-                scheduleMode={scheduleMode}
-                scheduling={scheduling}
-                summaryDateText={summaryDateText}
-                summaryTimeText={summaryTimeText}
-                alternatives={alternatives}
-              />
-            </div>
-          ) : (
-            <div className="flex-1 bg-amber-50/50 dark:bg-amber-900/10 border border-dashed border-amber-200 dark:border-amber-900/30 rounded-2xl px-6 py-4 flex items-center gap-4">
-              <div className="w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center text-amber-600 dark:text-amber-500 grow-0 shrink-0">
-                <i className="bi bi-exclamation-triangle-fill text-xl" />
-              </div>
-              <div className="flex flex-col">
-                <span className="text-xs font-black text-amber-700 dark:text-amber-400 uppercase tracking-widest">
-                  Aviso de Agendamento
-                </span>
-                <span className="text-[11px] font-medium text-amber-600/80 dark:text-amber-500/80 uppercase tracking-tight">
-                  Data e horário não serão informados para esta {isPickup ? 'retirada' : 'entrega'}
-                </span>
-              </div>
-            </div>
-          )}
-        </div>
+      {(!groupPrimarySections || isPrimarySectionExpanded) &&
+        (!hasExplicitModeSelector || (!isPendingScheduling && !isImmediatePickup)) && (
+          <AlternativesAccordion
+            alternatives={alternatives}
+            isExpanded={isAlternativesExpanded}
+            expandedAlternativeId={expandedAlternativeId}
+            errors={errors}
+            isScheduleReadOnly={isScheduleReadOnly}
+            onToggleExpanded={() =>
+              setExpandedScheduleSection((current) =>
+                current === 'alternatives' ? null : 'alternatives'
+              )
+            }
+            onToggleAlternative={(id) =>
+              setExpandedAlternativeId((current) => (current === id ? null : id))
+            }
+            onRemoveAlternative={(id) => {
+              onChangeScheduling(
+                'alternatives',
+                alternatives.filter((item) => item.id !== id)
+              );
+              if (expandedAlternativeId === id) setExpandedAlternativeId(null);
+            }}
+            onAddAlternative={() => {
+              const alternative = emptyAlternative();
+              onChangeScheduling('alternatives', [...alternatives, alternative]);
+              setExpandedAlternativeId(alternative.id);
+              setExpandedScheduleSection('alternatives');
+            }}
+            onChangeAlternative={(id, fields) =>
+              onChangeScheduling(
+                'alternatives',
+                alternatives.map((option) =>
+                  option.id === id ? { ...option, ...fields } : option
+                )
+              )
+            }
+          />
+        )}
+
+      {!isPendingScheduling && (!scheduling.notInformed || hideNotice) && (!hasExplicitModeSelector || !isImmediatePickup) && (
+        <SchedulingSummaryBox
+          summaryDateText={summaryDateText}
+          summaryTimeText={summaryTimeText}
+        />
       )}
     </div>
   );

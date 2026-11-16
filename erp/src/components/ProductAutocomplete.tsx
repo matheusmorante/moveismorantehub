@@ -14,6 +14,7 @@ interface ProductAutocompleteProps {
   onSelectDescription?: (description: string) => void;
   onChange?: (value: string) => void;
   onBlur?: React.FocusEventHandler<HTMLInputElement>;
+  title?: string;
   autoFocus?: boolean;
   preventBlurOnSelect?: boolean;
   inputAriaLabel?: string;
@@ -61,6 +62,7 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
   onSelect,
   onChange,
   onBlur,
+  title,
   autoFocus = false,
   preventBlurOnSelect = false,
   inputAriaLabel,
@@ -181,6 +183,7 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
               aria-multiline="true"
               aria-busy={isLoadingSuggestions}
               aria-label={inputAriaLabel}
+              title={title}
               disabled={disabled}
               value={query || ''}
               onChange={(e) => handleQueryChange(e.target.value)}
@@ -209,6 +212,7 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
               autoFocus={autoFocus}
               aria-busy={isLoadingSuggestions}
               aria-label={inputAriaLabel}
+              title={title}
               disabled={disabled}
               value={query || ''}
               onChange={(e) => {

@@ -65,7 +65,9 @@ const OrderHistoryCard: React.FC<OrderHistoryCardProps> = ({
   const { hasAssemblyDepot, hasAssemblyOutside } = getOrderAssemblyFlags(order, settings);
   const isPaidTraffic = isPaidTrafficOrder(order);
 
-  const headerAccentClass = resolveCardHeaderAccentClass(order, colorKey, isDraft, isCancelled);
+  const headerAccentClass = order.orderType === 'sale' && !isCancelled
+    ? 'bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800'
+    : resolveCardHeaderAccentClass(order, colorKey, isDraft, isCancelled);
   const cardBgBorderClass = resolveCardBgBorderClass(isCancelled);
   const timeDisplay = resolveCardTimeDisplay(order.shipping?.scheduling);
 

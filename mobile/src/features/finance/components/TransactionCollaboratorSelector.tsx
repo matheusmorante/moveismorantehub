@@ -3,6 +3,8 @@ import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-nati
 
 interface Props {
   collaborators: { id: string; name: string }[];
+  isLoading?: boolean;
+  unavailable?: boolean;
   selectedCollaboratorId: string;
   onSelectCollaborator: (id: string, name: string) => void;
   isDarkMode?: boolean;
@@ -10,6 +12,8 @@ interface Props {
 
 export const TransactionCollaboratorSelector: React.FC<Props> = ({
   collaborators,
+  isLoading = false,
+  unavailable = false,
   selectedCollaboratorId,
   onSelectCollaborator,
   isDarkMode,
@@ -42,6 +46,14 @@ export const TransactionCollaboratorSelector: React.FC<Props> = ({
           </TouchableOpacity>
         ))}
       </ScrollView>
+      {collaborators.length === 0 && isLoading && (
+        <Text style={[styles.status, isDarkMode && styles.statusDark]}>Carregando colaboradores…</Text>
+      )}
+      {collaborators.length === 0 && !isLoading && unavailable && (
+        <Text style={[styles.status, isDarkMode && styles.statusDark]}>
+          Não foi possível carregar. Conecte-se ou feche e reabra o formulário.
+        </Text>
+      )}
     </View>
   );
 };
@@ -60,6 +72,14 @@ const styles = StyleSheet.create({
   chipsRow: {
     flexDirection: 'row',
     marginBottom: 4,
+  },
+  status: {
+    fontSize: 12,
+    color: '#64748b',
+    marginBottom: 4,
+  },
+  statusDark: {
+    color: '#94a3b8',
   },
   chip: {
     backgroundColor: '#f1f5f9',

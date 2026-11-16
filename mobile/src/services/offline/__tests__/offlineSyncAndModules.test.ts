@@ -25,6 +25,7 @@ const state = vi.hoisted(() => ({
   deletedRemoteInventoryIds: [] as string[],
   failNextOrderUpdate: false,
   failAfterOrderCommit: false,
+  failOperationId: '' as string,
 }));
 
 vi.mock('../connectivityService', () => ({
@@ -62,6 +63,23 @@ vi.mock('../../supabaseClient', () => ({
           data: { auditId: args.p_audit_id, status: 'claimed' },
           error: null,
         };
+      }
+      if (fnName === 'apply_order_delivery_operation') {
+        if (state.failOperationId === args.p_operation_id) return { data: null, error: new Error('Conexão interrompida') };
+        const current = state.ordersById[args.p_order_id];
+        const operations = current.order_data.deliveryOperations || {};
+        const previous = operations[args.p_operation_id] || { revision: 0 };
+        if (previous.revision !== args.p_expected_revision) return { data: {
+          success: false, reason: 'VERSION_CONFLICT', server_state: current, server_version: current.version,
+        }, error: null };
+        const updated = { ...current, version: current.version + 1, order_data: { ...current.order_data,
+          ...(args.p_payments ? { payments: args.p_payments } : {}),
+          deliveryOperations: { ...operations, [args.p_operation_id]: {
+            ...previous, ...args.p_patch, revision: previous.revision + 1,
+          } },
+        } };
+        state.ordersById[args.p_order_id] = updated;
+        return { data: { success: true, server_version: updated.version, server_state: updated }, error: null };
       }
       if (fnName === 'sync_entity_operation') {
         const orderId = args.p_entity_id;
@@ -107,7 +125,9 @@ vi.mock('../../supabaseClient', () => ({
       }
       if (
         fnName === 'finalize_inventory_transaction_v2' ||
-        fnName === 'finalize_inventory_transaction'
+        fnName === 'finalize_inventory_transaction' ||
+        fnName === 'finalize_inventory_transaction_v2_compact' ||
+        fnName === 'finalize_inventory_transaction_compact'
       ) {
         return {
           data: state.rpcData || { status: 'processed', auditId: args.p_audit_id },
@@ -322,6 +342,7 @@ import { resolveMobileUserProfile } from '../../mobileAuthProfile';
 import { registerOfflineProfileCacheCase } from './offlineProfileCacheCase';
 import { registerOfflineDeliveryFlowCase } from './offlineDeliveryFlowCase';
 import { deliveryFlowService } from '../../../features/orders/services/deliveryFlowService';
+import { saveDeliveryOperation } from '../../../features/orders/services/deliveryOperationService';
 
 describe('Auditoria Offline End-to-End (7 Pontos Críticos: Operação, Sincronização, Reconciliação e Segurança)', () => {
   beforeEach(async () => {
@@ -338,6 +359,7 @@ describe('Auditoria Offline End-to-End (7 Pontos Críticos: Operação, Sincroni
     state.deletedRemoteInventoryIds = [];
     state.failNextOrderUpdate = false;
     state.failAfterOrderCommit = false;
+    state.failOperationId = '';
     await OrderRepository.init();
     const db = await getSQLiteDatabase();
     await db.runAsync('DELETE FROM sync_queue');
@@ -349,6 +371,88 @@ describe('Auditoria Offline End-to-End (7 Pontos Críticos: Operação, Sincroni
     await offlineStorageService.cacheWorkingSet(GOODS_RECEIPTS_PENDING_SYNC_KEY, []);
     await offlineStorageService.cacheWorkingSet(GOODS_RECEIPTS_CACHE_KEY, []);
     clearOfflineInventoryCatalogCache();
+  });
+
+  it('sincroniza entregas offline do mesmo pedido sem misturar estados ou pagamentos', async () => {
+    const orderId = 'separate-operations';
+    const orderData = { status: 'scheduled', items: [{ id: 'a' }, { id: 'b' }], payments: [{ amount: 10, status: 'Pago' }],
+      deliveryOperations: { one: { revision: 0 }, two: { revision: 0 } } };
+    state.ordersById[orderId] = { id: orderId, status: 'scheduled', version: 1, order_data: orderData };
+    await OrderRepository.saveLocal({ id: orderId, status: 'scheduled', version: 1, orderData,
+      updatedAt: '2026-11-15T10:00:00Z', isPendingLocal: false });
+    const one = await saveDeliveryOperation({ orderId, operationId: 'one', currentData: orderData,
+      type: 'DELIVERY_START_ROUTE', patch: { deliveryStatus: 'in_progress', deliveryStartedAt: 'first' } });
+    await saveDeliveryOperation({ orderId, operationId: 'two', currentData: one.updatedData,
+      type: 'DELIVERY_START_ROUTE', patch: { deliveryStatus: 'in_progress', deliveryStartedAt: 'second' } });
+    expect((await SyncQueueRepository.listActive()).filter((item) => item.entityId === orderId)).toHaveLength(2);
+    state.connected = true;
+    await offlineSyncManager.processQueue();
+    const remote = state.ordersById[orderId];
+    expect(remote.order_data.deliveryOperations.one).toMatchObject({ revision: 1, deliveryStartedAt: 'first' });
+    expect(remote.order_data.deliveryOperations.two).toMatchObject({ revision: 1, deliveryStartedAt: 'second' });
+    expect(remote.order_data.items).toEqual(orderData.items);
+    expect(remote.order_data.payments).toEqual(orderData.payments);
+    expect((await OrderRepository.getById(orderId))?.isPendingLocal).toBe(false);
+  });
+
+  it('confirma no modo online somente a operação que foi iniciada', async () => {
+    const orderId = 'online-separate-operations';
+    const orderData = { status: 'scheduled', items: [{ id: 'a' }, { id: 'b' }],
+      deliveryOperations: { one: { revision: 0 }, two: { revision: 0 } } };
+    state.ordersById[orderId] = { id: orderId, status: 'scheduled', version: 1, order_data: orderData };
+    await OrderRepository.saveLocal({ id: orderId, status: 'scheduled', version: 1, orderData,
+      updatedAt: '2026-11-15T10:00:00Z', isPendingLocal: false });
+    state.connected = true;
+    const result = await saveDeliveryOperation({ orderId, operationId: 'one', currentData: orderData,
+      type: 'DELIVERY_START_ROUTE', patch: { deliveryStatus: 'in_progress', deliveryStartedAt: 'first' } });
+    expect(result.pendingSync).toBe(false);
+    expect(result.updatedData.deliveryOperations.one).toMatchObject({ revision: 1, deliveryStatus: 'in_progress' });
+    expect(result.updatedData.deliveryOperations.two).toEqual({ revision: 0 });
+  });
+
+  it('mantém a segunda alteração pendente quando a sincronização cai após a primeira', async () => {
+    const orderId = 'operations-interrupted';
+    const orderData = { status: 'scheduled', deliveryOperations: { one: { revision: 0 }, two: { revision: 0 } } };
+    state.ordersById[orderId] = { id: orderId, status: 'scheduled', version: 1, order_data: orderData };
+    await OrderRepository.saveLocal({ id: orderId, status: 'scheduled', version: 1, orderData,
+      updatedAt: '2026-11-15T10:00:00Z', isPendingLocal: false });
+    const first = await saveDeliveryOperation({ orderId, operationId: 'one', currentData: orderData,
+      type: 'DELIVERY_START_ROUTE', patch: { deliveryStatus: 'in_progress', deliveryStartedAt: 'first' } });
+    await saveDeliveryOperation({ orderId, operationId: 'two', currentData: first.updatedData,
+      type: 'DELIVERY_START_ROUTE', patch: { deliveryStatus: 'in_progress', deliveryStartedAt: 'second' } });
+    state.failOperationId = 'two';
+    state.connected = true;
+    await offlineSyncManager.processQueue();
+    const local = await OrderRepository.getById(orderId);
+    expect(local?.isPendingLocal).toBe(true);
+    expect((local?.orderData.deliveryOperations as any).one.deliveryStartedAt).toBe('first');
+    expect((local?.orderData.deliveryOperations as any).two.deliveryStartedAt).toBe('second');
+    expect((await SyncQueueRepository.listActive()).find(item => item.entityId === orderId)?.status).toBe('failed');
+    state.failOperationId = '';
+    await offlineSyncManager.processQueue();
+    expect((await OrderRepository.getById(orderId))?.isPendingLocal).toBe(false);
+    expect(state.ordersById[orderId].order_data.deliveryOperations.two.deliveryStartedAt).toBe('second');
+  });
+
+  it('envia o comprovante offline apenas para a operação que registrou insucesso', async () => {
+    const orderId = 'operation-proof';
+    const orderData = { status: 'scheduled', deliveryOperations: {
+      one: { revision: 1, deliveryStatus: 'arrived' }, two: { revision: 1, deliveryStatus: 'in_progress' },
+    } };
+    state.ordersById[orderId] = { id: orderId, status: 'scheduled', version: 1, order_data: orderData };
+    await OrderRepository.saveLocal({ id: orderId, status: 'scheduled', version: 1, orderData,
+      updatedAt: '2026-11-15T10:00:00Z', isPendingLocal: false });
+    await saveDeliveryOperation({ orderId, operationId: 'one', currentData: orderData,
+      type: 'DELIVERY_UNATTENDED', patch: { deliveryStatus: 'unattended', unattendedAt: 'now',
+        unattendedReason: 'Ninguém Atendeu no Local', unattendedProofUrls: ['file:///proof.png'],
+        unattendedProofUrl: 'file:///proof.png', unattendedProofMetadata: [{ uri: 'file:///proof.png', fileName: 'proof.png' }] } });
+    state.connected = true;
+    await offlineSyncManager.processQueue();
+    const operations = state.ordersById[orderId].order_data.deliveryOperations;
+    expect(uploadDeliveryProofMock).toHaveBeenCalledOnce();
+    expect(operations.one.unattendedProofUrls).toEqual(['https://storage.test/delivery-proofs/proof.png']);
+    expect(operations.one).not.toHaveProperty('unattendedProofMetadata');
+    expect(operations.two).toEqual(orderData.deliveryOperations.two);
   });
 
   it('1 & 2. Reconcilia conflito de versão concorrente (VERSION_CONFLICT) e garante idempotência após falha de rede no meio do envio', async () => {

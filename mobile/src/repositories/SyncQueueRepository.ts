@@ -49,6 +49,13 @@ const toItem = (row: QueueRow): SyncQueueItem => ({
 });
 
 export const SyncQueueRepository = {
+  async getById(id: string): Promise<SyncQueueItem | null> {
+    await runMigrations();
+    const db = await getSQLiteDatabase();
+    const row = await db.getFirstAsync<QueueRow>('SELECT * FROM sync_queue WHERE id = ?', [id]);
+    return row ? toItem(row) : null;
+  },
+
   async listActive(): Promise<SyncQueueItem[]> {
     await runMigrations();
     const db = await getSQLiteDatabase();

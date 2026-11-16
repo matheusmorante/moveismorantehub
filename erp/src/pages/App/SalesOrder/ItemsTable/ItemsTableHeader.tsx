@@ -4,12 +4,14 @@ interface ItemsTableHeaderProps {
   readonly productsCount: number;
   readonly servicesCount: number;
   readonly onAddItem: (itemType: 'product' | 'composition' | 'service') => void;
+  readonly error?: string;
 }
 
 export const ItemsTableHeader: React.FC<ItemsTableHeaderProps> = ({
   productsCount,
   servicesCount,
   onAddItem,
+  error,
 }) => {
   const [isAddMenuOpen, setIsAddMenuOpen] = useState(false);
   const menuContainerRef = useRef<HTMLDivElement>(null);
@@ -63,8 +65,10 @@ export const ItemsTableHeader: React.FC<ItemsTableHeaderProps> = ({
           type="button"
           aria-expanded={isAddMenuOpen}
           aria-controls="items-table-add-menu"
+          aria-invalid={Boolean(error)}
+          aria-describedby={error ? 'items-summary-error' : undefined}
           onClick={() => setIsAddMenuOpen((open) => !open)}
-          className="flex items-center gap-2 rounded-full bg-blue-600 px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-400"
+          className={`flex items-center gap-2 rounded-full bg-blue-600 px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-400 ${error ? 'ring-2 ring-red-500 ring-offset-2 dark:ring-offset-slate-900' : ''}`}
         >
           <i className="bi bi-plus-lg text-xs" aria-hidden="true" />
           Adicionar item
@@ -126,6 +130,11 @@ export const ItemsTableHeader: React.FC<ItemsTableHeaderProps> = ({
           </div>
         )}
       </div>
+      {error && (
+        <p id="items-summary-error" role="alert" className="w-full text-xs font-bold text-red-600 dark:text-red-400">
+          {error}
+        </p>
+      )}
     </div>
   );
 };

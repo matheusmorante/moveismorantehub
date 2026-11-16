@@ -24,11 +24,31 @@ export const getOrderStepStatus = (
 ): OrderStepStatus => {
   const errorKeys = Object.keys(errors);
   const hasErrorByStep: Record<number, boolean> = {
-    1: errorKeys.includes('seller') || errorKeys.includes('order_date'),
-    2: errorKeys.some((k) => k.startsWith('item_') || k === 'items_summary'),
-    3: errorKeys.some((k) => k.startsWith('customer_')),
-    4: errorKeys.some((k) => k.startsWith('shipping_') || k.startsWith('deliveryAddress_')),
-    5: errorKeys.some((k) => k.startsWith('payment_') || k === 'payments_summary'),
+    1: errorKeys.some((key) => ['seller', 'date', 'order_date', 'status'].includes(key)),
+    2: errorKeys.some(
+      (key) =>
+        key === 'items' ||
+        key.startsWith('item_') ||
+        key.startsWith('items_') ||
+        key === 'items_summary'
+    ),
+    3: errorKeys.some(
+      (key) =>
+        key === 'customer' ||
+        key === 'customerData' ||
+        key.startsWith('customer_') ||
+        key.startsWith('customerData_')
+    ),
+    4: errorKeys.some(
+      (key) =>
+        key.startsWith('shipping_') ||
+        key === 'shipping' ||
+        key.startsWith('deliveryAddress_') ||
+        key === 'deliveryAddress'
+    ),
+    5: errorKeys.some(
+      (key) => key.startsWith('payment_') || key === 'payments_summary' || key === 'payments'
+    ),
   };
 
   if (hasErrorByStep[step]) return 'error';

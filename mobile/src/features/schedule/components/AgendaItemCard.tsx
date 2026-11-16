@@ -1,10 +1,12 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { ChevronRight, Tag, Clock, RefreshCw } from 'lucide-react-native';
+import { ChevronRight, Tag, Clock, RefreshCw, CalendarDays } from 'lucide-react-native';
 import { MobileDrill } from '../../../components/shared/MobileDrill';
 import PickupIcon from '../../../components/shared/PickupIcon';
 import { getOperationActivityPresentation } from '../utils/operationActivity';
 import { resolveEffectiveSchedule } from '../../../../../shared-utils/commercialOrderRules';
+import { getOperationalScheduleDate } from '../../../utils/operationalSchedule';
+import { formatOrderCode } from '../../../utils/orderUtils';
 
 interface AgendaItemCardProps {
   item: any;
@@ -18,10 +20,20 @@ export const AgendaItemCard: React.FC<AgendaItemCardProps> = ({
   onSelectOrder,
 }) => {
   const isOrder = Boolean(item.order);
+  const orderCode = isOrder ? formatOrderCode(item.order) : '—';
   const scheduleRes = isOrder ? resolveEffectiveSchedule(item.order) : null;
   const effective = scheduleRes?.effective;
   const isUsingAlternative = scheduleRes?.isUsingAlternative;
   const alternatives = scheduleRes?.alternatives || [];
+  const appointmentShipping = item.order?.order_data?.shipping || item.order?.shipping || {};
+  const isAppointmentPickup = `${appointmentShipping.deliveryMethod || ''} ${appointmentShipping.deliveryType || ''}`
+    .toLowerCase()
+    .match(/pickup|retirada/);
+  const rawAppointmentDate = effective?.formattedDate || getOperationalScheduleDate(item.order) || '';
+  const isoAppointmentDate = String(rawAppointmentDate).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  const appointmentDate = isoAppointmentDate
+    ? `${isoAppointmentDate[3]}/${isoAppointmentDate[2]}/${isoAppointmentDate[1]}`
+    : String(rawAppointmentDate || 'Data não definida');
 
   return (
     <TouchableOpacity
@@ -30,7 +42,11 @@ export const AgendaItemCard: React.FC<AgendaItemCardProps> = ({
       activeOpacity={isOrder ? 0.7 : 1}
     >
       <View style={styles.itemBadgeCol}>
-        {item.kind === 'delivery' || item.kind === 'assistance' || item.kind === 'return' ? (
+        {item.appointmentLabel ? (
+          <View style={[styles.kindBadge, { backgroundColor: '#dbeafe' }]}>
+            <CalendarDays size={16} color="#2563eb" />
+          </View>
+        ) : item.kind === 'delivery' || item.kind === 'assistance' || item.kind === 'return' ? (
           <View
             style={[
               styles.kindBadge,
@@ -66,15 +82,34 @@ export const AgendaItemCard: React.FC<AgendaItemCardProps> = ({
       <View style={{ flex: 1 }}>
         <View style={styles.titleRow}>
           <Text style={[styles.itemTitle, isDarkMode && styles.textDark]}>{item.title}</Text>
+          {orderCode !== '—' && <Text style={[styles.orderCode, isDarkMode && styles.subtitleDark]}>#{orderCode}</Text>}
           {isUsingAlternative && (
             <View style={styles.alternativoPill}>
               <Text style={styles.alternativoPillText}>ALTERNATIVO</Text>
             </View>
           )}
+          {item.appointmentLabel && (
+            <View style={styles.appointmentPill}>
+              <Text style={styles.appointmentPillText}>
+                {item.appointmentLabel} · {isAppointmentPickup ? 'Retirada' : 'Entrega'}
+              </Text>
+            </View>
+          )}
         </View>
         <Text style={[styles.itemSub, isDarkMode && styles.subtitleDark]}>{item.subtitle}</Text>
 
-        {effective?.formattedTime && (
+        {item.order?.scheduleAppointment ? (
+          <View style={styles.scheduleRow}>
+            <CalendarDays size={12} color="#2563eb" />
+            <Text style={[styles.scheduleTimeText, isDarkMode && styles.textPrimaryDark]}>
+              {appointmentDate}
+            </Text>
+            <Clock size={12} color="#2563eb" />
+            <Text style={[styles.scheduleTimeText, isDarkMode && styles.textPrimaryDark]}>
+              {effective?.formattedTime || 'Horário não definido'}
+            </Text>
+          </View>
+        ) : effective?.formattedTime && (
           <View style={styles.scheduleRow}>
             <Clock size={12} color="#2563eb" />
             <Text style={[styles.scheduleTimeText, isDarkMode && styles.textPrimaryDark]}>
@@ -163,6 +198,11 @@ const styles = StyleSheet.create({
     color: '#0f172a',
     flexShrink: 1,
   },
+  orderCode: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#64748b',
+  },
   titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -181,6 +221,19 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: '#ffffff',
     letterSpacing: 0.5,
+  },
+  appointmentPill: {
+    backgroundColor: '#eff6ff',
+    borderColor: '#bfdbfe',
+    borderWidth: 1,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  appointmentPillText: {
+    fontSize: 9,
+    fontWeight: '900',
+    color: '#1d4ed8',
   },
   itemSub: {
     fontSize: 12,

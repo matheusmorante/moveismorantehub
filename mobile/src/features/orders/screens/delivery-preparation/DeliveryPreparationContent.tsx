@@ -6,7 +6,10 @@ import {
   DeliveryArrivalStep,
   DeliveryServiceStep,
 } from '../../components/delivery';
-import { DeliveryResponsibleItem } from './deliveryPreparation.types';
+import {
+  DeliveryResponsibleItem,
+  DeliveryStaffSearchFeedback,
+} from './deliveryPreparation.types';
 import { styles } from './deliveryPreparation.styles';
 
 export interface DeliveryPreparationContentProps {
@@ -31,6 +34,8 @@ export interface DeliveryPreparationContentProps {
   onRemoveResponsible: (index: number) => void;
   availableStaff: any[];
   loadingStaff: boolean;
+  staffSearchFeedback?: DeliveryStaffSearchFeedback | null;
+  onSearchStaff?: (query: string) => void;
   userProfile?: any;
 }
 
@@ -64,6 +69,8 @@ export const DeliveryPreparationContent: React.FC<DeliveryPreparationContentProp
   onRemoveResponsible,
   availableStaff,
   loadingStaff,
+  staffSearchFeedback,
+  onSearchStaff,
   userProfile,
 }) => {
   return (
@@ -114,6 +121,8 @@ export const DeliveryPreparationContent: React.FC<DeliveryPreparationContentProp
           onRemoveResponsible={onRemoveResponsible}
           availableStaff={availableStaff}
           loadingStaff={loadingStaff}
+          staffSearchFeedback={staffSearchFeedback}
+          onSearchStaff={onSearchStaff}
           userProfile={userProfile}
           onOpenUnattendedModal={onOpenUnattendedModal}
           isDarkMode={isDarkMode}

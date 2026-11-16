@@ -3,9 +3,8 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
-  getReportTransactions: vi.fn(),
-  getReportPayables: vi.fn(),
-  getReportReceivables: vi.fn(),
+  getFinancialSummary: vi.fn(),
+  getDashboardForecastSummary: vi.fn(),
 }));
 
 vi.mock('@/pages/services/financeService', () => ({ financeService: mocks }));
@@ -29,40 +28,40 @@ import FinanceDashboard from '../index';
 describe('FinanceDashboard', () => {
   afterEach(cleanup);
   beforeEach(() => {
-    mocks.getReportTransactions.mockReset().mockResolvedValue([]);
-    mocks.getReportPayables.mockReset().mockImplementation(async (status: string) =>
-      status === 'pending' ? [{ id: 'pending-payable', amount: 10 }] : [{ id: 'overdue-payable', amount: 5 }]
-    );
-    mocks.getReportReceivables.mockReset().mockImplementation(async (status: string) =>
-      status === 'pending' ? [{ id: 'pending-receivable', amount: 20 }] : [{ id: 'overdue-receivable', amount: 7 }]
-    );
+    mocks.getFinancialSummary.mockReset().mockResolvedValue({
+      totalIncome: 100,
+      totalExpense: 40,
+      balance: 60,
+      count: 4,
+    });
+    mocks.getDashboardForecastSummary.mockReset().mockResolvedValue({
+      payables: { pendingTotal: 10, overdueTotal: 5, total: 15, count: 2 },
+      receivables: { pendingTotal: 20, overdueTotal: 7, total: 27, count: 2 },
+    });
   });
 
-  it('loads only current-month transactions and includes overdue open balances', async () => {
+  it('loads current-month totals and includes overdue open balances in compact requests', async () => {
     const { container } = render(<FinanceDashboard />);
 
     const today = new Date();
     const month = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
     expect(await screen.findByText('A Receber (Previsão)')).not.toBeNull();
-    expect(mocks.getReportTransactions).toHaveBeenCalledWith(`${month}-01`, expect.any(String));
-    expect(mocks.getReportPayables.mock.calls.map(([status]) => status)).toEqual([
-      'pending',
-      'overdue',
-    ]);
-    expect(mocks.getReportReceivables.mock.calls.map(([status]) => status)).toEqual([
-      'pending',
-      'overdue',
-    ]);
+    expect(mocks.getFinancialSummary).toHaveBeenCalledTimes(1);
+    expect(mocks.getFinancialSummary).toHaveBeenCalledWith(`${month}-01`, expect.any(String));
+    expect(mocks.getDashboardForecastSummary).toHaveBeenCalledTimes(1);
 
     const renderedText = (container.textContent || '').replace(/\u00a0/g, ' ');
     expect(renderedText).toContain('R$ 15,00');
     expect(renderedText).toContain('R$ 27,00');
     expect(renderedText).toContain('2 títulos em aberto');
     expect(renderedText).toContain('2 compromissos em aberto');
+    expect(renderedText).toContain('R$ 100,00');
+    expect(renderedText).toContain('R$ 40,00');
+    expect(renderedText).toContain('R$ 60,00');
   });
 
   it('shows a retryable error instead of displaying zero balances after a query failure', async () => {
-    mocks.getReportTransactions.mockRejectedValueOnce(new Error('falha simulada'));
+    mocks.getFinancialSummary.mockRejectedValueOnce(new Error('falha simulada'));
     render(<FinanceDashboard />);
 
     expect((await screen.findByRole('alert')).textContent).toContain(
@@ -70,7 +69,7 @@ describe('FinanceDashboard', () => {
     );
     expect(screen.queryByText('A Receber (Previsão)')).toBeNull();
 
-    mocks.getReportTransactions.mockResolvedValueOnce([]);
+    mocks.getFinancialSummary.mockResolvedValueOnce({ totalIncome: 0, totalExpense: 0, balance: 0, count: 0 });
     fireEvent.click(screen.getByRole('button', { name: 'Tentar novamente' }));
     expect(await screen.findByText('A Receber (Previsão)')).not.toBeNull();
   });

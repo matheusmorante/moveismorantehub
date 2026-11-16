@@ -2,6 +2,7 @@ import React from 'react';
 
 let lockCount = 0;
 let previousBodyOverflow = '';
+let previousBodyPaddingRight = '';
 let previousHtmlOverflow = '';
 
 /**
@@ -14,7 +15,14 @@ export function lockBodyScroll() {
 
   if (lockCount === 0) {
     previousBodyOverflow = document.body.style.overflow;
+    previousBodyPaddingRight = document.body.style.paddingRight;
     previousHtmlOverflow = document.documentElement.style.overflow;
+
+    const scrollbarWidth = Math.max(0, window.innerWidth - document.documentElement.clientWidth);
+    if (scrollbarWidth > 0) {
+      const bodyPaddingRight = Number.parseFloat(window.getComputedStyle(document.body).paddingRight) || 0;
+      document.body.style.paddingRight = `${bodyPaddingRight + scrollbarWidth}px`;
+    }
 
     document.body.style.overflow = 'hidden';
     document.documentElement.style.overflow = 'hidden';
@@ -31,6 +39,7 @@ export function unlockBodyScroll() {
   lockCount = Math.max(0, lockCount - 1);
   if (lockCount === 0) {
     document.body.style.overflow = previousBodyOverflow;
+    document.body.style.paddingRight = previousBodyPaddingRight;
     document.documentElement.style.overflow = previousHtmlOverflow;
   }
 }
@@ -41,7 +50,7 @@ export function unlockBodyScroll() {
  * @param isLocked Indica se o scroll deve ser travado (default: true).
  */
 export function useBodyScrollLock(isLocked: boolean = true) {
-  React.useEffect(() => {
+  React.useLayoutEffect(() => {
     if (!isLocked) return;
 
     lockBodyScroll();

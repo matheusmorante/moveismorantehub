@@ -31,6 +31,7 @@ describe('resolveWhatsAppSupportCatalogMessage', () => {
   });
 
   it('resolve bulkScope com até 30 produtos para cards nativos via RPC', async () => {
+    const selectCalls: Array<{ table: string; columns: string }> = [];
     const product = {
       id: '22222222-2222-4222-8222-222222222222',
       name: 'Armário Multiuso',
@@ -60,24 +61,27 @@ describe('resolveWhatsAppSupportCatalogMessage', () => {
         return { data: null, error: null };
       },
       from: (table: string) => ({
-        select: () => ({
-          in: () => ({
-            eq: () => ({
+        select: (columns: string) => {
+          selectCalls.push({ table, columns });
+          if (table === 'product_variations') {
+            return { in: async () => ({ data: [], error: null }) };
+          }
+          return {
+            in: () => ({
               eq: () => ({
-                is: () => ({
-                  or: () => ({
+                eq: () => ({
+                  is: () => ({
                     or: () => ({
-                      or: async () => ({
-                        data: [product],
-                        error: null,
+                      or: () => ({
+                        or: async () => ({ data: [product], error: null }),
                       }),
                     }),
                   }),
                 }),
               }),
             }),
-          }),
-        }),
+          };
+        },
       }),
     };
 
@@ -105,6 +109,51 @@ describe('resolveWhatsAppSupportCatalogMessage', () => {
     expect(result.nativeProducts).toBeDefined();
     expect(result.nativeProducts).toHaveLength(1);
     expect(result.nativeProducts?.[0].retailerId).toBe('ARM-01');
+    expect(selectCalls).toEqual([
+      {
+        table: 'products',
+        columns: 'id,name,marketplace_title,description,slug,unit_price,price,promo_price,brand,active,is_draft,status,deleted,deleted_at,item_type,technical_specs,opportunity_id,stock,images,code,is_salvado,product_kind,material,condition,product_categories(categories(name,type))',
+      },
+      {
+        table: 'product_variations',
+        columns: 'id,product_id,status,active,name,sku,image_url,price,promo_price,stock,attributes,description,use_parent_price,use_parent_promo_price,use_parent_name,use_parent_description',
+      },
+    ]);
+  });
+
+  it('usa uma projeção curta para link e mantém o preço promocional atual', async () => {
+    const selectCalls: string[] = [];
+    const product = {
+      id: 'product-1',
+      name: 'Mesa lateral',
+      marketplace_title: 'Mesa lateral em madeira',
+      unit_price: 120,
+      promo_price: 99,
+      technical_specs: {},
+      images: ['não deve ser solicitada no modo link'],
+    };
+    const query: any = {
+      select: (columns: string) => { selectCalls.push(columns); return query; },
+      in: () => query,
+      eq: () => query,
+      is: () => query,
+      or: () => query,
+      then: (resolve: (value: unknown) => unknown) =>
+        Promise.resolve({ data: [product], error: null }).then(resolve),
+    };
+    const userDb: any = { from: () => query };
+    const selection: ProductCatalogSendSelection = {
+      items: [{ productId: product.id }],
+      bulkScope: null,
+      hidePrices: false,
+      deliveryMode: 'link',
+    };
+
+    const result = await resolveWhatsAppSupportCatalogMessage(userDb, selection, '', withTimeout);
+
+    expect(selectCalls).toEqual(['id,name,marketplace_title,unit_price,price,promo_price,technical_specs']);
+    expect(result.text).toContain('Mesa lateral em madeira');
+    expect(result.text).toMatch(/R\$[\u00a0 ]99,00/);
   });
 
   it('resolve múltiplos produtos da categoria para lista nativa (product_list)', async () => {

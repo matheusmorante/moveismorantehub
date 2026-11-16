@@ -3,6 +3,8 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { ChevronRight, Clock3, UserRound } from 'lucide-react-native';
 import { MobileDrill } from '../../../components/shared/MobileDrill';
 import { formatItemDisplayName } from '../../../utils/productNameFormatters';
+import { formatOrderCode } from '../../../utils/orderUtils';
+import { getOrderOperationLabel } from '../../../../../shared-utils/orderAppointmentOccurrences';
 
 interface AssemblyOrderCardProps {
   order: any;
@@ -26,6 +28,8 @@ export const AssemblyOrderCard: React.FC<AssemblyOrderCardProps> = ({
   const name = formatItemDisplayName(item);
   const quantity = Number(item?.quantity || item?.qty || 1);
   const productName = quantity > 1 ? `${quantity}x ${name}` : name;
+  const orderCode = formatOrderCode(order);
+  const operationLabel = getOrderOperationLabel(order);
   const customer = String(
     order?.order_data?.customerData?.fullName ||
       order?.order_data?.customerData?.name ||
@@ -66,6 +70,8 @@ export const AssemblyOrderCard: React.FC<AssemblyOrderCardProps> = ({
             {customer}
           </Text>
           <View style={styles.metadataRow}>
+            {orderCode !== '—' && <Text style={[styles.metadataText, isDarkMode && styles.metadataTextDark]}>#{orderCode}</Text>}
+            {operationLabel && <Text style={[styles.metadataText, isDarkMode && styles.metadataTextDark]}>{operationLabel}</Text>}
             <View
               style={[
                 styles.typeBadge,

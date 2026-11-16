@@ -61,7 +61,7 @@ export const CardDateSection: React.FC<CardDateSectionProps> = ({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 animate-slide-up">
           {orders.map((order, index) => (
             <DeliveryOrderCard
-              key={order.id || `order-${index}`}
+              key={(order as any)._taskKey || order.id || `order-${index}`}
               order={order}
               index={index}
               onOrderClick={onOrderClick}

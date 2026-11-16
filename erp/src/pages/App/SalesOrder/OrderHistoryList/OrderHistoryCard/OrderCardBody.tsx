@@ -6,6 +6,7 @@ import { OrderCancellationFailureNotice } from '../OrderCancellationFailureNotic
 import { OrderDeliveryPrompt } from '../OrderDeliveryPrompt';
 import PickupIcon from '@/components/shared/PickupIcon';
 import DeliveryTruckIcon from '@/components/shared/DeliveryTruckIcon';
+import { OrderScheduleSummary } from '../OrderScheduleSummary';
 import { OrderHistoryCardProps, OrderStatusConfigMap } from './OrderHistoryCard.types';
 
 interface OrderCardBodyProps extends Pick<
@@ -37,7 +38,6 @@ export const OrderCardBody: React.FC<OrderCardBodyProps> = ({
   statusConfig,
   timeDisplay,
 }) => {
-  const sched = order.shipping?.scheduling;
   const effectiveDeliveryMethod =
     order.orderType === 'assistance'
       ? (order.linkedOrderDeliveryMethod || order.shipping?.deliveryMethod)
@@ -123,7 +123,7 @@ export const OrderCardBody: React.FC<OrderCardBodyProps> = ({
       />
 
       <div
-        className={`grid grid-cols-2 gap-x-4 gap-y-2 mt-2 pt-2 border-t ${
+        className={`grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 mt-2 pt-2 border-t ${
           isCancelled
             ? 'border-red-200/60 dark:border-red-900/40'
             : 'border-slate-100 dark:border-slate-800/40'
@@ -139,49 +139,11 @@ export const OrderCardBody: React.FC<OrderCardBodyProps> = ({
           </div>
         </div>
 
-        {(sched?.date || sched?.pendingScheduling) && (
-          <div className="flex flex-col items-end text-right">
-            <span className="text-[8px] font-black uppercase tracking-widest opacity-40 mb-0.5">
-              {order.orderType === 'return'
-                ? 'Data de coleta'
-                : isPickupDeliveryMethod
-                  ? 'Retirada'
-                  : 'Entrega'}
-            </span>
-            {sched?.pendingScheduling ? (
-              <div className="inline-flex items-center gap-1.5 bg-orange-500 text-white px-2 py-0.5 rounded-md border border-orange-600 shadow-xs w-fit">
-                <i className="bi bi-clock-history text-[10px]" />
-                <span className="text-[9px] font-black uppercase tracking-wider">
-                  AGENDAMENTO PENDENTE
-                </span>
-              </div>
-            ) : (
-              <div className="flex items-center justify-end gap-1.5 font-bold text-blue-500 dark:text-blue-400">
-                {isPickupDeliveryMethod ? (
-                  <PickupIcon className="h-3 w-3" />
-                ) : (
-                  <DeliveryTruckIcon className="h-3 w-3" />
-                )}
-                <span className="text-[10px]">
-                  {sched.dateType === 'range' && sched.endDate
-                    ? `${formatToBRDate(sched.date)} até ${formatToBRDate(sched.endDate)}`
-                    : formatToBRDate(sched.date)}
-                </span>
-              </div>
-            )}
-          </div>
-        )}
-
-        {timeDisplay && !sched?.pendingScheduling && (
-          <div className="col-span-2 mt-0.5 flex justify-end">
-            <div className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-md border border-blue-100 dark:border-blue-900/30">
-              <i className="bi bi-clock-history text-[10px]" />
-              <span className="text-[9px] font-black uppercase tracking-widest">
-                {timeDisplay}
-              </span>
-            </div>
-          </div>
-        )}
+        <OrderScheduleSummary
+          order={order}
+          className="w-full"
+          legacyTimeDisplay={timeDisplay}
+        />
       </div>
     </div>
   );

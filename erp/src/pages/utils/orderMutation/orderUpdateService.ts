@@ -25,6 +25,7 @@ import { returnFulfillmentFormSchema, getReturnFulfillmentFormValues, returnFulf
   type ReturnCancellationValues, type ReturnCancellationReceipt, type ReturnFulfillmentValues, type ReturnFulfillmentReceipt } from '../../../../../shared-utils/returnFormSchemas';
 import {
   applyTestArtifactUpdateRules,
+  assertNoSeparateFulfillments,
   assertValidMutationScheduling,
   assertValidOrderQuotedStatus,
   buildUpdateOrderRpcCall,
@@ -238,7 +239,17 @@ export const executeUpdateOrder = async (
 
     assertValidOrderQuotedStatus(resultingStatus, merged.orderType);
 
-    if (!options.metadataOnly && !isStatusOnlyUpdate && Object.hasOwn(cleanUpdates, 'shipping')) {
+    if (!options.metadataOnly && orderToUpdate.status === 'fulfilled' && previousStatus !== 'fulfilled') {
+      assertNoSeparateFulfillments(merged, 'fulfilled');
+    }
+
+    if (
+      !options.metadataOnly &&
+      ((!isStatusOnlyUpdate && Object.hasOwn(cleanUpdates, 'shipping')) ||
+        ((Object.hasOwn(cleanUpdates, 'items') || isStatusOnlyUpdate) &&
+          Array.isArray(merged.items) &&
+          Boolean(merged.shipping?.scheduling?.appointments?.length)))
+    ) {
       assertValidMutationScheduling(merged, resultingStatus);
     }
 
@@ -304,6 +315,9 @@ export const executeUpdateOrder = async (
           if (parsed.data.orderId !== id || parsed.data.returnMethod !== (currentOrder?.returnMethod ?? 'store_collection')) throw new Error('A devolução comercial mudou. Reabra a confirmação.');
         } : undefined,
       );
+      if (!options.metadataOnly && orderToUpdate.status === 'fulfilled' && previousStatus !== 'fulfilled') {
+        assertNoSeparateFulfillments({ ...merged, ...statusSnapshot } as Partial<Order>, 'fulfilled');
+      }
       updatePayload.order_data = statusSnapshot;
       if (Array.isArray(statusSnapshot.items)) {
         merged.items = statusSnapshot.items;

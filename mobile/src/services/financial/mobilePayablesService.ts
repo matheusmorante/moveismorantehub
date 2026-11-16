@@ -162,11 +162,11 @@ export const payPayableAccount = async (
   id: string,
   paymentMethod: string = 'PIX',
   paidAtDate?: string
-): Promise<{ success: boolean; data?: FinancialTransaction; error?: string }> => {
+): Promise<{ success: boolean; data?: { id: string }; error?: string }> => {
   try {
     const { data: existing } = await supabase
       .from('financial_transactions')
-      .select('*')
+      .select('id,status')
       .eq('id', id)
       .single();
 
@@ -175,7 +175,7 @@ export const payPayableAccount = async (
     }
 
     if (existing.status === 'ACTIVE' || existing.status === 'PAID') {
-      return { success: true, data: existing as FinancialTransaction };
+      return { success: true, data: { id: existing.id } };
     }
 
     const payDate = paidAtDate || new Date().toISOString().split('T')[0];
@@ -189,14 +189,14 @@ export const payPayableAccount = async (
         updated_at: new Date().toISOString(),
       })
       .eq('id', id)
-      .select()
+      .select('id')
       .single();
 
     if (error) {
       return { success: false, error: error.message };
     }
 
-    return { success: true, data: updated as FinancialTransaction };
+    return { success: true, data: updated as { id: string } };
   } catch (err: any) {
     return { success: false, error: err.message || 'Erro ao efetuar pagamento da conta.' };
   }

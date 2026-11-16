@@ -37,15 +37,25 @@ describe('real financial command services', () => {
       await expect(financeService.settleAccount({ kind: 'payable', account })).rejects.toEqual({ uncertain: true });
     }
   });
-  it('creates one recurring command and requires 12 distinct returned account identities', async () => {
-    const payable_ids = Array.from({ length: 12 }, (_, i) => `00000000-0000-4000-8000-${String(i).padStart(12, '0')}`);
-    mocks.rpc.mockResolvedValue({ data: { recurring_expense_id: request_id, payable_ids, already_applied: false }, error: null });
-    await financeService.createRecurringPayableExpense(recurring);
+  it('creates one recurring command and requires a compact confirmation for 12 accounts', async () => {
+    const compactResult = { recurring_expense_id: request_id, payable_count: 12, already_applied: false };
+    mocks.rpc.mockResolvedValue({ data: compactResult, error: null });
+    await expect(financeService.createRecurringPayableExpense(recurring)).resolves.toEqual(compactResult);
     expect(mocks.rpc).toHaveBeenCalledTimes(1);
-    expect(mocks.rpc).toHaveBeenCalledWith('create_recurring_payable_expense', { p_request_id: request_id, p_payload: { payable: { ...recurring.payable, description: 'Rent' }, frequency: 'monthly' } });
+    expect(mocks.rpc).toHaveBeenCalledWith('create_recurring_payable_expense_compact', { p_request_id: request_id, p_payload: { payable: { ...recurring.payable, description: 'Rent' }, frequency: 'monthly' } });
     expect(mocks.from).not.toHaveBeenCalled();
-    mocks.rpc.mockResolvedValue({ data: { recurring_expense_id: request_id, payable_ids: Array(12).fill(payable_ids[0]), already_applied: true }, error: null });
-    await expect(financeService.createRecurringPayableExpense(recurring)).rejects.toEqual({ uncertain: true });
+    mocks.rpc.mockResolvedValue({ data: { ...compactResult, already_applied: true }, error: null });
+    await expect(financeService.createRecurringPayableExpense(recurring)).resolves.toMatchObject({ already_applied: true });
+
+    for (const data of [
+      { ...compactResult, recurring_expense_id: '22222222-2222-4222-8222-222222222222' },
+      { ...compactResult, payable_count: 11 },
+      { ...compactResult, payable_count: undefined },
+      null,
+    ]) {
+      mocks.rpc.mockResolvedValue({ data, error: null });
+      await expect(financeService.createRecurringPayableExpense(recurring)).rejects.toEqual({ uncertain: true });
+    }
   });
   it('stops a Rede update when its lookup fails rather than inserting another config', async () => {
     const maybeSingle = vi.fn().mockResolvedValue({ data: null, error: { code: '42501' } });

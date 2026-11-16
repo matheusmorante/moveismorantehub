@@ -50,6 +50,8 @@ const collectRawNotes = (order: any): string => {
     shipping.observations,
     shipping.notes,
     shipping.deliveryObservation,
+    shipping.operationNotices?.instructions,
+    shipping.notices?.instructions,
     address.observation,
     address.notes,
     customer.observation,
@@ -148,6 +150,13 @@ const hasCardMachineRequired = (
 ): boolean => {
   const data = order?.order_data || order || {};
   const shipping = data?.shipping || order?.shipping || {};
+  const operationNotices = shipping?.operationNotices || shipping?.notices;
+
+  // Payment is shared by the order, so a pending card payment applies to each delivery operation.
+  if (cardInfo?.hasPending) return true;
+  if (typeof operationNotices?.bringCardMachine === 'boolean') {
+    return operationNotices.bringCardMachine;
+  }
 
   const flag =
     isTruthy(shipping?.bringCardMachine) ||
@@ -161,7 +170,6 @@ const hasCardMachineRequired = (
     isTruthy(order?.bring_card_machine);
 
   if (flag) return true;
-  if (cardInfo?.hasPending) return true;
 
   const normalizedNotes = normalize(rawNotes);
   return /levar m[aá]quina de cart[aã]o|maquininha de cart[aã]o|levar maquina/i.test(normalizedNotes);
@@ -170,6 +178,10 @@ const hasCardMachineRequired = (
 const hasCallBeforeLeavingRequired = (order: any, rawNotes: string): boolean => {
   const data = order?.order_data || order || {};
   const shipping = data?.shipping || order?.shipping || {};
+  const operationNotices = shipping?.operationNotices || shipping?.notices;
+  if (typeof operationNotices?.callBeforeDelivery === 'boolean') {
+    return operationNotices.callBeforeDelivery;
+  }
 
   const flag =
     isTruthy(shipping?.callBeforeDelivery) ||

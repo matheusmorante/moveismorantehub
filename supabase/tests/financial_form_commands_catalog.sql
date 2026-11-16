@@ -2,7 +2,9 @@
 -- Run only on the authorized operational project after its named migration.
 with commands as (
   select p.* from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-  where n.nspname = 'public' and p.proname in ('settle_financial_account', 'create_recurring_payable_expense')
+  where n.nspname = 'public' and p.proname in (
+    'settle_financial_account', 'create_recurring_payable_expense', 'create_recurring_payable_expense_compact'
+  )
 ), checks as (
   select '01_result_nature_columns' as test, (select count(*) = 2 from information_schema.columns
     where table_schema = 'public' and table_name in ('financial_categories','financial_transactions') and column_name = 'result_nature') as passed
@@ -13,13 +15,16 @@ with commands as (
     and conrelid = 'public.accounts_payable'::regclass and confrelid = 'public.recurring_expenses'::regclass)
   union all select '05_series_index', exists(select 1 from pg_indexes where schemaname = 'public'
     and tablename = 'accounts_payable' and indexname = 'accounts_payable_recurring_expense_id_idx')
-  union all select '06_two_invoker_commands', (select count(*) = 2 and bool_and(not prosecdef) from commands)
+  union all select '06_three_invoker_commands', (select count(*) = 3 and bool_and(not prosecdef) from commands)
   union all select '07_command_timeouts', (select bool_and(proconfig @> array['lock_timeout=5s', 'idle_in_transaction_session_timeout=60s']) from commands)
   union all select '08_command_search_path', (select bool_and(proconfig @> array['search_path=""']) from commands)
   union all select '09_no_anon_command_access', not has_function_privilege('anon','public.settle_financial_account(text,text,date,jsonb)','execute')
     and not has_function_privilege('anon','public.create_recurring_payable_expense(uuid,jsonb)','execute')
   union all select '10_authenticated_command_access', has_function_privilege('authenticated','public.settle_financial_account(text,text,date,jsonb)','execute')
     and has_function_privilege('authenticated','public.create_recurring_payable_expense(uuid,jsonb)','execute')
+    and has_function_privilege('authenticated','public.create_recurring_payable_expense_compact(uuid,jsonb)','execute')
+  union all select '16_compact_command_is_authenticated_only', not has_function_privilege('anon','public.create_recurring_payable_expense_compact(uuid,jsonb)','execute')
+    and not has_function_privilege('service_role','public.create_recurring_payable_expense_compact(uuid,jsonb)','execute')
   union all select '11_unique_transaction_intent', exists(select 1 from pg_index i join pg_class c on c.oid = i.indexrelid
     where i.indrelid = 'public.financial_transactions'::regclass and i.indisunique
       and pg_get_indexdef(c.oid) like '%(idempotency_key)%' and pg_get_expr(i.indpred,i.indrelid) like '%IS NOT NULL%')

@@ -13,7 +13,7 @@ import {
   sendDirectReturnOSTeamMessage,
   sendDirectCustomerOrderViaMetaApi,
 } from '../../../utils/whatsapp';
-import { printSalesOrder, printReceipt } from '../../../utils/printing/printService';
+import { printOperationInfo, printSalesOrder, printReceipt } from '../../../utils/printing/printService';
 import { printAssistanceServiceOrder } from './printers/printAssistanceOs';
 import { printReturnServiceOrder } from './printers/printReturnOs';
 
@@ -32,6 +32,10 @@ export const actionsMap: Record<OrderAction, (order: Order) => void | Promise<un
     window.open('/promissory-note', '_blank');
   },
   PRINT_SHIPPING_ORDER: (order) => {
+    if (order.operationContext) {
+      printOperationInfo(order);
+      return;
+    }
     printSalesOrder(order);
   },
   PRINT_WARRANTY_TERM: (order) => {

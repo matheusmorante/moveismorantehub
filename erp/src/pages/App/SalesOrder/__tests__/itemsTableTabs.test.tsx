@@ -96,6 +96,28 @@ describe('ItemsTable - Lista unificada de produtos e serviços', () => {
     );
   };
 
+  it.each([false, true])('oculta o manuseio na tabela de venda com layout móvel=%s', (isMobile) => {
+    const row = (
+      <BodyRow
+        item={initialItems[0]}
+        productItems={initialItems}
+        idx={0}
+        onChange={vi.fn()}
+        onBatchChange={vi.fn()}
+        onToggleDiscountType={vi.fn()}
+        onDelete={vi.fn()}
+        deliveryMethod="delivery"
+        errors={{}}
+        onSelectProduct={vi.fn()}
+        isMobile={isMobile}
+        isExpanded
+        hideHandling
+      />
+    );
+    render(isMobile ? row : <table><tbody>{row}</tbody></table>);
+    expect(screen.queryByRole('combobox', { name: 'Manuseio' })).toBeNull();
+  });
+
   it('exibe contadores de itens, produtos e serviços sem abas', () => {
     render(
       <ItemsTable

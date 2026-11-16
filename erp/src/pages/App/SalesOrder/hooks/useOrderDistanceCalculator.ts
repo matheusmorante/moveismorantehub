@@ -19,6 +19,11 @@ const getAddressKey = (input: unknown) => {
 };
 type Lookup = { key: string; request: Promise<RouteResult | null>; reason: { current: string } };
 
+export interface DistanceCalculationOptions {
+  silentSuccess?: boolean;
+  onCalculated?: (route: RouteResult, freight: number) => void;
+}
+
 export function useOrderDistanceCalculator(
   shipping: Shipping,
   customerData: CustomerData,
@@ -26,6 +31,7 @@ export function useOrderDistanceCalculator(
 ) {
   const [isCalculatingDistance, setIsCalculatingDistance] = useState(false);
   const lastCalculatedAddressRef = useRef('');
+  const lastCalculatedResultRef = useRef<{ addressKey: string; route: RouteResult; freight: number } | null>(null);
   const lookupRef = useRef<Lookup | null>(null);
   const requestIdRef = useRef(0);
   const initialAddress = shipping.useCustomerAddress === false ? shipping.deliveryAddress : customerData.fullAddress;
@@ -40,17 +46,20 @@ export function useOrderDistanceCalculator(
       requestIdRef.current += 1;
       setIsCalculatingDistance(false);
     }
+    lastCalculatedAddressRef.current = '';
+    lastCalculatedResultRef.current = null;
   }, [sourceKey]);
   useEffect(() => () => { requestIdRef.current += 1; }, []);
   const cancelPendingDistanceCalculation = useCallback(() => {
     requestIdRef.current += 1;
     requestedKeyRef.current = '';
     lastCalculatedAddressRef.current = '';
+    lastCalculatedResultRef.current = null;
     setIsCalculatingDistance(false);
   }, []);
 
   const handleAutoCalculateDistance = useCallback(
-    async (customAddress?: unknown, options: { silentSuccess?: boolean } = {}) => {
+    async (customAddress?: unknown, options: DistanceCalculationOptions = {}) => {
       const requestId = ++requestIdRef.current;
       const input = customAddress || (shipping.useCustomerAddress === false ? shipping.deliveryAddress : customerData.fullAddress);
       requestedKeyRef.current = getAddressKey(input);
@@ -66,7 +75,14 @@ export function useOrderDistanceCalculator(
         return;
       }
       const addressKey = getAddressKey(address);
-      if (lastCalculatedAddressRef.current === addressKey) { setIsCalculatingDistance(false); return; }
+      if (lastCalculatedAddressRef.current === addressKey) {
+        setIsCalculatingDistance(false);
+        const cached = lastCalculatedResultRef.current;
+        if (options.onCalculated && cached?.addressKey === addressKey) {
+          options.onCalculated(cached.route, cached.freight);
+        }
+        return;
+      }
       setIsCalculatingDistance(true);
       let lookup: Lookup | null = null;
       try {
@@ -93,17 +109,23 @@ export function useOrderDistanceCalculator(
           }
           return;
         }
-        const route = parsed.data;
+        const route = parsed.data as RouteResult;
         const freight = calculateFreightByDistance(route.distanceKm);
         if (!Number.isFinite(freight) || freight < 0) {
           toast.warn('Cálculo de frete inválido. Informe o valor manualmente.');
           return;
         }
         lastCalculatedAddressRef.current = addressKey;
-        setShipping((previous) => ({ ...previous, distance: route.distanceKm, autoCalculateValue: true,
-          durationMinutes: route.durationMinutes, destinationCoords: route.destinationCoords,
-          routeGeoJSON: route.routeGeoJSON, value: freight,
+        lastCalculatedResultRef.current = { addressKey, route, freight };
+        setShipping((previous) => ({
+          ...previous,
+          ...(options.onCalculated ? {} : { distance: route.distanceKm, value: freight }),
+          autoCalculateValue: true,
+          durationMinutes: route.durationMinutes,
+          destinationCoords: route.destinationCoords,
+          routeGeoJSON: route.routeGeoJSON,
         }));
+        options.onCalculated?.(route, freight);
         if (!options.silentSuccess) toast.success('Distância calculada: ' + route.distanceKm.toFixed(1) + ' km (Frete: R$ ' + freight.toFixed(2) + ')');
       } catch {
         if (requestId === requestIdRef.current) {

@@ -15,6 +15,7 @@ import {
 } from '../../../../../shared-utils/inventoryResponsible';
 import {
   INVENTORY_AUDIT_EMPLOYEE_QUERY_COLUMNS,
+  PEOPLE_FETCH_PAGE_SIZE,
   PERSON_QUERY_COLUMNS,
   type FetchPersonsOptions,
   isTestPerson,
@@ -275,6 +276,45 @@ export const fetchPersons = async (
     if (options.throwOnError) throw e;
     return [];
   }
+};
+
+export type EmployeeDirectorySortBy = 'fullName' | 'createdAt';
+
+export interface EmployeeDirectoryPage {
+  people: Person[];
+  totalItems: number;
+}
+
+/** Uses a server page only for the administrative employees directory. */
+export const fetchEmployeeDirectoryPage = async ({
+  page,
+  pageSize,
+  sortBy,
+  sortOrder,
+}: {
+  page: number;
+  pageSize: number;
+  sortBy: EmployeeDirectorySortBy;
+  sortOrder: 'asc' | 'desc';
+}): Promise<EmployeeDirectoryPage> => {
+  const { data, error } = await supabase.rpc('list_admin_employee_page', {
+    p_page: page,
+    p_page_size: pageSize,
+    p_sort_by: sortBy,
+    p_sort_order: sortOrder,
+  });
+
+  if (error) throw error;
+
+  const response = Array.isArray(data) ? data[0] : null;
+  const rows = response?.rows;
+  const totalItems = Number(response?.total_count);
+
+  if (!Array.isArray(rows) || !Number.isSafeInteger(totalItems) || totalItems < 0) {
+    throw new Error('A consulta paginada de colaboradores retornou um resultado inválido.');
+  }
+
+  return { people: rows.map(mapFromDB), totalItems };
 };
 
 /** Loads only the employee fields used by the ERP inventory-responsible selector. */

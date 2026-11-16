@@ -261,6 +261,20 @@ describe('cadastro de pedido com estoque atômico', () => {
     expect(args.p_payments).toEqual(raw.payments);
   });
 
+  it('impede concluir a venda inteira quando o snapshot original tem vários agendamentos', async () => {
+    const raw = { ...scheduledSale, id: 'pedido-status', shipping: { deliveryMethod: 'delivery', scheduling: {
+      date: '2026-11-20', time: '09:00', startTime: '09:00', type: 'fixed', appointments: [
+        { id: 'a', itemIds: ['item-a'], scheduling: { date: '2026-11-20', time: '09:00', type: 'fixed' } },
+        { id: 'b', itemIds: ['item-b'], scheduling: { date: '2026-11-21', time: '09:00', type: 'fixed' } },
+      ],
+    } } };
+    const current: any = { ...scheduledSale, id: raw.id, updatedAt: '2026-10-18T12:00:00Z' };
+    setPersistedOrderDataSnapshot(current, raw);
+    await expect(executeUpdateOrder(raw.id, { status: 'fulfilled' }, current, current.updatedAt))
+      .rejects.toThrow('A conclusão individual de cada agendamento ainda não está disponível');
+    expect(mocks.rpc).not.toHaveBeenCalled();
+  });
+
   it('consulta o snapshot original quando o proprietário de metadados não possui WeakMap', async () => {
     const raw = { ...scheduledSale, payments: splitPayments, customRetainedField: { source: 'audit' } };
     const query: any = { select: () => query, eq: () => query, maybeSingle: async () => ({ data: { order_data: raw }, error: null }) };

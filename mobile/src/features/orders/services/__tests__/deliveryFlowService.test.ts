@@ -110,6 +110,46 @@ describe('deliveryFlowService — Persistência e Sincronização do Fluxo de En
     );
   });
 
+  it('impede iniciar e concluir o pedido inteiro quando há agendamentos separados', async () => {
+    const currentData = { shipping: { scheduling: { appointments: [
+      { id: 'a', itemIds: ['item'], itemQuantities: { item: 1 } },
+      { id: 'b', itemIds: ['item'], itemQuantities: { item: 1 } },
+    ] } }, items: [{ orderItemId: 'item', quantity: 2 }] };
+    await expect(deliveryFlowService.startRoute({ orderId: 'ord-100', currentData, checklist: [], responsibles: [] }))
+      .rejects.toThrow('Selecione uma operação do pedido');
+    await expect(deliveryFlowService.finishDelivery({ orderId: 'ord-100', currentData, payments: [] }))
+      .rejects.toThrow('Selecione uma operação do pedido');
+    expect(mockUpdate).not.toHaveBeenCalled();
+    expect(mockRecordEvent).not.toHaveBeenCalled();
+  });
+
+  it('não inicia preparação global quando os itens estão distribuídos em operações', async () => {
+    const currentData = { shipping: { scheduling: { appointments: [
+      { id: 'a', itemIds: ['item'] }, { id: 'b', itemIds: ['item'] },
+    ] } }, items: [{ orderItemId: 'item', quantity: 2 }] };
+    await expect(deliveryFlowService.startPreparation('ord-100', currentData))
+      .rejects.toThrow('Selecione uma operação do pedido');
+    expect(mockRecordEvent).not.toHaveBeenCalled();
+  });
+
+  it('impede concluir uma seleção parcial e permite agendamento único com todos os itens', async () => {
+    const items = [{ orderItemId: 'item', quantity: 2 }];
+    const scheduling = { appointments: [{ id: 'a', itemIds: ['item'], itemQuantities: { item: 1 } }] };
+    await expect(deliveryFlowService.finishDelivery({ orderId: 'ord-100', currentData: { items, shipping: { scheduling } }, payments: [] }))
+      .rejects.toThrow('Selecione uma operação do pedido');
+    scheduling.appointments[0].itemQuantities.item = 2;
+    const result = await deliveryFlowService.finishDelivery({ orderId: 'ord-100', currentData: { items, shipping: { scheduling } }, payments: [] });
+    expect(result.updatedData.status).toBe('fulfilled');
+  });
+
+  it('não conclui um agendamento explícito quando não consegue conferir os itens', async () => {
+    const currentData = { shipping: { scheduling: { appointments: [{ id: 'a', itemIds: ['item'] }] } } };
+    await expect(deliveryFlowService.finishDelivery({ orderId: 'ord-100', currentData, payments: [] }))
+      .rejects.toThrow('Selecione uma operação do pedido');
+    expect(mockUpdate).not.toHaveBeenCalled();
+    expect(mockRecordEvent).not.toHaveBeenCalled();
+  });
+
   it('recordUnattended registra motivo do insucesso da entrega', async () => {
     const result = await deliveryFlowService.recordUnattended({
       orderId: 'ord-100',

@@ -62,22 +62,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const selectedResult = await withTimeout(context.userDb
       .from('whatsapp_messages')
-      .select('id,message_type,raw_payload,timestamp')
+      .select('message_type,timestamp,provider_message_type:raw_payload->>provider_message_type')
       .eq('conversation_id', conversationId)
       .in('id', uniqueIds), 12_000);
     if (selectedResult.error) return responseJson(res, 503, { error: 'Não foi possível validar as mensagens.' });
     const selectedRows = selectedResult.data || [];
     if (selectedRows.length !== uniqueIds.length) return responseJson(res, 404, { error: 'Uma ou mais mensagens não pertencem a esta conversa.' });
 
-    const isRemovable = (row: { message_type?: unknown; raw_payload?: unknown }) => {
+    const isRemovable = (row: { message_type?: unknown; provider_message_type?: unknown }) => {
       const type = String(row.message_type || '');
-      const providerType = row.raw_payload && typeof row.raw_payload === 'object'
-        ? String((row.raw_payload as Record<string, unknown>).provider_message_type || '')
-        : '';
+      const providerType = String(row.provider_message_type || '');
       return !['deleted', 'internal_note', 'system_event'].includes(type)
         && !['reaction', 'system', 'request_welcome'].includes(providerType);
     };
-    if (selectedRows.some((row: { message_type?: unknown; raw_payload?: unknown }) => !isRemovable(row))) {
+    if (selectedRows.some((row: { message_type?: unknown; provider_message_type?: unknown }) => !isRemovable(row))) {
       return responseJson(res, 400, { error: 'A seleção inclui uma mensagem que não pode ser removida.' });
     }
 
