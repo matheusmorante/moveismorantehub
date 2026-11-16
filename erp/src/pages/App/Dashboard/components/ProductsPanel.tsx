@@ -57,7 +57,10 @@ const ProductsPanel: React.FC<ProductsPanelProps> = ({ data }) => {
           <button
             key={t.key}
             id={`products-tab-${t.key}`}
-            onClick={() => setTab(t.key)}
+            onClick={() => {
+              if (t.key === 'stalled') data.loadStalled();
+              setTab(t.key);
+            }}
             className={`flex-1 py-1.5 text-[9px] font-black uppercase tracking-wider rounded-lg transition-all ${
               tab === t.key
                 ? 'bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 shadow-sm'

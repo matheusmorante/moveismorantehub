@@ -114,21 +114,7 @@ export const OrderCardBody: React.FC<OrderCardBodyProps> = ({
         </div>
       )}
 
-      <OrderDeliveryPrompt
-        order={order}
-        showTrash={showTrash}
-        showManualPrompt={showManualPrompt}
-        onStatusUpdate={onStatusUpdate}
-        fulfilledLabel={statusConfig.fulfilled?.label || 'Atendido'}
-      />
-
-      <div
-        className={`grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 mt-2 pt-2 border-t ${
-          isCancelled
-            ? 'border-red-200/60 dark:border-red-900/40'
-            : 'border-slate-100 dark:border-slate-800/40'
-        }`}
-      >
+      <div className="mt-2 grid grid-cols-1 gap-x-4 gap-y-2 pt-2 sm:grid-cols-2">
         <div className="flex flex-col">
           <span className="text-[8px] font-black uppercase tracking-widest opacity-40 mb-0.5">
             Pedido
@@ -139,11 +125,20 @@ export const OrderCardBody: React.FC<OrderCardBodyProps> = ({
           </div>
         </div>
 
-        <OrderScheduleSummary
-          order={order}
-          className="w-full"
-          legacyTimeDisplay={timeDisplay}
-        />
+        <div className="flex min-w-0 flex-col items-start">
+          <OrderDeliveryPrompt
+            order={order}
+            showTrash={showTrash}
+            showManualPrompt={showManualPrompt}
+            onStatusUpdate={onStatusUpdate}
+            fulfilledLabel={statusConfig.fulfilled?.label || 'Atendido'}
+          />
+          <OrderScheduleSummary
+            order={order}
+            className="w-full"
+            legacyTimeDisplay={timeDisplay}
+          />
+        </div>
       </div>
     </div>
   );

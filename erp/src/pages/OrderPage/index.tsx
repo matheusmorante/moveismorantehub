@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef } from 'react';
 import OrderPrintDocument from './OrderPrintDocument';
-import OperationInfoPrintDocument from './OperationInfoPrintDocument';
 
 const OrderPage = () => {
   const storedOrder = sessionStorage.getItem('order');
@@ -42,9 +41,13 @@ const OrderPage = () => {
     );
   }
 
-  return isOperationInfo
-    ? <OperationInfoPrintDocument order={order} />
-    : <OrderPrintDocument order={order} isBudget={isBudget} />;
+  return (
+    <OrderPrintDocument
+      order={order}
+      isBudget={isBudget}
+      isOperationInfo={isOperationInfo}
+    />
+  );
 };
 
 export default OrderPage;

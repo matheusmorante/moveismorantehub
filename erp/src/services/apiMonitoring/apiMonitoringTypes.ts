@@ -180,3 +180,9 @@ export interface ApiDashboardMetrics {
   modelsBreakdown: ApiModelUsageBreakdown[];
   modulesBreakdown: ApiModuleUsageBreakdown[];
 }
+
+/** Métricas estritamente necessárias ao cartão da página inicial. */
+export type ApiUsageSummaryCardMetrics = Pick<
+  ApiDashboardMetrics,
+  'totalRequests' | 'servicesNearLimitCount' | 'summaries' | 'modelsBreakdown' | 'modulesBreakdown'
+>;

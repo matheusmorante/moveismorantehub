@@ -10,7 +10,7 @@ const OrderOperationalNotices = ({ tags, isBudget }: OrderOperationalNoticesProp
     <div className="border-2 border-red-500/20 rounded-2xl p-3 bg-red-50/30 mb-2 print-exact-bg-light">
       <h2 className="text-[11px] font-black uppercase tracking-widest text-red-600 mb-2 flex items-center gap-2">
         <i className="bi bi-exclamation-octagon-fill"></i>
-        OBSERVAÇÕES OPERACIONAIS
+        AVISOS IMPORTANTES
       </h2>
       <div className="flex flex-wrap gap-2">
         {tags.map((tag: string, i: number) => (

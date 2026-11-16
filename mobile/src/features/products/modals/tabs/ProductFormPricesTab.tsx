@@ -71,6 +71,11 @@ export const ProductFormPricesTab: React.FC<Props> = ({
   supplierError = false,
   onSupplierValidationCleared,
 }) => {
+  const isOwnProduction =
+    formData.merchandiseOrigin === 'own_production' ||
+    formData.isOwnProduction === true ||
+    formData.fiscal?.merchandiseOrigin === 'own_production';
+
   const {
     suppliers,
     supplierSearch,
@@ -80,7 +85,7 @@ export const ProductFormPricesTab: React.FC<Props> = ({
     supplierLoadState,
     setSupplierLoadAttempt,
     supplierLoadErrorMessage,
-  } = useProductFormSupplierSectionState();
+  } = useProductFormSupplierSectionState(!isOwnProduction);
 
   const selectedStockOrigin = getProductSupplierStockOrigin(formData.productKind);
   const selectedSupplierIds = useMemo(
@@ -92,11 +97,6 @@ export const ProductFormPricesTab: React.FC<Props> = ({
       ),
     [formData.supplierIds, formData.mainSupplierId, formData.supplierId]
   );
-  const isOwnProduction =
-    formData.merchandiseOrigin === 'own_production' ||
-    formData.isOwnProduction === true ||
-    formData.fiscal?.merchandiseOrigin === 'own_production';
-
   const set = useCallback(
     (field: string, value: any) => {
       setFormData((prev: any) => ({ ...prev, [field]: value }));

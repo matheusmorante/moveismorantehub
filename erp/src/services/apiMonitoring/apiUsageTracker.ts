@@ -3,6 +3,7 @@
 import { supabase } from '../../pages/utils/supabaseConfig';
 import { ApiConfigService } from './apiConfigService';
 import { getApiUsageDashboardMetrics } from './apiUsageDashboardService';
+import { getApiUsageSummaryCardMetrics } from './apiUsageSummaryCardService';
 import {
   ApiEnvironment,
   ApiProvider,
@@ -10,6 +11,7 @@ import {
   ApiUsageLog,
   ApiUsageStatus,
   ApiDashboardMetrics,
+  ApiUsageSummaryCardMetrics,
 } from './apiMonitoringTypes';
 
 interface RecordUsageOptions {
@@ -233,5 +235,14 @@ export class ApiUsageTracker {
     environment: ApiEnvironment | 'all' = 'all'
   ): Promise<ApiDashboardMetrics> {
     return getApiUsageDashboardMetrics(startDate, endDate, environment);
+  }
+
+  /** Obtém somente as métricas exibidas no cartão compacto da página inicial. */
+  public static async getDashboardSummaryCardMetrics(
+    startDate: string,
+    endDate: string,
+    environment: ApiEnvironment | 'all' = 'all'
+  ): Promise<ApiUsageSummaryCardMetrics> {
+    return getApiUsageSummaryCardMetrics(startDate, endDate, environment);
   }
 }

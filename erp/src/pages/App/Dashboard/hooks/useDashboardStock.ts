@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/pages/utils/supabaseConfig';
@@ -56,7 +56,11 @@ export const useDashboardStock = (): StockData => {
   const userId = user?.id ?? '';
   const roleScope = [profile?.role ?? '', ...(profile?.roles ?? [])].sort().join(',');
   const queryKey = useMemo(() => ['dashboard-stock', userId, roleScope] as const, [userId, roleScope]);
-  const enabled = Boolean(userId && profile?.id === userId);
+  const identityReady = Boolean(userId && profile?.id === userId);
+  const identityScope = JSON.stringify([userId, roleScope]);
+  const [realtimeReadyScope, setRealtimeReadyScope] = useState('');
+  const realtimeReady = identityReady && realtimeReadyScope === identityScope;
+  const enabled = identityReady && realtimeReady;
   const query = useQuery({
     queryKey,
     enabled,
@@ -67,31 +71,62 @@ export const useDashboardStock = (): StockData => {
   });
 
   useEffect(() => {
-    if (!enabled) return;
-    let timer: ReturnType<typeof setTimeout> | undefined;
+    if (!identityReady) return;
+    let invalidationTimer: ReturnType<typeof setTimeout> | undefined;
+    let subscriptionTimer: ReturnType<typeof setTimeout> | undefined;
+    let subscribed = false;
+    let fallbackExpired = false;
     const invalidate = () => {
-      if (timer) clearTimeout(timer);
-      timer = setTimeout(() => void queryClient.invalidateQueries({ queryKey }), 200);
+      if (invalidationTimer) clearTimeout(invalidationTimer);
+      invalidationTimer = setTimeout(() => void queryClient.invalidateQueries({ queryKey }), 200);
     };
+    subscriptionTimer = setTimeout(() => {
+      subscriptionTimer = undefined;
+      fallbackExpired = true;
+      setRealtimeReadyScope(identityScope);
+    }, 1_000);
     const channel = supabase.channel('dashboard-stock-and-inventory')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, invalidate)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'product_variations' }, invalidate)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'inventory_moves' }, invalidate)
       .subscribe((status) => {
-        if (status === 'SUBSCRIBED') invalidate();
+        if (status !== 'SUBSCRIBED') return;
+        if (subscriptionTimer) {
+          clearTimeout(subscriptionTimer);
+          subscriptionTimer = undefined;
+        }
+
+        if (!subscribed) {
+          subscribed = true;
+          if (fallbackExpired) {
+            setRealtimeReadyScope(identityScope);
+            invalidate();
+            return;
+          }
+
+          if (queryClient.getQueryData(queryKey) !== undefined) {
+            void queryClient.invalidateQueries({ queryKey, exact: true, refetchType: 'none' });
+          }
+          setRealtimeReadyScope(identityScope);
+          return;
+        }
+
+        setRealtimeReadyScope(identityScope);
+        invalidate();
       });
     return () => {
-      if (timer) clearTimeout(timer);
+      if (invalidationTimer) clearTimeout(invalidationTimer);
+      if (subscriptionTimer) clearTimeout(subscriptionTimer);
       void supabase.removeChannel(channel);
     };
-  }, [enabled, queryClient, queryKey]);
+  }, [identityReady, identityScope, queryClient, queryKey]);
 
   return {
     zeroStockCount: query.data?.zeroStockCount ?? 0,
     lowStockCount: query.data?.lowStockCount ?? 0,
     lowStockItems: query.data?.lowStockItems ?? [],
     pendingInventory: query.data?.pendingInventory ?? null,
-    loading: !enabled || query.isLoading,
+    loading: !identityReady || (query.data === undefined && !realtimeReady) || query.isLoading,
     error: query.isError,
     retry: () => query.refetch(),
   };

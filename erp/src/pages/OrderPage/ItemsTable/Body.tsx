@@ -6,9 +6,10 @@ import { getFixedDiscount } from '@/pages/utils/calculations';
 
 interface Props {
   items: Item[];
+  compact?: boolean;
 }
 
-const Body = ({ items }: Props) => {
+const Body = ({ items, compact = false }: Props) => {
   const settings = getSettings();
   const allOptions = [
     ...(settings.deliveryHandlingOptions || []),
@@ -16,22 +17,33 @@ const Body = ({ items }: Props) => {
   ];
 
   return (
-    <tbody className="divide-y divide-slate-100 italic">
+    <tbody className={`divide-y divide-slate-100 ${compact ? '' : 'italic'}`}>
       {items.map((item, index) => {
         const fixedDiscount = getFixedDiscount(item);
         const total = (item.unitPrice - (fixedDiscount || 0)) * item.quantity;
         const handlingLabel = (item.handlingType || item.condition || '').trim();
         const handlingOpt = allOptions.find((o) => o.label === handlingLabel);
         const bgColor = handlingOpt?.color || '#3b82f6';
+        const handlingTextColor = bgColor !== 'transparent' ? bgColor : '#64748b';
 
         return (
-          <tr key={index} className="text-sm">
-            <td className="px-3 py-1.5 font-bold text-slate-700 uppercase leading-tight text-[13px]">
+          <tr key={index} className={compact ? 'text-[11px]' : 'text-sm'}>
+            <td className={compact
+              ? 'px-2 py-1 font-semibold text-slate-800 uppercase leading-tight'
+              : 'px-3 py-1.5 font-bold text-slate-700 uppercase leading-tight text-[13px]'}>
               <div>
                 {item.description}
                 {item.observation?.trim() ? ` - ${item.observation.trim()}` : ''}
+                {compact && handlingLabel && handlingLabel !== '-' && (
+                  <span
+                    className="font-medium not-italic normal-case"
+                    style={{ color: handlingTextColor }}
+                  >
+                    {' - '}{handlingLabel}
+                  </span>
+                )}
               </div>
-              {handlingLabel && handlingLabel !== '-' && (
+              {!compact && handlingLabel && handlingLabel !== '-' && (
                 <div className="mt-1">
                   <span
                     className="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border print-exact-bg"
@@ -46,16 +58,24 @@ const Body = ({ items }: Props) => {
                 </div>
               )}
             </td>
-            <td className="px-1 py-0.5 text-right font-bold text-slate-600 whitespace-nowrap">
+            <td className={compact
+              ? 'px-2 py-1 text-center font-semibold text-slate-700 whitespace-nowrap'
+              : 'px-1 py-0.5 text-right font-bold text-slate-600 whitespace-nowrap'}>
               <UnitDisplay value={item.quantity} />
             </td>
-            <td className="px-2 py-0.5 text-right text-slate-500 font-medium whitespace-nowrap">
+            <td className={compact
+              ? 'px-2 py-1 text-right text-slate-600 font-medium whitespace-nowrap'
+              : 'px-2 py-0.5 text-right text-slate-500 font-medium whitespace-nowrap'}>
               <CurrencyDisplay value={item.unitPrice} />
             </td>
-            <td className="px-2 py-0.5 text-right text-slate-500 font-medium whitespace-nowrap">
+            <td className={compact
+              ? 'px-2 py-1 text-right text-slate-600 font-medium whitespace-nowrap'
+              : 'px-2 py-0.5 text-right text-slate-500 font-medium whitespace-nowrap'}>
               <CurrencyDisplay value={fixedDiscount || 0} />
             </td>
-            <td className="px-2 py-0.5 text-right font-black text-slate-900 bg-slate-50/10 whitespace-nowrap">
+            <td className={compact
+              ? 'px-2 py-1 text-right font-bold text-slate-900 whitespace-nowrap'
+              : 'px-2 py-0.5 text-right font-black text-slate-900 bg-slate-50/10 whitespace-nowrap'}>
               <CurrencyDisplay value={total} />
             </td>
           </tr>

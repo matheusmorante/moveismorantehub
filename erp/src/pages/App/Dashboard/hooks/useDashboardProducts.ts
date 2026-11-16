@@ -26,17 +26,19 @@ export interface ProductsData {
   setStalledPeriod: (p: StalledPeriod) => void;
   stalledLoading: boolean;
   stalledError: boolean;
+  loadStalled: () => void;
   retryStalled: () => Promise<unknown>;
 }
 
 export const useDashboardProducts = (rankings: DashboardMetrics['products']): ProductsData => {
   const [stalledPeriod, setStalledPeriod] = useState<StalledPeriod>(60);
+  const [stalledEnabled, setStalledEnabled] = useState(false);
   const { user, profile } = useAuth();
   const userId = user?.id ?? '';
   const roleScope = [profile?.role ?? '', ...(profile?.roles ?? [])].sort().join(',');
   const stalledQuery = useQuery({
     queryKey: ['dashboard-stalled-products', userId, roleScope, stalledPeriod],
-    enabled: Boolean(userId && profile?.id === userId),
+    enabled: stalledEnabled && Boolean(userId && profile?.id === userId),
     staleTime: 5 * 60 * 1000,
     queryFn: async (): Promise<ProductStat[]> => {
       const { data, error } = await supabase.rpc('get_dashboard_stalled_products', { p_days: stalledPeriod });
@@ -62,6 +64,7 @@ export const useDashboardProducts = (rankings: DashboardMetrics['products']): Pr
     setStalledPeriod,
     stalledLoading: stalledQuery.isLoading,
     stalledError: stalledQuery.isError,
+    loadStalled: () => setStalledEnabled(true),
     retryStalled: () => stalledQuery.refetch(),
   };
 };

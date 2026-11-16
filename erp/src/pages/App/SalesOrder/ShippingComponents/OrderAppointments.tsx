@@ -379,7 +379,7 @@ export const OrderAppointments: React.FC<Props> = ({
         const operationSteps: { id: OperationStep; label: string }[] = [
           { id: 'items', label: 'Itens' },
           ...(isDelivery ? [{ id: 'address' as const, label: 'Endereço e frete' }] : []),
-          { id: 'schedule', label: 'Programação' },
+          { id: 'schedule', label: 'Agendamento' },
           ...(isSale && (isDelivery || isPickup) ? [{ id: 'notices' as const, label: 'Avisos' }] : []),
         ];
         const requestedStep = activeOperationSteps[appointment.id] ?? 'items';

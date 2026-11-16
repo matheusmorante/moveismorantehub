@@ -36,7 +36,6 @@ interface ProductCardProps {
       conditions?: string | null;
     } | null;
     image: string;
-    category: string;
     promotion?: boolean;
     opportunity?: {
       name: string;

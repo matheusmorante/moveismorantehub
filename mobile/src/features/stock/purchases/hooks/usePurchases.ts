@@ -9,6 +9,7 @@ import {
   PurchaseFilters,
   PURCHASE_PAGE_SIZE,
 } from '../mobilePurchaseService';
+import { createPurchaseRealtimeStatusHandler } from '../purchaseRealtimeStatus';
 
 export const usePurchases = (filters: PurchaseFilters = {}) => {
   const [purchases, setPurchases] = useState<MobilePurchase[]>([]);
@@ -128,13 +129,16 @@ export const usePurchases = (filters: PurchaseFilters = {}) => {
   }, [filters.search, filters.supplierId, reload]);
 
   useEffect(() => {
+    let active = true;
     const scheduleReload = () => {
+      if (!active) return;
       if (realtimeReloadTimerRef.current) clearTimeout(realtimeReloadTimerRef.current);
       realtimeReloadTimerRef.current = setTimeout(() => {
         realtimeReloadTimerRef.current = null;
         void reload();
       }, 1000);
     };
+    const handleStatus = createPurchaseRealtimeStatusHandler(scheduleReload);
     const channel = supabase
       .channel(`mobile-purchases-${Date.now()}`)
       .on(
@@ -147,8 +151,9 @@ export const usePurchases = (filters: PurchaseFilters = {}) => {
         { event: '*', schema: 'public', table: 'purchase_items' },
         scheduleReload
       )
-      .subscribe();
+      .subscribe(handleStatus);
     return () => {
+      active = false;
       if (realtimeReloadTimerRef.current) clearTimeout(realtimeReloadTimerRef.current);
       realtimeReloadTimerRef.current = null;
       void supabase.removeChannel(channel);

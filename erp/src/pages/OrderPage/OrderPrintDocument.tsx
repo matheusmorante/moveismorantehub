@@ -15,15 +15,18 @@ import {
   getEffectiveOrderDeliveryAddress,
   getEffectiveOrderDeliveryMapUrl,
 } from '@/pages/utils/orderDeliveryAddress';
+import { calcItemsSummary } from '@/pages/utils/calculations';
 
 interface OrderPrintDocumentProps {
   order: Order;
   isBudget?: boolean;
+  isOperationInfo?: boolean;
 }
 
 export const OrderPrintDocument: React.FC<OrderPrintDocumentProps> = ({
   order,
   isBudget = false,
+  isOperationInfo = false,
 }) => {
   const allObs: string[] = [];
   if (order?.observation) allObs.push(...splitNoticeTags(order.observation));
@@ -43,24 +46,26 @@ export const OrderPrintDocument: React.FC<OrderPrintDocumentProps> = ({
 
   const hasPayments = order?.payments && order.payments.length > 0;
   const isPickup = order.shipping?.deliveryMethod === 'pickup';
+  const itemsSummary = isOperationInfo ? calcItemsSummary(order.items || []) : order.itemsSummary;
 
   return (
     <div className="flex flex-col gap-2 text-slate-900 bg-white min-h-screen px-4 py-2 font-sans transition-colors duration-300">
       <OrderHeader order={order} isBudget={isBudget} />
-      <OrderSubHeader seller={order.seller} isBudget={isBudget} />
+      {!isOperationInfo && <OrderSubHeader seller={order.seller} isBudget={isBudget} />}
       <OrderOperationalNotices tags={tags} isBudget={isBudget} />
 
       <CustomerData
         customerData={printableCustomerData}
         isPickup={isPickup}
         noAddress={order.shipping?.noAddress}
+        isOperationInfo={isOperationInfo}
       />
 
       <div className="mt-4">
         <div className="text-[11px] font-black uppercase tracking-widest text-slate-400 mb-2 ml-2 flex items-center gap-2">
-          <i className="bi bi-list-check"></i> ESPECIFICAÇÕES DOS ITENS
+          {isOperationInfo ? 'ITENS' : 'ESPECIFICAÇÕES DOS ITENS'}
         </div>
-        <ItemsTable items={order.items} summary={order.itemsSummary} />
+        <ItemsTable items={order.items} summary={itemsSummary} compact={isOperationInfo} />
       </div>
 
       <div
@@ -68,7 +73,7 @@ export const OrderPrintDocument: React.FC<OrderPrintDocumentProps> = ({
       >
         {showShippingColumn && (
           <div className="space-y-2">
-            {!isBudget && (
+            {!isBudget && !(isOperationInfo && isPickup) && (
               <div className="text-[11px] font-black uppercase tracking-widest text-slate-400 ml-2">
                 {isPickup ? 'DETALHES DA RETIRADA' : 'DETALHES DA ENTREGA'}
               </div>
@@ -80,6 +85,7 @@ export const OrderPrintDocument: React.FC<OrderPrintDocumentProps> = ({
                 itemsTotalValue={order.itemsSummary?.itemsTotalValue}
                 routeUrl={isBudget ? '' : getEffectiveOrderDeliveryMapUrl(order)}
                 customerAddress={order.customerData?.fullAddress}
+                isOperationInfo={isOperationInfo}
               />
             </div>
           </div>
@@ -94,7 +100,11 @@ export const OrderPrintDocument: React.FC<OrderPrintDocumentProps> = ({
                 PAGAMENTOS
               </div>
               <div className="bg-white rounded-3xl overflow-hidden">
-                <PaymentsTable payments={order.payments} summary={order.paymentsSummary} />
+                <PaymentsTable
+                  payments={order.payments}
+                  summary={order.paymentsSummary}
+                  plainStatus={isOperationInfo}
+                />
               </div>
             </div>
           )

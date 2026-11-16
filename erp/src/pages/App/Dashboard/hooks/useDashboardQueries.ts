@@ -63,32 +63,37 @@ export function useDashboardQueries(range: DashboardMetricsRange) {
       void queryClient.invalidateQueries({ queryKey: scopeKey });
     }
 
+    const metricsQueryKey = [...scopeKey, 'period'] as const;
     let timer: ReturnType<typeof setTimeout> | undefined;
     let readyFallbackUsed = false;
     let hasSubscribed = false;
-    const invalidate = () => {
+    let fullScopeInvalidationPending = false;
+    const invalidate = (includeOrderLists = false) => {
+      if (includeOrderLists) fullScopeInvalidationPending = true;
       if (timer) clearTimeout(timer);
       timer = setTimeout(() => {
-        void queryClient.cancelQueries({ queryKey: scopeKey }).then(() =>
-          queryClient.invalidateQueries({ queryKey: scopeKey })
+        const queryKey = fullScopeInvalidationPending ? scopeKey : metricsQueryKey;
+        fullScopeInvalidationPending = false;
+        void queryClient.cancelQueries({ queryKey }).then(() =>
+          queryClient.invalidateQueries({ queryKey })
         );
       }, 150);
     };
     const changesChannel = supabase.channel('dashboard-orders-and-items')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, invalidate)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'order_items' }, invalidate)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => invalidate(true))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'order_items' }, () => invalidate())
       .subscribe((status) => {
         if (status !== 'SUBSCRIBED') return;
         if (hasSubscribed) {
           // Mudanças durante uma desconexão são recuperadas ao restabelecer o canal.
-          invalidate();
+          invalidate(true);
           return;
         }
 
         hasSubscribed = true;
         setRealtimeGate({ scopeId, ready: true });
         // Se o failsafe já liberou a leitura, fecha a janela sem assinatura.
-        if (readyFallbackUsed) invalidate();
+        if (readyFallbackUsed) invalidate(true);
       });
     const readyFallback = setTimeout(() => {
       readyFallbackUsed = true;

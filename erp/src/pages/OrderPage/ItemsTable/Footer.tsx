@@ -4,10 +4,33 @@ import UnitDisplay from '../../../components/UnitDisplay';
 
 interface Props {
   summary: ItemsSummary;
+  compact?: boolean;
 }
 
-const Footer = ({ summary }: Props) => {
+const Footer = ({ summary, compact = false }: Props) => {
   const s = summary || ({} as any);
+
+  if (compact) {
+    return (
+      <tfoot>
+        <tr className="border-t border-slate-300 bg-slate-50 text-[10px] font-bold text-slate-700">
+          <th className="px-2 py-1.5 text-left uppercase tracking-tight">Total dos itens</th>
+          <td className="px-2 py-1.5 text-center whitespace-nowrap">
+            <UnitDisplay value={s.totalQuantity || 0} />
+          </td>
+          <td className="px-2 py-1.5 text-right whitespace-nowrap">
+            <CurrencyDisplay value={s.itemsSubtotal || 0} />
+          </td>
+          <td className="px-2 py-1.5 text-right whitespace-nowrap">
+            <CurrencyDisplay value={s.totalFixedDiscount || 0} />
+          </td>
+          <td className="px-2 py-1.5 text-right text-[12px] font-black text-slate-900 whitespace-nowrap">
+            <CurrencyDisplay value={s.itemsTotalValue || 0} />
+          </td>
+        </tr>
+      </tfoot>
+    );
+  }
 
   return (
     <tfoot className="bg-slate-50 border-t-4 border-slate-900 shadow-sm transition-all duration-300">

@@ -124,7 +124,7 @@ export function useCatalogProductsQuery(filters: CatalogFilters | undefined, cur
       const searchTerm = isCatalogSearchLongEnough(debouncedSearch) ? debouncedSearch.trim() : '';
 
       const stylePromise = getCachedStoreStyleSettings();
-      const { data: page, error } = await withAbortTimeout(supabase.rpc('catalog_product_card_page', {
+      const { data: page, error } = await withAbortTimeout(supabase.rpc('catalog_product_card_page_compact', {
         p_search: searchTerm,
         p_category_ids: filters?.cats?.length ? filters.cats : null,
         p_environment_category_ids: allowedCategoryIds.length ? allowedCategoryIds : null,

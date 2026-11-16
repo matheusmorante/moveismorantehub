@@ -5,9 +5,10 @@ import { Payment, PaymentsSummary } from '../../types/payments.type';
 type Props = {
   payments: Payment[];
   summary: PaymentsSummary;
+  plainStatus?: boolean;
 };
 
-const PaymentsTable = ({ payments, summary }: Props) => {
+const PaymentsTable = ({ payments, summary, plainStatus = false }: Props) => {
   return (
     <div className="flex flex-col border border-slate-200 rounded-2xl overflow-hidden bg-white shadow-sm">
       <table className="break-words w-full text-left border-collapse">
@@ -23,7 +24,7 @@ const PaymentsTable = ({ payments, summary }: Props) => {
             <th className="px-4 py-1 text-center">Status</th>
           </tr>
         </thead>
-        <Body payments={payments} />
+        <Body payments={payments} plainStatus={plainStatus} />
         <Footer summary={summary} />
       </table>
     </div>

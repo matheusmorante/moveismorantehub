@@ -1,19 +1,22 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   fetchMobileProductSuppliersWithStatus,
   type MobileProductSupplier,
 } from '../services/mobileSupplierService';
 
-export const useProductFormSupplierSectionState = () => {
+export const useProductFormSupplierSectionState = (enabled: boolean) => {
   const [suppliers, setSuppliers] = useState<MobileProductSupplier[]>([]);
   const [supplierSearch, setSupplierSearch] = useState<string>('');
   const [showSupplierForm, setShowSupplierForm] = useState(false);
   const [supplierLoadState, setSupplierLoadState] = useState<'loading' | 'loaded' | 'error'>('loading');
   const [supplierLoadAttempt, setSupplierLoadAttempt] = useState(0);
   const [supplierLoadErrorMessage, setSupplierLoadErrorMessage] = useState('');
+  const lastSuccessfulLoadAttempt = useRef<number | null>(null);
 
-  // Carrega fornecedores ativos sem confundir espera/falha com lista realmente vazia.
+  // Carrega somente quando a seção existe; reabrir a seção reutiliza a lista já obtida.
   useEffect(() => {
+    if (!enabled || lastSuccessfulLoadAttempt.current === supplierLoadAttempt) return;
+
     let isCurrent = true;
     setSupplierLoadState('loading');
     setSupplierLoadErrorMessage('');
@@ -25,6 +28,7 @@ export const useProductFormSupplierSectionState = () => {
           setSupplierLoadState('error');
           setSupplierLoadErrorMessage(result.errorMessage);
         } else {
+          lastSuccessfulLoadAttempt.current = supplierLoadAttempt;
           setSupplierLoadState('loaded');
           setSupplierLoadErrorMessage('');
         }
@@ -38,7 +42,7 @@ export const useProductFormSupplierSectionState = () => {
     return () => {
       isCurrent = false;
     };
-  }, [supplierLoadAttempt]);
+  }, [enabled, supplierLoadAttempt]);
 
   return {
     suppliers,

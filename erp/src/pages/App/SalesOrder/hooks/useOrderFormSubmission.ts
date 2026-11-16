@@ -5,7 +5,7 @@ import type { FieldErrors } from 'react-hook-form';
 import Order from '@/pages/types/order.type';
 import { ValidationErrors } from '@/pages/utils/validations';
 import { getFulfillmentLabels } from '@/pages/utils/orderStatusPresentation';
-import { saveOrder, resolveCompletedOrderStatus } from '@/pages/utils/orderHistoryService';
+import { saveOrder, updateOrder, resolveCompletedOrderStatus } from '@/pages/utils/orderHistoryService';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { getSettings } from '@/pages/utils/settingsService';
 import {
@@ -28,6 +28,7 @@ export interface UseOrderFormSubmissionParams {
   waitForActiveSave: () => Promise<boolean>;
   resumeAutoSave: () => void;
   getDraftCreationKey: () => string | undefined;
+  getSavedDraftIdForOrder: (order: Order) => string | undefined;
   setIsSaving: React.Dispatch<React.SetStateAction<boolean>>;
   setCurrentOrderId: React.Dispatch<React.SetStateAction<string | undefined>>;
   setStatus: React.Dispatch<React.SetStateAction<string>>;
@@ -50,6 +51,7 @@ export const useOrderFormSubmission = ({
   waitForActiveSave,
   resumeAutoSave,
   getDraftCreationKey,
+  getSavedDraftIdForOrder,
   setIsSaving,
   setCurrentOrderId,
   setStatus,
@@ -251,9 +253,23 @@ export const useOrderFormSubmission = ({
           }
           try {
             const creationKey = getDraftCreationKey();
-            const savedId = !orderData.id && creationKey
-              ? await saveOrder(orderData, { idempotencyKey: creationKey })
-              : await saveOrder(orderData);
+            const savedDraftId = getSavedDraftIdForOrder(orderData);
+            const canFinalizeSavedDraft = Boolean(
+              typeof updateOrder === 'function' &&
+              savedDraftId &&
+              orderData.id === savedDraftId &&
+              savedStatus !== 'draft' &&
+              latestState.current.status === 'draft'
+            );
+            let savedId: string;
+            if (canFinalizeSavedDraft && savedDraftId) {
+              await updateOrder(savedDraftId, { status: savedStatus });
+              savedId = savedDraftId;
+            } else {
+              savedId = !orderData.id && creationKey
+                ? await saveOrder(orderData, { idempotencyKey: creationKey })
+                : await saveOrder(orderData);
+            }
             if (savedId) {
               setCurrentOrderId(savedId);
               latestState.current.currentOrderId = savedId;
@@ -309,6 +325,7 @@ export const useOrderFormSubmission = ({
       waitForActiveSave,
       resumeAutoSave,
       getDraftCreationKey,
+      getSavedDraftIdForOrder,
       validateOrderForm,
       validateOrderDraft,
       showOrderValidationErrors,

@@ -44,12 +44,10 @@ const getDeliverySchedules = (shipping?: Shipping | null) => {
 const ShippingData = ({ shipping }: Props) => {
   const deliverySchedules = getDeliverySchedules(shipping);
   if (deliverySchedules.length === 0) return null;
-  const isSingleDelivery = deliverySchedules.length === 1;
-
   return (
     <section className="flex flex-col gap-4">
       <h2 className="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em] mb-1 flex items-center gap-3 after:h-[1px] after:bg-slate-100 after:flex-1 text-left">
-        {isSingleDelivery ? 'Programação da entrega' : 'Programações das entregas'}
+        Agendamentos
       </h2>
 
       <div className="flex flex-col gap-3">
@@ -62,10 +60,13 @@ const ShippingData = ({ shipping }: Props) => {
 
           return (
             <div key={id} className="flex flex-col gap-1">
-              <span className="text-[9px] font-black uppercase text-slate-400 tracking-wider">
-                {isSingleDelivery ? 'Entrega' : `Entrega ${index + 1}`}
-              </span>
-              <span className="text-sm font-bold text-slate-800">{mainSchedule}</span>
+              <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5">
+                <span className="text-[9px] font-black uppercase text-slate-400 tracking-wider">
+                  {deliverySchedules.length === 1 ? 'Entrega' : `Entrega ${index + 1}`}
+                </span>
+                <span className="text-xs font-semibold text-slate-400" aria-hidden="true">|</span>
+                <span className="text-sm font-bold text-slate-800">{mainSchedule}</span>
+              </div>
               {alternatives.length > 0 && (
                 <span className="text-xs text-slate-500 font-semibold">
                   Alternativas: {alternatives.join(' · ')}

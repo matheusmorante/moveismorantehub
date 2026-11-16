@@ -11,6 +11,7 @@ interface Props {
   itemsTotalValue?: number;
   routeUrl?: string;
   customerAddress?: FullAddress;
+  isOperationInfo?: boolean;
 }
 
 type PrintedSchedule = Partial<Omit<Shipping['scheduling'], 'appointments'>>;
@@ -34,7 +35,14 @@ const normalizeAddress = (address: FullAddress | undefined) =>
     .toLocaleLowerCase('pt-BR')
     .replace(/[^a-z0-9]/g, '');
 
-const ShippingData = ({ shipping, isBudget, itemsTotalValue, routeUrl, customerAddress }: Props) => {
+const ShippingData = ({
+  shipping,
+  isBudget,
+  itemsTotalValue,
+  routeUrl,
+  customerAddress,
+  isOperationInfo,
+}: Props) => {
   const appointments = shipping.scheduling?.appointments || [];
   const customerAddressText = stringifyFullAddressWithObservation(customerAddress);
   const operations = appointments.length
@@ -84,11 +92,12 @@ const ShippingData = ({ shipping, isBudget, itemsTotalValue, routeUrl, customerA
   });
   const hasDeliveryOperation = operationDetails.some((operation) => operation.deliveryMethod === 'delivery');
   const hasPickupOperation = operationDetails.some((operation) => operation.deliveryMethod === 'pickup');
+  const isPickupOperationInfo = isOperationInfo && hasPickupOperation && !hasDeliveryOperation;
   const operationCount = operationDetails.length;
 
   return (
     <section className="flex flex-col gap-2 w-full text-xs bg-slate-50/50 p-3 rounded-2xl border border-slate-50">
-      <div>
+      <div className={isPickupOperationInfo ? 'hidden' : undefined}>
         <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-600 mb-1 flex items-center gap-2">
           {!hasDeliveryOperation && hasPickupOperation ? (
             <PickupIcon className="h-4 w-4" />
@@ -180,32 +189,47 @@ const ShippingData = ({ shipping, isBudget, itemsTotalValue, routeUrl, customerA
       {!isBudget && (
         <div className="flex flex-col gap-2">
           <span className="text-[9px] font-black uppercase text-slate-400 tracking-widest">
-            {operationCount > 1 ? 'Programação das operações' : `Programação da ${hasPickupOperation ? 'retirada' : 'entrega'}`}
+            {isOperationInfo
+              ? 'Programação'
+              : operationCount > 1
+                ? 'Programação das operações'
+                : `Programação da ${hasPickupOperation ? 'retirada' : 'entrega'}`}
           </span>
           {operationDetails.map((operation) => (
-            <div key={operation.id} className="flex flex-col gap-1 bg-white p-1.5 rounded-xl border border-slate-100">
-              <span className="text-[9px] font-black uppercase text-slate-400 tracking-wider">
-                {operationCount > 1
-                  ? `Operação ${operation.index + 1}/${operationCount} · ${operation.deliveryMethod === 'pickup' ? 'Retirada' : 'Entrega'}`
-                  : operation.deliveryMethod === 'pickup' ? 'Retirada' : 'Entrega'}
-              </span>
-              <span className="text-sm font-bold text-slate-900">{operation.mainSchedule}</span>
-              {operation.alternatives.length > 0 && (
-                <span className="text-xs text-slate-700 font-semibold">
-                  Alternativas: {operation.alternatives.join(' · ')}
+            isOperationInfo ? (
+              <div key={operation.id} className="flex flex-col gap-1 bg-white p-1.5 rounded-xl border border-slate-100">
+                <span className="text-sm font-bold text-slate-900">{operation.mainSchedule}</span>
+                {operation.alternatives.length > 0 && (
+                  <span className="text-xs text-slate-700 font-semibold">
+                    Alternativas: {operation.alternatives.join(' · ')}
+                  </span>
+                )}
+              </div>
+            ) : (
+              <div key={operation.id} className="flex flex-col gap-1 bg-white p-1.5 rounded-xl border border-slate-100">
+                <span className="text-[9px] font-black uppercase text-slate-400 tracking-wider">
+                  {operationCount > 1
+                    ? `Operação ${operation.index + 1}/${operationCount} · ${operation.deliveryMethod === 'pickup' ? 'Retirada' : 'Entrega'}`
+                    : operation.deliveryMethod === 'pickup' ? 'Retirada' : 'Entrega'}
                 </span>
-              )}
-              {operation.addressText && (
-                <span className="text-xs text-slate-700">
-                  <strong>Endereço desta operação:</strong> {operation.addressText}
-                </span>
-              )}
-              {operation.isSameAsCustomerAddress && (
-                <span className="text-xs text-slate-700">
-                  <strong>Endereço:</strong> No mesmo endereço do cliente
-                </span>
-              )}
-            </div>
+                <span className="text-sm font-bold text-slate-900">{operation.mainSchedule}</span>
+                {operation.alternatives.length > 0 && (
+                  <span className="text-xs text-slate-700 font-semibold">
+                    Alternativas: {operation.alternatives.join(' · ')}
+                  </span>
+                )}
+                {operation.addressText && (
+                  <span className="text-xs text-slate-700">
+                    <strong>Endereço desta operação:</strong> {operation.addressText}
+                  </span>
+                )}
+                {operation.isSameAsCustomerAddress && (
+                  <span className="text-xs text-slate-700">
+                    <strong>Endereço:</strong> No mesmo endereço do cliente
+                  </span>
+                )}
+              </div>
+            )
           ))}
         </div>
       )}

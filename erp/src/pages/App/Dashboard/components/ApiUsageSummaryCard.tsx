@@ -2,13 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { ApiUsageTracker } from '@/services/apiMonitoring/apiUsageTracker';
 import {
-  ApiDashboardMetrics,
+  ApiUsageSummaryCardMetrics,
   ApiServiceSummary,
 } from '@/services/apiMonitoring/apiMonitoringTypes';
 import { toLocalDateInputValue } from '../dashboardDateRanges';
 
 export default function ApiUsageSummaryCard() {
-  const [metrics, setMetrics] = useState<ApiDashboardMetrics | null>(null);
+  const [metrics, setMetrics] = useState<ApiUsageSummaryCardMetrics | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState(false);
   const [retryToken, setRetryToken] = useState(0);
@@ -25,7 +25,11 @@ export default function ApiUsageSummaryCard() {
         const startOfMonth = toLocalDateInputValue(new Date(now.getFullYear(), now.getMonth(), 1));
         const endOfMonth = toLocalDateInputValue(new Date(now.getFullYear(), now.getMonth() + 1, 0));
 
-        const data = await ApiUsageTracker.getDashboardMetrics(startOfMonth, endOfMonth, 'all');
+        const data = await ApiUsageTracker.getDashboardSummaryCardMetrics(
+          startOfMonth,
+          endOfMonth,
+          'all',
+        );
         if (isMounted) {
           setMetrics(data);
           setError(false);

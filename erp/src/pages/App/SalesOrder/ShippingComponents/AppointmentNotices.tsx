@@ -41,7 +41,7 @@ export const AppointmentNotices: React.FC<Props> = ({
       className="bg-white dark:bg-slate-900"
     >
       {isDelivery && (
-        <div className="mb-4 flex flex-wrap items-start gap-x-8 gap-y-3">
+        <div className="mb-4 flex flex-col gap-y-3 md:flex-row md:flex-wrap md:gap-x-8">
           {DELIVERY_NOTICE_OPTIONS.map((option) => {
             const field = option.field as DeliveryNoticeField;
             const error = errors[`${prefix}${field}`];
@@ -50,8 +50,8 @@ export const AppointmentNotices: React.FC<Props> = ({
             const labelId = `appointment-${appointmentId}-${field}-label`;
 
             return (
-              <div key={field} className="flex min-w-0 flex-col gap-1">
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+              <div key={field} className="flex w-full min-w-0 flex-col gap-1 md:w-auto">
+                <div className="flex flex-col items-start gap-1 md:flex-row md:flex-wrap md:items-center md:gap-x-4 md:gap-y-1">
                   <span
                     id={labelId}
                     title={locked

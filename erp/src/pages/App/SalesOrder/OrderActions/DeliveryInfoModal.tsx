@@ -8,7 +8,6 @@ import {
   createOrderForOperation,
   getOperationActionClicked,
   getOperationActionStale,
-  getOperationAddressLabel,
   getOperationScheduleLabel,
   getOrderOperations,
 } from './operationActionScope';
@@ -41,7 +40,8 @@ export const DeliveryInfoModal: React.FC<DeliveryInfoModalProps> = ({
   useBodyScrollLock(isOpen);
   const [selectedOperationId, setSelectedOperationId] = React.useState<string | null>(null);
   const operations = React.useMemo(() => getOrderOperations(order), [order]);
-  const selectedEntry = operations.find((entry) => entry.id === selectedOperationId);
+  const selectedEntry = operations.find((entry) => entry.id === selectedOperationId) ||
+    (operations.length === 1 ? operations[0] : undefined);
   const selectedOrder = selectedEntry
     ? createOrderForOperation(order, selectedEntry, operations.length)
     : null;
@@ -126,11 +126,6 @@ export const DeliveryInfoModal: React.FC<DeliveryInfoModalProps> = ({
                     {getOperationScheduleLabel(selectedEntry, order.shipping?.deliveryMethod)}
                   </span>
                 </div>
-                {!isPickup && (
-                  <p className="mt-2 text-xs text-slate-600 dark:text-slate-300">
-                    <span className="font-bold">Endereço:</span> {getOperationAddressLabel(selectedOrder)}
-                  </p>
-                )}
               </div>
               <DeliveryInfoActionButtons
                 order={selectedOrder}
@@ -184,11 +179,6 @@ export const DeliveryInfoModal: React.FC<DeliveryInfoModalProps> = ({
                           <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">
                             {getOperationScheduleLabel(entry, order.shipping?.deliveryMethod)} · {operationOrder.items.length} {operationOrder.items.length === 1 ? 'item' : 'itens'}
                           </p>
-                          {!operationIsPickup && (
-                            <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400 truncate">
-                              {getOperationAddressLabel(operationOrder)}
-                            </p>
-                          )}
                         </div>
                         <i className="bi bi-chevron-right mt-1 text-slate-400 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
                       </div>
@@ -201,7 +191,7 @@ export const DeliveryInfoModal: React.FC<DeliveryInfoModalProps> = ({
         </div>
 
         <div className="px-6 py-4 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-100 dark:border-slate-800 flex justify-between shrink-0">
-          {selectedEntry ? (
+          {selectedEntry && !isSingleOperation ? (
             <button
               type="button"
               onClick={() => setSelectedOperationId(null)}

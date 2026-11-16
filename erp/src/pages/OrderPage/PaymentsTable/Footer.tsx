@@ -9,7 +9,7 @@ const Footer = ({ summary }: Props) => {
   return (
     <tfoot className="bg-slate-50 border-t-2 border-slate-900 font-sans">
       <tr className="text-[9px] font-black uppercase tracking-tight text-slate-400 whitespace-nowrap">
-        <th className="px-2 pt-1 pb-0.5">Saldo Juros</th>
+        <th className="px-2 pt-1 pb-0.5">Total taxas</th>
         <th colSpan={2} className="px-2 pt-1 pb-0.5 text-right">
           Total Pedido
         </th>

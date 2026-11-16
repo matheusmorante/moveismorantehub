@@ -60,9 +60,7 @@ export const OrderScheduleSummary: React.FC<OrderScheduleSummaryProps> = ({
         <span className="mb-0.5 text-[8px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
           {order.orderType === 'return'
             ? 'Data de coleta'
-            : entries.length > 1
-              ? 'Agendamentos'
-              : 'Agendamento'}
+            : 'Agendamentos'}
         </span>
       )}
       <div
@@ -123,7 +121,7 @@ export const OrderScheduleSummary: React.FC<OrderScheduleSummaryProps> = ({
             >
               {order.orderType === 'sale' && (
                 <span
-                  className={`inline-flex shrink-0 items-center gap-1.5 font-semibold ${
+                  className={`inline-flex h-4 shrink-0 items-center gap-1.5 font-semibold leading-4 ${
                     entry.deliveryMethod === 'pickup'
                       ? 'text-purple-700 dark:text-purple-300'
                       : 'text-emerald-700 dark:text-emerald-300'
@@ -142,7 +140,7 @@ export const OrderScheduleSummary: React.FC<OrderScheduleSummaryProps> = ({
                   Falta definir
                 </span>
               ) : dateText ? (
-                <span className="inline-flex min-w-0 items-center gap-1.5 font-medium text-slate-700 dark:text-slate-300">
+                <span className="inline-flex h-4 min-w-0 items-center gap-1.5 font-medium leading-4 text-slate-700 dark:text-slate-300">
                   <i className="bi bi-calendar3 shrink-0 text-[11px] text-slate-400 dark:text-slate-500" />
                   <span className="truncate">{dateText}</span>
                 </span>
@@ -152,7 +150,7 @@ export const OrderScheduleSummary: React.FC<OrderScheduleSummaryProps> = ({
                 </span>
               ) : null}
               {appointmentTime && !pending && (
-                <span className="inline-flex shrink-0 items-center gap-1.5 font-medium text-slate-700 dark:text-slate-300">
+                <span className="inline-flex h-4 shrink-0 items-center gap-1.5 font-medium leading-4 text-slate-700 dark:text-slate-300">
                   <i className="bi bi-clock shrink-0 text-[11px] text-slate-400 dark:text-slate-500" />
                   {appointmentTime}
                 </span>

@@ -52,7 +52,7 @@ beforeEach(() => {
   });
   mocks.removeChannel.mockReset().mockResolvedValue(undefined);
 });
-afterEach(() => { cleanup(); vi.clearAllMocks(); });
+afterEach(() => { cleanup(); vi.clearAllMocks(); vi.useRealTimers(); });
 
 describe('consulta de estoque do Dashboard', () => {
   it('propaga falhas da leitura para o estado de erro', async () => {
@@ -60,15 +60,21 @@ describe('consulta de estoque do Dashboard', () => {
     const { wrapper } = setup();
     const { result } = renderHook(() => useDashboardStock(), { wrapper });
 
+    expect(mocks.rpc).not.toHaveBeenCalled();
+    act(() => mocks.subscriptionStatus?.('SUBSCRIBED'));
     await waitFor(() => expect(result.current.error).toBe(true));
     expect(result.current.loading).toBe(false);
   });
 
-  it('reconsulta os indicadores quando a assinatura Realtime fica ativa', async () => {
+  it('faz uma leitura inicial ao assinar e revalida em uma nova assinatura', async () => {
     const { wrapper } = setup();
     const { result } = renderHook(() => useDashboardStock(), { wrapper });
+    expect(mocks.rpc).not.toHaveBeenCalled();
+    expect(result.current.loading).toBe(true);
+
+    act(() => mocks.subscriptionStatus?.('SUBSCRIBED'));
+    await waitFor(() => expect(mocks.rpc).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(result.current.loading).toBe(false));
-    expect(mocks.rpc).toHaveBeenCalledTimes(1);
 
     act(() => mocks.subscriptionStatus?.('SUBSCRIBED'));
     await waitFor(() => expect(mocks.rpc).toHaveBeenCalledTimes(2), { timeout: 1000 });
@@ -77,6 +83,7 @@ describe('consulta de estoque do Dashboard', () => {
   it('usa totais globais do servidor, preservando variações e inventário sem baixar candidatos', async () => {
     const { wrapper } = setup();
     const { result } = renderHook(() => useDashboardStock(), { wrapper });
+    act(() => mocks.subscriptionStatus?.('SUBSCRIBED'));
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(mocks.rpc).toHaveBeenCalledWith('get_dashboard_stock_summary');
     expect(mocks.from).not.toHaveBeenCalled();
@@ -86,10 +93,43 @@ describe('consulta de estoque do Dashboard', () => {
     });
   });
 
+  it('mantém a resposta em cache visível enquanto aguarda a assinatura e a confere ao conectar', async () => {
+    const { client, wrapper } = setup();
+    client.setQueryData(['dashboard-stock', 'operator-1', 'administrator'], {
+      zeroStockCount: 5,
+      lowStockCount: 2,
+      lowStockItems: [],
+      pendingInventory: null,
+    });
+    const { result } = renderHook(() => useDashboardStock(), { wrapper });
+
+    expect(result.current.zeroStockCount).toBe(5);
+    expect(result.current.loading).toBe(false);
+    expect(mocks.rpc).not.toHaveBeenCalled();
+
+    act(() => mocks.subscriptionStatus?.('SUBSCRIBED'));
+    await waitFor(() => expect(mocks.rpc).toHaveBeenCalledTimes(1));
+  });
+
+  it('libera a primeira leitura após um segundo e confirma se a assinatura chegar depois', async () => {
+    vi.useFakeTimers();
+    const { wrapper } = setup();
+    renderHook(() => useDashboardStock(), { wrapper });
+    expect(mocks.rpc).not.toHaveBeenCalled();
+
+    await act(async () => { await vi.advanceTimersByTimeAsync(1_000); });
+    expect(mocks.rpc).toHaveBeenCalledTimes(1);
+
+    act(() => mocks.subscriptionStatus?.('SUBSCRIBED'));
+    await act(async () => { await vi.advanceTimersByTimeAsync(200); });
+    expect(mocks.rpc).toHaveBeenCalledTimes(2);
+  });
+
   it('não transforma uma resposta incompleta em estoque sem pendências', async () => {
     mocks.rpc.mockResolvedValue({ data: {}, error: null });
     const { wrapper } = setup();
     const { result } = renderHook(() => useDashboardStock(), { wrapper });
+    act(() => mocks.subscriptionStatus?.('SUBSCRIBED'));
     await waitFor(() => expect(result.current.error).toBe(true));
     expect(result.current.loading).toBe(false);
     expect(mocks.from).not.toHaveBeenCalled();
@@ -100,6 +140,7 @@ describe('consulta de estoque do Dashboard', () => {
     mocks.rpc.mockResolvedValue({ data: { ...data, lowStockItems: Array.from({ length: 9 }, () => data.lowStockItems[0]) }, error: null });
     const { wrapper } = setup();
     const { result } = renderHook(() => useDashboardStock(), { wrapper });
+    act(() => mocks.subscriptionStatus?.('SUBSCRIBED'));
     await waitFor(() => expect(result.current.error).toBe(true));
     expect(result.current.loading).toBe(false);
   });

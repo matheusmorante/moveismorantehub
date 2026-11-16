@@ -158,7 +158,6 @@ export function ProductGrid({ filters }: ProductGridProps) {
                 price: product.price,
                 promo_price: product.promo_price,
                 campaign: product.campaign,
-                category: product.product_categories?.[0]?.categories?.name || 'Móvel',
                 image: mainImg,
                 opportunity: product.opportunities
                   ? {

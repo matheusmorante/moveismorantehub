@@ -13,6 +13,22 @@ import type { z } from 'zod';
 
 export type DraftAutoSaveStatus = 'idle' | 'pending' | 'saving' | 'saved' | 'error';
 
+const serializeOrderContent = (order: Partial<Order>): string => {
+  const { id: _id, status: _status, ...content } = order;
+  const normalize = (value: unknown): unknown => {
+    if (value instanceof Date) return value.toISOString();
+    if (Array.isArray(value)) return value.map(normalize);
+    if (value && typeof value === 'object') {
+      return Object.fromEntries(
+        Object.entries(value).sort(([left], [right]) => left.localeCompare(right))
+          .map(([key, entry]) => [key, normalize(entry)])
+      );
+    }
+    return value;
+  };
+  return JSON.stringify(normalize(content)) ?? '';
+};
+
 export function useOrderAutoSave(
   items: Item[],
   shipping: Shipping,
@@ -40,6 +56,7 @@ export function useOrderAutoSave(
   const activeSavePromiseRef = useRef<Promise<boolean> | null>(null);
   const activeSignatureRef = useRef<string | null>(null);
   const creationKeyRef = useRef<string | undefined>(undefined);
+  const savedDraftContentSignatureRef = useRef<string | null>(null);
   const resetBaselineRef = useRef(false);
   const generationRef = useRef(0);
   const signature = JSON.stringify({
@@ -72,10 +89,26 @@ export function useOrderAutoSave(
     cancelAutoSave();
     generationRef.current += 1;
     creationKeyRef.current = undefined;
+    savedDraftContentSignatureRef.current = null;
     resetBaselineRef.current = true;
   }, [cancelAutoSave]);
 
   const getDraftCreationKey = useCallback(() => creationKeyRef.current, []);
+
+  const getSavedDraftIdForOrder = useCallback((order: Order): string | undefined => {
+    const orderId = latestStateRef.current.currentOrderId as string | undefined;
+    if (
+      !orderId ||
+      order.id !== orderId ||
+      order.is_test === true ||
+      latestStateRef.current.status !== 'draft' ||
+      latestSignatureRef.current !== savedSignatureRef.current ||
+      savedDraftContentSignatureRef.current !== serializeOrderContent(order)
+    ) {
+      return undefined;
+    }
+    return orderId;
+  }, [latestStateRef]);
 
   const resumeAutoSave = useCallback(() => setResumeRevision((current) => current + 1), []);
 
@@ -129,11 +162,16 @@ export function useOrderAutoSave(
     saveWarningTimerRef.current = warningTimer;
     const pending = (async () => {
       try {
+        let validatedDraftContentSignature: string | null = null;
         const savedId = await validateOrderDraft(
           draft as unknown as z.input<typeof orderDraftFormSchema>,
-          (data) => data.id || !creationKey
-            ? saveOrder(data as unknown as Order)
-            : saveOrder(data as unknown as Order, { idempotencyKey: creationKey }),
+          (data) => {
+            const orderToSave = data as unknown as Order;
+            validatedDraftContentSignature = serializeOrderContent(orderToSave);
+            return data.id || !creationKey
+              ? saveOrder(orderToSave)
+              : saveOrder(orderToSave, { idempotencyKey: creationKey });
+          },
           (errors) => {
             const fields = Object.fromEntries(
               Object.entries(flattenFormErrors(errors)).map(([key, message]) => [
@@ -147,6 +185,7 @@ export function useOrderAutoSave(
         if (!savedId) throw new Error('Confira os campos inválidos do rascunho.');
         if (generation === generationRef.current) {
           savedSignatureRef.current = saveSignature;
+          savedDraftContentSignatureRef.current = validatedDraftContentSignature;
           if (!latestStateRef.current.currentOrderId) {
             latestStateRef.current.currentOrderId = savedId;
             setCurrentOrderId(savedId);
@@ -263,6 +302,7 @@ export function useOrderAutoSave(
     cancelAutoSave,
     flushDraftAutoSave,
     markLoadedDraftBaseline,
+    getSavedDraftIdForOrder,
     resumeAutoSave,
     getDraftCreationKey,
   };

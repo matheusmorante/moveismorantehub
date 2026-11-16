@@ -74,7 +74,7 @@ export const subscribeToInventoryMoves = (callback: (moves: InventoryMove[]) => 
           const { data: variations } = productIds.length
             ? await supabase
                 .from('product_variations')
-                .select('id, product_id, name, sku, created_at')
+                .select('id, product_id, name, created_at')
                 .in('product_id', productIds)
                 .order('created_at', { ascending: true })
             : { data: [] as any[] };
