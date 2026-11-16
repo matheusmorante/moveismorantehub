@@ -21,7 +21,6 @@ const getHydratedSnapshot = () => true;
 const getServerHydratedSnapshot = () => false;
 
 export function SubHeader() {
-  const { environments, getCategoriesForEnv, isLoaded } = useSubHeaderData();
   const searchParams = useSearchParams();
   const activeEnvId = searchParams.get('ambientes') || searchParams.get('envs');
   const activeCatId = searchParams.get('categorias') || searchParams.get('cats');
@@ -36,6 +35,14 @@ export function SubHeader() {
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
   const [useMenu, setUseMenu] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const {
+    environments,
+    getCategoriesForEnv,
+    isLoaded,
+    relationshipsLoading,
+    relationshipsError,
+    retryRelationships,
+  } = useSubHeaderData(activeDropdown !== null || menuOpen);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const navRef = useRef<HTMLElement | null>(null);
 
@@ -178,7 +185,7 @@ export function SubHeader() {
                   className={buttonClass}
                 >
                   <span>{env.name}</span>
-                  {envCats.length > 0 && (
+                  {(envCats.length > 0 || isOpen) && (
                     <ChevronDown
                       className={`h-3.5 w-3.5 transition-transform duration-200 opacity-70 group-hover:opacity-100 ${isOpen ? 'rotate-180' : ''}`}
                     />
@@ -196,6 +203,26 @@ export function SubHeader() {
                     >
                       <span>Ver todos</span>
                     </Link>
+
+                    {relationshipsLoading && (
+                      <p role="status" className="px-2.5 py-2 text-xs text-slate-500">
+                        Carregando categorias...
+                      </p>
+                    )}
+                    {relationshipsError && !relationshipsLoading && (
+                      <div role="alert" className="flex items-center justify-between gap-3 px-2.5 py-2 text-xs text-red-700">
+                        <span>Não foi possível carregar as categorias.</span>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-auto px-2 py-1 text-xs"
+                          onClick={() => void retryRelationships()}
+                        >
+                          Tentar novamente
+                        </Button>
+                      </div>
+                    )}
 
                     {/* Categorias específicas do ambiente */}
                     {envCats.map((cat) => {
@@ -239,6 +266,24 @@ export function SubHeader() {
                   <SheetDescription>Escolha uma oferta ou ambiente.</SheetDescription>
                 </SheetHeader>
                 <div className="flex-1 space-y-5 overflow-y-auto p-5">
+                  {relationshipsLoading && (
+                    <p role="status" className="text-sm text-gray-500">
+                      Carregando categorias...
+                    </p>
+                  )}
+                  {relationshipsError && !relationshipsLoading && (
+                    <div role="alert" className="flex items-center justify-between gap-3 text-sm text-red-700">
+                      <span>Não foi possível carregar as categorias.</span>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => void retryRelationships()}
+                      >
+                        Tentar novamente
+                      </Button>
+                    </div>
+                  )}
                   <Link
                     href="/"
                     onClick={() => setMenuOpen(false)}

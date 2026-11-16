@@ -12,7 +12,7 @@ import { GoogleReviews } from '@/components/sections/google-reviews';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/lib/supabase/client';
-import { catalogCategoriesQuery, catalogRelationshipsQuery } from '@/lib/catalog-menu-queries';
+import { catalogCategoriesQuery } from '@/lib/catalog-menu-queries';
 import { ProductFilter } from '@/features/products/components/product-filter';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { storefrontFilterChangeFormSchema } from '../../../shared-utils/catalogFormSchemas';
@@ -50,9 +50,8 @@ function HomeContent() {
   const { data: catalogMeta } = useQuery({
     queryKey: ['catalog-meta'],
     queryFn: async () => {
-      const [catRes, relRes, oppRes] = await Promise.all([
+      const [catRes, oppRes] = await Promise.all([
         queryClient.fetchQuery(catalogCategoriesQuery),
-        queryClient.fetchQuery(catalogRelationshipsQuery),
         supabase
           .from('opportunities')
           .select(
@@ -62,7 +61,6 @@ function HomeContent() {
       ]);
       return {
         categories: catRes || [],
-        relationships: relRes || [],
         opportunities: oppRes.data || [],
       };
     },
@@ -71,7 +69,6 @@ function HomeContent() {
   });
 
   const categories = useMemo(() => catalogMeta?.categories || [], [catalogMeta?.categories]);
-  const relationships = catalogMeta?.relationships || [];
   const opportunities = useMemo(() => catalogMeta?.opportunities || [], [catalogMeta?.opportunities]);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [filters, setFilters] = useState(INITIAL_FILTERS);
@@ -332,7 +329,6 @@ function HomeContent() {
               <ProductFilter
                 filters={filters}
                 categories={categories}
-                relationships={relationships}
                 onFilterChange={handleFilterChange}
                 isSidebarOpen={isSidebarOpen}
                 onToggleSidebar={() => setIsSidebarOpen((v) => !v)}

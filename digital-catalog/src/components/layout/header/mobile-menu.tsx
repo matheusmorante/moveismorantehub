@@ -66,7 +66,13 @@ function DrawerFooter() {
 
 export function MobileMenu() {
   const [open, setOpen] = useState(false);
-  const { environments, getCategoriesForEnv } = useSubHeaderData();
+  const {
+    environments,
+    getCategoriesForEnv,
+    relationshipsLoading,
+    relationshipsError,
+    retryRelationships,
+  } = useSubHeaderData(open);
   const [expandedEnvs, setExpandedEnvs] = useState<Record<string, boolean>>({});
 
   const toggleExpand = (envId: string) => {
@@ -133,6 +139,24 @@ export function MobileMenu() {
             </div>
 
             {/* Ambientes / Categorias */}
+            {relationshipsLoading && (
+              <p role="status" className="pt-4 text-sm text-gray-500">
+                Carregando categorias...
+              </p>
+            )}
+            {relationshipsError && !relationshipsLoading && (
+              <div role="alert" className="flex items-center justify-between gap-3 pt-4 text-sm text-red-700">
+                <span>Não foi possível carregar as categorias.</span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => void retryRelationships()}
+                >
+                  Tentar novamente
+                </Button>
+              </div>
+            )}
             {environments.length > 0 && (
               <div className="pt-4 border-t border-gray-100">
                 <p className="px-3 text-xs font-black text-muted-foreground uppercase tracking-widest mb-3">

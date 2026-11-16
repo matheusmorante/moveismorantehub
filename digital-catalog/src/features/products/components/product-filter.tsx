@@ -6,7 +6,6 @@ import { SlidersHorizontal, X } from 'lucide-react';
 interface ProductFilterProps {
   filters: any;
   categories: any[];
-  relationships: any[];
   onFilterChange: (newFilters: any) => void;
   isSidebarOpen?: boolean;
   onToggleSidebar?: () => void;

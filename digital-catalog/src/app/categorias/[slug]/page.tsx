@@ -7,14 +7,13 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { ChevronRight, Home, X } from 'lucide-react';
 import Link from 'next/link';
 import { useQueryClient } from '@tanstack/react-query';
-import { catalogCategoriesQuery, catalogRelationshipsQuery } from '@/lib/catalog-menu-queries';
+import { catalogCategoriesQuery } from '@/lib/catalog-menu-queries';
 import { FilterContent } from '@/features/products/components/filter-sidebar';
 
 export default function CategoryPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = use(params);
   const queryClient = useQueryClient();
   const [categories, setCategories] = useState<any[]>([]);
-  const [relationships, setRelationships] = useState<any[]>([]);
   const [loadingData, setLoadingData] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
@@ -53,14 +52,10 @@ export default function CategoryPage({ params }: { params: Promise<{ slug: strin
 
   useEffect(() => {
     async function loadData() {
-      const [catRes, relRes] = await Promise.all([
-        queryClient.fetchQuery(catalogCategoriesQuery),
-        queryClient.fetchQuery(catalogRelationshipsQuery),
-      ]);
+      const catRes = await queryClient.fetchQuery(catalogCategoriesQuery);
 
       const loadedCats = catRes || [];
       setCategories(loadedCats);
-      setRelationships(relRes || []);
 
       // Encontrar a categoria pelo slug com normalização inteligente (plural/singular/sinônimos)
       const SLUG_MAPPINGS: Record<string, string> = {
@@ -122,7 +117,6 @@ export default function CategoryPage({ params }: { params: Promise<{ slug: strin
         <ProductFilter
           filters={filters}
           categories={categories}
-          relationships={relationships}
           onFilterChange={handleFilterChange}
           isSidebarOpen={isSidebarOpen}
           onToggleSidebar={() => setIsSidebarOpen((v) => !v)}
