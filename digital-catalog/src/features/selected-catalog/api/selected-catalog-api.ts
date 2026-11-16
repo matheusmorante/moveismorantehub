@@ -58,11 +58,19 @@ export const fetchSelectedCatalog = async (
   }
 
   const requestedVariations = itemTokens.filter((token) => token.variationId);
+  const pageProductIds = new Set(
+    (data.products as Array<Record<string, unknown>>).map((product) => String(product.id)),
+  );
+  const pageRequestedVariations = requestedVariations.filter((token) =>
+    pageProductIds.has(token.productId),
+  );
   const variationsByProduct = new Map<string, Array<Record<string, any>>>();
-  if (requestedVariations.length) {
+  if (pageRequestedVariations.length) {
     let detailsQuery = supabase.rpc('customer_support_catalog_product_details', {
-      p_product_ids: Array.from(new Set(requestedVariations.map((token) => token.productId))),
-      p_variation_ids: Array.from(new Set(requestedVariations.flatMap((token) => token.variationId ? [token.variationId] : []))),
+      p_product_ids: Array.from(new Set(pageRequestedVariations.map((token) => token.productId))),
+      p_variation_ids: Array.from(
+        new Set(pageRequestedVariations.flatMap((token) => token.variationId ? [token.variationId] : [])),
+      ),
     });
     if (signal) detailsQuery = detailsQuery.abortSignal(signal);
     const { data: details, error: detailsError } = await detailsQuery;
