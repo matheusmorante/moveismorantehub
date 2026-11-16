@@ -5,6 +5,7 @@ import type Shipping from '@/pages/types/Shipping.type';
 import type { ValidationErrors } from '@/pages/utils/validations';
 import { requiresAssemblyResponsible } from '../../../../../../shared-utils/commercialOrderRules';
 import { resolveFirstItemHandlingType } from '../orderItemHandling';
+import { normalizeSingleOperationMethod } from '../ShippingComponents/normalizeSingleOperationMethod';
 
 type DeliveryMethod = Shipping['deliveryMethod'];
 type RememberedItemHandling = {
@@ -87,7 +88,15 @@ export function useOrderItemHandlingByDeliveryMethod({
 
   const setDeliveryMethod = useCallback(
     (method: DeliveryMethod) => {
-      if (method === shipping.deliveryMethod) return;
+      const methodChanged = method !== shipping.deliveryMethod;
+      const hasSingleOperationMismatch = shipping.scheduling.appointments?.length === 1 &&
+        shipping.scheduling.appointments[0].deliveryMethod !== method;
+      if (!methodChanged && !hasSingleOperationMismatch) return;
+
+      if (!methodChanged) {
+        setShipping((previous) => normalizeSingleOperationMethod({ ...previous, deliveryMethod: method }));
+        return;
+      }
 
       rememberItemHandlings(shipping.deliveryMethod, items);
       const nextItems = items.map((item, index) => {
@@ -109,7 +118,7 @@ export function useOrderItemHandlingByDeliveryMethod({
       const firstHandling = resolveFirstItemHandlingType(nextItems);
 
       setItems(nextItems);
-      setShipping((previous) => ({
+      setShipping((previous) => normalizeSingleOperationMethod({
         ...previous,
         deliveryMethod: method,
         orderType: firstHandling,
@@ -127,7 +136,7 @@ export function useOrderItemHandlingByDeliveryMethod({
         return next;
       });
     },
-    [items, rememberItemHandlings, setErrors, setItems, setShipping, shipping.deliveryMethod]
+    [items, rememberItemHandlings, setErrors, setItems, setShipping, shipping.deliveryMethod, shipping.scheduling.appointments]
   );
 
   return {

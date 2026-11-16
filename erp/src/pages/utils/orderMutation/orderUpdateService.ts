@@ -236,6 +236,7 @@ export const executeUpdateOrder = async (
 
     const previousStatus = previousOrderData?.status;
     const resultingStatus = orderToUpdate.status || merged.status || previousStatus;
+    const isUndoFulfillment = isStatusOnlyUpdate && previousStatus === 'fulfilled' && resultingStatus === 'scheduled';
 
     assertValidOrderQuotedStatus(resultingStatus, merged.orderType);
 
@@ -246,7 +247,7 @@ export const executeUpdateOrder = async (
     if (
       !options.metadataOnly &&
       ((!isStatusOnlyUpdate && Object.hasOwn(cleanUpdates, 'shipping')) ||
-        ((Object.hasOwn(cleanUpdates, 'items') || isStatusOnlyUpdate) &&
+        ((Object.hasOwn(cleanUpdates, 'items') || (isStatusOnlyUpdate && !isUndoFulfillment)) &&
           Array.isArray(merged.items) &&
           Boolean(merged.shipping?.scheduling?.appointments?.length)))
     ) {

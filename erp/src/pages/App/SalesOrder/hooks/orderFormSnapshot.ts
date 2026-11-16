@@ -11,6 +11,7 @@ import { getSaoPauloDayInfo } from '../../../../../../shared-utils/commercialOrd
 import type { SchedulingSessionMemory } from '../ShippingComponents/Agendamento';
 import { resolveFirstItemHandlingType } from '../orderItemHandling';
 import { getOperationsFreightTotal, getPrimaryOperationDistance, normalizeOperationFreight } from '../ShippingComponents/operationFreight';
+import { normalizeSingleOperationMethod } from '../ShippingComponents/normalizeSingleOperationMethod';
 
 type CurrentOrderFormValues = Pick<
   Order,
@@ -106,6 +107,12 @@ export const buildSalesOrderSnapshot = (
         scheduling: legacySchedule,
       }],
     };
+  }
+  if (s.orderType === 'sale' && !s.isNewSaleFlow && s.shipping?.deliveryMethod && resolvedScheduling?.appointments?.length === 1) {
+    resolvedScheduling = normalizeSingleOperationMethod({
+      ...s.shipping,
+      scheduling: resolvedScheduling,
+    } as Shipping).scheduling;
   }
   const sessionDateMode = schedulingSession?.dateMode;
   if (
@@ -281,6 +288,10 @@ export const prepareOrderForFormEditing = (order: Order) => {
         },
       }
     : defaultShipping;
+
+  if (order.orderType === 'sale') {
+    normalizedShipping = normalizeSingleOperationMethod(normalizedShipping);
+  }
 
   if (order.orderType === 'sale' && normalizedShipping.scheduling.appointments?.length) {
     const deliveryMethod = normalizedShipping.deliveryMethod || 'delivery';

@@ -1,10 +1,12 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import SectionCard from '@/components/SectionCard';
 import type Shipping from '@/pages/types/Shipping.type';
 import {
   DELIVERY_NOTICE_OPTIONS,
+  normalizeNotice,
   type DeliveryNoticeField,
 } from '../components/steps/logisticsNoticeRules';
+import { joinNoticeTags, splitNoticeTags } from '@/pages/utils/noticeTags';
 
 type OperationNotices = NonNullable<
   NonNullable<Shipping['scheduling']['appointments']>[number]['notices']
@@ -16,7 +18,7 @@ interface Props {
   notices?: OperationNotices;
   errors: Record<string, string | undefined>;
   cardMachineRequired: boolean;
-  onChange: (field: keyof OperationNotices, value: boolean | string) => void;
+  onChange: (changes: Partial<OperationNotices>) => void;
 }
 
 export const AppointmentNotices: React.FC<Props> = ({
@@ -32,6 +34,19 @@ export const AppointmentNotices: React.FC<Props> = ({
   const instructionsLabel = isDelivery
     ? 'Instruções específicas para a entrega/montagem...'
     : 'Instruções específicas para a retirada...';
+  const managedNotices = new Set(DELIVERY_NOTICE_OPTIONS.map((option) => normalizeNotice(option.notice)));
+  const selectedNoticeLabels = DELIVERY_NOTICE_OPTIONS
+    .filter((option) => notices[option.field] === true || (option.field === 'bringCardMachine' && cardMachineRequired))
+    .map((option) => option.notice);
+  const customInstructions = splitNoticeTags(notices.instructions)
+    .filter((instruction) => !managedNotices.has(normalizeNotice(instruction)));
+  const instructionsValue = joinNoticeTags([...selectedNoticeLabels, ...customInstructions]);
+
+  useEffect(() => {
+    if ((notices.instructions || '') !== instructionsValue) {
+      onChange({ instructions: instructionsValue });
+    }
+  }, [instructionsValue, notices.instructions, onChange]);
 
   return (
     <SectionCard
@@ -77,7 +92,18 @@ export const AppointmentNotices: React.FC<Props> = ({
                           disabled={locked}
                           aria-invalid={Boolean(error)}
                           title={error || undefined}
-                          onChange={() => onChange(field, value)}
+                          onChange={() => {
+                            const nextNotices = { ...notices, [field]: value };
+                            const nextSelectedLabels = DELIVERY_NOTICE_OPTIONS
+                              .filter((option) => nextNotices[option.field] === true || (option.field === 'bringCardMachine' && cardMachineRequired))
+                              .map((option) => option.notice);
+                            const nextCustomInstructions = splitNoticeTags(notices.instructions)
+                              .filter((instruction) => !managedNotices.has(normalizeNotice(instruction)));
+                            onChange({
+                              [field]: value,
+                              instructions: joinNoticeTags([...nextSelectedLabels, ...nextCustomInstructions]),
+                            });
+                          }}
                           className={`h-4 w-4 accent-blue-600 disabled:cursor-not-allowed disabled:opacity-50 ${error ? 'accent-red-600' : ''}`}
                         />
                         {value ? 'Sim' : 'Não'}
@@ -94,8 +120,8 @@ export const AppointmentNotices: React.FC<Props> = ({
       <label className="block">
         <textarea
           aria-label={instructionsLabel}
-          value={notices.instructions || ''}
-          onChange={(event) => onChange('instructions', event.target.value)}
+          value={instructionsValue}
+          onChange={(event) => onChange({ instructions: event.target.value })}
           rows={4}
           className="min-h-[120px] w-full resize-y rounded-[2rem] border border-slate-100 bg-white p-4 text-sm font-medium tracking-tight text-slate-800 shadow-inner outline-none transition-all focus:border-amber-500/30 focus:ring-4 focus:ring-amber-500/5 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100"
         />

@@ -187,13 +187,6 @@ const buildDeliveryOperationsBlock = (order: Order) => {
       lines.push(`📍 *Distância:* ${operation.distance} km`);
     }
     if (operation.deliveryMethod === 'delivery' && operation.notices) {
-      const noticeLines = [
-        ['Ligar antes da entrega', operation.notices.callBeforeDelivery],
-        ['Levar máquina de cartão', operation.notices.bringCardMachine],
-        ['Ligar ao chegar', operation.notices.callOnArrival],
-      ].filter(([, value]) => typeof value === 'boolean')
-        .map(([label, value]) => `• ${label}: ${value ? 'Sim' : 'Não'}`);
-      if (noticeLines.length) lines.push(`📞 *Avisos: *\n${noticeLines.join('\n')}`);
       const instructions = (operation.notices as { instructions?: string } | undefined)?.instructions?.trim();
       if (instructions) lines.push(`📝 *Instruções:* ${instructions}`);
     }
@@ -292,44 +285,6 @@ export const buildDeliveryMessage = (order: Order) => {
 };
 
 export const buildCustomerOrderMessage = (order: Order) => {
-  if (order.operationContext) {
-    const customer = order.customerData;
-    const shipping = order.shipping;
-    const schedule = shipping?.scheduling;
-    const isPickup = shipping?.deliveryMethod === 'pickup';
-    const scheduleLabel = schedule?.immediatePickup && isPickup
-      ? 'Retirada imediata'
-      : schedule?.pendingScheduling
-        ? 'Agendamento pendente'
-        : schedule?.notInformed
-          ? 'Programação não informada'
-          : schedule
-            ? formatOperationScheduleOption(schedule)
-            : 'Programação não informada';
-    const address = isPickup
-      ? 'Retirada em loja'
-      : shipping?.noAddress
-        ? 'Endereço não informado'
-        : shipping?.useCustomerAddress !== false
-          ? 'No mesmo endereço do cliente'
-          : stringifyFullAddressWithObservation(shipping?.deliveryAddress) || 'Endereço não informado';
-    const itemLines = (order.items || []).map((item) =>
-      `• ${item.description} · ${item.quantity} UN`
-    );
-    const items = itemLines.length ? itemLines.join('\n') : 'Nenhum item informado';
-    const methodLabel = isPickup ? 'Retirada' : 'Entrega';
-
-    return [
-      `*Atualização da Operação ${order.operationContext.operationNumber}/${order.operationContext.operationCount} · ${methodLabel}*`,
-      `Pedido #${formatOrderCode(order)}`,
-      `Cliente: ${customer?.fullName || 'Cliente'}`,
-      `Programação: ${scheduleLabel}`,
-      `Endereço: ${address}`,
-      `Itens desta operação:\n${items}`,
-      !isPickup && (shipping?.value || 0) > 0 ? `Frete: ${formatCurrency(shipping.value)}` : '',
-    ].filter(Boolean).join('\n\n');
-  }
-
   const settings = getSettings();
   const sched = order.shipping?.scheduling;
   const date =
@@ -362,7 +317,7 @@ export const buildCustomerOrderMessage = (order: Order) => {
     .replace(/{{address}}/g, () => {
       if (order.shipping?.noAddress)
         return order.shipping?.deliveryMethod === 'pickup' ? 'Retirada em loja' : 'Não informado';
-      return stringifyFullAddressWithObservation(customer.fullAddress);
+      return stringifyFullAddressWithObservation(getEffectiveOrderDeliveryAddress(order));
     })
     .replace(/{{items}}/g, () => itemsBlock)
     .replace(/{{totalValue}}/g, () => formatCurrency(order.paymentsSummary?.totalOrderValue || 0))

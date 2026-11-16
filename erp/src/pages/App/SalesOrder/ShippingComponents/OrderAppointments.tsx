@@ -20,6 +20,7 @@ import { getOperationsFreightTotal, getPrimaryOperationDistance, normalizeOperat
 import { validateShippingScheduling } from '../../../../../../shared-utils/commercialShippingRules';
 import { getSaoPauloDayInfo } from '../../../../../../shared-utils/commercialOrderRules';
 import { DELIVERY_NOTICE_OPTIONS } from '../components/steps/logisticsNoticeRules';
+import { normalizeSingleOperationMethod } from './normalizeSingleOperationMethod';
 
 type Schedule = Shipping['scheduling'];
 type Appointment = NonNullable<Shipping['scheduling']['appointments']>[number];
@@ -61,10 +62,11 @@ const hasCompleteAddress = (address?: FullAddress) => Boolean(
 );
 
 const getAppointments = (shipping: Shipping, items: Item[], isNewSale = false): Appointment[] => {
-  const schedule = shipping.scheduling as ScheduleWithAppointments;
+  const normalizedShipping = isNewSale ? shipping : normalizeSingleOperationMethod(shipping);
+  const schedule = normalizedShipping.scheduling as ScheduleWithAppointments;
   const appointments: Appointment[] = schedule.appointments?.length ? schedule.appointments : [{
     id: 'principal',
-    deliveryMethod: isNewSale ? undefined : shipping.deliveryMethod,
+    deliveryMethod: isNewSale ? undefined : normalizedShipping.deliveryMethod,
     itemIds: items.map((item) => item.orderItemId!),
     itemQuantities: Object.fromEntries(items.map((item) => [item.orderItemId!, item.quantity])),
     ...(isNewSale ? {
@@ -73,22 +75,22 @@ const getAppointments = (shipping: Shipping, items: Item[], isNewSale = false): 
         .map((item) => [item.orderItemId!, { handlingType: '', assemblyResponsible: '' }]))
     } : {}),
     notices: {
-      ...(shipping.callBeforeDelivery === undefined ? {} : { callBeforeDelivery: shipping.callBeforeDelivery }),
-      ...(shipping.bringCardMachine === undefined ? {} : { bringCardMachine: shipping.bringCardMachine }),
-      ...(shipping.callOnArrival === undefined ? {} : { callOnArrival: shipping.callOnArrival }),
+      ...(normalizedShipping.callBeforeDelivery === undefined ? {} : { callBeforeDelivery: normalizedShipping.callBeforeDelivery }),
+      ...(normalizedShipping.bringCardMachine === undefined ? {} : { bringCardMachine: normalizedShipping.bringCardMachine }),
+      ...(normalizedShipping.callOnArrival === undefined ? {} : { callOnArrival: normalizedShipping.callOnArrival }),
     },
     scheduling: stripAppointments(schedule),
   }];
-  const hasLegacyCustomAddress = !isNewSale && shipping.useCustomerAddress === false && Boolean(shipping.deliveryAddress);
+  const hasLegacyCustomAddress = !isNewSale && normalizedShipping.useCustomerAddress === false && Boolean(normalizedShipping.deliveryAddress);
   return normalizeOperationFreight(
     appointments,
-    shipping.deliveryMethod,
-    shipping.value,
-    shipping.distance,
+    normalizedShipping.deliveryMethod,
+    normalizedShipping.value,
+    normalizedShipping.distance,
   ).map((appointment) => ({
     ...appointment,
     useCustomerAddress: appointment.useCustomerAddress ?? !hasLegacyCustomAddress,
-    ...(!appointment.deliveryAddress && hasLegacyCustomAddress ? { deliveryAddress: shipping.deliveryAddress } : {}),
+    ...(!appointment.deliveryAddress && hasLegacyCustomAddress ? { deliveryAddress: normalizedShipping.deliveryAddress } : {}),
   }));
 };
 
@@ -129,9 +131,11 @@ export const OrderAppointments: React.FC<Props> = ({
     if (currentItems.length === 0) return;
     setShipping((previous) => {
       const hasStoredAppointments = Boolean(previous.scheduling.appointments?.length);
+      const hasSingleMethodMismatch = !isNewSaleFlow && previous.scheduling.appointments?.length === 1 &&
+        previous.scheduling.appointments[0].deliveryMethod !== previous.deliveryMethod;
       const hasLegacyNotices = previous.callBeforeDelivery !== undefined ||
         previous.bringCardMachine !== undefined || previous.callOnArrival !== undefined;
-      let changed = !hasStoredAppointments || hasLegacyNotices;
+      let changed = !hasStoredAppointments || hasSingleMethodMismatch || hasLegacyNotices;
       const current = getAppointments(previous, currentItems, isNewSaleFlow);
       const next = current.map((appointment, index) => {
         const method = appointment.deliveryMethod || (!isNewSaleFlow ? previous.deliveryMethod : undefined);
@@ -806,9 +810,9 @@ export const OrderAppointments: React.FC<Props> = ({
                   notices={appointment.notices}
                   errors={errors}
                   cardMachineRequired={cardMachineRequired && isDelivery}
-                  onChange={(field, value) => updateAppointments((current) => current.map((entry) =>
+                  onChange={(changes) => updateAppointments((current) => current.map((entry) =>
                     entry.id === appointment.id
-                      ? { ...entry, notices: { ...entry.notices, [field]: value } }
+                      ? { ...entry, notices: { ...entry.notices, ...changes } }
                       : entry
                   ))}
                 />

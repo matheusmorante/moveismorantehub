@@ -16,6 +16,7 @@ import {
   getEffectiveOrderDeliveryMapUrl,
 } from '@/pages/utils/orderDeliveryAddress';
 import { calcItemsSummary } from '@/pages/utils/calculations';
+import { DELIVERY_NOTICE_OPTIONS } from '@/pages/App/SalesOrder/components/steps/logisticsNoticeRules';
 
 interface OrderPrintDocumentProps {
   order: Order;
@@ -33,7 +34,21 @@ export const OrderPrintDocument: React.FC<OrderPrintDocumentProps> = ({
   if (order?.shipping?.deliveryAddress?.observation) {
     allObs.push(...splitNoticeTags(order.shipping.deliveryAddress.observation));
   }
-  const tags = allObs.filter((t: string) => t.trim() !== '');
+  const operation = isOperationInfo ? order.shipping?.scheduling?.appointments?.[0] : undefined;
+  if (isOperationInfo) {
+    for (const option of DELIVERY_NOTICE_OPTIONS) {
+      if (order.shipping?.[option.field] === true || operation?.notices?.[option.field] === true) {
+        allObs.push(option.notice);
+      }
+    }
+  }
+  const tagByNormalizedText = new Map<string, string>();
+  allObs.forEach((tag) => {
+    const normalized = tag.trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('pt-BR');
+    if (normalized && !tagByNormalizedText.has(normalized)) tagByNormalizedText.set(normalized, tag.trim());
+  });
+  const tags = [...tagByNormalizedText.values()];
+  const operationInstructions = operation?.notices?.instructions?.trim() || '';
 
   const printableCustomerData = {
     ...order.customerData,
@@ -52,7 +67,7 @@ export const OrderPrintDocument: React.FC<OrderPrintDocumentProps> = ({
     <div className="flex flex-col gap-2 text-slate-900 bg-white min-h-screen px-4 py-2 font-sans transition-colors duration-300">
       <OrderHeader order={order} isBudget={isBudget} />
       {!isOperationInfo && <OrderSubHeader seller={order.seller} isBudget={isBudget} />}
-      <OrderOperationalNotices tags={tags} isBudget={isBudget} />
+      <OrderOperationalNotices tags={tags} isBudget={isBudget} instructions={operationInstructions} />
 
       <CustomerData
         customerData={printableCustomerData}

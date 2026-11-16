@@ -80,20 +80,35 @@ export const OrderCardBody: React.FC<OrderCardBodyProps> = ({
         : 'Não informada';
   const isSale = String(order?.order_type || order?.orderType || data.orderType || 'sale') === 'sale';
   const appointmentEntries = appointments.length
-    ? appointments.map((appointment, index) => ({
-        id: appointment.id || `appointment-${index + 1}`,
-        deliveryMethod: appointment.deliveryMethod || deliveryMethod || (pickup ? 'pickup' : 'delivery'),
-        schedule: appointment.scheduling || {
-          date: scheduleDate,
-          endDate: scheduleEndDate,
-          dateType: scheduleDateType,
-          time: undefined,
-          startTime,
-          endTime,
-          pendingScheduling,
-          notInformed: scheduleNotInformed,
-        },
-      }))
+    ? appointments.map((appointment, index) => {
+        const hasSingleOperationMethodMismatch = appointments.length === 1 && deliveryMethod &&
+          appointment.deliveryMethod !== deliveryMethod;
+        return {
+          id: appointment.id || `appointment-${index + 1}`,
+          deliveryMethod: hasSingleOperationMethodMismatch
+            ? deliveryMethod
+            : appointment.deliveryMethod || deliveryMethod || (pickup ? 'pickup' : 'delivery'),
+          schedule: hasSingleOperationMethodMismatch ? {
+            date: scheduleDate,
+            endDate: scheduleEndDate,
+            dateType: scheduleDateType,
+            time: undefined,
+            startTime,
+            endTime,
+            pendingScheduling,
+            notInformed: scheduleNotInformed,
+          } : appointment.scheduling || {
+            date: scheduleDate,
+            endDate: scheduleEndDate,
+            dateType: scheduleDateType,
+            time: undefined,
+            startTime,
+            endTime,
+            pendingScheduling,
+            notInformed: scheduleNotInformed,
+          },
+        };
+      })
     : [{
         id: 'primary',
         deliveryMethod: deliveryMethod || (pickup ? 'pickup' : 'delivery'),
