@@ -95,7 +95,15 @@ export const OrderMenuActiveActions: React.FC<OrderMenuActiveActionsProps> = ({
                   ? 'text-amber-600'
                   : 'text-emerald-600'
           }`}
-          title={`Editar est${order.orderType === 'assistance' ? 'a assistência' : order.orderType === 'budget' ? 'e orçamento' : order.orderType === 'return' ? 'a devolução' : 'a venda'}`}
+          title={
+            order.orderType === 'assistance'
+              ? 'Editar assistência'
+              : order.orderType === 'budget'
+                ? 'Editar orçamento'
+                : order.orderType === 'return'
+                  ? 'Editar devolução'
+                  : 'Editar venda'
+          }
         >
           <i className="bi bi-pencil-fill text-lg" />
           <div className="flex flex-col text-left">
@@ -106,7 +114,7 @@ export const OrderMenuActiveActions: React.FC<OrderMenuActiveActionsProps> = ({
                   ? 'Editar Orçamento'
                   : order.orderType === 'return'
                     ? 'Editar Devolução'
-                    : 'Editar Venda'}
+                    : 'Editar venda'}
             </span>
           </div>
         </button>

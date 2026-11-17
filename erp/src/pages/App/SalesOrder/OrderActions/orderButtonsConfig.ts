@@ -84,19 +84,6 @@ export const buttons: OrderButton[] = [
     orderTypes: ['sale'],
   },
   {
-    key: 'sendCustomerOrderDirectApi',
-    icon: 'bi-whatsapp',
-    action: 'SEND_CUSTOMER_ORDER_DIRECT_API',
-    label: 'Enviar para o cliente diretamente (Cloud WhatsApp)',
-    color:
-      'text-[#3b1900] bg-amber-400 hover:bg-amber-300 border border-amber-500 shadow-sm dark:bg-amber-500/20 dark:text-amber-200 dark:border-amber-500/40',
-    tooltip:
-      'Enviar para o cliente diretamente via Cloud WhatsApp API (Beta - apenas Administrador)',
-    orderTypes: ['sale'],
-    isBeta: true,
-    adminOnly: true,
-  },
-  {
     key: 'sendCustomerOrderDetails', // details message
     icon: 'bi-whatsapp',
     action: 'SEND_ASSISTANCE_ORDER_DETAILS',

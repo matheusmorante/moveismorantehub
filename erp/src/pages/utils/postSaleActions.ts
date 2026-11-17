@@ -7,7 +7,6 @@ export const POST_SALE_ACTION_KEYS_TO_REFRESH_AFTER_EDIT: Array<keyof IsButtonsC
   'printShippingOrder',
   'sendShippingOrder',
   'sendCustomerOrder',
-  'sendCustomerOrderDirectApi',
 ];
 
 export const getPostSaleActionsStaleAfterEdit = (
@@ -32,7 +31,6 @@ export const POST_SALE_ACTION_KEYS = new Set([
   'sendGroupInvite',
   'sendCustomerReviews',
   'issueNfe',
-  'sendCustomerOrderDirectApi',
 ]);
 
 export const POST_RETURN_ACTION_KEYS = new Set([

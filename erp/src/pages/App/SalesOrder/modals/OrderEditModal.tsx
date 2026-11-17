@@ -10,7 +10,6 @@ import {
 import { getSettings } from '@/pages/utils/settingsService';
 import OrderSavingOverlay from '../components/OrderSavingOverlay';
 import OrderFormLoadingOverlay from '../components/OrderFormLoadingOverlay';
-import OrderEditFiscalContinuation from './OrderEditFiscalContinuation';
 import {
   useOrderEditLoader,
   useOrderEditPersistence,
@@ -18,10 +17,8 @@ import {
   useOrderEditSubModalsState,
   useOrderEditActions,
   useOrderEditFiscalFlow,
-  OrderEditReissueModal,
   OrderEditModalContent,
   type OrderEditModalProps,
-  type FiscalReissueState,
 } from './order-edit-modal';
 
 const OrderEditModal: React.FC<OrderEditModalProps> = ({
@@ -41,8 +38,6 @@ const OrderEditModal: React.FC<OrderEditModalProps> = ({
   const [isSavingOrder, setIsSavingOrder] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
   const closingRef = useRef(false);
-  const [fiscalReissue, setFiscalReissue] = useState<FiscalReissueState | null>(null);
-
   // Carregamento do pedido e sincronização com formulário
   const { effectiveOrder, isLoadingOrder, loadError, onClose, onSaveSuccess } = useOrderEditLoader({
     order,
@@ -53,12 +48,11 @@ const OrderEditModal: React.FC<OrderEditModalProps> = ({
     formActions: form.actions,
   });
 
-  // Callbacks de persistência e preparação de reemissão fiscal
+  // Persistência comercial do pedido editado
   const { persistUpdate } = useOrderEditPersistence({
       effectiveOrder,
       onClose,
       onSaveSuccess,
-      setFiscalReissue,
     });
 
   // Validação Zod estrita do pedido editado
@@ -71,11 +65,9 @@ const OrderEditModal: React.FC<OrderEditModalProps> = ({
     form.state.currentOrder as unknown as z.input<typeof editSchema>
   );
 
-  // Orquestrador do fluxo fiscal da edição
+  // Validação do pedido e gravação comercial, sem fluxo fiscal automático
   const {
-    pendingFiscalReplacements,
-    fiscalContinuationOrder,
-    saveWithFiscalAudit,
+    saveEditedOrder,
   } = useOrderEditFiscalFlow({
     effectiveOrder,
     validateEditedOrder,
@@ -95,7 +87,7 @@ const OrderEditModal: React.FC<OrderEditModalProps> = ({
   // Estado e controle dos sub-modais auxiliares
   const subModals = useOrderEditSubModalsState({
     formActions: form.actions,
-    saveWithFiscalAudit,
+    saveWithFiscalAudit: saveEditedOrder,
   });
 
   // Ações de atualização, conciliação e finalização
@@ -103,7 +95,7 @@ const OrderEditModal: React.FC<OrderEditModalProps> = ({
     effectiveOrder,
     formState: form.state,
     formActions: form.actions,
-    saveWithFiscalAudit,
+    saveWithFiscalAudit: saveEditedOrder,
     setPendingUpdate: subModals.setPendingUpdate,
     onSaveSuccess,
     onClose,
@@ -151,34 +143,7 @@ const OrderEditModal: React.FC<OrderEditModalProps> = ({
     );
   }
 
-  // 2. Fluxo de Reemissão Fiscal Imediata
-  if (fiscalReissue) {
-    return (
-      <OrderEditReissueModal
-        fiscalReissue={fiscalReissue}
-        setFiscalReissue={setFiscalReissue}
-        onSaveSuccess={onSaveSuccess}
-        onClose={onClose}
-      />
-    );
-  }
-
-  // 3. Fluxo de Continuação Fiscal com Pendência
-  if (fiscalContinuationOrder) {
-    return (
-      <OrderEditFiscalContinuation
-        order={fiscalContinuationOrder}
-        replacements={pendingFiscalReplacements}
-        autoContinue
-        onClose={(currentOrder) => {
-          onSaveSuccess(currentOrder.id, currentOrder);
-          onClose();
-        }}
-      />
-    );
-  }
-
-  // 4. Exibição Principal do Modal de Edição
+  // 2. Exibição Principal do Modal de Edição
   return (
     <div
       className="fixed inset-0 z-[999999] w-screen h-screen flex flex-col bg-slate-900/60 backdrop-blur-sm animate-fade-in overflow-hidden"

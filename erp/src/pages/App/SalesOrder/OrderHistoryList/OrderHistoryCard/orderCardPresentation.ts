@@ -6,12 +6,13 @@ import { OrderStatusConfigMap } from './OrderHistoryCard.types';
 export function resolveCardCapabilities(order: Order) {
   const isDraft = order.status === 'draft';
   const isCancelled = order.status === 'cancelled';
+  const orderType = order.orderType || 'sale';
   const canViewDetails =
     ['scheduled', 'fulfilled', 'cancelled'].includes(order.status || '') ||
     (order.orderType === 'budget' && order.status === 'quoted');
   const isEditLocked =
-    (order.status === 'fulfilled' || isCancelled) &&
-    ['sale', 'showroom', 'return'].includes(order.orderType || 'sale');
+    ['sale', 'showroom', 'return'].includes(orderType) &&
+    (isCancelled || (order.status === 'fulfilled' && orderType !== 'sale'));
 
   return { isDraft, isCancelled, canViewDetails, isEditLocked };
 }

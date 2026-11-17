@@ -188,8 +188,8 @@ export const FiscalDocumentRowActions: React.FC<FiscalDocumentRowActionsProps> =
             }`}
           >
             {cancellationEligibility.action === 'cancel'
-              ? 'Cancelamento fiscal da NF-e'
-              : 'Aplicar política fiscal (estorno)'}
+              ? 'Cancelar'
+              : 'Estornar'}
           </button>
         )}
 

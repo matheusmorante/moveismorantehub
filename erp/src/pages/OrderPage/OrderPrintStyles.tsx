@@ -65,6 +65,17 @@ const OrderPrintStyles = () => {
                 /* Tabela de Itens */
                 th { padding: 0.25rem 0.5rem !important; font-size: 10px !important; }
                 td { padding: 0.25rem 0.5rem !important; font-size: 11px !important; }
+                .compact-print-items-table tbody td {
+                    padding-top: 0.375rem !important;
+                    padding-bottom: 0.375rem !important;
+                }
+                .compact-print-items-table tbody td:first-child { font-size: 12px !important; }
+                .compact-print-items-table tbody td:last-child,
+                .compact-print-items-table tfoot td:last-child {
+                    text-align: right !important;
+                    padding-right: 0.5rem !important;
+                }
+                .compact-print-items-table tfoot td:last-child { font-size: 12px !important; }
                 .text-\\[13px\\] { font-size: 11px !important; }
                 tfoot tr.text-base td { font-size: 12px !important; padding: 0.25rem 0.5rem !important; }
                 

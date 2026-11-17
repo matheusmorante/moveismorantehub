@@ -20,6 +20,7 @@ import { isQuantityCharacteristic } from '../../../../../../shared-utils/product
 import { normalizeSearchTerm } from '../../../../../../shared-utils/productText';
 import { searchProductTechnicalChoiceOptions } from '../../../../../../shared-utils/productTechnicalChoiceSearch';
 import { isProductTechnicalFieldYesNo } from '../../../../../../shared-utils/productTechnicalFieldYesNo';
+import { isTabletopThicknessCharacteristic } from '../../../../../../shared-utils/productTechnicalFieldRules';
 import {
   getTechnicalFieldIntegerMaxValue,
   isWeightCapacityCharacteristic,
@@ -142,7 +143,7 @@ export const ProductTechnicalFieldInput: React.FC<Props> = ({
       <FormTextInput
         editable={!disabled}
         value={stringValue}
-        maxLength={15}
+        maxLength={isTabletopThicknessCharacteristic(field.name) ? 2 : 15}
         onChangeText={(text) => {
           if (text === '') {
             if (

@@ -24,19 +24,29 @@ const HEADER_THEMES = {
     title: 'PEDIDO DE ENTREGA',
     colorHex: '#047857',
   },
+  sale: {
+    title: 'INFORMAÇÕES SOBRE A VENDA',
+    colorHex: '#2563eb',
+  },
 } as const;
 
 const OrderHeader = ({ order, isBudget }: OrderHeaderProps) => {
   const isAssistance = order?.orderType === 'assistance';
+  const isSale = order?.orderType === 'sale' || order?.orderType === 'showroom';
   const isPickup = order?.shipping?.deliveryMethod === 'pickup';
+  const showResponsible = Boolean(order?.operationContext || isSale);
 
   const theme = isBudget
     ? HEADER_THEMES.budget
     : isAssistance
       ? HEADER_THEMES.assistance
-      : isPickup
-        ? HEADER_THEMES.pickup
-        : HEADER_THEMES.delivery;
+      : order?.operationContext
+        ? isPickup ? HEADER_THEMES.pickup : HEADER_THEMES.delivery
+        : isSale
+          ? HEADER_THEMES.sale
+          : isPickup
+            ? HEADER_THEMES.pickup
+            : HEADER_THEMES.delivery;
   const title = order?.operationContext
     ? `INFORMAÇÕES SOBRE A ${isPickup ? 'RETIRADA' : 'ENTREGA'}`
     : theme.title;
@@ -63,6 +73,11 @@ const OrderHeader = ({ order, isBudget }: OrderHeaderProps) => {
         <div className="text-xl sm:text-2xl font-black uppercase tracking-tighter leading-none mb-0.5">
           {title}
         </div>
+        {showResponsible && (
+          <div className="text-[9px] sm:text-[10px] font-bold opacity-90 uppercase tracking-wide mb-0.5">
+            Responsável: {order?.seller || 'Não informado'}
+          </div>
+        )}
         {order?.operationContext && (
           <div className="text-[9px] sm:text-[10px] font-black opacity-90 uppercase tracking-wider mb-0.5">
             Operação {order.operationContext.operationNumber}/{order.operationContext.operationCount}
@@ -76,11 +91,6 @@ const OrderHeader = ({ order, isBudget }: OrderHeaderProps) => {
           <i className="bi bi-calendar3"></i>
           EMISSÃO: {formatToBRDate(order?.date)}
         </div>
-        {order?.operationContext && (
-          <div className="mt-0.5 text-[9px] sm:text-[10px] font-bold opacity-75 uppercase tracking-wide">
-            Atendente: {order?.seller || 'Não informado'}
-          </div>
-        )}
       </div>
     </div>
   );

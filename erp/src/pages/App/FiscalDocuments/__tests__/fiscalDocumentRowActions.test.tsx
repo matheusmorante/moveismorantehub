@@ -41,7 +41,7 @@ const standardMenuActions = [
   { label: 'Visualizar / imprimir DANFE', callback: 'onPrintDanfe' },
   { label: 'Baixar XML autorizado', callback: 'onDownloadXml' },
   { label: 'Consultar situação na SEFAZ', callback: 'onConsultSituation' },
-  { label: 'Cancelamento fiscal da NF-e', callback: 'onOpenFiscalTreatment' },
+  { label: 'Cancelar', callback: 'onOpenFiscalTreatment' },
   { label: 'Verificar e retomar HML', callback: 'onRetryHml' },
 ] as const;
 
@@ -51,9 +51,19 @@ describe('FiscalDocumentRowActions', () => {
     render(<FiscalDocumentRowActions document={makeDocument({ document_type, status: 'homologada', order_id: null })}
       isDetailsOpen={false} canOperateFiscal={true} cancellationEligibility={{ canProceed: true, action: 'cancel' }} {...handlers} />);
     await userEvent.click(screen.getByRole('button', { name: 'Ações da NF-e 100' }));
-    await userEvent.click(screen.getByRole('menuitem', { name: 'Cancelamento fiscal da NF-e' }));
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Cancelar' }));
     expect(handlers.onOpenFiscalTreatment).toHaveBeenCalledTimes(1);
   });
+
+  it('usa o rótulo Estornar quando a política fiscal determina estorno', async () => {
+    const handlers = makeHandlers();
+    render(<FiscalDocumentRowActions document={makeDocument({ status: 'homologada' })}
+      isDetailsOpen={false} canOperateFiscal={true} cancellationEligibility={{ canProceed: true, action: 'estorno' }} {...handlers} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Ações da NF-e 100' }));
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Estornar' }));
+    expect(handlers.onOpenFiscalTreatment).toHaveBeenCalledTimes(1);
+  });
+
   it.each([
     { modelo: '65', document_type: 'return', action: 'cancel' },
     { modelo: '55', document_type: 'return', action: 'estorno' },
@@ -62,15 +72,15 @@ describe('FiscalDocumentRowActions', () => {
     render(<FiscalDocumentRowActions document={makeDocument(doc)} isDetailsOpen={false} canOperateFiscal={true}
       cancellationEligibility={{ canProceed: true, action }} {...makeHandlers()} />);
     await userEvent.click(screen.getByRole('button', { name: 'Ações da NF-e 100' }));
-    expect(screen.queryByRole('menuitem', { name: 'Cancelamento fiscal da NF-e' })).toBeNull();
-    expect(screen.queryByRole('menuitem', { name: /Aplicar política/ })).toBeNull();
+    expect(screen.queryByRole('menuitem', { name: 'Cancelar' })).toBeNull();
+    expect(screen.queryByRole('menuitem', { name: 'Estornar' })).toBeNull();
   });
   it.each([{ modelo: '55', ambiente: 1 }, { modelo: '55', ambiente: 2 }, { modelo: '65', ambiente: 1 }, { modelo: '65', ambiente: 2 }] as const)(
     'never offers CC-e for model $modelo environment $ambiente', async (context) => {
       render(<FiscalDocumentRowActions document={makeDocument({ ...context, status: 'autorizada' })} isDetailsOpen={false} canOperateFiscal={true} cancellationEligibility={{ canProceed: true, action: 'cancel' }} {...makeHandlers()} />);
       await userEvent.click(screen.getByRole('button', { name: 'Ações da NF-e 100' }));
       expect(screen.queryByRole('menuitem', { name: /CC-e|Carta de Correção/i })).toBeNull();
-      expect(screen.getByRole('menuitem', { name: 'Cancelamento fiscal da NF-e' })).toBeTruthy();
+      expect(screen.getByRole('menuitem', { name: 'Cancelar' })).toBeTruthy();
     }
   );
 

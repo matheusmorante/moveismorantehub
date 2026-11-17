@@ -9,7 +9,6 @@ import FreteDistancia from '../ShippingComponents/FreteDistancia';
 import type { SchedulingSessionMemory } from '../ShippingComponents/Agendamento';
 import { OrderAppointments } from '../ShippingComponents/OrderAppointments';
 import type { DistanceCalculationOptions } from '../hooks/useOrderDistanceCalculator';
-import MapRoute from '../ShippingComponents/MapRoute';
 import { CustomDeliveryAddressFields } from './shipping/CustomDeliveryAddressFields';
 
 interface Props {
@@ -197,18 +196,6 @@ const ShippingData = ({
         )}
       </div>
 
-      {shipping.destinationCoords && hasDelivery && (
-        <div className="w-full flex flex-col gap-2 relative group -mt-2">
-          <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 ml-1">
-            Rota de Entrega
-          </label>
-          <MapRoute
-            destinationCoords={shipping.destinationCoords as [number, number]}
-            routeGeoJSON={shipping.routeGeoJSON}
-            className="h-80 w-full animate-slide-up"
-          />
-        </div>
-      )}
     </div>
   );
 };

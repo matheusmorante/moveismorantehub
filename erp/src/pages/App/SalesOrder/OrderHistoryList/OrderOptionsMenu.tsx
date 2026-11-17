@@ -52,9 +52,10 @@ export const OrderOptionsMenu = ({
 
   const isDraft = order.status === 'draft';
   const isCancelled = order.status === 'cancelled';
+  const orderType = order.orderType || 'sale';
   const isEditLocked =
-    (order.status === 'fulfilled' || isCancelled) &&
-    ['sale', 'showroom', 'return'].includes(order.orderType || 'sale');
+    ['sale', 'showroom', 'return'].includes(orderType) &&
+    (isCancelled || (order.status === 'fulfilled' && orderType !== 'sale'));
   const canReconcileTemporaryProducts =
     order.status === 'fulfilled' &&
     order.orderType === 'sale' &&

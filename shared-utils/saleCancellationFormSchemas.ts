@@ -17,3 +17,18 @@ export const saleCancellationPreviewSchema = z.object({
   if (preview.action === 'batch' && !preview.operations?.length) ctx.addIssue({ code: 'custom', path: ['operations'], message: 'A consulta não identificou as notas fiscais do lote.' });
 });
 export type SaleCancellationPreview = z.output<typeof saleCancellationPreviewSchema>;
+
+/**
+ * Multi-document previews may be applied automatically only when every linked
+ * invoice has a known policy action. Any unsupported action keeps the whole
+ * confirmation blocked for fiscal review.
+ */
+export const hasAutomaticSaleCancellationFiscalDecision = (
+  preview: Pick<SaleCancellationPreview, 'action' | 'operations'>
+): boolean => {
+  if (['none', 'cancel', 'estorno', 'reconcile'].includes(preview.action)) return true;
+  if (preview.action !== 'batch' || !preview.operations?.length) return false;
+  return preview.operations.every((operation) =>
+    ['cancel', 'estorno', 'reconcile'].includes(operation.action)
+  );
+};

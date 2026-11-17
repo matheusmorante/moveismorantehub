@@ -126,31 +126,15 @@ export const CardTimeStatusBar: React.FC<CardTimeStatusBarProps> = ({
             #{orderCode}
           </span>
         )}
-        {scheduleAppointment ? (
-          <div className="inline-flex flex-wrap items-center gap-1.5 text-[10px] font-bold text-slate-700 dark:text-slate-200">
-            {scheduleAppointment.total > 1 && <span className="rounded-md border border-slate-200 bg-slate-100 px-1.5 py-1 font-black uppercase tracking-wide text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
-              Operação {scheduleAppointment.index}/{scheduleAppointment.total}
-            </span>}
-            <span className={`rounded-md border px-1.5 py-1 font-black uppercase tracking-wide ${isPickup
-              ? 'border-purple-200 bg-purple-50 text-purple-700 dark:border-purple-800 dark:bg-purple-950/40 dark:text-purple-300'
-              : 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300'}`}>
-              {isPickup ? 'Retirada' : 'Entrega'}
-            </span>
-            <span className="inline-flex items-center gap-1 px-1 text-slate-600 dark:text-slate-300">
-              <i className="bi bi-calendar3" />
-              {activeOption?.formattedDate || (scheduling?.date ? formatDate(scheduling.date) : 'Data não definida')}
-            </span>
-            <span className="inline-flex items-center gap-1 px-1 text-slate-600 dark:text-slate-300">
-              <i className={`bi bi-clock-fill ${cls.timeText}`} />
-              {displayTime}
-            </span>
-          </div>
-        ) : (
-          <span className="font-black text-xs sm:text-sm tracking-tight flex items-center text-slate-800 dark:text-slate-200">
-            <i className={`bi bi-clock-fill mr-1.5 ${cls.timeText}`} />
-            {displayTime}
+        {scheduleAppointment?.total > 1 && (
+          <span className="rounded-md border border-slate-200 bg-slate-100 px-1.5 py-1 text-[10px] font-black uppercase tracking-wide text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
+            Operação {scheduleAppointment.index}/{scheduleAppointment.total}
           </span>
         )}
+        <span className="font-black text-xs sm:text-sm tracking-tight flex items-center text-slate-800 dark:text-slate-200">
+          <i className={`bi bi-clock-fill mr-1.5 ${cls.timeText}`} />
+          {displayTime}
+        </span>
         {isUsingAlternative && activeOption && (
           <span className="text-[9px] font-black text-amber-800 dark:text-amber-200 uppercase px-1.5 py-0.5 bg-amber-100 dark:bg-amber-950/40 rounded-md border border-amber-300 dark:border-amber-700">
             {activeOption.formattedDate}

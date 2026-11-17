@@ -52,6 +52,9 @@ type Shipping = {
       deliveryAddress?: FullAddress;
       freightValue?: number;
       distance?: number;
+      durationMinutes?: number;
+      destinationCoords?: [number, number];
+      routeGeoJSON?: any;
       itemHandlings?: Record<string, {
         handlingType: string;
         assemblyResponsible?: 'Nossa equipe' | 'Montador terceirizado' | '';

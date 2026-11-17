@@ -1,6 +1,7 @@
 import {
   getTechnicalFieldTextPlaceholder as getSharedTechnicalFieldTextPlaceholder,
   isDimensionCharacteristicName,
+  isTabletopThicknessCharacteristic,
   isTechnicalFieldMultiSelect,
   isWeightCapacityCharacteristic,
   isWeightCharacteristicName,
@@ -20,6 +21,7 @@ export const resolveTechnicalFieldDataType = (name: string, dataType?: string | 
   if (/^(linha|marca|modelo|modelo\s*\/\s*linha|linha\s*\/\s*modelo)$/i.test(name.trim())) {
     return 'text_short';
   }
+  if (isTabletopThicknessCharacteristic(name)) return 'integer';
   if (/quantidade\s+de\s+\S+/i.test(name) || /lugar(es)?/i.test(name)) {
     return 'integer';
   }
@@ -46,6 +48,7 @@ export const getTechnicalFieldMaxLength = (dataType: string) => {
 };
 
 export const getTechnicalFieldIntegerPlaceholder = (name: string) => {
+  if (isTabletopThicknessCharacteristic(name)) return 'Digite a espessura em mm';
   if (/^quantidade\s+de\s+cadeiras?$/i.test(name.trim())) {
     return 'Insira a quantidade de cadeiras';
   }

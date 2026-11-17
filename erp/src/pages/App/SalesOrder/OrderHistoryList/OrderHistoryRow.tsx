@@ -289,7 +289,7 @@ const OrderHistoryRow = ({
               <OrderDeliveryPrompt
                 order={order}
                 showTrash={showTrash}
-                showManualPrompt={settings.showManualFulfillmentPrompt}
+                showManualPrompt={false}
                 onStatusUpdate={onStatusUpdate}
                 fulfilledLabel={statusConfig.fulfilled.label}
               />

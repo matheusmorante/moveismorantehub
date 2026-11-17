@@ -8,10 +8,42 @@ afterEach(() => {
   cleanup();
 });
 
-vi.mock('@/pages/utils/settingsService', () => ({ getSettings: () => ({}) }));
+vi.mock('@/pages/utils/settingsService', () => ({ getSettings: () => ({ showManualFulfillmentPrompt: true }) }));
 vi.mock('@/pages/utils/supabaseConfig', () => ({ supabase: {} }));
 
 describe('OrderHistoryRow', () => {
+  it('não exibe a chamada de confirmação automática na tabela', () => {
+    const order = {
+      id: 'past-scheduled-order',
+      status: 'scheduled',
+      orderType: 'sale',
+      date: '2026-10-10',
+      shipping: { deliveryMethod: 'delivery', scheduling: { date: '2020-01-01', type: 'fixed' } },
+    } as any;
+    const noop = vi.fn();
+    render(
+      <MemoryRouter>
+        <table>
+          <tbody>
+            <OrderHistoryRow
+              order={order}
+              onEdit={noop}
+              onDelete={noop}
+              onRestore={noop}
+              onPermanentDelete={noop}
+              onAction={noop}
+              onStatusUpdate={noop}
+              visibilitySettings={mockVisibilitySettings}
+              orderedColumnKeys={['deliveryDate']}
+            />
+          </tbody>
+        </table>
+      </MemoryRouter>
+    );
+
+    expect(screen.queryByRole('button', { name: /Abrir confirmação do atendimento/ })).toBeNull();
+  });
+
   it('mantém somente células diretamente dentro da linha cancelada', () => {
     const order = { id: 'cancelled-order', status: 'cancelled', orderType: 'sale' } as any;
     const noop = vi.fn();

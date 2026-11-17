@@ -7,7 +7,7 @@ import { mapOrderFromDatabase } from '@/pages/utils/orderMapper';
 import { getGoodsCirculationState } from '@/pages/utils/nfe/cancellationEligibility';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { withTimeout } from '../../../../../../shared-utils/withTimeout';
-import { saleCancellationPreviewRequestSchema, saleCancellationPreviewSchema, type SaleCancellationPreview } from '../../../../../../shared-utils/saleCancellationFormSchemas';
+import { hasAutomaticSaleCancellationFiscalDecision, saleCancellationPreviewRequestSchema, saleCancellationPreviewSchema, type SaleCancellationPreview } from '../../../../../../shared-utils/saleCancellationFormSchemas';
 
 type Props = {
   order: Order;
@@ -163,9 +163,9 @@ const CancelScheduledSaleButton = ({
               }
               if (
                 !preview ||
-                !['none', 'cancel', 'estorno'].includes(preview.action)
+                !hasAutomaticSaleCancellationFiscalDecision(preview)
               ) {
-                throw knownFailure('A situação fiscal exige conferência antes de confirmar esta operação.');
+                throw knownFailure('Uma ou mais notas vinculadas exigem conferência fiscal antes de confirmar esta operação.');
               }
               const receipt = await onStatusUpdate(previewOrderId, 'cancelled', { productionConfirmed, isCurrent: stillCurrent });
               if (receipt !== true) throw new Error('O cancelamento comercial não foi confirmado. Consulte o histórico antes de repetir.');

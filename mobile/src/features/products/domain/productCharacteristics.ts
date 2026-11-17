@@ -37,6 +37,7 @@ import {
   isDresserOrWardrobeRequiredCharacteristic,
   DRESSER_OR_WARDROBE_REQUIRED_CHARACTERISTIC_NAMES,
   isSofaCategoryName,
+  isSofaPillowsCharacteristic,
   isSofaRecliningCharacteristic,
   isSofaRequiredCharacteristic,
   isSofaRetractableCharacteristic,
@@ -206,6 +207,7 @@ export const isProductTechnicalFieldRequired = (
   categoryName = ''
 ): boolean => {
   if (isDedicatedChairCountCharacteristic(field.name) && !isDiningSetCategoryName(categoryName)) return false;
+  if (isSofaCategoryName(categoryName) && isSofaPillowsCharacteristic(field.name)) return false;
   if (isSofaCategoryName(categoryName) && isSofaRequiredCharacteristic(field.name)) return true;
   if (isDresserOrWardrobeCategoryName(categoryName) && isDresserOrWardrobeRequiredCharacteristic(field.name)) return true;
   if (isCatalogNeverRequiredCharacteristicName(field.name)) return false;

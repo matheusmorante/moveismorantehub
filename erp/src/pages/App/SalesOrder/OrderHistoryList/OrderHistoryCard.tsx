@@ -53,7 +53,7 @@ const OrderHistoryCard: React.FC<OrderHistoryCardProps> = ({
   onIssueNfe,
 }) => {
   const settings = getSettings();
-  const { isDraft, isCancelled, canViewDetails, isEditLocked } = resolveCardCapabilities(order);
+  const { isDraft, isCancelled, canViewDetails } = resolveCardCapabilities(order);
   const statusConfig = buildOrderCardStatusConfig(order, settings);
 
   const colors = settings.orderTypeColors ?? {
@@ -158,7 +158,6 @@ const OrderHistoryCard: React.FC<OrderHistoryCardProps> = ({
         order={order}
         isCancelled={isCancelled}
         isDraft={isDraft}
-        isEditLocked={isEditLocked}
         showTrash={showTrash}
         onEdit={onEdit}
         onDelete={onDelete}

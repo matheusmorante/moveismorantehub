@@ -13,7 +13,6 @@ interface CardHeaderBadgesProps {
   isAssemblyTask: boolean;
   isUsingAlternative: boolean;
   activeOption: ResolvedScheduleOption | null;
-  showDeliveryMethodBadge?: boolean;
 }
 
 export const CardHeaderBadges: React.FC<CardHeaderBadgesProps> = ({
@@ -25,11 +24,10 @@ export const CardHeaderBadges: React.FC<CardHeaderBadgesProps> = ({
   isAssemblyTask,
   isUsingAlternative,
   activeOption,
-  showDeliveryMethodBadge = true,
 }) => (
   <div className="flex items-center flex-wrap gap-1.5">
     {/* Selo Operacional Primário (Entrega / Retirada / Assistência / Devolução) */}
-    {(showDeliveryMethodBadge || isAssistance || orderType === 'return') && <div
+    <div
       className={`flex h-6 w-6 items-center justify-center ${
         orderType === 'return'
           ? ''
@@ -60,7 +58,7 @@ export const CardHeaderBadges: React.FC<CardHeaderBadgesProps> = ({
       ) : (
         <i className="bi bi-truck text-[11px] text-white" />
       )}
-    </div>}
+    </div>
 
     {/* Selo Montagem Depósito */}
     {(hasInternalAssembly || (isAssemblyTask && !hasOutsideAssembly)) && (

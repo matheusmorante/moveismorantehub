@@ -33,10 +33,9 @@ export const actionsMap: Record<OrderAction, (order: Order) => void | Promise<un
   },
   PRINT_SHIPPING_ORDER: (order) => {
     if (order.operationContext) {
-      printOperationInfo(order);
-      return;
+      return printOperationInfo(order);
     }
-    printSalesOrder(order);
+    return printSalesOrder(order);
   },
   PRINT_WARRANTY_TERM: (order) => {
     void (async () => {

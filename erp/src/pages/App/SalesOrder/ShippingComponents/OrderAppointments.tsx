@@ -13,6 +13,7 @@ import Agendamento, { type SchedulingSessionMemory } from './Agendamento';
 import { AppointmentItemsTable } from './AppointmentItemsTable';
 import type { AppointmentHandlingValue } from './AppointmentHandling';
 import FreteDistancia from './FreteDistancia';
+import MapRoute from './MapRoute';
 import { AppointmentAddressDialog } from './AppointmentAddressDialog';
 import { AppointmentNotices } from './AppointmentNotices';
 import { summarizeOptionText } from './agendamento/AlternativesAccordion';
@@ -223,7 +224,7 @@ export const OrderAppointments: React.FC<Props> = ({
 
   const updateAppointments = (
     update: (current: Appointment[]) => Appointment[],
-    options: { autoCalculateValue?: boolean } = {},
+    options: { autoCalculateValue?: boolean; clearRoute?: boolean } = {},
   ) => {
     setShipping((previous) => {
       const current = getAppointments(previous, selectableItems, isNewSaleFlow);
@@ -246,6 +247,7 @@ export const OrderAppointments: React.FC<Props> = ({
         value: getOperationsFreightTotal(next, deliveryMethod),
         distance: getPrimaryOperationDistance(next, deliveryMethod),
         ...(options.autoCalculateValue === undefined ? {} : { autoCalculateValue: options.autoCalculateValue }),
+        ...(options.clearRoute ? { durationMinutes: undefined, destinationCoords: undefined, routeGeoJSON: undefined } : {}),
         scheduling: { ...first.scheduling, appointments: next } as Schedule,
       };
     });
@@ -396,6 +398,11 @@ export const OrderAppointments: React.FC<Props> = ({
           ? appointment.deliveryAddress
           : customerData?.fullAddress;
         const useCustomerAddress = appointment.useCustomerAddress !== false;
+        const operationDestinationCoords = appointment.destinationCoords ||
+          (appointments.length === 1 ? shipping.destinationCoords : undefined) ||
+          operationAddress?.coords;
+        const operationRouteGeoJSON = appointment.routeGeoJSON ??
+          (appointments.length === 1 ? shipping.routeGeoJSON : undefined);
         const addressRequired = isDelivery &&
           !(useCustomerAddress && (shipping.noAddress || customerData?.noAddress));
         const missingOperationAddress = addressRequired && !hasCompleteAddress(operationAddress);
@@ -629,8 +636,14 @@ export const OrderAppointments: React.FC<Props> = ({
                                   const scheduling = method === 'delivery' && (entry.scheduling.immediatePickup || entry.scheduling.notInformed)
                                     ? { ...entry.scheduling, immediatePickup: false, notInformed: false, date: '', endDate: '', time: '', startTime: '', endTime: '' }
                                     : entry.scheduling;
-                                  return { ...entry, deliveryMethod: method, itemHandlings, scheduling };
-                                }));
+                                  return {
+                                    ...entry,
+                                    deliveryMethod: method,
+                                    itemHandlings,
+                                    scheduling,
+                                    ...(method === 'pickup' ? { durationMinutes: undefined, destinationCoords: undefined, routeGeoJSON: undefined } : {}),
+                                  };
+                                }), { clearRoute: method === 'pickup' });
                               }} />
                               {method === 'delivery' ? 'Entrega' : 'Retirada'}
                             </label>
@@ -711,14 +724,33 @@ export const OrderAppointments: React.FC<Props> = ({
                   deliveryAddress={appointment.deliveryAddress}
                   addressError={operationAddressError}
                   onUseCustomerAddress={(useCustomerAddress) => updateAppointments((current) => current.map((entry) =>
-                    entry.id === appointment.id ? { ...entry, useCustomerAddress } : entry
-                  ))}
+                    entry.id === appointment.id ? {
+                      ...entry,
+                      useCustomerAddress,
+                      durationMinutes: undefined,
+                      destinationCoords: undefined,
+                      routeGeoJSON: undefined,
+                    } : entry
+                  ), { clearRoute: true })}
                   onSaveAddress={(deliveryAddress) => updateAppointments((current) => current.map((entry) =>
-                    entry.id === appointment.id ? { ...entry, useCustomerAddress: false, deliveryAddress } : entry
-                  ))}
+                    entry.id === appointment.id ? {
+                      ...entry,
+                      useCustomerAddress: false,
+                      deliveryAddress,
+                      durationMinutes: undefined,
+                      destinationCoords: undefined,
+                      routeGeoJSON: undefined,
+                    } : entry
+                  ), { clearRoute: true })}
                   onRemoveAddress={() => updateAppointments((current) => current.map((entry) =>
-                    entry.id === appointment.id ? { ...entry, deliveryAddress: undefined } : entry
-                  ))}
+                    entry.id === appointment.id ? {
+                      ...entry,
+                      deliveryAddress: undefined,
+                      durationMinutes: undefined,
+                      destinationCoords: undefined,
+                      routeGeoJSON: undefined,
+                    } : entry
+                  ), { clearRoute: true })}
                 >
                   <FreteDistancia
                     title="Frete"
@@ -748,7 +780,14 @@ export const OrderAppointments: React.FC<Props> = ({
                       {
                         onCalculated: (route, freight) => updateAppointments((current) => current.map((entry) =>
                           entry.id === appointment.id
-                            ? { ...entry, distance: route.distanceKm, freightValue: freight }
+                            ? {
+                                ...entry,
+                                distance: route.distanceKm,
+                                freightValue: freight,
+                                durationMinutes: route.durationMinutes,
+                                destinationCoords: route.destinationCoords,
+                                routeGeoJSON: route.routeGeoJSON,
+                              }
                             : entry
                         ), { autoCalculateValue: true }),
                       },
@@ -816,6 +855,18 @@ export const OrderAppointments: React.FC<Props> = ({
                       : entry
                   ))}
                 />
+              )}
+              {isDelivery && activeStepIndex === operationSteps.length - 1 && operationDestinationCoords && (
+                <section className="flex min-w-0 flex-col gap-2" aria-label={`Rota da operação ${index + 1}`}>
+                  <h3 className="text-xs font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">
+                    Rota de entrega
+                  </h3>
+                  <MapRoute
+                    destinationCoords={operationDestinationCoords}
+                    routeGeoJSON={operationRouteGeoJSON}
+                    className="h-72 w-full"
+                  />
+                </section>
               )}
                     </div>
                   </div>

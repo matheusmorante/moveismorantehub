@@ -24,23 +24,19 @@ const Body = ({ items, compact = false }: Props) => {
         const handlingLabel = (item.handlingType || item.condition || '').trim();
         const handlingOpt = allOptions.find((o) => o.label === handlingLabel);
         const bgColor = handlingOpt?.color || '#3b82f6';
-        const handlingTextColor = bgColor !== 'transparent' ? bgColor : '#64748b';
 
         return (
-          <tr key={index} className={compact ? 'text-[11px]' : 'text-sm'}>
+          <tr key={index} className={compact ? 'text-xs' : 'text-sm'}>
             <td className={compact
-              ? 'px-2 py-1 font-semibold text-slate-800 uppercase leading-tight'
+              ? 'px-2 py-1.5 font-semibold text-slate-800 uppercase leading-snug'
               : 'px-3 py-1.5 font-bold text-slate-700 uppercase leading-tight text-[13px]'}>
               <div>
                 {item.description}
                 {item.observation?.trim() ? ` - ${item.observation.trim()}` : ''}
                 {compact && handlingLabel && handlingLabel !== '-' && (
-                  <span
-                    className="font-medium not-italic normal-case"
-                    style={{ color: handlingTextColor }}
-                  >
-                    {' - '}{handlingLabel}
-                  </span>
+                  <div className="mt-0.5 font-medium not-italic normal-case text-rose-600">
+                    → {handlingLabel}
+                  </div>
                 )}
               </div>
               {!compact && handlingLabel && handlingLabel !== '-' && (
@@ -59,22 +55,22 @@ const Body = ({ items, compact = false }: Props) => {
               )}
             </td>
             <td className={compact
-              ? 'px-2 py-1 text-center font-semibold text-slate-700 whitespace-nowrap'
+              ? 'px-2 py-1.5 text-center font-semibold text-slate-700 whitespace-nowrap tabular-nums'
               : 'px-1 py-0.5 text-right font-bold text-slate-600 whitespace-nowrap'}>
               <UnitDisplay value={item.quantity} />
             </td>
             <td className={compact
-              ? 'px-2 py-1 text-right text-slate-600 font-medium whitespace-nowrap'
+              ? 'px-2 py-1.5 text-right text-slate-600 font-medium whitespace-nowrap tabular-nums'
               : 'px-2 py-0.5 text-right text-slate-500 font-medium whitespace-nowrap'}>
               <CurrencyDisplay value={item.unitPrice} />
             </td>
             <td className={compact
-              ? 'px-2 py-1 text-right text-slate-600 font-medium whitespace-nowrap'
+              ? 'px-2 py-1.5 text-right text-slate-600 font-medium whitespace-nowrap tabular-nums'
               : 'px-2 py-0.5 text-right text-slate-500 font-medium whitespace-nowrap'}>
               <CurrencyDisplay value={fixedDiscount || 0} />
             </td>
             <td className={compact
-              ? 'px-2 py-1 text-right font-bold text-slate-900 whitespace-nowrap'
+              ? 'px-2 py-1.5 text-right font-bold text-slate-900 whitespace-nowrap tabular-nums'
               : 'px-2 py-0.5 text-right font-black text-slate-900 bg-slate-50/10 whitespace-nowrap'}>
               <CurrencyDisplay value={total} />
             </td>

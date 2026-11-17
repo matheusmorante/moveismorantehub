@@ -18,14 +18,12 @@ interface OrderCardFooterProps extends Pick<
   readonly order: Order;
   readonly isCancelled: boolean;
   readonly isDraft: boolean;
-  readonly isEditLocked: boolean;
 }
 
 export const OrderCardFooter: React.FC<OrderCardFooterProps> = ({
   order,
   isCancelled,
   isDraft,
-  isEditLocked,
   showTrash,
   onEdit,
   onDelete,
@@ -68,17 +66,6 @@ export const OrderCardFooter: React.FC<OrderCardFooterProps> = ({
           </button>
         )}
 
-        {!isEditLocked && !isCancelled && !isDraft && !showTrash && (
-          <button
-            type="button"
-            onClick={() => onEdit(order)}
-            className="w-8 h-8 rounded-xl transition-all bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-900/20 dark:text-blue-400 cursor-pointer flex items-center justify-center border border-blue-100 dark:border-blue-900/30 shadow-sm"
-            title="Editar pedido"
-          >
-            <i className="bi bi-pencil-fill text-sm" />
-          </button>
-        )}
-
         <OrderOptionsMenu
           order={order}
           showTrash={showTrash}
@@ -90,7 +77,6 @@ export const OrderCardFooter: React.FC<OrderCardFooterProps> = ({
           onStatusUpdate={onStatusUpdate}
           onShowPostSaleActions={onShowPostSaleActions}
           hideResumeDraftAction={isDraft && !showTrash}
-          hideEditAction={!isEditLocked && !isCancelled && !isDraft && !showTrash}
           buttonClassName={`w-8 h-8 ${isCancelled ? 'relative z-30' : ''}`}
         />
       </div>

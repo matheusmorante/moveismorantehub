@@ -8,7 +8,6 @@ import { useOrderEditJsonImport } from '../hooks/useOrderEditJsonImport';
 import { useOrderEditActions } from '../hooks/useOrderEditActions';
 import { buildUpdatedOrder } from '../utils/orderEditPayload';
 
-import { prepareOrderFiscalSnapshotForEmission } from '@/pages/utils/nfeEmissionSnapshotService';
 import { fetchOrderById, updateOrder } from '@/pages/utils/orderHistoryService';
 
 // Mocks
@@ -21,18 +20,6 @@ vi.mock('@/pages/utils/orderHistoryService', () => ({
   fetchOrderById: vi.fn(),
   updateOrder: vi.fn(),
   shouldAutoFulfillScheduledSaleOnEdit: vi.fn().mockReturnValue(false),
-}));
-
-vi.mock('@/pages/utils/nfe/nfeEmissionRequestState', () => ({
-  clearFiscalEmissionRequest: vi.fn(),
-}));
-
-vi.mock('@/pages/utils/nfe/cancellationEligibility', () => ({
-  getGoodsCirculationState: vi.fn().mockReturnValue('none'),
-}));
-
-vi.mock('@/pages/utils/nfeEmissionSnapshotService', () => ({
-  prepareOrderFiscalSnapshotForEmission: vi.fn(),
 }));
 
 vi.mock('react-toastify', () => ({
@@ -85,7 +72,6 @@ describe('OrderEditModal Modular Architecture', () => {
     vi.clearAllMocks();
     vi.mocked(updateOrder).mockResolvedValue({ success: true } as any);
     vi.mocked(fetchOrderById).mockResolvedValue(mockOrder);
-    vi.mocked(prepareOrderFiscalSnapshotForEmission).mockImplementation(async (order) => order);
   });
 
   describe('useOrderEditLoader', () => {
@@ -140,64 +126,25 @@ describe('OrderEditModal Modular Architecture', () => {
     it('executa persistUpdate com sucesso chamando onSaveSuccess e onClose', async () => {
       const onClose = vi.fn();
       const onSaveSuccess = vi.fn();
-      const setFiscalReissue = vi.fn();
-
       const { result } = renderHook(() =>
         useOrderEditPersistence({
           effectiveOrder: mockOrder,
           onClose,
           onSaveSuccess,
-          setFiscalReissue,
         })
       );
 
+      expect(Object.keys(result.current)).toEqual(['persistUpdate']);
       const savedId = await result.current.persistUpdate(mockOrder, '2026-10-20T10:00:00Z');
       expect(savedId).toBe('ord-test-1');
+      expect(updateOrder).toHaveBeenCalledWith(
+        'ord-test-1',
+        mockOrder,
+        mockOrder,
+        '2026-10-20T10:00:00Z'
+      );
       expect(onSaveSuccess).toHaveBeenCalledWith('ord-test-1', mockOrder);
       expect(onClose).toHaveBeenCalled();
-    });
-
-    it('executa persistReadyFiscalEdit preparando a reemissão e definindo o estado de fiscalReissue', async () => {
-      const onClose = vi.fn();
-      const onSaveSuccess = vi.fn();
-      const setFiscalReissue = vi.fn();
-
-      const { result } = renderHook(() =>
-        useOrderEditPersistence({
-          effectiveOrder: mockOrder,
-          onClose,
-          onSaveSuccess,
-          setFiscalReissue,
-        })
-      );
-
-      const replacements = [
-        {
-          id: 'rep-1',
-          orderId: 'ord-test-1',
-          environment: 2 as const,
-          action: 'estorno' as const,
-          status: 'ready_to_reissue' as const,
-          reversalConfirmed: true,
-          reversalDocumentId: 'rev-doc-1',
-          replacementDocumentId: null,
-          createdAt: '2026-10-20T10:00:00Z',
-          completedAt: null,
-        },
-      ];
-
-      const savedId = await result.current.persistReadyFiscalEdit(
-        mockOrder,
-        '2026-10-20T10:00:00Z',
-        replacements
-      );
-
-      expect(savedId).toBe('ord-test-1');
-      expect(setFiscalReissue).toHaveBeenCalledWith({
-        order: mockOrder,
-        replacement: replacements[0],
-        remaining: [],
-      });
     });
   });
 

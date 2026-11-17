@@ -34,6 +34,7 @@ export const ProductNcmSelector: React.FC<ProductNcmSelectorProps> = ({
 }) => {
   const initialCode = formData.fiscal?.ncm || '';
   const [searchQuery, setSearchQuery] = useState(() => parseNcmCode(initialCode));
+  const lastSynchronizedNcmRef = useRef(initialCode);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [results, setResults] = useState<NcmSearchResult[]>([]);
@@ -45,13 +46,15 @@ export const ProductNcmSelector: React.FC<ProductNcmSelectorProps> = ({
   const [selectedInternalDescriptionCode, setSelectedInternalDescriptionCode] = useState('');
 
   useEffect(() => {
-    const rawCode = (formData.fiscal?.ncm || '').trim();
+    const rawCode = formData.fiscal?.ncm || '';
+    if (rawCode === lastSynchronizedNcmRef.current) return;
+    lastSynchronizedNcmRef.current = rawCode;
+
     if (!rawCode) {
       setSearchQuery('');
       return;
     }
-    const clean = rawCode.replace(/\D/g, '').slice(0, 8);
-    setSearchQuery(clean || rawCode);
+    setSearchQuery(parseNcmCode(rawCode));
   }, [formData.fiscal?.ncm, formData.fiscal?.ncmDescription]);
 
   useEffect(() => {
@@ -177,6 +180,7 @@ export const ProductNcmSelector: React.FC<ProductNcmSelectorProps> = ({
           onChange={(e) => {
             const val = e.target.value;
             const code = val.includes(' - ') ? parseNcmCode(val) : val;
+            lastSynchronizedNcmRef.current = code;
             setSearchQuery(code);
             if (code.replace(/\D/g, '').slice(0, 8) !== currentCode) {
               setCurrentCatalogEntry(null);

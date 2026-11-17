@@ -13,18 +13,18 @@ const Footer = ({ summary, compact = false }: Props) => {
   if (compact) {
     return (
       <tfoot>
-        <tr className="border-t border-slate-300 bg-slate-50 text-[10px] font-bold text-slate-700">
-          <th className="px-2 py-1.5 text-left uppercase tracking-tight">Total dos itens</th>
-          <td className="px-2 py-1.5 text-center whitespace-nowrap">
+        <tr className="border-t-2 border-slate-400 bg-slate-50 text-[11px] font-bold text-slate-700">
+          <th className="px-2 py-1.5 text-left uppercase tracking-tight">Total</th>
+          <td className="px-2 py-1.5 text-center whitespace-nowrap tabular-nums">
             <UnitDisplay value={s.totalQuantity || 0} />
           </td>
-          <td className="px-2 py-1.5 text-right whitespace-nowrap">
+          <td className="px-2 py-1.5 text-right whitespace-nowrap tabular-nums">
             <CurrencyDisplay value={s.itemsSubtotal || 0} />
           </td>
-          <td className="px-2 py-1.5 text-right whitespace-nowrap">
+          <td className="px-2 py-1.5 text-right whitespace-nowrap tabular-nums">
             <CurrencyDisplay value={s.totalFixedDiscount || 0} />
           </td>
-          <td className="px-2 py-1.5 text-right text-[12px] font-black text-slate-900 whitespace-nowrap">
+          <td className="px-2 py-1.5 text-right text-[12px] font-black text-slate-900 whitespace-nowrap tabular-nums">
             <CurrencyDisplay value={s.itemsTotalValue || 0} />
           </td>
         </tr>

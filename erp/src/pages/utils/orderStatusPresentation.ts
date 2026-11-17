@@ -1,17 +1,33 @@
+type OperationSchedulingPresentationInput = {
+  immediatePickup?: boolean | null;
+};
+
+type OrderSchedulingPresentationInput = OperationSchedulingPresentationInput & {
+  appointments?: Array<{
+    deliveryMethod?: string | null;
+    scheduling?: OperationSchedulingPresentationInput | null;
+  }> | null;
+};
+
+type ShippingPresentationInput = {
+  deliveryMethod?: string | null;
+  scheduling?: OrderSchedulingPresentationInput | null;
+};
+
 type OrderPresentationInput = {
   status?: string | null;
   orderType?: string | null;
   order_type?: string | null;
   deliveryMethod?: string | null;
   delivery_method?: string | null;
-  shipping?: { deliveryMethod?: string | null } | null;
+  shipping?: ShippingPresentationInput | null;
   returnMethod?: string | null;
   order_data?: {
     orderType?: string | null;
     order_type?: string | null;
     deliveryMethod?: string | null;
     delivery_method?: string | null;
-    shipping?: { deliveryMethod?: string | null } | null;
+    shipping?: ShippingPresentationInput | null;
     returnMethod?: string | null;
   } | null;
 };
@@ -39,6 +55,25 @@ const resolveMethod = (order: OrderPresentationInput): 'delivery' | 'pickup' | u
   if (['pickup', 'retirada', 'retirar', 'pick-up'].includes(method)) return 'pickup';
   if (['delivery', 'entrega', 'deliver'].includes(method)) return 'delivery';
   return undefined;
+};
+
+const isImmediatePickup = (order: OrderPresentationInput): boolean => {
+  const shippingSources = [order.shipping, order.order_data?.shipping].filter(
+    (shipping): shipping is ShippingPresentationInput => Boolean(shipping)
+  );
+
+  return shippingSources.some((shipping) => {
+    const scheduling = shipping.scheduling;
+    if (scheduling?.immediatePickup) return true;
+
+    return Boolean(scheduling?.appointments?.some((appointment) => {
+      const method = String(appointment.deliveryMethod || shipping.deliveryMethod || '')
+        .trim()
+        .toLocaleLowerCase('pt-BR');
+      return ['pickup', 'retirada', 'retirar', 'pick-up'].includes(method) &&
+        Boolean(appointment.scheduling?.immediatePickup);
+    }));
+  });
 };
 
 const isSalesOrder = (order: OrderPresentationInput) => {
@@ -144,6 +179,20 @@ export const getFulfillmentLabels = (
     confirmationQuestion: 'O pedido já foi atendido?',
     successMessage: 'Pedido atendido com sucesso.',
   };
+};
+
+export const getFulfillmentCorrectionButtonLabel = (
+  order: OrderPresentationInput,
+  fallbackLabel: string
+): string => {
+  const method = resolveMethod(order);
+  if (
+    isSalesOrder(order) &&
+    (method === 'delivery' || (method === 'pickup' && !isImmediatePickup(order)))
+  ) {
+    return 'Voltar a agendado';
+  }
+  return fallbackLabel;
 };
 
 export const getOrderStatusLabel = (

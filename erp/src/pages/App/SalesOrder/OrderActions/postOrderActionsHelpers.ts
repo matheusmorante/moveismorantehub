@@ -8,7 +8,6 @@ export const DELIVERY_ACTION_KEYS = new Set([
   'printShippingOrder',
   'sendShippingOrder',
   'sendCustomerOrder',
-  'sendCustomerOrderDirectApi',
 ]);
 
 export type PostOrderButtonConfig = (typeof buttons)[number];

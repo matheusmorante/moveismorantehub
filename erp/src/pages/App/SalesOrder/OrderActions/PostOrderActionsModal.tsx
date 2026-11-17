@@ -17,11 +17,9 @@ import { DELIVERY_ACTION_KEYS, getAvailablePostOrderActions } from './postOrderA
 import { PostOrderActionGridButton } from './components/PostOrderActionGridButton';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 import {
-  createOrderForOperation,
   getOperationActionClicked,
   getOperationActionStale,
   getOrderOperations,
-  operationActionStateKey,
 } from './operationActionScope';
 
 interface PostOrderActionsModalProps {
@@ -74,7 +72,7 @@ const PostOrderActionsModal: React.FC<PostOrderActionsModalProps> = ({
 
   const isReturnOrder = order.orderType === 'return';
   const isPickupOrder = order.shipping?.deliveryMethod === 'pickup';
-  const deliveryModalLabel = 'Informações sobre as operações';
+  const deliveryModalLabel = 'Informações sobre a venda';
   const orderOperations = getOrderOperations(order);
   const isCollectionScheduled =
     order.status === 'scheduled' &&
@@ -93,15 +91,20 @@ const PostOrderActionsModal: React.FC<PostOrderActionsModalProps> = ({
   const trackedDeliveryActionKeys = [...DELIVERY_ACTION_KEYS].filter(
     (key) => isAdministrator || key !== 'sendCustomerOrderDirectApi'
   );
-  const isDeliveryInfoStale = orderOperations.some((operation) =>
-    [...DELIVERY_ACTION_KEYS].some((key) =>
-      getOperationActionStale(staleButtons, operation.id, key, orderOperations.length === 1)
-    )
-  );
-  const isDeliveryInfoComplete = orderOperations.length > 0 && orderOperations.every((operation) =>
-    trackedDeliveryActionKeys.every((key) =>
-      getOperationActionClicked(clickedButtons, operation.id, key, orderOperations.length === 1)
-    )
+  const isDeliveryInfoStale = [...DELIVERY_ACTION_KEYS].some(
+    (key) =>
+      Boolean(staleButtons?.[key]) ||
+      (!clickedButtons[key] &&
+        orderOperations.some((operation) =>
+          getOperationActionStale(staleButtons, operation.id, key, orderOperations.length === 1)
+        ))
+    );
+  const isDeliveryInfoComplete = orderOperations.length > 0 && trackedDeliveryActionKeys.every(
+    (key) =>
+      Boolean(clickedButtons[key]) ||
+      orderOperations.every((operation) =>
+        getOperationActionClicked(clickedButtons, operation.id, key, orderOperations.length === 1)
+      )
   );
   const deliveryInfoStatusClasses = isDeliveryInfoStale
     ? 'text-[#3b1900] bg-amber-400 hover:bg-amber-300 border-amber-500 dark:bg-amber-500/20 dark:text-amber-200 dark:border-amber-500/40'
@@ -140,7 +143,7 @@ const PostOrderActionsModal: React.FC<PostOrderActionsModalProps> = ({
   const handleExecuteAction = async (
     key: keyof IsButtonsClicked,
     action: (typeof buttons)[number]['action'],
-    operationId?: string
+    actionOrder: Order = order
   ) => {
     const isDirectApiSend = action === 'SEND_CUSTOMER_ORDER_DIRECT_API';
     if (isDirectApiSend && directApiSendInFlight.current) return;
@@ -151,15 +154,9 @@ const PostOrderActionsModal: React.FC<PostOrderActionsModalProps> = ({
 
     try {
       const module = await import('./orderActionsConfig');
-      const operationEntry = orderOperations.find((operation) => operation.id === operationId);
-      const actionOrder = operationEntry
-        ? createOrderForOperation(order, operationEntry, orderOperations.length)
-        : order;
-      const trackedKey = operationEntry
-        ? operationActionStateKey(operationEntry.id, String(key))
-        : String(key);
       const actionResult = module.actionsMap[action]?.(actionOrder);
-      await handleMarkActionCompleted(trackedKey);
+      if (action === 'PRINT_SHIPPING_ORDER') await actionResult;
+      await handleMarkActionCompleted(String(key));
       if (isDirectApiSend) await actionResult;
     } catch (err: unknown) {
       console.error('Erro ao executar ação pós-venda:', err);
@@ -268,7 +265,7 @@ const PostOrderActionsModal: React.FC<PostOrderActionsModalProps> = ({
                     <i className="bi bi-check text-sm font-black" aria-hidden="true" />
                   </div>
                 )}
-                <i className="bi bi-truck mb-2 text-2xl" />
+                <i className="bi bi-receipt mb-2 text-2xl" />
                 <span className="text-[10px] font-black uppercase tracking-widest text-center">
                   {deliveryModalLabel}
                 </span>

@@ -29,9 +29,24 @@ export const isTechnicalFieldPlacesCount = isTechnicalFieldChairCount;
 export const isTechnicalFieldMultiSelect = (name: string): boolean =>
   /corredi[çc]a/i.test(name) || /tipo.*de.*porta/i.test(name) || /tipo.*porta/i.test(name);
 
+/** Espessura do tampo é informada em milímetros inteiros, com até dois dígitos. */
+export const isTabletopThicknessCharacteristic = (name: string): boolean => {
+  const normalized = String(name || '')
+    .trim()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLocaleLowerCase('pt-BR')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+  return /^espessura do tampo(?: da mesa)?(?: mm)?$/.test(normalized);
+};
+
 /** Limite de entrada inteiro usado pelo ERP para características técnicas. */
-export const getTechnicalFieldIntegerMaxValue = (name: string): number =>
-  isTechnicalFieldChairCount(name) ? 100 : 50;
+export const getTechnicalFieldIntegerMaxValue = (name: string): number => {
+  if (isTechnicalFieldChairCount(name)) return 100;
+  if (isTabletopThicknessCharacteristic(name)) return 99;
+  return 50;
+};
 
 /** Placeholders ERP/mobile para características técnicas com entrada de texto curta. */
 export const getTechnicalFieldTextPlaceholder = (name: string): string | undefined => {

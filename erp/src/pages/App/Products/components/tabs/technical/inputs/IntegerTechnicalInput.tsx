@@ -1,6 +1,7 @@
 import React from 'react';
 import {
   getTechnicalFieldIntegerMaxValue,
+  isTabletopThicknessCharacteristic,
   isTechnicalFieldChairCount,
 } from '../../../../../../../../../shared-utils/productTechnicalFieldRules';
 import {
@@ -45,7 +46,9 @@ export const IntegerTechnicalInput: React.FC<IntegerTechnicalInputProps> = ({
 
   const placeholder = isChairCount
     ? 'Insira a quantidade de cadeiras'
-    : isQuantity
+    : isTabletopThicknessCharacteristic(field.name)
+      ? 'Digite a espessura em mm'
+      : isQuantity
       ? `Insira a quantidade de ${field.name.replace(/^.*?quantidade\s+de\s+/i, '').trim()}`
       : /p[eé]s?/i.test(field.name)
         ? 'Insira a quantidade de pés'

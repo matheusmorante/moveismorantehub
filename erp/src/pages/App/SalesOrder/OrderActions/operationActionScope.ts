@@ -114,6 +114,8 @@ export const createOrderForOperation = (
       deliveryMethod,
       value: freightValue,
       distance,
+      durationMinutes: appointment.durationMinutes ??
+        (entry.index === 0 ? order.shipping?.durationMinutes : undefined),
       useCustomerAddress,
       deliveryAddress,
       callBeforeDelivery: notices?.callBeforeDelivery ??

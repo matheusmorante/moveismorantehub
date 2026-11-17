@@ -23,6 +23,7 @@ import {
   isDresserOrWardrobeCategoryName,
   isDresserOrWardrobeRequiredCharacteristic,
   isSofaCategoryName,
+  isSofaPillowsCharacteristic,
   isSofaRequiredCharacteristic,
   isTechnicalFieldAllowedForCategories,
 } from '../../../../../shared-utils/productTechnicalFieldScope';
@@ -61,6 +62,10 @@ export const getApplicableTechnicalFields = (
 
   const isRequiredForProduct = (field: TechnicalFieldDefinition): boolean => {
     if (isDresserOrWardrobeCategorySelected && isDresserOrWardrobeRequiredCharacteristic(field.name)) return true;
+    if (
+      productCategoryNames.some(isSofaCategoryName) &&
+      isSofaPillowsCharacteristic(field.name)
+    ) return false;
     if (isCatalogNeverRequiredCharacteristicName(field.name)) return false;
     if (Array.isArray(field.categoryApplications)) {
       return resolveProductCharacteristicApplication(field, productCategoryIds) === 'required';

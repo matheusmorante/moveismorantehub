@@ -100,10 +100,36 @@ describe('consulta e confirmação de cancelamento na página', () => {
     fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Cancelar venda' })); expect(options.onStatusUpdate).toHaveBeenCalledTimes(1);
   });
 
-  it('mantém lote em conferência, sem habilitar um novo cancelamento comercial', async () => {
-    fetchMock.mockResolvedValue(response({ action: 'batch', hasAuthorizedInvoice: true, operations: [{ action: 'estorno', documentId: 'nf-1', environment: 2 }] }));
+  it('confirma o cancelamento comercial e processa todas as NFs de um lote elegível', async () => {
+    fetchMock.mockResolvedValue(response({ action: 'batch', hasAuthorizedInvoice: true, operations: [
+      { action: 'cancel', documentId: 'nf-1', environment: 2, model: '55' },
+      { action: 'estorno', documentId: 'nf-2', environment: 2, model: '65' },
+    ] }));
     const options = props(); render(<CancelScheduledSaleButton {...options} />); await open(); await confirm();
-    expect(screen.getByRole('alert').textContent).toContain('exige conferência'); expect(options.onStatusUpdate).not.toHaveBeenCalled(); expect(options.onCloseMenu).not.toHaveBeenCalled();
+    expect(options.onStatusUpdate).toHaveBeenCalledWith('sale-1', 'cancelled', { productionConfirmed: false, isCurrent: expect.any(Function) });
+    expect(options.onCloseMenu).toHaveBeenCalledTimes(1);
+  });
+
+  it('permite concluir o cancelamento comercial quando a política precisa reconciliar uma tentativa anterior', async () => {
+    fetchMock.mockResolvedValue(response({ action: 'reconcile', hasAuthorizedInvoice: true, documentId: 'nf-1', environment: 2, reason: 'Consulte a situação da tentativa anterior.' }));
+    const options = props(); render(<CancelScheduledSaleButton {...options} />); await open();
+    expect(screen.getByText(/Nenhum evento fiscal será retransmitido/)).toBeTruthy();
+    await confirm();
+    expect(options.onStatusUpdate).toHaveBeenCalledWith('sale-1', 'cancelled', { productionConfirmed: false, isCurrent: expect.any(Function) });
+    expect(options.onCloseMenu).toHaveBeenCalledTimes(1);
+  });
+
+  it('mantém bloqueado o lote que contém nota sem decisão fiscal automática', async () => {
+    fetchMock.mockResolvedValue(response({ action: 'batch', hasAuthorizedInvoice: true, operations: [
+      { action: 'estorno', documentId: 'nf-1', environment: 2 },
+      { action: 'manual_review', documentId: 'nf-2', environment: 2, reason: 'UF do emitente não confirmada.' },
+    ] }));
+    const options = props(); render(<CancelScheduledSaleButton {...options} />); await open();
+    const dialog = screen.getByRole('dialog');
+    expect(within(dialog).getByRole('heading', { name: 'Cancelamento indisponível' })).toBeTruthy();
+    expect(within(dialog).getByText(/UF do emitente não confirmada/)).toBeTruthy();
+    expect(within(dialog).queryByRole('button', { name: 'Cancelar venda' })).toBeNull();
+    expect(options.onStatusUpdate).not.toHaveBeenCalled(); expect(options.onCloseMenu).not.toHaveBeenCalled();
   });
 
   it('encaminha somente a confirmação de Produção feita nesta operação', async () => {

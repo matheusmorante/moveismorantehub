@@ -3,28 +3,11 @@ import { createPortal } from 'react-dom';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { createOperationConfirmationFormSchema } from '../../../../../../shared-utils/operationConfirmationFormSchema';
 import { withTimeout } from '../../../../../../shared-utils/withTimeout';
+import { hasAutomaticSaleCancellationFiscalDecision, type SaleCancellationPreview } from '../../../../../../shared-utils/saleCancellationFormSchemas';
 
 interface CancelSaleModalProps {
   readonly order: import('../../../types/order.type').default;
-  readonly preview: {
-    action:
-      | 'none'
-      | 'cancel'
-      | 'estorno'
-      | 'return'
-      | 'manual_review'
-      | 'blocked'
-      | 'pending'
-      | 'reconcile'
-      | 'batch';
-    hasAuthorizedInvoice: boolean;
-    model?: string;
-    environment?: 1 | 2;
-    reason?: string;
-    returnOrderId?: string;
-    returnOrderStatus?: string;
-    operations?: Array<{ action: string; documentId: string; environment?: 1 | 2; model?: string; reason?: string }>;
-  };
+  readonly preview: SaleCancellationPreview;
   readonly onCancel: () => void;
   readonly onConfirm: (options: { productionConfirmed: boolean }, stillCurrent: () => boolean) => boolean | Promise<boolean>;
 }
@@ -64,8 +47,8 @@ const CancelSaleModal = ({ order, preview, onCancel, onConfirm }: CancelSaleModa
     'manual_review',
     'blocked',
     'pending',
-    'reconcile',
-  ].includes(preview.action);
+  ].includes(preview.action) ||
+    (preview.action === 'batch' && !hasAutomaticSaleCancellationFiscalDecision(preview));
   const title =
     preview.action === 'return'
       ? 'Devolução comercial necessária'
@@ -203,6 +186,12 @@ const CancelSaleModal = ({ order, preview, onCancel, onConfirm }: CancelSaleModa
                 tributação.
               </li>
             )}
+            {preview.action === 'reconcile' && (
+              <li>
+                A situação de uma tentativa fiscal anterior será consultada na SEFAZ antes de qualquer nova ação.
+                Nenhum evento fiscal será retransmitido sem confirmação.
+              </li>
+            )}
             {preview.action === 'batch' &&
               preview.operations?.map((operation) => (
                 <li key={operation.documentId}>
@@ -232,7 +221,7 @@ const CancelSaleModal = ({ order, preview, onCancel, onConfirm }: CancelSaleModa
             {preview.reason}
           </p>
         )}
-        {['none', 'cancel', 'estorno'].includes(preview.action) && (
+        {hasAutomaticSaleCancellationFiscalDecision(preview) && (
           <p className="mt-3 text-sm font-semibold leading-relaxed text-red-700 dark:text-red-300">
             Esta ação é definitiva: após o cancelamento comercial, a venda não pode mais ser editada nem ter o status
             alterado. Caso precise corrigir ou refazer a operação, duplique o pedido e trabalhe na

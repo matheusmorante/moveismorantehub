@@ -3,12 +3,17 @@ import {
   isWeightCharacteristicName,
   TechnicalFieldDefinition,
 } from '@/pages/utils/technicalValuesService';
-import { isTechnicalFieldMultiSelect } from '../../../../../../../../../shared-utils/productTechnicalFieldRules';
+import {
+  isTabletopThicknessCharacteristic,
+  isTechnicalFieldMultiSelect,
+} from '../../../../../../../../../shared-utils/productTechnicalFieldRules';
 
 export function resolveTechnicalInputType(field: TechnicalFieldDefinition): string {
   let type = field.dataType || 'list';
   if (/^(marca|modelo|modelo\s*\/\s*linha|linha\s*\/\s*modelo|linha)$/i.test(field.name.trim())) {
     type = 'text_short';
+  } else if (isTabletopThicknessCharacteristic(field.name)) {
+    type = 'integer';
   } else if (
     /quantidade\s+de\s+\S+/i.test(field.name) ||
     /lugar(es)?/i.test(field.name)

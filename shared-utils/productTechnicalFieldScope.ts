@@ -40,6 +40,9 @@ export const isSofaRetractableCharacteristic = (name: string): boolean =>
 export const isSofaRecliningCharacteristic = (name: string): boolean =>
   /^(?:(?:e|possui)\s+)?reclinavel$/.test(normalizeTechnicalRuleName(name));
 
+export const isSofaPillowsCharacteristic = (name: string): boolean =>
+  /^possui almofadas?$/.test(normalizeTechnicalRuleName(name));
+
 export const SOFA_REQUIRED_CHARACTERISTIC_NAMES = [
   'É retrátil?',
   'É reclinável?',
