@@ -45,11 +45,12 @@ export const getMissingCategoryRequiredCharacteristics = (
     )) return 'optional';
     return undefined;
   };
-  // Catalog requirements are independent of the editor's application setting.
-  // A category-required characteristic must remain visible and validated even
-  // when the form metadata says "unavailable".
+  // Explicitly marking a characteristic unavailable for the selected category
+  // overrides stale legacy required-category links. Core catalog requirements
+  // (such as brand and model) are handled separately below and remain required.
   const hasCatalogRequiredCategory = (requirement: CatalogCharacteristicRequirement) =>
     !isCatalogNeverRequiredCharacteristicName(requirement.name) &&
+    getCharacteristicApplication(requirement) !== 'unavailable' &&
     Boolean(requirement.requiredCategoryIds?.some((id) =>
       activeCategories.has(String(id))
     ));

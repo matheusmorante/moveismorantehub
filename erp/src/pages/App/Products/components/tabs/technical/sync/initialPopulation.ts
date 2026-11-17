@@ -19,8 +19,21 @@ export const populateInitialTechnicalValues = (
 ): Partial<Product> => {
   const technicalValues = { ...(prev.technicalValues || {}) };
   let changed = false;
+  const selectedCategoryIds = new Set((prev.categoryIds || []).map((id) => String(id)));
 
   fieldDefinitions.forEach((field) => {
+    const selectedCategoryApplications = field.categoryApplications?.filter((application) =>
+      selectedCategoryIds.has(String(application.categoryId))
+    ) ?? [];
+    const unavailableForSelectedCategories =
+      selectedCategoryIds.size > 0 &&
+      selectedCategoryApplications.length > 0 &&
+      selectedCategoryApplications.every((application) => application.application === 'unavailable');
+
+    // Do not let an unavailable legacy alias consume a value belonging to the
+    // active characteristic (e.g. chair count vs. the legacy places count).
+    if (unavailableForSelectedCategories) return;
+
     const candidates = getProductTechnicalValueCandidateKeys(field.name);
     const normalizedCandidates = new Set(candidates.map(normalizeTechnicalName));
     const matchingEntries = Object.entries(technicalValues).filter(([name]) =>
