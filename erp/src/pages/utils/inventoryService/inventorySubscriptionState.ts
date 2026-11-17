@@ -6,6 +6,7 @@ import { mapInventoryMoveFromDB } from './inventoryMapper';
 let currentMoves: InventoryMove[] = [];
 let listeners: Array<(moves: InventoryMove[]) => void> = [];
 let mutationListeners: Array<() => void> = [];
+let completedMutationListeners: Array<() => void> = [];
 
 export const notifyInventoryMoveMutation = (): void => {
   mutationListeners.forEach((listener) => {
@@ -21,6 +22,23 @@ export const subscribeToInventoryMoveMutations = (callback: () => void) => {
   mutationListeners.push(callback);
   return () => {
     mutationListeners = mutationListeners.filter((listener) => listener !== callback);
+  };
+};
+
+export const notifyInventoryMoveMutationCompleted = (): void => {
+  completedMutationListeners.forEach((listener) => {
+    try {
+      listener();
+    } catch (e) {
+      console.error('Erro ao notificar movimentação concluída:', e);
+    }
+  });
+};
+
+export const subscribeToInventoryMoveMutationCompletions = (callback: () => void) => {
+  completedMutationListeners.push(callback);
+  return () => {
+    completedMutationListeners = completedMutationListeners.filter((listener) => listener !== callback);
   };
 };
 

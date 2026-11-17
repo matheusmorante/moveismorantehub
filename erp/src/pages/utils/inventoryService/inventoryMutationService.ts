@@ -10,6 +10,7 @@ import {
   removeMoveFromState,
   updateMoveInState,
   notifyInventoryMoveMutation,
+  notifyInventoryMoveMutationCompleted,
 } from './inventorySubscriptionState';
 import {
   recalculateProductStockOnMove,
@@ -88,6 +89,8 @@ export const saveInventoryMove = async (
     // The ledger insert cannot be undone by a later client-side balance failure.
     if (persisted) throw new InventoryMoveUnconfirmedError(persisted.id);
     throw cause;
+  } finally {
+    if (persisted) notifyInventoryMoveMutationCompleted();
   }
 };
 
@@ -96,6 +99,7 @@ export const deleteInventoryMove = async (
   _allowLinkedOrderMove = false,
   allowDraftAuditDelete = false
 ): Promise<void> => {
+  let deleted = false;
   try {
     const { data: moveData } = await supabase
       .from(INVENTORY_TABLE_NAME)
@@ -126,6 +130,7 @@ export const deleteInventoryMove = async (
     const { error } = await supabase.from(INVENTORY_TABLE_NAME).delete().eq('id', id);
 
     if (error) throw error;
+    deleted = true;
 
     // Atualizar estado em memória
     removeMoveFromState(id);
@@ -147,6 +152,8 @@ export const deleteInventoryMove = async (
   } catch (error) {
     console.error('Erro ao excluir/estornar lançamento de estoque: ', error);
     throw error;
+  } finally {
+    if (deleted) notifyInventoryMoveMutationCompleted();
   }
 };
 
@@ -203,6 +210,7 @@ export const updateInventoryMove = async (
   const persisted = confirmedMove(data.move, payload);
   updateMoveInState(command.id, persisted);
   notifyInventoryMoveMutation();
+  notifyInventoryMoveMutationCompleted();
   invalidateProductCatalogStatsCache();
   void queryClient.invalidateQueries({ queryKey: ['products'] });
   return persisted;

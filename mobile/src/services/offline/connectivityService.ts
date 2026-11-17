@@ -11,6 +11,7 @@ const isTestEnv = (): boolean =>
 
 class ConnectivityService {
   private isOnline = true;
+  private isOfflineKnown = false;
   private listeners = new Set<ConnectivityListener>();
   private webListenersBound = false;
 
@@ -26,9 +27,11 @@ class ConnectivityService {
       this.webListenersBound = true;
       if (typeof navigator !== 'undefined' && typeof navigator.onLine === 'boolean') {
         this.isOnline = navigator.onLine;
+        this.isOfflineKnown = !navigator.onLine;
       }
       window.addEventListener('online', () => {
         this.isOnline = true;
+        this.isOfflineKnown = false;
         this.listeners.forEach((listener) => listener(true));
       });
       window.addEventListener('offline', () => {
@@ -57,11 +60,17 @@ class ConnectivityService {
     return this.isOnline;
   }
 
+  get explicitlyOffline(): boolean {
+    return this.isOfflineKnown;
+  }
+
   set connected(val: boolean) {
     this.isOnline = Boolean(val);
+    this.isOfflineKnown = !this.isOnline;
   }
 
   private apply(state: NetInfoLikeState): void {
+    this.isOfflineKnown = state.isConnected === false || state.isInternetReachable === false;
     const next = state.isConnected === true && state.isInternetReachable !== false;
     if (next === this.isOnline) return;
     this.isOnline = next;

@@ -64,3 +64,43 @@ it('mantém o novo arquivo na prévia e no salvamento sem mover, redimensionar o
   expect(pending.get(croppedAsset.id)).toEqual(croppedAsset);
   expect(JSON.parse(screen.getByTestId('preview').textContent!)).toMatchObject(expected);
 });
+
+it('não reenvia a imagem confirmada quando só a gravação do modelo falha', async () => {
+  const image = { ...createImageLayer('image', '1:1') as Extract<ImageLayer, { type: 'image' }>,
+    assetId: originalAsset.id, assetName: 'movel.png', fit: 'cover' as const };
+  const initial: ImageTemplateFormValues = { name: 'Modelo', description: '', design: startImageTemplate('blank') };
+  initial.design.formats['1:1'].layers.unshift(image);
+  render(<ImageTemplateEditor initial={initial} original={null} userId="operator" onBack={vi.fn()} onSaved={vi.fn()} />);
+  await waitFor(() => expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Recortar imagem' }).disabled).toBe(false));
+  fireEvent.click(screen.getByRole('button', { name: 'Recortar imagem' }));
+  fireEvent.load(screen.getByAltText('Imagem para recortar'));
+  fireEvent.click(screen.getByRole('button', { name: 'Aplicar recorte' }));
+  await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Recortar imagem' })).toBeNull());
+
+  let finishFirstSave!: () => void;
+  const firstSavePending = new Promise<void>((resolve) => { finishFirstSave = resolve; });
+  mocks.save.mockImplementationOnce(async (
+    _id: string,
+    _values: ImageTemplateFormValues,
+    _original: unknown,
+    pending: ReadonlyMap<string, { id: string; webp_base64: string }>,
+    onAssetsConfirmed?: (assetIds: string[]) => void,
+  ) => {
+    expect(pending.get(croppedAsset.id)).toEqual(croppedAsset);
+    onAssetsConfirmed?.([croppedAsset.id]);
+    await firstSavePending;
+    throw new Error('Falha ao gravar o modelo');
+  });
+  fireEvent.click(screen.getByRole('button', { name: 'Salvar' }));
+  await screen.findByRole('button', { name: 'Salvando…' });
+  expect(screen.queryByText('Modelo salvo.')).toBeNull();
+  finishFirstSave();
+  await screen.findByText('Falha ao gravar o modelo');
+  await waitFor(() => expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Salvar' }).disabled).toBe(false));
+
+  fireEvent.click(screen.getByRole('button', { name: 'Salvar' }));
+  await screen.findByText('Modelo salvo.');
+
+  expect(mocks.save).toHaveBeenCalledTimes(2);
+  expect(mocks.save.mock.calls[1][3].has(croppedAsset.id)).toBe(false);
+});

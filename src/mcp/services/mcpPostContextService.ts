@@ -37,7 +37,11 @@ export class McpPostContextService {
     const productDetails = await mcpProductService.getProductById(productId);
     const campaignTarget = campaignId || campaignName || 'Campanha Padrão';
     const campaign = await mcpCampaignService.getCampaignByIdOrName(campaignTarget);
-    const allImages = await mcpProductService.getProductImages(productId, variationId);
+    const allImages = await mcpProductService.getProductImages(
+      productId,
+      variationId,
+      productDetails
+    );
 
     const primaryImg = allImages.find((img) => img.isPrimary) || allImages[0] || null;
     const openViewImg = allImages.find((img) => img.isOpenView) || null;
@@ -48,7 +52,8 @@ export class McpPostContextService {
 
     const storeAssets = await mcpAssetService.getStoreAssets();
     const opportunityBadge = await mcpAssetService.resolveBadgeForOpportunity(
-      productDetails.commercialData.opportunity
+      productDetails.commercialData.opportunity,
+      storeAssets
     );
 
     const campaignAssets = [...storeAssets];
@@ -112,7 +117,10 @@ export class McpPostContextService {
       : null;
 
     const logoAsset = OFFICIAL_STORE_ASSETS.find((a) => a.category === 'logo');
-    const badgeAsset = await mcpAssetService.resolveBadgeForOpportunity(commercialData.opportunity);
+    const badgeAsset = await mcpAssetService.resolveBadgeForOpportunity(
+      commercialData.opportunity,
+      context.campaignAssets
+    );
 
     return {
       briefing: {

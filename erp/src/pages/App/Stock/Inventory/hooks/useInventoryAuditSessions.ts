@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   deleteInventoryMove,
   getNextInventoryCodes,
-  subscribeToInventoryMoveMutations,
+  subscribeToInventoryMoveMutationCompletions,
   reverseInventoryMove,
   unreverseInventoryMove,
 } from '@/pages/utils/inventoryService';
@@ -93,7 +93,7 @@ export const useInventoryAuditSessions = () => {
 
   useEffect(
     () =>
-      subscribeToInventoryMoveMutations(() => {
+      subscribeToInventoryMoveMutationCompletions(() => {
         if (!suppressInventoryRefresh.current) {
           setRefreshVersion((current) => current + 1);
         }

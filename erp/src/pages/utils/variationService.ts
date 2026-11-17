@@ -29,7 +29,137 @@ const assertUniqueCharacteristicOptions = (options: readonly VariationOption[]) 
   }
 };
 
-/** Garante um valor canônico para uma característica global sem criar duplicatas. */
+interface VariationFamilyAttributeLookup {
+  index: number;
+  attributeId: string | null;
+  name: string | null;
+  value: string | null;
+}
+
+const lookupVariationFamilyAttributes = async (
+  attributes: readonly { name: string; value: string }[],
+  stillCurrent: () => boolean,
+): Promise<VariationFamilyAttributeLookup[]> => {
+  if (!stillCurrent()) throw new Error('A mudança de família perdeu o contexto.');
+  const response = await withTimeout(
+    (supabase as any).rpc('lookup_variation_family_attributes', { p_attributes: attributes }),
+    10000,
+    null,
+    'mover-variacao:atributos'
+  );
+  if (!response) throw new Error('A consulta de características excedeu o prazo.');
+  if (!stillCurrent()) throw new Error('A mudança de família perdeu o contexto.');
+  if (response.error) throw response.error;
+  if (!Array.isArray(response.data) || response.data.length !== attributes.length) {
+    throw new Error('Não foi possível confirmar a consulta das características.');
+  }
+  return response.data.map((entry: any, index: number) => {
+    if (!entry || entry.index !== index
+      || (entry.attributeId !== null && typeof entry.attributeId !== 'string')
+      || (entry.name !== null && typeof entry.name !== 'string')
+      || (entry.value !== null && typeof entry.value !== 'string')
+      || ((entry.attributeId === null) !== (entry.name === null))
+      || (entry.attributeId === null && entry.value !== null)) {
+      throw new Error('Não foi possível confirmar a consulta das características.');
+    }
+    return entry as VariationFamilyAttributeLookup;
+  });
+};
+
+/** Confirma todos os nomes e valores em uma leitura; gravações continuam sequenciais. */
+export const ensureAttributeValues = async (
+  attributes: readonly { name: string; value: string }[],
+  stillCurrent: () => boolean = () => true,
+): Promise<Array<{ name: string; value: string }>> => {
+  const normalizedAttributes = attributes.map((attribute) => {
+    const input = variationFamilyAttributeSchema.parse(attribute);
+    return { name: capitalize(input.name), value: capitalize(input.value) };
+  });
+  if (normalizedAttributes.length === 0) return [];
+
+  const lookups = await lookupVariationFamilyAttributes(normalizedAttributes, stillCurrent);
+  const literal = (text: string) => `^${text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`;
+  const check = () => { if (!stillCurrent()) throw new Error('A mudança de família perdeu o contexto.'); };
+  const wait = async <T,>(promise: PromiseLike<T>, write = false): Promise<T> => {
+    check();
+    const result = await withTimeout(promise, 10000, null, 'mover-variacao:atributo');
+    if (!result) throw write ? new VariationFamilyUnconfirmedError('O cadastro da característica não foi confirmado. Consulte as características antes de repetir.') : new Error('A consulta da característica excedeu o prazo.');
+    check(); return result;
+  };
+  const canonicalAttributes: Array<{ name: string; value: string }> = [];
+  for (let index = 0; index < normalizedAttributes.length; index += 1) {
+    check();
+    const { name: normalizedName, value: normalizedValue } = normalizedAttributes[index];
+    const lookup = lookups[index];
+    let attribute = lookup.attributeId && lookup.name
+      ? { id: lookup.attributeId, name: lookup.name }
+      : null;
+
+    if (!attribute) {
+      let response;
+      try {
+        response = await wait(supabase
+          .from('attributes')
+          .insert({ name: normalizedName, active: true })
+          .select('id,name')
+          .single(), true);
+      } catch (error) {
+        throw error instanceof VariationFamilyUnconfirmedError ? error : new VariationFamilyUnconfirmedError();
+      }
+      if (response.error) {
+        if (!response.error.code || response.status === 0 || response.status >= 500) throw new VariationFamilyUnconfirmedError();
+        throw response.error;
+      }
+      attribute = response.data;
+    }
+    if (!attribute?.id || typeof attribute.name !== 'string'
+      || attribute.name.trim().toLocaleLowerCase('pt-BR') !== normalizedName.toLocaleLowerCase('pt-BR')) {
+      throw new VariationFamilyUnconfirmedError('O cadastro da característica não foi confirmado. Consulte as características antes de repetir.');
+    }
+
+    let storedValue = lookup.attributeId === attribute.id && typeof lookup.value === 'string'
+      ? lookup.value
+      : undefined;
+    if (typeof storedValue !== 'string') {
+      const { data: values, error: valueError } = await wait(supabase
+        .from('attribute_values')
+        .select('value')
+        .eq('attribute_id', attribute.id)
+        .filter('value', 'imatch', literal(normalizedValue))
+        .limit(1));
+      if (valueError) throw valueError;
+      if (!Array.isArray(values)) throw new Error('Não foi possível confirmar a consulta do valor da característica.');
+      storedValue = values[0]?.value;
+    }
+    if (typeof storedValue !== 'string') {
+      let response;
+      try {
+        response = await wait(supabase
+          .from('attribute_values')
+          .insert({ attribute_id: attribute.id, value: normalizedValue })
+          .select('value')
+          .single(), true);
+      } catch (error) {
+        throw error instanceof VariationFamilyUnconfirmedError ? error : new VariationFamilyUnconfirmedError();
+      }
+      if (response.error) {
+        if (!response.error.code || response.status === 0 || response.status >= 500) throw new VariationFamilyUnconfirmedError();
+        throw response.error;
+      }
+      storedValue = response.data?.value;
+    }
+    if (typeof storedValue !== 'string'
+      || storedValue.trim().toLocaleLowerCase('pt-BR') !== normalizedValue.toLocaleLowerCase('pt-BR')) {
+      throw new VariationFamilyUnconfirmedError('O valor da característica não foi confirmado. Consulte as características antes de repetir.');
+    }
+
+    invalidateVariationsQueries();
+    canonicalAttributes.push(variationFamilyAttributeSchema.parse({ name: attribute.name, value: storedValue }));
+  }
+  return canonicalAttributes;
+};
+
+/** Mantém o fluxo REST sequencial para consumidores de uma característica isolada. */
 export const ensureAttributeValue = async (
   attributeName: string,
   value: string,
@@ -43,8 +173,10 @@ export const ensureAttributeValue = async (
     check();
     const result = await withTimeout(promise, 10000, null, 'mover-variacao:atributo');
     if (!result) throw write ? new VariationFamilyUnconfirmedError('O cadastro da característica não foi confirmado. Consulte as características antes de repetir.') : new Error('A consulta da característica excedeu o prazo.');
-    check(); return result;
+    check();
+    return result;
   };
+
   const { data: attributes, error: attributeError } = await wait(supabase
     .from('attributes')
     .select('id,name')
@@ -53,21 +185,29 @@ export const ensureAttributeValue = async (
   if (attributeError) throw attributeError;
   if (!Array.isArray(attributes)) throw new Error('Não foi possível confirmar a consulta da característica.');
 
-  let attribute = attributes?.[0];
+  let attribute = attributes[0];
   if (!attribute) {
     let response;
-    try { response = await wait(supabase
-      .from('attributes')
-      .insert({ name: normalizedName, active: true })
-      .select('id,name')
-      .single(), true); } catch (error) { throw error instanceof VariationFamilyUnconfirmedError ? error : new VariationFamilyUnconfirmedError(); }
+    try {
+      response = await wait(supabase
+        .from('attributes')
+        .insert({ name: normalizedName, active: true })
+        .select('id,name')
+        .single(), true);
+    } catch (error) {
+      throw error instanceof VariationFamilyUnconfirmedError ? error : new VariationFamilyUnconfirmedError();
+    }
     if (response.error) {
       if (!response.error.code || response.status === 0 || response.status >= 500) throw new VariationFamilyUnconfirmedError();
       throw response.error;
     }
     attribute = response.data;
   }
-  if (!attribute?.id || typeof attribute.name !== 'string' || attribute.name.trim().toLocaleLowerCase('pt-BR') !== normalizedName.toLocaleLowerCase('pt-BR')) throw new VariationFamilyUnconfirmedError('O cadastro da característica não foi confirmado. Consulte as características antes de repetir.');
+  if (!attribute?.id || typeof attribute.name !== 'string'
+    || attribute.name.trim().toLocaleLowerCase('pt-BR') !== normalizedName.toLocaleLowerCase('pt-BR')) {
+    throw new VariationFamilyUnconfirmedError('O cadastro da característica não foi confirmado. Consulte as características antes de repetir.');
+  }
+
   const { data: values, error: valueError } = await wait(supabase
     .from('attribute_values')
     .select('value')
@@ -76,20 +216,29 @@ export const ensureAttributeValue = async (
     .limit(1));
   if (valueError) throw valueError;
   if (!Array.isArray(values)) throw new Error('Não foi possível confirmar a consulta do valor da característica.');
+
   let storedValue = values[0]?.value;
-  if (!values?.length) {
+  if (values.length === 0) {
     let response;
-    try { response = await wait(supabase
-      .from('attribute_values')
-      .insert({ attribute_id: attribute.id, value: normalizedValue }).select('value').single(), true);
-    } catch (error) { throw error instanceof VariationFamilyUnconfirmedError ? error : new VariationFamilyUnconfirmedError(); }
+    try {
+      response = await wait(supabase
+        .from('attribute_values')
+        .insert({ attribute_id: attribute.id, value: normalizedValue })
+        .select('value')
+        .single(), true);
+    } catch (error) {
+      throw error instanceof VariationFamilyUnconfirmedError ? error : new VariationFamilyUnconfirmedError();
+    }
     if (response.error) {
       if (!response.error.code || response.status === 0 || response.status >= 500) throw new VariationFamilyUnconfirmedError();
       throw response.error;
     }
     storedValue = response.data?.value;
   }
-  if (typeof storedValue !== 'string' || storedValue.trim().toLocaleLowerCase('pt-BR') !== normalizedValue.toLocaleLowerCase('pt-BR')) throw new VariationFamilyUnconfirmedError('O valor da característica não foi confirmado. Consulte as características antes de repetir.');
+  if (typeof storedValue !== 'string'
+    || storedValue.trim().toLocaleLowerCase('pt-BR') !== normalizedValue.toLocaleLowerCase('pt-BR')) {
+    throw new VariationFamilyUnconfirmedError('O valor da característica não foi confirmado. Consulte as características antes de repetir.');
+  }
   invalidateVariationsQueries();
   return variationFamilyAttributeSchema.parse({ name: attribute.name, value: storedValue });
 };

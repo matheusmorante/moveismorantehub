@@ -47,11 +47,13 @@ describe('mobileProductTechnicalService', () => {
     };
     const valuesQuery = {
       select: vi.fn().mockReturnValue({
+        or: vi.fn().mockReturnThis(),
         limit: vi.fn().mockResolvedValue({ data: [], error: null }),
       }),
     };
     const categoryLinksQuery = {
       select: vi.fn().mockReturnValue({
+        or: vi.fn().mockReturnThis(),
         limit: vi.fn().mockResolvedValue({ data: [], error: null }),
       }),
     };
@@ -291,11 +293,13 @@ describe('mobileProductTechnicalService', () => {
     };
     const valuesQuery = {
       select: vi.fn().mockReturnValue({
+        or: vi.fn().mockReturnThis(),
         limit: vi.fn().mockResolvedValue({ data: [], error: null }),
       }),
     };
     const categoryLinksQuery = {
       select: vi.fn().mockReturnValue({
+        or: vi.fn().mockReturnThis(),
         limit: vi.fn().mockResolvedValue({
           data: [0, 1, 2, 3].map((index) => ({
             attribute_id: `weight-${index}`,
@@ -343,11 +347,13 @@ describe('mobileProductTechnicalService', () => {
     };
     const valuesQuery = {
       select: vi.fn().mockReturnValue({
+        or: vi.fn().mockReturnThis(),
         limit: vi.fn().mockResolvedValue({ data: [], error: null }),
       }),
     };
     const categoryLinksQuery = {
       select: vi.fn().mockReturnValue({
+        or: vi.fn().mockReturnThis(),
         limit: vi.fn().mockResolvedValue({ data: [], error: null }),
       }),
     };
@@ -405,6 +411,7 @@ describe('mobileProductTechnicalService', () => {
 
     const valuesQuery = {
       select: vi.fn().mockReturnValue({
+        or: vi.fn().mockReturnThis(),
         limit: vi.fn().mockResolvedValue({
           data: [
             { id: 'opt-firme', attribute_id: 'attr-1', value: 'Firme', sort_order: null },
@@ -418,6 +425,7 @@ describe('mobileProductTechnicalService', () => {
 
     const categoryLinksQuery = {
       select: vi.fn().mockReturnValue({
+        or: vi.fn().mockReturnThis(),
         limit: vi.fn().mockResolvedValue({
           data: [{ attribute_id: 'attr-1', category_id: 'cat-sofas', is_required: true }],
           error: null,
@@ -468,6 +476,7 @@ describe('mobileProductTechnicalService', () => {
 
     const valuesQuery = {
       select: vi.fn().mockReturnValue({
+        or: vi.fn().mockReturnThis(),
         limit: vi.fn().mockResolvedValue({
           data: [
             { id: 'opt-2', attribute_id: 'attr-cor', value: 'Branco', sort_order: 2 },
@@ -481,6 +490,7 @@ describe('mobileProductTechnicalService', () => {
 
     const categoryLinksQuery = {
       select: vi.fn().mockReturnValue({
+        or: vi.fn().mockReturnThis(),
         limit: vi.fn().mockResolvedValue({ data: [], error: null }),
       }),
     };

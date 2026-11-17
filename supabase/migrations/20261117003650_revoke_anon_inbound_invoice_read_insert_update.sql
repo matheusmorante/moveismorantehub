@@ -1,0 +1,5 @@
+BEGIN;
+
+REVOKE SELECT, INSERT, UPDATE ON TABLE public.inbound_invoices FROM anon;
+
+COMMIT;

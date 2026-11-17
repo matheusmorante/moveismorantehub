@@ -52,6 +52,7 @@ const Products: React.FC<ProductsProps> = ({ mode = 'standard' }) => {
     accordionOpen,
     toggleAccordion,
     catalogStats,
+    isStatsLoading,
     summaryChannel,
     setSummaryChannel,
     fetchStats,
@@ -59,7 +60,7 @@ const Products: React.FC<ProductsProps> = ({ mode = 'standard' }) => {
     handleFilterActive,
     handleFilterDisabled,
     handleFilterDrafts,
-  } = useProductsPageState({ mode, isAdministrator });
+  } = useProductsPageState({ mode, isAdministrator, canManageProducts });
 
   const {
     isFormModalOpen,
@@ -162,6 +163,7 @@ const Products: React.FC<ProductsProps> = ({ mode = 'standard' }) => {
                 summaryChannel={summaryChannel}
                 setSummaryChannel={setSummaryChannel}
                 catalogStats={catalogStats}
+                isStatsLoading={isStatsLoading}
                 filters={filters}
                 setFilters={setFilters}
                 clearSearchInput={clearSearchInput}

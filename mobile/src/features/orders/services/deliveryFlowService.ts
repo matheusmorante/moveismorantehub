@@ -1,5 +1,6 @@
 import { supabase } from '../../../services/supabaseClient';
 import { offlineSyncManager } from '../../../services/offline/offlineSyncManager';
+import { connectivityService } from '../../../services/offline/connectivityService';
 import { offlineStorageService } from '../../../services/offline/offlineStorageService';
 import { SyncEventType, SyncEvent } from '../../../services/offline/offlineTypes';
 import { OrderRepository } from '../../../repositories/OrderRepository';
@@ -43,7 +44,12 @@ export interface UnattendedDeliveryParams {
   proofMetadata?: LocalDeliveryProofMetadata[];
 }
 
-const safeRecordOfflineEvent = async (
+export interface ConfirmedRemoteOrderSnapshot {
+  orderData: Record<string, any>;
+  deliveryStatus?: string | null;
+}
+
+const tryRecordOfflineEvent = async (
   type: SyncEventType,
   entityType: SyncEvent['entityType'],
   entityId: string,
@@ -51,9 +57,31 @@ const safeRecordOfflineEvent = async (
 ) => {
   try {
     await offlineSyncManager.recordEvent(type, entityType, entityId, payload);
+    return true;
   } catch (err) {
     console.warn(`[deliveryFlowService] Falha não impeditiva ao registrar evento offline (${type}):`, err);
+    return false;
   }
+};
+
+const safeRecordOfflineEvent = async (
+  type: SyncEventType,
+  entityType: SyncEvent['entityType'],
+  entityId: string,
+  payload: any
+): Promise<void> => {
+  await tryRecordOfflineEvent(type, entityType, entityId, payload);
+};
+
+type OfflineQueueAttempt = 'not-offline' | 'saved' | 'failed';
+
+const recordDeliveryEventBeforeRemoteWhenOffline = async (
+  type: SyncEventType,
+  entityId: string,
+  payload: Record<string, unknown>
+): Promise<OfflineQueueAttempt> => {
+  if (!connectivityService.explicitlyOffline) return 'not-offline';
+  return (await tryRecordOfflineEvent(type, 'order', entityId, payload)) ? 'saved' : 'failed';
 };
 
 const rollbackActions = createDeliveryFlowRollbackActions(safeRecordOfflineEvent);
@@ -70,29 +98,47 @@ const assertSingleFulfillmentSchedule = (data: Record<string, any>) => {
  */
 export const deliveryFlowService = {
   /** Marca o início da etapa de preparação ao abrir o fluxo de entrega. */
-  async startPreparation(orderId: string, currentData: Record<string, any> = {}) {
+  async startPreparation(
+    orderId: string,
+    currentData: Record<string, any> = {},
+    confirmedRemoteSnapshot?: ConfirmedRemoteOrderSnapshot
+  ) {
     const now = new Date().toISOString();
     let baseData: Record<string, any> = {};
     let remoteSnapshotLoaded = false;
     let remoteDeliveryStatus: string | null = null;
     let remoteOrderSnapshot: Record<string, any> | null = null;
 
-    try {
-      const { data, error } = await supabase
-        .from('orders')
-        .select('order_data, delivery_status')
-        .eq('id', orderId)
-        .maybeSingle();
-      if (!error && data) {
-        baseData = data.order_data && typeof data.order_data === 'object' ? data.order_data : {};
-        remoteSnapshotLoaded = true;
-        remoteDeliveryStatus = data.delivery_status || baseData.deliveryStatus || null;
-        remoteOrderSnapshot = data;
-      } else if (error) {
+    if (confirmedRemoteSnapshot) {
+      baseData =
+        confirmedRemoteSnapshot.orderData && typeof confirmedRemoteSnapshot.orderData === 'object'
+          ? confirmedRemoteSnapshot.orderData
+          : {};
+      remoteSnapshotLoaded = true;
+      remoteDeliveryStatus = confirmedRemoteSnapshot.deliveryStatus || baseData.deliveryStatus || null;
+      remoteOrderSnapshot = {
+        id: orderId,
+        delivery_status: confirmedRemoteSnapshot.deliveryStatus,
+        order_data: baseData,
+      };
+    } else {
+      try {
+        const { data, error } = await supabase
+          .from('orders')
+          .select('order_data, delivery_status')
+          .eq('id', orderId)
+          .maybeSingle();
+        if (!error && data) {
+          baseData = data.order_data && typeof data.order_data === 'object' ? data.order_data : {};
+          remoteSnapshotLoaded = true;
+          remoteDeliveryStatus = data.delivery_status || baseData.deliveryStatus || null;
+          remoteOrderSnapshot = data;
+        } else if (error) {
+          console.warn('[deliveryFlowService] Falha ao ler pedido antes da preparação:', error);
+        }
+      } catch (error) {
         console.warn('[deliveryFlowService] Falha ao ler pedido antes da preparação:', error);
       }
-    } catch (error) {
-      console.warn('[deliveryFlowService] Falha ao ler pedido antes da preparação:', error);
     }
 
     if (!remoteSnapshotLoaded) {
@@ -190,22 +236,30 @@ export const deliveryFlowService = {
     };
     delete updatedData.deliveryPreparationStartedAt;
 
-    try {
-      await supabase
-        .from('orders')
-        .update({
-          delivery_status: 'in_progress',
-          delivery_started_at: now,
-          order_data: updatedData,
-          updated_at: now,
-        })
-        .eq('id', orderId);
-    } catch (dbErr) {
-      console.warn('[deliveryFlowService] Falha na persistência direta do pedido:', dbErr);
+    const offlineQueueAttempt = await recordDeliveryEventBeforeRemoteWhenOffline(
+      'DELIVERY_START_ROUTE', orderId, payload
+    );
+
+    if (offlineQueueAttempt !== 'saved') {
+      try {
+        await supabase
+          .from('orders')
+          .update({
+            delivery_status: 'in_progress',
+            delivery_started_at: now,
+            order_data: updatedData,
+            updated_at: now,
+          })
+          .eq('id', orderId);
+      } catch (dbErr) {
+        console.warn('[deliveryFlowService] Falha na persistência direta do pedido:', dbErr);
+      }
     }
 
     await syncLocalOrderCaches(orderId, updatedData);
-    await safeRecordOfflineEvent('DELIVERY_START_ROUTE', 'order', orderId, payload);
+    if (offlineQueueAttempt === 'not-offline') {
+      await safeRecordOfflineEvent('DELIVERY_START_ROUTE', 'order', orderId, payload);
+    }
 
     return {
       updatedData,
@@ -228,22 +282,30 @@ export const deliveryFlowService = {
       ...payload,
     };
 
-    try {
-      await supabase
-        .from('orders')
-        .update({
-          delivery_status: 'arrived',
-          delivery_arrived_at: now,
-          order_data: updatedData,
-          updated_at: now,
-        })
-        .eq('id', orderId);
-    } catch (dbErr) {
-      console.warn('[deliveryFlowService] Falha na persistência de chegada:', dbErr);
+    const offlineQueueAttempt = await recordDeliveryEventBeforeRemoteWhenOffline(
+      'DELIVERY_ARRIVE_DESTINATION', orderId, payload
+    );
+
+    if (offlineQueueAttempt !== 'saved') {
+      try {
+        await supabase
+          .from('orders')
+          .update({
+            delivery_status: 'arrived',
+            delivery_arrived_at: now,
+            order_data: updatedData,
+            updated_at: now,
+          })
+          .eq('id', orderId);
+      } catch (dbErr) {
+        console.warn('[deliveryFlowService] Falha na persistência de chegada:', dbErr);
+      }
     }
 
     await syncLocalOrderCaches(orderId, updatedData);
-    await safeRecordOfflineEvent('DELIVERY_ARRIVE_DESTINATION', 'order', orderId, payload);
+    if (offlineQueueAttempt === 'not-offline') {
+      await safeRecordOfflineEvent('DELIVERY_ARRIVE_DESTINATION', 'order', orderId, payload);
+    }
 
     return { updatedData };
   },
@@ -263,21 +325,29 @@ export const deliveryFlowService = {
       ...payload,
     };
 
-    try {
-      await supabase
-        .from('orders')
-        .update({
-          delivery_status: 'in_service',
-          order_data: updatedData,
-          updated_at: now,
-        })
-        .eq('id', orderId);
-    } catch (dbErr) {
-      console.warn('[deliveryFlowService] Falha na persistência de início de atendimento:', dbErr);
+    const offlineQueueAttempt = await recordDeliveryEventBeforeRemoteWhenOffline(
+      'DELIVERY_START_SERVICE', orderId, payload
+    );
+
+    if (offlineQueueAttempt !== 'saved') {
+      try {
+        await supabase
+          .from('orders')
+          .update({
+            delivery_status: 'in_service',
+            order_data: updatedData,
+            updated_at: now,
+          })
+          .eq('id', orderId);
+      } catch (dbErr) {
+        console.warn('[deliveryFlowService] Falha na persistência de início de atendimento:', dbErr);
+      }
     }
 
     await syncLocalOrderCaches(orderId, updatedData);
-    await safeRecordOfflineEvent('DELIVERY_START_SERVICE', 'order', orderId, payload);
+    if (offlineQueueAttempt === 'not-offline') {
+      await safeRecordOfflineEvent('DELIVERY_START_SERVICE', 'order', orderId, payload);
+    }
 
     return { updatedData };
   },

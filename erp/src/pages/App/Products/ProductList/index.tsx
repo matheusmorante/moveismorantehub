@@ -243,8 +243,8 @@ const ProductList = forwardRef<ProductListRef, ProductListProps>(
             }}
             categoryTree={categoryTree}
             onRefresh={() => {
-              refresh();
-              onRefresh?.();
+              if (onRefresh) onRefresh();
+              else refresh();
             }}
             onDuplicate={onDuplicate}
           />

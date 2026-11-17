@@ -12,6 +12,7 @@ export interface ProductSummarySidebarProps {
   toggleAccordion: (key: 'summary' | 'filters' | 'columns' | 'shortcuts') => void;
   summaryChannel: 'erp' | 'catalog';
   setSummaryChannel: (channel: 'erp' | 'catalog') => void;
+  isStatsLoading: boolean;
   catalogStats: {
     total: number;
     published: number;
@@ -35,6 +36,7 @@ export const ProductSummarySidebar: React.FC<ProductSummarySidebarProps> = ({
   toggleAccordion,
   summaryChannel,
   setSummaryChannel,
+  isStatsLoading,
   catalogStats,
   filters,
   setFilters,
@@ -70,6 +72,11 @@ export const ProductSummarySidebar: React.FC<ProductSummarySidebarProps> = ({
 
         {accordionOpen.summary && (
           <div className="flex flex-col gap-2 mt-3 animate-fade-in">
+            {isStatsLoading && (
+              <p role="status" className="text-[10px] text-slate-500 dark:text-slate-400">
+                Atualizando resumo...
+              </p>
+            )}
             {mode !== 'composition' && (
               <div
                 role="tablist"

@@ -318,6 +318,22 @@ export const fetchInventorySessionDetails = async (
   userId?: string | null
 ) => {
   const detailsCacheKey = getUserScopedCacheKey(INVENTORY_SESSION_DETAILS_CACHE_KEY, userId);
+  const readCachedDetails = async () => {
+    if (!detailsCacheKey) return undefined;
+    try {
+      const cachedDetails = await offlineStorageService.getWorkingSet<Record<string, any>>(
+        detailsCacheKey
+      );
+      return cachedDetails?.data?.[sessionId];
+    } catch {
+      return undefined;
+    }
+  };
+  const markAsStaleLocalSnapshot = (details: any) =>
+    details && typeof details === 'object' && !Array.isArray(details)
+      ? { ...details, isStaleLocalSnapshot: true }
+      : details;
+
   // 1. Verificar primeiro se é um rascunho ou submissão congelada no SQLite local
   try {
     const localDraft = await getLocalInventoryDraft(sessionId, userId);
@@ -343,7 +359,15 @@ export const fetchInventorySessionDetails = async (
     }
   } catch {}
 
-  // 2. Tentar buscar no Supabase
+  // 2. Se o aparelho confirmou que está offline, evitar uma tentativa remota
+  // quando já existe uma cópia deste operador. Ela é explicitamente marcada
+  // para que a interface avise que os números podem estar desatualizados.
+  if (connectivityService.explicitlyOffline) {
+    const cachedDetails = await readCachedDetails();
+    if (cachedDetails) return markAsStaleLocalSnapshot(cachedDetails);
+  }
+
+  // 3. Tentar buscar no Supabase; conexão desconhecida/online mantém leitura atual
   try {
     const { data, error } = await supabase
       .from('inventory_moves')
@@ -359,17 +383,9 @@ export const fetchInventorySessionDetails = async (
     }
   } catch {}
 
-  // 3. Fallback no cache local de sessões sincronizadas
-  try {
-    if (detailsCacheKey) {
-      const cachedDetails = await offlineStorageService.getWorkingSet<Record<string, any>>(
-        detailsCacheKey
-      );
-      if (cachedDetails?.data?.[sessionId]) {
-        return cachedDetails.data[sessionId];
-      }
-    }
-  } catch {}
+  // 4. Fallback no cache local de sessões sincronizadas, também identificado.
+  const cachedDetails = await readCachedDetails();
+  if (cachedDetails) return markAsStaleLocalSnapshot(cachedDetails);
 
   throw new Error('Não foi possível carregar os detalhes desta sessão de inventário.');
 };

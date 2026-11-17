@@ -30,6 +30,7 @@ describe('mobileProductTechnicalService optional schema fallbacks', () => {
     };
     const valuesQuery = {
       select: vi.fn().mockReturnValue({
+        or: vi.fn().mockReturnThis(),
         limit: vi
           .fn()
           .mockResolvedValueOnce({ data: null, error: { code: '42703', message: 'sort_order' } })
@@ -44,6 +45,7 @@ describe('mobileProductTechnicalService optional schema fallbacks', () => {
     };
     const categoryLinksQuery = {
       select: vi.fn().mockReturnValue({
+        or: vi.fn().mockReturnThis(),
         limit: vi.fn().mockResolvedValue({
           data: [{ attribute_id: 'attr-color', category_id: 'category-1', is_required: true }],
           error: null,
@@ -99,6 +101,7 @@ describe('mobileProductTechnicalService optional schema fallbacks', () => {
     };
     const valuesQuery = {
       select: vi.fn().mockReturnValue({
+        or: vi.fn().mockReturnThis(),
         limit: vi
           .fn()
           .mockResolvedValueOnce({ data: null, error: { code: '42703', message: 'sort_order' } })
@@ -107,6 +110,7 @@ describe('mobileProductTechnicalService optional schema fallbacks', () => {
     };
     const categoryLinksQuery = {
       select: vi.fn().mockReturnValue({
+        or: vi.fn().mockReturnThis(),
         limit: vi.fn().mockResolvedValue({ data: [], error: null }),
       }),
     };

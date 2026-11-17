@@ -36,6 +36,9 @@ vi.mock('../connectivityService', () => ({
     set connected(val: boolean) {
       state.connected = val;
     },
+    get explicitlyOffline() {
+      return !state.connected;
+    },
     initialize: vi.fn(),
     subscribe: vi.fn(() => () => {}),
     checkConnection: vi.fn(async () => state.connected),
@@ -873,7 +876,10 @@ describe('Auditoria Offline End-to-End (7 Pontos Críticos: Operação, Sincroni
       'Não foi possível carregar os detalhes'
     );
     expect(await fetchInventorySessions(0, undefined, undefined, 'user-operator-B')).toEqual([]);
-    expect(await fetchInventorySessionDetails(inventoryId, 'user-operator-A')).toEqual(cachedDetails);
+    expect(await fetchInventorySessionDetails(inventoryId, 'user-operator-A')).toEqual({
+      ...cachedDetails,
+      isStaleLocalSnapshot: true,
+    });
     expect(await fetchInventorySessions(0, undefined, undefined, 'user-operator-A')).toEqual(cachedSessions);
   });
 

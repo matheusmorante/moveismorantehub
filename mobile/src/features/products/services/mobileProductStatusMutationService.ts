@@ -58,7 +58,8 @@ export const toggleMobileProductCatalog = async (
           .select('id')
           .eq('product_id', productId)
           .neq('id', variationId)
-          .eq('status', 'published'),
+          .eq('status', 'published')
+          .limit(1),
         'mobile:consultar-variacoes-publicadas'
       );
       if (remainingResult.error) throw remainingResult.error;

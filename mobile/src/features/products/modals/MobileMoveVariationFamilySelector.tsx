@@ -8,6 +8,8 @@ interface Props {
   dark: boolean;
   familyQuery: string;
   familiesLoading: boolean;
+  suggestionsLoading: boolean;
+  suggestionsError: string;
   queryError: string;
   saving: boolean;
   mutationBlocked: boolean;
@@ -18,6 +20,7 @@ interface Props {
   onQueryChange: (value: string) => void;
   onFocus: () => void;
   onRetry: () => void;
+  onRetrySuggestions: () => void;
   onSelectFamily: (family: MobileVariationFamily) => void;
 }
 
@@ -25,6 +28,8 @@ export const MobileMoveVariationFamilySelector: React.FC<Props> = ({
   dark,
   familyQuery,
   familiesLoading,
+  suggestionsLoading,
+  suggestionsError,
   queryError,
   saving,
   mutationBlocked,
@@ -35,6 +40,7 @@ export const MobileMoveVariationFamilySelector: React.FC<Props> = ({
   onQueryChange,
   onFocus,
   onRetry,
+  onRetrySuggestions,
   onSelectFamily,
 }) => (
   <View>
@@ -79,7 +85,25 @@ export const MobileMoveVariationFamilySelector: React.FC<Props> = ({
     ) : null}
     {showSuggestions && !targetFamilyId && familyQuery.trim().length >= 3 ? (
       <View style={[styles.suggestions, dark && styles.suggestionsDark]}>
-        {suggestions.length ? (
+        {suggestionsLoading ? (
+          <View style={styles.queryStatus}>
+            <ActivityIndicator color="#4f46e5" />
+            <Text style={[styles.hint, dark && styles.subtitleDark]}>Buscando produtos pai…</Text>
+          </View>
+        ) : suggestionsError ? (
+          <View style={styles.queryStatus}>
+            <Text style={[styles.conflictText, dark && styles.subtitleDark]}>{suggestionsError}</Text>
+            <TouchableOpacity
+              onPress={onRetrySuggestions}
+              disabled={saving || mutationBlocked}
+              style={styles.retryButton}
+              accessibilityRole="button"
+              accessibilityLabel="Buscar produtos pai novamente"
+            >
+              <Text style={styles.retryText}>Consultar novamente</Text>
+            </TouchableOpacity>
+          </View>
+        ) : suggestions.length ? (
           suggestions.map((family) => (
             <TouchableOpacity
               key={family.id}

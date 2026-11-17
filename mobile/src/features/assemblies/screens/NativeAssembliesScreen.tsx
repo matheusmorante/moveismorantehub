@@ -1,4 +1,6 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Calendar as CalendarIcon, ChevronDown, ChevronRight } from 'lucide-react-native';
+import type React from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Platform,
@@ -8,16 +10,16 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { Calendar as CalendarIcon, ChevronDown, ChevronRight } from 'lucide-react-native';
-import { supabase } from '../../../services/supabaseClient';
-import { offlineStorageService } from '../../../services/offline/offlineStorageService';
-import { useScopedOrderSchedule } from '../../logistics/hooks/useScopedOrderSchedule';
 import { withAbortTimeout } from '../../../../../shared-utils/withAbortTimeout';
+import { connectivityService } from '../../../services/offline/connectivityService';
+import { offlineStorageService } from '../../../services/offline/offlineStorageService';
+import { supabase } from '../../../services/supabaseClient';
 import type { AssemblyHandlingOption } from '../../../utils/aiSummaryHelper';
 import { addDaysToLocalDateString, getLocalDateString } from '../../../utils/orderUtils';
+import { useScopedOrderSchedule } from '../../logistics/hooks/useScopedOrderSchedule';
 import type { AssemblyTask } from '../assemblyTasks';
-import { AssemblyOrderCard } from '../components/AssemblyOrderCard';
 import { getAssemblyTasks } from '../assemblyTasks';
+import { AssemblyOrderCard } from '../components/AssemblyOrderCard';
 import { styles } from './nativeAssembliesScreen.styles';
 
 const ASSEMBLIES_CACHE_KEY = 'assemblies_orders';
@@ -106,6 +108,8 @@ export const NativeAssembliesScreen: React.FC<Props> = ({
   handlingOptions: sharedHandlingOptions,
 }) => {
   const [loadedHandlingOptions, setLoadedHandlingOptions] = useState<AssemblyHandlingOption[]>([]);
+  const [handlingOptionsRefreshing, setHandlingOptionsRefreshing] = useState(false);
+  const [handlingOptionsError, setHandlingOptionsError] = useState<string | null>(null);
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
   const [locationFilter, setLocationFilter] = useState<AssemblyLocationFilter>(initialSubTab);
   const todayKey = getLocalDateString(new Date());
@@ -117,39 +121,68 @@ export const NativeAssembliesScreen: React.FC<Props> = ({
     promise: Promise<void>;
   } | null>(null);
   const handlingOptionsAuthGenerationRef = useRef(0);
+  const handlingOptionsCacheHydratedRef = useRef(false);
 
   useEffect(() => setLocationFilter(initialSubTab), [initialSubTab]);
 
-  const fetchSettings = async () => {
+  const fetchSettings = useCallback(async () => {
+    if (hasExternalHandlingOptions) return;
     const authGeneration = handlingOptionsAuthGenerationRef.current;
     const current = handlingOptionsRequestRef.current;
     if (current?.authGeneration === authGeneration) return current.promise;
 
-    const promise = (async () => {
+    const promise = Promise.resolve().then(async () => {
       try {
+        if (!handlingOptionsCacheHydratedRef.current) {
+          let cached: { data: AssemblyHandlingOption[]; cachedAt: string } | null = null;
+          try {
+            cached = await offlineStorageService.getWorkingSet<AssemblyHandlingOption[]>(
+              HANDLING_OPTIONS_CACHE_KEY
+            );
+          } catch {}
+          handlingOptionsCacheHydratedRef.current = true;
+          if (authGeneration !== handlingOptionsAuthGenerationRef.current) return;
+          if (Array.isArray(cached?.data)) setLoadedHandlingOptions(cached.data);
+        }
+
+        if (!connectivityService.connected) return;
+
+        setHandlingOptionsRefreshing(true);
+        setHandlingOptionsError(null);
         const { data, error } = await withAbortTimeout(supabase.from('settings').select('delivery:data->deliveryHandlingOptions,pickup:data->pickupHandlingOptions').eq('id', 'app').limit(1), 'montagens:opcoes-manuseio', 15_000);
-        if (!error && data?.length) {
-          const settings = data[0] as { delivery?: AssemblyHandlingOption[]; pickup?: AssemblyHandlingOption[] };
-          const opts = [
-            ...(Array.isArray(settings.delivery) ? settings.delivery : []),
-            ...(Array.isArray(settings.pickup) ? settings.pickup : []),
-          ];
-          setLoadedHandlingOptions(opts);
-          await offlineStorageService
-            .cacheWorkingSet(HANDLING_OPTIONS_CACHE_KEY, opts)
-            .catch(() => {});
+        if (authGeneration !== handlingOptionsAuthGenerationRef.current) return;
+        if (error || !data?.length) {
+          setHandlingOptionsError(
+            'Não foi possível atualizar as opções de manuseio. Tente atualizar novamente.'
+          );
           return;
         }
-      } catch {}
 
-      try {
-        const cached =
-          await offlineStorageService.getWorkingSet<any[]>(HANDLING_OPTIONS_CACHE_KEY);
-        if (Array.isArray(cached?.data)) {
-          setLoadedHandlingOptions(cached.data);
+        const settings = data[0] as {
+          delivery?: AssemblyHandlingOption[];
+          pickup?: AssemblyHandlingOption[];
+        };
+        const opts = [
+          ...(Array.isArray(settings.delivery) ? settings.delivery : []),
+          ...(Array.isArray(settings.pickup) ? settings.pickup : []),
+        ];
+        setLoadedHandlingOptions(opts);
+        handlingOptionsCacheHydratedRef.current = true;
+        await offlineStorageService
+          .cacheWorkingSet(HANDLING_OPTIONS_CACHE_KEY, opts)
+          .catch(() => {});
+      } catch {
+        if (authGeneration === handlingOptionsAuthGenerationRef.current) {
+          setHandlingOptionsError(
+            'Não foi possível atualizar as opções de manuseio. Tente atualizar novamente.'
+          );
         }
-      } catch {}
-    })();
+      } finally {
+        if (authGeneration === handlingOptionsAuthGenerationRef.current) {
+          setHandlingOptionsRefreshing(false);
+        }
+      }
+    });
     const pendingRequest = { authGeneration, promise };
     handlingOptionsRequestRef.current = pendingRequest;
 
@@ -160,7 +193,7 @@ export const NativeAssembliesScreen: React.FC<Props> = ({
         handlingOptionsRequestRef.current = null;
       }
     }
-  };
+  }, [hasExternalHandlingOptions]);
 
   useEffect(() => {
     if (hasExternalHandlingOptions) return;
@@ -176,8 +209,18 @@ export const NativeAssembliesScreen: React.FC<Props> = ({
   }, [hasExternalHandlingOptions]);
 
   useEffect(() => {
-    if (!hasExternalHandlingOptions) void fetchSettings();
-  }, [hasExternalHandlingOptions]);
+    void fetchSettings();
+  }, [fetchSettings]);
+
+  useEffect(() => {
+    if (hasExternalHandlingOptions) return;
+    let wasConnected = connectivityService.connected;
+    return connectivityService.subscribe((connected) => {
+      const reconnected = !wasConnected && connected;
+      wasConnected = connected;
+      if (reconnected) void fetchSettings();
+    });
+  }, [fetchSettings, hasExternalHandlingOptions]);
 
   const onRefresh = () => {
     refreshOrders();
@@ -274,6 +317,12 @@ export const NativeAssembliesScreen: React.FC<Props> = ({
     <View style={[styles.container, isDarkMode && styles.containerDark]}>
       {showingOffline ? <Text style={styles.emptyText}>Sem conexão. Exibindo os pedidos salvos neste aparelho.</Text> : null}
       {error ? <Text accessibilityRole="alert" style={styles.emptyText}>{error}</Text> : null}
+      {handlingOptionsRefreshing ? (
+        <Text accessibilityLiveRegion="polite" style={styles.emptyText}>
+          Atualizando opções de manuseio...
+        </Text>
+      ) : null}
+      {handlingOptionsError ? <Text accessibilityRole="alert" style={styles.emptyText}>{handlingOptionsError}</Text> : null}
       {loading && !refreshing ? (
         <View style={styles.center}>
           <ActivityIndicator size="large" color="#7c3aed" />

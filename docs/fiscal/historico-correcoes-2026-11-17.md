@@ -1,5 +1,32 @@
 # Histórico de correções fiscais — 17/11/2026
 
+## Vínculo histórico do fornecedor na importação de NF de entrada
+
+### Problema identificado
+
+A NF-e 8567, série 1, da Movebol foi importada sem fornecedor, embora notas anteriores do mesmo emitente já estivessem vinculadas à Mopar.
+
+### Causa raiz
+
+O importador XML da tela de documento (`useInboundDocumentImport`) procurava fornecedores carregando a lista de pessoas e comparando somente o CNPJ do cadastro ou o nome exato do emitente. Como o cadastro da Mopar não usa o CNPJ da Movebol e seu nome difere da razão social do XML, essa rota não encontrou o vínculo histórico. O importador XML principal e o app já usavam `findInboundInvoiceSupplier`, que consulta notas anteriores do mesmo emitente.
+
+### Solução aplicada
+
+- O importador de documento do ERP agora reutiliza `findInboundInvoiceSupplier`, passando nome, CNPJ/CPF do emitente e data de emissão. Ele procura o cadastro pelo documento, reaproveita a associação da nota anterior do mesmo emitente e mantém o fallback por nome, sem criar fornecedores.
+- O app móvel foi conferido: sua importação já usa a mesma resolução por documento e histórico, portanto não precisou de alteração.
+- A NF-e 8567 foi corrigida no banco operacional, preenchendo somente `supplier_id` com o fornecedor já usado nas notas Movebol anteriores. XML, itens, valores, chave e demais metadados foram preservados.
+
+### Arquivos e pontos alterados
+
+- `erp/src/pages/App/Stock/InboundInvoices/hooks/useInboundDocumentImport.ts:17,104-114`: remoção da busca que baixava e filtrava a lista completa de fornecedores; chamada ao resolvedor comum com a data de emissão.
+- `docs/fiscal/README.md:8`: referência atual para este registro.
+- `docs/auditorias/roadmap-otimizacao-consumo-supabase.md`: registro do acesso mais específico e dos limites de medição.
+- Supabase operacional `hkoxhourxwlddgsfdgws`: atualização condicional do vínculo ausente da NF-e 8567; nenhuma migration.
+
+### Validação e limites
+
+A leitura remota confirmou que a NF-e 8567 estava sem `supplier_id` e que as notas Movebol anteriores já apontavam para Mopar; após a correção, o vínculo foi relido e confirmado. A revisão de código confirmou que a importação XML do ERP e o app já chamam o resolvedor por histórico. Não foram executados testes automatizados ou build. A consulta anterior de fornecedores completos foi substituída por buscas com projeções explícitas e limite; não medi bytes, egress oficial, CPU, plano, latência ou rapidez, portanto não afirmo economia quantitativa. Não houve mudança de regra fiscal, XML, itens, emissão ou transmissão à SEFAZ.
+
 ## Busca de NCM no cadastro preserva espaços durante a digitação
 
 ### Problema identificado

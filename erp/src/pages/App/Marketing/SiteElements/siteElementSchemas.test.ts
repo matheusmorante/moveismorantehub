@@ -3,6 +3,9 @@ import { SITE_ELEMENT_MAX_FILE_BYTES, siteElementImageFileSchema, siteElementMod
 
 const values = () => ({ name: '  Campanha de novembro  ', kind: 'carousel' as const,
   file: new File(['image'], 'banner.png', { type: 'image/png' }), existingImagePath: null, width: 1920, height: 620 });
+const topBarValues = () => ({ ...values(), kind: 'top_bar' as const, width: 2880, height: 720,
+  mobile: { file: new File(['mobile'], 'mobile.png', { type: 'image/png' }), existingImagePath: null, width: 900, height: 600 },
+  tablet: { file: new File(['tablet'], 'tablet.png', { type: 'image/png' }), existingImagePath: null, width: 1600, height: 600 } });
 
 describe('site element model validation', () => {
   it('requires the name and an image for creation, and trims the persisted name', () => {
@@ -13,7 +16,8 @@ describe('site element model validation', () => {
   it('requires the standard dimensions for each element and accepts existing images for rename', () => {
     expect(siteElementModelFormSchema.safeParse({ ...values(), width: 1080 }).success).toBe(false);
     expect(siteElementModelFormSchema.safeParse({ ...values(), kind: 'top_bar' }).success).toBe(false);
-    expect(siteElementModelFormSchema.safeParse({ ...values(), kind: 'top_bar', height: 80 }).success).toBe(true);
+    expect(siteElementModelFormSchema.safeParse(topBarValues()).success).toBe(true);
+    expect(siteElementModelFormSchema.safeParse({ ...topBarValues(), tablet: { ...topBarValues().tablet, width: 900 } }).success).toBe(false);
     expect(siteElementModelFormSchema.safeParse({ ...values(), file: null, existingImagePath: 'existing/path.png' }).success).toBe(true);
   });
   it('rejects empty, oversized, SVG, disguised non-file input and unsupported image files', () => {

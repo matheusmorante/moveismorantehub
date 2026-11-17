@@ -14,6 +14,7 @@ export const missingCategoryApplicationsQuery = () => ({
 
 export const queryWith = (data: unknown, error: unknown = null) => ({
   select: vi.fn().mockReturnValue({
+    or: vi.fn().mockReturnThis(),
     limit: vi.fn().mockResolvedValue({ data, error }),
   }),
 });

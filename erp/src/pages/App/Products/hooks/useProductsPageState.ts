@@ -28,11 +28,13 @@ export const defaultVisibility: ProductVisibilitySettings = {
 export interface UseProductsPageStateProps {
   mode?: 'standard' | 'composition';
   isAdministrator?: boolean;
+  canManageProducts?: boolean;
 }
 
 export function useProductsPageState({
   mode = 'standard',
   isAdministrator = false,
+  canManageProducts = false,
 }: UseProductsPageStateProps) {
   const [hasTestProducts, setHasTestProducts] = useState(false);
   const [filters, setFilters] = useState<Partial<ProductFiltersData>>({});
@@ -91,21 +93,36 @@ export function useProductsPageState({
     disabled: 0,
     drafts: 0,
   });
+  const [isStatsLoading, setIsStatsLoading] = useState(false);
+  const statsRequestSequence = useRef(0);
   const [summaryChannel, setSummaryChannel] = useState<'erp' | 'catalog'>('erp');
 
   const showTestProductsForCurrentRole = isAdministrator && showTestProducts;
 
   const fetchStats = useCallback(async () => {
+    const requestSequence = ++statsRequestSequence.current;
+    if (!canManageProducts) {
+      setIsStatsLoading(false);
+      return;
+    }
+
+    setIsStatsLoading(true);
     try {
       const stats = await loadProductCatalogStats({
         showTestProducts: showTestProductsForCurrentRole,
         mode,
       });
-      if (stats) setCatalogStats(stats);
+      if (stats && requestSequence === statsRequestSequence.current) {
+        setCatalogStats(stats);
+      }
     } catch (err: unknown) {
       console.error('Erro ao carregar estatísticas dos produtos:', err);
+    } finally {
+      if (requestSequence === statsRequestSequence.current) {
+        setIsStatsLoading(false);
+      }
     }
-  }, [showTestProductsForCurrentRole, mode]);
+  }, [canManageProducts, showTestProductsForCurrentRole, mode]);
 
   useEffect(() => {
     fetchStats();
@@ -326,6 +343,7 @@ export function useProductsPageState({
     accordionOpen,
     toggleAccordion,
     catalogStats,
+    isStatsLoading,
     summaryChannel,
     setSummaryChannel,
     fetchStats,

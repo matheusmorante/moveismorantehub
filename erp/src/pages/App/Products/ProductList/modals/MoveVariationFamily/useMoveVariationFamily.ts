@@ -4,10 +4,12 @@ import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { variationFamilyCommandSchema, variationFamilyQuerySchema, variationFamilyConflictSchema, variationFamilyAckSchema,
   canAddVariationFamilyAttribute, VariationFamilyUnconfirmedError, type VariationFamilyOperationGuard } from '../../../../../../../../shared-utils/variationFamilyFormSchemas';
 import { withTimeout } from '../../../../../../../../shared-utils/withTimeout';
-import { ensureAttributeValue } from '@/pages/utils/variationService';
+import { ensureAttributeValues } from '@/pages/utils/variationService';
 import { moveVariationToFamily } from '@/pages/utils/productService';
+import { invalidateProductCatalogStatsCache } from '../../services/productCatalogStatsService';
 import { MAX_VARIATION_IMAGES } from '@/pages/utils/productImageLimits';
-import { fetchVariationFamilyContext, fetchVariationFamilies, fetchVariationFamilyConflict } from '@/pages/utils/productService/productVariationFamilyQueries';
+import { fetchVariationFamilyContext, searchVariationFamilies, fetchVariationFamilyConflict } from '@/pages/utils/productService/productVariationFamilyQueries';
+import { normalizeSearchTerm } from '../../../../../../../../shared-utils/searchText';
 import type Product from '@/pages/types/product.type';
 import type { Variation } from '@/pages/types/product.type';
 import { type Family, type Attribute, toAttributes, familyName } from './utils';
@@ -22,6 +24,8 @@ export const useMoveVariationFamily = (
   const sourceId = (variation?.variationId || '').trim().toLowerCase();
   const isOpen = Boolean(variation);
   const [families, setFamilies] = useState<readonly Family[]>([]), [targetFamilyId, selectFamily] = useState('');
+  const [familySearch, setFamilySearch] = useState(''), [suggestionLoading, setSuggestionLoading] = useState(false),
+    [suggestionError, setSuggestionError] = useState(''), [suggestionRevision, setSuggestionRevision] = useState(0);
   const [attributes, setAttributes] = useState<Attribute[]>(() => toAttributes(variation?.attributes));
   const [context, setContext] = useState<Awaited<ReturnType<typeof fetchVariationFamilyContext>> | null>(null);
   const [loading, setLoading] = useState(Boolean(variation)), [queryError, setQueryError] = useState(''), [queryRevision, setQueryRevision] = useState(0);
@@ -52,24 +56,44 @@ export const useMoveVariationFamily = (
 
   useEffect(() => {
     let current = true, accepting = true;
-    setLoading(true); setQueryError(''); setContext(null); setFamilies([]);
+    setLoading(true); setQueryError(''); setContext(null); setFamilies([]); setFamilySearch(''); selectFamily('');
+    setSuggestionLoading(false); setSuggestionError('');
     void (async () => {
       try {
         const input = await validateQuery({ sourceId });
         if (!input || !current) throw new Error('A variação precisa de um UUID válido. Reabra pelo cadastro da variação.');
-        const result = await withTimeout(Promise.all([
+        const result = await withTimeout(
           fetchVariationFamilyContext(input, initialSource.current?.parentId, () => current && accepting),
-          fetchVariationFamilies(input, () => current && accepting),
-        ]), 32000, null, 'mover-variacao:consultas');
+          32000,
+          null,
+          'mover-variacao:consultas'
+        );
         if (!current) return;
         if (!result) throw new Error('A consulta da mudança de família excedeu o prazo. Consulte novamente.');
-        const [source, parents] = result;
-        setContext(source); setFamilies(parents.filter((candidate) => candidate.id !== source.sourceParentId));
+        setContext(result);
       } catch (failure) { if (current) setQueryError(failure instanceof Error ? failure.message : 'Não foi possível consultar a mudança de família.'); }
       finally { accepting = false; if (current) setLoading(false); }
     })();
     return () => { current = false; accepting = false; };
   }, [sourceId, queryRevision, validateQuery]);
+
+  const normalizedFamilySearch = normalizeSearchTerm(familySearch);
+  useEffect(() => {
+    let current = true, accepting = true;
+    if (!isOpen || loading || !context || targetFamilyId || normalizedFamilySearch.length < 3) {
+      if (!targetFamilyId) setFamilies([]);
+      setSuggestionLoading(false); setSuggestionError('');
+      return () => { current = false; accepting = false; };
+    }
+    setFamilies([]); setSuggestionError(''); setSuggestionLoading(true);
+    const timer = setTimeout(() => {
+      void searchVariationFamilies(normalizedFamilySearch, context.sourceParentId, () => current && accepting)
+        .then((results) => { if (current && accepting) setFamilies(results); })
+        .catch((failure) => { if (current && accepting) setSuggestionError(failure instanceof Error ? failure.message : 'Não foi possível buscar os produtos pai.'); })
+        .finally(() => { if (current) setSuggestionLoading(false); accepting = false; });
+    }, 250);
+    return () => { current = false; accepting = false; clearTimeout(timer); };
+  }, [context, isOpen, loading, normalizedFamilySearch, suggestionRevision, targetFamilyId]);
 
   useEffect(() => {
     let current = true, accepting = true;
@@ -117,12 +141,11 @@ export const useMoveVariationFamily = (
         if (parsed.images.length > MAX_VARIATION_IMAGES) throw new Error(`Cada variação pode vincular no máximo ${MAX_VARIATION_IMAGES} fotos.`);
         guard.active = token.current;
         const operation = async () => {
-          const canonicalAttributes: Attribute[] = [];
-          for (const attribute of parsed.attributes) {
-            if (!stillCurrent()) throw new VariationFamilyUnconfirmedError();
-            const stored = await ensureAttributeValue(attribute.name, attribute.value, stillCurrent);
-            canonicalAttributes.push({ ...attribute, ...stored });
-          }
+          const storedAttributes = await ensureAttributeValues(parsed.attributes, stillCurrent);
+          const canonicalAttributes: Attribute[] = parsed.attributes.map((attribute, index) => ({
+            ...attribute,
+            ...storedAttributes[index],
+          }));
           if (!stillCurrent()) throw new VariationFamilyUnconfirmedError();
           const newName = [familyName(family), ...canonicalAttributes.map((attribute) => attribute.value)].join(' ');
           return moveVariationToFamily(parsed.sourceId, parsed.familyId, canonicalAttributes, newName, parsed.images, parsed.sourceParentId, stillCurrent);
@@ -135,7 +158,11 @@ export const useMoveVariationFamily = (
         toast.success(confirmation.data.sourceParentRemoved
           ? `Variação movida (novo SKU: ${confirmation.data.newSku}). O produto pai antigo ficou sem variações e foi removido.`
           : `Variação movida para o novo produto pai (SKU: ${confirmation.data.newSku}). O ID foi preservado.`);
-        try { onMoved(); onClose(); } catch { setError('Mudança confirmada, mas a tela não foi atualizada. Recarregue a página.'); }
+        try {
+          invalidateProductCatalogStatsCache();
+          onMoved();
+          onClose();
+        } catch { setError('Mudança confirmada, mas a tela não foi atualizada. Recarregue a página.'); }
         return true;
       }, (errors) => { if (active.current) setError(Object.values(flattenFormErrors(errors))[0] || 'Confira os dados da mudança.'); });
     } catch (failure) {
@@ -149,7 +176,17 @@ export const useMoveVariationFamily = (
       if (active.current) setSaving(false);
     }
   };
-  return { families, targetFamilyId, setTargetFamilyId: (id: string) => { if (editable()) { invalidateReview(); selectFamily(id); } }, attributes,
+  return { families, familySearch, updateFamilySearch: (value: string) => {
+      if (!editable()) return;
+      setFamilySearch(value);
+      setFamilies([]); setSuggestionError(''); setSuggestionLoading(normalizeSearchTerm(value).length >= 3);
+      if (targetFamilyId) { invalidateReview(); selectFamily(''); }
+    }, selectFamilySuggestion: (candidate: Family) => {
+      if (!editable()) return;
+      invalidateReview(); selectFamily(candidate.id);
+      setFamilySearch(`${familyName(candidate)}${candidate.code ? ` — ${candidate.code}` : ''}`);
+      setSuggestionLoading(false); setSuggestionError('');
+    }, targetFamilyId, setTargetFamilyId: (id: string) => { if (editable()) { invalidateReview(); selectFamily(id); } }, attributes,
     updateAttribute: (index: number, field: 'name' | 'value', value: string) => { if (editable()) { invalidateReview(); setAttributes((current) => current.map((attribute, i) => i === index ? { ...attribute, [field]: value } : attribute)); } },
     addAttribute: () => {
       if (!editable() || !canAddVariationFamilyAttribute(attributes)) return;
@@ -159,8 +196,9 @@ export const useMoveVariationFamily = (
       );
     },
     hasConflict, countdown, isOnlyVariation: Boolean(context?.isOnlyVariation), saving, handleConfirm, handleCancel,
-    loading, queryError, conflictLoading, conflictError, error, canConfirm, blocked: Boolean(guard.error) || completed.current,
+    loading, queryError, suggestionLoading, suggestionError, conflictLoading, conflictError, error, canConfirm, blocked: Boolean(guard.error) || completed.current,
     retryQueries: () => { if (editable()) { invalidateReview(); setQueryRevision((revision) => revision + 1); } },
+    retrySuggestions: () => { if (editable()) { setSuggestionError(''); setSuggestionLoading(true); setSuggestionRevision((revision) => revision + 1); } },
     retryConflict: () => { if (editable()) { invalidateReview(); setConflictRevision((revision) => revision + 1); } },
   };
 };

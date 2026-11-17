@@ -271,7 +271,8 @@ export const moveVariationToFamily = async (
       const photos = await withTimeout(supabase
         .from('product_images')
         .select('image_url')
-        .eq('product_id', command.familyId), 10000, null, 'mover-variacao:fotos-destino');
+        .eq('product_id', command.familyId)
+        .in('image_url', variationImages), 10000, null, 'mover-variacao:fotos-destino');
       if (!photos || photos.error || !Array.isArray(photos.data)) throw new VariationFamilyUnconfirmedError();
         const existingUrls = new Set(photos.data.map((img) => img.image_url));
         const newImages = variationImages.filter((url) => !existingUrls.has(url));

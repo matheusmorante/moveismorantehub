@@ -68,8 +68,39 @@ it('interrompe o salvamento se o envio de uma imagem falhar', async () => {
   const asset = { id: 'a'.repeat(64), webp_base64: 'conteudo' };
   input.design.formats['1:1'].layers.unshift({ ...createImageLayer('image', '1:1'), assetId: asset.id } as never);
   mocks.from.mockReturnValue(query(null, new Error('Envio recusado')));
-  await expect(saveImageTemplate(original.id, input, null, new Map([[asset.id, asset]]))).rejects.toThrow('Envio recusado');
+  const onAssetsConfirmed = vi.fn();
+  await expect(saveImageTemplate(original.id, input, null, new Map([[asset.id, asset]]), onAssetsConfirmed)).rejects.toThrow('Envio recusado');
+  expect(onAssetsConfirmed).not.toHaveBeenCalled();
   expect(mocks.from.mock.calls).toEqual([['catalog_image_template_assets']]);
+});
+
+it('confirma imagens após o envio e permite repetir o salvamento sem reenviá-las', async () => {
+  const input = values();
+  const asset = { id: 'a'.repeat(64), webp_base64: 'conteudo' };
+  input.design.formats['1:1'].layers.unshift({ ...createImageLayer('image', '1:1'), assetId: asset.id } as never);
+  const assets = query(null);
+  const modelFailed = query(null, new Error('Gravação do modelo recusada'));
+  const modelRetried = query({ ...original, updated_at: '2026-11-06T11:00:00Z' });
+  const modelWrites = [modelFailed, modelRetried];
+  mocks.from.mockImplementation((table: string) => table === 'catalog_image_template_assets' ? assets : modelWrites.shift()!);
+  const confirmed = new Set<string>();
+  const onAssetsConfirmed = vi.fn((assetIds: string[]) => assetIds.forEach((assetId) => confirmed.add(assetId)));
+  const pending = new Map([[asset.id, asset]]);
+
+  await expect(saveImageTemplate(original.id, input, original, pending, onAssetsConfirmed)).rejects.toThrow('Gravação do modelo recusada');
+  expect(onAssetsConfirmed).toHaveBeenCalledTimes(1);
+  expect(onAssetsConfirmed).toHaveBeenCalledWith([asset.id]);
+
+  const retryPending = new Map([...pending].filter(([assetId]) => !confirmed.has(assetId)));
+  await saveImageTemplate(original.id, input, original, retryPending, onAssetsConfirmed);
+
+  expect(assets.upsert).toHaveBeenCalledOnce();
+  expect(mocks.from.mock.calls).toEqual([
+    ['catalog_image_template_assets'],
+    ['catalog_image_templates'],
+    ['catalog_image_templates'],
+  ]);
+  expect(onAssetsConfirmed).toHaveBeenCalledOnce();
 });
 
 it('confere a versão ao renomear e ao excluir, sem remover um registro mais recente', async () => {

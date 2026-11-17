@@ -156,10 +156,16 @@ export function useCustomerSupportMessages({
       if (convId) {
         setMessages([]);
         setHasOlderMessages(false);
-        const pendingTarget = pendingJumpRef.current;
+        const pendingJump = pendingJumpRef.current;
         pendingJumpRef.current = null;
-        if (pendingTarget?.conversationId === convId) {
-          void loadMessageContext(convId, pendingTarget, generationRef.current);
+        if (pendingJump?.message.conversationId === convId) {
+          void loadMessageContext(
+            convId,
+            pendingJump.message,
+            generationRef.current,
+            false,
+            pendingJump.reuseResolvedTarget
+          );
         } else {
           void loadMessages(convId);
         }

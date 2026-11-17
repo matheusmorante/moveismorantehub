@@ -15,27 +15,36 @@ export async function fetchConversationMessageContext(
   supabase: SupabaseClient,
   conversationId: string,
   messageId: string,
-  contextSize = 10
+  contextSize = 10,
+  resolvedTarget?: WhatsAppMessage
 ): Promise<CustomerSupportMessageContext> {
   if (!conversationId || !messageId) {
     return { messages: [], hasOlderMessages: false };
   }
-  const targetResponse = await withTimeout<any>(
-    supabase
-      .from('whatsapp_messages')
-      .select(MESSAGE_SELECT_COLUMNS)
-      .eq('conversation_id', conversationId)
-      .eq('id', messageId)
-      .maybeSingle(),
-    15_000,
-    null,
-    'central:mensagem-alvo'
-  );
-  if (!targetResponse || targetResponse.error || !targetResponse.data) {
-    throw new Error('Não foi possível localizar essa mensagem no histórico da conversa.');
+  let target: WhatsAppMessage;
+  if (resolvedTarget) {
+    if (resolvedTarget.conversationId !== conversationId || resolvedTarget.id !== messageId) {
+      throw new Error('A mensagem citada não pertence a esta conversa.');
+    }
+    target = resolvedTarget;
+  } else {
+    const targetResponse = await withTimeout<any>(
+      supabase
+        .from('whatsapp_messages')
+        .select(MESSAGE_SELECT_COLUMNS)
+        .eq('conversation_id', conversationId)
+        .eq('id', messageId)
+        .maybeSingle(),
+      15_000,
+      null,
+      'central:mensagem-alvo'
+    );
+    if (!targetResponse || targetResponse.error || !targetResponse.data) {
+      throw new Error('Não foi possível localizar essa mensagem no histórico da conversa.');
+    }
+    target = mapRowToMessage(targetResponse.data);
   }
-  const target = targetResponse.data;
-  const cursor = { timestamp: target.timestamp || target.created_at, id: target.id };
+  const cursor = { timestamp: target.timestamp, id: target.id };
   const limit = Math.max(1, Math.min(20, Math.trunc(contextSize) || 10));
   const beforeQuery = applyTimestampCursor(
     supabase
@@ -71,14 +80,17 @@ export async function fetchConversationMessageContext(
     throw new Error('Não foi possível carregar o contexto da mensagem. Tente novamente.');
   }
   const beforeRows = beforeResponse.data.slice(0, limit).reverse();
-  const rows = [...beforeRows, target, ...afterResponse.data];
-  const uniqueRows = Array.from(new Map(rows.map((row) => [row.id, row])).values()).sort(
-    (a: any, b: any) =>
-      String(a.timestamp || a.created_at).localeCompare(String(b.timestamp || b.created_at)) ||
-      String(a.id).localeCompare(String(b.id))
+  const rows = [
+    ...beforeRows.map(mapRowToMessage),
+    target,
+    ...afterResponse.data.map(mapRowToMessage),
+  ];
+  const uniqueRows = Array.from(new Map(rows.map((message) => [message.id, message])).values()).sort(
+    (a, b) =>
+      a.timestamp.localeCompare(b.timestamp) || a.id.localeCompare(b.id)
   );
   return {
-    messages: uniqueRows.map(mapRowToMessage),
+    messages: uniqueRows,
     hasOlderMessages: beforeResponse.data.length > limit,
   };
 }

@@ -12,9 +12,14 @@ export const SITE_ELEMENT_CONFIG = {
   },
   top_bar: {
     label: 'Barra de destaque do topo',
-    description: 'Modelos para a faixa de destaque no topo do catálogo digital.',
-    width: 1920,
-    height: 80,
+    description: 'Modelos com imagens próprias para celular, tablet e desktop.',
+    width: 2880,
+    height: 720,
+    responsive: {
+      mobile: { label: 'Celular', width: 900, height: 600, maxViewport: 639 },
+      tablet: { label: 'Tablet', width: 1600, height: 600, minViewport: 640, maxViewport: 1023 },
+      desktop: { label: 'Desktop', width: 2880, height: 720, minViewport: 1024 },
+    },
     icon: 'bi-view-stacked',
   },
 } as const;
@@ -31,6 +36,13 @@ export const siteElementImageFileSchema = z.custom<File>(
     'A imagem deve ter conteúdo e no máximo 5 MB.')
   .refine((file) => file.name.length <= 255, 'O nome do arquivo deve ter no máximo 255 caracteres.');
 
+const optionalImageVariantSchema = z.object({
+  file: siteElementImageFileSchema.nullable().default(null),
+  existingImagePath: z.string().nullable().default(null),
+  width: z.number().int().nonnegative().default(0),
+  height: z.number().int().nonnegative().default(0),
+});
+
 export const siteElementModelFormSchema = z.object({
   name: z.string().trim().min(1, 'Informe o nome do modelo.').max(100, 'Use no máximo 100 caracteres no nome.'),
   kind: z.enum(SITE_ELEMENT_KINDS),
@@ -38,6 +50,8 @@ export const siteElementModelFormSchema = z.object({
   existingImagePath: z.string().nullable(),
   width: z.number().int().nonnegative(),
   height: z.number().int().nonnegative(),
+  mobile: optionalImageVariantSchema.default({ file: null, existingImagePath: null, width: 0, height: 0 }),
+  tablet: optionalImageVariantSchema.default({ file: null, existingImagePath: null, width: 0, height: 0 }),
 }).superRefine((value, context) => {
   if (!value.file && !value.existingImagePath) {
     context.addIssue({ code: 'custom', path: ['file'], message: 'Selecione a imagem do modelo.' });
@@ -48,6 +62,20 @@ export const siteElementModelFormSchema = z.object({
       code: 'custom', path: ['file'],
       message: `A imagem deve ter exatamente ${config.width} × ${config.height} px.`,
     });
+  }
+  if (value.kind === 'top_bar') {
+    for (const variant of ['mobile', 'tablet'] as const) {
+      const target = SITE_ELEMENT_CONFIG.top_bar.responsive[variant];
+      const image = value[variant];
+      if (!image.file && !image.existingImagePath) {
+        context.addIssue({ code: 'custom', path: [variant, 'file'], message: `Adicione a imagem para ${target.label.toLowerCase()}.` });
+      }
+      if (image.width !== target.width || image.height !== target.height) {
+        context.addIssue({ code: 'custom', path: [variant, 'file'], message: `A imagem para ${target.label.toLowerCase()} deve ter ${target.width} × ${target.height} px.` });
+      }
+    }
+  } else if (value.mobile.file || value.mobile.existingImagePath || value.tablet.file || value.tablet.existingImagePath) {
+    context.addIssue({ code: 'custom', path: ['kind'], message: 'As imagens responsivas são exclusivas da barra de destaque.' });
   }
 });
 

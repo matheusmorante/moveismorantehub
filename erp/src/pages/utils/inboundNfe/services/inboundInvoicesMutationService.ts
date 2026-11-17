@@ -56,10 +56,16 @@ const reconcileInvoiceItemVariationReferences = async (
   );
 };
 
-export const saveInboundInvoice = async (invoice: InboundInvoice, options: { requireConfirmation?: boolean; assertCurrent?: () => void } = {}): Promise<InboundInvoice> => {
+export const saveInboundInvoice = async (invoice: InboundInvoice, options: { requireConfirmation?: boolean; mappingOnly?: boolean; assertCurrent?: () => void } = {}): Promise<InboundInvoice> => {
   if (isSampleInvoice(invoice)) {
     if (options.requireConfirmation) throw new Error('Não é possível gravar alterações na nota demonstrativa.');
     return invoice;
+  }
+  if (options.mappingOnly && !options.requireConfirmation) {
+    throw new Error('A gravação parcial dos vínculos exige confirmação do servidor.');
+  }
+  if (options.mappingOnly && !isValidUuid(invoice.id)) {
+    throw new Error('Não foi possível identificar a nota salva para atualizar os vínculos.');
   }
   assertInboundInvoiceRecipientMatchesCompany(invoice.recipientCnpj, getSettings().companyCnpj);
   options.assertCurrent?.();
@@ -140,7 +146,16 @@ export const saveInboundInvoice = async (invoice: InboundInvoice, options: { req
     };
 
     const onConflict = accessKey.length === 44 ? 'chave_acesso' : 'id';
-    const headerWrite = supabase.from('inbound_invoices').upsert(payload, { onConflict });
+    const headerWrite = options.mappingOnly
+      ? supabase
+          .from('inbound_invoices')
+          .update({
+            supplier_id: payload.supplier_id,
+            itens: payload.itens,
+            updated_at: payload.updated_at,
+          })
+          .eq('id', validId)
+      : supabase.from('inbound_invoices').upsert(payload, { onConflict });
     const header = options.requireConfirmation ? await headerWrite.select('id,supplier_id,itens').single() : await headerWrite;
     options.assertCurrent?.();
     const { error } = header;

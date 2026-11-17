@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { toTitleCase } from '../../../../../shared-utils/productText';
+import { normalizeSearchTerm } from '../../../../../shared-utils/searchText';
 import {
   sameFamilyAttributes,
   toFamilyAttributes,
@@ -94,40 +95,29 @@ export const mobileVariationAttributesConflict = (
   second: readonly MobileVariationAttribute[]
 ): boolean => sameFamilyAttributes(first, second);
 
-export const fetchMobileVariationFamilies = async (
-  sourceParentId?: string,
+export const searchMobileVariationFamilies = async (
+  search: string,
+  sourceParentId: string,
   stillCurrent: () => boolean = () => true
 ): Promise<MobileVariationFamily[]> => {
-  const parentId = sourceParentId ? variationFamilyUuidSchema.parse(sourceParentId) : undefined;
+  const parentId = variationFamilyUuidSchema.parse(sourceParentId);
+  const queryText = normalizeSearchTerm(search);
   ensureQueryIsCurrent(stillCurrent);
-  const families: MobileVariationFamily[] = [];
-
-  for (let offset = 0; ; offset += VARIATION_FAMILY_PAGE_SIZE) {
-    let query = supabase
-      .from('products')
-      .select('id, name, description, code')
-      .eq('deleted', false)
-      .not('code', 'is', null)
-      .neq('code', '')
-      .order('name', { ascending: true })
-      .order('id', { ascending: true });
-    if (parentId) query = query.neq('id', parentId);
-
-    const result = await withTimeout(
-      query.range(offset, offset + VARIATION_FAMILY_PAGE_SIZE - 1),
-      VARIATION_FAMILY_QUERY_TIMEOUT_MS,
-      null,
-      'mover-variacao:familias'
-    );
-    ensureQueryIsCurrent(stillCurrent);
-    if (!result || result.error || !Array.isArray(result.data)) {
-      throw new Error('Não foi possível carregar os produtos pai. Consulte novamente.');
-    }
-
-    const page = z.array(mobileVariationFamilySchema).parse(result.data) as MobileVariationFamily[];
-    families.push(...page);
-    if (page.length < VARIATION_FAMILY_PAGE_SIZE) return families;
+  if (queryText.length < 3) return [];
+  const result = await withTimeout(
+    (supabase as any).rpc('search_variation_family_suggestions', {
+      p_search: queryText,
+      p_source_parent_id: parentId,
+    }),
+    VARIATION_FAMILY_QUERY_TIMEOUT_MS,
+    null,
+    'mover-variacao:buscar-familias'
+  );
+  ensureQueryIsCurrent(stillCurrent);
+  if (!result || result.error || !Array.isArray(result.data)) {
+    throw new Error('Não foi possível buscar os produtos pai. Consulte novamente.');
   }
+  return z.array(mobileVariationFamilySchema).parse(result.data) as MobileVariationFamily[];
 };
 
 export const countMobileParentVariations = async (
@@ -197,6 +187,142 @@ export const checkMobileVariationAttributeConflict = async (
     if (conflict) return true;
     if (page.length < VARIATION_FAMILY_PAGE_SIZE) return false;
   }
+};
+
+interface MobileVariationFamilyAttributeLookup {
+  index: number;
+  attributeId: string | null;
+  name: string | null;
+  value: string | null;
+}
+
+const lookupMobileVariationFamilyAttributes = async (
+  attributes: readonly { name: string; value: string }[],
+  stillCurrent: () => boolean,
+): Promise<MobileVariationFamilyAttributeLookup[]> => {
+  ensureQueryIsCurrent(stillCurrent);
+  const response = await withTimeout(
+    (supabase as any).rpc('lookup_variation_family_attributes', { p_attributes: attributes }),
+    VARIATION_FAMILY_QUERY_TIMEOUT_MS,
+    null,
+    'mover-variacao:atributos'
+  );
+  ensureQueryIsCurrent(stillCurrent);
+  if (!response) throw new Error('A consulta de características excedeu o prazo.');
+  if (response.error) throw response.error;
+  if (!Array.isArray(response.data) || response.data.length !== attributes.length) {
+    throw new Error('Não foi possível confirmar a consulta das características.');
+  }
+  return response.data.map((entry: any, index: number) => {
+    if (!entry || entry.index !== index
+      || (entry.attributeId !== null && typeof entry.attributeId !== 'string')
+      || (entry.name !== null && typeof entry.name !== 'string')
+      || (entry.value !== null && typeof entry.value !== 'string')
+      || ((entry.attributeId === null) !== (entry.name === null))
+      || (entry.attributeId === null && entry.value !== null)) {
+      throw new Error('Não foi possível confirmar a consulta das características.');
+    }
+    return entry as MobileVariationFamilyAttributeLookup;
+  });
+};
+
+export const ensureMobileAttributeValues = async (
+  attributes: readonly { name: string; value: string }[],
+  stillCurrent: () => boolean = () => true
+): Promise<MobileVariationAttribute[]> => {
+  const normalizedAttributes = attributes.map((attribute) => {
+    const input = variationFamilyAttributeSchema.parse(attribute);
+    return { name: toTitleCase(input.name), value: toTitleCase(input.value) };
+  });
+  if (normalizedAttributes.length === 0) return [];
+
+  const lookups = await lookupMobileVariationFamilyAttributes(normalizedAttributes, stillCurrent);
+  const literal = (text: string) => `^${text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`;
+  const check = () => ensureQueryIsCurrent(stillCurrent);
+  const wait = async <T,>(query: PromiseLike<T>, write = false): Promise<T> => {
+    check();
+    let result: T | null;
+    try {
+      result = await withTimeout(query, VARIATION_FAMILY_QUERY_TIMEOUT_MS, null, 'mover-variacao:atributo');
+    } catch (error) {
+      if (write) throw new VariationFamilyUnconfirmedError('O cadastro da característica pode ter sido gravado. Consulte as características antes de repetir.');
+      throw error;
+    }
+    if (result === null) {
+      if (write) throw new VariationFamilyUnconfirmedError('O cadastro da característica não foi confirmado. Consulte as características antes de repetir.');
+      throw new Error('A consulta de características excedeu o prazo.');
+    }
+    if (!stillCurrent()) {
+      if (write) throw new VariationFamilyUnconfirmedError('O cadastro da característica pode ter sido gravado. Consulte as características antes de repetir.');
+      check();
+    }
+    return result;
+  };
+  const handleWriteError = (error: { code?: string; message?: string; status?: number } | null | undefined) => {
+    if (!error) return;
+    if (!error.code || error.status === 0 || (error.status ?? 0) >= 500) {
+      throw new VariationFamilyUnconfirmedError('O cadastro da característica pode ter sido gravado. Consulte as características antes de repetir.');
+    }
+    throw new Error(error.message || 'Não foi possível cadastrar a característica. Confira os dados e as permissões.');
+  };
+
+  const canonicalAttributes: MobileVariationAttribute[] = [];
+  for (let index = 0; index < normalizedAttributes.length; index += 1) {
+    check();
+    const { name: normalizedName, value: normalizedValue } = normalizedAttributes[index];
+    const lookup = lookups[index];
+    let attribute = lookup.attributeId && lookup.name
+      ? { id: lookup.attributeId, name: lookup.name }
+      : null;
+
+    if (!attribute) {
+      const response = await wait(supabase
+        .from('attributes')
+        .insert({ name: normalizedName, active: true })
+        .select('id, name')
+        .single(), true);
+      handleWriteError(response.error);
+      if (!response.data) {
+        throw new VariationFamilyUnconfirmedError('O cadastro da característica não foi confirmado. Consulte as características antes de repetir.');
+      }
+      attribute = response.data;
+    }
+    if (!attribute?.id || typeof attribute.name !== 'string'
+      || attribute.name.trim().toLocaleLowerCase('pt-BR') !== normalizedName.toLocaleLowerCase('pt-BR')) {
+      throw new VariationFamilyUnconfirmedError('O cadastro da característica não foi confirmado. Consulte as características antes de repetir.');
+    }
+
+    let canonicalValue = lookup.attributeId === attribute.id && typeof lookup.value === 'string'
+      ? lookup.value
+      : undefined;
+    if (typeof canonicalValue !== 'string') {
+      const valueResult = await wait(supabase
+        .from('attribute_values')
+        .select('value')
+        .eq('attribute_id', attribute.id)
+        .filter('value', 'imatch', literal(normalizedValue))
+        .limit(1));
+      if (valueResult.error) throw valueResult.error;
+      if (!Array.isArray(valueResult.data)) throw new Error('Não foi possível confirmar a consulta do valor da característica.');
+      canonicalValue = valueResult.data[0]?.value;
+    }
+    if (typeof canonicalValue !== 'string') {
+      const response = await wait(supabase
+        .from('attribute_values')
+        .insert({ attribute_id: attribute.id, value: normalizedValue })
+        .select('value')
+        .single(), true);
+      handleWriteError(response.error);
+      canonicalValue = response.data?.value;
+    }
+    if (typeof canonicalValue !== 'string'
+      || canonicalValue.trim().toLocaleLowerCase('pt-BR') !== normalizedValue.toLocaleLowerCase('pt-BR')) {
+      throw new VariationFamilyUnconfirmedError('O valor da característica não foi confirmado. Consulte as características antes de repetir.');
+    }
+
+    canonicalAttributes.push(variationFamilyAttributeSchema.parse({ name: attribute.name, value: canonicalValue }));
+  }
+  return canonicalAttributes;
 };
 
 export const ensureMobileAttributeValue = async (
@@ -285,7 +411,6 @@ export const ensureMobileAttributeValue = async (
     || canonicalValue.trim().toLocaleLowerCase('pt-BR') !== normalizedValue.toLocaleLowerCase('pt-BR')) {
     throw new VariationFamilyUnconfirmedError('O valor da característica não foi confirmado. Consulte as características antes de repetir.');
   }
-
   return variationFamilyAttributeSchema.parse({ name: attribute.name, value: canonicalValue });
 };
 
@@ -403,7 +528,10 @@ export const moveMobileVariationToFamily = async (
 
     if (variationImages.length > 0) {
       const photos = await withTimeout(
-        supabase.from('product_images').select('image_url').eq('product_id', command.familyId),
+        supabase.from('product_images')
+          .select('image_url')
+          .eq('product_id', command.familyId)
+          .in('image_url', variationImages),
         VARIATION_FAMILY_QUERY_TIMEOUT_MS,
         null,
         'mover-variacao:fotos-destino'

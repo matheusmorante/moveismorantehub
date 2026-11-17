@@ -10,6 +10,13 @@ import { attachDeliveryOperationStates, projectOperationOrder } from '../feature
 
 const MOBILE_ORDER_DETAIL_COLUMNS =
   'id,status,order_type,order_number,order_index,customer_name,total_amount,order_data,version,updated_at,created_at,delivery_status';
+// Keeps read provenance out of the order object and persisted order data.
+const serverConfirmedOrderDetails = new WeakSet<object>();
+
+export const isServerConfirmedOrderDetails = (order: unknown): boolean => {
+  if (order === null || typeof order !== 'object') return false;
+  return serverConfirmedOrderDetails.has(order);
+};
 
 async function cachedDetails(order: any) {
   const local = await OrderRepository.getById(order.id);
@@ -27,6 +34,7 @@ async function cachedDetails(order: any) {
 export async function loadMobileOrderDetails(order: any, signal?: AbortSignal): Promise<any> {
   if (!order?.id) throw new Error('Pedido sem identificação.');
   let result: any = null;
+  let loadedFromServer = false;
   if (connectivityService.connected) {
     try {
       const operationRequested = Boolean(order.scheduleAppointment?.appointmentId);
@@ -56,6 +64,7 @@ export async function loadMobileOrderDetails(order: any, signal?: AbortSignal): 
         updatedAt: detail.updated_at || detail.created_at, syncedAt: new Date().toISOString(), isPendingLocal: false,
       }, { preservePending: true });
       result = detail;
+      loadedFromServer = true;
     } catch (cause) {
       if (signal?.aborted) throw cause;
       if (connectivityService.connected) throw cause;
@@ -67,7 +76,10 @@ export async function loadMobileOrderDetails(order: any, signal?: AbortSignal): 
   const [overlaid] = await OrderRepository.overlayPendingLocalOrders([result]);
   const full = { ...(overlaid || result), __orderSummary: false };
   if (order.scheduleAppointment?.appointmentId && (full.order_data?.__independentOperationRead || full.order_data?.deliveryOperations)) {
-    return projectOperationOrder({ ...full, scheduleAppointment: order.scheduleAppointment }, full.order_data);
+    const projected = projectOperationOrder({ ...full, scheduleAppointment: order.scheduleAppointment }, full.order_data);
+    if (loadedFromServer) serverConfirmedOrderDetails.add(projected);
+    return projected;
   }
+  if (loadedFromServer) serverConfirmedOrderDetails.add(full);
   return full;
 }

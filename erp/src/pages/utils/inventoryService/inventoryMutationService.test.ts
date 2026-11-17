@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({ from: vi.fn(), insert: vi.fn(), prepend: vi.fn(), audit: vi.fn(), delta: vi.fn(), reply: null as any, existing: null as any, duplicate: null as any }));
 vi.mock('@/pages/utils/supabaseConfig', () => ({ supabase: { from: mocks.from } }));
-vi.mock('./inventorySubscriptionState', () => ({ prependMoveToState: mocks.prepend, removeMoveFromState: vi.fn(), updateMoveInState: vi.fn() }));
+vi.mock('./inventorySubscriptionState', () => ({ prependMoveToState: mocks.prepend, removeMoveFromState: vi.fn(), updateMoveInState: vi.fn(), notifyInventoryMoveMutation: vi.fn(), notifyInventoryMoveMutationCompleted: vi.fn() }));
 vi.mock('./inventoryStockCalculator', () => ({ recalculateProductStockOnMove: mocks.delta, revertProductStockFromMove: vi.fn() }));
 vi.mock('@/pages/utils/inventoryAuditBalance', () => ({ recalculateInventoryAuditBalance: mocks.audit }));
 vi.mock('@/pages/utils/productService', () => ({ mapFromDB: vi.fn(), updateProduct: vi.fn() }));

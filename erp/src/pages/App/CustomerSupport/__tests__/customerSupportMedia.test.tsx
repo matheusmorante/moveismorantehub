@@ -332,7 +332,7 @@ describe('Mídias da Central no navegador', () => {
     expect(resolveReply).toHaveBeenCalledWith({
       conversationId: 'conversation-1', messageId: null, apiMessageId: 'wamid.source',
     });
-    expect(jumpToMessage).toHaveBeenCalledWith(source);
+    expect(jumpToMessage).toHaveBeenCalledWith(source, { reuseResolvedTarget: true });
   });
 
   it.each(['location', 'contacts'] as const)('exibe conteúdo persistido para %s', (messageType) => {

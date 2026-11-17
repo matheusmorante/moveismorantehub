@@ -30,7 +30,9 @@ describe('site element library', () => {
     expect(screen.queryByRole('img')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Novo modelo' }));
     await screen.findByRole('dialog');
-    expect(screen.getByText('1920 × 80 px')).toBeTruthy();
+    expect(screen.getByText('2880 × 720 px')).toBeTruthy();
+    expect(screen.getByText('900 × 600 px')).toBeTruthy();
+    expect(screen.getByText('1600 × 600 px')).toBeTruthy();
   });
   it('shows an actionable error and retries without presenting a false empty library', async () => {
     mocks.list.mockRejectedValueOnce(new Error('Consulta indisponível'));

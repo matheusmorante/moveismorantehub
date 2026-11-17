@@ -18,6 +18,12 @@ export interface CalendarEvent {
   created_at: string;
 }
 
+// Mantido para snapshots locais antigos; a leitura remota usa só colunas confirmadas pelo app.
+export type CalendarEventSummary = Pick<
+  CalendarEvent,
+  'id' | 'title' | 'date' | 'time_or_period'
+> & Partial<Pick<CalendarEvent, 'event_date'>>;
+
 const LOCAL_EVENTS_CACHE_KEY = 'schedule_calendar_events_v1';
 const PENDING_LOCAL_EVENTS_KEY = 'schedule_calendar_events_pending_v1';
 
@@ -33,11 +39,11 @@ const resolveSessionUserId = async (explicitUserId?: string | null): Promise<str
   return null;
 };
 
-const mergeEventsById = (
-  primary: CalendarEvent[],
-  secondary: CalendarEvent[]
-): CalendarEvent[] => {
-  const byId = new Map<string, CalendarEvent>();
+const mergeEventsById = <T extends CalendarEventSummary, U extends CalendarEventSummary>(
+  primary: T[],
+  secondary: U[]
+): Array<T | U> => {
+  const byId = new Map<string, T | U>();
   for (const evt of primary) {
     if (evt?.id) byId.set(evt.id, evt);
   }
@@ -109,7 +115,7 @@ export const syncPendingLocalCalendarEvents = async (
 
 export const fetchCalendarEvents = async (
   activeUserId?: string | null
-): Promise<CalendarEvent[]> => {
+): Promise<CalendarEventSummary[]> => {
   const pendingBeforeSync = await getPendingLocalCalendarEvents();
 
   if (connectivityService.connected && pendingBeforeSync.length > 0) {
@@ -122,12 +128,12 @@ export const fetchCalendarEvents = async (
     // 1. Tentar ler do Supabase se existir a tabela calendar_events
     const { data, error } = await supabase
       .from('calendar_events')
-      .select('*')
+      .select('id, title, date, time_or_period')
       .order('date', { ascending: true });
 
     if (!error && data) {
       // Alterações locais pendentes têm precedência sobre leitura remota para evitar perda de dados
-      const merged = mergeEventsById(remainingPending, data as CalendarEvent[]);
+      const merged = mergeEventsById(remainingPending, data as CalendarEventSummary[]);
       await offlineStorageService.cacheWorkingSet(LOCAL_EVENTS_CACHE_KEY, merged);
       return merged;
     }
@@ -136,7 +142,7 @@ export const fetchCalendarEvents = async (
   // 2. Fallback para cache offline local + pendentes (com precedência para pendentes)
   try {
     const cached =
-      await offlineStorageService.getWorkingSet<CalendarEvent[]>(LOCAL_EVENTS_CACHE_KEY);
+      await offlineStorageService.getWorkingSet<CalendarEventSummary[]>(LOCAL_EVENTS_CACHE_KEY);
     const localList = Array.isArray(cached?.data) ? cached.data : [];
     return mergeEventsById(remainingPending, localList);
   } catch {}
@@ -190,7 +196,7 @@ export const createCalendarEvent = async (
   // Atualizar cache local imediatamente sem depender de rede
   try {
     const cached =
-      await offlineStorageService.getWorkingSet<CalendarEvent[]>(LOCAL_EVENTS_CACHE_KEY);
+      await offlineStorageService.getWorkingSet<CalendarEventSummary[]>(LOCAL_EVENTS_CACHE_KEY);
     const existing = Array.isArray(cached?.data) ? cached.data : [];
     const updated = mergeEventsById([newEvent], existing);
     await offlineStorageService.cacheWorkingSet(LOCAL_EVENTS_CACHE_KEY, updated);

@@ -17,54 +17,11 @@ import { parseInboundNfeXml } from '@/pages/utils/inboundNfe/inboundXmlParser';
 import { InboundInvoice } from '@/pages/utils/inboundNfe/inboundNfeTypes';
 import { mergeInboundInvoiceXml } from '../../../../../../../shared-utils/inboundInvoiceXmlMerge';
 import { INBOUND_XML_WITHOUT_COMMERCIAL_DATA_ERROR } from '../../../../../../../shared-utils/inboundSummaryHelp';
-import { fetchPersons } from '@/pages/utils/personService';
 import { findProductSupplierCodes } from '@/pages/utils/productSupplierCodesService';
 import { resolveLinkedProductDetails } from '@/pages/utils/inboundNfe/inboundItemProductResolver';
-import Person from '@/pages/types/person.type';
+import { findInboundInvoiceSupplier } from '@/pages/utils/inboundNfe/services/inboundInvoiceSupplierLookupService';
 import { isSalvadosOnlySupplier } from '../../../../../../../shared-utils/productSupplierStockOrigin';
 import { markInboundInvoiceItemsNotApplicable } from '../../../../../../../shared-utils/inboundInvoiceSupplierRules';
-
-/**
- * Localiza o fornecedor já cadastrado para vincular à nota de entrada.
- * A importação não cria fornecedores: a confirmação do cadastro é sempre manual.
- */
-async function ensureSupplier(
-  emitterName?: string,
-  emitterCnpj?: string
-): Promise<Person | null> {
-  const cleanDoc = normalizeFiscalIdentifier(emitterCnpj);
-  try {
-    const suppliers = await fetchPersons('suppliers');
-    if (cleanDoc) {
-      const matchesByCnpj = suppliers.filter(
-        (p) => normalizeFiscalIdentifier(p.cpfCnpj) === cleanDoc
-      );
-      const salvadosMatch = matchesByCnpj.find(
-        (supplier) => supplier.active && isSalvadosOnlySupplier(supplier.stockOrigins)
-      ) || matchesByCnpj.find((supplier) => isSalvadosOnlySupplier(supplier.stockOrigins));
-      if (salvadosMatch) return salvadosMatch;
-      const activeMatch = matchesByCnpj.find((supplier) => supplier.active);
-      if (activeMatch) return activeMatch;
-      if (matchesByCnpj[0]) return matchesByCnpj[0];
-    }
-
-    if (emitterName?.trim()) {
-      const matchesByName = suppliers.filter(
-        (p) => (p.fullName || '').trim().toLowerCase() === emitterName.trim().toLowerCase()
-      );
-      const salvadosMatch = matchesByName.find(
-        (supplier) => supplier.active && isSalvadosOnlySupplier(supplier.stockOrigins)
-      ) || matchesByName.find((supplier) => isSalvadosOnlySupplier(supplier.stockOrigins));
-      if (salvadosMatch) return salvadosMatch;
-      const activeMatch = matchesByName.find((supplier) => supplier.active);
-      if (activeMatch) return activeMatch;
-      if (matchesByName[0]) return matchesByName[0];
-    }
-  } catch (err) {
-    console.warn('[useInboundDocumentImport] Aviso ao localizar fornecedor:', err);
-  }
-  return null;
-}
 
 export interface UseInboundDocumentImportProps {
   readonly isOpen: boolean;
@@ -147,7 +104,14 @@ export function useInboundDocumentImport({
       }
 
       setStatusMessage('Identificando fornecedor...');
-      const supplier = await ensureSupplier(validated.emitterName, validated.emitterCnpj);
+      const supplier = await findInboundInvoiceSupplier(
+        validated.emitterName,
+        validated.emitterCnpj,
+        validated.issuedAt
+      ).catch((error) => {
+        console.warn('[useInboundDocumentImport] Aviso ao localizar fornecedor:', error);
+        return null;
+      });
       const salvadosSupplier = isSalvadosOnlySupplier(supplier?.stockOrigins) ? supplier : null;
       const supplierId = salvadosSupplier?.id || validated.supplierId || supplier?.id;
       const supplierStockOrigins = salvadosSupplier?.stockOrigins

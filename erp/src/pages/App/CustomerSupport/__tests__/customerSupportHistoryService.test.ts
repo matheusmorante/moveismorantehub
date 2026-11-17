@@ -3,6 +3,7 @@ import {
   fetchConversationActivityPage,
   fetchConversationAttachmentPage,
   fetchConversationMessageSearchPage,
+  fetchConversationMessageContext,
   fetchPreviousConversationMessages,
   fetchConversationReplyTarget,
 } from '@/pages/utils/customerSupport/customerSupportService';
@@ -120,6 +121,53 @@ describe('Paginação do histórico da Central', () => {
     expect(queries[0].filters).toContainEqual(['eq', 'conversation_id', 'conversation-1']);
     expect(queries[0].filters).toContainEqual(['eq', 'api_message_id', 'wamid.source']);
     expect(queries[0].maybeSingle).toHaveBeenCalledTimes(1);
+  });
+
+  it('reaproveita a mensagem citada localizada e lê somente as mensagens vizinhas', async () => {
+    const { client, queries } = mockSupabase([
+      messageRow('neighbor', '2026-10-23T11:00:00Z'),
+    ]);
+    const target = {
+      id: 'source', conversationId: 'conversation-1', timestamp: '2026-10-23T12:00:00Z',
+      direction: 'inbound', messageType: 'text', textContent: 'Mensagem citada',
+    } as any;
+
+    const context = await fetchConversationMessageContext(
+      client as any, 'conversation-1', 'source', 10, target
+    );
+
+    expect(queries).toHaveLength(2);
+    expect(queries.every((query) =>
+      query.filters.some((filter: any[]) => filter[0] === 'eq'
+        && filter[1] === 'conversation_id' && filter[2] === 'conversation-1')
+    )).toBe(true);
+    expect(queries.some((query) => query.filters.some((filter: any[]) =>
+      filter[0] === 'eq' && filter[1] === 'id' && filter[2] === 'source'
+    ))).toBe(false);
+    expect(context.messages.map((message) => message.id)).toContain('source');
+  });
+
+  it('mantém a leitura do alvo para chamadores que não fornecem uma mensagem resolvida', async () => {
+    const targetRow = messageRow('source', '2026-10-23T12:00:00Z');
+    const { client, queries } = mockSupabase([messageRow('neighbor', '2026-10-23T11:00:00Z')], targetRow);
+
+    await fetchConversationMessageContext(client as any, 'conversation-1', 'source');
+
+    expect(queries).toHaveLength(3);
+    expect(queries[0].filters).toContainEqual(['eq', 'conversation_id', 'conversation-1']);
+    expect(queries[0].filters).toContainEqual(['eq', 'id', 'source']);
+  });
+
+  it('não aceita reutilizar como alvo uma mensagem de outra conversa', async () => {
+    const { client, queries } = mockSupabase([]);
+    const target = {
+      id: 'source', conversationId: 'another-conversation', timestamp: '2026-10-23T12:00:00Z',
+    } as any;
+
+    await expect(fetchConversationMessageContext(
+      client as any, 'conversation-1', 'source', 10, target
+    )).rejects.toThrow('A mensagem citada não pertence a esta conversa.');
+    expect(queries).toHaveLength(0);
   });
 
   it('pesquisa todo o histórico com termo literal antes do cursor e limite, incluindo legendas', async () => {

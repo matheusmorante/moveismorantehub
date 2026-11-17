@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { WhatsAppMessage } from '../../types';
+import type { WhatsAppMessage } from '../../../types';
 
 interface UseMessageBubbleQuoteResolutionParams {
   message: WhatsAppMessage;
@@ -10,7 +10,10 @@ interface UseMessageBubbleQuoteResolutionParams {
     messageId: string | null;
     apiMessageId: string | null;
   }) => Promise<WhatsAppMessage | null>;
-  onJumpToMessage?: (message: WhatsAppMessage) => void;
+  onJumpToMessage?: (
+    message: WhatsAppMessage,
+    options?: { reuseResolvedTarget?: boolean }
+  ) => void;
 }
 
 export function useMessageBubbleQuoteResolution({
@@ -62,7 +65,7 @@ export function useMessageBubbleQuoteResolution({
         return;
       }
       setResolvedQuote(resolved);
-      onJumpToMessage?.(resolved);
+      onJumpToMessage?.(resolved, { reuseResolvedTarget: true });
     } catch (error) {
       setQuoteError(
         error instanceof Error ? error.message : 'Não foi possível localizar a mensagem citada.'

@@ -60,17 +60,42 @@ export class McpCampaignService {
     }
 
     const prompts = await this.getCampaignPrompts(campaign.id);
-    const globalRules = await this.getGlobalGuidelines();
+    const generalGuidelines =
+      campaign.general_guidelines || (await this.getGlobalGuidelines());
 
     return {
       id: campaign.id,
       name: campaign.name,
       description: campaign.description || '',
-      generalGuidelines: campaign.general_guidelines || globalRules,
+      generalGuidelines,
       active: campaign.active !== false,
       availableFormats: ['4:5', '9:16', 'mobile'],
       prompts,
     };
+  }
+
+  /**
+   * Resolve somente o identificador pelo mesmo critério usado na busca completa.
+   */
+  async getCampaignIdByIdOrName(identifier: string): Promise<string> {
+    const clean = identifier.trim();
+
+    const { data: campaign, error } = await mcpSupabase
+      .from('post_creator_campaigns')
+      .select('id')
+      .or(`id.eq.${clean},name.ilike.%${clean}%`)
+      .limit(1)
+      .maybeSingle();
+
+    if (error || !campaign) {
+      if (clean.toLowerCase().includes('padrão') || clean.toLowerCase().includes('padrao')) {
+        return '00000000-0000-4000-8000-000000000001';
+      }
+
+      throw new Error(`CAMPAIGN_NOT_FOUND: Campanha "${identifier}" não encontrada no MoranteHub.`);
+    }
+
+    return campaign.id;
   }
 
   /**
@@ -148,7 +173,7 @@ export class McpCampaignService {
   ): Promise<McpGeneratedReference[]> {
     let query = mcpSupabase
       .from('post_creator_previews')
-      .select('*')
+      .select('id, product_id, campaign_id, format, image_url, created_at')
       .eq('product_id', productId)
       .order('created_at', { ascending: false })
       .limit(Math.min(limit, 10));

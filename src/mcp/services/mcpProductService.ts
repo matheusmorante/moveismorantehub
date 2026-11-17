@@ -189,7 +189,7 @@ export class McpProductService {
   async getProductById(productId: string) {
     const { data: product, error: prodErr } = await mcpSupabase
       .from('products')
-      .select('*, product_variations(*), opportunities(*)')
+      .select('*, product_variations(*), opportunities(id, name)')
       .eq('id', productId)
       .maybeSingle();
 
@@ -280,9 +280,13 @@ export class McpProductService {
    */
   async getProductImages(
     productId: string,
-    selectedVariationId?: string
+    selectedVariationId?: string,
+    productDetails?: Awaited<ReturnType<McpProductService['getProductById']>>
   ): Promise<McpProductImage[]> {
-    const details = await this.getProductById(productId);
+    const details =
+      productDetails?.product.id === productId
+        ? productDetails
+        : await this.getProductImageDetails(productId);
     const { variations } = details;
 
     const activeVar = selectedVariationId
@@ -334,6 +338,53 @@ export class McpProductService {
       });
 
     return images;
+  }
+
+  private async getProductImageDetails(productId: string): Promise<{
+    product: { id: string; name: string };
+    variations: Array<Pick<McpProductVariation, 'id' | 'name' | 'images'>>;
+  }> {
+    const { data: product, error } = await mcpSupabase
+      .from('products')
+      .select('id,name,images,image_url,product_variations(id,name,title,color,images,image_url)')
+      .eq('id', productId)
+      .maybeSingle();
+
+    if (error || !product) {
+      throw new Error(
+        `PRODUCT_NOT_FOUND: Produto com ID "${productId}" não encontrado no MoranteHub.`
+      );
+    }
+
+    const rawVariations = Array.isArray(product.product_variations)
+      ? product.product_variations
+      : [];
+    const variations: Array<Pick<McpProductVariation, 'id' | 'name' | 'images'>> =
+      rawVariations.map((variation: any, index: number) => ({
+        id: String(variation.id || `${product.id}-var-${index + 1}`),
+        name:
+          variation.name ||
+          variation.title ||
+          variation.color ||
+          `Variação ${index + 1}`,
+        images: parseImagesList(variation.images, variation.image_url),
+      }));
+
+    if (variations.length === 0) {
+      variations.push({
+        id: String(product.id),
+        name: product.name || 'Padrão',
+        images: parseImagesList(product.images, product.image_url),
+      });
+    }
+
+    return {
+      product: {
+        id: String(product.id),
+        name: product.name || 'Produto sem título',
+      },
+      variations,
+    };
   }
 }
 

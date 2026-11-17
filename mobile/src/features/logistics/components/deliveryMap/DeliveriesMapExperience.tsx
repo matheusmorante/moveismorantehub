@@ -102,6 +102,7 @@ export const DeliveriesMapExperience: React.FC<Props> = ({
     isDelivering,
     activeOrder,
     canBroadcastLocation: isDelivering,
+    isMapVisible: active,
   });
   const primaryResponsibleCoords = isCurrentUserPrimaryResponsible
     ? driverCoords

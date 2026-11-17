@@ -128,6 +128,7 @@ export default function PhotoPreviewModal({ item, onClose }: PhotoPreviewModalPr
                 <img
                   src={photoUrls[currentIndex]}
                   alt={`Foto ${currentIndex + 1} da indisponibilidade`}
+                  loading="eager"
                   className="max-h-[60vh] max-w-full object-contain select-none"
                 />
 
@@ -179,6 +180,7 @@ export default function PhotoPreviewModal({ item, onClose }: PhotoPreviewModalPr
                       <img
                         src={url}
                         alt={`Miniatura ${index + 1}`}
+                        loading="lazy"
                         className="w-full h-full object-cover"
                       />
                     </button>

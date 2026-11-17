@@ -152,6 +152,28 @@ export const InventoryDetailsModal: React.FC<Props> = ({
           </View>
         ) : (
           <View style={{ flex: 1 }}>
+            {details?.isStaleLocalSnapshot && (
+              <View
+                style={{
+                  marginHorizontal: 16,
+                  marginTop: 12,
+                  padding: 10,
+                  borderRadius: 8,
+                  backgroundColor: isDarkMode ? 'rgba(124,45,18,0.25)' : '#fff7ed',
+                }}
+              >
+                <Text
+                  style={{
+                    color: isDarkMode ? '#fdba74' : '#9a3412',
+                    fontSize: 12,
+                    fontWeight: '700',
+                  }}
+                >
+                  Cópia salva no aparelho; pode estar desatualizada.
+                </Text>
+              </View>
+            )}
+
             {/* Summary Badges */}
             <View style={styles.summaryRow}>
               <View style={[styles.summaryCard, { backgroundColor: surface, borderColor: border }]}>

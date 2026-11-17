@@ -15,6 +15,7 @@ import {
 } from '../../../../../shared-utils/inventoryResponsible';
 import {
   INVENTORY_AUDIT_EMPLOYEE_QUERY_COLUMNS,
+  INBOUND_INVOICE_MAPPING_SUPPLIER_QUERY_COLUMNS,
   PEOPLE_FETCH_PAGE_SIZE,
   PERSON_QUERY_COLUMNS,
   type FetchPersonsOptions,
@@ -34,7 +35,7 @@ import {
   personByIdRequests,
 } from './query';
 
-export { PERSON_QUERY_COLUMNS, isTestPerson };
+export { INBOUND_INVOICE_MAPPING_SUPPLIER_QUERY_COLUMNS, PERSON_QUERY_COLUMNS, isTestPerson };
 
 // Share the same event and collapse newer invalidations that arrive while a read is
 // running into one follow-up read. The final result must include the latest event.
@@ -268,7 +269,11 @@ export const fetchPersons = async (
       await syncMissingEmployeesFromProfiles();
     }
 
-    const rows = await fetchAllPeopleRows(collectionName, includeDeleted);
+    const rows = await fetchAllPeopleRows(
+      collectionName,
+      includeDeleted,
+      options.columns ?? PERSON_QUERY_COLUMNS
+    );
     const currentUserEmail = collectionName === 'employees' ? await getCurrentUserEmail() : '';
     return mapAndSortPeople(collectionName, rows, includeDeleted, currentUserEmail);
   } catch (e) {

@@ -217,7 +217,9 @@ export default function ImageTemplateEditor({ initial, original, userId, onBack,
     setMessage('');
     try {
       const pending = new Map([...pendingAssets].filter(([key]) => !fileLayers.confirmedAssets.current.has(key)));
-      const saved = await saveImageTemplate(id, values, record, pending);
+      const saved = await saveImageTemplate(id, values, record, pending, (assetIds) => {
+        assetIds.forEach((assetId) => fileLayers.confirmedAssets.current.add(assetId));
+      });
       designMigrationPending.current = false;
       templateAssetIds(values.design).forEach((key) => fileLayers.confirmedAssets.current.add(key));
       setRecord(saved);

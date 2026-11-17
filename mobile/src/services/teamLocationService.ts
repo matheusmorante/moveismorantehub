@@ -7,6 +7,68 @@ import {
 
 export { evaluateDisconnectedState, DISCONNECT_THRESHOLD_MS, formatTeamMemberStatusLabel };
 
+const INITIAL_STATUS_BROADCAST_SKIP_WINDOW_MS = 10_000;
+const successfulInitialStatusBroadcasts = new Map<
+  string,
+  { userId: string; expiresAt: number }
+>();
+const initialStatusBroadcastsInFlight = new Map<
+  string,
+  { userId: string; promise: Promise<boolean>; token: object }
+>();
+
+function getStatusBroadcastKey(userId: string, orderId: string): string {
+  return JSON.stringify([userId, orderId]);
+}
+
+function markSuccessfulInitialStatusBroadcast(userId: string, orderId: string): void {
+  if (!userId || !orderId) return;
+  const now = Date.now();
+  for (const [key, statusBroadcast] of successfulInitialStatusBroadcasts) {
+    if (statusBroadcast.expiresAt < now) successfulInitialStatusBroadcasts.delete(key);
+  }
+  successfulInitialStatusBroadcasts.set(getStatusBroadcastKey(userId, orderId), {
+    userId,
+    expiresAt: now + INITIAL_STATUS_BROADCAST_SKIP_WINDOW_MS,
+  });
+}
+
+/** Aguarda o aviso inicial em andamento e consome uma única repetição confirmada. */
+export async function consumeSuccessfulInitialStatusBroadcast(
+  userId: string,
+  orderId: string
+): Promise<boolean> {
+  if (!userId || !orderId) return false;
+
+  const key = getStatusBroadcastKey(userId, orderId);
+  const inFlightBroadcast = initialStatusBroadcastsInFlight.get(key)?.promise;
+  if (inFlightBroadcast && !(await inFlightBroadcast)) return false;
+
+  const statusBroadcast = successfulInitialStatusBroadcasts.get(key);
+  successfulInitialStatusBroadcasts.delete(key);
+
+  return statusBroadcast !== undefined && statusBroadcast.expiresAt >= Date.now();
+}
+
+/** Remove uma supressão pendente quando o estado recebe uma posição real. */
+export function clearSuccessfulInitialStatusBroadcast(userId: string, orderId: string): void {
+  if (!userId || !orderId) return;
+  const key = getStatusBroadcastKey(userId, orderId);
+  successfulInitialStatusBroadcasts.delete(key);
+  initialStatusBroadcastsInFlight.delete(key);
+}
+
+function clearSuccessfulInitialStatusBroadcastsForUser(userId: string): void {
+  for (const [key, statusBroadcast] of successfulInitialStatusBroadcasts) {
+    if (statusBroadcast.userId === userId) successfulInitialStatusBroadcasts.delete(key);
+  }
+  for (const [key, statusBroadcast] of initialStatusBroadcastsInFlight) {
+    if (statusBroadcast.userId === userId) {
+      initialStatusBroadcastsInFlight.delete(key);
+    }
+  }
+}
+
 export interface TeamMemberLocation {
   userId: string;
   userName: string;
@@ -88,15 +150,18 @@ export async function broadcastMyLocation(
   isGpsActive: boolean,
   isDelivering: boolean = false,
   activeOrder?: { id: string; code?: string } | null
-): Promise<void> {
-  if (!user?.id) return;
+): Promise<boolean> {
+  if (!user?.id) return false;
 
   try {
     const nowIso = new Date().toISOString();
     const userName = user.fullName || 'Usuário da Equipe';
 
     if (coords && isGpsActive) {
-      await supabase.from('team_locations').upsert({
+      if (activeOrder?.id) {
+        clearSuccessfulInitialStatusBroadcast(user.id, activeOrder.id);
+      }
+      const { error } = await supabase.from('team_locations').upsert({
         user_id: user.id,
         user_name: userName,
         role: user.role || 'montador_entregador',
@@ -109,9 +174,16 @@ export async function broadcastMyLocation(
         last_seen: nowIso,
         updated_at: nowIso,
       });
+      if (error) {
+        console.warn(
+          '[TeamLocationService] Falha ao atualizar localização no Supabase:',
+          error
+        );
+        return false;
+      }
     } else {
       // GPS desligado ou indisponível: mantém as últimas coordenadas e atualiza status
-      await supabase
+      const { data, error } = await supabase
         .from('team_locations')
         .update({
           is_gps_active: false,
@@ -120,11 +192,46 @@ export async function broadcastMyLocation(
           active_order_code: isDelivering ? activeOrder?.code || null : null,
           updated_at: nowIso,
         })
-        .eq('user_id', user.id);
+        .eq('user_id', user.id)
+        .select('user_id')
+        .maybeSingle();
+      if (error || !data) {
+        console.warn(
+          '[TeamLocationService] Falha ao atualizar status de localização no Supabase:',
+          error || 'Nenhum registro foi atualizado.'
+        );
+        return false;
+      }
     }
+    return true;
   } catch (err) {
     console.warn('[TeamLocationService] Falha ao sincronizar localização no Supabase:', err);
+    return false;
   }
+}
+
+/** Inicia o aviso de rota e permite que a sincronização seguinte aguarde esse resultado. */
+export function broadcastInitialDeliveryStatus(
+  user: { id: string; fullName?: string; role?: string },
+  activeOrder: { id: string; code?: string }
+): Promise<boolean> {
+  if (!user?.id || !activeOrder?.id) return Promise.resolve(false);
+
+  clearSuccessfulInitialStatusBroadcast(user.id, activeOrder.id);
+  const key = getStatusBroadcastKey(user.id, activeOrder.id);
+  const token = {};
+  const initialBroadcast = broadcastMyLocation(user, null, true, true, activeOrder).then(
+    (succeeded) => {
+      if (initialStatusBroadcastsInFlight.get(key)?.token === token) {
+        initialStatusBroadcastsInFlight.delete(key);
+        if (succeeded) markSuccessfulInitialStatusBroadcast(user.id, activeOrder.id);
+      }
+      return succeeded;
+    }
+  );
+  initialStatusBroadcastsInFlight.set(key, { userId: user.id, promise: initialBroadcast, token });
+
+  return initialBroadcast;
 }
 
 /**
@@ -133,6 +240,7 @@ export async function broadcastMyLocation(
  */
 export async function stopDeliveringBroadcast(userId: string): Promise<void> {
   if (!userId) return;
+  clearSuccessfulInitialStatusBroadcastsForUser(userId);
   try {
     const nowIso = new Date().toISOString();
     await supabase
@@ -152,12 +260,22 @@ export async function stopDeliveringBroadcast(userId: string): Promise<void> {
 /**
  * Escuta atualizações de localização de outros membros da equipe em tempo real.
  */
-export function subscribeToTeamLocations(onUpdate: () => void): () => void {
+export function subscribeToTeamLocations(
+  responsibleUserId: string,
+  onUpdate: () => void
+): () => void {
   const channel = supabase
     .channel('team-locations-realtime')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'team_locations' }, () => {
-      onUpdate();
-    })
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'team_locations',
+        filter: `user_id=eq.${responsibleUserId}`,
+      },
+      () => onUpdate()
+    )
     .subscribe();
 
   return () => {

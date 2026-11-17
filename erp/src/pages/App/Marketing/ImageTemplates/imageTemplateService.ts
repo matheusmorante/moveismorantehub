@@ -91,6 +91,7 @@ async function requireWrite<T>(request: PromiseLike<{ data: T | null; error: unk
 export async function saveImageTemplate(
   id: string, input: ImageTemplateFormValues, original: ImageTemplateSummary | null,
   pendingAssets: ReadonlyMap<string, TemplateAsset>,
+  onAssetsConfirmed?: (assetIds: string[]) => void,
 ): Promise<ImageTemplateSummary> {
   const values = imageTemplateFormSchema.parse(input);
   assertImageTemplateTestWrite(values.design.testArtifact);
@@ -104,6 +105,7 @@ export async function saveImageTemplate(
       TIMEOUT, null, 'Enviar imagens do modelo');
     if (!result) throw new Error('O envio das imagens não foi confirmado. Tente salvar novamente.');
     if (result.error) throw result.error;
+    onAssetsConfirmed?.(pending.map((asset) => asset.id));
   }
   const query = original
     ? supabase.from(TABLE).update(values).eq('id', id).eq('updated_at', original.updated_at)

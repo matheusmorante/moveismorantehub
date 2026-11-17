@@ -195,9 +195,13 @@ export const useInventory = (userProfileId?: string | null) => {
 
   useEffect(() => {
     void loadSessions(true, 0);
+    // subscribe emite o estado atual na inscrição; a carga acima já atende essa notificação.
+    let previousOnline = connectivityService.connected;
     return connectivityService.subscribe((online) => {
       setIsOnline(online);
-      if (online) {
+      const reconnected = !previousOnline && online;
+      previousOnline = online;
+      if (reconnected) {
         void loadSessions(true, 0);
       }
     });

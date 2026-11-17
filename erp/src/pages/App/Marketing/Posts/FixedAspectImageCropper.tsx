@@ -7,6 +7,8 @@ import { imageFilesFormSchema, rectangularImageCropFormSchema } from '../../../.
 type Props = {
   file: File;
   kind: 'header' | 'footer' | 'seal';
+  targetSize?: { width: number; height: number };
+  label?: string;
   onCancel: () => void;
   onConfirm: (file: File) => void;
 };
@@ -17,12 +19,12 @@ type DragState =
   | { mode: 'move'; pointerX: number; pointerY: number; selection: Selection }
   | { mode: 'resize'; pointerX: number; corner: Corner; selection: Selection };
 
-export default function FixedAspectImageCropper({ file, kind, onCancel, onConfirm }: Props) {
+export default function FixedAspectImageCropper({ file, kind, targetSize, label, onCancel, onConfirm }: Props) {
   const [source, setSource] = useState('');
   const [selection, setSelection] = useState<Selection | null>(null);
   const imageRef = useRef<HTMLImageElement>(null);
   const dragRef = useRef<DragState | null>(null);
-  const target = kind === 'seal' ? { width: 800, height: 200 } : { width: 1080, height: 170 };
+  const target = targetSize || (kind === 'seal' ? { width: 800, height: 200 } : { width: 1080, height: 170 });
   const { validateValues: validateImage } = useZodForm(imageFilesFormSchema, { files: [file] });
   const cropForm = useZodForm(rectangularImageCropFormSchema, { files: [file], displayWidth: 0, displayHeight: 0, sourceWidth: 0, sourceHeight: 0, selection: { x: 0, y: 0, width: 0, height: 0 } });
 
@@ -125,16 +127,24 @@ export default function FixedAspectImageCropper({ file, kind, onCancel, onConfir
       target.width,
       target.height
     );
-    const blob = await new Promise<Blob | null>((resolve) =>
-      canvas.toBlob(resolve, 'image/webp', 0.95)
-    );
+    let blob: Blob | null = null;
+    const qualities = targetSize ? [0.92, 0.86, 0.8, 0.74, 0.68, 0.62, 0.56] : [0.95];
+    for (const quality of qualities) {
+      blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/webp', quality));
+      if (blob && (!targetSize || blob.size <= 5 * 1024 * 1024)) break;
+    }
     if (blob) {
       const cropped = new File([blob], `${kind}-${Date.now()}.webp`, { type: 'image/webp' });
-      await onConfirm(await compressImageToFile(cropped, { maxMB: 0.8, maxWidth: 1080, fileType: 'image/webp' }));
+      if (targetSize) {
+        if (cropped.size > 5 * 1024 * 1024) throw new Error('O recorte excede o limite de 5 MB. Tente outra imagem.');
+        await onConfirm(cropped);
+      } else {
+        await onConfirm(await compressImageToFile(cropped, { maxMB: 0.8, maxWidth: target.width, fileType: 'image/webp' }));
+      }
     } else {
       throw new Error('Não foi possível gerar a imagem recortada.');
     }
-    } catch { toast.error('Não foi possível aplicar o recorte. Tente novamente.'); }
+    } catch (error) { toast.error(error instanceof Error ? error.message : 'Não foi possível aplicar o recorte. Tente novamente.'); }
     }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
   };
 
@@ -151,7 +161,7 @@ export default function FixedAspectImageCropper({ file, kind, onCancel, onConfir
         <div className="flex items-center justify-between">
           <div>
             <h4 className="text-sm font-black text-slate-800 dark:text-slate-100">
-              Recortar {kind === 'header' ? 'cabeçalho' : kind === 'footer' ? 'rodapé' : 'selo'}
+              Recortar {label || (kind === 'header' ? 'cabeçalho' : kind === 'footer' ? 'rodapé' : 'selo')}
             </h4>
             <p className="text-[10px] text-slate-400">
               Arraste a área de seleção · saída {target.width} × {target.height} px

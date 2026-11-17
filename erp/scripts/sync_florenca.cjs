@@ -52,6 +52,7 @@ async function syncFlorenca() {
 
     // 2. Mapear arquivos da pasta COZINHA FLORENCA
     const files = fs.readdirSync(FLORENCA_PATH).filter(f => /\.(jpg|jpeg|png)$/i.test(f));
+    const productsToUpdate = new Map();
     
     for (const file of files) {
         const filePath = path.join(FLORENCA_PATH, file);
@@ -118,22 +119,34 @@ async function syncFlorenca() {
                 let mainUrl = targetProduct.main_image_url;
                 if (!mainUrl || fileName.includes('CENA')) mainUrl = publicUrl;
 
-                await supabase.from('products').update({
-                    name: newTitle,
-                    images: images,
-                    main_image_url: mainUrl,
-                    description: targetProduct.description || `Linha Florença 100% MDF da Móveis Morante. Design moderno e durabilidade para sua cozinha.`,
-                    updated_at: new Date().toISOString()
-                }).eq('id', targetProduct.id);
-
                 // Atualizar o objeto local para o próximo loop (se o mesmo produto tiver várias fotos)
                 targetProduct.name = newTitle;
                 targetProduct.images = images;
                 targetProduct.main_image_url = mainUrl;
+                productsToUpdate.set(targetProduct.id, targetProduct);
 
             } catch (err) {
                 console.error(`❌ Erro em ${file}:`, err.message);
             }
+        }
+    }
+
+    // Persistir uma vez por produto, mantendo os metadados acumulados na ordem dos arquivos.
+    for (const [productId, targetProduct] of productsToUpdate) {
+        try {
+            const { error: updateError } = await supabase.from('products').update({
+                name: targetProduct.name,
+                images: targetProduct.images || [],
+                main_image_url: targetProduct.main_image_url,
+                description: targetProduct.description || `Linha Florença 100% MDF da Móveis Morante. Design moderno e durabilidade para sua cozinha.`,
+                updated_at: new Date().toISOString()
+            }).eq('id', productId);
+
+            if (updateError) {
+                console.error(`❌ Erro ao atualizar ${targetProduct.name}:`, updateError.message);
+            }
+        } catch (err) {
+            console.error(`❌ Erro ao atualizar ${targetProduct.name}:`, err.message);
         }
     }
     

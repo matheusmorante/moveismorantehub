@@ -20,11 +20,13 @@ export function registerMobileProductTechnicalCatalogFailureCases({
     };
     const valuesQuery = {
       select: vi.fn().mockReturnValue({
+        or: vi.fn().mockReturnThis(),
         limit: vi.fn().mockResolvedValue({ data: [], error: null }),
       }),
     };
     const categoryLinksQuery = {
       select: vi.fn().mockReturnValue({
+        or: vi.fn().mockReturnThis(),
         limit: vi.fn().mockResolvedValue({ data: null, error: { message: 'offline' } }),
       }),
     };
@@ -65,11 +67,13 @@ export function registerMobileProductTechnicalCatalogFailureCases({
     };
     const valuesQuery = {
       select: vi.fn().mockReturnValue({
+        or: vi.fn().mockReturnThis(),
         limit: vi.fn().mockResolvedValue({ data: null, error: { message: 'attribute values offline' } }),
       }),
     };
     const categoryLinksQuery = {
       select: vi.fn().mockReturnValue({
+        or: vi.fn().mockReturnThis(),
         limit: vi.fn().mockResolvedValue({ data: [], error: null }),
       }),
     };

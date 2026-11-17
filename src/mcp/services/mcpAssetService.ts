@@ -73,13 +73,21 @@ export class McpAssetService {
   /**
    * Resolve o selo oficial correto com base na oportunidade vinculada ao produto.
    */
-  async resolveBadgeForOpportunity(opportunityName?: string | null): Promise<McpStoreAsset | null> {
+  async resolveBadgeForOpportunity(
+    opportunityName?: string | null,
+    availableAssets?: McpStoreAsset[]
+  ): Promise<McpStoreAsset | null> {
     if (!opportunityName) return null;
 
     const lower = opportunityName.toLowerCase();
     if (lower.includes('queima') || lower.includes('salvado')) {
       return OFFICIAL_STORE_ASSETS.find((a) => a.id === 'asset-badge-queima-salvados') || null;
     }
+
+    const knownBadge = availableAssets?.find(
+      (asset) => asset.category === 'badge' && asset.name.toLowerCase().includes(lower)
+    );
+    if (knownBadge) return knownBadge;
 
     const allAssets = await this.getStoreAssets('badge');
     const matched = allAssets.find((a) => a.name.toLowerCase().includes(lower));

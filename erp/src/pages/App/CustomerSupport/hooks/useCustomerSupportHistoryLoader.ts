@@ -39,7 +39,10 @@ export function useCustomerSupportHistoryLoader({
   setMessagesError,
 }: UseCustomerSupportHistoryLoaderParams) {
   const [jumpToMessageId, setJumpToMessageId] = useState<string | null>(null);
-  const pendingJumpRef = useRef<WhatsAppMessage | null>(null);
+  const pendingJumpRef = useRef<{
+    message: WhatsAppMessage;
+    reuseResolvedTarget: boolean;
+  } | null>(null);
 
   const {
     isLoadingOlderMessages,
@@ -65,7 +68,8 @@ export function useCustomerSupportHistoryLoader({
       convId: string,
       target: WhatsAppMessage,
       generation: number,
-      mergeWithCurrent = false
+      mergeWithCurrent = false,
+      reuseResolvedTarget = false
     ) => {
       if (!convId || target.conversationId !== convId) return;
       const request = ++latestRequestRef.current;
@@ -75,7 +79,13 @@ export function useCustomerSupportHistoryLoader({
       try {
         const needsWatermark = syncWatermarkRef.current.generation !== generation;
         const [context, anchor] = await Promise.all([
-          fetchConversationMessageContext(supabase, convId, target.id),
+          fetchConversationMessageContext(
+            supabase,
+            convId,
+            target.id,
+            10,
+            reuseResolvedTarget ? target : undefined
+          ),
           needsWatermark ? fetchInitialConversationMessagePage(supabase, convId, 1) : null,
         ]);
         if (generation !== generationRef.current || request !== latestRequestRef.current) return;
@@ -134,10 +144,13 @@ export function useCustomerSupportHistoryLoader({
   );
 
   const jumpToMessage = useCallback(
-    (message: WhatsAppMessage) => {
+    (message: WhatsAppMessage, options?: { reuseResolvedTarget?: boolean }) => {
       if (!message.id) return;
       if (message.conversationId !== activeConvIdRef.current) {
-        pendingJumpRef.current = message;
+        pendingJumpRef.current = {
+          message,
+          reuseResolvedTarget: options?.reuseResolvedTarget === true,
+        };
         return;
       }
       pendingJumpRef.current = null;
@@ -145,7 +158,13 @@ export function useCustomerSupportHistoryLoader({
         setJumpToMessageId(message.id);
         return;
       }
-      void loadMessageContext(message.conversationId, message, generationRef.current, true);
+      void loadMessageContext(
+        message.conversationId,
+        message,
+        generationRef.current,
+        true,
+        options?.reuseResolvedTarget === true
+      );
     },
     [activeConvIdRef, generationRef, loadMessageContext, messagesRef]
   );

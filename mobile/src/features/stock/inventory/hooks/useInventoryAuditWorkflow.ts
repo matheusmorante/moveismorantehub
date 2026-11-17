@@ -114,6 +114,12 @@ export const useInventoryAuditWorkflow = (
         try {
           const data = await restoreInventorySession(initialSession, userProfile?.id);
           if (data && isMounted) {
+            if (data.isStaleLocalSnapshot) {
+              Alert.alert(
+                'Cópia local',
+                'Este inventário foi recuperado de uma cópia salva no aparelho e pode estar desatualizado. Confira os dados quando a conexão voltar.'
+              );
+            }
             const isFrozen = Boolean(
               data.draft.id && (await getInventorySubmission(data.draft.id, userProfile?.id))
             );

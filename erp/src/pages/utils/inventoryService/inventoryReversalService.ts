@@ -1,7 +1,11 @@
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { INVENTORY_TABLE_NAME } from './inventoryTypeRules';
 import { mapInventoryMoveFromDB } from './inventoryMapper';
-import { notifyInventoryMoveMutation, updateMoveInState } from './inventorySubscriptionState';
+import {
+  notifyInventoryMoveMutation,
+  notifyInventoryMoveMutationCompleted,
+  updateMoveInState,
+} from './inventorySubscriptionState';
 import { recalculateInventoryAuditBalance } from '@/pages/utils/inventoryAuditBalance';
 import {
   revertProductStockFromMove,
@@ -13,6 +17,7 @@ export const reverseInventoryMove = async (
   reason: string = 'Estorno de movimentação',
   allowLinkedOrderMove = false
 ): Promise<void> => {
+  let persisted = false;
   try {
     const { data: moveData } = await supabase
       .from(INVENTORY_TABLE_NAME)
@@ -150,6 +155,7 @@ export const reverseInventoryMove = async (
     }
 
     if (error) throw error;
+    persisted = true;
 
     // Atualizar estado em memória
     updateMoveInState(id, {
@@ -169,6 +175,8 @@ export const reverseInventoryMove = async (
   } catch (error) {
     console.error('Erro ao estornar lançamento de estoque: ', error);
     throw error;
+  } finally {
+    if (persisted) notifyInventoryMoveMutationCompleted();
   }
 };
 
@@ -221,6 +229,7 @@ export const unreverseInventoryMove = async (
   id: string,
   allowLinkedOrderMove = false
 ): Promise<void> => {
+  let persisted = false;
   try {
     const { data: moveData } = await supabase
       .from(INVENTORY_TABLE_NAME)
@@ -279,6 +288,7 @@ export const unreverseInventoryMove = async (
     }
 
     if (error) throw error;
+    persisted = true;
 
     // Atualizar estado em memória
     updateMoveInState(id, {
@@ -298,6 +308,8 @@ export const unreverseInventoryMove = async (
   } catch (error) {
     console.error('Erro ao desfazer estorno do lançamento de estoque: ', error);
     throw error;
+  } finally {
+    if (persisted) notifyInventoryMoveMutationCompleted();
   }
 };
 

@@ -6,6 +6,7 @@ import { deliveryFlowService } from '../../features/orders/services/deliveryFlow
 import { prepareIndependentDelivery } from '../../features/orders/services/deliveryOperationService';
 import { getIndependentOperationId } from '../../features/orders/services/deliveryOperationState';
 import { hasSeparateFulfillments } from '../../../../shared-utils/fulfillmentScheduleGuard';
+import { isServerConfirmedOrderDetails } from '../../services/orderDetailsReadService';
 import {
   useOrderDetailsModal,
   OrderDetailsModalHeader,
@@ -47,15 +48,23 @@ export const OrderDetailsModal: React.FC<Props> = ({
   } = useOrderDetailsModal({ order, userRole });
 
   const markPreparationStarted = React.useCallback(
-    (targetOrder: any, currentData?: Record<string, any>) => {
+    (targetOrder: any, currentData?: Record<string, any>, reuseConfirmedServerSnapshot = false) => {
       if (getIndependentOperationId(targetOrder)) return;
       const source = targetOrder?._sourceOrderData || targetOrder?.order_data || targetOrder;
       if (hasSeparateFulfillments(source?.shipping?.scheduling, source?.items)) return;
       if (!targetOrder?.id || preparationStartRequestedOrderRef.current === targetOrder.id) return;
       preparationStartRequestedOrderRef.current = targetOrder.id;
+      const confirmedRemoteSnapshot =
+        reuseConfirmedServerSnapshot && isServerConfirmedOrderDetails(targetOrder)
+          ? {
+              orderData: targetOrder.order_data || targetOrder.orderData || {},
+              deliveryStatus: targetOrder.delivery_status ?? null,
+            }
+          : undefined;
       void deliveryFlowService.startPreparation(
         targetOrder.id,
-        currentData || targetOrder.order_data || targetOrder.orderData || {}
+        confirmedRemoteSnapshot ? {} : currentData || targetOrder.order_data || targetOrder.orderData || {},
+        confirmedRemoteSnapshot
       ).catch(() => { preparationStartRequestedOrderRef.current = null; });
     },
     []
@@ -63,7 +72,7 @@ export const OrderDetailsModal: React.FC<Props> = ({
 
   React.useEffect(() => {
     if (!order?._openDeliveryPreparation || !detailedOrder?.id || detailsLoading || detailsError) return;
-    markPreparationStarted(detailedOrder);
+    markPreparationStarted(detailedOrder, undefined, true);
   }, [markPreparationStarted, detailedOrder, order?._openDeliveryPreparation, detailsLoading, detailsError]);
 
   const handleStartDelivery = async () => {

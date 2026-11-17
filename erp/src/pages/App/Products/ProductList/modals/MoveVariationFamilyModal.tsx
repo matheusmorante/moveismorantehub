@@ -26,6 +26,9 @@ const MoveVariationFamilySession: React.FC<MoveVariationFamilyModalProps & { ope
 }) => {
   const {
     families,
+    familySearch,
+    updateFamilySearch,
+    selectFamilySuggestion,
     targetFamilyId,
     setTargetFamilyId,
     attributes,
@@ -36,7 +39,7 @@ const MoveVariationFamilySession: React.FC<MoveVariationFamilyModalProps & { ope
     isOnlyVariation,
     saving,
     handleConfirm,
-    handleCancel, loading, queryError, conflictLoading, conflictError, error, canConfirm, blocked, retryQueries, retryConflict,
+    handleCancel, loading, queryError, suggestionLoading, suggestionError, conflictLoading, conflictError, error, canConfirm, blocked, retryQueries, retrySuggestions, retryConflict,
   } = useMoveVariationFamily(variation, onMoved, onClose, operationGuard);
 
   useEffect(() => {
@@ -127,8 +130,14 @@ const MoveVariationFamilySession: React.FC<MoveVariationFamilyModalProps & { ope
 
           <FamilySearchSelector
             families={families}
+            familySearch={familySearch}
+            setFamilySearch={updateFamilySearch}
+            suggestionLoading={suggestionLoading}
+            suggestionError={suggestionError}
+            retrySuggestions={retrySuggestions}
             targetFamilyId={targetFamilyId}
             setTargetFamilyId={setTargetFamilyId}
+            selectFamily={selectFamilySuggestion}
           />
 
           {targetFamilyId && (

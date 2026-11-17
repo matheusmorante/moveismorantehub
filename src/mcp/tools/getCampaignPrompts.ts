@@ -16,8 +16,7 @@ export const getCampaignPromptsTool = {
     let campaignId = input.campaignId;
 
     if (!campaignId && input.campaignName) {
-      const camp = await mcpCampaignService.getCampaignByIdOrName(input.campaignName);
-      campaignId = camp.id;
+      campaignId = await mcpCampaignService.getCampaignIdByIdOrName(input.campaignName);
     }
 
     const effectiveId = campaignId || '00000000-0000-4000-8000-000000000001';

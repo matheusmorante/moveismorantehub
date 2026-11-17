@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import FixedAspectImageCropper from '../Posts/FixedAspectImageCropper';
 import {
   SITE_ELEMENT_CONFIG,
   siteElementImageFileSchema,
@@ -9,6 +10,9 @@ import {
   type SiteElementModelFormValues,
 } from '../../../../../../shared-utils/siteElementSchemas';
 import { saveSiteElementModel, siteElementErrorMessage, siteElementImageUrl, type SiteElementModel } from './siteElementService';
+
+type ImageSlot = 'desktop' | 'mobile' | 'tablet';
+type CropRequest = { slot: ImageSlot; file: File };
 
 interface Props {
   kind: SiteElementKind;
@@ -24,24 +28,30 @@ export default function SiteElementFormModal({ kind, model, onClose, onSaved }: 
     defaultValues: {
       name: model?.name || '', kind, file: null, existingImagePath: model?.image_path || null,
       width: model?.width || 0, height: model?.height || 0,
+      mobile: { file: null, existingImagePath: model?.mobile_image_path || null, width: model?.mobile_width || 0, height: model?.mobile_height || 0 },
+      tablet: { file: null, existingImagePath: model?.tablet_image_path || null, width: model?.tablet_width || 0, height: model?.tablet_height || 0 },
     },
   });
   const file = form.watch('file');
-  const [preview, setPreview] = useState(model ? siteElementImageUrl(model.image_path) : '');
+  const mobileFile = form.watch('mobile.file');
+  const tabletFile = form.watch('tablet.file');
+  const existingImagePath = form.watch('existingImagePath');
+  const mobileImagePath = form.watch('mobile.existingImagePath');
+  const tabletImagePath = form.watch('tablet.existingImagePath');
   const [reading, setReading] = useState(false);
+  const [cropRequest, setCropRequest] = useState<CropRequest | null>(null);
   const submitLock = useRef(false);
   const closeButton = useRef<HTMLButtonElement>(null);
   const dialog = useRef<HTMLDivElement>(null);
   const { isSubmitting, errors } = form.formState;
-  const busy = isSubmitting || reading;
+  const busy = isSubmitting || reading || !!cropRequest;
 
   useEffect(() => {
-    if (!file) return;
+    if (!file || kind !== 'carousel') return;
     const url = URL.createObjectURL(file);
     const image = new Image();
     let current = true;
     setReading(true);
-    setPreview(url);
     const fail = (message: string) => {
       if (!current) return;
       form.setValue('width', 0);
@@ -75,7 +85,7 @@ export default function SiteElementFormModal({ kind, model, onClose, onSaved }: 
       image.onerror = null;
       URL.revokeObjectURL(url);
     };
-  }, [file, form, config.width, config.height]);
+  }, [file, form, config.width, config.height, kind]);
 
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null;
@@ -83,8 +93,56 @@ export default function SiteElementFormModal({ kind, model, onClose, onSaved }: 
     return () => previous?.focus();
   }, []);
 
+  const setFileError = (slot: ImageSlot, message: string) => {
+    if (slot === 'desktop') form.setError('file', { message });
+    else if (slot === 'mobile') form.setError('mobile.file', { message });
+    else form.setError('tablet.file', { message });
+  };
+
+  const clearFileError = (slot: ImageSlot) => {
+    if (slot === 'desktop') form.clearErrors('file');
+    else if (slot === 'mobile') form.clearErrors('mobile.file');
+    else form.clearErrors('tablet.file');
+  };
+
+  const selectFile = (slot: ImageSlot, selected: File) => {
+    const parsed = siteElementImageFileSchema.safeParse(selected);
+    if (!parsed.success) {
+      setFileError(slot, parsed.error.issues[0].message);
+      return;
+    }
+    clearFileError(slot);
+    if (kind === 'top_bar') {
+      setCropRequest({ slot, file: parsed.data });
+      return;
+    }
+    form.setValue('width', 0);
+    form.setValue('height', 0);
+    form.setValue('file', parsed.data, { shouldDirty: true });
+  };
+
+  const confirmCrop = (croppedFile: File) => {
+    if (!cropRequest || kind !== 'top_bar') return;
+    const target = SITE_ELEMENT_CONFIG.top_bar.responsive[cropRequest.slot];
+    if (cropRequest.slot === 'desktop') {
+      form.setValue('file', croppedFile, { shouldDirty: true });
+      form.setValue('width', target.width);
+      form.setValue('height', target.height);
+    } else if (cropRequest.slot === 'mobile') {
+      form.setValue('mobile.file', croppedFile, { shouldDirty: true });
+      form.setValue('mobile.width', target.width);
+      form.setValue('mobile.height', target.height);
+    } else {
+      form.setValue('tablet.file', croppedFile, { shouldDirty: true });
+      form.setValue('tablet.width', target.width);
+      form.setValue('tablet.height', target.height);
+    }
+    clearFileError(cropRequest.slot);
+    setCropRequest(null);
+  };
+
   const save = form.handleSubmit(async (values) => {
-    if (submitLock.current || reading) return;
+    if (submitLock.current || reading || cropRequest) return;
     submitLock.current = true;
     form.clearErrors('root');
     try {
@@ -97,9 +155,15 @@ export default function SiteElementFormModal({ kind, model, onClose, onSaved }: 
     }
   });
 
+  const responsive = kind === 'top_bar' ? SITE_ELEMENT_CONFIG.top_bar.responsive : null;
+  const desktopSize = responsive?.desktop || config;
+  const desktopError = errors.file?.message;
+  const mobileError = errors.mobile?.file?.message;
+  const tabletError = errors.tablet?.file?.message;
+
   return <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
     <div ref={dialog} role="dialog" tabIndex={-1} aria-modal="true" aria-labelledby="site-element-dialog-title"
-      className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl dark:bg-slate-900"
+      className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl dark:bg-slate-900"
       onKeyDown={(event) => {
         if (event.key === 'Escape' && !busy) onClose();
         if (event.key !== 'Tab') return;
@@ -130,43 +194,87 @@ export default function SiteElementFormModal({ kind, model, onClose, onSaved }: 
             className="w-full rounded-xl border border-slate-300 bg-transparent px-3 py-2.5 outline-none focus:border-pink-500 dark:border-slate-700" />
           {errors.name && <p id="site-element-name-error" role="alert" className="mt-1 text-sm text-red-600">{errors.name.message}</p>}
         </div>
-        <div>
-          <label htmlFor="site-element-file" className="mb-1 block text-sm font-semibold">Arquivo da imagem {!model && <span className="text-red-500">*</span>}</label>
-          <p id="site-element-image-help" className="mb-3 text-sm text-slate-500">Tamanho padrão: <strong>{config.width} × {config.height} px</strong>. PNG, JPG ou WebP, até 5 MB.</p>
-          <input id="site-element-file" type="file" accept="image/png,image/jpeg,image/webp" disabled={busy}
-            aria-invalid={!!errors.file} aria-describedby={errors.file ? 'site-element-image-help site-element-file-error' : 'site-element-image-help'}
-            className="w-full text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-pink-50 file:px-4 file:py-2 file:font-semibold file:text-pink-700"
-            onChange={(event) => {
-              const selected = event.target.files?.[0];
-              event.target.value = '';
-              if (!selected) return;
-              const parsed = siteElementImageFileSchema.safeParse(selected);
-              if (!parsed.success) {
-                form.setValue('file', null);
-                form.setValue('width', 0);
-                form.setValue('height', 0);
-                setPreview('');
-                form.setError('file', { message: parsed.error.issues[0].message });
-                return;
-              }
-              form.clearErrors('file');
-              form.setValue('width', 0);
-              form.setValue('height', 0);
-              form.setValue('file', parsed.data, { shouldDirty: true });
-            }} />
-          <p className="mt-2 break-all text-xs text-slate-500">{file?.name || model?.file_name || 'Nenhuma imagem selecionada.'}{model && !file ? ' Selecione outro arquivo para substituir a imagem.' : ''}</p>
-          {errors.file && <p id="site-element-file-error" role="alert" className="mt-2 text-sm text-red-600">{errors.file.message}</p>}
-        </div>
-        {preview && <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-slate-800">
-          <img src={preview} alt="Prévia da imagem do modelo" className="w-full object-contain" style={{ aspectRatio: `${config.width} / ${config.height}` }} />
-        </div>}
+        {responsive ? <div className="space-y-4">
+          <div>
+            <h3 className="text-sm font-semibold">Imagens por tela</h3>
+            <p className="mt-1 text-sm text-slate-500">Selecione uma imagem para cada proporção e ajuste o recorte antes de salvar. PNG, JPG ou WebP, até 5 MB por arquivo.</p>
+          </div>
+          <div className="grid gap-4 md:grid-cols-3">
+            <SiteElementAssetField id="site-element-mobile" label="Celular" dimensions={responsive.mobile}
+              file={mobileFile} existingImagePath={mobileImagePath} existingFileName={model?.mobile_file_name || undefined}
+              error={mobileError} disabled={busy} required={!model || !mobileImagePath}
+              onSelect={(selected) => selectFile('mobile', selected)} />
+            <SiteElementAssetField id="site-element-tablet" label="Tablet" dimensions={responsive.tablet}
+              file={tabletFile} existingImagePath={tabletImagePath} existingFileName={model?.tablet_file_name || undefined}
+              error={tabletError} disabled={busy} required={!model || !tabletImagePath}
+              onSelect={(selected) => selectFile('tablet', selected)} />
+            <SiteElementAssetField id="site-element-desktop" label="Desktop" dimensions={responsive.desktop}
+              file={file} existingImagePath={existingImagePath} existingFileName={model?.file_name}
+              error={desktopError} disabled={busy} required={!model || !existingImagePath}
+              onSelect={(selected) => selectFile('desktop', selected)} />
+          </div>
+        </div> : <SiteElementAssetField id="site-element-file" label="Arquivo da imagem" dimensions={desktopSize}
+          file={file} existingImagePath={existingImagePath} existingFileName={model?.file_name}
+          error={desktopError} disabled={busy} required={!model}
+          help="PNG, JPG ou WebP, até 5 MB."
+          onSelect={(selected) => selectFile('desktop', selected)} />}
         {errors.root && <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950/30 dark:text-red-300">{errors.root.message}</p>}
-        {busy && <p role="status" className="flex items-center gap-2 text-sm text-pink-600"><i className="bi bi-arrow-repeat animate-spin" />{reading ? 'Conferindo a imagem…' : 'Salvando modelo…'}</p>}
+        {busy && <p role="status" className="flex items-center gap-2 text-sm text-pink-600"><i className="bi bi-arrow-repeat animate-spin" />{reading ? 'Conferindo a imagem…' : cropRequest ? 'Recortando a imagem…' : 'Salvando modelo…'}</p>}
         <div className="flex justify-end gap-3 border-t border-slate-100 pt-4 dark:border-slate-800">
           <button type="button" disabled={busy} onClick={onClose} className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold disabled:opacity-40 dark:border-slate-700">Cancelar</button>
           <button type="submit" disabled={busy} className="rounded-xl bg-pink-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-pink-700 disabled:opacity-50">Salvar modelo</button>
         </div>
       </form>
     </div>
+    {cropRequest && <FixedAspectImageCropper file={cropRequest.file} kind="header"
+      label={responsive?.[cropRequest.slot].label.toLowerCase() || 'imagem'} targetSize={responsive?.[cropRequest.slot]}
+      onCancel={() => setCropRequest(null)} onConfirm={confirmCrop} />}
+  </div>;
+}
+
+function SiteElementAssetField({
+  id, label, dimensions, file, existingImagePath, existingFileName, error, disabled, required = false, help,
+  onSelect,
+}: {
+  id: string;
+  label: string;
+  dimensions: { width: number; height: number };
+  file: File | null | undefined;
+  existingImagePath: string | null | undefined;
+  existingFileName?: string;
+  error?: string;
+  disabled: boolean;
+  required?: boolean;
+  help?: string;
+  onSelect: (file: File) => void;
+}) {
+  const [filePreview, setFilePreview] = useState('');
+  useEffect(() => {
+    if (!file) { setFilePreview(''); return; }
+    const url = URL.createObjectURL(file);
+    setFilePreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [file]);
+
+  const preview = filePreview || (existingImagePath ? siteElementImageUrl(existingImagePath) : '');
+  const helpId = `${id}-help`;
+  const errorId = `${id}-error`;
+  return <div className="min-w-0 space-y-2 rounded-xl border border-slate-200 p-3 dark:border-slate-700">
+    <label htmlFor={id} className="block text-sm font-semibold">{label} {required && <span className="text-red-500">*</span>}</label>
+    <p id={helpId} className="text-xs text-slate-500">{dimensions.width} × {dimensions.height} px{help ? ` · ${help}` : ''}</p>
+    <input id={id} type="file" accept="image/png,image/jpeg,image/webp" disabled={disabled}
+      aria-invalid={!!error} aria-describedby={error ? `${helpId} ${errorId}` : helpId}
+      className="w-full text-xs file:mr-2 file:rounded-lg file:border-0 file:bg-pink-50 file:px-3 file:py-2 file:font-semibold file:text-pink-700"
+      onChange={(event) => {
+        const selected = event.target.files?.[0];
+        event.target.value = '';
+        if (selected) onSelect(selected);
+      }} />
+    <p className="break-all text-xs text-slate-500">{file?.name || existingFileName || 'Nenhuma imagem selecionada.'}</p>
+    {preview && <div className="overflow-hidden rounded-lg border border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-slate-800">
+      <img src={preview} alt={`Prévia da imagem para ${label.toLowerCase()}`} loading="lazy" decoding="async"
+        className="w-full object-contain" style={{ aspectRatio: `${dimensions.width} / ${dimensions.height}` }} />
+    </div>}
+    {error && <p id={errorId} role="alert" className="text-sm text-red-600">{error}</p>}
   </div>;
 }

@@ -7,7 +7,10 @@ import PersonFormModal from '@/pages/App/Registrations/shared/modals/PersonFormM
 import { saveInboundInvoice } from '@/pages/utils/inboundNfe/inboundInvoicesService';
 import { parseInboundNfeXml } from '@/pages/utils/inboundNfe/inboundXmlParser';
 import { InboundInvoice, InboundInvoiceItem } from '@/pages/utils/inboundNfe/inboundNfeTypes';
-import { fetchPersons } from '@/pages/utils/personService';
+import {
+  fetchPersons,
+  INBOUND_INVOICE_MAPPING_SUPPLIER_QUERY_COLUMNS,
+} from '@/pages/utils/personService';
 import { findProductSupplierCodes } from '@/pages/utils/productSupplierCodesService';
 import SupplierAutocomplete from '@/components/SupplierAutocomplete';
 import Person from '@/pages/types/person.type';
@@ -120,7 +123,12 @@ export function ManageInboundInvoiceMappingsModal({
     const loadInitialData = async () => {
       setLoading(true);
       try {
-        const list = await withTimeout(fetchPersons('suppliers'), 15000, null, 'entrada:consultar-fornecedores');
+        const list = await withTimeout(
+          fetchPersons('suppliers', false, { columns: INBOUND_INVOICE_MAPPING_SUPPLIER_QUERY_COLUMNS }),
+          15000,
+          null,
+          'entrada:consultar-fornecedores'
+        );
         if (!list) throw new Error('A consulta de fornecedores demorou demais.');
         if (active) setSuppliers(list);
 
@@ -253,7 +261,12 @@ export function ManageInboundInvoiceMappingsModal({
         assertCurrent();
         const parsedInvoice = values as unknown as InboundInvoice;
         writing = true;
-        const saved = await withTimeout(saveInboundInvoice(parsedInvoice, { requireConfirmation: true, assertCurrent }), 30000, null, 'entrada:salvar-mapeamentos');
+        const saved = await withTimeout(
+          saveInboundInvoice(parsedInvoice, { requireConfirmation: true, mappingOnly: true, assertCurrent }),
+          30000,
+          null,
+          'entrada:salvar-mapeamentos'
+        );
         assertCurrent();
         if (!saved || saved.id !== parsedInvoice.id) throw new Error('A alteração do vínculo não foi confirmada.');
         setInvoice(saved);

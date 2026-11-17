@@ -139,7 +139,12 @@ export const fetchMobileProductTechnicalFields = async (
   );
   const relatedQueries = await withTimeout(
     Promise.all([
-      supabase.from('attribute_values').select('id, attribute_id, value, sort_order, active').limit(10000),
+      supabase
+        .from('attribute_values')
+        .select('id, attribute_id, value, sort_order, active')
+        // Match the local rule (only false is inactive) before the 10,000-row cap.
+        .or('active.is.null,active.eq.true')
+        .limit(10000),
       supabase
         .from('category_attributes')
         .select('attribute_id, category_id, is_required')
@@ -205,18 +210,52 @@ export const fetchMobileProductTechnicalFields = async (
         optionsResult.error.message?.includes('sort_order') ||
         optionsResult.error.message?.includes('active'))
   );
+  const missingOptionalOptionColumn = shouldRetryOptionsQuery
+    ? getMissingOptionalColumn(optionsResult.error ?? {}, ['active', 'sort_order'])
+    : undefined;
+  const loadOptionsFallback = (includeActiveFilter: boolean) =>
+    includeActiveFilter
+      ? withTimeout(
+          supabase
+            .from('attribute_values')
+            .select('id, attribute_id, value, active')
+            .or('active.is.null,active.eq.true')
+            .limit(10000),
+          TECHNICAL_FIELDS_TIMEOUT_MS,
+          null,
+          'mobile-product:technical-option-values-fallback',
+        )
+      : withTimeout(
+          supabase.from('attribute_values').select('id, attribute_id, value').limit(10000),
+          TECHNICAL_FIELDS_TIMEOUT_MS,
+          null,
+          'mobile-product:technical-option-values-fallback',
+        );
+  // If only sort_order is missing, keep filtering by active in the reduced projection.
+  // If the older schema also lacks active, retry the pre-existing compact fallback below.
+  const fallbackUsesActiveFilter = missingOptionalOptionColumn === 'sort_order';
   const fallbackOptionsResult = shouldRetryOptionsQuery
-    ? await withTimeout(
-        supabase.from('attribute_values').select('id, attribute_id, value').limit(10000),
-        TECHNICAL_FIELDS_TIMEOUT_MS,
-        null,
-        'mobile-product:technical-option-values-fallback',
-      )
+    ? await loadOptionsFallback(fallbackUsesActiveFilter)
     : null;
   if (shouldRetryOptionsQuery && !fallbackOptionsResult) {
     throw new Error('Tempo esgotado ao carregar opções de características.');
   }
-  const optionResult = fallbackOptionsResult ?? optionsResult;
+  const needsCompactLegacyFallback = Boolean(
+    fallbackUsesActiveFilter &&
+      fallbackOptionsResult?.error &&
+      isMissingColumnError(fallbackOptionsResult.error) &&
+      getMissingOptionalColumn(fallbackOptionsResult.error, ['active']) === 'active',
+  );
+  const compactLegacyFallbackResult = needsCompactLegacyFallback
+    ? await loadOptionsFallback(false)
+    : null;
+  if (needsCompactLegacyFallback && !compactLegacyFallbackResult) {
+    throw new Error('Tempo esgotado ao carregar opções de características.');
+  }
+  const resolvedFallbackOptionsResult =
+    compactLegacyFallbackResult ?? fallbackOptionsResult;
+  const optionResult = resolvedFallbackOptionsResult ?? optionsResult;
+
   if (optionResult.error) throw optionResult.error;
   const options = (optionResult.data ?? []).filter(
     (option) => (option as { active?: boolean | null }).active !== false,

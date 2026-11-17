@@ -94,8 +94,9 @@ describe('Paginação da Inbox', () => {
     expect(resolved).toBe(source);
     await act(async () => { await result.current.resolveReplyTarget({ conversationId: 'other', messageId: null, apiMessageId: 'wamid.source' }); });
     expect(mocks.fetchConversationReplyTarget).toHaveBeenCalledTimes(1);
-    act(() => result.current.jumpToMessage(source));
+    act(() => result.current.jumpToMessage(source, { reuseResolvedTarget: true }));
     await waitFor(() => expect(result.current.messages.some((message) => message.id === 'source')).toBe(true));
+    expect(mocks.fetchContext).toHaveBeenCalledWith(expect.anything(), 'a', 'source', 10, source);
     expect(result.current.jumpToMessageId).toBe('source');
     expect(result.current.hasOlderMessages).toBe(true);
   });

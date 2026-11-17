@@ -74,6 +74,7 @@ export const ensureDefaultVariation = <T extends Partial<Product>>(product: T): 
         active: product.active !== false,
         status: product.status || 'hidden',
         attributes: [],
+        technicalValues: product.technicalValues ? { ...product.technicalValues } : undefined,
         images: inheritDefaultVariationGallery ? [...(product.images || [])] : [],
         syncUnitPrice: true,
         syncPromoPrice: true,

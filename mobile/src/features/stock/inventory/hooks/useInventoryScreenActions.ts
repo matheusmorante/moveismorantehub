@@ -52,6 +52,12 @@ export function useInventoryScreenActions(
         Alert.alert('Aviso', 'Este inventário não possui itens para duplicar.');
         return;
       }
+      if (details?.isStaleLocalSnapshot) {
+        Alert.alert(
+          'Cópia local',
+          'Os itens vêm de uma cópia salva no aparelho e podem estar desatualizados. Confira-os antes de continuar.'
+        );
+      }
       setEditingSession(null);
       setCopiedItems(items);
       setShowCount(true);

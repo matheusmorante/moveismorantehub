@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
-import { fetchCalendarEvents, type CalendarEvent } from '../../../services/scheduleEventsService';
+import {
+  fetchCalendarEvents,
+  type CalendarEventSummary,
+} from '../../../services/scheduleEventsService';
 import { useScopedOrderSchedule } from '../../logistics/hooks/useScopedOrderSchedule';
 
 export function useAgendaData(kind = 'all') {
   const schedule = useScopedOrderSchedule('agenda', { kind });
-  const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [events, setEvents] = useState<CalendarEventSummary[]>([]);
   const loadEvents = useCallback(async () => {
     if (!['all', 'events'].includes(kind)) return [];
     return fetchCalendarEvents();

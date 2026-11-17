@@ -3,6 +3,7 @@ import { supabase } from '@/pages/utils/supabaseConfig';
 import { withTimeout } from '../../../../../shared-utils/withTimeout';
 import { parseVariationImages } from './productImageHelpers';
 import { variationFamilyQuerySchema, variationFamilyConflictSchema, variationFamilyUuidSchema, toFamilyAttributes, sameFamilyAttributes } from '../../../../../shared-utils/variationFamilyFormSchemas';
+import { normalizeSearchTerm } from '../../../../../shared-utils/searchText';
 
 const optionalText = z.string().trim().nullish().transform((value) => value ?? undefined);
 const familySchema = z.object({ id: variationFamilyUuidSchema, name: optionalText, description: optionalText, code: z.string().trim().min(1) });
@@ -29,17 +30,23 @@ export async function fetchVariationFamilyContext(input: z.input<typeof variatio
   return { sourceParentId, isOnlyVariation: count.count === 1, images: [...new Set(images)] };
 }
 
-export async function fetchVariationFamilies(input: z.input<typeof variationFamilyQuerySchema>, stillCurrent: () => boolean) {
-  variationFamilyQuerySchema.parse(input); ensureCurrent(stillCurrent);
-  const families: z.output<typeof familySchema>[] = [];
-  for (let offset = 0; ; offset += 1000) {
-  const result = await withTimeout(supabase.from('products').select('id, name, description, code').eq('deleted', false)
-    .not('code', 'is', null).neq('code', '').order('name', { ascending: true }).order('id', { ascending: true }).range(offset, offset + 999), 10000, null, 'mover-variacao:familias');
+export async function searchVariationFamilies(search: string, sourceParentId: string, stillCurrent: () => boolean) {
+  const query = normalizeSearchTerm(search);
+  const parentId = variationFamilyUuidSchema.parse(sourceParentId);
   ensureCurrent(stillCurrent);
-  if (!result || result.error || !Array.isArray(result.data)) throw new Error('Não foi possível carregar os produtos pai. Consulte novamente.');
-  const page = z.array(familySchema).parse(result.data); families.push(...page);
-  if (page.length < 1000) return families;
-  }
+  if (query.length < 3) return [];
+  const result = await withTimeout(
+    (supabase as any).rpc('search_variation_family_suggestions', {
+      p_search: query,
+      p_source_parent_id: parentId,
+    }),
+    10000,
+    null,
+    'mover-variacao:buscar-familias'
+  );
+  ensureCurrent(stillCurrent);
+  if (!result || result.error || !Array.isArray(result.data)) throw new Error('Não foi possível buscar os produtos pai. Consulte novamente.');
+  return z.array(familySchema).parse(result.data);
 }
 
 export async function fetchVariationFamilyConflict(input: z.input<typeof variationFamilyConflictSchema>, stillCurrent: () => boolean) {

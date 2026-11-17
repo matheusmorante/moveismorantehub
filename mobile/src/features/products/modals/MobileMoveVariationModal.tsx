@@ -14,6 +14,7 @@ import {
 } from '../../../../../shared-utils/variationFamilyFormSchemas';
 import { parseVariationImages } from '../../../../../shared-utils/productVariationImages';
 import { withTimeout } from '../../../../../shared-utils/withTimeout';
+import { normalizeSearchTerm } from '../../../../../shared-utils/searchText';
 
 const moveVariationFormSchema = variationFamilyCommandSchema.safeExtend({
   ready: z.boolean().refine(Boolean, 'Aguarde a validação da combinação antes de mover a variação.'),
@@ -48,8 +49,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   checkMobileVariationAttributeConflict,
   countMobileParentVariations,
-  ensureMobileAttributeValue,
-  fetchMobileVariationFamilies,
+  ensureMobileAttributeValues,
+  searchMobileVariationFamilies,
   type MobileVariationAttribute,
   type MobileVariationFamily,
   moveMobileVariationToFamily,
@@ -89,6 +90,9 @@ export const MobileMoveVariationModal: React.FC<Props> = ({
   const [attributes, setAttributes] = useState<AttributeRow[]>([]);
   const [queryError, setQueryError] = useState('');
   const [queryRevision, setQueryRevision] = useState(0);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
+  const [suggestionsError, setSuggestionsError] = useState('');
+  const [suggestionRevision, setSuggestionRevision] = useState(0);
   const [conflictState, setConflictState] = useState<MobileMoveVariationConflictState>('idle');
   const [conflictError, setConflictError] = useState('');
   const [conflictRevision, setConflictRevision] = useState(0);
@@ -143,6 +147,7 @@ export const MobileMoveVariationModal: React.FC<Props> = ({
     () => getMobileVariationFamilySuggestions(families, familyQuery, targetFamilyId),
     [families, familyQuery, targetFamilyId],
   );
+  const normalizedFamilyQuery = normalizeSearchTerm(familyQuery);
 
   useEffect(() => {
     const currentToken = Symbol('move-family');
@@ -166,6 +171,8 @@ export const MobileMoveVariationModal: React.FC<Props> = ({
   useEffect(() => {
     if (!visible || !variation) return;
     setFamilies([]);
+    setSuggestionsLoading(false);
+    setSuggestionsError('');
     setQueryReady(false);
     setTargetFamilyId('');
     setFamilyQuery('');
@@ -205,10 +212,7 @@ export const MobileMoveVariationModal: React.FC<Props> = ({
         if (!input) throw new Error('A variação de origem não pôde ser validada. Reabra a operação.');
         const validatedParentId = variationFamilyUuidSchema.parse(sourceParentId);
         const result = await withTimeout(
-          Promise.all([
-            fetchMobileVariationFamilies(validatedParentId, () => current && accepting),
-            countMobileParentVariations(validatedParentId, () => current && accepting),
-          ]),
+          countMobileParentVariations(validatedParentId, () => current && accepting),
           32_000,
           null,
           'mover-variacao:consultas'
@@ -217,8 +221,8 @@ export const MobileMoveVariationModal: React.FC<Props> = ({
         if (!result) {
           throw new Error('A consulta da mudança de família excedeu o prazo. Consulte novamente.');
         }
-        setFamilies(result[0].filter((family) => family.id !== validatedParentId));
-        setIsOnlyVariation(result[1] === 1);
+        setFamilies([]);
+        setIsOnlyVariation(result === 1);
         setQueryReady(true);
       } catch (error: unknown) {
         if (current && accepting) {
@@ -239,6 +243,31 @@ export const MobileMoveVariationModal: React.FC<Props> = ({
       accepting = false;
     };
   }, [visible, variationId, sourceParentId, queryRevision, familyQueryForm.validateValues]);
+
+  useEffect(() => {
+    let current = true;
+    let accepting = true;
+    if (!visible || !queryReady || !sourceParentId || targetFamilyId || normalizedFamilyQuery.length < 3) {
+      if (!targetFamilyId) setFamilies([]);
+      setSuggestionsLoading(false);
+      setSuggestionsError('');
+      return () => { current = false; accepting = false; };
+    }
+
+    setFamilies([]);
+    setSuggestionsError('');
+    setSuggestionsLoading(true);
+    const timer = setTimeout(() => {
+      void searchMobileVariationFamilies(normalizedFamilyQuery, sourceParentId, () => current && accepting)
+        .then((results) => { if (current && accepting) setFamilies(results); })
+        .catch((failure) => {
+          if (current && accepting) setSuggestionsError(failure instanceof Error ? failure.message : 'Não foi possível buscar os produtos pai.');
+        })
+        .finally(() => { if (current) setSuggestionsLoading(false); accepting = false; });
+    }, 250);
+
+    return () => { current = false; accepting = false; clearTimeout(timer); };
+  }, [normalizedFamilyQuery, queryReady, sourceParentId, suggestionRevision, targetFamilyId, visible]);
 
   useEffect(() => {
     if (!visible || !queryReady || !targetFamilyId || validAttributes.length === 0) {
@@ -337,12 +366,11 @@ export const MobileMoveVariationModal: React.FC<Props> = ({
         try {
           const operation = async () => {
             await verifyMobileVariationParent(values.sourceId, values.sourceParentId, stillCurrent);
-            const canonicalAttributes: MobileVariationAttribute[] = [];
-            for (const attribute of values.attributes) {
-              if (!stillCurrent()) throw new VariationFamilyUnconfirmedError();
-              const stored = await ensureMobileAttributeValue(attribute.name, attribute.value, stillCurrent);
-              canonicalAttributes.push({ ...attribute, ...stored });
-            }
+            const storedAttributes = await ensureMobileAttributeValues(values.attributes, stillCurrent);
+            const canonicalAttributes: MobileVariationAttribute[] = values.attributes.map((attribute, index) => ({
+              ...attribute,
+              ...storedAttributes[index],
+            }));
             if (!stillCurrent()) throw new VariationFamilyUnconfirmedError();
             const newName = [getMobileVariationFamilyName(targetFamily), ...canonicalAttributes.map(({ value }) => value)]
               .filter(Boolean)
@@ -475,6 +503,8 @@ export const MobileMoveVariationModal: React.FC<Props> = ({
               familyQuery={familyQuery}
               familiesLoading={familiesLoading}
               queryError={queryError}
+              suggestionsLoading={suggestionsLoading}
+              suggestionsError={suggestionsError}
               saving={saving}
               mutationBlocked={mutationBlocked}
               targetFamilyId={targetFamilyId}
@@ -484,16 +514,26 @@ export const MobileMoveVariationModal: React.FC<Props> = ({
               onQueryChange={(value) => {
                 setFamilyQuery(value);
                 setTargetFamilyId('');
+                setFamilies([]);
+                setSuggestionsError('');
+                setSuggestionsLoading(normalizeSearchTerm(value).length >= 3);
                 setShowSuggestions(true);
                 setConflictState('idle');
                 setCountdown(5);
               }}
               onFocus={() => setShowSuggestions(true)}
               onRetry={() => setQueryRevision((revision) => revision + 1)}
+              onRetrySuggestions={() => {
+                setSuggestionsError('');
+                setSuggestionsLoading(true);
+                setSuggestionRevision((revision) => revision + 1);
+              }}
               onSelectFamily={(family) => {
                 setTargetFamilyId(family.id);
                 setFamilyQuery(`${getMobileVariationFamilyName(family)}${family.code ? ` — ${family.code}` : ''}`);
                 setShowSuggestions(false);
+                setSuggestionsLoading(false);
+                setSuggestionsError('');
                 setCountdown(5);
               }}
             />

@@ -30,9 +30,9 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 ));
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
-// node_modules/@supabase/supabase-js/dist/tracingRegistry.cjs
+// erp/node_modules/@supabase/supabase-js/dist/tracingRegistry.cjs
 var require_tracingRegistry = __commonJS({
-  "node_modules/@supabase/supabase-js/dist/tracingRegistry.cjs"(exports2) {
+  "erp/node_modules/@supabase/supabase-js/dist/tracingRegistry.cjs"(exports2) {
     var EXTRACTOR_KEY = Symbol.for("@supabase/supabase-js.traceContextExtractor");
     function registerTraceContextExtractor(extractor) {
       globalThis[EXTRACTOR_KEY] = extractor;
@@ -55,9 +55,9 @@ var require_tracingRegistry = __commonJS({
   }
 });
 
-// node_modules/@supabase/supabase-js/dist/index.cjs
+// erp/node_modules/@supabase/supabase-js/dist/index.cjs
 var require_dist = __commonJS({
-  "node_modules/@supabase/supabase-js/dist/index.cjs"(exports2) {
+  "erp/node_modules/@supabase/supabase-js/dist/index.cjs"(exports2) {
     var require_tracingRegistry2 = require_tracingRegistry();
     var _supabase_functions_js = require("@supabase/functions-js");
     var _supabase_postgrest_js = require("@supabase/postgrest-js");
@@ -867,7 +867,7 @@ var require_dist = __commonJS({
   }
 });
 
-// api/secure-integrations.ts
+// erp/api/secure-integrations.ts
 var secure_integrations_exports = {};
 __export(secure_integrations_exports, {
   checkAiQuotaOrReject: () => checkAiQuotaOrReject,
@@ -882,7 +882,7 @@ __export(secure_integrations_exports, {
 });
 module.exports = __toCommonJS(secure_integrations_exports);
 
-// api/_lib/secureIntegrations/types.ts
+// erp/api/_lib/secureIntegrations/types.ts
 var MAX_META_REQUEST_BYTES = 1e6;
 var MAX_OPENAI_REQUEST_BYTES = 4e6;
 var MAX_ROUTE_REQUEST_BYTES = 16e3;
@@ -898,7 +898,7 @@ function getOperation(req) {
   return Array.isArray(value) ? String(value[0] || "") : String(value || "");
 }
 
-// api/_lib/authenticatedErpRequest.ts
+// erp/api/_lib/authenticatedErpRequest.ts
 var import_supabase_js = __toESM(require_dist(), 1);
 var DEFAULT_PERMISSION_ROLES = {
   createEditOrders: ["manager"],
@@ -971,7 +971,7 @@ function hasErpPermission(context, permission) {
   return context.roles.some((role) => allowedRoles.includes(role));
 }
 
-// server/secure-api/verifyMetaAppCredentials.ts
+// erp/server/secure-api/verifyMetaAppCredentials.ts
 var import_node_crypto = require("node:crypto");
 function getGraphErrorDetails(body) {
   const graphError = body && typeof body === "object" && !Array.isArray(body) ? body.error : void 0;
@@ -1053,7 +1053,7 @@ async function verifyMetaAppCredentials({
   return { valid: true };
 }
 
-// server/secure-api/verifyWhatsAppWebhookSubscription.ts
+// erp/server/secure-api/verifyWhatsAppWebhookSubscription.ts
 var import_node_crypto2 = require("node:crypto");
 function isRecord(value) {
   return !!value && typeof value === "object" && !Array.isArray(value);
@@ -1123,7 +1123,7 @@ async function verifyWhatsAppWebhookSubscription({
   return { valid: false, reason: "pagination_limit_exceeded" };
 }
 
-// server/secure-api/ensureWhatsAppEchoWebhookSubscription.ts
+// erp/server/secure-api/ensureWhatsAppEchoWebhookSubscription.ts
 var import_node_crypto3 = require("node:crypto");
 function isRecord2(value) {
   return !!value && typeof value === "object" && !Array.isArray(value);
@@ -1238,10 +1238,10 @@ async function ensureWhatsAppEchoWebhookSubscription({
   return { valid: true, changed: true, fields: verifiedFields };
 }
 
-// ../shared-utils/metaCatalogIds.ts
+// shared-utils/metaCatalogIds.ts
 var META_ADS_CREATIVE_CATALOG_ID = "3884846918337684";
 
-// src/pages/utils/metaService/metaGraphProxyPolicy.ts
+// erp/src/pages/utils/metaService/metaGraphProxyPolicy.ts
 var numericId = (value) => {
   const normalized = typeof value === "string" ? value.trim() : "";
   if (!/^\d{1,32}$/.test(normalized)) throw new Error("Identificador Meta inv\xE1lido.");
@@ -1435,7 +1435,7 @@ function planMetaGraphRequest(input, settings) {
   }
 }
 
-// api/_lib/secureIntegrations/handlers/metaGraphHandler.ts
+// erp/api/_lib/secureIntegrations/handlers/metaGraphHandler.ts
 function getMetaGraphSettings(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};
   const config = value;
@@ -1694,7 +1694,7 @@ async function handleMetaGraph(req, res) {
   }
 }
 
-// api/_lib/secureIntegrations/aiQuotaBridge.ts
+// erp/api/_lib/secureIntegrations/aiQuotaBridge.ts
 var import_supabase_js2 = __toESM(require_dist(), 1);
 var quotaServiceDb = null;
 function getQuotaServiceDb() {
@@ -1777,7 +1777,7 @@ async function recordAiUsageTokensSafe(_userDb, params) {
   }
 }
 
-// ../shared-utils/openAiAgentAdapter.ts
+// shared-utils/openAiAgentAdapter.ts
 var schemaTypes = {
   OBJECT: "object",
   STRING: "string",
@@ -1906,7 +1906,7 @@ function parseOpenAiAgentResponse(response) {
   };
 }
 
-// api/_lib/secureIntegrations/handlers/openAiHandler.ts
+// erp/api/_lib/secureIntegrations/handlers/openAiHandler.ts
 async function handleOpenAi(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "M\xE9todo n\xE3o permitido." });
   const openAiApiKey = process.env.OPENAI_API_KEY?.trim();
@@ -2033,7 +2033,7 @@ async function handleOpenAi(req, res) {
   }
 }
 
-// api/_lib/secureIntegrations/handlers/geminiHandler.ts
+// erp/api/_lib/secureIntegrations/handlers/geminiHandler.ts
 async function handleGemini(req, res) {
   if (req.method === "OPTIONS") return res.status(200).end();
   if (req.method !== "POST") return res.status(405).json({ error: "M\xE9todo n\xE3o permitido." });
@@ -2049,7 +2049,7 @@ async function handleGemini(req, res) {
   return handleOpenAi(req, res);
 }
 
-// api/_lib/secureIntegrations/handlers/googleRoutesHandler.ts
+// erp/api/_lib/secureIntegrations/handlers/googleRoutesHandler.ts
 function validPoint(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const point = value;
@@ -2101,7 +2101,7 @@ async function handleGoogleRoutes(req, res) {
   }
 }
 
-// api/secure-integrations.ts
+// erp/api/secure-integrations.ts
 var operations = {
   "meta-graph": handleMetaGraph,
   "gemini-proxy": handleGemini,

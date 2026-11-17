@@ -85,6 +85,7 @@ export const TodayDeliveriesScreen: React.FC<Props> = ({
           }
         : null,
     canBroadcastLocation: false,
+    isMapVisible: viewMode === 'map',
   });
   const primaryResponsibleCoords = isCurrentUserPrimaryResponsible
     ? driverCoords

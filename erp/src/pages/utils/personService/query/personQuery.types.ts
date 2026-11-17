@@ -3,6 +3,12 @@ import type Person from '../../../types/person.type';
 export const PERSON_QUERY_COLUMNS =
   'id, person_type, person_type_pf_pj, full_name, social_name, nickname, cpf_cnpj, rg_ie, ie_indicator, email, phone, address, observation, active, is_draft, deleted, deleted_at, position, lead_time, marketing_origin, stock_origins, created_at, updated_at';
 
+// Mantém no seletor de vínculo de NF somente os dados usados para mostrar e
+// escolher o fornecedor, identificar artefatos de teste e preservar a origem
+// do estoque do fornecedor.
+export const INBOUND_INVOICE_MAPPING_SUPPLIER_QUERY_COLUMNS =
+  'id, person_type, person_type_pf_pj, full_name, nickname, cpf_cnpj, address, stock_origins';
+
 // Campos suficientes para identificar, filtrar e exibir os responsáveis do inventário.
 // A consulta genérica continua usando PERSON_QUERY_COLUMNS para os demais consumidores.
 export const INVENTORY_AUDIT_EMPLOYEE_QUERY_COLUMNS =
@@ -21,4 +27,5 @@ export interface PersonCacheEntry {
 export interface FetchPersonsOptions {
   throwOnError?: boolean;
   syncEmployeeProfiles?: boolean;
+  columns?: string;
 }

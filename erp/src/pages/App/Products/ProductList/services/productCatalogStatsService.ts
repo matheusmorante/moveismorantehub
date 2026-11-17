@@ -14,13 +14,18 @@ let cachedStats: {
   [cacheKey: string]: { data: VariationCatalogStats; timestamp: number };
 } = {};
 
-let inFlightStats: {
-  [cacheKey: string]: Promise<VariationCatalogStats> | null;
-} = {};
+type InFlightStats = {
+  promise: Promise<VariationCatalogStats>;
+  generation: number;
+};
+
+let inFlightStats: { [cacheKey: string]: InFlightStats | null } = {};
+let cacheGeneration = 0;
 
 const STATS_CACHE_TTL_MS = 30 * 1000; // 30 segundos de cache
 
 export const invalidateProductCatalogStatsCache = () => {
+  cacheGeneration += 1;
   cachedStats = {};
   inFlightStats = {};
 };
@@ -40,11 +45,14 @@ export const loadProductCatalogStats = async (
     if (cached && now - cached.timestamp < STATS_CACHE_TTL_MS) {
       return cached.data;
     }
-    if (inFlightStats[cacheKey]) {
-      return inFlightStats[cacheKey]!;
+    const inFlight = inFlightStats[cacheKey];
+    if (inFlight?.generation === cacheGeneration) {
+      return inFlight.promise;
     }
   }
 
+  const requestGeneration = cacheGeneration;
+  let request: InFlightStats | null = null;
   const fetchPromise = (async () => {
     try {
       let query: any = supabase
@@ -69,13 +77,18 @@ export const loadProductCatalogStats = async (
       }
 
       const stats = calculateVariationCatalogStats(data ?? []);
-      cachedStats[cacheKey] = { data: stats, timestamp: Date.now() };
+      if (requestGeneration === cacheGeneration) {
+        cachedStats[cacheKey] = { data: stats, timestamp: Date.now() };
+      }
       return stats;
     } finally {
-      inFlightStats[cacheKey] = null;
+      if (request && inFlightStats[cacheKey] === request) {
+        inFlightStats[cacheKey] = null;
+      }
     }
   })();
 
-  inFlightStats[cacheKey] = fetchPromise;
+  request = { promise: fetchPromise, generation: requestGeneration };
+  inFlightStats[cacheKey] = request;
   return fetchPromise;
 };

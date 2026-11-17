@@ -3,6 +3,8 @@ import {
   TeamMemberLocation,
   fetchTeamLocations,
   broadcastMyLocation,
+  clearSuccessfulInitialStatusBroadcast,
+  consumeSuccessfulInitialStatusBroadcast,
   subscribeToTeamLocations,
 } from '../../../services/teamLocationService';
 import { DriverCoordinates, calculateDistanceInMeters } from '../../../services/locationService';
@@ -14,6 +16,7 @@ interface UseTeamLocationsOptions {
   isDelivering?: boolean;
   activeOrder?: { id: string; code?: string; responsibleId: string } | null;
   canBroadcastLocation?: boolean;
+  isMapVisible?: boolean;
 }
 
 export function useTeamLocations({
@@ -23,6 +26,7 @@ export function useTeamLocations({
   isDelivering = false,
   activeOrder = null,
   canBroadcastLocation = true,
+  isMapVisible = true,
 }: UseTeamLocationsOptions = {}) {
   const [teamMembers, setTeamMembers] = useState<TeamMemberLocation[]>([]);
   const [loading, setLoading] = useState(true);
@@ -61,7 +65,17 @@ export function useTeamLocations({
     const lng = myCoords?.longitude;
     const accuracy = myCoords?.accuracy;
 
+    if (myCoords && isGpsActive && activeOrderId) {
+      clearSuccessfulInitialStatusBroadcast(userProfile.id, activeOrderId);
+    }
+
     if (!lat || !lng || !isGpsActive) {
+      const initialStatusAlreadyBroadcast = activeOrderId
+        ? await consumeSuccessfulInitialStatusBroadcast(userProfile.id, activeOrderId)
+        : false;
+      if (initialStatusAlreadyBroadcast) {
+        return;
+      }
       await broadcastMyLocation(userProfile, null, false, isDelivering, broadcastOrder);
       return;
     }
@@ -126,16 +140,29 @@ export function useTeamLocations({
 
   // Escuta em tempo real via Supabase para atualizar a visão dos colegas no mapa
   useEffect(() => {
+    if (!isMapVisible) return;
+
     loadLocations();
 
-    const unsubscribe = subscribeToTeamLocations(() => {
-      loadLocations();
-    });
+    if (
+      !myUserId ||
+      !activeOrderId ||
+      !activeOrderResponsibleId ||
+      activeOrderResponsibleId === myUserId
+    ) {
+      return;
+    }
 
-    return () => {
-      unsubscribe();
-    };
-  }, [loadLocations]);
+    return subscribeToTeamLocations(activeOrderResponsibleId, () => {
+      void loadLocations();
+    });
+  }, [
+    loadLocations,
+    isMapVisible,
+    myUserId,
+    activeOrderId,
+    activeOrderResponsibleId,
+  ]);
 
   return {
     teamMembers,

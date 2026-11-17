@@ -5,7 +5,7 @@ const mocks = vi.hoisted(() => ({
   lookup: null as any, reply: null as any, writes: vi.fn(),
 }));
 vi.mock('@/pages/utils/supabaseConfig', () => ({ supabase: { from: mocks.from, rpc: mocks.rpc } }));
-vi.mock('./inventorySubscriptionState', () => ({ prependMoveToState: vi.fn(), removeMoveFromState: vi.fn(), updateMoveInState: mocks.state }));
+vi.mock('./inventorySubscriptionState', () => ({ prependMoveToState: vi.fn(), removeMoveFromState: vi.fn(), updateMoveInState: mocks.state, notifyInventoryMoveMutation: vi.fn(), notifyInventoryMoveMutationCompleted: vi.fn() }));
 vi.mock('./inventoryStockCalculator', () => ({ recalculateProductStockOnMove: vi.fn(), revertProductStockFromMove: vi.fn() }));
 vi.mock('@/pages/utils/inventoryAuditBalance', () => ({ recalculateInventoryAuditBalance: vi.fn() }));
 vi.mock('@/lib/queryClient', () => ({ queryClient: { invalidateQueries: mocks.invalidation } }));

@@ -1,30 +1,34 @@
 import React, { useState } from 'react';
 import { Family, familyName, familySku, normalize } from './utils';
-import { matchesSearchText } from '@/pages/utils/textUtils';
 
 interface FamilySearchSelectorProps {
   readonly families: readonly Family[];
+  readonly familySearch: string;
+  readonly setFamilySearch: (value: string) => void;
+  readonly suggestionLoading: boolean;
+  readonly suggestionError: string;
+  readonly retrySuggestions: () => void;
   readonly targetFamilyId: string;
   readonly setTargetFamilyId: (id: string) => void;
+  readonly selectFamily: (family: Family) => void;
 }
 
 export const FamilySearchSelector: React.FC<FamilySearchSelectorProps> = ({
   families,
+  familySearch,
+  setFamilySearch,
+  suggestionLoading,
+  suggestionError,
+  retrySuggestions,
   targetFamilyId,
   setTargetFamilyId,
+  selectFamily,
 }) => {
-  const [familySearch, setFamilySearch] = useState('');
   const [isFamilySuggestionsOpen, setIsFamilySuggestionsOpen] = useState(false);
 
   const normalizedFamilySearch = normalize(familySearch);
   const familySuggestions =
-    normalizedFamilySearch.length >= 3
-      ? families
-          .filter((family) =>
-            matchesSearchText(`${familyName(family)} ${familySku(family)}`, normalizedFamilySearch)
-          )
-          .slice(0, 5)
-      : [];
+    normalizedFamilySearch.length >= 3 && !targetFamilyId ? families.slice(0, 5) : [];
 
   return (
     <div className="relative z-50">
@@ -44,7 +48,7 @@ export const FamilySearchSelector: React.FC<FamilySearchSelectorProps> = ({
             setIsFamilySuggestionsOpen(true);
           }}
           onFocus={() => setIsFamilySuggestionsOpen(true)}
-          placeholder="Digite ao menos 2 letras do nome ou código do produto pai..."
+          placeholder="Digite ao menos 3 caracteres do nome ou código do produto pai..."
           autoComplete="off"
           style={targetFamilyId ? { borderBottomColor: '#10b981' } : undefined}
           className={`w-full rounded-none border-0 border-b-2 border-slate-200 bg-transparent py-4 pl-4 pr-12 text-base font-medium outline-none transition-all placeholder:text-slate-400 focus:border-indigo-500 focus:ring-0 dark:border-slate-700 dark:text-slate-100 ${
@@ -59,17 +63,25 @@ export const FamilySearchSelector: React.FC<FamilySearchSelectorProps> = ({
       </div>
       {isFamilySuggestionsOpen && !targetFamilyId && normalizedFamilySearch.length >= 3 && (
         <div className="absolute z-[10060] mt-1 w-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900 divide-y divide-slate-100 dark:divide-slate-800">
-          {familySuggestions.length > 0 ? (
+          {suggestionLoading ? (
+            <p role="status" className="p-4 text-xs text-slate-500 text-center font-medium">
+              Buscando produtos pai…
+            </p>
+          ) : suggestionError ? (
+            <div className="p-4 text-center">
+              <p role="alert" className="text-xs text-rose-600 font-medium">{suggestionError}</p>
+              <button type="button" onClick={retrySuggestions} className="mt-2 text-xs font-bold text-indigo-600 hover:underline">
+                Consultar novamente
+              </button>
+            </div>
+          ) : familySuggestions.length > 0 ? (
             familySuggestions.map((family) => (
               <button
                 type="button"
                 key={family.id}
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={() => {
-                  setTargetFamilyId(family.id);
-                  setFamilySearch(
-                    `${familyName(family)}${familySku(family) ? ` — ${familySku(family)}` : ''}`
-                  );
+                  selectFamily(family);
                   setIsFamilySuggestionsOpen(false);
                 }}
                 className="flex w-full flex-col px-4 py-3 text-left hover:bg-indigo-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"

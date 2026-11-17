@@ -10,18 +10,16 @@ export default function ShowTestDataToggle({
   compact = false,
 }: ShowTestDataToggleProps) {
   return (
-    <label
+    <button
+      type="button"
       title="Mostrar testes"
-      className={`inline-flex shrink-0 cursor-pointer select-none items-center gap-2 whitespace-nowrap rounded-xl border border-slate-200 bg-white px-2 text-[10px] font-bold text-slate-600 shadow-sm transition-colors hover:border-blue-300 sm:px-3 sm:text-xs dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-blue-800 ${compact ? 'min-h-8 py-1' : 'min-h-10 py-2'}`}
+      aria-label="Mostrar testes"
+      aria-pressed={checked}
+      onClick={() => onChange(!checked)}
+      className={`inline-flex shrink-0 cursor-pointer select-none items-center gap-2 whitespace-nowrap rounded-xl px-2 font-bold transition-colors sm:px-3 ${compact ? 'min-h-8 py-1 text-sm' : 'min-h-10 border border-slate-200 bg-white py-2 text-[10px] shadow-sm hover:border-blue-300 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-blue-800'} ${checked ? 'text-blue-700 dark:text-blue-300' : 'text-slate-600 dark:text-slate-300'}`}
     >
-      <input
-        type="checkbox"
-        aria-label="Mostrar testes"
-        checked={checked}
-        onChange={(event) => onChange(event.currentTarget.checked)}
-        className="h-4 w-4 accent-blue-600"
-      />
+      {checked && <i className="bi bi-check2" aria-hidden="true" />}
       <span>Mostrar testes</span>
-    </label>
+    </button>
   );
 }

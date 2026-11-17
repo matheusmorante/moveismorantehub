@@ -2,7 +2,7 @@ import { useState, useMemo, useCallback, useRef } from 'react';
 import { Alert } from 'react-native';
 import { formatOrderCode } from '../../../../utils/orderUtils';
 import {
-  broadcastMyLocation,
+  broadcastInitialDeliveryStatus,
   stopDeliveringBroadcast,
 } from '../../../../services/teamLocationService';
 import { buildDeliveryChecklist } from '../../utils/deliveryChecklist';
@@ -167,7 +167,7 @@ export function useDeliveryFlowActions({
                 })).updatedData);
 
             if (userProfile?.id && updatedData.deliveryResponsibleId === userProfile.id) {
-              void broadcastMyLocation(userProfile, null, true, true, {
+              void broadcastInitialDeliveryStatus(userProfile, {
                 id: order.id,
                 code: formatOrderCode(order),
               });

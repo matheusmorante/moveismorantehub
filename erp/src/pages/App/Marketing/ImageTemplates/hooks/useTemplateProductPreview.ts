@@ -11,6 +11,9 @@ import {
 import { PRODUCT_LIST_SEARCH_DEBOUNCE_MS, PRODUCT_LIST_SEARCH_MIN_LENGTH } from '../../../../../../../shared-utils/productListSearch';
 import type { TemplatePreviewProduct } from '../../../../../../../shared-utils/catalogImageTemplate';
 
+const PREVIEW_IMAGE_WARM_COUNT = 5;
+const PREVIEW_PRODUCT_DETAIL_WARM_COUNT = 2;
+
 /** Counts searchable letters and digits in a preview filter query. */
 export function countPreviewSearchChars(input: string): number {
   return input.trim().replace(/[^\p{L}\p{N}]/gu, '').length;
@@ -138,8 +141,9 @@ export function useTemplateProductPreview(
     let cancelled = false;
     const nextPageNumber = page + 1;
     const hasNextPage = page * PREVIEW_PRODUCT_PAGE_SIZE < (products.data?.total ?? 0);
-    const nearbyRows = rows.slice(position + 1, position + 6);
-    const nextPagePromise = nearbyRows.length < 5 && hasNextPage
+    const nearbyRows = rows.slice(position + 1, position + 1 + PREVIEW_IMAGE_WARM_COUNT);
+    const detailRows = nearbyRows.slice(0, PREVIEW_PRODUCT_DETAIL_WARM_COUNT);
+    const nextPagePromise = nearbyRows.length < PREVIEW_IMAGE_WARM_COUNT && hasNextPage
       ? queryClient.fetchQuery({
         queryKey: ['image-template-erp-products', userId, nextPageNumber, search, categoryId],
         queryFn: ({ signal }) => fetchPreviewPage(nextPageNumber, search, categoryId, signal),
@@ -167,18 +171,20 @@ export function useTemplateProductPreview(
 
     const warmUpcomingProducts = async () => {
       for (const row of nearbyRows) onProductWarm?.(mapPreviewProduct(row.previewSource));
-      const warmPromises = nearbyRows.map(warmRow);
+      const warmPromises = detailRows.map(warmRow);
 
-      if (cancelled || nearbyRows.length >= 5) {
+      if (cancelled || nearbyRows.length >= PREVIEW_IMAGE_WARM_COUNT) {
         await Promise.all(warmPromises);
         return;
       }
       const nextPage = await nextPagePromise;
       if (cancelled || !nextPage) return;
 
-      const nextRows = nextPage.rows.slice(0, 5 - nearbyRows.length);
+      const nextRows = nextPage.rows.slice(0, PREVIEW_IMAGE_WARM_COUNT - nearbyRows.length);
       for (const row of nextRows) onProductWarm?.(mapPreviewProduct(row.previewSource));
-      warmPromises.push(...nextRows.map(warmRow));
+      const nextDetailCount = Math.max(0, PREVIEW_PRODUCT_DETAIL_WARM_COUNT - detailRows.length);
+      const nextDetailRows = nextPage.rows.slice(0, nextDetailCount);
+      warmPromises.push(...nextDetailRows.map(warmRow));
       await Promise.all(warmPromises);
     };
 

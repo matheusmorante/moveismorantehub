@@ -6,6 +6,7 @@ import type { InventorySession } from '../../types/stock.types';
 export interface InitializedInventoryData {
   draft: AuditDraftState;
   items: AuditItem[];
+  isStaleLocalSnapshot?: boolean;
   scopeConfig: {
     name: string;
     hasStages: boolean;
@@ -94,6 +95,7 @@ export const restoreInventorySession = async (
       date: initialSession.created_at,
     },
     items: restoredItems,
+    isStaleLocalSnapshot: Boolean(details?.isStaleLocalSnapshot),
     scopeConfig: {
       name: details?.name || `Inventário #${code}`,
       hasStages: Boolean(details?.hasStages),
