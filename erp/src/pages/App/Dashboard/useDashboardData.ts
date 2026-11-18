@@ -130,7 +130,7 @@ export const useDashboardData = (
     return buildDashboardIntervals(period, now, customStartDate, customEndDate, specificMonth);
   }, [period, customStartDate, customEndDate, specificMonth]);
 
-  const { metrics: snapshot, recentOrders, geoMapOrders, loading, ordersQueryError, retryOrderQueries } = useDashboardQueries({
+  const { metrics: snapshot, geoMapOrders, loading, ordersQueryError, retryOrderQueries } = useDashboardQueries({
     previousStart: intervals.prev.start, previousEnd: intervals.prev.end,
     currentStart: intervals.current.start, currentEnd: intervals.current.end,
     bucket: period === 'today' || period === 'yesterday' ? 'hour'
@@ -148,6 +148,6 @@ export const useDashboardData = (
     salesSummaryAvailable: snapshot !== undefined,
     stats: metrics.current, prevStats: metrics.previous, salesOverTime,
     operational: metrics.operational, productRankings: metrics.products, logistics: metrics.logistics,
-    intervals, recentOrders, geoMapOrders,
+    intervals, geoMapOrders,
   };
 };

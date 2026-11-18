@@ -2,14 +2,10 @@ import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/pages/utils/supabaseConfig';
-import type { GeoMapOrderProjection, RecentOrderProjection } from '../../../types/dashboardOrderProjection.type';
-import {
-  fetchGeoMapOrders,
-  fetchRecentOrders,
-} from '../../../utils/orderHistoryService';
+import type { GeoMapOrderProjection } from '../../../types/dashboardOrderProjection.type';
+import { fetchGeoMapOrders } from '../../../utils/orderHistoryService';
 import { fetchDashboardMetrics, type DashboardMetricsRange } from '../dashboardMetrics';
 
-const EMPTY_RECENT: RecentOrderProjection[] = [];
 const EMPTY_GEO: GeoMapOrderProjection[] = [];
 const REALTIME_READY_TIMEOUT_MS = 1_000;
 
@@ -38,11 +34,6 @@ export function useDashboardQueries(range: DashboardMetricsRange) {
     queryKey: [...scopeKey, 'period', range.previousStart.toISOString(), range.previousEnd.toISOString(),
       range.currentStart.toISOString(), range.currentEnd.toISOString(), range.bucket, range.timezone],
     queryFn: ({ signal }) => fetchDashboardMetrics(range, signal),
-  });
-  const recent = useQuery({
-    ...options,
-    queryKey: [...scopeKey, 'recent'],
-    queryFn: () => fetchRecentOrders(5, { throwOnError: true }),
   });
   const geo = useQuery({
     ...options,
@@ -108,12 +99,11 @@ export function useDashboardQueries(range: DashboardMetricsRange) {
 
   return {
     metrics: metrics.data,
-    recentOrders: recent.data ?? EMPTY_RECENT,
     geoMapOrders: geo.data ?? EMPTY_GEO,
-    ordersQueryError: [metrics, recent, geo].some((query) => query.isError),
+    ordersQueryError: [metrics, geo].some((query) => query.isError),
     retryOrderQueries: () => Promise.all([
-      metrics.refetch(), recent.refetch(), geo.refetch(),
+      metrics.refetch(), geo.refetch(),
     ]),
-    loading: (identityReady && !realtimeReady) || [metrics, recent, geo].some((query) => query.isLoading),
+    loading: (identityReady && !realtimeReady) || [metrics, geo].some((query) => query.isLoading),
   };
 }

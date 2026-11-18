@@ -65,21 +65,30 @@ export const resolveVisibleVariationTechnicalFields = ({
     parentProduct.activeCharacteristicIds ?? parentProduct.selectedCharacteristicIds ?? []
   );
   const hasExplicitActiveFieldIds = Array.isArray(parentProduct.activeCharacteristicIds);
-  const isRequiredInCategory = (field: TechnicalFieldDefinition) => {
-    if (isSofaCategorySelected && isSofaRequiredCharacteristic(field.name)) return true;
+  const isRequiredForProductEntry = (field: TechnicalFieldDefinition) => {
     if (isDresserOrWardrobeCategorySelected && isDresserOrWardrobeRequiredCharacteristic(field.name)) return true;
     if (isCatalogNeverRequiredCharacteristicName(field.name)) return false;
-    if (isCatalogCoreRequiredCharacteristicName(field.name)) return true;
-    const application = resolveProductCharacteristicApplication(field, parentProduct.categoryIds || []);
-    const hasCategoryApplication = field.categoryApplications?.some((item) =>
-      selectedCategoryIds.has(String(item.categoryId))
-    ) ?? false;
-    if (hasCategoryApplication) return application === 'required';
-    return application === 'required' || Boolean(
+    if (Array.isArray(field.categoryApplications)) {
+      return Boolean(field.isRequiredForProductEntry);
+    }
+    return Boolean(
+      field.isRequired ||
+      field.isRequiredForProductEntry ||
+      field.requiredProductCategoryIds?.some((id) => selectedCategoryIds.has(String(id)))
+    );
+  };
+  const isRequiredForCatalog = (field: TechnicalFieldDefinition) => {
+    if (isCatalogNeverRequiredCharacteristicName(field.name)) return false;
+    return Boolean(
+      (isSofaCategorySelected && isSofaRequiredCharacteristic(field.name)) ||
+      isCatalogCoreRequiredCharacteristicName(field.name) ||
       field.isRequiredForCatalog ||
+      resolveProductCharacteristicApplication(field, parentProduct.categoryIds || []) === 'required' ||
       field.requiredCategoryIds?.some((id) => selectedCategoryIds.has(String(id)))
     );
   };
+  const isRequiredInCategory = (field: TechnicalFieldDefinition) =>
+    isRequiredForProductEntry(field) || isRequiredForCatalog(field);
   const getGroupFieldState = (field: TechnicalFieldDefinition) => {
     const application = resolveProductCharacteristicApplication(field, parentProduct.categoryIds || []);
     const required = isRequiredInCategory(field);
@@ -169,10 +178,11 @@ export const resolveVisibleVariationTechnicalFields = ({
           : field;
       const requiredField = {
         ...visibleField,
-        ...(groupState.required ? { isRequired: true } : {}),
-        ...(isDresserOrWardrobeCategorySelected && isDresserOrWardrobeRequiredCharacteristic(field.name)
-          ? { isRequiredForProductEntry: true }
-          : {}),
+        isRequired: isRequiredForProductEntry(field),
+        isRequiredForCatalog: isRequiredForCatalog(field),
+        isRequiredForProductEntry:
+          Boolean(field.isRequiredForProductEntry) ||
+          (isDresserOrWardrobeCategorySelected && isDresserOrWardrobeRequiredCharacteristic(field.name)),
       };
       fieldsByName.set(
         key,

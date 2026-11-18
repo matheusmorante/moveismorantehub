@@ -139,6 +139,9 @@ A Central de Atendimento escuta eventos através de canais dedicados:
 * `whatsapp-conversations-realtime`: Eventos disparam novas consultas das páginas de conversas abertas; há também polling de seis segundos.
 * `whatsapp-messages-realtime`: Eventos disparam atualização do histórico carregado da conversa aberta, com deduplicação; isso não é prova de entrega instantânea nem de comportamento sob reconexão.
 * Abrir uma conversa não altera o contador de não lidas. O atendente alterna manualmente `unread_count` entre zero e um pelo ícone de olho/olho riscado no cabeçalho; esse estado é interno da Central e não envia confirmação de leitura ao WhatsApp.
+* Uma mensagem WhatsApp de saída com envio confirmado marca como `read` as mensagens recebidas da mesma conversa cujo horário seja igual ou anterior ao da resposta. A regra roda no banco, tanto para envios pela Central/IA quanto para ecos do WhatsApp Business no celular. Mensagens recebidas depois da resposta continuam não lidas.
+* Se um webhook de entrada atrasado chegar depois da resposta, a RPC compara seu horário com o envio confirmado mais recente: mensagens anteriores entram já como `read`, não aumentam `unread_count` e não reabrem uma conversa fechada/adiada. A busca usa o índice existente da conversa e do horário; não foi feito backfill de mensagens antigas nem gravação de dados operacionais durante a migration.
+* Implementação de banco registrada na migration `20261118012155_customer_support_shared_read_receipts`, aplicada no projeto operacional em 18/11/2026 UTC. O envio real em outro dispositivo e um webhook atrasado não foram simulados com mensagens operacionais.
 
 ---
 

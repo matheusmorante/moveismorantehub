@@ -98,13 +98,7 @@ export const SefazSyncStatusBadge: React.FC<SefazSyncStatusBadgeProps> = ({ onSy
               : 'Ciência automática pausada por 1 hora após a rejeição 656 da SEFAZ.'
           );
         } else if (science.success && science.processed) {
-          const count = science.processedCount || 1;
-          const rejected = science.rejectedCount || 0;
-          setAutomationNotice(
-            rejected
-              ? `Ciência registrada para ${count} NF-e; ${rejected} evento(s) foram rejeitados. Para carregar os itens, importe o XML completo obtido no Portal da NF-e.`
-              : `Ciência registrada para ${count} NF-e. Para carregar os itens, importe o XML completo obtido no Portal da NF-e.`
-          );
+          setAutomationNotice(null);
           onSyncSuccessRef.current?.();
         } else if (science.communicationUnconfirmed && science.error) {
           setAutomationNotice(`Comunicação sem confirmação: ${science.error}`);

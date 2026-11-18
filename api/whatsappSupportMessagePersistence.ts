@@ -178,7 +178,6 @@ export async function persistWhatsAppSupportOutboundMessage({
         .update({
           last_message_text: storedText,
           last_message_at: sendAt,
-          unread_count: 0,
           updated_at: sendAt,
         })
         .eq('id', payload.conversationId)

@@ -24,6 +24,13 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { supabase } from '@/lib/supabase/client';
+import {
+  finishPasswordLogin,
+  getPasswordLoginStatus,
+  subscribePasswordLoginStatus,
+  tryStartPasswordLogin,
+  type PasswordLoginStatus,
+} from '@/shared-utils/passwordLoginLock';
 import { toast } from 'sonner';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { loginFormSchema, passwordRecoveryEmailSchema, catalogPasswordRecoveryFormSchema } from '@/shared-utils/authFormSchemas';
@@ -33,6 +40,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [passwordLoginStatus, setPasswordLoginStatus] = useState<PasswordLoginStatus>(getPasswordLoginStatus);
   const router = useRouter();
 
   // Redireciona automaticamente se já houver sessão ativa
@@ -56,6 +64,8 @@ export default function LoginPage() {
     return () => subscription.unsubscribe();
   }, [router]);
 
+  useEffect(() => subscribePasswordLoginStatus(setPasswordLoginStatus), []);
+
   // Modal e estados de Recuperação de Senha (Esqueceu a Senha)
   const [isResetOpen, setIsResetOpen] = useState(false);
   const [resetStep, setResetStep] = useState<1 | 2>(1);
@@ -69,6 +79,7 @@ export default function LoginPage() {
   const recoveryEmailForm = useZodForm(passwordRecoveryEmailSchema, { email: resetEmail });
   const recoveryValues = { email: resetEmail, code: resetCode, password: newPassword, confirmation: confirmPassword };
   const recoveryForm = useZodForm(catalogPasswordRecoveryFormSchema, recoveryValues);
+  const isPasswordLoginBusy = loading || passwordLoginStatus !== 'idle';
 
   const authInFlight = useRef(false);
   const runAuthOperation = async (operation: () => Promise<void>) => {
@@ -81,13 +92,18 @@ export default function LoginPage() {
     e.preventDefault();
     await runAuthOperation(async () => {
       await loginForm.validateAndRun({ email, password }, async (validated) => {
+        if (!tryStartPasswordLogin()) {
+          toast.error('Já há uma tentativa de login aguardando resposta. Aguarde antes de enviar novamente.');
+          return;
+        }
+
         setLoading(true);
 
         try {
-          const { error } = await waitForAuthOperation(supabase.auth.signInWithPassword({
+          const { error } = await supabase.auth.signInWithPassword({
             email: validated.email,
             password: validated.password,
-          }), 'login do catálogo');
+          });
 
           if (error) throw new Error(error.message);
 
@@ -97,6 +113,7 @@ export default function LoginPage() {
         } catch (error: unknown) {
           toast.error(error instanceof Error ? error.message : 'Erro ao realizar login');
         } finally {
+          finishPasswordLogin();
           setLoading(false);
         }
       }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
@@ -184,6 +201,7 @@ export default function LoginPage() {
                 placeholder="exemplo@email.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                disabled={isPasswordLoginBusy}
                 required
               />
             </div>
@@ -192,6 +210,7 @@ export default function LoginPage() {
                 <Label htmlFor="password">Senha</Label>
                 <button
                   type="button"
+                  disabled={isPasswordLoginBusy}
                   onClick={() => {
                     setResetEmail(email);
                     setResetStep(1);
@@ -207,13 +226,29 @@ export default function LoginPage() {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                disabled={isPasswordLoginBusy}
                 required
               />
             </div>
-            <Button type="submit" className="w-full font-bold h-11" disabled={loading}>
-              {loading ? 'Entrando...' : 'Entrar'}
+            <Button type="submit" className="w-full font-bold h-11" disabled={isPasswordLoginBusy} aria-busy={isPasswordLoginBusy}>
+              {loading ? 'Entrando...' : passwordLoginStatus !== 'idle' ? 'Aguardando resposta...' : 'Entrar'}
               <LogIn className="ml-2 h-4 w-4" />
             </Button>
+            {passwordLoginStatus !== 'idle' && (
+              <div role="status" aria-live="polite" className="space-y-2 text-center text-sm text-muted-foreground">
+                <p>{passwordLoginStatus === 'uncertain'
+                  ? 'Não foi possível confirmar a operação no prazo esperado. A tentativa ainda pode estar em andamento; aguarde e não envie outro formulário.'
+                  : loading ? 'Entrando na sua conta…' : 'Outra tentativa de login está em andamento. Aguarde antes de enviar este formulário.'}</p>
+                {passwordLoginStatus === 'uncertain' && (
+                  <>
+                    <p>Recarregar não cancela o pedido enviado; se a tela continuar assim, você pode recarregar e preencher os dados de novo.</p>
+                    <button type="button" onClick={() => window.location.reload()} className="text-primary hover:underline">
+                      Recarregar a página
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
           </form>
         </CardContent>
         <CardFooter className="flex flex-col gap-4">

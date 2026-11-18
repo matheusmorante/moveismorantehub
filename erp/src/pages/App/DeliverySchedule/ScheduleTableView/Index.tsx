@@ -5,6 +5,7 @@ import { getHour, calculateLanes, getStartAndEnd } from '../ScheduleTableViewCom
 import { getSettings } from '@/pages/utils/settingsService';
 import { ORDER_TYPE_COLOR_OPTIONS } from '../../../utils/orderTypeColorUtils';
 import { formatOrderCode } from '../../../utils/orderCode';
+import { getLocalISODate } from '../../../utils/formatters';
 
 interface Props {
   schedule: Record<string, Order[]>;
@@ -374,6 +375,7 @@ const ScheduleTableView = ({
               <tbody>
                 {Object.entries(schedule).map(([date, orders]) => {
                   const lanes = calculateLanes(orders);
+                  const isToday = date === getLocalISODate();
                   return lanes.map((lane: Order[], laneIdx: number) => {
                     const coveredUntil = { value: -1 };
                     const isLastLaneOfDay = laneIdx === lanes.length - 1;
@@ -388,18 +390,33 @@ const ScheduleTableView = ({
                         {laneIdx === 0 && (
                           <td
                             rowSpan={lanes.length}
-                            className="manual-sticky p-2 font-black text-center bg-slate-50 dark:bg-slate-950 border-r border-slate-100 dark:border-slate-800 align-middle z-10 w-[120px] min-w-[120px]"
+                            className={`manual-sticky p-2 font-black text-center border-r align-middle z-10 w-[120px] min-w-[120px] ${
+                              isToday
+                                ? 'bg-blue-700 text-white border-blue-800 dark:bg-blue-800 dark:border-blue-600'
+                                : 'bg-slate-50 text-slate-900 border-slate-100 dark:bg-slate-950 dark:text-slate-100 dark:border-slate-800'
+                            }`}
                           >
                             <div className="flex flex-col items-center">
-                              <span className="text-2xl text-slate-800 dark:text-slate-100 tracking-tighter">
-                                {dateObj.toLocaleDateString('pt-BR', { day: '2-digit' })}
-                              </span>
-                              <span className="text-[14px] uppercase text-blue-600 dark:text-blue-400 font-black mb-1">
-                                {dateObj.toLocaleDateString('pt-BR', { month: 'short' })}
-                              </span>
-                              <span className="text-[12px] text-slate-400 dark:text-slate-500 uppercase font-black">
-                                {dateObj.toLocaleDateString('pt-BR', { weekday: 'short' })}
-                              </span>
+                              {isToday ? (
+                                <span className="text-xs font-black leading-snug text-white">
+                                  Hoje, {dateObj.toLocaleDateString('pt-BR', {
+                                    day: '2-digit',
+                                    month: 'long',
+                                  })}
+                                </span>
+                              ) : (
+                                <>
+                                  <span className="text-2xl tracking-tighter text-slate-800 dark:text-slate-100">
+                                    {dateObj.toLocaleDateString('pt-BR', { day: '2-digit' })}
+                                  </span>
+                                  <span className="text-[14px] uppercase font-black mb-1 text-blue-600 dark:text-blue-400">
+                                    {dateObj.toLocaleDateString('pt-BR', { month: 'short' })}
+                                  </span>
+                                  <span className="text-[12px] uppercase font-black text-slate-400 dark:text-slate-500">
+                                    {dateObj.toLocaleDateString('pt-BR', { weekday: 'short' })}
+                                  </span>
+                                </>
+                              )}
                             </div>
                           </td>
                         )}

@@ -4,11 +4,10 @@ import { formatCurrency } from '@/pages/utils/formatters';
 interface DataPoint {
   name: string;
   valor: number;
-  lucro: number;
   orders: number;
 }
 
-type ChartMetric = 'valor' | 'lucro' | 'orders';
+type ChartMetric = 'valor' | 'orders';
 
 interface SalesChartProps {
   data: DataPoint[];
@@ -16,7 +15,6 @@ interface SalesChartProps {
 
 const METRICS: { key: ChartMetric; label: string; color: string; colorFill: string }[] = [
   { key: 'valor', label: 'Faturamento', color: '#3b82f6', colorFill: 'rgba(59,130,246,0.15)' },
-  { key: 'lucro', label: 'Lucro', color: '#10b981', colorFill: 'rgba(16,185,129,0.15)' },
   { key: 'orders', label: 'Pedidos', color: '#8b5cf6', colorFill: 'rgba(139,92,246,0.15)' },
 ];
 

@@ -52,7 +52,7 @@ const KpiCard: React.FC<KpiCardProps> = ({
     <p className="text-slate-400 dark:text-slate-500 font-black text-[9px] uppercase tracking-[0.2em] mb-1">
       {title}
     </p>
-    <h3 className="break-words text-xl font-black leading-tight tracking-tight text-slate-800 dark:text-slate-100 sm:text-2xl xl:text-3xl">
+    <h3 className="whitespace-nowrap text-lg font-black leading-tight tracking-tight tabular-nums text-slate-800 dark:text-slate-100 sm:text-xl xl:text-2xl">
       {loading ? (
         <span
           role="status"
@@ -79,21 +79,14 @@ interface KpiRowProps {
     totalSales: number;
     saleCount: number;
     avgTicket: number;
-    totalProfit: number;
-    grossMargin: number;
-    totalCmv: number;
-    cmvPartial: boolean;
     paidTrafficSalesValue: number;
   };
   prevStats: {
     totalSales: number;
     saleCount: number;
     avgTicket: number;
-    totalProfit: number;
-    grossMargin: number;
     paidTrafficSalesValue: number;
   };
-  detailsLoading?: boolean;
 }
 
 const calcTrend = (
@@ -105,15 +98,14 @@ const calcTrend = (
   return { trend: diff >= 0 ? 'up' : 'down', value: `${Math.abs(diff).toFixed(1)}%` };
 };
 
-const KpiRow: React.FC<KpiRowProps> = ({ stats, prevStats, detailsLoading = false }) => {
+const KpiRow: React.FC<KpiRowProps> = ({ stats, prevStats }) => {
   const tSales = calcTrend(stats.totalSales, prevStats.totalSales);
   const tCount = calcTrend(stats.saleCount, prevStats.saleCount);
   const tTicket = calcTrend(stats.avgTicket, prevStats.avgTicket);
-  const tProfit = calcTrend(stats.totalProfit, prevStats.totalProfit);
   const tPaidTraffic = calcTrend(stats.paidTrafficSalesValue, prevStats.paidTrafficSalesValue);
 
   return (
-    <div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 sm:gap-4 sm:grid-cols-3 xl:grid-cols-7">
+    <div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 sm:gap-4 lg:grid-cols-4">
       <KpiCard
         id="kpi-faturamento"
         title="Faturamento"
@@ -153,37 +145,6 @@ const KpiRow: React.FC<KpiRowProps> = ({ stats, prevStats, detailsLoading = fals
         iconBg="bg-violet-50 dark:bg-violet-950/40"
         trend={tTicket.trend}
         trendValue={tTicket.value}
-      />
-      <KpiCard
-        id="kpi-lucro"
-        title="Lucro Bruto"
-        value={formatCurrency(stats.totalProfit)}
-        icon="bi-graph-up-arrow"
-        color="text-teal-600"
-        iconBg="bg-teal-50 dark:bg-teal-950/40"
-        trend={tProfit.trend}
-        trendValue={tProfit.value}
-        warning={stats.cmvPartial ? 'CMV parcialmente calculado' : undefined}
-        loading={detailsLoading}
-      />
-      <KpiCard
-        id="kpi-margem"
-        title="Margem Bruta"
-        value={`${stats.grossMargin.toFixed(1)}%`}
-        icon="bi-percent"
-        color="text-indigo-600"
-        iconBg="bg-indigo-50 dark:bg-indigo-950/40"
-        loading={detailsLoading}
-      />
-      <KpiCard
-        id="kpi-cmv"
-        title="CMV"
-        value={formatCurrency(stats.totalCmv)}
-        icon="bi-boxes"
-        color="text-slate-600"
-        iconBg="bg-slate-50 dark:bg-slate-800"
-        warning={stats.cmvPartial ? 'Parcialmente calculado' : undefined}
-        loading={detailsLoading}
       />
     </div>
   );

@@ -29,6 +29,7 @@ export const LogisticsDateSectionHeader: React.FC<LogisticsDateSectionHeaderProp
       isDarkMode && styles.sectionHeaderDark,
       isPending && styles.sectionHeaderPending,
       isToday && styles.sectionHeaderToday,
+      isToday && isDarkMode && styles.sectionHeaderTodayDark,
     ]}
     onPress={() => onToggle(dateKey)}
     activeOpacity={0.8}
@@ -37,7 +38,7 @@ export const LogisticsDateSectionHeader: React.FC<LogisticsDateSectionHeaderProp
       {isPending ? (
         <AlertCircle size={16} color="#d97706" />
       ) : (
-        <Calendar size={16} color={isToday ? '#2563eb' : isDarkMode ? '#94a3b8' : '#64748b'} />
+        <Calendar size={16} color={isToday ? '#ffffff' : isDarkMode ? '#94a3b8' : '#64748b'} />
       )}
       <Text
         style={[
@@ -71,9 +72,9 @@ export const LogisticsDateSectionHeader: React.FC<LogisticsDateSectionHeaderProp
     </View>
 
     {isCollapsed ? (
-      <ChevronRight size={18} color={isDarkMode ? '#94a3b8' : '#64748b'} />
+      <ChevronRight size={18} color={isToday ? '#ffffff' : isDarkMode ? '#94a3b8' : '#64748b'} />
     ) : (
-      <ChevronDown size={18} color={isDarkMode ? '#94a3b8' : '#64748b'} />
+      <ChevronDown size={18} color={isToday ? '#ffffff' : isDarkMode ? '#94a3b8' : '#64748b'} />
     )}
   </TouchableOpacity>
 );
@@ -99,9 +100,13 @@ const styles = StyleSheet.create({
     borderColor: '#fef3c7',
   },
   sectionHeaderToday: {
-    backgroundColor: '#eff6ff',
+    backgroundColor: '#1d4ed8',
     borderWidth: 1,
-    borderColor: '#bfdbfe',
+    borderColor: '#1e40af',
+  },
+  sectionHeaderTodayDark: {
+    backgroundColor: '#1e40af',
+    borderColor: '#3b82f6',
   },
   sectionHeaderLeft: {
     flexDirection: 'row',
@@ -123,7 +128,8 @@ const styles = StyleSheet.create({
     color: '#b45309',
   },
   textToday: {
-    color: '#1d4ed8',
+    color: '#ffffff',
+    textTransform: 'none',
   },
   badgeCount: {
     backgroundColor: '#e2e8f0',
@@ -139,7 +145,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fef3c7',
   },
   badgeCountToday: {
-    backgroundColor: '#dbeafe',
+    backgroundColor: 'rgba(255, 255, 255, 0.16)',
   },
   badgeCountText: {
     fontSize: 11,
@@ -153,6 +159,6 @@ const styles = StyleSheet.create({
     color: '#b45309',
   },
   badgeCountTextToday: {
-    color: '#1d4ed8',
+    color: '#eff6ff',
   },
 });

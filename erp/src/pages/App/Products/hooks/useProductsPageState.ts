@@ -4,6 +4,7 @@ import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { ProductVisibilitySettings } from '../../../types/product.type';
 import { ProductFiltersData } from '../ProductFilters';
 import { loadProductCatalogStats } from '../ProductList/services/productCatalogStatsService';
+import type { VariationCatalogStats } from '../ProductList/utils/catalog/registeredVariationCount';
 import { productListSearchFormSchema } from '../../../../../../shared-utils/listingFormSchemas';
 import {
   PRODUCT_LIST_SEARCH_DEBOUNCE_MS,
@@ -25,13 +26,24 @@ export const defaultVisibility: ProductVisibilitySettings = {
   actions: true,
 };
 
+const EMPTY_CATALOG_STATS: VariationCatalogStats = {
+  total: 0,
+  published: 0,
+  hidden: 0,
+  active: 0,
+  disabled: 0,
+  drafts: 0,
+};
+
 export interface UseProductsPageStateProps {
+  accountScopeId: string | null;
   mode?: 'standard' | 'composition';
   isAdministrator?: boolean;
   canManageProducts?: boolean;
 }
 
 export function useProductsPageState({
+  accountScopeId,
   mode = 'standard',
   isAdministrator = false,
   canManageProducts = false,
@@ -85,35 +97,51 @@ export function useProductsPageState({
     setAccordionOpen((prev) => ({ ...prev, [key]: !prev[key] }));
   }, []);
 
-  const [catalogStats, setCatalogStats] = useState({
-    total: 0,
-    published: 0,
-    hidden: 0,
-    active: 0,
-    disabled: 0,
-    drafts: 0,
-  });
-  const [isStatsLoading, setIsStatsLoading] = useState(false);
+  const [catalogStatsState, setCatalogStatsState] = useState<{
+    scopeId: string | null;
+    stats: VariationCatalogStats;
+  }>(() => ({ scopeId: accountScopeId, stats: EMPTY_CATALOG_STATS }));
+  const catalogStats = catalogStatsState.scopeId === accountScopeId
+    ? catalogStatsState.stats
+    : EMPTY_CATALOG_STATS;
+  const [isStatsRequestLoading, setIsStatsLoading] = useState(false);
   const statsRequestSequence = useRef(0);
+  const statsScopeId = useRef(accountScopeId);
   const [summaryChannel, setSummaryChannel] = useState<'erp' | 'catalog'>('erp');
+  const isStatsLoading = isStatsRequestLoading || (
+    canManageProducts &&
+    accountScopeId !== null &&
+    catalogStatsState.scopeId !== accountScopeId
+  );
 
   const showTestProductsForCurrentRole = isAdministrator && showTestProducts;
 
+  useEffect(() => {
+    if (statsScopeId.current === accountScopeId) return;
+
+    statsScopeId.current = accountScopeId;
+    statsRequestSequence.current += 1;
+    setCatalogStatsState({ scopeId: accountScopeId, stats: EMPTY_CATALOG_STATS });
+    setIsStatsLoading(false);
+  }, [accountScopeId]);
+
   const fetchStats = useCallback(async () => {
     const requestSequence = ++statsRequestSequence.current;
-    if (!canManageProducts) {
+    if (!canManageProducts || !accountScopeId) {
       setIsStatsLoading(false);
+      setCatalogStatsState({ scopeId: accountScopeId, stats: EMPTY_CATALOG_STATS });
       return;
     }
 
     setIsStatsLoading(true);
     try {
       const stats = await loadProductCatalogStats({
+        accountScopeId,
         showTestProducts: showTestProductsForCurrentRole,
         mode,
       });
       if (stats && requestSequence === statsRequestSequence.current) {
-        setCatalogStats(stats);
+        setCatalogStatsState({ scopeId: accountScopeId, stats });
       }
     } catch (err: unknown) {
       console.error('Erro ao carregar estatísticas dos produtos:', err);
@@ -122,7 +150,7 @@ export function useProductsPageState({
         setIsStatsLoading(false);
       }
     }
-  }, [canManageProducts, showTestProductsForCurrentRole, mode]);
+  }, [accountScopeId, canManageProducts, showTestProductsForCurrentRole, mode]);
 
   useEffect(() => {
     fetchStats();

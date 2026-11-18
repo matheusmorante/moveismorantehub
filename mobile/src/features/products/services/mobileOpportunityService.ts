@@ -3,16 +3,13 @@ import { supabase } from '../../../services/supabaseClient';
 export interface MobileOpportunity {
   id: string;
   name: string;
-  slug?: string;
-  badge_color?: string;
-  active?: boolean;
 }
 
 export const fetchMobileOpportunities = async (): Promise<MobileOpportunity[]> => {
   try {
     const { data, error } = await supabase
       .from('opportunities')
-      .select('id, name, slug, badge_color, active')
+      .select('id, name')
       .eq('active', true)
       .order('name', { ascending: true });
 

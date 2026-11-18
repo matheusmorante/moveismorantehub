@@ -15,6 +15,7 @@ import { cn, formatCurrency } from '@/lib/utils';
 import { sendProductInterest } from '@/services/whatsapp';
 import { toast } from 'sonner';
 import { AdminProductModal } from '@/features/products/components/admin-product-modal';
+import { trackCatalogEvent } from '@/features/analytics/trackCatalogEvent';
 import {
   defaultProductCardStyle,
   ProductCardStyle,
@@ -147,7 +148,11 @@ export function ProductCard({ product, style = defaultProductCardStyle }: Produc
         productCardStyleClasses.border_radius[style.border_radius]
       )}
     >
-      <Link href={`/produto/${product.slug}`} className="block w-full min-w-0">
+      <Link
+        href={`/produto/${product.slug}`}
+        className="block w-full min-w-0"
+        onClick={() => void trackCatalogEvent('product_click', product.id)}
+      >
         <div className="relative aspect-[4/3] overflow-hidden bg-gray-50/30 p-3 sm:p-4">
           <div className="relative w-full h-full">
             <CatalogProductImage
@@ -232,7 +237,11 @@ export function ProductCard({ product, style = defaultProductCardStyle }: Produc
       )}
 
       <CardContent className="min-w-0 p-2 pb-1 flex-1 flex flex-col justify-between">
-        <Link href={`/produto/${product.slug}`} className="block min-w-0">
+        <Link
+          href={`/produto/${product.slug}`}
+          className="block min-w-0"
+          onClick={() => void trackCatalogEvent('product_click', product.id)}
+        >
           <h3
             className="w-full line-clamp-2 break-words font-bold text-[14px] leading-snug transition-colors sm:text-[15px] lg:text-base [overflow-wrap:anywhere]"
             aria-label={product.name}

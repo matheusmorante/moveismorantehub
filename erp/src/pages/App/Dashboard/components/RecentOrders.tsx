@@ -25,7 +25,7 @@ const STATUS_LABELS: Record<string, string> = {
 
 const RecentOrders: React.FC<RecentOrdersProps> = ({ orders }) => {
   const navigate = useNavigate();
-  const recent = [...orders]
+  const recent = (Array.isArray(orders) ? orders : [])
     .filter(isDashboardSaleOrder)
     .sort((a, b) => {
       const da = new Date(a.date || 0).getTime();

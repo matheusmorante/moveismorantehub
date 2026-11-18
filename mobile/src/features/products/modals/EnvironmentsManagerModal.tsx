@@ -18,8 +18,7 @@ import { catalogNameFormSchema } from '../../../../../shared-utils/catalogFormSc
 import { FormTextInput } from '../../../components/shared/FormTextInput';
 const environmentFormSchema = catalogNameFormSchema.extend({ linkedIds: z.array(z.string().min(1)), id: z.string().optional() });
 import {
-  fetchMobileCategories,
-  fetchMobileEnvironments,
+  fetchMobileEnvironmentManagerData,
   saveMobileEnvironment,
   deleteMobileEnvironment,
   MobileCategory,
@@ -45,9 +44,9 @@ export const EnvironmentsManagerModal: React.FC<Props> = ({ visible, dark, onClo
   const load = async () => {
     setLoading(true);
     try {
-      const [envs, cats] = await Promise.all([fetchMobileEnvironments(), fetchMobileCategories()]);
-      setItems(envs);
-      setCategories(cats.filter((cat) => cat.type !== 'environment'));
+      const { environments, categories: cats } = await fetchMobileEnvironmentManagerData();
+      setItems(environments);
+      setCategories(cats);
     } finally {
       setLoading(false);
     }

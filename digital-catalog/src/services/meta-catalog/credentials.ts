@@ -23,6 +23,7 @@ export interface MetaCatalogSyncSnapshot {
 }
 
 const META_DEFAULT_CATALOG_ID = '949184464866249';
+const META_LEGACY_CATALOG_ID = '2597693034029026';
 
 function resolveMetaCredentials(
   catSettings: MetaCatalogSettingsRecord | null
@@ -44,7 +45,7 @@ function resolveMetaCredentials(
   }
 
   // Fallback se o catalogId for vazio ou inválido
-  if (!catalogId || catalogId === '2597693034029026') {
+  if (!catalogId || catalogId === META_LEGACY_CATALOG_ID) {
     catalogId = META_DEFAULT_CATALOG_ID;
   }
 
@@ -60,6 +61,24 @@ function resolveMetaCredentials(
  * O banco tem precedência apenas se as variáveis de ambiente estiverem vazias.
  */
 export async function getMetaCatalogCredentials(): Promise<MetaCredentials | null> {
+  const environmentAccessToken = process.env.META_ACCESS_TOKEN
+    ? String(process.env.META_ACCESS_TOKEN).trim()
+    : '';
+  const environmentCatalogId = process.env.META_CATALOG_ID
+    ? String(process.env.META_CATALOG_ID).trim().replace(/\D/g, '')
+    : '';
+
+  if (
+    environmentAccessToken &&
+    environmentCatalogId &&
+    environmentCatalogId !== META_LEGACY_CATALOG_ID
+  ) {
+    return {
+      accessToken: environmentAccessToken,
+      catalogId: environmentCatalogId,
+    };
+  }
+
   let catSettings: MetaCatalogSettingsRecord | null = null;
 
   try {

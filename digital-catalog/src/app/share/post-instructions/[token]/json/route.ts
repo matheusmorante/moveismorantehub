@@ -13,7 +13,7 @@ export async function GET(request: Request, context: RouteContext) {
   // 1. Validar token
   const { data: shareToken } = await supabase
     .from('post_share_tokens')
-    .select('*')
+    .select('token, revoked_at, product_id, variation_id')
     .eq('token', token)
     .maybeSingle();
 
@@ -40,13 +40,11 @@ export async function GET(request: Request, context: RouteContext) {
     .eq('id', shareToken.product_id)
     .maybeSingle();
 
-  // 3. Buscar Campanhas e Element Models
+  // 3. Buscar apenas os campos de campanha que entram na página e no JSON.
   const { data: campaigns } = await supabase
     .from('post_creator_campaigns')
-    .select('*')
+    .select('id, name, slug, instructions, formats')
     .eq('active', true);
-
-  const { data: models } = await supabase.from('campaign_element_models').select('*');
 
   const {
     resolveProductImages,
@@ -60,6 +58,31 @@ export async function GET(request: Request, context: RouteContext) {
   });
 
   const productOpportunityId = product?.opportunity_id || null;
+  const activeCampaignIds = (campaigns || []).map((campaign) => campaign.id).filter(Boolean);
+
+  // Não consultar modelos quando nenhuma campanha ativa nem selo de oportunidade será exibido.
+  let models: any[] = [];
+  if (activeCampaignIds.length > 0 || productOpportunityId) {
+    let modelsQuery = supabase
+      .from('campaign_element_models')
+      .select(
+        'id, campaign_id, opportunity_id, element_type, generated_asset_url, name, prompt, instructions'
+      );
+
+    if (activeCampaignIds.length > 0 && productOpportunityId) {
+      modelsQuery = modelsQuery.or(
+        `campaign_id.in.(${activeCampaignIds.join(',')}),opportunity_id.eq.${productOpportunityId}`
+      );
+    } else if (activeCampaignIds.length > 0) {
+      modelsQuery = modelsQuery.in('campaign_id', activeCampaignIds);
+    } else {
+      modelsQuery = modelsQuery.eq('opportunity_id', productOpportunityId);
+    }
+
+    const { data } = await modelsQuery;
+    models = data || [];
+  }
+
   const filteredModels = (models || []).filter((m) => {
     if (m.element_type === 'BADGE') {
       if (!productOpportunityId) return false;

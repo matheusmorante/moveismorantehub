@@ -20,7 +20,7 @@ const MetricLine: React.FC<{
   </div>
 );
 
-const LogisticsPanel: React.FC<LogisticsPanelProps> = ({ data: { fulfilled, pending, late, totalKm } }) => {
+const LogisticsPanel: React.FC<LogisticsPanelProps> = ({ data: { fulfilled, pending, totalKm } }) => {
   return (
     <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl p-5 space-y-1">
       <div className="flex items-center gap-2 mb-3">
@@ -41,9 +41,8 @@ const LogisticsPanel: React.FC<LogisticsPanelProps> = ({ data: { fulfilled, pend
         icon="bi-clock-fill"
         color="text-blue-500"
       />
-      <MetricLine label="Atrasadas" value={late} icon="bi-alarm-fill" color="text-rose-500" />
       <MetricLine
-        label="KM percorridos"
+        label="Distâncias somadas"
         value={`${totalKm.toFixed(1)} km`}
         icon="bi-pin-map-fill"
         color="text-slate-400"

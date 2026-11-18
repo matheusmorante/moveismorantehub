@@ -4,7 +4,7 @@ import PickupIcon from '@/components/shared/PickupIcon';
 import Order from '../../../types/order.type';
 import { getSettings } from '@/pages/utils/settingsService';
 import { resolveEffectiveSchedule } from '../../../../../../shared-utils/commercialOrderRules';
-import { formatCurrency, formatDate, stringifyFullAddressWithObservation } from '../../../utils/formatters';
+import { formatCurrency, formatDate, getLocalISODate, stringifyFullAddressWithObservation } from '../../../utils/formatters';
 import {
   getOrderTypeClasses,
   resolveOrderColor,
@@ -309,34 +309,59 @@ const ScheduleTimelineView = ({
           </div>
         )}
 
-        {Object.entries(schedule).map(([date, orders]) => (
-          <div key={date} id={`timeline-date-${date}`} className="mb-24">
-            {/* Date Header */}
-            <div className="sticky top-0 z-20 flex items-center gap-6 mb-12 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl px-8 py-6 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-premium-sm">
-              <div className="flex flex-col">
-                <span className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-[0.3em]">
-                  {new Date(date + 'T00:00:00').toLocaleDateString('pt-BR', { weekday: 'long' })}
-                </span>
-                <h3 className="text-3xl font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">
-                  {new Date(date + 'T00:00:00').toLocaleDateString('pt-BR', {
-                    day: '2-digit',
-                    month: 'long',
-                  })}
-                </h3>
+        {Object.entries(schedule).map(([date, orders]) => {
+          const isToday = date === getLocalISODate();
+          const dateObj = new Date(date + 'T00:00:00');
+          const formattedDate = dateObj.toLocaleDateString('pt-BR', {
+            day: '2-digit',
+            month: 'long',
+          });
+          return (
+            <div key={date} id={`timeline-date-${date}`} className="mb-24">
+              {/* Date Header */}
+              <div className={`sticky top-0 z-20 flex items-center gap-6 mb-12 backdrop-blur-xl px-8 py-6 rounded-[2rem] border shadow-premium-sm ${
+                isToday
+                  ? 'bg-blue-700 border-blue-800 dark:bg-blue-800 dark:border-blue-600'
+                  : 'bg-white/90 border-slate-100 dark:bg-slate-900/90 dark:border-slate-800'
+              }`}>
+                <div className="flex flex-col">
+                  {isToday ? (
+                    <h3 className="text-3xl font-black tracking-tight text-white">
+                      Hoje, {formattedDate}
+                    </h3>
+                  ) : (
+                    <>
+                      <span className="text-[10px] font-black text-blue-600 uppercase tracking-[0.3em] dark:text-blue-400">
+                        {dateObj.toLocaleDateString('pt-BR', { weekday: 'long' })}
+                      </span>
+                      <h3 className="text-3xl font-black uppercase tracking-tight text-slate-800 dark:text-slate-100">
+                        {formattedDate}
+                      </h3>
+                    </>
+                  )}
+                </div>
+                <div className={`h-px flex-1 bg-gradient-to-r ${
+                  isToday
+                    ? 'from-blue-300/70 to-transparent'
+                    : 'from-slate-200 to-transparent dark:from-slate-800'
+                }`}></div>
+                <div className={`px-6 py-3 rounded-2xl border text-[10px] font-black uppercase tracking-widest ${
+                  isToday
+                    ? 'bg-white/15 border-white/20 text-blue-50'
+                    : 'bg-slate-50 border-slate-100 text-slate-400 dark:bg-slate-800 dark:border-slate-700'
+                }`}>
+                  {orders.length} {orders.length === 1 ? 'Pedido' : 'Pedidos'}
+                </div>
               </div>
-              <div className="h-px flex-1 bg-gradient-to-r from-slate-200 to-transparent dark:from-slate-800"></div>
-              <div className="px-6 py-3 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                {orders.length} {orders.length === 1 ? 'Pedido' : 'Pedidos'}
-              </div>
-            </div>
 
-            <div className="relative border-l-2 border-slate-100 dark:border-slate-800 ml-3">
-              {orders.map((order, i) => (
-                <TimelineNode key={(order as any)._taskKey || order.id || i} order={order} onOrderClick={onOrderClick} />
-              ))}
+              <div className="relative border-l-2 border-slate-100 dark:border-slate-800 ml-3">
+                {orders.map((order, i) => (
+                  <TimelineNode key={(order as any)._taskKey || order.id || i} order={order} onOrderClick={onOrderClick} />
+                ))}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

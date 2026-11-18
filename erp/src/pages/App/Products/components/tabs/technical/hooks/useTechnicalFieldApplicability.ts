@@ -18,7 +18,6 @@ import { isCatalogNeverRequiredCharacteristicName } from '../../../../../../../.
 import {
   isDresserOrWardrobeRequiredCharacteristic,
   areTechnicalCharacteristicNamesEquivalent,
-  isSofaRequiredCharacteristic,
 } from '../../../../../../../../../shared-utils/productTechnicalFieldScope';
 import {
   normalizeSearchTerm,
@@ -113,7 +112,9 @@ export const useTechnicalFieldApplicability = ({
   if (isSofaCategorySelected && retractableField) {
     applicableFieldsByName.set(normalizeSearchTerm(retractableField.name), {
       ...retractableField,
-      isRequired: true,
+      isRequired: false,
+      isRequiredForProductEntry: false,
+      isRequiredForCatalog: true,
     });
 
     if (isSofaRetractableActive) {
@@ -132,7 +133,9 @@ export const useTechnicalFieldApplicability = ({
           ) || defaultField;
         applicableFieldsByName.set(normalizeSearchTerm(field.name), {
           ...field,
-          isRequired: true,
+          isRequired: false,
+          isRequiredForProductEntry: false,
+          isRequiredForCatalog: true,
         });
       });
     }
@@ -141,9 +144,21 @@ export const useTechnicalFieldApplicability = ({
   const applicableFields = Array.from(applicableFieldsByName.values()).map((field) => {
     if (!isSofaCategorySelected || hasSelectedCategoryApplication(field)) return field;
     if (isOpenClosedSofaDepth(field.name)) {
-      return { ...field, isRequired: isSofaRetractableActive };
+      return {
+        ...field,
+        isRequired: false,
+        isRequiredForProductEntry: false,
+        isRequiredForCatalog: isSofaRetractableActive,
+      };
     }
-    if (isRetractableCharacteristic(field.name)) return { ...field, isRequired: true };
+    if (isRetractableCharacteristic(field.name)) {
+      return {
+        ...field,
+        isRequired: false,
+        isRequiredForProductEntry: false,
+        isRequiredForCatalog: true,
+      };
+    }
     return field;
   });
 
@@ -173,19 +188,43 @@ export const useTechnicalFieldApplicability = ({
   const activeFieldIds = new Set(activeCharacteristicIds ?? selectedCharacteristicIds);
   const dependencyReferenceIds = new Set<string>();
 
-  const isFieldRequired = (field: TechnicalFieldDefinition) => {
+  const isFieldRequiredForProductEntry = (field: TechnicalFieldDefinition) => {
+    if (
+      isCatalogNeverRequiredCharacteristicName(field.name) &&
+      !(isDresserOrWardrobeCategorySelected && isDresserOrWardrobeRequiredCharacteristic(field.name))
+    ) return false;
+    const categoryField = applicableFieldsByName.get(normalizeSearchTerm(field.name));
+    const fieldRequiredForProduct = Array.isArray(field.categoryApplications)
+      ? field.isRequiredForProductEntry
+      : field.isRequired;
+    return Boolean(
+      fieldRequiredForProduct ||
+      field.isRequiredForProductEntry ||
+      categoryField?.isRequired ||
+      categoryField?.isRequiredForProductEntry ||
+      (isDresserOrWardrobeCategorySelected && isDresserOrWardrobeRequiredCharacteristic(field.name))
+    );
+  };
+  const isFieldRequiredForCatalog = (field: TechnicalFieldDefinition) => {
     if (
       isCatalogNeverRequiredCharacteristicName(field.name) &&
       !(isDresserOrWardrobeCategorySelected && isDresserOrWardrobeRequiredCharacteristic(field.name))
     ) return false;
     const categoryField = applicableFieldsByName.get(normalizeSearchTerm(field.name));
     return Boolean(
-      field.isRequired ||
       field.isRequiredForCatalog ||
-      categoryField?.isRequired ||
+      isCatalogRequiredForSelectedCategory(field) ||
       categoryField?.isRequiredForCatalog
     );
   };
+  const isFieldRequired = (field: TechnicalFieldDefinition) =>
+    isFieldRequiredForProductEntry(field) || isFieldRequiredForCatalog(field);
+  const isFieldRequiredForProductEntryLabel = (field: TechnicalFieldDefinition) =>
+    Boolean(
+      field.isRequiredForProductEntry ||
+      applicableFieldsByName.get(normalizeSearchTerm(field.name))?.isRequiredForProductEntry ||
+      (isDresserOrWardrobeCategorySelected && isDresserOrWardrobeRequiredCharacteristic(field.name))
+    );
 
   const isDependencyReferenceGroupActive = (field: TechnicalFieldDefinition): boolean => {
     const categoryField = applicableFieldsByName.get(normalizeSearchTerm(field.name));
@@ -253,10 +292,9 @@ export const useTechnicalFieldApplicability = ({
       const active = required || isFieldActive(field);
       return {
         ...field,
-        isRequired: required,
-        isRequiredForProductEntry:
-          (isSofaCategorySelected && isSofaRequiredCharacteristic(field.name)) ||
-          (isDresserOrWardrobeCategorySelected && isDresserOrWardrobeRequiredCharacteristic(field.name)),
+        isRequired: isFieldRequiredForProductEntry(field),
+        isRequiredForCatalog: isFieldRequiredForCatalog(field),
+        isRequiredForProductEntry: isFieldRequiredForProductEntryLabel(field),
         characteristicActive: active,
         characteristicToggleDisabled: required,
       };
@@ -304,11 +342,9 @@ export const useTechnicalFieldApplicability = ({
         const active = required || isFieldActive(field);
         return {
           ...field,
-          isRequired: required,
-          isRequiredForCatalog: Boolean(field.isRequiredForCatalog),
-          isRequiredForProductEntry:
-            (isSofaCategorySelected && isSofaRequiredCharacteristic(field.name)) ||
-            (isDresserOrWardrobeCategorySelected && isDresserOrWardrobeRequiredCharacteristic(field.name)),
+          isRequired: isFieldRequiredForProductEntry(field),
+          isRequiredForCatalog: isFieldRequiredForCatalog(field),
+          isRequiredForProductEntry: isFieldRequiredForProductEntryLabel(field),
           characteristicActive: active,
           characteristicToggleDisabled: required,
           dependencySatisfied: dependency.satisfied,
@@ -439,10 +475,9 @@ export const useTechnicalFieldApplicability = ({
             return {
               field: {
                 ...field,
-                isRequired: required,
-                isRequiredForProductEntry:
-                  (isSofaCategorySelected && isSofaRequiredCharacteristic(field.name)) ||
-                  (isDresserOrWardrobeCategorySelected && isDresserOrWardrobeRequiredCharacteristic(field.name)),
+                isRequired: isFieldRequiredForProductEntry(field),
+                isRequiredForCatalog: isFieldRequiredForCatalog(field),
+                isRequiredForProductEntry: isFieldRequiredForProductEntryLabel(field),
                 characteristicActive: active,
                 characteristicToggleDisabled: required,
               },

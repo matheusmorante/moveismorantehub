@@ -1,19 +1,13 @@
 import React, { useState } from 'react';
 import { useDashboardData, Period } from './useDashboardData';
-import { useDashboardOperational } from './hooks/useDashboardOperational';
-import { useDashboardStock } from './hooks/useDashboardStock';
 import { useDashboardProducts } from './hooks/useDashboardProducts';
 
 import { KpiSkeleton, ChartSkeleton, PanelSkeleton } from './components/DashboardSkeleton';
 import KpiRow from './components/KpiRow';
 import SalesChart from './components/SalesChart';
-import OperationPanel from './components/OperationPanel';
-import AttentionPanel from './components/AttentionPanel';
 import ProductsPanel from './components/ProductsPanel';
-import RecentOrders from './components/RecentOrders';
 import GeoMapPanel from './components/GeoMapPanel';
 import LogisticsPanel from './components/LogisticsPanel';
-import AlertsPanel from './components/AlertsPanel';
 import { ChartContainer } from './components/DashboardCharts';
 import ApiUsageSummaryCard from './components/ApiUsageSummaryCard';
 import DigitalCatalogPanel from './components/DigitalCatalogPanel';
@@ -53,14 +47,10 @@ export default function Dashboard() {
     stats,
     prevStats,
     salesOverTime,
-    operational: operationalCounts,
     productRankings,
     logistics,
-    recentOrders,
     geoMapOrders,
   } = useDashboardData(period, customStartDate, customEndDate, specificMonth);
-  const operational = useDashboardOperational(operationalCounts);
-  const stockData = useDashboardStock();
   const productsData = useDashboardProducts(productRankings);
   const periodSubtitle = period === 'specific_month'
     ? `Mês específico · ${new Date(`${specificMonth}-01T00:00:00`).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}`
@@ -171,12 +161,12 @@ export default function Dashboard() {
         <>
           {/* ── KPIs ── */}
           {loading && !salesSummaryAvailable ? <KpiSkeleton /> : (
-            <KpiRow stats={stats} prevStats={prevStats} detailsLoading={loading} />
+            <KpiRow stats={stats} prevStats={prevStats} />
           )}
 
-          {/* ── Desempenho e estoque ── */}
-          <div className="grid min-w-0 grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-3">
-            <div className="min-w-0 lg:col-span-2">
+          {/* ── Desempenho de vendas ── */}
+          <div className="grid min-w-0 grid-cols-1 gap-4 sm:gap-6">
+            <div className="min-w-0">
               {loading ? (
                 <ChartSkeleton />
               ) : (
@@ -185,20 +175,12 @@ export default function Dashboard() {
                 </ChartContainer>
               )}
             </div>
-            <div className="min-w-0"><AttentionPanel stockData={stockData} /></div>
           </div>
 
-          {/* ── Central Operacional ── */}
-          {loading ? <PanelSkeleton rows={2} /> : <OperationPanel data={operational} />}
-
-          {/* ── Produtos e alertas ── */}
-          <div className="grid min-w-0 grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-2">
-            <AlertsPanel maxItems={5} />
+          {/* ── Produtos ── */}
+          <div className="min-w-0">
             {loading ? <PanelSkeleton rows={5} /> : <ProductsPanel data={productsData} />}
           </div>
-
-          {/* ── Pedidos recentes ── */}
-          {loading ? <PanelSkeleton rows={5} /> : <RecentOrders orders={recentOrders} />}
 
           {/* ── Mapa e logística ── */}
           <div className="grid min-w-0 grid-cols-1 gap-4 pb-16 sm:gap-6 lg:grid-cols-3">
@@ -208,9 +190,7 @@ export default function Dashboard() {
         </>
       )}
 
-      {ordersQueryError && <AttentionPanel stockData={stockData} />}
       <DigitalCatalogPanel />
-      {ordersQueryError && <AlertsPanel maxItems={5} />}
       <ApiUsageSummaryCard />
     </div>
   );

@@ -133,3 +133,30 @@ A guarda da interface aceitava somente as decisões fiscais individuais `none`, 
 ### Validação e limites
 
 Executado `npm run test --prefix erp -- --run src/pages/App/SalesOrder/OrderHistoryList/CancelScheduledSaleButton.test.tsx src/pages/App/SalesOrder/OrderHistoryList/useOrderHistoryOperations.test.ts src/pages/utils/nfe/__tests__/orderCancellationEffects.test.ts src/pages/App/SalesOrder/OrderHistoryList/OrderHistoryRow.test.tsx`: **4 arquivos e 38 testes passaram**. As suítes cobrem a seleção dos caminhos pela interface, o processamento por documento e a preservação do cancelamento comercial diante de falha ou timeout fiscal; a quarta suíte verifica a remoção do aviso na linha da tabela. `git diff --check` passou. Nenhuma venda real foi cancelada, nenhum documento foi consultado ou transmitido à SEFAZ e não houve gravação no Supabase.
+
+## Aviso de sucesso da Ciência automática removido das notas de entrada
+
+### Problema identificado
+
+Após processar a Ciência automática, o módulo de notas de entrada mostrava uma mensagem informativa sobre a quantidade de notas/eventos e instruía a importar XML pelo Portal da NF-e. O usuário pediu para remover esse texto da tela.
+
+### Causa raiz
+
+Os componentes de status do ERP e do aplicativo definiam `automationNotice` no caminho de sucesso processado, e o renderizavam como mensagem abaixo do status de sincronização.
+
+### Solução aplicada
+
+- O caminho de sucesso agora limpa `automationNotice` nos dois clientes; a orientação sobre importação de XML e o resumo de eventos rejeitados deixam de aparecer nesse aviso.
+- O callback de atualização das notas continua sendo chamado. Mensagens de erro, comunicação não confirmada, reconciliação pendente e pausa após rejeição 656 permanecem inalteradas.
+- Nenhum registro de evento, resultado de SEFAZ, XML ou dado da NF-e foi alterado; a mudança é apenas de apresentação.
+
+### Arquivos e pontos alterados
+
+- `erp/src/pages/App/Stock/InboundInvoices/components/SefazSyncStatusBadge.tsx:100–102`: limpa a mensagem informativa no sucesso processado e atualiza a lista.
+- `mobile/src/features/stock/invoices/components/SefazSyncStatusBadge.tsx:116–118`: mantém o mesmo comportamento no aplicativo.
+- `docs/fiscal/README.md:8`: adiciona a referência atual.
+- `docs/fiscal/historico-correcoes-2026-11-17.md`: registra esta correção.
+
+### Validação e limites
+
+Testes automatizados e execução visual não foram realizados nesta alteração. A inspeção confirmou que os ramos de erro, pendência, comunicação incerta e rejeição 656 mantêm suas mensagens. `git diff --check` foi executado. Não houve consulta/transmissão à SEFAZ, alteração de notas, eventos ou dados no Supabase.

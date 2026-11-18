@@ -40,6 +40,8 @@ export const resolveTechnicalCategoryFields = (
     !isCatalogNeverRequiredCharacteristicName(field.name) && (
       Boolean(field.isRequiredForCatalog) ||
       isCatalogCoreRequiredCharacteristicName(field.name) ||
+      (isSofaCategorySelected && isSofaRequiredCharacteristic(field.name)) ||
+      resolveProductCharacteristicApplication(field, formData.categoryIds || []) === 'required' ||
       (field.requiredCategoryIds?.some((id) =>
         selectedCategoryIds.has(String(id))
       ) ?? false)
@@ -72,8 +74,11 @@ export const resolveTechnicalCategoryFields = (
         selectedCategoryIds.has(String(application.categoryId))
       ) ?? false;
       if (Array.isArray(field.categoryApplications)) {
-        const application = resolveProductCharacteristicApplication(field, formData.categoryIds || []);
-        return { ...field, isRequired: application === 'required' };
+        return {
+          ...field,
+          isRequired: Boolean(field.isRequiredForProductEntry),
+          isRequiredForCatalog: isCatalogRequiredForSelectedCategory(field),
+        };
       }
       if (!hasCategoryApplication) return field;
       const application = resolveProductCharacteristicApplication(field, formData.categoryIds || []);

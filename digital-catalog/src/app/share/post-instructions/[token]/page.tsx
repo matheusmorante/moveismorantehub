@@ -26,7 +26,7 @@ export default async function SharePostInstructionsPage({ params }: PageProps) {
   // 1. Validar token
   const { data: shareToken } = await supabase
     .from('post_share_tokens')
-    .select('*')
+    .select('token, revoked_at, product_id, variation_id')
     .eq('token', token)
     .maybeSingle();
 
@@ -78,15 +78,36 @@ export default async function SharePostInstructionsPage({ params }: PageProps) {
   // 3. Buscar Campanhas ativas
   const { data: campaigns } = await supabase
     .from('post_creator_campaigns')
-    .select('*')
+    .select('id, name, slug, instructions, formats')
     .eq('active', true)
     .order('created_at', { ascending: false });
 
-  // 4. Buscar Element Models
-  const { data: models } = await supabase.from('campaign_element_models').select('*');
-
   const activeCampaigns = campaigns || [];
   const productOpportunityId = product?.opportunity_id || null;
+  const activeCampaignIds = activeCampaigns.map((campaign) => campaign.id).filter(Boolean);
+
+  // Modelos só são necessários para campanhas ativas e para o selo desta oportunidade.
+  let models: any[] = [];
+  if (activeCampaignIds.length > 0 || productOpportunityId) {
+    let modelsQuery = supabase
+      .from('campaign_element_models')
+      .select(
+        'id, campaign_id, opportunity_id, element_type, generated_asset_url, name, prompt, instructions'
+      );
+
+    if (activeCampaignIds.length > 0 && productOpportunityId) {
+      modelsQuery = modelsQuery.or(
+        `campaign_id.in.(${activeCampaignIds.join(',')}),opportunity_id.eq.${productOpportunityId}`
+      );
+    } else if (activeCampaignIds.length > 0) {
+      modelsQuery = modelsQuery.in('campaign_id', activeCampaignIds);
+    } else {
+      modelsQuery = modelsQuery.eq('opportunity_id', productOpportunityId);
+    }
+
+    const { data } = await modelsQuery;
+    models = data || [];
+  }
 
   // Filtrar estritamente os modelos de BADGE: só são incluídos se o produto de fato possuir opportunity_id correspondente
   const allModels = (models || []).filter((m: any) => {

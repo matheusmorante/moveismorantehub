@@ -17,7 +17,6 @@ import {
   PRODUCT_CATEGORY_REQUIRED_MESSAGE,
 } from './productCategoryRequirement';
 import { getActiveCompositionProductRequirementIssue } from './productCompositionRequirements';
-import { getSofaCharacteristicRequirementIssues } from './productSofaCharacteristicRequirements';
 import { getDresserOrWardrobeCharacteristicRequirementIssues } from './productDresserCharacteristicRequirements';
 
 const productNumericFields = productVariationDraftSchema.pick({
@@ -83,16 +82,6 @@ export const createProductFormSchema = (options: ProductFormValidationOptions) =
         return;
       }
 
-      getSofaCharacteristicRequirementIssues({
-        ...(data as Record<string, any>),
-        categoryName: options.categoryName ?? (data as Record<string, any>).categoryName,
-      }).forEach(({ path, message }) =>
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message,
-          path,
-        })
-      );
       getDresserOrWardrobeCharacteristicRequirementIssues({
         ...(data as Record<string, any>),
         categoryName: options.categoryName ?? (data as Record<string, any>).categoryName,

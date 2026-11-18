@@ -92,26 +92,13 @@ export function AttributeManagerModal({
         const toastId = toast.loading('Salvando atributo...');
         try {
           if (editingAttrId) {
-            const { error: attrErr } = await supabase
-              .from('attributes')
-              .update({ name: validated.name })
-              .eq('id', editingAttrId);
+            const { error } = await supabase.rpc('update_mobile_product_attribute_with_values', {
+              p_attribute_id: editingAttrId,
+              p_name: validated.name,
+              p_values: valuesToSave,
+            });
 
-            if (attrErr) throw attrErr;
-
-            const { error: delErr } = await supabase
-              .from('attribute_values')
-              .delete()
-              .eq('attribute_id', editingAttrId);
-
-            if (delErr) throw delErr;
-
-            const valuesToInsert = valuesToSave.map((val) => ({
-              attribute_id: editingAttrId,
-              value: val,
-            }));
-            const { error: valErr } = await supabase.from('attribute_values').insert(valuesToInsert);
-            if (valErr) throw valErr;
+            if (error) throw error;
 
             toast.success('Atributo atualizado com sucesso!', { id: toastId });
             await fetchDbAttributes();

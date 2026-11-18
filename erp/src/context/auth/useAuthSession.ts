@@ -12,6 +12,7 @@ import {
 } from '../../../../shared-utils/testArtifactContext';
 import { queryClient } from '@/lib/queryClient';
 import { verifyConfiguredTestArtifactOperator } from '@/services/testArtifactOperator';
+import { invalidateSessionScopedCaches } from './sessionCacheRegistry';
 import type { Profile, UserRole, PasswordCredentialStatus } from './auth.types';
 import { fetchUserProfile } from './profileService';
 import { isMasterEmail } from './masterIdentity';
@@ -56,6 +57,7 @@ export function useAuthSession({
     let active = true;
     let handlingSession = false;
     let initialSessionUserId: string | null | undefined;
+    let activeStatsScopeUserId: string | null | undefined;
     const isDev = import.meta.env.DEV;
 
     if (isDev) console.log('[Auth] Initializing in DEVELOPMENT mode');
@@ -84,6 +86,10 @@ export function useAuthSession({
       handlingSession = true;
 
       const newUser = session?.user || null;
+      if (activeStatsScopeUserId !== sessionUserId) {
+        invalidateSessionScopedCaches();
+        activeStatsScopeUserId = sessionUserId;
+      }
       if (newUser && initialSessionUserId && initialSessionUserId !== sessionUserId) {
         try {
           queryClient.clear();
@@ -308,6 +314,7 @@ export function useAuthSession({
   }, [profile]);
 
   const logout = useCallback(async () => {
+    invalidateSessionScopedCaches();
     try {
       queryClient.clear();
     } catch (e) {

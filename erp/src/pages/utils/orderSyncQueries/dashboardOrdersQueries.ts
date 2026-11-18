@@ -26,6 +26,7 @@ export const fetchRecentOrders = async (
       .from(TABLE_NAME)
       .select(RECENT_DASHBOARD_ORDERS_COLUMNS))
       .in('status', ['scheduled', 'fulfilled'])
+      .or('order_type.is.null,order_type.eq.sale,order_type.eq.showroom')
       .or('deleted.is.null,deleted.eq.false')
       .order('created_at', { ascending: false })
       .limit(limit);

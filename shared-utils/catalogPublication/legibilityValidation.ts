@@ -8,6 +8,7 @@ import {
   normalizeCharacteristicName,
 } from './characteristicValues';
 import { getMissingCategoryRequiredCharacteristics } from './categoryCharacteristics';
+import { getSofaCharacteristicRequirementIssues } from '../productSofaCharacteristicRequirements';
 
 /**
  * Avalia se os dados do produto atendem aos requisitos obrigatórios para exibição no Catálogo Digital.
@@ -19,11 +20,16 @@ export function checkEcomLegibility(
 ): EcomLegibilityResult {
   const errors: string[] = [];
   const categoryRequirementsVerified = options.categoryRequirementsVerified !== false;
-  const missingCategoryCharacteristics = getMissingCategoryRequiredCharacteristics(
-    data,
-    categoryRequirements,
-    options.characteristicGroups
-  );
+  const missingCategoryCharacteristics = [...new Set([
+    ...getMissingCategoryRequiredCharacteristics(
+      data,
+      categoryRequirements,
+      options.characteristicGroups
+    ),
+    ...getSofaCharacteristicRequirementIssues(data).map(({ path }) =>
+      String(path[path.length - 1])
+    ),
+  ])];
   const variations = [data.variations, data.product_variations, data.allVariations]
     .find((items) => Array.isArray(items) && items.length > 0) || [];
 

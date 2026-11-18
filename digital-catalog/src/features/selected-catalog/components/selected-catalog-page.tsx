@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, ExternalLink, PackageSearch } from 'lucide-react';
+import { trackCatalogEvent } from '@/features/analytics/trackCatalogEvent';
 import { fetchSelectedCatalog } from '../api/selected-catalog-api';
 import type {
   SelectedCatalogItemToken,
@@ -176,7 +177,11 @@ export function SelectedCatalogPage({ request }: { request: SelectedCatalogReque
                 const price = effectivePrice(product, variation);
                 return (
                   <article key={`${product.id}:${variation?.id || index}`} className="group flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-shadow hover:shadow-lg">
-                    <Link href={productUrl} className="relative block aspect-[4/3] overflow-hidden bg-muted">
+                    <Link
+                      href={productUrl}
+                      className="relative block aspect-[4/3] overflow-hidden bg-muted"
+                      onClick={() => void trackCatalogEvent('product_click', product.id)}
+                    >
                       {image ? (
                         // `product_images` and variant photos are public catalog assets from Supabase Storage.
                         // eslint-disable-next-line @next/next/no-img-element
@@ -191,7 +196,11 @@ export function SelectedCatalogPage({ request }: { request: SelectedCatalogReque
                       {product.brand && <p className="mt-1 text-xs uppercase tracking-wide text-muted-foreground">{product.brand}</p>}
                       {removeHtml(product.description) && <p className="mt-2 line-clamp-3 text-sm text-muted-foreground">{removeHtml(product.description)}</p>}
                       {!request.hidePrices && <p className="mt-3 text-lg font-extrabold text-primary">{formatPrice(price)}</p>}
-                      <Link href={productUrl} className="mt-auto inline-flex items-center gap-2 pt-4 text-sm font-bold text-primary hover:underline">
+                      <Link
+                        href={productUrl}
+                        className="mt-auto inline-flex items-center gap-2 pt-4 text-sm font-bold text-primary hover:underline"
+                        onClick={() => void trackCatalogEvent('product_click', product.id)}
+                      >
                         Ver produto <ExternalLink className="h-4 w-4" />
                       </Link>
                     </div>

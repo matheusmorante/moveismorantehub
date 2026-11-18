@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
   User as UserIcon,
@@ -34,7 +34,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/hooks/use-auth';
 import { supabase } from '@/lib/supabase/client';
-import { waitForAuthOperation } from '@/shared-utils/authOperationTimeout';
+import {
+  finishPasswordLogin,
+  getPasswordLoginStatus,
+  subscribePasswordLoginStatus,
+  tryStartPasswordLogin,
+  type PasswordLoginStatus,
+} from '@/shared-utils/passwordLoginLock';
 import { toast } from 'sonner';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -45,7 +51,11 @@ export function UserNav() {
   const { isAdminMode, toggleAdminMode } = useAdminMode();
   const [isLoginOpen, setIsLoginOpen] = useState(false);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [passwordLoginStatus, setPasswordLoginStatus] = useState<PasswordLoginStatus>(getPasswordLoginStatus);
+  const isPasswordLoginBusy = isLoggingIn || passwordLoginStatus !== 'idle';
   const form = useForm({ resolver: zodResolver(loginFormSchema), defaultValues: { email: '', password: '' } });
+
+  useEffect(() => subscribePasswordLoginStatus(setPasswordLoginStatus), []);
 
   const handleLoginGoogle = async () => {
     const { error } = await loginWithGoogle();
@@ -64,16 +74,18 @@ export function UserNav() {
   };
 
   const handleEmailLogin = async (data: { email: string; password: string }) => {
-    if (isLoggingIn) return;
+    if (!tryStartPasswordLogin()) {
+      toast.error('Já há uma tentativa de login aguardando resposta. Aguarde antes de enviar novamente.');
+      return;
+    }
+
     setIsLoggingIn(true);
+
     try {
-      const { error } = await waitForAuthOperation(
-        supabase.auth.signInWithPassword({
-          email: data.email,
-          password: data.password,
-        }),
-        'login do catálogo'
-      );
+      const { error } = await supabase.auth.signInWithPassword({
+        email: data.email,
+        password: data.password,
+      });
       if (error) throw new Error(error.message);
       toast.success('Login realizado com sucesso!');
       setIsLoginOpen(false);
@@ -81,6 +93,7 @@ export function UserNav() {
     } catch (error: unknown) {
       toast.error(error instanceof Error ? error.message : 'Erro ao realizar login');
     } finally {
+      finishPasswordLogin();
       setIsLoggingIn(false);
     }
   };
@@ -112,16 +125,32 @@ export function UserNav() {
             >
               <div className="space-y-2">
                 <Label htmlFor="email">E-mail</Label>
-                <Input {...form.register('email')} id="email" type="email" placeholder="seu@email.com" required disabled={isLoggingIn} />
+                <Input {...form.register('email')} id="email" type="email" placeholder="seu@email.com" required disabled={isPasswordLoginBusy} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="password">Senha</Label>
-                <Input {...form.register('password')} id="password" type="password" required disabled={isLoggingIn} />
+                <Input {...form.register('password')} id="password" type="password" required disabled={isPasswordLoginBusy} />
               </div>
-              <Button type="submit" disabled={isLoggingIn} className="w-full bg-primary text-white font-bold py-6">
-                {isLoggingIn ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : 'Entrar'}
+              <Button type="submit" disabled={isPasswordLoginBusy} aria-busy={isPasswordLoginBusy} className="w-full bg-primary text-white font-bold py-6">
+                {isPasswordLoginBusy ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : 'Entrar'}
+                {isLoggingIn ? 'Entrando…' : passwordLoginStatus !== 'idle' ? 'Aguardando resposta…' : ''}
               </Button>
             </form>
+            {passwordLoginStatus !== 'idle' && (
+              <div role="status" aria-live="polite" className="space-y-2 text-center text-sm text-muted-foreground">
+                <p>{passwordLoginStatus === 'uncertain'
+                  ? 'Não foi possível confirmar a operação no prazo esperado. A tentativa ainda pode estar em andamento; aguarde e não envie outro formulário.'
+                  : isLoggingIn ? 'Entrando na sua conta…' : 'Outra tentativa de login está em andamento. Aguarde antes de enviar este formulário.'}</p>
+                {passwordLoginStatus === 'uncertain' && (
+                  <>
+                    <p>Recarregar não cancela o pedido enviado; se a tela continuar assim, você pode recarregar e preencher os dados de novo.</p>
+                    <button type="button" onClick={() => window.location.reload()} className="text-primary hover:underline">
+                      Recarregar a página
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
 
             <div className="relative py-4">
               <div className="absolute inset-0 flex items-center">

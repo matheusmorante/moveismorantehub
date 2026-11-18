@@ -3,9 +3,16 @@ import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { accountNameFormSchema, accountEmailChangeFormSchema, catalogPasswordReauthenticationFormSchema } from '@/shared-utils/accountFormSchemas';
 import { passwordRecoveryEmailSchema, passwordRecoveryCodeSchema, catalogPasswordRecoveryFormSchema } from '@/shared-utils/authFormSchemas';
 
-import { useState, useRef, Suspense } from 'react';
+import { useEffect, useState, useRef, Suspense } from 'react';
 import { useRouter } from 'next/navigation';
 import { waitForAuthOperation } from '@/shared-utils/authOperationTimeout';
+import {
+  finishProfileNameUpdate,
+  getProfileNameUpdateStatus,
+  subscribeProfileNameUpdateStatus,
+  tryStartProfileNameUpdate,
+  type ProfileNameUpdateStatus,
+} from '@/shared-utils/profileNameUpdateLock';
 import { useAuth } from '@/hooks/use-auth';
 import { supabase } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -45,7 +52,7 @@ function ProfileContent() {
   const [nameDraft, setNameDraft] = useState<{ userId: string; value: string } | null>(null);
   const fullName = nameDraft && nameDraft.userId === user?.id ? nameDraft.value : user?.user_metadata?.full_name || '';
   const setFullName = (value: string) => setNameDraft({ userId: user?.id || '', value });
-  const [updatingName, setUpdatingName] = useState(false);
+  const [profileNameUpdateStatus, setProfileNameUpdateStatus] = useState<ProfileNameUpdateStatus>(getProfileNameUpdateStatus);
 
   // Form states - Email (Etapas 1 e 2)
   const [emailStep, setEmailStep] = useState<1 | 2>(1);
@@ -76,8 +83,13 @@ function ProfileContent() {
   const passwordEmailForm = useZodForm(passwordRecoveryEmailSchema, { email: user?.email || '' });
   const passwordCodeForm = useZodForm(catalogPasswordRecoveryFormSchema, { email: user?.email || '', code: passwordOtpCode, password: newPassword, confirmation: confirmPassword });
   const accountInFlight = useRef(false);
+  useEffect(() => subscribeProfileNameUpdateStatus(setProfileNameUpdateStatus), []);
+
   const runAccountOperation = async (operation: () => Promise<unknown>) => {
-    if (accountInFlight.current) return;
+    if (accountInFlight.current || getProfileNameUpdateStatus() !== 'idle') {
+      toast.info('Já existe uma alteração da conta aguardando resposta. Aguarde antes de iniciar outra ação.');
+      return;
+    }
     accountInFlight.current = true;
     try { await operation(); } finally { accountInFlight.current = false; }
   };
@@ -124,17 +136,21 @@ function ProfileContent() {
   const handleUpdateName = async (e: React.FormEvent) => {
     e.preventDefault();
     await runAccountOperation(() => nameForm.validateAndRun({ fullName }, async (validated) => {
-      setUpdatingName(true);
+      if (!tryStartProfileNameUpdate()) {
+        toast.info('Já existe uma atualização do nome aguardando resposta. Aguarde antes de enviar novamente.');
+        return;
+      }
+
       try {
-        const { error } = await waitForAuthOperation(supabase.auth.updateUser({
+        const { error } = await supabase.auth.updateUser({
           data: { full_name: validated.fullName },
-        }), 'perfil:nome');
+        });
         if (error) throw new Error(error.message);
         toast.success('Nome atualizado com sucesso!');
       } catch (error) {
         toast.error(error instanceof Error ? error.message : 'Erro ao atualizar o nome.');
       } finally {
-        setUpdatingName(false);
+        finishProfileNameUpdate();
       }
     }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0])));
   };
@@ -346,9 +362,20 @@ function ProfileContent() {
                       onChange={(e) => setFullName(e.target.value)}
                       placeholder="Seu nome completo"
                       className="h-12 rounded-xl border-gray-200 bg-gray-50/30 focus:bg-white text-base font-semibold"
+                      disabled={profileNameUpdateStatus !== 'idle'}
                       required
                     />
                   </div>
+
+                  {profileNameUpdateStatus === 'uncertain' && (
+                    <div role="status" aria-live="polite" className="space-y-2 text-sm text-muted-foreground">
+                      <p>A atualização do nome ainda não foi confirmada. O pedido pode continuar em andamento; aguarde e não envie outra alteração.</p>
+                      <p>Recarregar não confirma se o pedido anterior terminou. Confira o nome exibido no perfil antes de tentar salvar novamente.</p>
+                      <button type="button" onClick={() => window.location.reload()} className="text-primary hover:underline">
+                        Recarregar para conferir
+                      </button>
+                    </div>
+                  )}
 
                   <div className="space-y-2 max-w-xl">
                     <Label htmlFor="currentEmailDisplay" className="font-bold text-gray-700">
@@ -368,12 +395,13 @@ function ProfileContent() {
                     type="submit"
                     size="lg"
                     className="rounded-xl font-bold h-12 px-8 bg-primary hover:bg-primary/90 text-white"
-                    disabled={updatingName}
+                    disabled={profileNameUpdateStatus !== 'idle'}
+                    aria-busy={profileNameUpdateStatus !== 'idle'}
                   >
-                    {updatingName ? (
+                    {profileNameUpdateStatus !== 'idle' ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Salvando...
+                        {profileNameUpdateStatus === 'uncertain' ? 'Aguardando confirmação...' : 'Salvando...'}
                       </>
                     ) : (
                       'Salvar Alterações de Nome'

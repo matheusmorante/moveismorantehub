@@ -123,7 +123,12 @@ describe('Roteiro 1 & 2: Serviços de Persistência e Integridade — Ambientes,
 
     it('AC-10: Bloqueia exclusão de ambiente se possuir categorias vinculadas', async () => {
       const mockSelect = vi.fn().mockReturnValue({
-        eq: vi.fn().mockResolvedValue({ count: 3, error: null }),
+        eq: vi.fn().mockReturnValue({
+          limit: vi.fn().mockResolvedValue({
+            data: [{ child_id: 'cat-1' }],
+            error: null,
+          }),
+        }),
       });
 
       (supabase.from as any).mockImplementation((table: string) => {
@@ -140,7 +145,9 @@ describe('Roteiro 1 & 2: Serviços de Persistência e Integridade — Ambientes,
 
     it('AC-11: Permite exclusão de ambiente sem categorias vinculadas', async () => {
       const mockSelect = vi.fn().mockReturnValue({
-        eq: vi.fn().mockResolvedValue({ count: 0, error: null }),
+        eq: vi.fn().mockReturnValue({
+          limit: vi.fn().mockResolvedValue({ data: [], error: null }),
+        }),
       });
 
       const mockDelete = vi.fn().mockReturnValue({

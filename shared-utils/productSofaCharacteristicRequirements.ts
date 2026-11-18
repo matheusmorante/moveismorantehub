@@ -48,7 +48,7 @@ const getProductCategoryName = (product: Record<string, any>): string => {
   return names.join(' / ');
 };
 
-/** Final product forms must collect each sofa answer on its owner (parent or variable variation). */
+/** Catalog publication requires each sofa answer on its owner (parent or variable variation). */
 export const getSofaCharacteristicRequirementIssues = (
   product: Record<string, any>
 ): SofaCharacteristicRequirementIssue[] => {

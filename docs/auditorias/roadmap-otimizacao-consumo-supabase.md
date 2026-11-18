@@ -1,3 +1,162 @@
+## Ciclo — 17/11/2026, 22:23 BRT (18/11/2026 01:23Z) — leitura compartilhada das mensagens da Central entre dispositivos
+
+Envios confirmados pela Central, pela IA ou pelo WhatsApp Business no celular agora marcam como lidas as mensagens recebidas até o horário do envio. Webhooks de entrada que chegam atrasados consultam o envio confirmado mais recente e entram já lidos quando são anteriores; respostas posteriores do cliente permanecem não lidas. A transição é aplicada no banco, na mesma transação da persistência, e não depende do estado do aparelho que enviou.
+
+**Consumo:** não foram adicionadas chamadas PostgREST nem respostas transferidas ao cliente. A RPC de entrada faz uma agregação indexada pela conversa/horário; o gatilho atualiza somente mensagens que mudam de `received` para `read`. O trabalho adicional no banco e a latência não foram medidos. Não foi feita alteração retroativa em dados; os contadores futuros são ajustados pelas linhas que passam a lidas. Consulte [Central de Atendimento — WhatsApp](../integracoes/central-de-atendimento-whatsapp.md) e `supabase/migrations/20261118012155_customer_support_shared_read_receipts.sql`.
+
+**Estado:** migration `20261118012155` aplicada ao projeto Supabase operacional `hkoxhourxwlddgsfdgws` e conferida por metadados. Sem fixtures de escrita ou testes dinâmicos; o envio real por outro dispositivo e a chegada de webhook atrasado não foram simulados. O código TypeScript local que remove a limpeza redundante de `unread_count` não foi publicado.
+
+## Ciclo — 17/11/2026, 22:21 BRT (18/11/2026 01:21Z) — publicar isoladamente os emissores da SCE-322 e aguardar o ERP
+
+**Decisão reconciliada:** o operador confirmou que aceita todos os itens pendentes. Retomei a SCE-322 sem pedir uma nova confirmação. O checkout original tinha 71 arquivos alterados de várias frentes; não o usei como origem de publicação.
+
+**Origem isolada:** criei um worktree temporário limpo a partir do commit `d135723d2` e copiei apenas os sete arquivos alterados da SCE-322 e os dois novos emissores em `digital-catalog/src/features/analytics/`. A preparação não incluiu `erp/src/pages/App/Dashboard/Index.tsx`: o painel já era montado por esse arquivo no commit base, e as alterações atuais nele pertencem a outros ajustes. O resultado isolado contém as mudanças de rastreamento no catálogo e os dois arquivos do painel/hook do ERP, sem as outras dezenas de modificações do checkout do operador. `git diff --check` não apontou erro de whitespace; os avisos restantes são somente sobre normalização CRLF/LF.
+
+**Catálogo Digital publicado:** enviei uma prévia para o projeto Vercel `catalogo-digital` (pasta do app `digital-catalog`); a compilação remota terminou `Ready`. Promovi exatamente esse artefato, sem rebuild, para produção. A conferência de metadados mostrou o deploy `READY` nos domínios `moveismorante.com.br` e `www.moveismorante.com.br`. Não abri as páginas, não fabriquei visitas/cliques, não li registros de eventos e não abri logs de compilação.
+
+**Painel do ERP em espera:** enviei a mesma origem isolada ao projeto `morantehub` (pasta `erp`). A compilação de prévia ainda constava `BUILDING` após mais de seis minutos. Não li logs que possam conter conteúdo de configuração ou credenciais e não promovi o ERP. Assim, o site público já começou a poder emitir os novos eventos, mas a nova apresentação do painel no ERP ainda não está ativa.
+
+### Efeito e limites das medidas
+
+- **Pedidos de rede:** pela estrutura do código, cada visita elegível a uma rota de catálogo por sessão envia um `POST` ao endpoint de métricas; cada clique elegível em produto envia outro. O endpoint registra um evento por inserção. Isso é uma contagem estrutural por evento, não tráfego observado; o número de visitas/cliques recebidos desde a publicação não foi consultado.
+- **Bytes e saída oficial:** o pedido e a resposta do evento são pequenos no código e a resposta não devolve a linha gravada, mas bytes reais e medidor oficial de saída não foram consultados. Não declaro redução nem economia de egress faturável.
+- **Banco e latência:** cada evento aceito resulta em uma inserção. O tráfego novo acrescenta chamadas e gravações; não é uma economia de carga. Não medi CPU, latência nem frequência natural de eventos.
+- **Experiência:** o Catálogo Digital público segue operando e passa a coletar visitas/cliques elegíveis. O painel ERP novo continua indisponível até a publicação do ERP. Preços, estoque, permissões do painel, mensagens após desconexão e funcionamento offline não foram alterados por esta etapa.
+- **Validação:** apenas compilação remota da prévia do catálogo, promoção e metadados `READY` em produção; para o ERP, apenas estado `BUILDING`. Não rodei testes ou build local, não abri o site/ERP, não gerei tráfego e não consultei dados de clientes ou produtos.
+
+### Matriz atualizada e próxima retomada
+
+| Recorte/ID | Estado | Evidência e limite |
+| --- | --- | --- |
+| Acesso anônimo às tabelas globais de atributos (SCE-321) | Opção A aplicada no projeto operacional e conferida por metadados | `anon` sem privilégios efetivos; sem teste funcional com dados. |
+| Métricas de acesso e desempenho do Catálogo Digital (SCE-322) | Emissores publicados no Catálogo Digital; painel ERP ainda em compilação de prévia | Origem isolada a partir de `d135723d2`. Site `READY` em produção; prévia do ERP ainda `BUILDING` e não promovida. Eventos naturais, bytes, saída faturável, latência e rapidez visual não medidos. |
+| Cobertura geral (SCE-154) | Bloqueada | Mantida conforme decisão e evidências anteriores. |
+
+**Próximo recorte exato:** conferir somente o estado da prévia ERP `morantehub-nonyh5okq-matheusmorantes-projects.vercel.app`, sem abrir logs. Se ficar `READY`, promover esse mesmo artefato isolado para produção e confirmar apenas metadados do deploy/domínio. Se falhar, manter o ERP sem promoção e registrar somente a causa não sensível disponível. Depois, não acessar as páginas para gerar eventos; em ciclos seguintes comparar apenas métricas agregadas autorizadas e naturais, separando pedidos, bytes/medidor oficial, carga/latência e rapidez percebida. Não ler linhas de produtos, pedidos ou clientes; não fabricar tráfego nem publicar o restante do checkout.
+
+---
+
+## Ciclo — 17/11/2026, 21:48 BRT (18/11/2026 00:48Z) — mapear a publicação isolada das métricas do catálogo (SCE-322)
+
+**Reconciliação:** retomei a SCE-322, que segue depois da SCE-321. Reli AGENTS.md §§24–25, as regras e habilidades Supabase, a política de banco remoto, este roteiro e os oito relatórios do índice. Os relatórios históricos não apresentam uma publicação desta instrumentação nem um resultado mensurável dos seus novos eventos.
+
+**Alvos de publicação conferidos por metadados:** o projeto Vercel `catalogo-digital` usa `digital-catalog` como pasta da aplicação (Next.js); o projeto `morantehub` usa `erp` (Vite). O último registro de produção do Catálogo Digital está `READY` no commit `d135723d2`, o mesmo commit base local; as alterações locais SCE-322 não estão nesse commit. O último registro de produção do ERP está `ERROR` no mesmo commit, e o registro `READY` anterior usa um commit mais antigo. Não abri logs de build nem variáveis/credenciais.
+
+O Catálogo Digital importa arquivos compartilhados de `shared-utils` fora da sua pasta. Para construir uma versão reproduzível, a origem precisa incluir a raiz do repositório e as dependências compartilhadas, mesmo que a pasta publicada do site seja `digital-catalog`. O checkout ainda contém 71 arquivos modificados ou novos — 17 no Catálogo Digital, 32 no ERP e 5 em `shared-utils`, além dos demais caminhos. Uma publicação improvisada com essa árvore misturaria alterações de vários recortes; por isso não preparei pacote, não enviei código e não publiquei nenhum dos dois projetos. A inspeção do nome, pasta de aplicação e estado foi somente de metadados.
+
+**Efeito e medidas:** sem publicar os emissores no Catálogo Digital e o painel no ERP, não há evento novo de visita/clique para acompanhar. Não consultei eventos nem conteúdo operacional e não produzi tráfego de teste. Chamadas, bytes/saída oficial, trabalho/latência do banco e rapidez do painel novo continuam sem medição; não atribuo economia. Os alvos web para a conferência pós-publicação continuam sendo conteúdo principal em até 2,5 s e resposta visual em até 200 ms no percentil 75, com celular e computador separados.
+
+### Matriz atualizada e próxima retomada
+
+| Recorte/ID | Estado | Evidência e limite |
+| --- | --- | --- |
+| Acesso anônimo às tabelas globais de atributos (SCE-321) | Opção A aplicada remotamente e conferida por metadados | `anon` sem privilégios efetivos; usuários autenticados conservam a gestão. Sem teste funcional com dados. |
+| Métricas de acesso e desempenho do Catálogo Digital (SCE-322) | Código e migration existentes; ainda não publicados | Dois projetos precisam receber a versão compatível. Catálogo está no commit-base atual; ERP tem implantação mais recente com falha. Há 71 alterações locais e dependências compartilhadas, então não há pacote isolado confirmado. Métricas e rapidez novas sem medida. |
+| Cobertura geral (SCE-154) | Bloqueada | Mantida conforme decisão e evidências anteriores. |
+
+**Próximo recorte exato:** continuar somente a preparação da origem SCE-322. Delimitar os arquivos efetivamente pertencentes à instrumentação e ao painel, comparar suas dependências compartilhadas com o commit-base, e determinar como produzir dois artefatos limpos sem arrastar mudanças dos demais recortes. Conferir o status de build do ERP sem abrir logs que possam conter segredos. Só depois da origem e dos dois projetos estarem determinados, concluir os builds e a publicação aprovada; após isso, validar o painel nas larguras previstas e observar eventos agregados naturais. Não fabricar tráfego, consultar linhas de produtos/clientes/pedidos, ler credenciais ou inferir economia até haver comparação da mesma versão e medidor oficial.
+
+---
+
+## Ciclo — 17/11/2026, 21:33 BRT (18/11/2026 00:33Z) — confirmar a publicação das métricas do Catálogo Digital (SCE-322)
+
+**Reconciliação:** o checkpoint depois da SCE-321 é a publicação e a conferência do painel SCE-322. Reli AGENTS.md §§24–25, as regras de consumo, as habilidades Supabase, a política de banco remoto, este registro e os oito relatórios históricos do índice. A busca direcionada não encontrou nos relatórios anteriores uma publicação ou medição desta nova instrumentação; as contagens agregadas antigas já estão registradas no ciclo SCE-322. Não repeti consultas aos dados dessas tabelas.
+
+**Estado de publicação conferido:** a listagem somente de metadados da Vercel mostra uma implantação de produção `READY` do Catálogo Digital no commit `d135723d2`, igual ao `HEAD` local. As alterações do SCE-322 continuam apenas no diretório de trabalho, portanto essa implantação não contém os novos emissores. O alvo Vercel ligado ao repositório pela raiz é `morantehub`; `digital-catalog/.vercel/project.json` não existe. A listagem por nome mostra implantações chamadas `catalogo-digital`, mas não resolve, por si só, qual projeto e diretório de origem devem receber uma publicação a partir deste checkout.
+
+O checkout tem 71 arquivos modificados ou novos, incluindo 17 dentro de `digital-catalog`, além de mudanças em ERP, aplicativo móvel, utilitários compartilhados, banco e documentação. Publicar diretamente daqui poderia incluir mudanças de outras áreas em uma implantação de produção; não há um pacote limpo e isolado do SCE-322 nesta revisão. Por isso não publiquei o site, não criei commit, não enviei código ao repositório e não alterei a configuração de hospedagem.
+
+**Métricas e experiência:** como os novos emissores ainda não estão na implantação ativa, não há tráfego natural deles para conferir. Não consultei eventos operacionais, não gerei visitas/cliques de teste e não apresentei números de cobertura, chamadas, bytes, saída faturável, carga do banco ou latência que não possam ser atribuídos à versão. Os totais históricos conferidos e seus limites continuam no ciclo original SCE-322. A rapidez visual do painel novo também não foi medida; os limites web permanecem conteúdo principal até 2,5 s e resposta visual até 200 ms no percentil 75, separados entre celular e computador.
+
+**Matriz atualizada e próximo recorte exato**
+
+| Recorte/ID | Estado | Evidência e limite |
+| --- | --- | --- |
+| Acesso anônimo às tabelas globais de atributos (SCE-321) | Opção A aplicada no ciclo anterior e conferida por metadados | `anon` não tem privilégios efetivos; `authenticated` mantém operações de gestão. Sem teste funcional com dados. |
+| Métricas de acesso e desempenho do Catálogo Digital (SCE-322) | Código local e migration remota aplicados; publicação não concluída | Produção ainda aponta para o commit anterior; checkout mistura 71 alterações e o vínculo de hospedagem do Catálogo Digital não está configurado neste diretório. Métricas novas, painel visual e rapidez sem medição. |
+| Cobertura geral (SCE-154) | Bloqueada | Mantida conforme a decisão e as evidências anteriores. |
+
+**Próximo recorte exato:** continuar SCE-322 preparando uma origem de publicação isolada: confirmar somente metadados do projeto Vercel `catalogo-digital` e a pasta de aplicação configurada, selecionar as alterações já aceitas do Catálogo Digital e as dependências compartilhadas necessárias sem incluir ERP/app nem arquivos de usuário, e conferir o pacote/build antes de publicar. Depois de uma implantação específica, verificar o painel em telas estreita e larga e observar eventos agregados de tráfego natural. Não fabricar tráfego, ler produtos/clientes/pedidos, divulgar credenciais ou tratar ausência de eventos antes da implantação como falha de instrumentação. Separar rapidez percebida, chamadas, bytes/saída oficial e carga/latência. Nenhuma publicação foi feita neste ciclo.
+
+---
+
+## Ciclo — 17/11/2026, 21:29 BRT (18/11/2026 00:29Z) — restringir acesso anônimo ao catálogo de atributos (SCE-321)
+
+**Reconciliação:** o recorte SCE-321 tinha opção A aceita pelo operador. Conferi o checkpoint SCE-322 imediatamente anterior no roadmap: o código e a migration das métricas do Catálogo Digital já estavam aplicados, com a publicação e a verificação visual ainda pendentes. Apliquei somente a restrição de acesso SCE-321 neste ciclo. SCE-154 permanece bloqueada conforme o histórico.
+
+**Leitores e caminhos conferidos:** buscas de consumidores em ERP, aplicativo móvel e Catálogo Digital localizaram leituras diretas de `attributes` e `attribute_values` em formulários de administração. A tela pública do produto lê `product_variations.attributes` (um campo JSON que acompanha a variação); o seletor público não consulta essas duas tabelas. Também conferi `supabase/migrations/20261116174016_compact_public_product_detail_variations.sql`: a função pública de detalhes lê o JSON da variação e não consulta `attributes` nem `attribute_values`. Não encontrei chamada explícita a login anônimo no código versionado desses consumidores. Isso não prova ausência de integrações antigas ou externas.
+
+**Mudança aplicada:** `supabase/migrations/20261118002703_restrict_anonymous_attribute_catalog.sql` remove as políticas abertas `allow_public_all_attr` e `allow_public_all_val`, retira do papel `anon` todas as permissões diretas nas duas tabelas e recria quatro regras por tabela, limitadas ao papel `authenticated`. As regras exigem uma identidade autenticada e rejeitam sessões de autenticação anônima (`is_anonymous = true`). Usuários autenticados comuns mantêm as permissões de leitura, criação, edição e exclusão já usadas pelas telas administrativas. Não houve alteração em linhas de dados.
+
+A migration foi aplicada ao projeto operacional MoranteHub (`hkoxhourxwlddgsfdgws`) e registrada remotamente como versão `20261118002703`. O arquivo local foi alinhado a esse número oficial depois da aplicação. Antes de aplicá-la, a versão não existia na lista remota e o projeto estava ativo. A migration tem precondições para as duas tabelas e para as políticas abertas que foram revisadas; em caso de diferença, interrompe antes de mudar permissões.
+
+**Verificação somente de metadados após a aplicação:** as duas tabelas continuam com proteção por linha ativa; cada uma tem quatro políticas, todas voltadas somente a `authenticated`. Os metadados confirmaram que `anon` não tem permissão efetiva de leitura, criação, edição, exclusão, truncamento, criação de gatilho ou referência nas duas tabelas. `authenticated` mantém leitura, criação, edição e exclusão. A migration aparece no histórico remoto. Essa conferência não leu linhas das tabelas e não é um teste funcional de requisições.
+
+**Pedidos, bytes, banco e uso percebido — separados:**
+
+- **Chamadas:** o código cliente das telas administrativas não mudou; a quantidade de chamadas delas permanece igual. Chamadas diretas anônimas, se alguma integração externa antiga ainda existir, agora serão recusadas. Não há contagem identificada dessas chamadas e não deduzo repetição a partir de erros agregados.
+- **Bytes/saída:** não há leitura pública conhecida destas tabelas no site; portanto não estimo redução de bytes nem de cobrança. A página pública continua lendo as informações de variação pelo caminho JSON já existente. O medidor oficial de saída não foi consultado.
+- **Carga do banco:** nenhuma consulta foi removida ou agregada. O banco passa a avaliar regras de acesso apenas para sessões autorizadas nas chamadas diretas às tabelas; CPU, plano e latência não foram medidos.
+- **Uso, permissões e dados atuais:** a administração autenticada mantém as operações disponíveis. Um cliente anônimo externo que dependesse destas tabelas pode começar a receber negação de acesso; nenhum consumidor desse tipo foi localizado no código revisado. Preços, saldo de estoque, mensagens e modo sem conexão não são alterados. O catálogo público mantém a seleção e os atributos de variação já embutidos no produto.
+
+**Validação e reversão:** `git diff --check` passou para a migration e este registro. Não rodei testes, consultas de conteúdo, fixtures ou gravações; não alterei dados, não publiquei o Catálogo Digital nem enviei OTA. A validação funcional de telas autenticadas e a confirmação de inexistência de integração externa permanecem pendentes. Para reverter, uma migration de retorno deve restaurar os privilégios originais do papel `anon`, recriar as políticas CRUD originais e restaurar as políticas `FOR ALL USING (true) WITH CHECK (true)`; essa reversão reabre o acesso amplo e deve ser usada somente para recuperar uma integração cuja necessidade tenha sido confirmada.
+
+### Matriz atualizada e próxima retomada
+
+| Recorte/ID | Estado | Evidência e limite |
+| --- | --- | --- |
+| App — lista de oportunidades (SCE-245) | Opção A aplicada localmente | Mesma chamada, filtro e ordenação; três campos a menos na resposta. Bytes oficiais e rapidez nativa sem medição. |
+| ERP — cache de contadores entre sessões (SCE-319) | Opção A aplicada localmente | Cache separado por identidade; limpeza na troca/saída. Uso real, bytes e rapidez sem medição. |
+| Proxy de prévia — redirecionamentos (SCE-320) | Opção A aplicada localmente | Destinos revistos a cada salto, até cinco. Frequência, bytes e latência sem medição. |
+| Acesso anônimo às tabelas globais de atributos (SCE-321) | Opção A aceita e aplicada localmente e no projeto operacional | `anon` sem permissões efetivas; quatro políticas por tabela restritas a usuários autenticados. Metadados verificados; teste funcional e uso externo não medidos. |
+| Métricas de desempenho do Catálogo Digital (SCE-322) | Código local e migration remota aplicados; publicação/observação pendentes | Novas visitas e cliques só começam com o código publicado; bytes, uso e latência não medidos. |
+| Cobertura geral (SCE-154) | Bloqueada | Mantida conforme decisão histórica. |
+
+**Próximo recorte exato:** retomar o checkpoint SCE-322 — verificar a publicação autorizada do código do Catálogo Digital e, após sua disponibilidade, conferir visualmente o painel em telas estreita e larga e observar apenas métricas agregadas de tráfego natural. Confirmar que visitas, visualizações de produto e cliques aparecem separados, explicar que os eventos novos começam na publicação e não inferir compras ou conversão. Separar chamadas, bytes e saída oficial, carga/latência do banco e rapidez percebida. Não ler linhas de atributos, produtos, clientes ou pedidos, não fabricar tráfego, não executar testes com fixtures e não misturar com a SCE-321.
+
+---
+
+## Ciclo — 17/11/2026, 21:14 BRT (18/11/2026 00:14Z) — métricas de acesso e desempenho do Catálogo Digital (SCE-322)
+
+O cartão do Catálogo Digital no Dashboard do ERP agora separa visitas às páginas de navegação da loja, visitantes identificados por navegador, visualizações de produto e cliques em produtos. A interface inclui série diária dos últimos 30 dias, produtos mais vistos e mais clicados e o estado atual do catálogo. Removi o botão “Gerenciar Catálogo Completo” e a estimativa fixa de conversão de 3,5%, que não representava compras medidas. As métricas operacionais são calculadas por uma única RPC e o cache de cinco minutos permanece.
+
+### Contagem conferida e significado
+
+- A conferência remota confirmou que os valores antigos estão corretos como **visualizações de páginas de produto desde o início do registro**: 3.194 visualizações e 1.090 IDs de navegador distintos. Eles não representavam todas as visitas à loja nem pessoas físicas únicas; o ID é persistido no navegador.
+- Antes desta mudança, `product_analytics` registrava somente páginas de produto. Não havia histórico de visitas às páginas de início/categorias/selecionados nem cliques nos cartões, então essas duas séries e o ranking de cliques começam após a publicação do código novo; não há backfill possível.
+- A visita à loja conta acessos às rotas de início, categorias e catálogo selecionado, com uma gravação por rota e sessão do navegador. O clique conta a abertura da página do produto pelos links dos cartões dessas listas.
+- O ranking de visualizações usa páginas de produto abertas; os rankings contam somente produtos publicados e eventos dos últimos 30 dias UTC. A série diária mostra visitas à loja, páginas de produto abertas e cliques em produtos. Visitantes únicos contam IDs distintos presentes em qualquer desses três eventos no mesmo período.
+- Não há atribuição de pedidos, compras concluídas, adição ao carrinho ou abandono nesta instrumentação; por isso não apresento taxa de conversão. O valor fixo de 3,5% continua no objeto do hook por compatibilidade com o contrato existente, mas não é mostrado no painel.
+
+### Código e dados
+
+- `digital-catalog/src/features/analytics/trackCatalogEvent.ts` centraliza o envio dos eventos e reaproveita o ID de navegador já usado nas visualizações.
+- `digital-catalog/src/features/analytics/CatalogVisitTracker.tsx` registra as rotas de início, categorias e selecionados. `digital-catalog/src/app/layout.tsx` o monta no catálogo.
+- `digital-catalog/src/features/products/hooks/useProductViewTracking.ts` conserva o rastreamento existente de visualização; `product-card.tsx` e `selected-catalog-page.tsx` registram cliques para abrir produto.
+- `digital-catalog/src/app/api/analytics/track/route.ts` valida os três tipos de evento. Visitas e cliques não coletam IP nem chamam GeoIP; a coleta de localização existente continua somente em visualização de produto. A API não devolve a linha gravada.
+- `erp/src/pages/App/Dashboard/hooks/useDashboardDigitalCatalog.ts` interpreta a resposta agregada, e `erp/src/pages/App/Dashboard/components/DigitalCatalogPanel.tsx` apresenta indicadores, gráfico diário, inventário e rankings em layout responsivo.
+- `supabase/migrations/20261118001316_digital_catalog_performance_events.sql` adiciona `event_type` com `product_view` como padrão para os registros antigos, a restrição dos três tipos de evento, índice por `event_type/created_at`, índice da FK `product_id` e métricas novas na RPC existente.
+
+### Acesso, chamadas, bytes e banco
+
+O projeto operacional `hkoxhourxwlddgsfdgws` estava saudável e sua última migration era `20261117232052`. A pré-condição confirmou que `product_analytics` ainda não tinha `event_type`, `product_id` aceitava nulo e a política de inserção pública já existente aceitava eventos sem produto. A migration foi aplicada e registrada remotamente como `20261118001316`.
+
+A RPC continua sendo uma única chamada quando o cache por usuário/papel de cinco minutos precisa atualizar; ela retorna contagens, 30 pontos diários e até cinco produtos por ranking. O novo rastreamento acrescenta uma chamada do navegador para visita elegível e para cada clique em produto. O corpo dos novos eventos é pequeno e não pede a linha de volta; bytes reais não foram medidos. Visitas e cliques não acrescentam consultas externas de GeoIP. A análise da RPC reutiliza um conjunto agregado de eventos para os totais históricos, o período e os rankings. Há índices para tipo/data e para a FK; não medi plano, CPU ou latência, então não atribuo economia numérica.
+
+A função preserva a autorização de administrador/gerente, o bloqueio de escopo compartilhado e as exclusões de dados de teste. Após a aplicação, a leitura de metadados confirmou `SECURITY DEFINER`, `search_path` vazio, execução negada a `anon` e permitida a `authenticated`; RLS e políticas da tabela não foram alteradas. As leituras agregadas confirmaram os 3.194 registros legados `product_view`, os 1.090 navegadores distintos, os 426 itens de catálogo (214 publicados e 212 não publicados) e 46 categorias, reproduzindo as exclusões da RPC. O advisor não lista mais a FK de `product_analytics` como sem índice, mas marcou o índice recém-criado como ainda não usado; só uso futuro ou operações de exclusão o confirmarão. Também permanece o aviso `auth_rls_initplan` da política de leitura existente, que não foi alterada. Outros avisos globais pertencem a tabelas fora deste escopo.
+
+### Validação, implantação e reversão
+
+`git diff --check` é a validação local prevista. Não executei testes, build nem navegação visual. A RPC não foi chamada como operador pela interface. O ERP e o Catálogo Digital não foram publicados; as novas visitas e cliques só passam a ser coletados quando o código do Catálogo Digital que contém esses emissores estiver disponível. Antes de publicar, conferir visualmente o painel em telas estreitas e largas, a série sem atividade, rankings vazios e eventos reais de visita/clique, sem usar dados sintéticos. Para reverter o cliente, remover os emissores e retornar o painel ao cartão anterior. A coluna/eventos são aditivos; não apagar dados nem remover a função remota como parte de uma reversão visual.
+
+| Recorte/ID | Estado | Evidência e limite |
+| --- | --- | --- |
+| ERP e Catálogo Digital — métricas de desempenho do catálogo (SCE-322) | Código local; migration aplicada ao Supabase operacional; publicação pendente | Totais históricos conferidos. Novos eventos começam na publicação. Uma RPC em cache; gravações de visita/clique aumentam chamadas; bytes, carga e latência não medidos. |
+
+**Próximo recorte exato:** publicar o código do Catálogo Digital e conferir visualmente o painel e as métricas agregadas após tráfego natural. Caso se deseje taxa de conversão ou adição ao carrinho, criar atribuição explícita de sessão e eventos de funil, sem derivá-los dos cliques atuais.
+
+---
+
 ## Ciclo — 17/11/2026, 15:59 BRT (18:59Z) — confirmação em lote das características ao mover variação (SCE-314)
 
 Ao mover uma variação com várias características, ERP e aplicativo agora fazem uma única consulta em lote aos nomes e valores existentes. Se algo precisar ser criado, cada gravação continua separada e em ordem. Assim, permanecem o salvamento parcial, a verificação entre itens e a mensagem de resultado incerto. A função foi aplicada ao projeto Supabase operacional; as alterações de tela e serviço estão no repositório, ainda sem publicação.
@@ -6110,7 +6269,7 @@ Essa sugestão fica limitada a `saveMobileEnvironment`. Não proponho mudar `res
 - **Bytes/egress:** a consulta pede `id`, `name`, `slug`, `badge_color` e `active`, mas os consumidores localizados exibem/consultam somente `id` e `name`. O filtro `active = true` permanece necessário, mas não exige devolver essa coluna. Retirar `slug`, `badge_color` e `active` da resposta deve diminuí-la estruturalmente; tamanhos reais e medidor oficial de egress não foram consultados. Não atribuo percentual, bytes faturáveis ou economia em dinheiro.
 - **Banco:** o filtro de oportunidades ativas, a ordenação pelo nome e as linhas retornadas permanecem iguais. A projeção menor pode reduzir a serialização da resposta, mas não elimina leitura de linhas nem demonstra menor processamento ou latência. Não há plano, duração ou carga medidos.
 
-**Nova proposta — SCE-245, aguarda aceitar ou recusar:** opção A, recomendada: solicitar somente `id,name` em `fetchMobileOpportunities`, mantendo o filtro de ativas e a ordenação. O seletor, a exibição da opção salva e a associação automática de “salvado” continuam usando os mesmos dados. A quantidade de chamadas fica igual; a resposta passa de cinco campos para dois, sem economia real de bytes quantificada. Opção B: manter a consulta atual até haver motivo para medir. O comportamento de preços, estoque, acesso e regras de permissão não muda; a consulta não lê preço ou saldo e nenhuma regra de acesso é ampliada. A tela não mantém cópia offline: em caso de falha, o serviço continua avisando no log e devolvendo lista vazia, igual ao atual. Após aceite, validar os nomes no formulário, seleção e remoção da oportunidade, associação de “salvado” e filtro de itens ativos; medir eventual ganho faturável somente em janela comparável no medidor oficial, pois tamanho de uma amostra não é faturamento. Reverter é restaurar os cinco campos. Não requer migration. Confiança alta de que os campos restantes cobrem os usos encontrados; baixa para qualquer estimativa de economia real.
+**Proposta SCE-245 — aceita pela decisão global “ACITO TODOS OS PENDENTES”; opção A aguardando seu recorte próprio:** opção A, recomendada: solicitar somente `id,name` em `fetchMobileOpportunities`, mantendo o filtro de ativas e a ordenação. O seletor, a exibição da opção salva e a associação automática de “salvado” continuam usando os mesmos dados. A quantidade de chamadas fica igual; a resposta passa de cinco campos para dois, sem economia real de bytes quantificada. Opção B: manter a consulta atual até haver motivo para medir. O comportamento de preços, estoque, acesso e regras de permissão não muda; a consulta não lê preço ou saldo e nenhuma regra de acesso é ampliada. A tela não mantém cópia offline: em caso de falha, o serviço continua avisando no log e devolvendo lista vazia, igual ao atual. Após aceite, validar os nomes no formulário, seleção e remoção da oportunidade, associação de “salvado” e filtro de itens ativos; medir eventual ganho faturável somente em janela comparável no medidor oficial, pois tamanho de uma amostra não é faturamento. Reverter é restaurar os cinco campos. Não requer migration. Confiança alta de que os campos restantes cobrem os usos encontrados; baixa para qualquer estimativa de economia real.
 
 **Matriz deste ciclo e próxima retomada:**
 
@@ -6190,7 +6349,7 @@ Essa sugestão fica limitada a `saveMobileEnvironment`. Não proponho mudar `res
 
 ### SCE-244 — salvar a edição do atributo e seus valores em uma única operação
 
-**Status:** aguarda aceitar ou recusar. Nenhum código, banco ou migration foi alterado.
+**Status:** opção A aceita pela decisão global do operador e executada no ciclo de 17/11/2026, 20:25 BRT. O cliente e duas migrations aditivas foram aplicados localmente e no projeto operacional, sem alterar registros ou políticas de RLS.
 
 - **A — recomendada:** criar uma função de banco chamada pelo cliente em uma única chamada Supabase. Ela valida o identificador, atualiza o nome e substitui os valores em uma transação, mantendo a regra de pelo menos um valor e as restrições atuais de nomes/valores únicos. Após o sucesso, o cliente conserva as duas leituras atuais para atualizar a tela.
 - **B — manter o fluxo atual:** preservar as três gravações separadas. Evita adicionar uma função e uma migration, mas conserva as viagens sequenciais e a possibilidade de salvar só parte da edição se uma etapa posterior falhar.
@@ -6225,7 +6384,7 @@ Essa sugestão fica limitada a `saveMobileEnvironment`. Não proponho mudar `res
 
 ### SCE-243 — buscar somente os modelos necessários ao link de instruções
 
-**Status:** aguarda aceitar ou recusar. Nenhum código, banco ou migration foi alterado.
+**Status:** aceita pela decisão global do operador “ACITO TODOS OS PENDENTES”; aguarda seu recorte próprio. Nenhum código, banco ou migration foi alterado.
 
 - **A — recomendada:** nos dois caminhos, manter a validação atual do token e do produto e buscar somente modelos associados às campanhas ativas ou ao selo da oportunidade do produto. Se não existir campanha ativa nem oportunidade, não chamar a tabela de modelos. Selecionar apenas os campos usados para montar a página e o JSON. Preservar os campos legados do produto e das imagens/variações até mapear com segurança todos os formatos usados pelo resolvedor.
 - **B — menor mudança:** selecionar campos explícitos do token, das campanhas e dos modelos, mas continuar lendo todos os modelos. O número de chamadas fica igual; só diminuem os campos das respostas.
@@ -6259,7 +6418,7 @@ Essa sugestão fica limitada a `saveMobileEnvironment`. Não proponho mudar `res
 
 ### SCE-241 — permitir o cache de 24 horas das imagens de origem
 
-**Status:** aguarda aceitar ou recusar. Nenhum código, banco ou migration foi alterado.
+**Status:** opção A aplicada localmente em 17/11/2026; publicação e medição pendentes. Nenhum banco ou migration foi alterado.
 
 - **A — recomendada, condicionada à estabilidade dos endereços:** retirar `dynamic = 'force-dynamic'` e conservar `fetch(..., { next: { revalidate: 86400 } })`. A rota ainda lê o endereço pedido e devolve a prévia, mas o Next pode guardar o resultado da busca da imagem por até 24 horas.
 - **B — manter busca sem cache:** conservar a configuração atual se as imagens costumam ser substituídas no mesmo endereço e precisam refletir a substituição imediatamente; primeiro medir, de forma agregada, os pedidos e acertos da camada de cache.
@@ -6268,7 +6427,7 @@ Essa sugestão fica limitada a `saveMobileEnvironment`. Não proponho mudar `res
 
 ### SCE-242 — confirmar o domínio real da imagem antes de buscá-la
 
-**Status:** aguarda aceitar ou recusar. Nenhum código, banco ou migration foi alterado.
+**Status:** aceita pela decisão global do operador “ACITO TODOS OS PENDENTES”; opção A aplicada localmente em 17/11/2026. Nenhum banco ou migration foi alterado.
 
 - **Evidência e proposta:** a rota decide se o endereço é permitido procurando trechos de texto como `supabase.co` e `r2.dev` no endereço inteiro. Isso não confirma o domínio de destino. A opção A é interpretar o endereço como URL, exigir HTTPS para endereços completos e permitir somente os domínios aprovados, com correspondência de host e limite correto de subdomínio; caminhos relativos devem ser resolvidos contra o domínio do catálogo. Assim, endereços de outros destinos são rejeitados antes do `fetch`, mantendo as imagens válidas.
 - **B — manter como está:** não mudar o comportamento enquanto não houver confirmação de quais hosts de imagem válidos são usados; isso preserva compatibilidade, mas também mantém a validação por texto.
@@ -6301,7 +6460,7 @@ Essa sugestão fica limitada a `saveMobileEnvironment`. Não proponho mudar `res
 
 ### SCE-240 — evitar repetição de salvamento do nome enquanto a confirmação anterior está pendente
 
-**Status:** aguarda aceitar ou recusar. Nenhum código, banco ou migration foi alterado.
+**Status:** opção A aplicada localmente em 17/11/2026. Nenhum banco ou migration foi alterado.
 
 - **A — recomendada:** manter o salvamento do nome bloqueado até a chamada original realmente concluir, mesmo que a tela já tenha mostrado o aviso de 20 segundos. A interface deve dizer que o resultado ainda não foi confirmado; se o pedido nunca concluir, oferecer uma recuperação visível, como recarregar a tela. Isso evita uma chamada de autenticação por cada repetição enquanto o pedido anterior continua ativo.
 - **B — manter como está e medir primeiro:** conservar a liberação após 20 segundos e, se houver métricas agregadas autorizadas, contar apenas timeouts e novas tentativas durante operações pendentes, sem nomes, e-mails, valores de perfil ou tokens. Não há hoje medida que quantifique o volume real.
@@ -6335,14 +6494,14 @@ Essa sugestão fica limitada a `saveMobileEnvironment`. Não proponho mudar `res
 
 ### SCE-239 — não iniciar outro login enquanto a tentativa anterior ainda está sem resposta
 
-**Status:** aguarda aceitar ou recusar. Nenhum código, banco ou migration foi alterado.
+**Status:** opção A aplicada localmente em 17/11/2026. Nenhum banco ou migration foi alterado.
 
 - **A — recomendada para evitar pedidos sobrepostos:** depois do aviso de 20 segundos, manter um estado de “resultado ainda incerto” e bloquear outro envio até a chamada original concluir. Ao concluir, liberar o formulário e mostrar o resultado real. A pessoa pode precisar esperar mais; se o pedido nunca terminar, o login só ficará disponível de novo após recarregar a página.
 - **B — manter a liberação atual:** a pessoa continua podendo tentar novamente assim que vê o aviso. Isso permite recuperação mais rápida se a tentativa anterior realmente parou, mas uma solicitação ainda ativa pode se sobrepor à nova. Não há nova tentativa automática em nenhuma opção.
 - **Estimativa e confiança:** confiança alta na sequência estrutural: o tempo local termina, o pedido original não é cancelado e o bloqueio do formulário é liberado. Para cada nova tentativa feita enquanto uma anterior continua ativa, há exatamente uma chamada de autenticação adicional. O total evitável varia de zero (sem timeout seguido de tentativa) ao número de tentativas feitas nesse intervalo; frequência real, duração das chamadas e bytes não foram medidos. Egress oficial e trabalho interno do serviço também não foram medidos.
 - **Efeitos, validação e reversão:** preservar mensagens e login normal; validar, se aceita, uma chamada que responde antes do prazo, outra que ultrapassa o prazo e depois conclui, e outra que permanece sem resposta. Confirmar que não há duas chamadas enquanto a primeira estiver ativa e que o formulário volta a funcionar quando ela termina. Não usar dados reais de conta. Reverter restaurando a liberação imediata após o aviso de timeout. O caminho está em dois formulários; ambos precisam ter o mesmo comportamento.
 
-**Resultado e próxima retomada:** nova proposta SCE-239, baseada no timeout local e na liberação demonstrada do bloqueio, não em erros agregados. A contagem de tentativas, bytes, egress faturável e carga/latência permanece desconhecida. Próximo recorte independente: `digital-catalog/src/app/perfil/page.tsx#ProfileContent` e somente o carregamento/alteração dos dados de perfil e serviços diretamente usados pela tela; não repetir `useAuth` ou o login por senha.
+**Resultado e próxima retomada:** a opção A foi aplicada no ciclo de 17/11/2026 ao login por e-mail e senha, sem modificar o login Google. A contagem de tentativas evitadas, bytes/egress faturável e carga/latência interna permanece desconhecida. O próximo recorte independente da proposta original é a SCE-240, descrita abaixo.
 
 **Limites:** análise estática de código, regra e documentos históricos. Sem valores de credenciais, conteúdo pessoal, sessões, métricas privadas ou chamadas ao Supabase; sem testes, DML/fixtures, alterações de código/banco, migration, deploy ou OTA. Apenas este roadmap foi atualizado.
 
@@ -6395,7 +6554,7 @@ Essa sugestão fica limitada a `saveMobileEnvironment`. Não proponho mudar `res
 
 ### SCE-238 — evitar leitura repetida de credenciais quando o ambiente já está completo
 
-**Status:** aguarda aceitar ou recusar. Nenhum código, banco ou migration foi alterado.
+**Status:** aceita pela decisão global do operador “ACITO TODOS OS PENDENTES”; aplicada localmente neste ciclo em `digital-catalog/src/services/meta-catalog/credentials.ts`. Nenhum banco ou migration foi alterado.
 
 - **A — recomendada:** em `getMetaCatalogCredentials`, resolver primeiro o caso em que token e identificador do catálogo do ambiente estejam ambos presentes e válidos, e retornar esse mesmo par sem consultar a tabela. Se faltar um deles, manter a leitura e a precedência atuais do banco. Isso conserva o caminho de compatibilidade e não exige mostrar nem registrar valores secretos.
 - **B — manter como está até medir:** não alterar o helper enquanto não houver contagem agregada de chamadas do GET e confirmação, apenas como verdadeiro/falso, de que o ambiente tem o par completo. A medição de tráfego deve omitir identificadores de lote, query string, credenciais e conteúdo de respostas. Não encontrei hoje uma medida que permita estimar uso.
@@ -6426,7 +6585,7 @@ Essa sugestão fica limitada a `saveMobileEnvironment`. Não proponho mudar `res
 
 ### SCE-237 — não devolver o cadastro completo do cliente na consulta do histórico
 
-**Status:** aguarda aceitar ou recusar. Nenhum código, banco ou migration foi alterado.
+**Status:** aceita pela decisão global do operador “ACITO TODOS OS PENDENTES”; aplicação local concluída no ciclo de 17/11/2026. Arquivo alterado: `erp/src/pages/utils/crmIntelligenceService.ts`. Nenhum banco ou migration foi alterado.
 
 - **A — recomendada:** retirar `customerData` de `.select('items, customerData, created_at')` e parar de preencher `customer_name` em `getCustomerPurchaseHistory`. Manter o filtro pelos dois formatos do telefone, todos os pedidos correspondentes, `items`, `created_at`, a chamada à IA e os campos do contexto sem alteração. A pesquisa estática encontrou apenas um chamador do retorno, que descarta o nome antes de enviar o contexto.
 - **B — manter e medir primeiro:** conservar a resposta atual até obter medidas agregadas autorizadas de quantidade de análises e bytes, além do medidor oficial de egress. Não registrar telefones, nomes, conteúdo de pedidos ou respostas da IA.
@@ -6463,7 +6622,7 @@ Essa sugestão fica limitada a `saveMobileEnvironment`. Não proponho mudar `res
 
 ### SCE-236 — evitar reler a lista que a ação não alterou
 
-**Status:** aguarda aceitar ou recusar. Nenhum código, banco ou migration foi alterado.
+**Status:** aceita pela decisão global do operador “ACITO TODOS OS PENDENTES”; reservada para o próximo ciclo próprio. Nenhum código, banco ou migration foi alterado neste recorte.
 
 - **A — recomendada:** manter as duas leituras ao abrir a tela, mas após cada gravação recarregar somente a lista afetada: avisos pendentes após `markAsNotified` e pedidos após `updateDesireStatus`. O resumo global de avisos continua usando o serviço Realtime existente. Cada ação bem-sucedida deixaria de buscar a outra lista inteira.
 - **B — manter a atualização completa:** continuar relendo as duas listas após qualquer alteração, caso seja necessário que cada ação também revele mudanças não relacionadas que chegaram enquanto a tela estava aberta. Não há economia.
@@ -12348,6 +12507,8 @@ Estado da fila reconsolidado em **08/11/2026 08:19Z**, após os aceites “pode 
 ### SCE-137 — calcular visitas e visitantes em uma única agregação no painel do Catálogo Digital
 
 **Status:** aceita pelo operador e executada em 16/11/2026.
+
+**Atualização de escopo pela SCE-322 (17/11/2026):** o painel deixou de exibir a referência fixa de 3,5% como desempenho. O valor permanece somente no objeto do hook por compatibilidade; os indicadores novos de visitas e cliques têm instrumentação própria e não devem ser interpretados como conversões ou compras.
 
 **Evidência:** `erp/src/pages/App/Dashboard/hooks/useDashboardDigitalCatalog.ts` faz uma chamada para `get_dashboard_digital_catalog_metrics()` e mantém o resultado fresco por cinco minutos, com cache separado por usuário e papéis. `DigitalCatalogPanel.tsx` mostra o total de produtos, visualizações, visitantes únicos e a referência fixa de conversão; não usa `published`, `draft` ou `categories`. A busca encontrou somente esse consumidor no código do repositório. No SQL de `supabase/migrations/20261102220332_dashboard_metrics_audit_fixes.sql`, o JSON calcula `views` e `uniqueVisitors` com duas subconsultas separadas a `public.product_analytics`, ambas usando o mesmo filtro para excluir produtos de teste. Os relatórios históricos não atribuem chamadas ou tempo a esse RPC. Não consultei linhas de eventos, visitantes, logs atuais ou métricas remotas.
 
@@ -18805,7 +18966,7 @@ Ao abrir o resumo do Catálogo Meta no celular, os três totais deixam de exigir
 
 ### Reconciliação e decisão
 
-SCE-246 estava aceita na opção A após a confirmação do operador de que todos os itens pendentes fossem aplicados. Este ciclo aplicou somente essa opção, sem cache ou alteração das regras de tela. O registro antigo SCE-247, datado de 13/11, ainda dizia “aguarda decisão”; como a confirmação global posterior cobre propostas pendentes, agora reconcilio SCE-247 como aceita, mas não a implemento neste ciclo. A matriz do ciclo SCE-312 não a havia listado; esta entrada corrige o cursor. SCE-319 permanece aceita na opção A e fica depois de SCE-247. SCE-154 continua bloqueada.
+SCE-246 estava aceita na opção A após a confirmação do operador de que todos os itens pendentes fossem aplicados. Este ciclo aplicou somente essa opção, sem cache ou alteração das regras de tela. As SCE-237 a SCE-245 ainda apareciam sem decisão nos registros de 13/11; a confirmação global posterior também as aceita e elas continuam na fila, sem serem reapresentadas como perguntas. O registro antigo SCE-247, datado de 13/11, ainda dizia “aguarda decisão”; a mesma confirmação agora a reconcilia como aceita. A matriz do ciclo SCE-312 não havia listado esse grupo; esta entrada corrige o status e o cursor sem executar vários recortes de uma vez. O próximo caminho imediato continua sendo o checkpoint SCE-247. SCE-319 permanece aceita na opção A e fica na fila posterior. SCE-154 continua bloqueada.
 
 Consultei os oito relatórios ligados ao índice: `egress-supabase-morantehub.md`, `2026-09-15-supabase-egress.md`, `2026-11-04-egress-erp-app.md`, `egress-cargas-compactas-2026-11-04.md`, `roadmap-apis-ia-google-maps.md`, `produtos-alertas-resumo-estoque-2026-11-04.md`, `auditoria-ferramentas-seu-lizandro-2026-11-09.md` e `pedidos-filtros-servidor-2026-11-04.md`. EGR-018 explica que alguns campos excedentes foram removidos da consulta do ERP; isso não mede o volume nem o tempo do resumo móvel. EGR-017 registra a função de totais usada pelo ERP e uma conferência agregada antiga, mas não fornece uma medida atual deste app.
 
@@ -18844,6 +19005,7 @@ A inspeção estática confirma que a função SQL devolve os três nomes espera
 | --- | --- | --- |
 | App — opções técnicas inativas (SCE-312) | Aplicado localmente no ciclo anterior | Filtro antes do limite; chamadas habituais não mudam. Bytes, carga e rapidez sem medição. |
 | App — resumo do Catálogo Meta (SCE-246) | Opção A aceita e aplicada localmente neste ciclo | Duas leituras passam a uma função; uma linha agregada substitui listas. Medição real, confirmação de igualdade atual e egress oficial pendentes. Sem alteração de permissões ou cache. |
+| Propostas aceitas ainda em fila (SCE-237 a SCE-245) | Aceitas pela confirmação global; aguardam ciclos próprios | Decisões anteriores eram pendentes; não foram reapresentadas nem implementadas neste recorte. |
 | App — vínculos de categorias/ambientes (SCE-247) | Aceita pela autorização global; aguardando recorte próprio | A proposta estava pendente na entrada de 13/11 e havia sido omitida da matriz anterior; cursor corrigido aqui. |
 | ERP — cache de contadores entre contas (SCE-319) | Opção A aceita; fila posterior | Escopo por conta e limpeza ao trocar sessão. |
 | Cobertura geral (SCE-154) | Bloqueada | Mantida conforme histórico. |
@@ -18851,3 +19013,686 @@ A inspeção estática confirma que a função SQL devolve os três nomes espera
 **Próximo recorte exato:** SCE-247, somente a carga de `mobile/src/features/products/modals/EnvironmentsManagerModal.tsx#load`, que chama separadamente `fetchMobileEnvironments()` e `fetchMobileCategories()`. Conferir `mobile/src/features/products/services/mobileCategoryService.ts`, `ProductFormBasicTab.tsx`, a necessidade real de `categoryIds`, os campos retornados, o tratamento de falha e se o carregador compartilhado existente pode servir ao modal sem mudar suas duas listas. Não reabrir categorias financeiras da assistente nem mapas de oportunidades SCE-006; não consultar dados de produto/preço/estoque nem executar operações. Separar chamadas, bytes/saída oficial, carga/latência e resposta visual nativa; estabelecer a linha de base disponível e a meta antes/depois.
 
 ---
+
+## Ciclo — 17/11/2026, 17:11 BRT (20:11Z) — listas de categoria no formulário móvel (SCE-247)
+
+Ao abrir ou atualizar o formulário de produto, as categorias e os ambientes continuam aparecendo com os mesmos filtros e nomes. Quando as duas listas carregam, esta tela passa de quatro leituras para três: as categorias e os ambientes compartilham a mesma leitura dos vínculos. A lista usa uma seleção menor de colunas. Isso reduz chamadas neste trecho, mas ainda não prova que a tela ficou mais rápida.
+
+### Reconciliação e autorização
+
+SCE-247 estava pendente na matriz, e a confirmação do operador “ACITO TODOS OS PENDENTES” aceita as propostas anteriores que ainda aguardavam decisão. A opção A da SCE-247 foi aplicada apenas neste recorte. A anotação anterior apontava por engano `EnvironmentsManagerModal#load` como SCE-247; esse caminho corresponde à SCE-248, que fica como o próximo recorte. As SCE-237 a SCE-245, SCE-248 a SCE-250 e SCE-319 também estão aceitas, mas ficam para seus próprios ciclos. SCE-246 e SCE-312 já constam como aplicadas em ciclos anteriores. SCE-154 continua bloqueada, conforme histórico.
+
+Consultei novamente os oito relatórios ligados pelo índice: `egress-supabase-morantehub.md`, `2026-09-15-supabase-egress.md`, `2026-11-04-egress-erp-app.md`, `egress-cargas-compactas-2026-11-04.md`, `roadmap-apis-ia-google-maps.md`, `produtos-alertas-resumo-estoque-2026-11-04.md`, `auditoria-ferramentas-seu-lizandro-2026-11-09.md` e `pedidos-filtros-servidor-2026-11-04.md`. As métricas históricas de categorias são totais compartilhados entre telas e não identificam este formulário; não servem como linha de base por tela. Não há medição atual atribuível ao fluxo.
+
+### Caminhos e mudança
+
+Revisei `mobile/src/features/products/services/mobileCategoryService.ts#fetchMobileCategories`, `#fetchMobileEnvironments`, `#fetchMobileCategoryEnvironmentData` e o novo `#fetchMobileProductFormCategoryOptions`; `mobile/src/features/products/modals/tabs/ProductFormBasicTab.tsx#refreshCategories`; `mobile/src/features/products/modals/tabs/productFormCategoryFiltering.ts`; `mobile/src/features/products/modals/components/CategoryMultiSelectList.tsx`; `shared-utils/productCategoryOptions.ts`; e `shared-utils/productCategoryResolution.ts`.
+
+O formulário agora usa `fetchMobileProductFormCategoryOptions()`. O carregador compartilha, sob demanda, uma única promessa de `category_relationships` entre as duas consultas. Ambas usam a projeção já existente `id, name, slug, type`. A busca, o filtro de categorias (`type.neq.environment,type.is.null`), a ordem alfabética e os vínculos dos pais permanecem iguais. O carregador usado pela gestão combinada de categorias não foi alterado. O formulário continua tolerando falhas separadas: se os ambientes ou seus vínculos falharem, mantém as categorias retornadas e marca a hierarquia como indisponível; uma falha na lista de categorias continua produzindo lista vazia, conforme o serviço anterior.
+
+### Chamadas, bytes e banco — separados
+
+- **Requisições:** por atualização bem-sucedida deste trecho, a estrutura cai de duas consultas à lista `categories` mais duas leituras iguais de `category_relationships` para duas consultas de `categories` e uma leitura compartilhada de vínculos: quatro para três, ou 25% menos chamadas nesta carga. Se uma consulta de lista falhar antes, a contagem poderá ser menor. Não medi quantas vezes usuários abrem o formulário nem quantas atualizações acontecem depois de gerir categorias.
+- **Bytes e saída:** as duas listas deixam de pedir `select('*')` e passam a pedir `id, name, slug, type`; além disso, os vínculos deixam de ser transferidos uma segunda vez. A direção da redução de bytes da resposta é esperada pela projeção e pela leitura eliminada, mas não medi linhas, bytes de resposta, tráfego de rede nem o medidor oficial de saída. Não atribuo tamanho de amostra à cobrança de saída.
+- **Trabalho e rapidez:** uma consulta de vínculos deixa de ser repetida, mas continuam as duas consultas de categorias e a consulta de vínculos necessária para montar a hierarquia. Não medi plano, linhas examinadas, CPU nem latência do banco; não afirmo redução geral de carga ou tempo. A única linha de base disponível é estrutural (quatro leituras num sucesso). Não existe p50/p95 por tela. A tela ainda começa com a lista vazia e não mostra um indicador específico de carregamento das categorias; esta alteração não adiciona progresso visível. Portanto, não há evidência de melhora no tempo percebido.
+
+### Experiência, acesso e critérios para liberar
+
+Os fluxos afetados são a primeira abertura do formulário e a atualização chamada quando a pessoa salva/fecha o modal de gestão. Cada execução individual de `refreshCategories` tem o novo compartilhamento; a quantidade de execuções continua sem medição. As regras de acesso, filtros no servidor, ordenação, pesquisa, seleção automática, preenchimento de ambientes e retentativa nas aberturas/fechamentos permanecem iguais. Não há cache nem funcionamento offline novo. Esta carga não lê preço ou estoque, e não afeta suas atualizações ou confirmações; mensagens após desconexão também não mudam.
+
+Antes de distribuir, comparar a versão anterior e a nova no mesmo aparelho, sistema, rede e conta de teste autorizada. Medir do toque em abrir/atualizar até a lista pronta e, separadamente, o tempo até `categoryHierarchyReady`; registrar p50 e p95, quantidade de chamadas, linhas e bytes de resposta e, separadamente, CPU/latência do banco e egress oficial. Alvo provisório para esta tela nativa: p95 de até 3 s até a lista e a hierarquia ficarem prontas em uma rede móvel normal; nenhuma espera acima de 10 s sem progresso ou erro visível. Como não há atualmente indicador específico de carregamento, se o tempo exceder esse limite ou o p95 falhar, segurar a distribuição e avaliar uma mudança separada de feedback visual. Esses alvos ainda não foram medidos.
+
+### Validação, reversão e limites
+
+A revisão estática confirma que as opções exibidas dependem dos campos projetados: identificador, nome, tipo e vínculos/pais; `slug` já integra a projeção resumida existente. A chamada ao gerenciador permanece intacta. `git diff --check` passou; o Git avisou que pode normalizar CRLF/LF. Não rodei testes ou compilação, não consultei Supabase nem registros, não executei DML/fixtures, migration, deploy ou OTA. O comportamento de falha foi comparado no código, não exercitado.
+
+Antes de liberar, conferir a lista e ordem, tipos nulos, nomes com acentos, associação pai/filho, seleção automática, falha isolada da lista de ambientes, falha dos vínculos e falha da lista de categorias; medir os tempos e contagens acima. Para reverter, restaurar em `ProductFormBasicTab.tsx` as duas chamadas independentes e retirar o carregador sob demanda e seu tipo de origem compartilhada de `mobileCategoryService.ts`. Nenhuma reversão de banco é necessária. Não publiquei o app.
+
+### Matriz atualizada e próximo recorte
+
+| Recorte/ID | Estado | Evidência e limite |
+| --- | --- | --- |
+| App — opções técnicas inativas (SCE-312) | Aplicada localmente em ciclo anterior | Filtro no servidor; rapidez, bytes de resposta e saída oficial sem comparação. |
+| App — resumo do Catálogo Meta (SCE-246) | Opção A aplicada localmente em ciclo anterior | Duas leituras trocadas por uma RPC; igualdade de valores e métricas atuais ainda precisam de validação. |
+| App — listas do formulário de produto (SCE-247) | Opção A aplicada localmente neste ciclo | Quatro leituras estruturais passam a três por atualização bem-sucedida; bytes, egress oficial, banco e tempo real sem medição. |
+| App — listas ao abrir gestão de ambientes (SCE-248) | Aceita pela autorização global; próximo ciclo | Proposta própria; não alterada aqui. |
+| Propostas aceitas na fila | SCE-237 a SCE-245, SCE-249 a SCE-250 e SCE-319 opção A | Decisão global reconciliada; aplicar cada uma em seu recorte. |
+| Cobertura geral (SCE-154) | Bloqueada | Mantida conforme histórico. |
+
+**Próximo recorte exato:** SCE-248, somente `mobile/src/features/products/modals/EnvironmentsManagerModal.tsx#load` e o carregador de `mobile/src/features/products/services/mobileCategoryService.ts`. Implementar a opção A aceita: uma lista compacta de categorias (`id, name, type`), uma lista compacta de ambientes e uma única leitura de `category_relationships` para montar `categoryIds`; manter filtros e ordenação, busca, contador, seleção ao editar e o tratamento separado de falhas (falha de ambientes/vínculos mantém as listas atuais; falha de categorias mantém a lista vazia e ainda pode exibir ambientes). Não tocar em `#save`/`#remove` (SCE-249/250), preços/estoque nem dados operacionais. Medir chamadas, linhas/bytes de resposta e egress oficial separadamente da carga/latência do banco; no mesmo aparelho, medir p50/p95 da abertura até ambas as listas e vínculos estarem prontos, com alvo nativo provisório p95 ≤3 s e nenhuma espera >10 s sem progresso/erro. Não rodar testes/build, consultas remotas, DML/fixtures, migration, deploy ou OTA.
+
+---
+
+## Ciclo — 17/11/2026, 17:26 BRT (20:26Z) — abertura da gestão de ambientes no app (SCE-248)
+
+Ao abrir a gestão de ambientes ou atualizar as listas depois de salvar/excluir, o modal continua mostrando as categorias para escolher e os vínculos de cada ambiente. Uma leitura de vínculos repetida foi removida. A carga bem-sucedida passa estruturalmente de quatro consultas para três, e as listas pedem somente os campos que o modal usa. Ainda não há medição de rapidez ou bytes reais para dizer se a pessoa percebe a tela mais rápida.
+
+### Reconciliação e autorização
+
+A SCE-248 estava pendente e foi aceita pela confirmação global “ACITO TODOS OS PENDENTES”. A opção A foi aplicada somente à abertura/recarga do modal. A SCE-247, cujo ponto de retomada anterior foi corrigido no ciclo passado, também está aplicada localmente. As propostas SCE-237 a SCE-245, SCE-249 e SCE-250, além da opção A da SCE-319, estão aceitas e aguardam seus próprios ciclos; esta mudança não executa suas operações de salvar ou excluir ambientes. SCE-246 e SCE-312 permanecem como ciclos anteriores. SCE-154 continua bloqueada conforme o registro.
+
+Li novamente AGENTS.md §§24–25, `rules/supabase/supabase-consumption.yml`, a skill `supabase-consumption`, este roadmap e os oito relatórios ligados pelo índice: `egress-supabase-morantehub.md`, `2026-09-15-supabase-egress.md`, `2026-11-04-egress-erp-app.md`, `egress-cargas-compactas-2026-11-04.md`, `roadmap-apis-ia-google-maps.md`, `produtos-alertas-resumo-estoque-2026-11-04.md`, `auditoria-ferramentas-seu-lizandro-2026-11-09.md` e `pedidos-filtros-servidor-2026-11-04.md`. Os registros históricos mencionam leitura de `category_relationships` em outros módulos e totais agregados por recurso. Eles não identificam a abertura deste modal; não os tratei como frequência, linha de base de bytes ou tempo deste consumidor.
+
+### Caminhos conferidos e alteração
+
+Revisei `mobile/src/features/products/modals/EnvironmentsManagerModal.tsx#load`, `#save`, `#remove` e a lista de categorias/vínculos do modal; `mobile/src/features/products/services/mobileCategoryService.ts#fetchMobileCategories`, `#fetchMobileEnvironments`, `#fetchMobileCategoryEnvironmentData` e o novo `#fetchMobileEnvironmentManagerData`; `mobile/src/features/products/categories/hooks/useMobileCategoriesAndEnvironments.ts`; e `shared-utils/productCategoryOptions.ts`.
+
+O modal agora chama `fetchMobileEnvironmentManagerData()`. O carregador consulta categorias e ambientes com `id, name, type` em paralelo. Depois que a consulta de ambientes termina com sucesso, lê vínculos uma só vez (`parent_id, child_id`) e os agrupa para preencher `categoryIds`; se a consulta de ambientes falhar, não inicia essa leitura desnecessária. Mantém os filtros no servidor, a ordem por nome e a validação `isProductCategoryOption`. A lista de categorias não recebe nem calcula `parents`, que o modal não usa. Outros consumidores do carregador compartilhado existente continuam sem alteração.
+
+### Requisições, bytes e carga do banco — medidos separadamente
+
+- **Requisições:** quando tudo funciona, antes eram duas consultas de categorias e duas consultas repetidas de vínculos; agora são duas listas e uma consulta de vínculos: quatro para três por carga (25% menos estruturalmente). Isso se aplica à abertura e a cada recarga após salvar ou excluir; não altera quantas vezes essas ações ocorrem. Não há captura por tela nem contagem real de sessões.
+- **Bytes e saída:** antes as listas pediam `select('*')` e a resposta de vínculos era repetida; agora as listas recebem somente identificador, nome e tipo, e os vínculos vêm uma vez. A redução de campos e de uma resposta duplicada é estrutural, mas o número de linhas e os bytes reais não foram medidos. Não consultei o medidor oficial de saída e não estimo cobrança faturável a partir de amostras.
+- **Banco:** uma consulta repetida de `category_relationships` deixa de ocorrer. As leituras necessárias das duas listas e dos vínculos permanecem. Não medi plano, linhas examinadas, CPU ou latência; não afirmo redução de carga nem de tempo do banco.
+
+### Comportamento da tela, acesso e atualidade
+
+Na abertura e na recarga, o indicador de carregamento do modal continua aparecendo até as listas estarem prontas. Se a busca de categorias falha, o serviço ainda devolve uma lista vazia e, se ambientes/vínculos carregarem, o modal pode mostrar os ambientes sem opções de categoria. Se a consulta de ambientes ou de vínculos falha, a carga rejeita e o estado anterior das duas listas é mantido; o `finally` encerra o indicador. O caminho existente não exibe uma mensagem específica de erro nessa falha, e isso não foi alterado. Não há preço/estoque nesta tela, cache, novo modo offline ou atualização automática após reconexão; permissões e regras de acesso continuam as mesmas. A gravação, confirmação e exclusão continuam fora deste recorte.
+
+### Rapidez percebida e critério provisório
+
+A linha de base que o código permite afirmar é quatro consultas no caminho bem-sucedido. A tela nativa mostra um indicador durante a carga, mas não há medida de quanto tempo o modal leva para abrir ou recarregar, nem distribuição mediana/p95. Antes de liberar, comparar versões no mesmo aparelho, sistema, rede normal identificada e conta autorizada: medir p50/p95 do toque até categorias, ambientes e vínculos estarem prontos; separar a duração da leitura da duração de salvar/excluir; registrar contagem de consultas, linhas e bytes de resposta; e comparar CPU/latência do banco e egress oficial em campos separados. O limite provisório para a carga do modal é p95 ≤3 s e nenhuma espera acima de 10 s sem progresso ou erro visível. Esses valores são metas, não medições. Se a mudança exceder o limite ou piorar a abertura/recarga, segurar a distribuição e reavaliar; não atribuir melhora de velocidade apenas à redução estrutural de uma chamada.
+
+### Validação e reversão
+
+A comparação estática confirma que o modal usa identificador/nome da categoria e identificador/nome/`categoryIds` do ambiente; os filtros e ordenação são mantidos. Falha de categorias continua independente, e falha de ambientes/vínculos não substitui listas já mostradas. `git diff --check` passou sem erro de espaço; o Git exibiu somente avisos de possível normalização CRLF/LF. Não rodei testes, compilação ou consultas remotas; não consultei conteúdo pessoal, segredos ou dados operacionais; não executei DML/fixtures, migration, deploy ou OTA. Antes de distribuir, validar em código e em uma sessão de teste autorizada as listas ordenadas, seleção de várias categorias, edição dos vínculos, categorias sem tipo, falha isolada de cada leitura, indicador de carga, mensagem/estado após falha e medições de p50/p95 acima. Para reverter, restaurar em `EnvironmentsManagerModal.tsx` as chamadas independentes e retirar `fetchMobileEnvironmentManagerData` de `mobileCategoryService.ts`; nenhuma reversão de banco é necessária.
+
+### Matriz atualizada e próximo recorte
+
+| Recorte/ID | Estado | Evidência e limite |
+| --- | --- | --- |
+| App — listas do formulário de produto (SCE-247) | Opção A aplicada localmente no ciclo anterior | Quatro para três leituras estruturais por carga bem-sucedida; métricas reais ainda sem linha de base. |
+| App — abertura/recarga da gestão de ambientes (SCE-248) | Opção A aplicada localmente neste ciclo | Quatro para três consultas e projeções reduzidas; bytes, egress oficial, carga e p50/p95 reais sem medição. |
+| App — excluir ambiente se houver vínculos (SCE-249) | Aceita pela aprovação global; fila | Não alterado; revisar a consulta de existência antes de excluir, sem executar exclusão. |
+| App — retorno mínimo ao salvar ambiente (SCE-250) | Aceita pela aprovação global; fila | Não alterado; o serviço segue usando apenas `data.id` depois de retorno completo. |
+| Propostas aceitas na fila | SCE-237 a SCE-245 e ERP SCE-319 opção A | Aplicar em ciclos separados; não pedir aprovação novamente. |
+| Cobertura geral (SCE-154) | Bloqueada | Mantida conforme o histórico. |
+
+**Próximo recorte exato:** SCE-249, somente `mobile/src/features/products/services/mobileCategoryService.ts#deleteMobileEnvironment` e o chamador `mobile/src/features/products/modals/EnvironmentsManagerModal.tsx#remove`. Avaliar a troca da contagem exata por uma consulta que pare na primeira relação, mantendo o filtro por ambiente, a regra de impedir exclusão quando existe vínculo e o erro mostrado pela tela. Contar chamadas e linhas devolvidas separadamente; qualquer redução no trabalho do banco é hipótese até haver plano/medição agregada autorizada, e bytes/egress não devem ser presumidos menores. Medir no mesmo aparelho a resposta visível e a conclusão da tentativa de exclusão, separando mediana/p95 de primeira confirmação e duração final, com alvo provisório p95 ≤3 s em rede normal e sem mais de 10 s sem resposta/estado de processamento; não executar a exclusão nem consultar dados operacionais. Não tocar em `saveMobileEnvironment`/SCE-250, `uniqueSlug`, outras plataformas, preço/estoque, DML/fixtures, migration, testes/build, deploy ou OTA neste recorte.
+
+---
+
+## Ciclo — 17/11/2026, 17:41 BRT (20:41Z) — conferir vínculos antes de excluir ambiente (SCE-249)
+
+Quando a pessoa tenta apagar um ambiente, o aplicativo ainda impede a exclusão se houver categoria vinculada e mostra a mesma orientação para desvincular primeiro. A consulta agora pede somente um vínculo e pode parar ao encontrar o primeiro. O número de chamadas não diminui, e não há medida para afirmar que a tentativa ficou mais rápida.
+
+### Reconciliação e autorização
+
+A SCE-249 estava pendente e foi aceita pela confirmação global “ACITO TODOS OS PENDENTES”. A opção A foi aplicada somente na checagem prévia à exclusão. SCE-248 já está registrada como aplicada no ciclo anterior. SCE-250 (retorno mínimo ao salvar ambiente), SCE-237 a SCE-245 e SCE-319 opção A continuam aceitas e na fila de recortes separados; não foram reapresentadas como perguntas. SCE-154 permanece bloqueada. Não fiz nenhuma tentativa de exclusão nem executei consulta ao banco.
+
+Li novamente AGENTS.md §§24–25, `rules/supabase/supabase-consumption.yml`, a skill `supabase-consumption`, este roadmap e os oito relatórios históricos ligados pelo índice: `egress-supabase-morantehub.md`, `2026-09-15-supabase-egress.md`, `2026-11-04-egress-erp-app.md`, `egress-cargas-compactas-2026-11-04.md`, `roadmap-apis-ia-google-maps.md`, `produtos-alertas-resumo-estoque-2026-11-04.md`, `auditoria-ferramentas-seu-lizandro-2026-11-09.md` e `pedidos-filtros-servidor-2026-11-04.md`. O histórico registra contagens agregadas de `category_relationships` e otimizações em telas diferentes; nenhuma fonte atribui essas chamadas à tentativa `EnvironmentsManagerModal#remove`, nem fornece bytes, plano de execução ou latência desta ação.
+
+### Caminhos e alteração
+
+Revisei `mobile/src/features/products/services/mobileCategoryService.ts#deleteMobileEnvironment`, `mobile/src/features/products/modals/EnvironmentsManagerModal.tsx#remove` e a atualização posterior por `#load`, além de `mobile/src/features/products/services/mobileCategoryEnvironmentService.test.ts` para conferir os contratos já cobertos.
+
+`deleteMobileEnvironment` trocou `select('child_id', { count: 'exact', head: true })` por `select('child_id').eq('parent_id', id).limit(1)`. Se a resposta contiver uma linha, o serviço interrompe com a mesma mensagem “Desvincule as categorias antes de excluir este ambiente.”; se vier vazia, continua com a mesma exclusão de `categories`. Erros da consulta continuam interrompendo a operação. O filtro, cliente, permissões e etapa separada de exclusão não mudaram. Atualizei os mocks existentes do serviço para representar a resposta de zero/uma linha; não acrescentei cenário e não executei testes.
+
+### Chamadas, bytes e trabalho do banco — separados
+
+- **Chamadas:** a conferência continua sendo uma chamada. Com vínculo encontrado, a exclusão não é enviada; sem vínculo, segue uma chamada de exclusão. Após sucesso, o modal recarrega as listas conforme a SCE-248 (três leituras bem-sucedidas). Portanto, a checagem não reduz requisições e a frequência de tentativas não foi medida. O fluxo antigo também fazia uma checagem, e não atribuo a contagem agregada da tabela a este botão.
+- **Bytes/egress:** antes a consulta `HEAD` devolvia uma contagem, sem linhas; agora pode devolver até uma linha contendo `child_id`. No caminho em que existe vínculo, a resposta pode ter mais bytes que antes; no caminho vazio, não há linha. Não medi bytes nem egress oficial. Esta mudança não é apresentada como economia de saída.
+- **Banco:** a contagem exata precisava contar todos os vínculos visíveis daquele ambiente. A nova busca limitada pode parar na primeira linha. Isso pode reduzir trabalho quando há vínculo, mas depende do plano/índice e não foi medido. Quando não há vínculo, o banco ainda precisa confirmar que não encontrou correspondência. Não afirmo redução quantitativa de CPU, latência ou carga.
+
+### Resultado, permissões e estado da tela
+
+O uso de `category_relationships`, o filtro `parent_id = id` e as políticas de acesso à tabela permanecem os mesmos; a consulta não ganha permissões. O ambiente só é excluído depois da checagem vazia, e a gravação continua numa segunda chamada, portanto a janela para outra operação criar um vínculo entre checagem e exclusão já existia e continua existindo. O modal mantém a mesma mensagem se o vínculo for encontrado ou ocorrer erro. A ação depende de conexão e não tem fila offline; sem conexão, o erro continua indo para o alerta atual. Não há cache novo, preço ou estoque nesta ação. Após exclusão bem-sucedida, a lista ainda é recarregada; mensagens e retentativas fora do modal não mudam.
+
+### Rapidez percebida e limite de liberação
+
+A linha de base estrutural é uma leitura para conferir vínculos; se a exclusão for permitida, a ação ainda faz a gravação e recarrega listas. O modal mostra o alerta de confirmação antes da tentativa, mas depois que a pessoa confirma não exibe progresso enquanto a checagem e a exclusão estão aguardando; o indicador da lista só aparece durante a recarga posterior. Não existe medição de tempo por ação, p50 ou p95, e a telemetria local disponível agrega chamadas/duração/bytes por recurso, sem separar essa tela nem guardar distribuição p95.
+
+Antes de distribuir, comparar no mesmo aparelho, versão, rede identificada e conta autorizada: (1) tempo desde confirmar a exclusão até o erro ou resultado visível, quando há vínculo; (2) tempo até a confirmação da exclusão no servidor e lista atualizada, quando não há vínculo; (3) separadamente, tempo/estado visível durante a recarga. Registrar mediana e p95, chamadas, linhas e bytes de resposta, carga/latência do banco e egress oficial em medidas distintas. Meta provisória para esta ação nativa: p95 ≤3 s até uma resposta de resultado e nenhuma espera acima de 10 s sem indicação de processamento. Esses limites não foram validados com a equipe nem medidos. Como o código atual não mostra progresso durante a checagem/exclusão, segurar a distribuição se a tentativa ultrapassar o limite; nesse caso, feedback visual precisará de revisão própria. A redução potencial no trabalho do banco, sozinha, não comprova que a ação continua responsiva.
+
+### Validação e reversão
+
+Revisei estaticamente o filtro, a lógica de zero/uma linha e o comportamento do chamador; atualizei os mocks existentes para `.limit(1)` e `data: []`/uma relação. `git diff --check` passou sem erro de espaço; o Git exibiu avisos de normalização CRLF/LF. Não executei testes, compilação, chamadas remotas, exclusão ou leitura de vínculos reais; não fiz DML/fixtures, migration, deploy ou OTA. Para liberar, validar somente em uma sessão de teste autorizada os dois resultados da checagem e o tempo/feedback com os critérios acima; não usar exclusões reais como teste. Reverter é restaurar a consulta de contagem `HEAD`, a condição `(count || 0) > 0` e o mock anterior; nenhuma reversão de banco é necessária.
+
+### Matriz atualizada e próximo recorte
+
+| Recorte/ID | Estado | Evidência e limite |
+| --- | --- | --- |
+| App — abertura/recarga da gestão de ambientes (SCE-248) | Opção A aplicada localmente no ciclo anterior | Quatro para três leituras estruturais e projeção compacta; rapidez/bytes oficiais sem medição. |
+| App — bloquear exclusão quando há vínculo (SCE-249) | Opção A aplicada localmente neste ciclo | Continua uma chamada de checagem; a resposta pode incluir um `child_id`; carga do banco e tempo não medidos. Mocks existentes atualizados, sem execução. |
+| App — retorno mínimo ao salvar ambiente (SCE-250) | Aceita globalmente; próximo recorte | Não tocado; resposta completa ainda é usada apenas para recuperar `id`. |
+| Propostas aceitas na fila | SCE-237 a SCE-245 e ERP SCE-319 opção A | Manter em recortes próprios, sem pedir aprovação outra vez. |
+| Cobertura geral (SCE-154) | Bloqueada | Mantida conforme o histórico. |
+
+**Próximo recorte exato:** SCE-250, somente `mobile/src/features/products/services/mobileCategoryService.ts#saveMobileEnvironment` e seu chamador `mobile/src/features/products/modals/EnvironmentsManagerModal.tsx#save`. Nas inclusões e atualizações, trocar o retorno completo por `select('id')`, mantendo a recuperação do identificador, as etapas separadas de gravar ambiente e vínculos, os erros visíveis e a recarga das listas. Comparar chamadas, campos/linhas e bytes separadamente, sem presumir menor egress faturável; medir no mesmo aparelho mediana/p95 até resposta visível e até o salvamento/recarregamento concluído, com alvo provisório ≤3 s no p95 e sem mais de 10 s sem processamento/erro. Preservar validação do formulário, permissões, atualização de ambiente/categorias e estado após falha parcial. Não mexer em `uniqueSlug`/outras plataformas, não criar vínculo nem salvar dados, não consultar Supabase, nem rodar testes/build, DML/fixtures, migration, deploy ou OTA.
+
+---
+
+## Ciclo — 17/11/2026, 17:56 BRT (20:56Z) — retorno mínimo ao salvar ambiente (SCE-250)
+
+Ao criar ou editar um ambiente, o aplicativo continua recebendo do servidor o identificador necessário para concluir e atualizar as listas. A gravação agora pede de volta somente esse identificador, em vez da linha inteira. O número de chamadas e as gravações não mudam; o efeito real em bytes e rapidez ainda não foi medido.
+
+### Reconciliação e autorização
+
+A SCE-250 estava aceita pela confirmação global “ACITO TODOS OS PENDENTES” e foi aplicada na opção A recomendada. O ciclo anterior concluiu a checagem de vínculos antes da exclusão (SCE-249). As SCE-237 a SCE-245 e SCE-319 opção A continuam aceitas, cada uma na sua própria fila; nenhuma foi reapresentada como pergunta. SCE-154 permanece bloqueada conforme o histórico. Este ciclo altera somente a projeção de retorno de `saveMobileEnvironment`.
+
+Li novamente AGENTS.md §§24–25, `rules/supabase/supabase-consumption.yml`, a skill `supabase-consumption`, o roadmap e os oito relatórios históricos indicados: `egress-supabase-morantehub.md`, `2026-09-15-supabase-egress.md`, `2026-11-04-egress-erp-app.md`, `egress-cargas-compactas-2026-11-04.md`, `roadmap-apis-ia-google-maps.md`, `produtos-alertas-resumo-estoque-2026-11-04.md`, `auditoria-ferramentas-seu-lizandro-2026-11-09.md` e `pedidos-filtros-servidor-2026-11-04.md`. Os registros sobre categorias e vínculos pertencem a outros módulos ou não conseguem identificar o botão deste modal. Não fornecem bytes ou tempos de salvamento deste fluxo.
+
+### Caminhos e alteração
+
+Revisei `mobile/src/features/products/services/mobileCategoryService.ts#saveMobileEnvironment`, os consumidores `mobile/src/features/products/modals/EnvironmentsManagerModal.tsx#save` e `#load`, e os cenários já existentes para criação e edição em `mobile/src/features/products/services/mobileCategoryEnvironmentService.test.ts`.
+
+Nos dois caminhos da mutação, troquei `.select('*').single()` por `.select('id').single()`: na atualização, depois do filtro pelo `id` atual; na inclusão, depois de gerar o `slug` e inserir o ambiente. Ambos continuam lendo `data.id`. A exclusão e reinclusão dos vínculos, a resolução do `slug`, a validação do formulário, as chamadas e os erros permanecem iguais. Depois do salvamento, o modal continua recarregando os dados conforme a SCE-248. Não precisei mudar o teste existente, pois seus mocks já devolvem o identificador e não exigem as demais colunas; não rodei o teste.
+
+### Chamadas, bytes e trabalho do banco — separados
+
+- **Chamadas:** a projeção não remove nem adiciona pedidos. Criar ainda pode consultar colisão de `slug`, inserir o ambiente e, se necessário, inserir vínculos; editar continua atualizando o ambiente, removendo vínculos antigos e podendo inserir os vínculos novos. A atualização do modal após sucesso permanece. As quantidades concretas dependem de `categoryIds` e do caminho de criação/edição; não medi frequência de uso.
+- **Bytes/egress:** cada inclusão ou atualização continua devolvendo uma linha, mas agora só o campo `id`, em vez de todos os campos da tabela. Isso deve reduzir o corpo de resposta dessas duas mutações. Não medi o tamanho real, não consultei o medidor oficial de saída e não converto o formato da linha em egress faturável.
+- **Banco:** as mesmas gravações, filtros e verificações são executadas. A projeção reduz os dados produzidos para a resposta, mas não comprova menos trabalho na gravação. Não medi CPU, plano, latência, filas ou carga; não afirmo economia de banco.
+
+### Resultado, permissões e experiência
+
+As mesmas regras de acesso e cliente autenticado continuam valendo; a projeção não amplia permissões. O retorno ainda fornece o `id` que o código usa. Não há preço ou estoque nessas gravações, nem cache, fila offline ou sincronização ao reconectar; o salvamento segue dependendo de conexão. Os alertas de validação e de falha continuam iguais. Se a inclusão/atualização do ambiente funcionar e a gravação separada de vínculos falhar, o modal mantém a possibilidade anterior de mostrar erro depois de uma alteração parcial; esta mudança não torna as etapas atômicas.
+
+### Rapidez percebida e limite provisório
+
+A linha de base disponível é estrutural: a inclusão e a atualização retornavam uma linha completa; o formulário usa somente `id`. O fluxo continua esperando `saveMobileEnvironment` e depois `load()` antes de terminar o manipulador. Não há medição por tela nem p50/p95. Durante a gravação, o formulário não mostra um estado específico de processamento; a tela mostra o indicador da lista somente quando começa a recarga posterior. Antes de distribuir, comparar criação e edição separadamente, no mesmo aparelho, versão, rede normal identificada e conta autorizada: medir a primeira resposta visível, o retorno da gravação confirmada pelo servidor e o término da atualização das listas; registrar mediana/p95, chamadas, campos/linhas e bytes; comparar carga/latência do banco e egress oficial separadamente. Meta provisória nativa: p95 ≤3 s até o salvamento e a lista atualizada, sem mais de 10 s sem processamento ou erro visível. Não há resultado medido nem meta validada pela equipe. Se os tempos ultrapassarem o limite, segurar a distribuição; a projeção menor não justifica deixar a ação sem resposta.
+
+### Validação e reversão
+
+A revisão estática confirmou que os dois caminhos somente usam `data.id`, e que o chamador mantém validação, alertas, gravações de vínculos e atualização das listas. `git diff --check` passou sem erro de espaço; o Git apenas avisou que alguns arquivos têm finais de linha CRLF e podem ser normalizados para LF. Não consultei banco ou dados operacionais, não executei salvamento, DML/fixtures, migration, deploy ou OTA. Não rodei testes nem compilação. Antes de liberar, comparar a resposta em sessão autorizada e medir a experiência descrita; não usar registros reais como teste. Reverter é restaurar `.select('*')` nas duas mutações; não requer alteração de banco.
+
+### Matriz atualizada e próximo recorte
+
+| Recorte/ID | Estado | Evidência e limite |
+| --- | --- | --- |
+| App — conferir vínculos antes de excluir (SCE-249) | Opção A aplicada localmente no ciclo anterior | Uma consulta, no máximo uma linha; trabalho do banco possível, porém sem medição. |
+| App — retorno mínimo ao salvar ambiente (SCE-250) | Opção A aplicada localmente neste ciclo | Retorno completo passa a apenas `id` nas inclusões/atualizações; chamadas constantes; bytes, egress e p50/p95 sem medida. |
+| Propostas aceitas na fila | SCE-237 a SCE-245 e ERP SCE-319 opção A | Aplicar em recortes dedicados, sem nova pergunta. |
+| Cobertura geral (SCE-154) | Bloqueada | Mantida conforme histórico. |
+
+**Próximo recorte exato:** retomar o próximo item aceito da fila: **SCE-238**, somente `digital-catalog/src/services/meta-catalog/credentials.ts#getMetaCatalogCredentials`. No caso em que token e identificador de catálogo do ambiente já estejam ambos presentes e válidos, retornar esse par sem consultar `facebook_catalog_settings`; preservar a leitura e a precedência atuais quando algum valor faltar, sem mostrar nem registrar segredos. Reconciliar a decisão global já concedida, revisar somente os chamadores relevantes e comparar chamadas, campos/bytes e trabalho do banco separadamente. Medir leitura e caminho completo de chamada em condições equivalentes; não alegar p50/p95 ou economia oficial sem medida. Não avançar SCE-239 a SCE-245 nem SCE-319 neste ciclo, não consultar credenciais/segredos, dados pessoais ou operacionais, banco remoto, DML/fixtures, migration, testes/build, deploy ou OTA.
+
+---
+
+## Ciclo — 17/11/2026, 18:11 BRT (21:11Z) — reduzir os dados do histórico de compras usados pelo atendimento por voz (SCE-237)
+
+Na análise de um atendimento, o assistente continua vendo os mesmos produtos, datas e categorias de compra. O aplicativo deixa de pedir de volta um campo adicional do cadastro do cliente que era descartado antes de montar a mensagem enviada à inteligência. A consulta e o resultado mostrado não mudam; a redução real de bytes e o efeito no tempo ainda precisam ser medidos.
+
+### Reconciliação e autorização
+
+A SCE-237 estava pendente e foi aceita pela decisão explícita do operador “ACITO TODOS OS PENDENTES”. Apliquei somente a opção A neste ciclo. A SCE-238 está aceita e fica para seu recorte próprio; as SCE-239 a SCE-245 e a opção A da SCE-319 permanecem na fila aprovada. A SCE-154 continua bloqueada conforme o registro. Não consultei clientes, pedidos, telefones, conteúdo de atendimento, credenciais, métricas operacionais ou banco remoto.
+
+Consultei também o changelog oficial atualizado em 17/11/2026 e a orientação oficial de converter consultas SQL em consultas JavaScript. A documentação exemplifica selecionar uma lista de colunas; o changelog não indica alteração recente relevante para esta consulta existente. Não houve upgrade de cliente ou mudança de API.
+
+Li AGENTS.md §§24–25, `rules/supabase/supabase-consumption.yml`, a skill `supabase-consumption`, este roadmap e os oito relatórios ligados por seu índice: `egress-supabase-morantehub.md`, `2026-09-15-supabase-egress.md`, `2026-11-04-egress-erp-app.md`, `egress-cargas-compactas-2026-11-04.md`, `roadmap-apis-ia-google-maps.md`, `produtos-alertas-resumo-estoque-2026-11-04.md`, `auditoria-ferramentas-seu-lizandro-2026-11-09.md` e `pedidos-filtros-servidor-2026-11-04.md`. A busca nesses documentos não encontrou medição atribuível a `getCustomerPurchaseHistory`, tamanho de sua resposta ou duração dessa ação; os números agregados de outras telas não permitem estimar este caminho.
+
+### Caminhos e alteração
+
+Revisei `erp/src/pages/utils/crmIntelligenceService.ts#getCustomerPurchaseHistory/#analyzeCustomerIntent`, seu único chamador de produção encontrado, `erp/src/hooks/useAttendanceVoice.ts#processAttendance`, e a apresentação da ação em `erp/src/components/shared/AttendanceVoiceInput.tsx`. A busca confirmou que a sequência de histórico só alimenta `analyzeCustomerIntent`; o chamador não usa `customer_name` do histórico.
+
+Na leitura de `orders`, alterei `.select('items, customerData, created_at')` para `.select('items, created_at')` e removi o preenchimento derivado de `customer_name` ao transformar os itens. O filtro `customerData->>phone` continua aceitando os dois formatos de telefone, todos os pedidos correspondentes continuam sendo considerados e `items` com `created_at` continuam alimentando os mesmos campos `id`, `name`, `date` e `category` do contexto enviado à inteligência. Não alterei a mensagem, a análise, o salvamento do atendimento nem o tratamento de falhas.
+
+### Chamadas, bytes e banco — separados
+
+- **Chamadas:** sem mudança. Quando há telefone com ao menos dez dígitos, o caminho continua fazendo uma leitura Supabase de histórico; a chamada à inteligência e o salvamento do registro são etapas separadas e permanecem. Não há volume observado. O filtro por telefone não foi encurtado e não removi pedidos do histórico.
+- **Bytes/egress:** a resposta deixa de incluir o campo JSON `customerData`, portanto deve transportar menos dados por resposta. O tamanho desse campo e a quantidade de pedidos são desconhecidos; não calculei bytes, percentual ou economia faturável e não consultei o medidor oficial de saída.
+- **Banco:** os predicados JSON de telefone e os pedidos encontrados continuam iguais. A projeção menor pode reduzir a resposta serializada, mas não prova menos CPU ou latência: o campo ainda é necessário para filtrar. Plano, carga e duração não foram medidos.
+
+### Resultado, acesso e informações atuais
+
+A lista de produtos, datas e categorias que o assistente recebe permanece igual, pois `customer_name` não era incluído em `historyContext`. O cliente Supabase autenticado, as políticas de acesso e o filtro permanecem inalterados; não é uma mudança de permissão, embora reduza o dado pessoal devolvido ao navegador. Este fluxo não usa preço ou saldo de estoque. Não introduzi cache ou modo offline; quando a leitura falha, o serviço continua tratando o histórico como vazio e segue o fluxo existente.
+
+### Rapidez percebida e critério de liberação
+
+A linha de base disponível é apenas estrutural: uma leitura de histórico para telefone válido e uma etapa de espera antes da análise. O hook ativa `isProcessing` no início, e a tela mostra “Analisando e registrando atendimento...”; isso dá retorno visual durante o trabalho, mas não há medida de tempo até a mensagem aparecer nem de conclusão da tarefa. A ação pode aguardar até 30 s pela análise, até 20 s pelo envio opcional do áudio e até 20 s pelo salvamento do registro; são limites de espera do código, não tempos observados nem metas aprovadas.
+
+Como referência para esta tela web, medir a resposta visual inicial em celular e computador separadamente e preservar resposta em até 200 ms no percentil 75 (75 de cada 100 interações dentro desse tempo). Medir também, por etapa e no conjunto, mediana e percentil 95 do clique até a consulta de histórico, da análise, do envio opcional do áudio e da confirmação de que o atendimento foi realmente salvo, em rede normal identificada. Proponho provisoriamente até 3 s no percentil 95 para concluir o registro em rede normal, a validar com a equipe; o tempo da análise e do áudio pode tornar essa meta inviável, portanto os tempos precisam ser separados e a equipe deve aprovar a meta antes de liberar. A mensagem de processamento deve aparecer antes da espera, continuar visível em tarefas longas e o sucesso só pode ser mostrado após confirmação do salvamento. Não há linha de base medida para comparação; antes de liberar a versão, comparar a versão anterior e esta sob as mesmas condições, sem registrar telefone, nome ou conteúdo. Se a meta ou a resposta visual não for preservada, segurar a distribuição e rever a experiência. Nenhuma melhoria de rapidez foi medida ou alegada neste ciclo.
+
+### Validação, reversão e limites
+
+A comparação estática confirma que a projeção retirada não alimentava os campos usados no contexto da inteligência; o filtro e o caminho de confirmação do salvamento ficaram intactos. Não encontrei teste dedicado deste serviço e não rodei testes ou compilação. `git diff --check` passou sem erro de espaço; o Git avisou sobre possível normalização CRLF para LF em arquivos modificados, inclusive fora deste recorte. Não consultei dados, não chamei o Supabase nem a inteligência, e não executei DML/fixtures, migration, deploy ou OTA. Reverter é recolocar `customerData` na projeção e o preenchimento de `customer_name`; não exige mudança de banco.
+
+### Matriz atualizada e próxima retomada
+
+| Recorte/ID | Estado | Evidência e limite |
+| --- | --- | --- |
+| ERP — histórico de compras do atendimento por voz (SCE-237) | Opção A aplicada localmente neste ciclo | Uma leitura e os mesmos pedidos/contexto; resposta mais estreita. Bytes/egress e latência sem medida. |
+| App — retorno mínimo ao salvar ambiente (SCE-250) | Aplicada no ciclo anterior | Chamadas e gravações constantes; bytes e rapidez real sem medida. |
+| Fila aprovada | SCE-238 a SCE-245 e ERP SCE-319 opção A | Aplicar em ciclos separados, sem novo pedido de aceite. |
+| Cobertura geral (SCE-154) | Bloqueada | Mantida conforme o histórico. |
+
+**Próximo recorte exato:** SCE-239, em `digital-catalog/src/hooks/use-auth.ts#loginWithGoogle` e seu chamador `digital-catalog/src/components/layout/user-nav.tsx#handleLoginGoogle`. Depois do aviso de 20 segundos, manter visível que o resultado do login é incerto e impedir nova tentativa enquanto a chamada original ainda estiver ativa; liberar o formulário e mostrar o resultado real quando ela terminar. Medir primeiro retorno visual (alvo da web: até 200 ms no p75, separado entre celular e computador) e o tempo até a resposta real; separar chamadas de autenticação, bytes, latência do serviço e p50/p95. A tentativa original não é cancelada pelo timeout local. Não avançar SCE-240 a SCE-245 nem SCE-319 neste ciclo, não consultar sessões/usuários nem credenciais, sem chamada a serviço externo, DML/fixtures, banco, migration, testes/build, deploy ou OTA.
+
+---
+
+## Ciclo — 17/11/2026, 18:26 BRT (21:26Z) — evitar leitura de credenciais quando o ambiente já está completo (SCE-238)
+
+Quando o servidor já tem token e identificador do catálogo configurados, o Catálogo Digital pode usar esse par sem buscar a mesma informação no banco. Se faltar qualquer um, a leitura atual e sua combinação com o que estiver salvo continuam. A sincronização externa não foi alterada e a economia real ainda não foi medida.
+
+### Reconciliação e autorização
+
+A SCE-238 estava aceita pela decisão global do operador “ACITO TODOS OS PENDENTES”; apliquei somente a opção A neste ciclo. A SCE-239 é a próxima aceita e fica para seu próprio ciclo; as SCE-240 a SCE-245 e a opção A da SCE-319 continuam na fila aprovada. A SCE-154 permanece bloqueada conforme o histórico. Não abri arquivos de ambiente, valores de credenciais, banco, sessões, conteúdo pessoal ou métricas operacionais.
+
+Li AGENTS.md §§24–25 e `digital-catalog/AGENTS.md`, a skill `supabase-consumption`, `rules/supabase/supabase-consumption.yml`, o roadmap e os oito relatórios históricos indicados. A busca nesses relatórios não encontrou contagem nem tempo atribuível a `getMetaCatalogCredentials` ou ao envio individual ao catálogo; as estatísticas gerais não informam quantas chamadas têm ambas as variáveis de ambiente configuradas. Também consultei o changelog oficial atual e a referência oficial de consultas JavaScript do Supabase ([seleção de colunas](https://supabase.com/docs/guides/api/sql-to-api)); não encontrei mudança recente relevante para o cliente ou para esta leitura. A regra local do Next.js informa que variáveis sem o prefixo público ficam no servidor; as referências da função são rotas do servidor. Não li nenhum `.env` nem inspecionei valores.
+
+### Caminhos e alteração
+
+Revisei `digital-catalog/src/services/meta-catalog/credentials.ts#getMetaCatalogCredentials/#resolveMetaCredentials`, `digital-catalog/src/services/meta-catalog/api.ts#sendMetaCatalogBatch/#checkMetaBatchStatus`, as rotas `digital-catalog/src/app/api/catalog/sync-batch/route.ts#POST` e `digital-catalog/src/app/api/facebook-catalog/sync/route.ts#GET/#POST`, e o chamador `digital-catalog/src/features/products/components/admin-modal/hooks/useAdminProductSave.ts`.
+
+O helper agora limpa token e identificador do ambiente como o resolvedor existente; se o token não fica vazio e o identificador resultante tem dígitos e não é o marcador antigo inválido, retorna o mesmo par antes da leitura Supabase. Esta é a validação local já usada pelo resolvedor; não confirmei o token ou o catálogo junto à Meta. Extraí o marcador legado para uma constante reutilizada pelo resolvedor. Se o token ou identificador faltar, estiver vazio após a limpeza, ou usar o marcador inválido, o caminho antigo ainda lê `facebook_catalog_settings` e chama o mesmo resolvedor. A consulta, seu filtro por `id = true`, a projeção, o tratamento de erro e a combinação com as credenciais salvas não foram alterados.
+
+O envio individual pela rota `/api/catalog/sync-batch` chama o helper, mas é iniciado em segundo plano depois que o produto foi salvo, confirmado e a tela já mostrou “Produto salvo com sucesso!”. A espera pela Meta continua separada da gravação do produto. A rota de sincronização completa usa `getMetaCatalogSyncSnapshot`, que precisa também das preferências, e permanece sem mudança. O `GET` de saúde/status tem a chamada direta documentada, mas a busca não encontrou um consumidor local; frequência externa é desconhecida. A consulta de status da Meta recebe credenciais por parâmetro neste chamador, evitando outra leitura pelo helper.
+
+### Chamadas, bytes e trabalho do banco — separados
+
+- **Chamadas:** quando o par do ambiente está completo e utilizável, cada chamada a `getMetaCatalogCredentials` deixa de fazer uma leitura Supabase; quando incompleto, permanece uma leitura. Isso pode reduzir no máximo uma requisição por invocação elegível, não por sincronização completa: `getMetaCatalogSyncSnapshot` continua fazendo sua leitura própria. A quantidade real de invocações e de pares completos é desconhecida. Os pedidos à Meta não mudam.
+- **Bytes/egress:** no caminho elegível, também deixa de existir a resposta da leitura que selecionava token e identificador. Tamanho de resposta e egress oficial não foram medidos; não atribuo valor financeiro à estrutura dos campos. A troca não altera bytes enviados ou recebidos da Meta.
+- **Banco:** um `SELECT` filtrado é evitado por invocação com ambas as credenciais válidas no ambiente; para qualquer fallback, filtros, campos, acesso e tratamento continuam iguais. Não medi carga, CPU, plano, latência ou p50/p95; não afirmo redução observada de tempo do banco.
+
+### Resultado, segurança e atualidade
+
+O par retornado permanece igual ao anterior porque o resolvedor já dava prioridade às variáveis de ambiente e só preenchia pelo banco os campos ausentes. Nenhuma credencial é enviada na resposta da rota; o token continua sendo usado internamente no cabeçalho da chamada à Meta e não foi adicionado a logs. O acesso e as regras de leitura do banco não mudam no fallback. Não há preço ou estoque alterado por esta mudança: o conteúdo do lote à Meta, incluindo os valores atuais usados pela rota, permanece igual. Não foi criado cache nem operação offline; se as variáveis estiverem incompletas, a leitura remota continua sendo necessária.
+
+### Rapidez percebida e limite de liberação
+
+A gravação do produto e a confirmação visível ocorrem antes da chamada em segundo plano para `/api/catalog/sync-batch`; esta alteração não adiciona espera à tela de salvamento. O navegador não mostra estado de conclusão da sincronização da Meta e o consumidor ignora o resultado da chamada assíncrona; isso já existia e não foi corrigido ou contado como confirmação da Meta. Não há baseline medido de resposta visual, de duração da gravação ou do envio individual. Antes de liberar, comparar a versão anterior e a atual no mesmo navegador, classe de dispositivo e condições de rede. Para a página, acompanhar LCP até 2,5 s e resposta visual a interações até 200 ms no p75, separados por celular/computador; para a ação, registrar a primeira confirmação do produto salvo e a conclusão real da sincronização, cada uma com mediana e p95 na mesma rede. Meta provisória para a rota completa: até 3 s no p95 em rede normal, a validar com a equipe e com a duração da chamada externa medida à parte. Qualquer demora acima de 10 s sem informação visual sobre a sincronização continua sendo uma limitação existente; não liberar alegando que o operador recebeu confirmação da Meta. A mudança apenas retira uma leitura condicional e não foi medida antes/depois.
+
+### Validação, reversão e limites
+
+A revisão estática confirmou que o par completo devolvido é o mesmo que o resolvedor já selecionava e que os cenários incompletos continuam na leitura e na precedência antigas. A sincronização individual continua posterior à confirmação do salvamento, sem duplicar ou adiar a gravação do produto. Não rodei testes ou build nem fiz consulta ao Supabase, Meta ou qualquer ambiente remoto; não executei DML/fixtures, migration, deploy ou OTA. `git diff --check` passou sem erro de espaço; o Git avisou sobre possível normalização CRLF para LF em arquivos modificados, inclusive fora deste recorte. Reverter é recolocar a leitura incondicional no início de `getMetaCatalogCredentials` e restaurar a comparação literal anterior; não exige migration.
+
+### Matriz atualizada e próxima retomada
+
+| Recorte/ID | Estado | Evidência e limite |
+| --- | --- | --- |
+| Catálogo — credenciais completas no ambiente (SCE-238) | Opção A aplicada localmente neste ciclo | Uma leitura evitada por invocação elegível; volume, bytes/egress e latência sem medida. Fallback e sincronização completa preservados. |
+| ERP — histórico de compras do atendimento por voz (SCE-237) | Aplicada no ciclo anterior | Consulta e contexto preservados; resposta mais estreita, sem medição de bytes/egress ou latência. |
+| Fila aprovada | SCE-239 a SCE-245 e ERP SCE-319 opção A | Aplicar em ciclos separados, sem novo pedido de aceite. |
+| Cobertura geral (SCE-154) | Bloqueada | Mantida conforme o histórico. |
+
+**Próximo recorte exato:** SCE-239 em `digital-catalog/src/hooks/use-auth.ts#loginWithGoogle` e `digital-catalog/src/components/layout/user-nav.tsx#handleLoginGoogle`: após o aviso de 20 segundos, bloquear uma segunda tentativa enquanto a original ainda estiver ativa, liberando o formulário e exibindo o resultado quando ela terminar. Revisar só esse caminho e preservar login normal, mensagens e ausência de repetição automática. Medir o retorno visual no p75 (alvo web de 200 ms separado por dispositivo) e o tempo da autenticação p50/p95; estruturalmente cada tentativa adicional sobreposta é uma chamada extra, mas sua frequência é desconhecida. Não avançar SCE-240 a SCE-245 ou SCE-319, nem consultar sessões, usuários ou credenciais, chamar serviços externos, executar DML/fixtures, migration, testes/build, deploy ou OTA.
+
+---
+
+## Ciclo — 17/11/2026, 18:41 BRT (21:41Z) — bloquear envios repetidos no login por senha (SCE-239)
+
+O Catálogo Digital agora mantém o formulário de e-mail e senha bloqueado enquanto o serviço ainda não respondeu. Se passar de 20 segundos, a tela explica que o resultado continua incerto; ela não libera um segundo envio. Isso evita que a pessoa inicie outra tentativa sem saber se a primeira entrou.
+
+### Reconciliação e autorização
+
+A decisão global do operador “ACITO TODOS OS PENDENTES” autoriza aplicar a opção A da SCE-239. A revisão das entradas mostrou que o apontamento do ciclo anterior reutilizou incorretamente o ID SCE-239 para o login Google. O registro original e único da SCE-239 trata dos dois formulários por e-mail e senha; preservei esse escopo e corrigi o cursor para a SCE-240. O fluxo Google não recebeu alteração: o login por senha é o único deste recorte. A SCE-240 também foi aceita pela autorização global e fica como próximo recorte, sem ser implementada aqui. As SCE-241 a SCE-245 e ERP SCE-319 opção A seguem na fila aceita; SCE-154 continua bloqueada conforme seu histórico.
+
+Neste ciclo li AGENTS.md §§24–25, `digital-catalog/AGENTS.md`, `rules/supabase/supabase-consumption.yml`, a skill `supabase-consumption`, este roadmap, os oito relatórios históricos ligados por ele e as orientações locais relevantes do Next.js. A leitura das referências oficiais de autenticação confirmou que a iniciação do login Google é um caminho separado de redirecionamento; ela não usa o prazo de 20 segundos dos formulários com senha. Não acessei contas, credenciais, sessões, conteúdo pessoal, valores de ambiente, métricas privadas ou serviços remotos.
+
+### Caminhos e alteração
+
+- `digital-catalog/src/shared-utils/passwordLoginLock.ts`: estado único na aba para login por senha, com aviso após 20 segundos e liberação somente quando a promessa original resolve ou falha.
+- `digital-catalog/src/app/auth/login/page.tsx#handleLogin`: registra o início, aguarda a chamada original até o resultado real, bloqueia campos e envio, e mostra aviso e recuperação por recarga quando necessário.
+- `digital-catalog/src/components/layout/user-nav.tsx#handleEmailLogin`: usa a mesma trava do formulário principal; assim, os dois formulários não iniciam logins de senha concorrentes entre si nesta aba. O login Google e a reautenticação de perfil não mudaram.
+
+O resultado de sucesso, o tratamento de erro e a navegação existentes foram preservados. O tempo local de 20 segundos apenas muda a mensagem; não cancela o pedido. Se o serviço nunca responder, a recuperação oferecida é recarregar a página. Recarregar apaga a trava local, mas não prova que o pedido anterior parou. A trava existe somente na memória desta aba; outras abas ou dispositivos não compartilham esse estado.
+
+### Efeito esperado e limites da evidência
+
+- **Chamadas:** cada primeiro envio válido continua fazendo uma chamada `signInWithPassword`. Cada envio adicional recusado enquanto a primeira chamada ainda está ativa evita estruturalmente uma chamada, limitado aos dois formulários e à mesma aba. Não há contagem de timeouts ou repetições; a economia total real pode ser zero e não foi medida.
+- **Bytes e tráfego faturável:** não foram medidos bytes enviados ou recebidos, nem tráfego faturável. Não usei tamanho de exemplo de JSON para estimar egress. A quantidade de bytes eventualmente evitada depende das tentativas sobrepostas e dos pedidos reais, ambos desconhecidos.
+- **Carga e latência:** o código não adiciona consultas de tabelas, chamadas RPC ou acesso a arquivos. A autenticação ainda pode envolver trabalho interno do serviço, mas não foi medido. Não há medição de tempo de resposta, carga ou latência do banco.
+- **Experiência e desempenho:** o estado visual é atualizado ao iniciar a tentativa e passa a “resultado incerto” depois de 20 segundos; isso é comportamento previsto pelo código, não tempo de tela medido. Não há linha de base. Medir separadamente o primeiro retorno visual (alvo web de até 200 ms no p75, por celular e computador), o tempo até a resposta real da autenticação e o resultado da navegação, com mediana e p95 em rede normal e lenta. O prazo de 20 segundos é aviso, não meta nem cancelamento.
+- **Acesso e dados:** o método de autenticação, permissões, sessão, mensagens após desconexão e regras de acesso não foram alterados. Não muda preços, estoque nem modo offline.
+
+### Validação, reversão e limites
+
+A conferência estática confirma que ambos os formulários consultam a mesma trava antes de chamar `signInWithPassword`, que ela não se libera no aviso de 20 segundos e que o login Google preserva seu handler. `git diff --check` passou sem apontar erro de espaço; o Git apenas avisou que pode normalizar CRLF para LF nos arquivos modificados. Nenhum teste ou compilação foi executado. Não fiz chamadas de autenticação ou banco, DML/fixtures, migration, deploy ou OTA.
+
+Para reverter, restaurar os wrappers anteriores de timeout nos dois handlers de senha, remover o estado/feedback que depende da trava e excluir `passwordLoginLock.ts`. A reversão não requer mudança de dados ou esquema.
+
+### Matriz atualizada e próxima retomada
+
+| Recorte/ID | Estado | Evidência e limite |
+| --- | --- | --- |
+| Catálogo — login por e-mail e senha (SCE-239, escopo original) | Opção A aplicada localmente neste ciclo | Uma chamada potencialmente evitada por envio sobreposto recusado, somente entre os dois formulários da mesma aba; volume, bytes/egress e carga/latência sem medida. Login Google preservado. |
+| Catálogo — salvar nome do perfil (SCE-240) | Aceita globalmente; próximo recorte próprio | Aguardar o pedido original de `auth.updateUser` até concluir, manter o estado incerto depois de 20 segundos e impedir repetição concorrente. |
+| Fila aceita | SCE-241 a SCE-245 e ERP SCE-319 opção A | Aplicar em ciclos separados, sem pedir novo aceite. |
+| Cobertura geral (SCE-154) | Bloqueada | Preservada conforme o histórico. |
+
+**Próximo recorte exato:** executar a SCE-240 apenas em `digital-catalog/src/app/perfil/page.tsx#ProfileContent#handleUpdateName`, `digital-catalog/src/app/perfil/components/ProfileAccountHeader.tsx`, e os auxiliares `digital-catalog/src/shared-utils/authOperationTimeout.ts` e `withTimeout.ts` diretamente usados pelo salvamento do nome. Bloquear outra tentativa de atualização até a promessa original de `auth.updateUser` resolver ou falhar; depois de 20 segundos, informar que o resultado ainda não foi confirmado e manter uma recuperação visível se não resolver. Preservar nome, permissões e mensagens atuais. Separar chamadas, bytes/egress, trabalho do serviço, mediana/p95 e primeiro retorno visual; sem dados suficientes, não quantificar. Não tocar nos formulários de login, chamar banco/serviços, usar dados pessoais, executar testes/build, DML/fixtures, migration, deploy ou OTA.
+
+---
+
+## Ciclo — 17/11/2026, 19:19 BRT (22:19Z) — manter o salvamento do nome bloqueado até a resposta real (SCE-240)
+
+Ao salvar o nome do perfil, a tela continua mostrando “Salvando...” imediatamente. Se o serviço levar mais de 20 segundos, ela passa a dizer que ainda aguarda confirmação e mantém o botão e o campo bloqueados. Quando o pedido original responder, a pessoa vê o resultado verdadeiro. Assim, repetir o clique não inicia outra atualização enquanto a primeira ainda pode estar ativa.
+
+### Reconciliação e escopo
+
+A SCE-240 estava aceita pela autorização global “ACITO TODOS OS PENDENTES”; apliquei somente a opção A neste ciclo. A SCE-239 foi aplicada no ciclo anterior. A SCE-241 a SCE-245 e ERP SCE-319 opção A continuam aceitas para ciclos próprios; SCE-154 continua bloqueada conforme o histórico. Mantive IDs únicos e cursor cumulativo.
+
+Li AGENTS.md §§24–25, `digital-catalog/AGENTS.md`, as regras locais de consumo Supabase, este roadmap, os oito relatórios históricos apontados por ele e a documentação local do Next.js para componentes e formulários no navegador. A revisão dos relatórios não encontrou contagem de salvamentos de nome que ultrapassem o prazo, tentativas repetidas, bytes ou latência atribuíveis a esse formulário. A documentação oficial atual descreve `auth.updateUser` como atualização dos dados da pessoa autenticada; não encontrei mudança recente no changelog que altere o contrato JavaScript usado aqui. [Referência oficial do Auth](https://supabase.com/docs/reference/javascript/auth-updateuser).
+
+O checkpoint citava `ProfileAccountHeader.tsx`; conferi que ele apenas mostra o nome e e-mail recebidos e oferece saída da conta. O formulário e a chamada de atualização ficam em `page.tsx`; por isso não foi necessário alterar o cabeçalho. A atualização bem-sucedida continua chegando pelo observador de estado de autenticação já usado pela tela.
+
+### Alteração aplicada
+
+- `shared-utils/authOperationTimeout.ts` agora exporta o mesmo prazo de 20 segundos como constante. A função de espera mantém exatamente esse prazo padrão para os demais fluxos.
+- `digital-catalog/src/shared-utils/authOperationTimeout.ts` reexporta a constante usada na tela.
+- `digital-catalog/src/shared-utils/profileNameUpdateLock.ts` guarda o estado de atualização até a promessa original terminar e troca para “resultado incerto” depois do prazo. O estado permanece na memória da aba mesmo se a pessoa sair e voltar ao perfil.
+- `digital-catalog/src/app/perfil/page.tsx#ProfileContent#handleUpdateName` agora aguarda a resposta real de `auth.updateUser` em vez de encerrar a espera local em 20 segundos. Campos e botão ficam desativados durante a chamada. Após 20 segundos, o aviso orienta a não repetir o envio e oferece “Recarregar para conferir”. Recarregar não comprova que o serviço encerrou o pedido; a orientação pede conferir o nome exibido antes de um novo salvamento.
+- Outras ações de conta que passam pelo mesmo guard mostram uma mensagem enquanto o nome ainda aguarda resposta. Não há nova tentativa automática. A autenticação e permissões existentes foram preservadas.
+
+### Chamadas, bytes, banco e rapidez percebida
+
+- **Chamadas:** um salvamento válido continua iniciando uma chamada `auth.updateUser`. Depois que a trava é ocupada, um novo envio recusado não inicia outra chamada. Estruturalmente, evita uma chamada por repetição tentada enquanto a original segue ativa; não há contagem real desses casos, então a economia total pode ser zero.
+- **Bytes e cobrança:** não foram medidos bytes de pedido/resposta ou egress oficial. Evitar uma chamada repetida pode evitar seu tráfego, mas não quantifico bytes nem cobrança.
+- **Banco:** o código continua fazendo uma única atualização de metadados no serviço de autenticação e não acrescenta consulta de tabela, RPC ou Storage. O trabalho interno e a latência do serviço/banco não foram medidos; não afirmo redução de CPU ou tempo de banco.
+- **Retorno visível:** no código anterior, o botão já mostrava “Salvando...” logo após a ação; isso é a referência inicial observável no código, não uma medição em aparelhos. O novo fluxo mantém esse retorno e exibe o aviso incerto aos 20 segundos. Não medi antes/depois em rede real. Para a página web, comparar na mesma versão e condições: conteúdo principal visível até 2,5 s e resposta visual à interação até 200 ms no p75, separados entre celular e computador ([limites atuais](https://web.dev/articles/defining-core-web-vitals-thresholds)). Medir também clique até primeiro estado visível e clique até resposta real de `auth.updateUser`, com mediana e p95. Como meta provisória para a conclusão do salvamento: p95 até 3 s em rede normal, a validar com a equipe; qualquer período acima de 10 s deve manter progresso ou incerteza visíveis. Esses limites são metas propostas, não resultados medidos.
+- **Dados e experiência:** o nome continua no metadado da mesma conta. Não muda preço, estoque, permissão, mensagem de recuperação após desconexão nem modo offline. Se o serviço nunca responder, as ações da conta permanecem bloqueadas nesta aba; uma recarga libera o estado local, mas não prova que o pedido anterior foi cancelado. Outras abas e dispositivos não compartilham esta trava.
+
+### Validação e reversão
+
+A revisão estática confirma que a validação do formulário aguarda o callback assíncrono, a trava ocupa antes de `auth.updateUser`, não é liberada pelo aviso de 20 segundos e é liberada no `finally` apenas após a resposta real. O campo e o botão refletem o estado, e o cabeçalho continua usando o usuário autenticado existente. `git diff --check` passou sem erro de espaço; o Git avisou apenas que pode normalizar CRLF para LF nos arquivos modificados. Não foram rodados testes ou compilação, nem chamadas a Supabase, dados reais, DML/fixtures, migration, deploy ou OTA.
+
+Para reverter, restaurar o uso de `waitForAuthOperation` em `handleUpdateName`, voltar ao estado local `updatingName` anterior e remover a trava de nome e sua reexportação. Não é necessária alteração de dados ou esquema.
+
+### Matriz atualizada e próxima retomada
+
+| Recorte/ID | Estado | Evidência e limite |
+| --- | --- | --- |
+| Catálogo — salvar nome do perfil (SCE-240) | Opção A aplicada localmente neste ciclo | Uma chamada evitada por repetição bloqueada enquanto a original está ativa; volume, bytes/egress e carga/latência não medidos. Retorno inicial “Salvando...” preservado por código; p75 e p95 reais pendentes. |
+| Catálogo — login por e-mail e senha (SCE-239) | Aplicada no ciclo anterior | Trava entre os dois formulários na mesma aba; Google inalterado; frequência de repetição não medida. |
+| Fila aceita | SCE-241 a SCE-245 e ERP SCE-319 opção A | Aplicar em ciclos separados, sem pedir novo aceite. |
+| Cobertura geral (SCE-154) | Bloqueada | Preservada conforme o histórico. |
+
+**Próximo recorte exato:** executar a SCE-241 já aceita em `digital-catalog/src/app/api/og-image/route.ts`, avaliando apenas a rota de prévia de imagem. A opção A retira `dynamic = 'force-dynamic'` e conserva `fetch(..., { next: { revalidate: 86400 } })`, se a inspeção dos chamadores confirmar que o endereço muda quando a imagem muda; caso o mesmo endereço possa receber imagem nova e precisar aparecer na hora, registrar esse risco antes de qualquer ajuste. Preservar corpo, tipo de resposta, imagem e permissões. Antes e depois, comparar no mesmo navegador e condições a resposta visual da imagem, o carregamento da página com imagens e os pedidos de origem/acertos de cache agregados; separar chamadas, bytes/egress e trabalho/latência do serviço. Para a página web, manter LCP até 2,5 s e resposta visual a interações até 200 ms no p75, separados entre celular e computador; os dados atuais são desconhecidos. Não invocar a rota nem baixar imagens reais, nem executar testes/build, serviços remotos, DML/fixtures, migration, deploy ou OTA.
+
+---
+
+## Ciclo — 17/11/2026, 19:34 BRT (22:34Z) — permitir o cache das imagens de prévia (SCE-241)
+
+Ao compartilhar um produto, a prévia continua vindo do mesmo endereço e com a mesma imagem. Quando várias pessoas pedirem a mesma foto, o servidor poderá reaproveitar a busca da origem por até 24 horas, em vez de buscar o arquivo de novo em cada execução do proxy.
+
+### Reconciliação e caminhos conferidos
+
+A autorização global “ACITO TODOS OS PENDENTES” já aprovou a opção A da SCE-241. Apliquei apenas essa opção neste recorte. A SCE-242 foi aceita pela mesma autorização e fica como próxima tarefa própria; SCE-243 a SCE-245 e ERP SCE-319 opção A também seguem aceitas em seus recortes separados. SCE-154 continua bloqueada conforme o histórico.
+
+Reli `AGENTS.md` §§24–25, as regras locais e a skill `supabase-consumption`, este roadmap e os oito relatórios históricos ligados pelo índice: `egress-supabase-morantehub.md`, `2026-09-15-supabase-egress.md`, `2026-11-04-egress-erp-app.md`, `egress-cargas-compactas-2026-11-04.md`, `roadmap-apis-ia-google-maps.md`, `produtos-alertas-resumo-estoque-2026-11-04.md`, `auditoria-ferramentas-seu-lizandro-2026-11-09.md` e `pedidos-filtros-servidor-2026-11-04.md`. Eles não contêm contagem, tamanho de imagem nem acertos de cache específicos para esta rota.
+
+Conferi `digital-catalog/src/app/api/og-image/route.ts`, o chamador de metadados `digital-catalog/src/app/produto/[slug]/page.tsx`, `digital-catalog/next.config.ts` e os fluxos atuais de envio/troca: `erp/src/pages/App/Products/components/tabs/images/productImageUpload.ts`, `erp/src/pages/utils/storageService.ts`, `mobile/src/features/products/services/mobileProductPhotoService.ts`, `digital-catalog/src/features/products/components/admin-modal/utils/productImageUploadUtils.ts`, `digital-catalog/src/lib/utils/upload-r2.ts` e `digital-catalog/src/features/products/components/admin-modal/steps/Step1Photos.tsx`. O ERP e o celular criam chaves com identificador aleatório; o catálogo usa nomes com data/hora. Quando uma imagem externa é arrastada no catálogo, o código baixa o arquivo e o envia de novo para o R2. Assim, as trocas feitas pelos fluxos atuais passam a apontar para um endereço novo. Não li imagens, valores de `product_images`, produtos, nem conteúdo de Storage; por isso não posso confirmar que todos os endereços antigos cadastrados sejam imutáveis.
+
+A documentação local instalada para o Next.js 16.3.6 explica que `force-dynamic` força `fetch` sem cache, enquanto `next.revalidate` define a validade da resposta de dados; um manipulador `GET` não passa a guardar automaticamente a resposta inteira. Consultei também a [documentação oficial do Next.js para `fetch`](https://nextjs.org/docs/app/api-reference/functions/fetch) e para a [configuração de trechos de rota](https://nextjs.org/docs/app/api-reference/file-conventions/route-segment-config).
+
+### O que mudou
+
+Em `digital-catalog/src/app/api/og-image/route.ts`, removi `export const dynamic = 'force-dynamic'`. Mantive `fetch(imageUrl, { next: { revalidate: 86400 } })`, a validação existente, o corpo integral da imagem, o tipo de conteúdo e `Cache-Control: public, max-age=31536000, immutable`. A rota continua lendo a URL recebida a cada chamada; só a busca da imagem de origem pode usar o cache de dados do Next.js. Não alterei Supabase, banco, permissões, hospedagem ou cabeçalho da resposta.
+
+### Chamadas, bytes, banco e rapidez — separados
+
+- **Chamadas:** os pedidos de usuários ou robôs à rota não mudaram. Para N execuções com o mesmo endereço dentro de 24 horas e no mesmo cache disponível, o cenário ideal passa de N buscas de origem para uma; isso evitaria até N−1 buscas. O limite real pode ser menor, inclusive zero, se a hospedagem não compartilhar/manter o cache, se houver expulsão ou se os endereços forem diferentes. Não havia contagem anterior e não medi acertos.
+- **Bytes/egress:** uma resposta reutilizada pode evitar que os bytes da imagem sejam buscados novamente na origem. A rota ainda precisa entregar o corpo quando é executada; os bytes enviados ao solicitante não foram reduzidos por esta alteração. O egress faturável do Supabase não foi medido nem pode ser deduzido do tamanho de uma amostra. Parte das origens também pode ser R2 ou Facebook. Não há valor de economia em bytes ou cobrança.
+- **Banco:** a rota não consulta tabelas, funções de banco ou Realtime. A mudança não reduz consultas, CPU ou latência do banco. Pode reduzir trabalho de leitura na origem de imagens quando houver acertos, mas não medi esse serviço.
+- **Rapidez percebida:** uma busca de origem evitada pode diminuir o tempo da prévia, mas não medi carregamento, acertos ou p75/p95. Não há linha de base disponível para o alvo web de LCP ≤2,5 s e resposta visual a interações ≤200 ms no p75, separados entre celular e computador. O cache não altera o resultado de uma prévia para a mesma URL enquanto a origem permanece igual.
+
+### Frescor, risco, validação e reversão
+
+Nos caminhos atuais de troca, a nova imagem recebe outro endereço, e a página de produto passa esse endereço novo aos metadados; isso limita a chance de uma prévia gerada antes da troca ser reutilizada para a nova foto. Para endereços legados ou externos que conservem a mesma URL quando seu conteúdo muda, o servidor pode devolver a versão anterior por até 24 horas após a última busca. O cabeçalho já existente de um ano com `immutable` também pode prolongar o que um navegador ou robô mantém; não alterei esse comportamento, e seu efeito real não foi medido.
+
+`git diff --check` passou sem erros de espaço após as alterações do ciclo. Não rodei testes nem build, não chamei a rota, não baixei imagens, não acessei banco/serviços remotos e não publiquei. Antes de uma publicação, validar em hospedagem de teste com uma imagem pública sintética e URL controlada: busca fria, repetição antes das 24 horas, troca para URL nova e renovação após a validade. Repetir em condições equivalentes e medir a imagem visível, pedidos de origem/acertos, bytes e medidor oficial de saída separadamente; acompanhar os alvos web por dispositivo. Reverter é restaurar `export const dynamic = 'force-dynamic'` nesta rota; isso volta a forçar a busca da origem e não exige mudança de dados ou esquema.
+
+### Matriz atualizada e próxima retomada
+
+| Recorte/ID | Estado | Evidência e limite |
+| --- | --- | --- |
+| Catálogo — cache de busca da imagem para prévia (SCE-241) | Opção A aplicada localmente; publicação e medição pendentes | A busca de origem pode ser reutilizada por 24 h quando houver cache disponível. Mudanças atuais geram novo endereço nos fluxos verificados; URLs antigas/externas e métricas reais não foram examinadas. Chamadas, bytes faturáveis, trabalho do serviço e rapidez não medidos. |
+| Catálogo — confirmar o domínio antes de buscar (SCE-242) | Aceita globalmente; próximo recorte próprio | A validação atual procura trechos de texto no URL e não confirma o host de destino. |
+| Fila aceita | Catálogo SCE-243 (instruções de publicação), SCE-244 (atributos) e app SCE-245 (oportunidades); ERP SCE-319 opção A | Aplicar em recortes próprios, sem pedir novo aceite. |
+| ERP — cache de contadores entre contas (SCE-319) | Opção A aceita; recorte próprio | Preservar isolamento por conta e limpar resultados ao trocar sessão. |
+| Cobertura geral (SCE-154) | Bloqueada | Preservada conforme o histórico. |
+
+**Próximo recorte exato:** executar a SCE-242 somente em `digital-catalog/src/app/api/og-image/route.ts`: substituir a procura de trechos de texto por análise da URL, exigir HTTPS para endereços completos e conferir o host exato ou um subdomínio autorizado com limite de domínio correto; resolver caminhos relativos contra o domínio do catálogo. Preservar os hosts válidos usados pelo produto e rejeitar os demais antes do `fetch`. Revisar apenas esse caminho e seus chamadores para confirmar compatibilidade; não chamar a rota, acessar destino algum ou usar URLs reais. Separar chamadas, bytes/egress e trabalho do banco, sem alegar economia agregada sem registro. Não avançar SCE-243 a SCE-245 ou SCE-319 neste ciclo; não executar testes/build, DML/fixtures, migration, deploy ou OTA.
+
+---
+
+## Ciclo — 17/11/2026, 19:41 BRT (22:41Z) — validar o domínio da imagem de prévia (SCE-242)
+
+Ao compartilhar um produto, endereços de imagem com o nome de um domínio permitido apenas escondido em outra parte do texto deixam de ser buscados. As prévias válidas de R2, Supabase Storage, domínio da loja e Facebook continuam usando o mesmo caminho. O endereço é conferido antes da busca.
+
+### Reconciliação e caminhos conferidos
+
+A decisão global “ACITO TODOS OS PENDENTES” aceita a opção A da SCE-242. Apliquei só esse recorte. A SCE-241 já está aplicada localmente; SCE-243, SCE-244, SCE-245 e a opção A da SCE-319 também estão aceitas para ciclos próprios. SCE-154 continua bloqueada, conforme o histórico.
+
+Reli `AGENTS.md` §§24–25, `digital-catalog/AGENTS.md`, a skill `supabase-consumption`, `rules/supabase/supabase-consumption.yml`, este roadmap e os oito relatórios históricos ligados pelo índice: `egress-supabase-morantehub.md`, `2026-09-15-supabase-egress.md`, `2026-11-04-egress-erp-app.md`, `egress-cargas-compactas-2026-11-04.md`, `roadmap-apis-ia-google-maps.md`, `produtos-alertas-resumo-estoque-2026-11-04.md`, `auditoria-ferramentas-seu-lizandro-2026-11-09.md` e `pedidos-filtros-servidor-2026-11-04.md`. Não encontrei nessas fontes contagens, bytes ou latência específicos para esta rota.
+
+Revisei `digital-catalog/src/app/api/og-image/route.ts`, seu único chamador encontrado, `digital-catalog/src/app/produto/[slug]/page.tsx`, e `digital-catalog/next.config.ts`. O chamador monta a prévia pelo proxy para endereços que contêm `r2.dev`, `fbcdn.net` ou `supabase.co`; o código da rota também conserva a permissão do domínio `moveismorante.com.br` e de caminhos relativos. A revisão dos fluxos atuais de troca no ciclo SCE-241 mostrou endereços novos para fotos enviadas ou substituídas; não consultei URLs ou dados de produtos cadastrados.
+
+### O que mudou
+
+Em `digital-catalog/src/app/api/og-image/route.ts`, substituí a busca por pedaços de texto por análise com `URL`. Os endereços completos precisam usar HTTPS, não podem incluir usuário, senha ou porta diferente da porta padrão, e precisam corresponder a um domínio permitido ou a um subdomínio separado por ponto: `r2.dev`, `supabase.co`, `moveismorante.com.br` ou `fbcdn.net`. Um caminho que começa com `/` é resolvido usando `NEXT_PUBLIC_APP_URL` (com o endereço padrão já usado pelo catálogo) e só passa se continuar na mesma origem; `//outro-dominio/...` não é aceito. O `fetch` e sua revalidação de 24 horas da SCE-241, a resposta, os cabeçalhos de imagem e o comportamento dos domínios válidos permanecem.
+
+### Chamadas, bytes, banco e rapidez — separados
+
+- **Chamadas:** para um endereço absoluto válido, continua existindo uma busca explícita da imagem por execução do proxy; a SCE-241 pode reaproveitar essa busca conforme o cache disponível. Uma URL que antes passava apenas por conter um trecho permitido agora recebe `403` antes do pedido de origem. Não há registro que mostre quantas entradas desse tipo ocorriam, então não quantifico chamadas evitadas. Caminhos relativos passam a ser resolvidos para o domínio do catálogo; não há consumidor atual confirmado que dependa desse caso.
+- **Bytes/egress:** imagens de origem aceitas continuam sendo baixadas e devolvidas integralmente. Para endereços inválidos, o corpo da imagem deixa de ser solicitado; frequência, tamanho e egress oficial não foram medidos. A mudança não permite calcular cobrança do Supabase por amostras de JSON ou por número de erros.
+- **Banco:** o proxy continua sem consultar tabelas, funções de banco ou Realtime. Não há mudança de chamadas, CPU ou latência do banco.
+- **Rapidez percebida:** para uma origem válida não foi acrescentada uma viagem de rede; a análise do endereço é local e seu tempo não foi medido. Endereços recusados recebem a resposta de erro antes de buscar arquivo. Não há linha de base da prévia nem do carregamento da página de produto. Manter, antes de publicar, o alvo web de LCP ≤2,5 s e resposta visual às interações ≤200 ms no p75, separados entre celular e computador; medir também a exibição da prévia em condições equivalentes. Nenhum resultado de desempenho foi medido neste ciclo.
+
+### Compatibilidade, risco e reversão
+
+Os nomes de domínio são conferidos com limite correto: por exemplo, `r2.dev.outro-site` não termina em `.r2.dev` e é recusado. Não alterei dados, imagem, autenticação, permissões do Storage, preço, estoque ou modo offline. Endereços completos em HTTP, portas não padrão e hosts que não pertencem à lista agora recebem `403`; se houver algum endereço legado legítimo fora da lista, sua prévia pode parar de aparecer. Não li valores de imagens cadastradas, portanto não afirmo que todo endereço histórico pertence à lista.
+
+Há um limite de segurança importante: a checagem valida o endereço fornecido, mas o `fetch` continua com o comportamento padrão de seguir redirecionamentos. A URL de destino final de um redirecionamento não é conferida neste recorte; não declaro proteção completa contra redirecionamentos para outro domínio. A documentação da [Fetch API](https://developer.mozilla.org/en-US/docs/Web/API/Request/redirect) confirma que o padrão é `follow`. Não houve chamada real para verificar se algum domínio usado redireciona.
+
+`git diff --check` passou sem erro de espaço. Não rodei testes ou build, não invoquei a rota, não consultei imagens, dados de produto, banco ou serviços remotos e não publiquei. Antes de publicar, revisar somente com endereços sintéticos os domínios válidos, nomes que apenas contêm os trechos permitidos, HTTP, credenciais, portas, caminhos relativos e um redirecionamento controlado; medir chamadas, bytes, egress oficial e rapidez em separado nas mesmas condições. Reverter SCE-242 é restaurar a checagem por trechos e o uso da URL bruta em `fetch`; a configuração de cache da SCE-241 deve permanecer.
+
+### SCE-320 — conferir também o destino final de uma imagem redirecionada
+
+**Status:** opção A aceita pelo operador e aplicada localmente no ciclo de 17/11/2026. A autorização “pode aplicar o que está pendente” também aceita a opção A da SCE-321; ela segue para recorte próprio, sem mudança de política neste ciclo.
+
+A SCE-242 agora confere o endereço recebido, mas o `fetch` segue redirecionamentos automaticamente. A [documentação da Fetch API](https://developer.mozilla.org/en-US/docs/Web/API/Request/redirect) confirma esse comportamento padrão. Não há evidência de redirecionamentos usados pela loja nem de abuso; o destino final ainda não é validado pelo código.
+
+- **A — recomendada para conferir cada destino:** tratar redirecionamentos manualmente, resolver cada `Location` contra o endereço atual, reaplicar a mesma lista de domínios antes de cada nova busca e impor um limite de saltos. Mantém imagens cuja cadeia fica nos domínios aprovados; URLs que saem da lista passam a falhar. Pode reduzir o reaproveitamento de respostas redirecionadas do cache de dados, e o efeito deve ser medido antes de publicar.
+- **B — bloquear redirecionamentos:** configurar a busca para falhar se a origem redirecionar. Impede a próxima busca, mas pode quebrar prévias legítimas que redirecionam.
+- **C — manter como está:** mantém compatibilidade atual, porém confere só o endereço inicial e não garante a validação do destino final.
+- **Chamadas e bytes:** cada destino seguido pode implicar outra requisição; não sabemos frequência nem número de saltos. As opções A/B podem evitar buscas para destinos recusados, mas não há contagem de redirecionamentos, tamanho de imagem ou egress oficial para estimar total. A rota continua sem leitura no banco.
+- **Rapidez e validação:** para URLs diretas válidas, nenhuma opção precisa adicionar uma viagem de rede. A opção A pode executar cada salto manualmente; B pode encerrar antes, mas entregar erro em imagens que redirecionam. Não há linha de base de prévias ou p75/p95. Comparar com URLs sintéticas: sem redirecionamento, redirecionamento para host aprovado, para host não aprovado e loop; contar cada busca, bytes, cache e tempo de imagem exibida. Preservar LCP ≤2,5 s e resposta de interação ≤200 ms no p75 em celular e computador; não publicar se uma prévia válida deixar de aparecer ou se a rapidez piorar.
+- **Efeitos e reversão:** não muda consultas, preço, estoque, contas ou modo offline. A opção A tem maior custo de implementação e pode alterar cache/tempo; a B é simples, mas tem mais risco de quebrar imagem. Reverter é restaurar o tratamento de redirecionamento escolhido, sem alterar dados ou esquema.
+
+### Matriz atualizada e próxima retomada
+
+| Recorte/ID | Estado | Evidência e limite |
+| --- | --- | --- |
+| Catálogo — cache de imagem de prévia (SCE-241) | Opção A aplicada localmente; publicação e medição pendentes | Cache de origem por até 24 h quando disponível; chamadas, bytes faturáveis, serviço e rapidez sem medida. |
+| Catálogo — validação do endereço da imagem (SCE-242) | Opção A aplicada localmente; publicação e medição pendentes | Host/scheme e limite de subdomínio são verificados antes do `fetch`; contagem de entradas inválidas e impacto em bytes não medidos. Redirecionamentos do `fetch` seguem sem validação. |
+| Catálogo — modelos do link de instruções (SCE-243) | Aceita globalmente; próximo recorte | Evitar a leitura de modelos quando não há campanha ativa nem oportunidade; preservar validação de token, produto e campos legados. |
+| Catálogo — edição de atributo global (SCE-244) | Aceita globalmente; recorte próprio | Uma gravação transacional proposta; não aplicar neste ciclo. |
+| App — lista de oportunidades (SCE-245) | Aceita globalmente; recorte próprio | Manter `id,name`, filtro de ativos e ordenação; medir bytes sem inferir egress faturável. |
+| ERP — cache de contadores entre contas (SCE-319) | Opção A aceita; recorte próprio | Manter escopo por conta e limpar valores ao trocar de sessão. |
+| Proxy de prévia — validar redirecionamentos (SCE-320) | Nova observação; aguarda decisão | O fetch segue redirecionamentos; nenhum destino real ou frequência foi consultado. |
+| Cobertura geral (SCE-154) | Bloqueada | Preservada conforme o histórico. |
+
+**Próximo recorte exato:** executar a SCE-243 em `digital-catalog/src/app/share/post-instructions/[token]/page.tsx`, `digital-catalog/src/app/share/post-instructions/[token]/json/route.ts` e `digital-catalog/src/services/postProductImageResolver.ts`, incluindo apenas os carregadores de modelos e campanhas chamados por essas rotas. Manter a validação de token e produto; buscar somente modelos ligados a campanhas ativas ou ao selo da oportunidade e, quando nenhum existir, não consultar modelos. Selecionar apenas os campos usados, preservando os formatos legados de produto/imagem/variação. Não usar tokens nem conteúdo real, não chamar Supabase, não rodar testes/build, DML/fixtures, migration, deploy ou OTA. Comparar separadamente chamadas, linhas/campos e bytes, egress oficial, trabalho/latência do banco e rapidez da página/JSON; sem dados equivalentes não afirmar redução medida. Para a página web, manter LCP ≤2,5 s e interação ≤200 ms no p75, separados entre celular e computador, e registrar mediana/p95 da tarefa de gerar a página/JSON em rede identificada.
+
+---
+
+### Ciclo — 17/11/2026, 20:02 BRT (23:02Z) — link de instruções para publicação (SCE-243)
+
+**Reconciliação e decisão:** a autorização global “ACITO TODOS OS PENDENTES” cobre a opção A da SCE-243. Apliquei-a neste recorte. A mensagem atual do operador (“pode aplicar o que está pendente”) também aceita a opção A da SCE-320; ela fica para um recorte próprio, depois da SCE-244, respeitando o cursor desta auditoria. A SCE-244, SCE-245 e SCE-319 seguem aceitas para seus recortes próprios; SCE-154 segue bloqueada conforme o registro.
+
+**Históricos consultados:** roadmap e relatórios listados por ele: `egress-supabase-morantehub.md`, `2026-09-15-supabase-egress.md`, `2026-11-04-egress-erp-app.md`, `egress-cargas-compactas-2026-11-04.md`, `roadmap-apis-ia-google-maps.md`, `produtos-alertas-resumo-estoque-2026-11-04.md`, `auditoria-ferramentas-seu-lizandro-2026-11-09.md` e `pedidos-filtros-servidor-2026-11-04.md`. A busca nos relatórios não localizou uma medição atribuível a estes dois caminhos de instruções. Não usei contas, tokens, conteúdo de produtos ou métricas operacionais.
+
+**Caminhos revistos:** `digital-catalog/src/app/share/post-instructions/[token]/page.tsx`; `digital-catalog/src/app/share/post-instructions/[token]/json/route.ts`; `digital-catalog/src/services/postProductImageResolver.ts`; `digital-catalog/src/types/database.ts`; e o guia local do Next.js para `page` e `route`. A SCE-243 não alterou o resolvedor: ele aceita campos e formatos antigos de produto, imagens e variações, e não há um mapa confiável de todos esses formatos para estreitar com segurança a consulta aninhada do produto.
+
+**Aplicação:** nas duas rotas, a consulta do token agora seleciona `token`, `revoked_at`, `product_id` e `variation_id`; a consulta de campanhas seleciona `id`, `name`, `slug`, `instructions` e `formats`, mantendo a ordenação que já existia na página. A leitura de modelos seleciona apenas `id`, `campaign_id`, `opportunity_id`, `element_type`, `generated_asset_url`, `name`, `prompt` e `instructions`. Ela é filtrada no servidor para campanhas ativas e/ou para a oportunidade do produto. Se não houver campanha ativa nem oportunidade, nenhum pedido é enviado à tabela de modelos. A validação e revogação do token, as contas e políticas de acesso, o produto e seu preço atual, os formatos legados de imagem/variação e os cabeçalhos de não armazenamento do JSON permanecem como estavam. A leitura aninhada do produto continua ampla para não excluir campos legados que o resolvedor ainda aceita.
+
+**Economia, separada por recurso:**
+
+- **Chamadas:** código deixa de fazer uma chamada à tabela de modelos em cada abertura da página ou do JSON sem campanha ativa e sem oportunidade. A estimativa estrutural é exatamente uma chamada a menos por execução desse caminho; a quantidade de execuções reais não é conhecida. Nos outros casos, a chamada de modelos continua, mas recebe filtros do servidor.
+- **Linhas e bytes:** filtros reduzem linhas candidatas; as projeções explícitas reduzem campos nas respostas de token, campanhas e modelos. Não medi bytes da rede nem egress oficial, e a leitura ampla do produto permanece. Tamanho de objeto JSON não foi tratado como cobrança.
+- **Trabalho e latência do banco:** o caso sem modelos necessários deixa de executar uma consulta; nos demais, o filtro reduz o conjunto retornado. Não medi plano, CPU, latência ou número de linhas. A mesma política de acesso do cliente permanece; nenhum acesso foi ampliado.
+
+**Resultados e limites:** revisão estática confirma que a página só mostra elementos das campanhas ativas e o selo da oportunidade do produto, e o JSON usa os campos selecionados nas campanhas e modelos. Não executei testes ou build e não fiz chamadas ao Supabase. Assim, equivalência foi conferida pelo código, não por execução. A mediana/p95 da geração da página e do JSON, LCP e interação p75 em celular/computador não foram medidos; os limites existentes continuam sendo LCP ≤2,5 s e interação ≤200 ms p75. Preço continua vindo da leitura atual do produto; não há mudança em estoque, mensagens, modo offline ou cache.
+
+**Validação e reversão:** `git diff --check` passou sem erro de espaço. Não rodei testes/build, fixtures, DML, migração, deploy ou OTA. Antes de publicar, validar com dados sintéticos os casos sem campanhas/oportunidade, com campanha ativa, com selo de oportunidade e link revogado, comparando os campos visíveis e o JSON. Medir chamadas, linhas/campos, bytes, egress oficial, latência e rapidez separadamente em condições equivalentes. Reverter restaurando as projeções amplas e a leitura de todos os modelos nas duas rotas; nenhuma migration é necessária.
+
+### Matriz atualizada e próxima retomada
+
+| Recorte/ID | Estado | Evidência e limite |
+| --- | --- | --- |
+| Catálogo — cache de imagem de prévia (SCE-241) | Opção A aplicada localmente; publicação e medição pendentes | Cache por até 24 h quando disponível; chamadas, bytes faturáveis, serviço e rapidez sem medida. |
+| Catálogo — validação do endereço da imagem (SCE-242) | Opção A aplicada localmente; publicação e medição pendentes | Host e esquema são validados antes da busca; destinos de redirecionamento continuam sem validação. |
+| Catálogo — modelos do link de instruções (SCE-243) | Opção A aplicada localmente; execução estática registrada | Uma chamada a menos por abertura no caso sem campanhas ativas e sem oportunidade; volumes, bytes, egress oficial e latência reais desconhecidos. |
+| Catálogo — edição de atributo global (SCE-244) | Aceita globalmente; próximo recorte | Aplicar em ciclo próprio a gravação transacional proposta; verificar reversão e escopo antes de tocar no banco. |
+| App — lista de oportunidades (SCE-245) | Aceita globalmente; recorte próprio | Manter `id,name`, filtro de ativos e ordenação; bytes não medidos. |
+| ERP — cache de contadores entre contas (SCE-319) | Opção A aceita; recorte próprio | Manter escopo por conta e limpar valores ao trocar de sessão. |
+| Proxy de prévia — validar redirecionamentos (SCE-320) | Opção A aceita pelo operador nesta mensagem; recorte próprio após SCE-244 | O `fetch` segue redirecionamentos; nenhum destino real ou frequência foi consultado. |
+| Cobertura geral (SCE-154) | Bloqueada | Mantida conforme histórico. |
+
+**Próximo recorte exato:** SCE-244, edição de atributo global no Catálogo Digital, conforme descrita no próprio registro do roadmap: conferir o formulário, chamador e operação Supabase; preservar nome, valores, escopo/conta e permissões; só então aplicar a gravação transacional aceita e documentar reversão. Separar chamadas, bytes, trabalho/latência do banco e rapidez percebida. Não tocar em outros recortes aceitos e não decidir a SCE-320 por inferência.
+
+### Ciclo — 17/11/2026, 20:25 BRT (23:25Z) — edição de atributo global (SCE-244)
+
+**Reconciliação e decisão:** a opção A da SCE-244 já estava aceita pela decisão global do operador e foi aplicada neste ciclo. A autorização atual (“pode aplicar o que está pendente”) também cobre a opção A da SCE-320, aceita para recorte próprio; ela não foi antecipada. SCE-245 e SCE-319 seguem na fila aceita. A inspeção revelou uma permissão anônima ampla nestas mesmas duas tabelas; é uma observação nova, SCE-321, e nenhuma alteração de acesso foi feita para ela. SCE-154 continua bloqueada.
+
+**Leituras obrigatórias e históricos:** AGENTS.md §§7, 13 e 24–25; `digital-catalog/AGENTS.md`; skill `supabase-consumption`; `rules/supabase/supabase-consumption.yml`; este roadmap; e os oito relatórios ligados pelo índice: `egress-supabase-morantehub.md`, `2026-09-15-supabase-egress.md`, `2026-11-04-egress-erp-app.md`, `egress-cargas-compactas-2026-11-04.md`, `roadmap-apis-ia-google-maps.md`, `produtos-alertas-resumo-estoque-2026-11-04.md`, `auditoria-ferramentas-seu-lizandro-2026-11-09.md` e `pedidos-filtros-servidor-2026-11-04.md`. Nenhum deles registra esta operação de edição de atributo; o relatório de ferramentas já aborda permissões amplas em outras tabelas, sem mencionar `attributes` ou `attribute_values`.
+
+**Caminhos e verificações feitas:** `digital-catalog/src/features/products/components/admin-modal/dialogs/AttributeManagerModal.tsx#handleFastSaveAttribute`; `digital-catalog/src/features/products/components/admin-modal/hooks/useAdminProductData.ts#fetchDbAttributes`; `digital-catalog/src/features/products/components/admin-product-modal.tsx`; `shared-utils/storefrontProductFormSchemas.ts`; `digital-catalog/src/features/products/components/admin-modal/types.ts`; migration-base `supabase/migrations/20260805000000_create_product_variations.sql`; e a função de criação que orientou o padrão, `supabase/migrations/20261008154800_create_mobile_product_attribute_with_values.sql`. O formulário exige nome não vazio e pelo menos um valor; a base remota tem unicidade para nome e para `(attribute_id,value)`. As tabelas remotas usam `id uuid`; ambas têm RLS ativa. O projeto confirmado foi `hkoxhourxwlddgsfdgws`, estado ativo; a lista remota contém a migration-base e a função de criação anterior, mas não a nova função antes desta execução.
+
+**Mudança feita:** o ramo de edição em `AttributeManagerModal.tsx` substitui as três gravações sequenciais por uma chamada a `update_mobile_product_attribute_with_values`. As duas leituras paralelas de `fetchDbAttributes` continuam após o sucesso; criação, exclusão e adição de um único valor não mudaram. A função valida sessão autenticada, identificador, nome e ao menos um valor não vazio, atualiza o nome e substitui valores na mesma transação; a restrição do banco continua barrando nomes/valores duplicados. Ela é `SECURITY INVOKER`, atualiza somente `attributes.name`, conserva os demais campos da configuração atual e não desliga nem cria políticas de RLS.
+
+Foram criadas e aplicadas no schema `public` do projeto operacional as migrations `20261117231928_update_mobile_product_attribute_with_values.sql` e `20261117232052_restrict_mobile_product_attribute_update_rpc_roles.sql`. A segunda foi necessária porque a conferência após a primeira mostrou permissão de execução herdada para `anon` e `service_role`; após a correção, a função pode ser executada por `authenticated`, e não por `anon` nem `service_role`. O cliente não mudou de papel, não recebeu permissão de tabela e não ganhou acesso a outras rotinas. Não houve DML nos dados de atributos ou valores.
+
+**Consumo e velocidade, medidos separadamente:**
+
+- **Chamadas:** antes, uma edição fazia três gravações sequenciais; agora faz uma chamada de RPC para a gravação. As duas leituras paralelas posteriores permanecem. Portanto, a estrutura do fluxo cai de cinco chamadas totais para três, se a edição concluir e a atualização da tela for requisitada; a queda de gravações é exatamente duas por edição, com alta confiança estrutural. O volume real de edições é desconhecido.
+- **Bytes/egress:** não foi medido o tamanho das respostas nem o medidor oficial de egress. As duas leituras permanecem e nenhum valor em bytes ou cobrança é estimado.
+- **Trabalho do banco:** continuam ocorrendo um `UPDATE`, um `DELETE` e um `INSERT`, agora dentro da função e de uma transação. Não há medição de CPU, plano ou latência; não alego economia de trabalho no banco.
+- **Rapidez percebida:** o código já mostrava o aviso “Salvando atributo...” imediatamente antes da primeira gravação e só mostrava sucesso depois da resposta de gravação. O caminho novo mantém esses estados e só confirma após a RPC retornar sucesso; os dois pedidos de atualização da lista continuam em paralelo. Não há linha de base nem resultado p50/p95 do clique até a confirmação, e não medi p75 dos indicadores da página em celular/computador. A redução de viagens sequenciais sugere menos espera de rede, mas isso não foi medido. Antes de publicar, comparar o mesmo formulário em rede identificada: aviso visual inicial, conclusão confirmada e p50/p95; não publicar se a tarefa ficar mais lenta ou deixar de refletir o conjunto salvo. LCP ≤2,5 s e interação ≤200 ms p75 continuam como limites web, não como medições deste ciclo.
+
+**Permissões, efeitos e validação:** a função usa o papel da sessão e exige `auth.uid()`. A inspeção remota confirmou `UPDATE` em `attributes`, `DELETE` e `INSERT` em `attribute_values` para `authenticated`, e a função tem `SECURITY INVOKER`; seus privilégios após a correção foram conferidos: `authenticated=true`, `anon=false`, `service_role=false`. Nenhuma política de RLS foi alterada. A página continua mostrando os mesmos nomes e valores quando a consulta de retorno termina; preço, estoque, mensagens, cache e modo offline não participam desta tela. Uma repetição do mesmo envio substitui o mesmo conjunto, sem criar valores duplicados. `git diff --check` passou. Não rodei testes/build nem executei a RPC com dados, pois não há fixture autorizada e este pedido proíbe gravações de teste; assim, a atomicidade foi revisada no SQL e aplicada, mas o comportamento de ponta a ponta e o tempo continuam sem prova executada. Reversão do cliente: restaurar as três gravações antigas; as duas migrations são aditivas e não apagam registros ou funções existentes.
+
+### Nova observação — SCE-321: acesso anônimo amplo ao catálogo global de atributos
+
+**Status:** opção A aceita pelo operador em 17/11/2026 (“pode aplicar o que está pendente”); a execução fica em recorte próprio depois da SCE-245 e da SCE-319, conforme o cursor da fila. Nenhuma política foi alterada neste ciclo.
+
+A leitura somente de metadados autorizada para conferir as permissões da SCE-244 encontrou as políticas `allow_public_all_attr` e `allow_public_all_val`, ambas com `USING true` e `WITH CHECK true`, e privilégios do papel anônimo para leitura, criação, edição e exclusão nas duas tabelas. O código versionado localiza consultas em formulários administrativos do ERP, app e Catálogo Digital; não encontrei um chamador anônimo explícito nesta busca. Isso não prova que integrações antigas ou externas não existam. Não li linhas de atributos/valores nem verifiquei uso real.
+
+- **A — recomendada:** mapear os consumidores anônimos ainda ativos e, se não houver necessidade de escrita pública, substituir as regras `FOR ALL` por leitura anônima apenas quando a tela pública realmente precisar; manter criação/edição/exclusão restritas a usuários autenticados. Ganho prático: uma pessoa sem sessão não poderia alterar ou apagar a lista global usada nos formulários. Pode exigir ajuste se um consumidor público depender desses dados.
+- **B — mais restritiva:** exigir sessão também para leitura das duas tabelas. Reduz a exposição, mas pode quebrar uma tela ou integração pública ainda não localizada.
+- **C — manter como está:** não muda a experiência atual e deixa o acesso anônimo de escrita habilitado.
+- **Chamadas, bytes e banco:** a mudança de permissão não reduziria chamadas nem trabalho do banco. Bytes de leitura podem cair se leitura pública for bloqueada, mas volume e egress oficial são desconhecidos; não é possível estimar.
+- **Validação e reversão:** antes de qualquer migration, confirmar cada leitor público, testar que o ERP/app autenticados mantêm o gerenciamento, verificar que o anônimo não pode escrever e preservar qualquer leitura pública necessária. Nenhum desses testes foi feito. Reverter seria restaurar as duas políticas públicas atuais. Esta proposta não está incluída na SCE-244.
+
+### Matriz atualizada e próxima retomada
+
+| Recorte/ID | Estado | Evidência e limite |
+| --- | --- | --- |
+| Catálogo — cache de imagem de prévia (SCE-241) | Opção A aplicada localmente; publicação e medição pendentes | Cache por até 24 h quando disponível; chamadas, bytes faturáveis, serviço e rapidez sem medida. |
+| Catálogo — validação do endereço da imagem (SCE-242) | Opção A aplicada localmente; publicação e medição pendentes | Validação inicial de host/esquema; destinos de redirecionamento ainda não são validados. |
+| Catálogo — modelos do link de instruções (SCE-243) | Opção A aplicada localmente | Uma chamada a menos por abertura no caso sem campanha/oportunidade; volume, bytes, egress e latência reais desconhecidos. |
+| Catálogo — edição de atributo global (SCE-244) | Opção A executada localmente e migrations aplicadas ao projeto operacional | Três gravações tornaram-se uma RPC; duas leituras permanecem. Tempo de tela e comportamento com registros não foram testados. |
+| App — lista de oportunidades (SCE-245) | Aceita globalmente; recorte próprio | Preservar campos, filtro e ordenação; medir bytes sem chamar amostra de cobrança. |
+| ERP — cache de contadores entre contas (SCE-319) | Opção A aceita; recorte próprio | Preservar escopo por conta e limpar valores ao trocar sessão. |
+| Proxy de prévia — validar redirecionamentos (SCE-320) | Opção A aplicada localmente em 17/11/2026 | Destinos são revalidados a cada salto HTTPS e a cadeia tem limite de cinco; nenhum endereço real foi chamado. Frequência, cache, bytes e latência sem medida. |
+| Acesso anônimo ao catálogo de atributos (SCE-321) | Opção A aceita; execução em recorte próprio após SCE-245 e SCE-319 | Mapear leitores públicos e restringir escrita anônima sem interromper leitura pública necessária; nenhuma política foi alterada. |
+| Cobertura geral (SCE-154) | Bloqueada | Mantida conforme histórico. |
+
+**Próximo recorte exato:** SCE-320, proxy de imagem de prévia em `digital-catalog/src/app/api/og-image/route.ts`, agora aceito pela instrução do operador “pode aplicar o que está pendente”. Revalidar o host de cada redirecionamento com limite de saltos, sem acessar URLs reais. Manter a página e os caminhos de imagens válidos, medir chamadas, bytes/egress e rapidez separadamente antes de publicação.
+
+---
+
+### Ciclo — 17/11/2026, 20:33 BRT (23:33Z) — validar todos os destinos da prévia (SCE-320)
+
+**Reconciliação:** reli AGENTS.md §§24–25, `digital-catalog/AGENTS.md`, a skill `supabase-consumption`, as regras Supabase do repositório, o roadmap e os relatórios históricos citados no índice. O cursor apontava para SCE-320 depois da SCE-244. O pedido atual do operador aceita as propostas ainda pendentes; a opção A da SCE-320 foi aplicada e a opção A da SCE-321 passa a aceita para um ciclo separado. SCE-245 e SCE-319 já estavam aceitas e continuam na fila. SCE-154 permanece bloqueada conforme a decisão histórica.
+
+**Caminhos revisados:** `digital-catalog/src/app/api/og-image/route.ts`, o consumidor de metadados `digital-catalog/src/app/produto/[slug]/page.tsx`, `digital-catalog/next.config.ts` e a documentação local do Next.js para `fetch`. Não chamei a rota ou qualquer endereço remoto, não consultei imagens ou produtos e não acessei o banco.
+
+**Aplicação local:** a rota agora pede cada resposta com redirecionamento manual. Para os status de redirecionamento reconhecidos pela Fetch API, resolve o cabeçalho `Location` em relação ao endereço atual, passa novamente pela mesma validação HTTPS/host antes de seguir e cancela o corpo intermediário. Há limite de cinco redirecionamentos; se a cadeia tentar um sexto, termina com erro 502. Uma resposta sem `Location` conserva o tratamento de erro já existente. Endereços apontados para fora dos domínios permitidos terminam em erro 403 antes de uma nova busca. Os hosts aprovados, a imagem final, o tipo de conteúdo e os cabeçalhos atuais da resposta foram preservados. A regra da Fetch API documenta os modos `follow`, `error` e `manual` [na referência de `Request.redirect`](https://developer.mozilla.org/en-US/docs/Web/API/Request/redirect).
+
+**Pedidos, bytes, banco e rapidez — separados:**
+
+- **Pedidos:** o pedido ao proxy feito pelo navegador/robô não muda. A cadeia agora é controlada em código, mas cada salto permitido ainda demanda um pedido à origem; sem contagem de redirecionamentos e de cache não dá para quantificar pedidos totais. Nenhum redirecionamento real foi chamado.
+- **Bytes e saída faturável:** o proxy continua devolvendo a imagem final inteira. Não medi bytes transferidos nem o medidor oficial de saída. A documentação local do Next.js informa que respostas 3xx não entram no cache de dados, enquanto uma resposta 200 pode ser armazenada; por isso uma cadeia que redireciona pode repetir pedidos intermediários, e o efeito de cache e tráfego deve ser medido antes da publicação. O tamanho de uma resposta de amostra não foi usado como estimativa de cobrança. A [documentação local do Next.js sobre `fetch`](https://nextjs.org/docs/app/api-reference/functions/fetch) descreve a revalidação de 24 horas que já permanece na busca.
+- **Banco:** a rota não lê nem grava tabelas, funções do banco ou canais em tempo real; esta mudança não altera chamadas ou trabalho do banco.
+- **Rapidez percebida:** endereços diretos aprovados não ganham um salto adicional. Endereços com redirecionamento aprovado podem precisar de pedidos intermediários controlados um a um; não há medição de latência nem frequência para calcular o impacto. O LCP (tempo até o conteúdo principal aparecer) e a resposta visual a interações permanecem alvos, não resultados medidos: acompanhar até 2,5 s e 200 ms no percentil 75 por dispositivo, além da mediana e p95 do tempo de exibição da imagem, antes de publicar. Os limites de referência para experiência web são descritos pela [web.dev](https://web.dev/articles/vitals).
+
+**Efeitos, risco e reversão:** fotos cujos redirecionamentos permanecem nos hosts aceitos continuam disponíveis; imagens legítimas que saiam da lista ou façam mais de cinco saltos passam a falhar na prévia. Nenhum preço, estoque, mensagem, permissão, conta ou funcionamento offline foi alterado. Para reverter, restaurar a chamada `fetch` original com seguimento automático e remover o auxiliar e as constantes de redirecionamento; nenhuma alteração de banco ou esquema é necessária.
+
+**Validação e limites:** `git diff --check` passou sem erro de espaço. Não rodei testes, build ou chamada da rota; não usei URLs reais, Supabase, DML, fixtures, migration, deploy ou OTA. Antes de publicar, validar em ambiente de teste apenas com endereços sintéticos sob controle: resposta direta, redirecionamento dentro da lista, saída para host não permitido, localização inválida, resposta sem `Location`, cadeia no limite e cadeia que tenta excedê-lo. Comparar, em condições equivalentes, pedidos por salto, acertos de cache, bytes recebidos/enviados e tempo até a imagem aparecer; conferir também os indicadores web por dispositivo. As medições ainda não existem e não há estimativa de economia ou de custo.
+
+### Matriz atualizada e próxima retomada
+
+| Recorte/ID | Estado | Evidência e limite |
+| --- | --- | --- |
+| Catálogo — cache de imagem de prévia (SCE-241) | Opção A aplicada localmente; publicação e medição pendentes | Cache de origem por até 24 h quando disponível; contagens, saída faturável e rapidez sem medida. |
+| Catálogo — validação do endereço inicial (SCE-242) | Opção A aplicada localmente; publicação e medição pendentes | HTTPS e host são validados antes da busca. |
+| Catálogo — modelos do link de instruções (SCE-243) | Opção A aplicada localmente | Uma chamada a menos por execução no caso sem campanha/oportunidade; volume e latência reais desconhecidos. |
+| Catálogo — edição de atributo global (SCE-244) | Opção A executada localmente e migrations aplicadas ao projeto operacional | Três gravações passaram a uma RPC; duas leituras permanecem. Tempo e comportamento com registros não foram testados. |
+| App — lista de oportunidades (SCE-245) | Opção A aplicada localmente em 17/11/2026 | A consulta permanece em uma chamada, com as mesmas linhas, filtro e ordem; a resposta agora seleciona `id,name`. Bytes e rapidez reais continuam sem medição. |
+| ERP — cache de contadores entre contas (SCE-319) | Opção A aceita; execução após SCE-245 | Preservar isolamento por conta e limpar resultados ao trocar sessão. |
+| Proxy de prévia — validar redirecionamentos (SCE-320) | Opção A aplicada localmente | O destino é revalidado antes de cada salto; limite de cinco. Frequência, cache, tráfego e latência ainda não medidos. |
+| Acesso anônimo ao catálogo de atributos (SCE-321) | Opção A aceita em 17/11/2026; execução após SCE-245 e SCE-319 | Mapear leitores públicos e restringir escrita anônima sem remover leitura pública necessária. Nenhuma política foi alterada neste ciclo. |
+| Cobertura geral (SCE-154) | Bloqueada | Mantida conforme histórico. |
+
+**Próximo recorte exato:** SCE-245, lista de oportunidades do aplicativo, nos caminhos já descritos no registro SCE-245 do roadmap. Preservar filtro de itens ativos, ordenação e campos efetivamente usados; aplicar a projeção acordada somente após conferir consumidores diretos. Separar pedidos, linhas/campos e bytes do trabalho/latência do banco e da rapidez percebida. Não consultar dados reais ou publicar; não misturar neste ciclo o ERP SCE-319 ou a revisão de políticas SCE-321.
+
+---
+
+### Ciclo — 17/11/2026, 20:48 BRT (23:48Z) — reduzir campos retornados no seletor de oportunidades do aplicativo (SCE-245)
+
+**Reconciliação e decisão:** o checkpoint era a SCE-245, já aceita na opção A pela confirmação global do operador. Reli AGENTS.md §§24–25, as regras `supabase-consumption`, o índice deste roadmap e os oito relatórios históricos nele citados. As contagens históricas de `opportunities` são agregadas por tabela/rota e período; não identificam esta tela nem o aplicativo, e não foram interpretadas como repetição indevida. Os demais relatórios não atribuem uma leitura desta função ao formulário. SCE-319 opção A e SCE-321 opção A também seguem aceitas, cada uma em recorte separado; SCE-154 continua bloqueada.
+
+**Caminhos conferidos:** `mobile/src/features/products/services/mobileOpportunityService.ts#fetchMobileOpportunities`; seu único chamador encontrado, `mobile/src/features/products/modals/tabs/ProductFormBasicTab.tsx`; o seletor `mobile/src/features/products/modals/components/OpportunitySelectModal.tsx`; `mobile/src/features/products/modals/tabs/ProductFormOriginAndModeFields.tsx`; e `mobile/src/features/products/screens/ProductFormScreen.tsx`. A busca global das referências do tipo e função não encontrou outro consumidor. O formulário usa o identificador e nome: o seletor compara `id`, mostra `name`, a oportunidade selecionada é localizada por `id`, e a regra de origem “salvado” filtra pelo nome. Nenhum consumidor localizado usa `slug`, `badge_color` ou o campo `active` da resposta.
+
+**Aplicação local:** `fetchMobileOpportunities` seleciona agora somente `id,name`; mantém `active = true` no servidor e a ordenação crescente por `name`. A interface `MobileOpportunity` também foi estreitada a esses dois campos. A função continua sendo chamada uma vez pelo efeito de montagem de `ProductFormBasicTab`, sem mudar o tratamento de falha, que registra o erro e devolve lista vazia. O formulário mantém os mesmos nomes, opções ativas, seleção salva e associação de “salvado”.
+
+**Chamadas, bytes, banco e rapidez — separados:**
+
+- **Chamadas:** antes e depois, o código estrutura uma chamada por montagem da aba básica. Os logs históricos consultados mostram contagens da rota `opportunities` em janelas agregadas, mas não separam ERP, catálogo, aplicativo ou chamador; portanto não servem para estimar o volume deste formulário. A projeção não reduz chamadas.
+- **Bytes/saída faturável:** a solicitação deixa de pedir três campos (`slug`, `badge_color` e `active`) e mantém os dois usados. Isso reduz estruturalmente as colunas selecionadas na resposta; não há bytes por resposta nem leitura do medidor oficial de saída antes/depois. Não estimo valor faturável nem percentual. A solicitação continua com o mesmo filtro e ordenação.
+- **Trabalho do banco:** linhas candidatas, condição de ativo e ordenação permanecem iguais. A seleção menor pode diminuir a serialização dos campos não retornados, mas não remove a leitura das mesmas linhas; plano, CPU e latência não foram medidos.
+- **Rapidez percebida e referência inicial:** a medida inicial disponível é estrutural, não de relógio: uma chamada assíncrona é disparada ao montar a aba, antes com cinco campos projetados; ela não bloqueia a primeira renderização da tela. O código não registra o tempo do primeiro quadro nem o tempo entre o início da consulta e as opções prontas, então não existe mediana/p95 real antes da mudança. Para o aplicativo nativo, a validação antes de publicar deve comparar, no mesmo aparelho e na mesma rede identificada, tempo até o primeiro quadro do formulário e tempo até o seletor receber a lista, mostrando mediana e p95. Limite provisório para esta ação: primeiro quadro e lista pronta não podem ficar mais lentos que o antes comparável; a lista deve ficar pronta em até 3 s no p95 numa rede normal. Se a medição comparável ainda não for possível, registrar como pendência, sem alegar melhora de rapidez nem publicar com base apenas na expectativa de resposta menor. Os limites web de LCP/interação não se aplicam à tela nativa.
+
+**Permissões, dados e modo sem conexão:** o papel do cliente, o filtro e as regras de acesso existentes não mudam. A consulta não lê preço ou saldo de estoque, portanto não afeta a atualização desses dados. O serviço não mantém cópia offline; em erro continua devolvendo lista vazia, exatamente como antes, e não há nova promessa de sincronização quando a rede volta.
+
+**Validação e reversão:** a revisão estática confirma compatibilidade com o único chamador, com o seletor e com a regra de salvados. `git diff --check` passou sem erro de espaço; não rodei testes nem build e não fiz chamada real ao banco. Não consultei linhas de oportunidades, produtos ou estoque e não alterei banco, migration, DML/fixtures, deploy ou OTA. Antes da publicação, comparar no mesmo aparelho/rede a abertura do formulário e o tempo até as opções aparecerem (mediana/p95), além de confirmar seleção/remoção, oportunidade salva e salvados; comparar resposta em bytes separadamente e recorrer ao medidor oficial para qualquer afirmação faturável. Se campos ou nomes deixarem de aparecer, ou o p95 ultrapassar o valor inicial/limite provisório, restaurar `.select('id, name, slug, badge_color, active')` e os campos opcionais da interface.
+
+### Matriz atualizada e próxima retomada
+
+| Recorte/ID | Estado | Evidência e limite |
+| --- | --- | --- |
+| Catálogo — cache de imagem de prévia (SCE-241) | Opção A aplicada localmente; publicar e medir antes/depois | Cache de busca da origem por até 24 h quando disponível; volume e efeito reais sem medida. |
+| Catálogo — validação do endereço e redirecionamentos (SCE-242/320) | Opções A aplicadas localmente | Host e esquema são revistos a cada salto, até cinco; frequência, bytes e latência desconhecidos. |
+| Catálogo — modelos do link de instruções (SCE-243) | Opção A aplicada localmente | Uma chamada estrutural a menos quando não há campanha nem oportunidade; volumes e latência reais desconhecidos. |
+| Catálogo — edição de atributo global (SCE-244) | Opção A executada localmente; migrations aplicadas ao projeto operacional | Três gravações passaram a uma RPC; tela não medida. |
+| App — lista de oportunidades (SCE-245) | Opção A aplicada localmente | Uma chamada e as mesmas linhas; 3 campos removidos da resposta. Bytes oficiais e mediana/p95 nativos não medidos; comparação antes/depois é gate de publicação. |
+| ERP — cache de contadores entre contas (SCE-319) | Opção A aceita; próxima execução | Isolar o cache por conta e limpar na troca de sessão; medir frescor e rapidez antes de publicar. |
+| Acesso anônimo ao catálogo de atributos (SCE-321) | Opção A aceita; execução depois da SCE-319 | Mapear leitores públicos e restringir escrita anônima sem remover leitura necessária; nenhuma política alterada ainda. |
+| Cobertura geral (SCE-154) | Bloqueada | Mantida conforme decisão histórica. |
+
+**Próximo recorte exato:** SCE-319, cache de contadores de catálogo do ERP, em `erp/src/pages/App/Products/ProductList/services/productCatalogStatsService.ts` e seus chamadores de sessão já identificados na entrada SCE-319. Preservar o escopo por conta, limpar o cache na troca/saída da sessão e manter a atualização percebida dos contadores. Registrar a referência inicial disponível e definir/medir, em rede comparável, tempo da tela e atualização dos contadores (mediana/p95); não considerar a economia de chamadas aceitável se o resumo ficar mais lento ou atravessar contas. Separar chamadas, campos/linhas/bytes e carga/latência do banco. Não consultar dados de conta ou produtos reais, não criar fixtures, e não aplicar mudança remota sem revisar o escopo e as regras de ownership; a SCE-321 fica aceita na fila, sem misturar este recorte.
+
+---
+
+### Ciclo — 17/11/2026, 21:06 BRT (18/11/2026, 00:06Z) — isolar o cache dos contadores por sessão do ERP (SCE-319)
+
+**Reconciliação:** o checkpoint era a SCE-319. Reli AGENTS.md §§24–25, as regras de consumo, a habilidade `supabase-consumption`, o registro SCE-319 e os oito relatórios históricos citados pelo índice. A opção A já havia sido aceita pelo operador; a aceitação geral posterior confirma sua execução. A SCE-321 opção A segue aceita para um recorte separado. A SCE-154 continua bloqueada conforme seu registro.
+
+**Caminhos revisados:** `erp/src/pages/App/Products/ProductList/services/productCatalogStatsService.ts#loadProductCatalogStats`, `erp/src/pages/App/Products/hooks/useProductsPageState.ts#fetchStats`, `erp/src/pages/App/Products/Index.tsx`, `erp/src/context/auth/useAuthSession.ts#handleSession/logout`, `erp/src/context/auth/sessionCacheRegistry.ts`, `erp/src/pages/App/Products/components/ProductSummarySidebar.tsx` e `erp/src/pages/App/Products/ProductList/utils/catalog/registeredVariationCount.ts#calculateVariationCatalogStats`. O resumo é mostrado pela lateral e já apresenta “Atualizando resumo...” durante a leitura. O serviço tinha uma chave comum a todos os usuários e validade de 30 segundos. Não foram consultados usuários, produtos, permissões remotas ou contadores reais.
+
+**Aplicação local:** o identificador do usuário autenticado (`user.id`) agora acompanha a leitura do resumo e faz parte da chave de cache junto com o modo e a opção de itens de teste. Não há um identificador de empresa separado no tipo `Profile` revisado; por isso o escopo usado é a identidade autenticada. No evento central de sessão, uma troca ou saída limpa os contadores em memória e as consultas em andamento. O comando de saída também limpa o cache imediatamente. A página esconde os números da sessão anterior já na renderização, invalida a sequência de respostas antigas e mostra “Atualizando resumo...” enquanto carrega os números do usuário atual. Uma sessão sem identidade não dispara essa leitura. A geração existente do serviço impede que uma resposta antiga volte a preencher o cache depois da limpeza.
+
+**Pedidos, bytes, banco e rapidez — separados:**
+
+- **Pedidos:** no uso normal da mesma sessão, modo e filtro, permanece possível reaproveitar o cache de 30 segundos e compartilhar uma consulta em andamento. Ao trocar de usuário, o resumo aberto precisa de até uma nova leitura para o modo/filtro atual; sem o resumo autorizado ou sem uma sessão identificada, são zero leituras. Não há contagem real de uso para estimar quantas trocas ocorrem.
+- **Bytes/saída:** cada nova leitura mantém a mesma seleção de campos e o mesmo filtro da consulta anterior. Uma troca pode transferir novamente o conjunto completo já usado para calcular os contadores; bytes reais e o medidor oficial de saída não estavam disponíveis. O tamanho de uma amostra não foi tratado como saída faturável.
+- **Carga/latência do banco:** a consulta continua lendo os mesmos produtos e variações, com os mesmos campos, modo e filtro. O custo por leitura não foi alterado. A nova leitura após troca pode acrescentar uma execução quando antes haveria reaproveitamento da chave global; a carga e a latência não foram medidas.
+- **Rapidez percebida:** o carregamento não bloqueia a lista de produtos. Os contadores da sessão anterior deixam de aparecer e a lateral informa que o resumo está atualizando. Não há linha de base cronometrada nem amostra por aparelho/rede; por isso não afirmo ganho nem regressão medidos. Antes de publicar, medir no mesmo ambiente o tempo da tela e a atualização do resumo (mediana e p95), separando computador e celular; como a alteração ainda é local, uma comparação antes/depois equivalente não foi obtida. Metas de experiência web permanecem LCP até 2,5 s e interação visual até 200 ms no p75. Para a atualização do resumo, usar como metas provisórias: indicador de atualização visível em até 200 ms no p75, conclusão em até 3 s no p95 numa rede normal e nenhuma espera acima de 10 s sem sinalizar falha ou opção de repetir. São metas, não resultados observados. O código atual mantém “Atualizando resumo...” até a leitura resolver e não tem limite próprio de 10 s; portanto esse último critério requer validação/decisão de produto antes da publicação. Se os dados ainda não existirem, a medição fica pendente e não se anuncia economia ou melhora de velocidade.
+
+**Resultados, acesso e riscos:** os contadores continuam contando os mesmos produtos e variações com as mesmas regras. O preço, estoque, lista, publicação e permissões não mudam. Não foi criado uso sem conexão nem armazenamento persistente; voltar a uma sessão requer a leitura normal. Durante a troca, a pessoa pode ver os contadores zerados com a indicação de atualização até a resposta chegar. O principal ganho esperado é impedir a exibição de números calculados sob outra identidade; risco residual de acesso depende das políticas reais, que não foram consultadas nem alteradas. Se existirem contas de negócio compartilhadas por mais de um usuário, o cache fica separado por pessoa e pode haver uma leitura adicional ao trocar de pessoa.
+
+**Validação e reversão:** a revisão estática confirmou o único chamador de `loadProductCatalogStats`, o ponto central de troca de sessão e a indicação de carregamento já presente na lateral. `git diff --check` passou sem erro de espaço nos arquivos rastreados. Não rodei testes ou build e não fiz consultas remotas, chamadas, medições, DML/fixtures, mudanças de esquema, migration, deploy ou publicação. Antes de publicar, usar identidades simuladas e respostas controladas para confirmar que A nunca aparece para B, uma resposta antiga não substitui a nova, a saída limpa o cache e os totais de um mesmo usuário continuam iguais. Medir pedidos, bytes reais, carga/latência e rapidez separadamente. Para reverter, retirar a identidade da chave, a limpeza do evento de sessão e a guarda de sequência/escopo do estado; não há alteração de banco.
+
+### Matriz atualizada e próxima retomada
+
+| Recorte/ID | Estado | Evidência e limite |
+| --- | --- | --- |
+| App — lista de oportunidades (SCE-245) | Opção A aplicada localmente | Uma chamada estrutural; os mesmos filtro e ordem, com resposta menor. Bytes oficiais e rapidez nativa ainda sem medida. |
+| ERP — cache de contadores entre sessões (SCE-319) | Opção A aplicada localmente | Chave agora inclui a identidade autenticada; limpeza em troca/saída e descarte de respostas antigas. Pode ocorrer até uma leitura adicional por troca para o resumo atual; chamadas, bytes, carga e tempo reais não medidos. |
+| Proxy de prévia — validar redirecionamentos (SCE-320) | Opção A aplicada localmente | Host revisto a cada salto, até cinco. Frequência, cache, bytes e latência sem medida. |
+| Acesso anônimo ao catálogo de atributos (SCE-321) | Opção A aceita; próximo recorte | Mapear leitores públicos e restringir escrita anônima sem remover leitura pública necessária; nenhuma política foi alterada. |
+| Cobertura geral (SCE-154) | Bloqueada | Mantida conforme decisão histórica. |
+
+**Próximo recorte exato:** executar a SCE-321, revisão das políticas de acesso às tabelas do catálogo global de atributos já descritas no respectivo registro do roadmap. Mapear leitura pública necessária e escrita anônima nas tabelas e funções relacionadas; preservar consumidores públicos, escopo e permissões legítimos. Não aplicar mudança remota sem confirmar todos os leitores/escritores e o caminho de reversão. Separar chamadas, bytes/saída, trabalho/latência do banco e rapidez percebida. Não misturar com a SCE-319, não ler conteúdo pessoal ou dados operacionais, e não consultar segredos.

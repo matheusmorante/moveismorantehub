@@ -14,8 +14,12 @@ export const ORDER_STEPS: OrderStep[] = [
   { step: 5, icon: 'bi-credit-card-2-front', label: 'Pagamento' },
 ];
 
-export const getVisibleOrderSteps = (isBudget: boolean = false): OrderStep[] =>
-  isBudget ? ORDER_STEPS.filter((s) => s.step !== 5) : ORDER_STEPS;
+export const getVisibleOrderSteps = (isBudget: boolean = false): OrderStep[] => {
+  if (!isBudget) return ORDER_STEPS;
+  return ORDER_STEPS
+    .filter((step) => step.step !== 5)
+    .map((step) => step.step === 4 ? { ...step, label: 'Entrega' } : step);
+};
 
 export const getOrderStepStatus = (
   step: number,

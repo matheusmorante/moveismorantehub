@@ -100,7 +100,7 @@ const ShippingData = ({
   return (
     <div className="flex flex-col gap-8 w-full">
       <div className="flex flex-col gap-10 w-full lg:gap-12">
-        {hasDelivery && orderType !== 'sale' && (
+        {hasDelivery && orderType !== 'sale' && orderType !== 'budget' && (
           <div className="flex flex-col gap-10">
             {/* Address status toggle */}
             <div className="flex flex-col gap-4">

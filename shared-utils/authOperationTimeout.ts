@@ -1,7 +1,9 @@
 import { withTimeout } from './withTimeout';
 
+export const AUTH_OPERATION_TIMEOUT_MS = 20_000;
+
 /** A local deadline does not cancel the provider request or retry it. */
-export async function waitForAuthOperation<T>(pending: PromiseLike<T>, label: string, timeoutMs = 20_000): Promise<T> {
+export async function waitForAuthOperation<T>(pending: PromiseLike<T>, label: string, timeoutMs = AUTH_OPERATION_TIMEOUT_MS): Promise<T> {
   const expired = Symbol('auth-timeout');
   const result = await withTimeout<T | typeof expired>(pending, timeoutMs, expired, label);
   if (result === expired) {

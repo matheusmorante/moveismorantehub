@@ -3,8 +3,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Alert, Platform, Text, TouchableOpacity, View } from 'react-native';
 import { ChevronDown, Settings } from 'lucide-react-native';
 import {
-  fetchMobileCategories,
-  fetchMobileEnvironments,
+  fetchMobileProductFormCategoryOptions,
   type MobileCategory,
 } from '../../services/mobileCategoryService';
 import {
@@ -77,12 +76,8 @@ export const ProductFormBasicTab: React.FC<Props> = ({
   }, [formData.hasVariations, formData.variations, formData.colors, setFormData]);
 
   const refreshCategories = useCallback(async () => {
-    const [nextCategories, environmentResult] = await Promise.all([
-      fetchMobileCategories(),
-      fetchMobileEnvironments()
-        .then((data) => ({ data }))
-        .catch((error: unknown) => ({ error })),
-    ]);
+    const { categories: nextCategories, environmentResult } =
+      await fetchMobileProductFormCategoryOptions();
 
     if ('data' in environmentResult) {
       setCategories([

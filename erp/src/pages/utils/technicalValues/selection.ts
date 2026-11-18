@@ -67,9 +67,9 @@ export const getApplicableTechnicalFields = (
       isSofaPillowsCharacteristic(field.name)
     ) return false;
     if (isCatalogNeverRequiredCharacteristicName(field.name)) return false;
-    if (Array.isArray(field.categoryApplications)) {
-      return resolveProductCharacteristicApplication(field, productCategoryIds) === 'required';
-    }
+    // Category applications are Catalog Digital requirements. They decide
+    // whether a field is shown/required for publication, not ERP registration.
+    if (Array.isArray(field.categoryApplications)) return Boolean(field.isRequiredForProductEntry);
     if (isWeightCapacityCharacteristic(field.name)) return false;
     return Boolean(field.isRequired) || Boolean(
       field.requiredProductCategoryIds?.some((categoryId) => activeCategorySet.has(String(categoryId)))
@@ -80,6 +80,8 @@ export const getApplicableTechnicalFields = (
     if (isCatalogNeverRequiredCharacteristicName(field.name)) return false;
     const isLegacyModelAlias = isExcludedCharacteristic(field.name);
     return (isCatalogCoreRequiredCharacteristicName(field.name) && !isLegacyModelAlias) ||
+      Boolean(field.isRequiredForCatalog) ||
+      resolveProductCharacteristicApplication(field, productCategoryIds) === 'required' ||
       isProductTechnicalAttributeRequiredByCategories(
         field.requiredCategoryIds,
         productCategoryIds

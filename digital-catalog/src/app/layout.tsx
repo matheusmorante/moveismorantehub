@@ -6,6 +6,7 @@ import { Toaster } from '@/components/ui/sonner';
 import { StoreDesignProvider, SiteChrome } from '@/components/layout';
 import { ReactQueryProvider } from '@/lib/react-query-provider';
 import { ConfirmDialogProvider } from '@/components/providers/confirm-dialog-provider';
+import { CatalogVisitTracker } from '@/features/analytics/CatalogVisitTracker';
 
 const inter = Inter({
   variable: '--font-sans',
@@ -53,6 +54,7 @@ export default function RootLayout({
         <ConfirmDialogProvider>
           <ReactQueryProvider>
             <Suspense fallback={null}>
+              <CatalogVisitTracker />
               <SiteChrome>{children}</SiteChrome>
             </Suspense>
           </ReactQueryProvider>

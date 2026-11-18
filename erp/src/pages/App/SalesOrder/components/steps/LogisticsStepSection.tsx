@@ -57,7 +57,7 @@ export const LogisticsStepSection: React.FC<LogisticsStepSectionProps> = ({
       <SectionCard
         icon={<DeliveryTruckIcon className="h-6 w-6 text-white" />}
         iconBg="bg-orange-500 shadow-orange-100 dark:shadow-orange-900/20"
-        title={isBudget ? 'Frete e Entrega' : 'Logística'}
+        title={isBudget ? 'Entrega' : 'Logística'}
         className="bg-white dark:bg-slate-900 transition-colors duration-300"
       >
         <ShippingInputs

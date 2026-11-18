@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import { trackCatalogEvent } from '@/features/analytics/trackCatalogEvent';
 
 /**
  * Hook para rastreamento analítico de visualizações de produtos no catálogo digital.
@@ -11,27 +12,13 @@ export function useProductViewTracking(productId: string | number | undefined) {
     if (!productId) return;
 
     const analyticsKey = `product-viewed:${productId}`;
-    if (sessionStorage.getItem(analyticsKey)) return;
-    sessionStorage.setItem(analyticsKey, '1');
-
-    let visitorId = localStorage.getItem('morante_visitor_id');
-    if (!visitorId) {
-      visitorId = crypto.randomUUID
-        ? crypto.randomUUID()
-        : Math.random().toString(36).substring(2) + Date.now().toString(36);
-      localStorage.setItem('morante_visitor_id', visitorId);
+    try {
+      if (sessionStorage.getItem(analyticsKey)) return;
+      sessionStorage.setItem(analyticsKey, '1');
+    } catch {
+      return;
     }
 
-    fetch('/api/analytics/track', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        product_id: productId,
-        visitor_id: visitorId,
-        referer: typeof document !== 'undefined' ? document.referrer || 'Tráfego Direto' : 'Tráfego Direto',
-      }),
-    }).catch((err) => console.error('Erro no track de visualização:', err));
+    void trackCatalogEvent('product_view', productId);
   }, [productId]);
 }

@@ -3,12 +3,11 @@ import { Link } from 'react-router-dom';
 import { formatCurrency } from '@/pages/utils/formatters';
 import { ProductsData } from '../hooks/useDashboardProducts';
 
-type Tab = 'topByRevenue' | 'topByQuantity' | 'topByProfit' | 'stalled';
+type Tab = 'topByRevenue' | 'topByQuantity' | 'stalled';
 
 const TABS: { key: Tab; label: string }[] = [
   { key: 'topByRevenue', label: 'Faturamento' },
   { key: 'topByQuantity', label: 'Pedidos' },
-  { key: 'topByProfit', label: 'Lucro' },
   { key: 'stalled', label: 'Parados' },
 ];
 
@@ -24,13 +23,10 @@ const ProductsPanel: React.FC<ProductsPanelProps> = ({ data }) => {
       ? data.stalled
       : tab === 'topByQuantity'
         ? data.topByQuantity
-        : tab === 'topByProfit'
-          ? data.topByProfit
-          : data.topByRevenue;
+        : data.topByRevenue;
 
   const formatValue = (item: any) => {
     if (tab === 'topByQuantity') return `${item.quantity} un.`;
-    if (tab === 'topByProfit') return formatCurrency(item.profit);
     if (tab === 'stalled') {
       return item.lastSoldAt
         ? `Última venda ${new Date(item.lastSoldAt).toLocaleDateString('pt-BR')}`
@@ -128,13 +124,6 @@ const ProductsPanel: React.FC<ProductsPanelProps> = ({ data }) => {
               >
                 {formatValue(item)}
               </span>
-              {tab !== 'stalled' && tab !== 'topByQuantity' && (
-                <span
-                  className={`text-[10px] px-2 py-0.5 rounded-full font-black ${item.margin >= 30 ? 'text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40' : item.margin >= 10 ? 'text-amber-600 bg-amber-50 dark:bg-amber-950/40' : 'text-rose-600 bg-rose-50 dark:bg-rose-950/40'}`}
-                >
-                  {item.margin.toFixed(0)}%
-                </span>
-              )}
             </div>
           ))}
         </div>

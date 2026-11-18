@@ -52,7 +52,6 @@ import {
   isDresserOrWardrobeCategoryName,
   isDresserOrWardrobeRequiredCharacteristic,
   isSofaCategoryName,
-  isSofaRequiredCharacteristic,
 } from '../../../../../../shared-utils/productTechnicalFieldScope';
 import type { MobileProductTechnicalField } from '../../services/mobileProductTechnicalService';
 import { ProductAiCharacteristicsAssistant } from '../components/ProductAiCharacteristicsAssistant';
@@ -663,10 +662,8 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
                           >
                             {getProductTechnicalFieldDisplayName(field.name)}
                             {field.unit ? ` (${field.unit})` : ''}
-                            {((isSofaCategoryName(selectedCategoryName) &&
-                              isSofaRequiredCharacteristic(field.name)) ||
-                              (isDresserOrWardrobeCategoryName(selectedCategoryName) &&
-                                isDresserOrWardrobeRequiredCharacteristic(field.name))) && (
+                            {(isDresserOrWardrobeCategoryName(selectedCategoryName) &&
+                              isDresserOrWardrobeRequiredCharacteristic(field.name)) && (
                               <Text style={styles.requiredMark} accessibilityLabel="Obrigatória"> *</Text>
                             )}
                           </Text>

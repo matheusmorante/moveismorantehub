@@ -30,7 +30,7 @@ export const crmIntelligenceService = {
 
     const { data: orders, error } = await supabase
       .from('orders')
-      .select('items, customerData, created_at')
+      .select('items, created_at')
       .or(`customerData->>phone.eq.${phone},customerData->>phone.eq.${cleanPhone}`);
 
     if (error || !orders) {
@@ -43,7 +43,6 @@ export const crmIntelligenceService = {
       ((order.items as any[]) || []).map((item: any) => ({
         ...item,
         order_date: (order as any).created_at,
-        customer_name: (order.customerData as any)?.fullName,
       }))
     );
 

@@ -65,7 +65,6 @@ export async function persistOutboundMessageAndSyncConversation(
       .update({
         last_message_text: params.textContent,
         last_message_at: params.sendAt,
-        ...(params.status === 'sent' ? { unread_count: 0 } : {}),
         updated_at: params.sendAt,
       })
       .eq('id', params.conversationId);

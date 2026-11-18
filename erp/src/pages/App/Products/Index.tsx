@@ -18,7 +18,7 @@ export interface ProductsProps {
 }
 
 const Products: React.FC<ProductsProps> = ({ mode = 'standard' }) => {
-  const { profile, isAdministrator } = useAuth();
+  const { user, profile, isAdministrator } = useAuth();
   const roles = profile ? getProfileRoles(profile) : [];
   const canManageProducts = canPerform('productConfig', roles);
   const readOnly = !canManageProducts;
@@ -60,7 +60,12 @@ const Products: React.FC<ProductsProps> = ({ mode = 'standard' }) => {
     handleFilterActive,
     handleFilterDisabled,
     handleFilterDrafts,
-  } = useProductsPageState({ mode, isAdministrator, canManageProducts });
+  } = useProductsPageState({
+    accountScopeId: user?.id ?? null,
+    mode,
+    isAdministrator,
+    canManageProducts,
+  });
 
   const {
     isFormModalOpen,

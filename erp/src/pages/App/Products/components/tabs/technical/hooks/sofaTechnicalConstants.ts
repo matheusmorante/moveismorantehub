@@ -17,7 +17,7 @@ export const SOFA_RETRACTABLE_FIELD: TechnicalFieldDefinition = {
   name: 'É retrátil?',
   dataType: 'boolean',
   options: [],
-  isRequired: true,
+  isRequired: false,
   active: true,
 };
 
@@ -26,7 +26,7 @@ export const SOFA_RECLINING_FIELD: TechnicalFieldDefinition = {
   name: 'É reclinável?',
   dataType: 'boolean',
   options: [],
-  isRequired: true,
+  isRequired: false,
   active: true,
 };
 
@@ -49,8 +49,9 @@ export const getSofaRequiredTechnicalFields = (
       name: fallback.name,
       dataType: 'boolean',
       options: existing?.options || [],
-      isRequired: true,
-      isRequiredForProductEntry: true,
+      isRequired: false,
+      isRequiredForProductEntry: false,
+      isRequiredForCatalog: true,
       active: true,
       categoryApplications: undefined,
       categoryIds: existing?.categoryIds || [...categoryIds],

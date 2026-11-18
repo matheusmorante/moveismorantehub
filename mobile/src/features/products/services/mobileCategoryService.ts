@@ -32,9 +32,19 @@ type MobileCategoryEnvironmentRelationshipsResult = {
   data: { parent_id: string; child_id: string }[] | null;
   error: unknown | null;
 };
+type MobileCategoryEnvironmentRelationshipsSource =
+  | Promise<MobileCategoryEnvironmentRelationshipsResult>
+  | (() => Promise<MobileCategoryEnvironmentRelationshipsResult>);
 
 type CategoryListProjection = 'full' | 'summary';
 const CATEGORY_ENVIRONMENT_SUMMARY_FIELDS = 'id, name, slug, type';
+
+const loadCategoryEnvironmentRelationships = (
+  source?: MobileCategoryEnvironmentRelationshipsSource
+) =>
+  typeof source === 'function'
+    ? source()
+    : source ?? fetchMobileCategoryEnvironmentRelationships();
 
 const fetchMobileCategoryEnvironmentRelationships = async (): Promise<MobileCategoryEnvironmentRelationshipsResult> => {
   try {
@@ -48,7 +58,7 @@ const fetchMobileCategoryEnvironmentRelationships = async (): Promise<MobileCate
 };
 
 export const fetchMobileEnvironments = async (
-  sharedRelationships?: Promise<MobileCategoryEnvironmentRelationshipsResult>,
+  sharedRelationships?: MobileCategoryEnvironmentRelationshipsSource,
   projection: CategoryListProjection = 'full'
 ): Promise<MobileEnvironment[]> => {
   const environmentsRequest =
@@ -65,9 +75,9 @@ export const fetchMobileEnvironments = async (
           .order('name');
   const { data: envs, error } = await environmentsRequest;
   if (error) throw error;
-  const { data: links, error: linksError } = sharedRelationships
-    ? await sharedRelationships
-    : await fetchMobileCategoryEnvironmentRelationships();
+  const { data: links, error: linksError } = await loadCategoryEnvironmentRelationships(
+    sharedRelationships
+  );
   if (linksError) throw linksError;
   return (envs || []).map((env: any) => ({
     ...env,
@@ -87,7 +97,7 @@ export const saveMobileEnvironment = async (name: string, categoryIds: string[],
       .from('categories')
       .update({ name: formattedName, type: 'environment' })
       .eq('id', id)
-      .select('*')
+      .select('id')
       .single();
     if (error) throw error;
     environmentId = data.id;
@@ -106,7 +116,7 @@ export const saveMobileEnvironment = async (name: string, categoryIds: string[],
     const { data, error } = await supabase
       .from('categories')
       .insert([{ name: formattedName, type: 'environment', slug: uniqueSlug }])
-      .select('*')
+      .select('id')
       .single();
     if (error) throw error;
     environmentId = data.id;
@@ -121,18 +131,21 @@ export const saveMobileEnvironment = async (name: string, categoryIds: string[],
 };
 
 export const deleteMobileEnvironment = async (id: string) => {
-  const { count, error: relationError } = await supabase
+  const { data: relations, error: relationError } = await supabase
     .from('category_relationships')
-    .select('child_id', { count: 'exact', head: true })
-    .eq('parent_id', id);
+    .select('child_id')
+    .eq('parent_id', id)
+    .limit(1);
   if (relationError) throw relationError;
-  if ((count || 0) > 0) throw new Error('Desvincule as categorias antes de excluir este ambiente.');
+  if ((relations || []).length > 0) {
+    throw new Error('Desvincule as categorias antes de excluir este ambiente.');
+  }
   const { error } = await supabase.from('categories').delete().eq('id', id);
   if (error) throw error;
 };
 
 export const fetchMobileCategories = async (
-  sharedRelationships?: Promise<MobileCategoryEnvironmentRelationshipsResult>,
+  sharedRelationships?: MobileCategoryEnvironmentRelationshipsSource,
   projection: CategoryListProjection = 'full'
 ): Promise<MobileCategory[]> => {
   try {
@@ -155,9 +168,9 @@ export const fetchMobileCategories = async (
       return [];
     }
 
-    const { data: relData, error: relErr } = sharedRelationships
-      ? await sharedRelationships
-      : await fetchMobileCategoryEnvironmentRelationships();
+    const { data: relData, error: relErr } = await loadCategoryEnvironmentRelationships(
+      sharedRelationships
+    );
 
     if (relErr) {
       console.warn('[MobileCategoryService] Erro ao buscar relacoes:', relErr);
@@ -185,6 +198,67 @@ export const fetchMobileCategoryEnvironmentData = async () => {
     fetchMobileCategories(sharedRelationships, 'summary'),
   ]);
   return { environments, categories };
+};
+
+export const fetchMobileProductFormCategoryOptions = async () => {
+  let sharedRelationships: Promise<MobileCategoryEnvironmentRelationshipsResult> | undefined;
+  const loadSharedRelationships = () =>
+    (sharedRelationships ??= fetchMobileCategoryEnvironmentRelationships());
+  const [categories, environmentResult] = await Promise.all([
+    fetchMobileCategories(loadSharedRelationships, 'summary'),
+    fetchMobileEnvironments(loadSharedRelationships, 'summary')
+      .then((data) => ({ data }))
+      .catch((error: unknown) => ({ error })),
+  ]);
+  return { categories, environmentResult };
+};
+
+export const fetchMobileEnvironmentManagerData = async () => {
+  const categoriesRequest = (async () => {
+    try {
+      const { data, error } = await supabase
+        .from('categories')
+        .select('id, name, type')
+        .or('type.neq.environment,type.is.null')
+        .order('name', { ascending: true });
+
+      if (error) {
+        console.warn('[MobileCategoryService] Erro ao buscar categorias:', error);
+        return [];
+      }
+
+      return (data || []).filter(isProductCategoryOption);
+    } catch (error) {
+      console.error('[MobileCategoryService] Exceção:', error);
+      return [];
+    }
+  })();
+  const environmentsRequest = (async () => {
+    const { data, error } = await supabase
+      .from('categories')
+      .select('id, name, type')
+      .eq('type', 'environment')
+      .order('name');
+    if (error) throw error;
+
+    const { data: links, error: linksError } =
+      await fetchMobileCategoryEnvironmentRelationships();
+    if (linksError) throw linksError;
+
+    return (data || []).map((environment: any) => ({
+      ...environment,
+      categoryIds: (links || [])
+        .filter((link) => link.parent_id === environment.id)
+        .map((link) => link.child_id),
+    }));
+  })();
+
+  const [categories, environments] = await Promise.all([
+    categoriesRequest,
+    environmentsRequest,
+  ]);
+
+  return { categories, environments };
 };
 
 export const fetchMobileCategoryProductCounts = async (): Promise<Record<string, number>> => {

@@ -4,8 +4,10 @@ import {
   type VariationCatalogStats,
 } from '../utils/catalog/registeredVariationCount';
 import { NON_TEST_PRODUCT_ARTIFACT_FILTER } from '../../../../../../../shared-utils/testArtifactQueries';
+import { registerSessionCacheInvalidator } from '@/context/auth/sessionCacheRegistry';
 
 export interface LoadProductCatalogStatsOptions {
+  readonly accountScopeId: string;
   readonly showTestProducts?: boolean;
   readonly mode?: 'standard' | 'composition';
 }
@@ -30,17 +32,20 @@ export const invalidateProductCatalogStatsCache = () => {
   inFlightStats = {};
 };
 
+registerSessionCacheInvalidator(invalidateProductCatalogStatsCache);
+
 /** Loads the product data used by the catalog summary and applies its domain calculation. */
 export const loadProductCatalogStats = async (
-  options?: LoadProductCatalogStatsOptions & { forceRefresh?: boolean }
+  options: LoadProductCatalogStatsOptions & { forceRefresh?: boolean }
 ): Promise<VariationCatalogStats> => {
   const cacheKey = JSON.stringify({
-    showTestProducts: options?.showTestProducts,
-    mode: options?.mode,
+    accountScopeId: options.accountScopeId,
+    showTestProducts: options.showTestProducts,
+    mode: options.mode,
   });
 
   const now = Date.now();
-  if (!options?.forceRefresh) {
+  if (!options.forceRefresh) {
     const cached = cachedStats[cacheKey];
     if (cached && now - cached.timestamp < STATS_CACHE_TTL_MS) {
       return cached.data;
@@ -62,11 +67,11 @@ export const loadProductCatalogStats = async (
         )
         .eq('deleted', false);
 
-      if (options?.mode === 'composition' && typeof query.eq === 'function') {
+      if (options.mode === 'composition' && typeof query.eq === 'function') {
         query = query.eq('item_type', 'composition');
       }
 
-      if (options?.showTestProducts === false && typeof query.or === 'function') {
+      if (options.showTestProducts === false && typeof query.or === 'function') {
         query = query.or(NON_TEST_PRODUCT_ARTIFACT_FILTER);
       }
 

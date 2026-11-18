@@ -208,14 +208,14 @@ export const isProductTechnicalFieldRequired = (
 ): boolean => {
   if (isDedicatedChairCountCharacteristic(field.name) && !isDiningSetCategoryName(categoryName)) return false;
   if (isSofaCategoryName(categoryName) && isSofaPillowsCharacteristic(field.name)) return false;
-  if (isSofaCategoryName(categoryName) && isSofaRequiredCharacteristic(field.name)) return true;
+  // Sofa characteristics that are mandatory for publication remain optional
+  // during ERP registration.
+  if (isSofaCategoryName(categoryName) && isSofaRequiredCharacteristic(field.name)) return false;
   if (isDresserOrWardrobeCategoryName(categoryName) && isDresserOrWardrobeRequiredCharacteristic(field.name)) return true;
   if (isCatalogNeverRequiredCharacteristicName(field.name)) return false;
-  if (Array.isArray(field.categoryApplications)) {
-    return resolveProductCharacteristicApplication(field, categoryIds) === 'required';
-  }
   if (isCatalogCoreRequiredCharacteristicName(field.name)) return false;
   if (isWeightCapacityCharacteristic(field.name)) return false;
+  if (Array.isArray(field.categoryApplications)) return field.isRequiredForProduct === true;
   return (
     (field.isRequiredForProduct ?? field.isRequired) === true ||
     isRequiredCharacteristicName(field.name)
@@ -225,11 +225,14 @@ export const isProductTechnicalFieldRequired = (
 export const isProductTechnicalFieldRequiredForCatalog = (
   field: ProductTechnicalField,
   categoryIds: readonly string[] = [],
-  _categoryName = ''
+  categoryName = ''
 ): boolean =>
   !isCatalogNeverRequiredCharacteristicName(field.name) &&
   !isWeightCapacityCharacteristic(field.name) &&
   (isCatalogCoreRequiredCharacteristicName(field.name) ||
+    (isSofaCategoryName(categoryName) && isSofaRequiredCharacteristic(field.name)) ||
+    field.isRequiredForCatalog === true ||
+    resolveProductCharacteristicApplication(field, categoryIds) === 'required' ||
     field.requiredForCategory === true ||
     isProductTechnicalAttributeRequiredByCategories(field.requiredCategoryIds, categoryIds));
 
@@ -411,8 +414,9 @@ export const getApplicableProductTechnicalFields = <T extends ProductTechnicalFi
         data_type: 'boolean',
         options: existing?.options || [],
         active: true,
-        isRequired: true,
-        isRequiredForProduct: true,
+        isRequired: false,
+        isRequiredForProduct: false,
+        isRequiredForCatalog: true,
         categoryApplications: undefined,
         categoryIds: existing?.categoryIds || [...categoryIds],
       } as T;

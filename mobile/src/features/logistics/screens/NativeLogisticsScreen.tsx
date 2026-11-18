@@ -149,7 +149,14 @@ export const NativeLogisticsScreen: React.FC<Props> = ({
     const isCollapsed =
       collapsedSections[key] === undefined ? key !== todayStr : Boolean(collapsedSections[key]);
 
-    const label = isPending ? 'Agendamentos Pendentes' : formatGroupDateLabel(key);
+    const label = isPending
+      ? 'Agendamentos Pendentes'
+      : key === todayStr
+        ? `Hoje, ${new Date(`${key}T00:00:00`).toLocaleDateString('pt-BR', {
+            day: '2-digit',
+            month: 'long',
+          })}`
+        : formatGroupDateLabel(key);
 
     return {
       title: label,
