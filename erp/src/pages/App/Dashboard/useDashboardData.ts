@@ -1,6 +1,9 @@
 import { useMemo } from 'react';
 import Order from '../../types/order.type';
 import {
+  endOfMonth,
+  endOfYear,
+  startOfDay,
   subDays,
   subMonths,
 } from 'date-fns';
@@ -90,6 +93,12 @@ export const buildDashboardSalesChart = (
   }
 
   const dateRange: Date[] = [];
+  const today = startOfDay(new Date());
+  const chartEnd = period === 'year' && current.end >= today
+    ? endOfYear(current.start)
+    : period === 'month' && current.end >= today
+      ? endOfMonth(current.start)
+      : current.end;
   let cursor = new Date(current.start);
   if (isHourlyChart) {
     for (let hour = 0; hour < 24; hour++) {
@@ -98,7 +107,7 @@ export const buildDashboardSalesChart = (
       dateRange.push(date);
     }
   } else {
-    while (cursor <= current.end) {
+    while (cursor <= chartEnd) {
       dateRange.push(new Date(cursor));
       cursor = isMonthlyChart ? subMonths(cursor, -1) : subDays(cursor, -1);
     }
@@ -115,7 +124,15 @@ export const buildDashboardSalesChart = (
         : period === 'custom'
           ? `${day}/${month}/${year}`
           : `${day}/${month}`;
-    return { name, ...(buckets.get(bucketKey(date)) ?? { valor: 0, lucro: 0, orders: 0 }) };
+    const isFuture = startOfDay(date) > today;
+    const values = isFuture
+      ? { valor: 0, lucro: 0, orders: 0 }
+      : buckets.get(bucketKey(date)) ?? { valor: 0, lucro: 0, orders: 0 };
+    return {
+      name,
+      ...values,
+      ...(isFuture ? { isFuture: true } : {}),
+    };
   });
 };
 

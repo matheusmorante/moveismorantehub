@@ -5,6 +5,7 @@ interface DataPoint {
   name: string;
   valor: number;
   orders: number;
+  isFuture?: boolean;
 }
 
 type ChartMetric = 'valor' | 'orders';
@@ -32,7 +33,7 @@ const SalesChart: React.FC<SalesChartProps> = ({ data }) => {
       </div>
     );
 
-  const values = data.map((d) => d[metric] as number);
+  const values = data.filter((d) => !d.isFuture).map((d) => d[metric] as number);
   const maxVal = Math.max(...values, 1);
   const width = 1000;
   const height = 220;
@@ -44,11 +45,21 @@ const SalesChart: React.FC<SalesChartProps> = ({ data }) => {
     d,
     i,
   }));
+  const plottedPoints = points.filter((point) => !point.d.isFuture);
 
-  const pathArea = `M ${points[0].x},${height} ${points.map((p) => `L ${p.x},${p.y}`).join(' ')} L ${points[points.length - 1].x},${height} Z`;
-  const pathLine = points
+  const pathArea = plottedPoints.length
+    ? `M ${plottedPoints[0].x},${height} ${plottedPoints.map((p) => `L ${p.x},${p.y}`).join(' ')} L ${plottedPoints[plottedPoints.length - 1].x},${height} Z`
+    : '';
+  const pathLine = plottedPoints
     .map((p, i) => (i === 0 ? `M ${p.x},${p.y}` : `L ${p.x},${p.y}`))
     .join(' ');
+  const lastPlottedIndex = points.reduce((last, point, index) =>
+    point.d.isFuture ? last : index, -1);
+  const futureStartX = lastPlottedIndex < 0
+    ? 0
+    : lastPlottedIndex < points.length - 1
+      ? (points[lastPlottedIndex].x + points[lastPlottedIndex + 1].x) / 2
+      : width;
 
   const hovP = hovered !== null ? points[hovered] : null;
   const formatVal = (v: number) => (metric === 'orders' ? String(v) : formatCurrency(v));
@@ -104,39 +115,37 @@ const SalesChart: React.FC<SalesChartProps> = ({ data }) => {
             />
           ))}
 
-          <path d={pathArea} fill={`url(#grad-${metric})`} />
-          <path
-            d={pathLine}
-            fill="none"
-            stroke={metricCfg.color}
-            strokeWidth="3"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
+          {pathArea && <path d={pathArea} fill={`url(#grad-${metric})`} />}
+          {pathLine && (
+            <path
+              d={pathLine}
+              fill="none"
+              stroke={metricCfg.color}
+              strokeWidth="3"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          )}
 
           {/* Hover areas */}
-          {points.map((p, i) => (
-            <rect
-              key={i}
-              x={i === 0 ? 0 : (points[i - 1].x + p.x) / 2}
-              y={0}
-              width={
-                i === 0
-                  ? points.length > 1
-                    ? (p.x + points[1].x) / 2
-                    : width
-                  : i === points.length - 1
-                    ? width - (points[i - 1].x + p.x) / 2
-                    : p.x - points[i - 1].x
-              }
-              height={height}
-              fill="transparent"
-              onMouseEnter={() => setHovered(i)}
-            />
-          ))}
-
+          {points.map((p, i) => {
+            if (p.d.isFuture) return null;
+            const left = i === 0 ? 0 : (points[i - 1].x + p.x) / 2;
+            const right = i < points.length - 1 ? (p.x + points[i + 1].x) / 2 : width;
+            return (
+              <rect
+                key={i}
+                x={left}
+                y={0}
+                width={right - left}
+                height={height}
+                fill="transparent"
+                onMouseEnter={() => setHovered(i)}
+              />
+            );
+          })}
           {/* Dots */}
-          {points.map((p, i) => (
+          {points.map((p, i) => p.d.isFuture ? null : (
             <circle
               key={i}
               cx={p.x}
@@ -220,6 +229,17 @@ const SalesChart: React.FC<SalesChartProps> = ({ data }) => {
                 </g>
               );
             })()}
+          {futureStartX < width && (
+            <rect
+              x={futureStartX}
+              y={0}
+              width={width - futureStartX}
+              height={height + 40}
+              fill="transparent"
+              onMouseEnter={() => setHovered(null)}
+              onMouseMove={() => setHovered(null)}
+            />
+          )}
         </svg>
       </div>
     </div>
