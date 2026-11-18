@@ -1,15 +1,19 @@
 import { useCallback, useState } from 'react';
 import type Order from '@/pages/types/order.type';
 
-export const useOrderFormStepNavigation = (orderType: Order['orderType']) => {
+export const useOrderFormStepNavigation = (
+  orderType: Order['orderType'],
+  canEnterLogistics: boolean = true
+) => {
   const [currentStep, setCurrentStep] = useState(1);
   const goToNextStep = useCallback(() => {
     setCurrentStep((prev) => {
+      if (prev === 3 && !canEnterLogistics) return prev;
       const isBudget = orderType === 'budget';
       if (isBudget && prev === 4) return 6;
       return Math.min(prev + 1, 6);
     });
-  }, [orderType]);
+  }, [canEnterLogistics, orderType]);
   const goToPrevStep = useCallback(() => {
     setCurrentStep((prev) => {
       const isBudget = orderType === 'budget';

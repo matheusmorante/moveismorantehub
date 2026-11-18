@@ -5,6 +5,7 @@ import { useAuth } from '@/context/AuthContext';
 import { withAbortTimeout } from '../../../../../../../shared-utils/withAbortTimeout';
 import {
   TelemetryRow,
+  InteractionTimingRow,
   GlobalStats,
   PeriodType,
   DrillDownItem,
@@ -36,13 +37,35 @@ export function useSupabaseTelemetry() {
       else if (period === '24h') fromDate.setHours(now.getHours() - 24);
       else if (period === '7d') fromDate.setDate(now.getDate() - 7);
 
-      const result = await withAbortTimeout(supabase.rpc('get_aggregated_telemetry_v2', {
+      const result = await withAbortTimeout(supabase.rpc('get_aggregated_telemetry_v4', {
         p_start_date: fromDate.toISOString(),
       }), 'consulta da telemetria', 12_000, signal);
       if (result.error) throw result.error;
       return result.data || [];
     },
   });
+
+  const requestData = useMemo(
+    () => data.filter((row) => row.metric_kind === 'supabase_request'),
+    [data],
+  );
+  const interactionTimings = useMemo(
+    () => data
+      .filter((row) => row.metric_kind === 'interaction_timing' || row.metric_kind === 'product_interaction_timing')
+      .map((row): InteractionTimingRow => ({
+        metric_kind: row.metric_kind as InteractionTimingRow['metric_kind'],
+        screen: row.screen || 'NewSaleOrder',
+        action: row.action || 'unknown',
+        app_version: row.app_version || 'unknown',
+        network_class: row.network_class || 'unknown',
+        viewport_class: row.viewport_class || 'unknown',
+        result: row.result || 'unknown',
+        execution_count: Number(row.execution_count || 0),
+        total_duration_ms: Number(row.total_duration_ms || 0),
+        duration_buckets: row.duration_buckets || {},
+      })),
+    [data],
+  );
 
   const globalStats = useMemo<GlobalStats>(() => {
     let totalReqs = 0;
@@ -51,7 +74,7 @@ export function useSupabaseTelemetry() {
     let realtime = 0;
     let responseBytes = 0;
     let measuredResponses = 0;
-    data.forEach((row) => {
+    requestData.forEach((row) => {
       const count = Number(row.execution_count ?? 0);
       totalReqs += count;
       if (row.operation_type === 'SELECT') selects += count;
@@ -61,10 +84,10 @@ export function useSupabaseTelemetry() {
       measuredResponses += Number(row.measured_response_count || 0);
     });
     return { totalReqs, selects, writes, realtime, responseBytes, measuredResponses };
-  }, [data]);
+  }, [requestData]);
 
   const drillDownView = useMemo<DrillDownItem[]>(() => {
-    let filtered = data;
+    let filtered = requestData;
 
     if (activeModule) filtered = filtered.filter((r) => r.module === activeModule);
     if (activeOperation) filtered = filtered.filter((r) => r.operation_type === activeOperation);
@@ -110,7 +133,7 @@ export function useSupabaseTelemetry() {
         items: stats.items,
       }))
       .sort((a, b) => b.count - a.count);
-  }, [data, activeModule, activeOperation, activeTable, activeAction]);
+  }, [requestData, activeModule, activeOperation, activeTable, activeAction]);
 
   const handleRowClick = useCallback(
     (name: string) => {
@@ -146,6 +169,7 @@ export function useSupabaseTelemetry() {
     setActiveAction,
     globalStats,
     drillDownView,
+    interactionTimings,
     handleRowClick,
     resetDrillDown,
   };

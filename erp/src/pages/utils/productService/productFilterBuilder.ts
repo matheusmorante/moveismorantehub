@@ -7,6 +7,7 @@ import {
   PRODUCT_VARIATION_SEARCH_MATCH_LIMIT,
 } from '../../../../../shared-utils/productListSearch';
 import {
+  PRODUCT_LIST_PRODUCT_AND_LEGACY_ITEM_TYPE_FILTER,
   PRODUCT_LIST_NON_COMBO_FLAG_FILTER,
   PRODUCT_LIST_NON_COMBO_ITEM_TYPE_FILTER,
   PRODUCT_LIST_PRODUCT_ITEM_TYPE_FILTER,
@@ -27,6 +28,7 @@ export interface ProductQueryFilterOptions {
   includeDeactivated?: boolean;
   supplierId?: string;
   itemType?: string;
+  productsOnly?: boolean;
   excludeItemType?: string;
   excludeCombos?: boolean;
   sortBy?: string;
@@ -62,6 +64,10 @@ export const applyProductFiltersAndSort = async (
 
   if (options?.itemType) {
     q = q.eq('item_type', options.itemType);
+  }
+
+  if (options?.productsOnly) {
+    q = q.or(PRODUCT_LIST_PRODUCT_AND_LEGACY_ITEM_TYPE_FILTER);
   }
 
   if (options?.excludeItemType) {

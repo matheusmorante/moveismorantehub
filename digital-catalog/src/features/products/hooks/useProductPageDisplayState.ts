@@ -13,6 +13,16 @@ const normalizeTechnicalFieldName = (name: string) =>
     .replace(/[\u0300-\u036f]/g, '')
     .toLocaleLowerCase('pt-BR');
 
+const formatCharacteristicValue = (value: unknown): string => {
+  if (typeof value === 'boolean') return value ? 'Sim' : 'Não';
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLocaleLowerCase('pt-BR');
+    if (normalized === 'true') return 'Sim';
+    if (normalized === 'false') return 'Não';
+  }
+  return String(value);
+};
+
 const normalizeDiningSetChairCountValue = (
   values: Record<string, unknown>,
   isDiningSet: boolean
@@ -231,8 +241,14 @@ export function useProductPageDisplayState({
   const technicalSpecs = useMemo(() => {
     if (technicalSpecifications && technicalSpecifications.length > 0 && specsMap) {
       return technicalSpecifications
-        .map((specification) => [getTechnicalFieldDisplayName(specification.name), specsMap[specification.slug]])
-        .filter(([name, value]) => value && isCharacteristicVisible(String(name)));
+        .map((specification) => [
+          getTechnicalFieldDisplayName(specification.name),
+          specsMap[specification.slug],
+        ])
+        .filter(([name, value]) =>
+          value !== undefined && value !== null && value !== '' && isCharacteristicVisible(String(name))
+        )
+        .map(([name, value]) => [String(name), formatCharacteristicValue(value)]);
     }
 
     const DIMENSION_KEYS = new Set([
@@ -266,7 +282,7 @@ export function useProductPageDisplayState({
           }
           return true;
         })
-        .map(([key, val]) => [getTechnicalFieldDisplayName(key), String(val)]);
+        .map(([key, val]) => [getTechnicalFieldDisplayName(key), formatCharacteristicValue(val)]);
     }
 
     return [];

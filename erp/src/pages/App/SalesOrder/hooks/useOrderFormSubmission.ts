@@ -8,6 +8,7 @@ import { getFulfillmentLabels } from '@/pages/utils/orderStatusPresentation';
 import { saveOrder, updateOrder, resolveCompletedOrderStatus } from '@/pages/utils/orderHistoryService';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { getSettings } from '@/pages/utils/settingsService';
+import { recordSalesOrderCompletionTiming } from '@/services/monitoring/salesOrderCompletionTelemetry';
 import {
   createOrderDomainSchema,
   orderDraftFormSchema,
@@ -262,13 +263,32 @@ export const useOrderFormSubmission = ({
               latestState.current.status === 'draft'
             );
             let savedId: string;
-            if (canFinalizeSavedDraft && savedDraftId) {
-              await updateOrder(savedDraftId, { status: savedStatus });
-              savedId = savedDraftId;
-            } else {
-              savedId = !orderData.id && creationKey
-                ? await saveOrder(orderData, { idempotencyKey: creationKey })
-                : await saveOrder(orderData);
+            const shouldMeasurePersistence = orderData.orderType === 'sale';
+            const persistenceStartedAt = performance.now();
+            let persistenceTimingRecorded = false;
+            const recordPersistenceResult = (result: 'success' | 'failure') => {
+              if (!shouldMeasurePersistence || persistenceTimingRecorded) return;
+              persistenceTimingRecorded = true;
+              recordSalesOrderCompletionTiming(
+                'sale_completion_click_to_result',
+                result,
+                performance.now() - persistenceStartedAt,
+              );
+            };
+
+            try {
+              if (canFinalizeSavedDraft && savedDraftId) {
+                await updateOrder(savedDraftId, { status: savedStatus });
+                savedId = savedDraftId;
+              } else {
+                savedId = !orderData.id && creationKey
+                  ? await saveOrder(orderData, { idempotencyKey: creationKey })
+                  : await saveOrder(orderData);
+              }
+              recordPersistenceResult('success');
+            } catch (error) {
+              recordPersistenceResult('failure');
+              throw error;
             }
             if (savedId) {
               setCurrentOrderId(savedId);

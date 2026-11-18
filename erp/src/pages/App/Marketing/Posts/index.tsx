@@ -375,7 +375,10 @@ export default function MarketingPostsManager() {
                 search={editor.search}
                 products={editor.products}
                 selected={editor.product}
-                loading={editor.loading}
+                loading={editor.listLoading}
+                selectionLoading={editor.selectionLoading}
+                resultsSearch={editor.resultsSearch}
+                searchError={editor.listError}
                 onSearch={editor.setSearch}
                 onSelect={(id) => void editor.selectProduct(id)}
               />

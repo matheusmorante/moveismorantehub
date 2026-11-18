@@ -1,7 +1,10 @@
 import React, { useEffect, useMemo, useRef } from 'react';
 import Order from '@/pages/types/order.type';
 import Item from '@/pages/types/items.type';
-import { resolveFiscalCfopOrderScope } from '../../../../../../../shared-utils/fiscalCfopModel';
+import {
+  getCfopDefinition,
+  resolveFiscalCfopOrderScope,
+} from '../../../../../../../shared-utils/fiscalCfopModel';
 import {
   resolveEffectiveRecipientIeIndicator,
   type RecipientIeIndicator,
@@ -160,14 +163,91 @@ export const NfeItemsSection: React.FC<Props> = ({
     ]
   );
 
+  const editableCfopDecisions = useMemo(
+    () =>
+      cfopDecisions.map((decision, index) => {
+        const item = items[index];
+        if (
+          operationScope.scope !== 'interstate' ||
+          !decision.reason ||
+          !item ||
+          item.itemType === 'service'
+        ) {
+          return decision;
+        }
+
+        const merchandiseSource = item.merchandiseOrigin ?? item.fiscal?.merchandiseOrigin;
+        const isOwnProduction =
+          merchandiseSource === 'own_production' ||
+          item.isOwnProduction === true ||
+          item.fiscal?.isOwnProduction === true;
+        const hasSt = item.fiscal?.hasSt ?? item.fiscal?.isSt;
+        const options = decision.options.map((option) => {
+          const definition = getCfopDefinition(option.value);
+          const stApplicability = definition
+            ? definition.stApplicability ||
+              (definition.isSt
+                ? 'required'
+                : definition.itemType === 'product'
+                  ? 'not_required'
+                  : 'not_applicable')
+            : undefined;
+          const structurallyCompatible = Boolean(
+            definition &&
+              definition.direction === 'outbound' &&
+              definition.scope === 'interstate' &&
+              definition.itemType === 'product' &&
+              definition.allowedModels.includes(fiscalModel) &&
+              definition.operationType.startsWith('sale') &&
+              (definition.isOwnProduction === undefined ||
+                definition.isOwnProduction === isOwnProduction) &&
+              (stApplicability !== 'required' || hasSt === true) &&
+              (stApplicability !== 'not_required' || hasSt !== true)
+          );
+
+          return structurallyCompatible
+            ? { ...option, disabled: false, reviewOnly: true }
+            : option;
+        });
+        const suggestedCfop = isOwnProduction
+          ? ''
+          : effectiveRecipientIeIndicator === '9'
+            ? '6108'
+            : '6102';
+        const suggestedOption = options.find(
+          (option) => option.value === suggestedCfop && !option.disabled
+        );
+
+        return {
+          ...decision,
+          options,
+          defaultCfop: decision.defaultCfop || (suggestedOption ? suggestedCfop : ''),
+        };
+      }),
+    [cfopDecisions, items, operationScope.scope, fiscalModel, effectiveRecipientIeIndicator]
+  );
+
+  const interstateReviewRequired =
+    operationScope.scope === 'interstate' &&
+    editableCfopDecisions.some((decision, index) =>
+      decision.options.some((option) => option.reviewOnly) && !cfopDecisions[index]?.defaultCfop
+    );
+
   useEffect(() => {
     items.forEach((item, index) => {
-      const expectedCfop = cfopDecisions[index]?.defaultCfop || '';
-      if ((item.fiscal?.cfop || '') !== expectedCfop) {
+      const decision = editableCfopDecisions[index];
+      const currentCfop = item.fiscal?.cfop || '';
+      const currentSelectionIsAvailable = decision?.options.some(
+        (option) => option.value === currentCfop && !option.disabled
+      );
+      if (currentSelectionIsAvailable) return;
+
+      const expectedCfop = decision?.defaultCfop || '';
+      if (currentCfop !== expectedCfop) {
         onUpdateItemFiscal(index, { cfop: expectedCfop });
       }
     });
-  }, [items, cfopDecisions, onUpdateItemFiscal]);
+  }, [items, editableCfopDecisions, onUpdateItemFiscal]);
 
   return (
     <div className="flex flex-col gap-3">
@@ -194,10 +274,15 @@ export const NfeItemsSection: React.FC<Props> = ({
       <div
         role="status"
         aria-live="polite"
-        className={`rounded-lg border px-3 py-2 text-xs ${matrixWarning ? 'border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200' : 'border-slate-200 bg-white text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300'}`}
+        className={`rounded-lg border px-3 py-2 text-xs ${matrixWarning || interstateReviewRequired ? 'border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200' : 'border-slate-200 bg-white text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300'}`}
       >
         <span>{cfopContextMessage}</span>
         {matrixWarning && <span className="ml-1 font-semibold">{matrixWarning}</span>}
+        {interstateReviewRequired && (
+          <span className="ml-1 font-semibold">
+            O CFOP fica editável para revisão; a emissão permanece bloqueada até aprovação da matriz fiscal interestadual.
+          </span>
+        )}
       </div>
 
       {serviceCompositionWarning && (
@@ -219,13 +304,14 @@ export const NfeItemsSection: React.FC<Props> = ({
               item={item}
               itemIndex={index}
               fiscalComposition={serviceComposition.products[index]}
-              cfopOptions={cfopDecisions[index]?.options}
+              cfopOptions={editableCfopDecisions[index]?.options}
               cfopContextMessage={
                 cfopDecisions[index]?.reason
                   ? `${cfopContextMessage} ${cfopDecisions[index].reason}`
                   : cfopContextMessage
               }
               fieldError={itemFieldError}
+              expandCfopByDefault={operationScope.scope === 'interstate'}
               onClearFieldError={onClearFieldError}
               onUpdateFiscal={(field, val) => onUpdateItemFiscal(index, { [field]: val })}
               onUpdateFiscalBlur={onUpdateItemFiscalBlur}

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import { ToastContainer } from 'react-toastify';
 import { useTheme } from './context/ThemeContext';
@@ -15,6 +15,7 @@ import {
 import FloatingActionsHub from './components/shared/FloatingActionsHub';
 import AIChatAssistant from './components/shared/AIChatAssistant';
 import AssistanceOrderModal from './pages/App/SalesOrder/modals/AssistanceOrderModal';
+import { registerErpPageWebVitals } from './services/monitoring/salesOrderCompletionTelemetry';
 
 export type { MenuKey } from './components/layout/types';
 
@@ -22,7 +23,11 @@ export default function AppLayout() {
   const [activeMenu, setActiveMenu] = useState<MenuKey>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { theme } = useTheme();
-  const { isAdmin, activeRoleMode, setActiveRoleMode } = useAuth();
+  const { isAdmin, activeRoleMode, setActiveRoleMode, user } = useAuth();
+
+  useEffect(() => {
+    if (user?.id) registerErpPageWebVitals();
+  }, [user?.id]);
 
   const { isMobileAppView, isTemplateEditor, isCustomerSupport, mainContentClassName } =
     useLayoutRoutes();

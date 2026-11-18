@@ -5,6 +5,7 @@ import type { ValidationErrors } from '@/pages/utils/validations';
 export interface OrderEditModalHeaderProps {
   readonly reconciliationMode?: boolean;
   readonly currentStep: number;
+  readonly isLogisticsDisabled: boolean;
   readonly jumpToStep: (step: number) => void;
   readonly errors: ValidationErrors;
   readonly onClose: () => void;
@@ -13,6 +14,7 @@ export interface OrderEditModalHeaderProps {
 export const OrderEditModalHeader: React.FC<OrderEditModalHeaderProps> = ({
   reconciliationMode,
   currentStep,
+  isLogisticsDisabled,
   jumpToStep,
   errors,
   onClose,
@@ -40,6 +42,7 @@ export const OrderEditModalHeader: React.FC<OrderEditModalHeaderProps> = ({
             currentStep={currentStep}
             jumpToStep={jumpToStep}
             errors={errors}
+            isLogisticsDisabled={isLogisticsDisabled}
           />
         </div>
       )}

@@ -1,3 +1,485 @@
+## Ciclo — 18/11/2026, 16:38 BRT (19:38Z) — avaliação do assistente financeiro
+
+**Reconciliação e aceite:** permanece válida a autorização geral para propostas que já foram aceitas. As SCE-323, SCE-322, SCE-270 e SCE-232 seguem bloqueadas pelas condições documentadas no ciclo anterior; nenhuma dessas condições mudou durante esta revisão. A SCE-153 já foi executada e as SCE-162/163/164 foram negadas. Não há nova mudança aprovada aplicável a esses itens. Revisei o recorte exato indicado pelo cursor anterior e não reabri recomendações antigas.
+
+**Fontes:** reli AGENTS.md §§24–25, a skill `supabase-consumption`, `rules/supabase/supabase-consumption.yml`, o índice e a matriz do roteiro, e consultei os oito relatórios históricos listados no ciclo anterior. A busca nos relatórios não encontrou esta função nem contagens, saída faturável ou rapidez atribuíveis a ela. A revisão foi de código e documentação; não abri avaliações, mensagens, conteúdo de conversa, identificadores reais, segredos, sessão, banco remoto nem registros operacionais.
+
+**Caminho e consumidores:** `erp/src/services/aiAgent/aiFeedbackService.ts` salva uma avaliação quando `registrarFeedbackAgente` é chamado em `erp/src/services/aiAgent/financialAgentTools.ts`; o nome está declarado em `geminiToolDeclarations.ts` e encaminhado por `geminiToolDispatcher.ts`. Esse caminho do assistente é alcançável pelo código. A função de listagem também existe no serviço, mas sua única chamada encontrada está em `erp/src/pages/App/Settings/components/ai/AiQualityFeedbackSection.tsx`. A busca global encontrou somente o componente, seu arquivo de reexportação e o próprio serviço; não encontrou um importador/rota ativa para a tela. Portanto, a consulta de listagem não foi tratada como tráfego atual confirmado.
+
+**O que ocorre no uso:** quando o agente registra uma avaliação, o serviço cria uma linha com o relato e o contexto enviado pelo próprio fluxo. A tentativa faz um `insert` e pede de volta somente `id`. Se a gravação falha, guarda uma cópia local limitada às 100 últimas avaliações e retorna o identificador local; essa cópia não é uma confirmação de gravação no servidor. A tela de revisão, se vier a ser conectada, recarrega ao abrir, ao mudar filtros e após alterar o estado; ela mostra o relato e parte da resposta e permite copiar um exemplo para testes.
+
+**Chamadas, bytes e banco separados:**
+
+- **Gravação ativa:** estruturalmente, uma tentativa de `insert` por chamada da ferramenta, sem repetição automática identificada, e um retorno pequeno contendo apenas o `id`. A tentativa pode falhar e então o texto permanece no armazenamento local deste navegador. Não há contagem de uso real.
+- **Listagem potencial, sem consumidor ativo encontrado:** um `select('*')` ordenado por data, com filtros de estado/categoria quando informados. A tela não passa limite nem deslocamento, embora o tipo aceite esses campos. Se ativada, retornaria todas as linhas coincidentes e inclui campos que o componente não usa, como `tool_calls`, identificadores de conversa e operador e dados de revisão. O tamanho e a quantidade de linhas são desconhecidos. Uma mudança de projeção poderia diminuir bytes de resposta, mas não o número de chamadas; uma limitação/paginação mudaria os totais que hoje são calculados em cima de todas as linhas carregadas, então não a proponho sem preservar esse contrato.
+- **Saída faturável:** nenhuma amostra de resposta, contagem de linhas, bytes enviados ou medidor oficial foi consultado. O texto e o contexto de cada relato podem variar bastante; não quantifico economia nem transformo tamanho de JSON em cobrança.
+- **Trabalho do banco:** a escrita é uma operação por avaliação; a listagem potencial também ordena e pode filtrar linhas. Não consultei plano, índices, CPU ou latência, então não atribuo economia de carga ou velocidade.
+
+**Rapidez percebida:** não existe linha de base específica de abertura da tela, resposta ao clique ou conclusão da gravação. A tela usa os limites web de conteúdo principal até 2,5 s e resposta visual às interações até 200 ms no percentil 75, separados entre celular e computador, mas não há medição própria deste componente. Para a ação de registrar avaliação, medir separadamente o primeiro estado visível após o comando e a confirmação real da gravação, por rede identificada; mostrar andamento até a resposta do servidor e não chamar o fallback local de “salvo no servidor”. Como limite de experiência, exigir resposta visual até 200 ms no p75 e não deixar a pessoa sem indicação por 10 s; não existe meta aprovada para a duração de persistência e nenhuma duração foi medida. Sem mudança neste ciclo, não há comparação antes/depois.
+
+**Conclusão e matriz:** não identifiquei uma redução segura para o único caminho ativo de gravação: ele já usa uma chamada, uma projeção de retorno mínima e precisa enviar os campos do relato que dão contexto à auditoria. A lista contém uma projeção ampla potencialmente desnecessária, mas não encontrei consumidor ativo que a execute. Não criei novo SCE e não alterei código. Antes de otimizar essa listagem, confirmar que a tela é publicada/usada; depois, preservar os campos exibidos, os totais e a autorização vigente, medir antes/depois nas mesmas condições e manter as metas de rapidez acima.
+
+| Recorte/ID | Estado | Evidência e limite |
+| --- | --- | --- |
+| Registro de avaliações pelo agente financeiro | Revisado; caminho alcançável, sem alteração | Uma tentativa de inserção e retorno somente do identificador; sem frequência, bytes oficiais ou duração medidos. |
+| Listagem e revisão de avaliações (`AiQualityFeedbackSection.tsx`) | Código revisado; tela sem rota/importador ativo encontrado | `select('*')` sem limite, mas não há uso ativo confirmado. Uma projeção estreita poderia reduzir bytes sem baixar chamadas; volume, cobrança, carga e rapidez desconhecidos. |
+| Pendências aprovadas SCE-323/322/270/232 | Aceites mantidos; pré-requisitos continuam ausentes | Não contornar correlação, autenticação, regra documental ou publicação/uso natural. |
+
+**Próximo recorte exato:** revisar somente `api/whatsappSupportSendRequest.ts` e os chamadores diretos que o acionam. Contar as operações Supabase e os campos usados na preparação do pedido, sem consultar destinatários, conversas, mensagens reais, segredos ou registros de envio. Separar chamadas, bytes/egress oficial, trabalho/latência do banco e tempo até a confirmação visível; se o fluxo não tiver chamador ativo, registrá-lo como tal e avançar sem criar SCE.
+
+---
+
+## Ciclo — 18/11/2026, 16:32 BRT (19:32Z) — conciliar pendências e script local de imagens
+
+**Aceite geral e estado das pendências:** o operador renovou a autorização para aplicar o que estiver pendente. Isso confirma as opções já aceitas, mas não substitui as condições de segurança que faltam. SCE-153 já foi executada em 16/11; SCE-162 foi negada; SCE-163 e SCE-164 também foram negadas e não serão reapresentadas sem evidência nova. As pendências aceitas que restam continuam sem condição segura para alteração: SCE-323 precisa de uma ligação confiável entre a gravação da compra e o aviso recebido; SCE-322 precisa de sessão ERP legitimamente autenticada para conferir a tela; SCE-270 precisa de regra escrita para datas antigas, vazias e de limite; SCE-232 depende da publicação autorizada do consumidor e de uso natural. Não alterei esses fluxos nem contornei as condições.
+
+**Reconciliação do cursor:** o ponteiro mais recente indicava `erp/scripts/release/publish_android_apk.cjs`, mas o mesmo script já foi auditado em 17/11 às 10:14 BRT. Não repeti a análise nem removi a conferência integral que protege o arquivo do aplicativo. Retomei o próximo caminho registrado naquela revisão: `erp/scripts/sync_local_images.js`.
+
+**Fontes e limites:** reli AGENTS.md §§24–25, a skill `supabase-consumption`, `rules/supabase/supabase-consumption.yml`, o índice e a matriz deste roteiro. Consultei os oito relatórios históricos apontados pelo índice (`egress-supabase-morantehub.md`, `2026-09-15-supabase-egress.md`, `2026-11-04-egress-erp-app.md`, `egress-cargas-compactas-2026-11-04.md`, `roadmap-apis-ia-google-maps.md`, `produtos-alertas-resumo-estoque-2026-11-04.md`, `auditoria-ferramentas-seu-lizandro-2026-11-09.md` e `pedidos-filtros-servidor-2026-11-04.md`); não encontrei neles esta rotina. Não executei o script, não abri pastas nem imagens, não consultei produtos, Storage remoto, credenciais, dados operacionais ou tráfego.
+
+**Recorte revisto:** li o trecho de sincronização em `erp/scripts/sync_local_images.js` e procurei referências em tarefas de pacote, scripts e automações versionadas. Não encontrei chamador no repositório; o arquivo pode ser iniciado diretamente e limita o processamento a uma pasta de teste escrita no próprio script. A frequência de execução manual é desconhecida.
+
+**Consumo separado por tipo:**
+
+- **Chamadas:** uma consulta busca todos os produtos não excluídos, trazendo somente `id` e `name`; a comparação de nome é feita no computador que executa o script. Para cada imagem cuja análise externa termina com sucesso, há um envio ao Storage. `getPublicUrl` apenas monta o endereço e não faz pedido de rede. Para cada pasta de produto correspondente, há uma gravação de `main_image_url`, `images` e `updated_at`. A pasta de teste limita a execução a no máximo um produto por rodada, mas o número de imagens é desconhecido. Esses números descrevem a estrutura do código, não execuções observadas.
+- **Bytes e saída:** a consulta ampla pode devolver muitos pares de identificador e nome; não conheço a quantidade de produtos nem medi a resposta. Cada envio leva o arquivo de imagem completo ao Storage (envio de entrada); isso não quantifica a saída faturável. O código não lê de volta a imagem depois do envio. Não consultei o medidor oficial, e não uso tamanho amostral como egress cobrado.
+- **Banco:** há uma leitura da tabela `products`, filtrada por exclusão lógica, seguida de uma atualização por pasta encontrada. O filtro de nome e a busca do produto acontecem localmente. Não medi plano, CPU, duração ou carga do banco; não atribuo economia de latência.
+- **Rapidez percebida:** não há duração de execução, espera de análise ou publicação medida. Não afirmo melhora nem regressão.
+
+**Conclusão e matriz:** a leitura ampla de `id`/`name` merece atenção se o script ainda for usado, mas não achei registro de uso, frequência ou consumidor publicado. Mudar a comparação local para uma busca no servidor poderia alterar a correspondência que hoje ignora espaços nas pontas e diferenças entre maiúsculas/minúsculas; não proponho essa mudança sem contrato equivalente e confirmação de uso. Não criei novo SCE e não alterei código. Se a equipe voltar a usar a rotina, a medição deve registrar apenas quantidades e duração (produtos lidos, imagens enviadas, bytes de arquivos e tempo), sem nomes ou conteúdo, e confrontar saída com o medidor oficial do Storage.
+
+| Recorte/ID | Estado | Evidência e limite |
+| --- | --- | --- |
+| Publicação do APK Android (`publish_android_apk.cjs`) | Já auditada em 17/11; checkpoint repetido encerrado | A verificação integral do arquivo é necessária para conferir tamanho e SHA-256. Volume, duração e saída oficial continuam sem medida; não retirar a verificação sem alternativa equivalente. |
+| Sincronização local de imagens (`erp/scripts/sync_local_images.js`) | Revisada neste ciclo; sem alteração nem novo SCE | Uma leitura ampla de `id`/`name`, um envio por imagem aprovada pela análise externa e uma atualização por produto correspondente; uso real desconhecido, bytes e carga não medidos. |
+| ERP — lista de compras (SCE-323) | Opção A aceita; bloqueada por falta de correlação segura | Preservar avisos de mudanças simultâneas até poder distinguir a origem com segurança. |
+| Painel do Catálogo Digital (SCE-322) | Código publicado; conferência visual pendente | Requer sessão ERP legitimamente autenticada. |
+| Impressão do mostruário (SCE-270) | Aceita, mas bloqueada | Falta regra escrita segura para datas antigas, vazias e de limite. |
+| Conferência mensal da cota (SCE-232) | Aceita, mas bloqueada | Aguardar publicação autorizada do consumidor e uso natural. |
+
+**Próximo recorte exato:** revisar somente `erp/src/services/aiAgent/aiFeedbackService.ts` e seus chamadores diretos no ERP. Conferir quais campos e quantas leituras/gravações o código envia para registrar uma avaliação da resposta, sem abrir textos, avaliações, identificadores de clientes, registros reais ou segredos. Separar chamadas, bytes amostrais e saída oficial, trabalho/latência do banco e tempo percebido; não criar novo SCE até confirmar que o fluxo está ativo e que a mudança preserva a finalidade e as permissões.
+
+---
+
+## Ciclo — 18/11/2026, 16:14 BRT (19:14Z) — reconciliar checkpoint repetido de Realtime de pedidos
+
+**Reconciliação do cursor e das decisões:** o caminho indicado (`sharedOrdersRealtime.ts`) já foi alterado e revisado no ciclo SCE-325 de 18/11 às 11:08 BRT. Não reapliquei a recuperação de reconexão nem a fotografia de avisos SCE-324. A busca atual dos chamadores confirmou os mesmos consumidores listados naquele ciclo. A SCE-306, que ainda aparece como “aguarda escolha” em seu registro original, já foi aceita e aplicada localmente no registro posterior de 17/11; o helper de projeção estreita continua no código. SCE-323 segue aceita, mas bloqueada por falta de vínculo seguro entre o aviso e a gravação que o originou. SCE-322 ainda precisa de sessão ERP autorizada, SCE-270 da regra documental ausente e SCE-232 de consumidor publicado e uso natural. Nenhuma pendência restante ficou segura para uma nova alteração de código neste ciclo.
+
+**Leituras deste ciclo:** reli AGENTS.md §§24–25, a skill `supabase-consumption`, `rules/supabase/supabase-consumption.yml`, o cursor e a matriz, a implementação da SCE-325 e os oito relatórios históricos vinculados pelo índice. O histórico de 15/09 confirma que o canal compartilhado já havia substituído assinaturas separadas; os relatórios de 04/11 não fornecem contagens atribuíveis a estas telas. Não consultei conteúdo de pedidos, eventos recebidos, pessoas, sessão, banco remoto ou cobrança.
+
+**Caminhos conferidos:** `erp/src/pages/utils/orderSyncQueries/sharedOrdersRealtime.ts`; chamadores em `erp/src/pages/App/DeliverySchedule/useDeliverySchedule.ts`, `erp/src/pages/App/SalesOrder/OrderHistoryList/useOrderHistory.ts` e `erp/src/pages/App/Stock/Movements/hooks/useInventoryOrdersLookup.ts`; dependência já revista `erp/src/pages/utils/notificationService.ts` (fora desta recunferência); e `src/mcp/services/mcpProductService.ts` apenas para reconciliar o estado executado da SCE-306. A busca no código de execução do ERP não encontrou consumidor de `subscribeToOrders`; os consumidores encontrados usam `subscribeToOrderChanges`.
+
+**O que a equipe percebe:** existe um canal de mudanças de pedidos compartilhado. Quando uma alteração chega, o serviço agrupa avisos por três segundos e sinaliza apenas os consumidores ainda inscritos. A agenda, o histórico de vendas e as referências de pedidos no estoque iniciam suas próprias consultas, adequadas aos respectivos filtros; nenhuma dessas telas recebe ou exibe uma lista genérica que substitua seus dados atuais. Ao reconectar, o canal emite o sinal já implementado pela SCE-325. Quando sai o último consumidor, o canal e o temporizador são encerrados.
+
+**Chamadas, saída e trabalho do banco:** em repouso, o serviço mantém uma assinatura Realtime compartilhada, não uma assinatura por tela. Cada grupo de avisos pode disparar uma consulta própria por consumidor ativo. A busca de `subscribeToOrders` que carregaria até 30 pedidos não tem chamador ativo encontrado, e o serviço só a inicia se essa lista tiver assinantes. O número de consultas por tela/evento e a frequência de grupos não foram observados em tráfego. Não há amostra de resposta nem medidor oficial de saída; não estimo bytes ou cobrança. A estrutura não prova redução de CPU, carga ou latência do banco; não medi plano ou duração.
+
+**Rapidez percebida:** não existe linha de base de quanto demora, por tela, entre a reconexão e os dados atuais aparecerem. Manter para a próxima medição por tela o alvo provisório de até 5 segundos no percentil 95 após o canal voltar, validando-o com a equipe. Separar celular e computador; para as páginas web, medir também conteúdo principal em até 2,5 segundos e resposta às interações em até 200 ms no percentil 75. São metas, não resultados observados. Para comparar, usar a mesma versão, rede identificada e páginas/filtros equivalentes, registrando em lote contagens de consultas, tempo da chamada e tempo até os dados aparecerem. Não ocorreu alteração neste ciclo, portanto não há “antes/depois” nem benefício de velocidade a declarar.
+
+**Conclusão:** este checkpoint era uma repetição dos itens SCE-324/SCE-325 já executados; a busca de chamadores não revelou uma tela adicional nem uma repetição segura para eliminar. Não criei outro ID e não alterei código. O consumo atual, permissões, resultados, preços/estoque, atualidade dos dados e funcionamento sem conexão permanecem como registrados nas entradas executadas. O cancelamento de leituras e a recuperação de mensagens continuam sem nova validação dinâmica nesta execução.
+
+### Matriz e cursor atualizados
+
+| Recorte/ID | Estado | Evidência e limite |
+| --- | --- | --- |
+| ERP — leitores de pedidos em Realtime (`sharedOrdersRealtime.ts`, SCE-325) | Checkpoint reconciliado; já executado, sem mudança adicional | Um canal compartilhado; três leitores de sinalização ativos encontrados, cada um mantendo consulta própria. Frequência, respostas, carga, latência e tempo visível não medidos. |
+| ERP — fotografia de alertas (SCE-324) | Executada anteriormente; fora desta reconferência | A fotografia e seus avisos permanecem compartilhados, conforme o ciclo anterior. |
+| API MCP — imagens isoladas de produto (SCE-306) | Opção A aceita e já aplicada localmente | O helper atual usa os campos explícitos de imagem; medição de rapidez e saída oficial ainda pendentes antes de alegar ganho ou publicar. |
+| ERP — lista de compras (SCE-323) | Opção A aceita, bloqueada por correlação segura ausente | Não suprimir avisos concorrentes sem conseguir distinguir a origem. |
+| Catálogo Digital — painel de métricas (SCE-322) | Pendente de sessão ERP autorizada | Sem sessão nesta execução; nenhum dado de produto/pessoa foi aberto. |
+| ERP — filtro da impressão (SCE-270) | Aceita, bloqueada por regra documental ausente | Preservar comportamento até haver regra segura para datas antigas/vazias/de limite. |
+| App/API — conferência mensal da cota (SCE-232) | Aceita, bloqueada até publicação e uso observado | Não reaberta sem mudança de estado e tráfego natural. |
+
+**Próximo recorte exato:** revisar apenas `erp/scripts/release/publish_android_apk.cjs`, que envia e verifica o arquivo de atualização Android. Usar `mobile/src/hooks/useMandatoryAppUpdate.ts` e `supabase/functions/get-android-apk-download/index.ts` somente para delimitar quem solicita o arquivo; não reauditar os dois fluxos já cobertos. Ler somente o script e sua configuração versionada segura: separar pedidos ao Storage dos bytes realmente enviados, verificar confirmação por URL temporária, tamanho/hash e remoção de versões antigas. Não executar o script, não abrir APK, não ler metadados remotos, não publicar e não realizar atualização móvel. Registrar que não há linha de base de tempo para o fluxo de publicação; se a comparação de rapidez não estiver disponível, indicar a coleta necessária em vez de declarar benefício.
+
+---
+
+## Ciclo — 18/11/2026, 16:01 BRT (19:01Z) — avisos agregados do ERP e reconciliação da fila aceita
+
+**Reconciliação das decisões:** a autorização geral do operador continua cobrindo as propostas que aguardam decisão. A SCE-323 já está aceita na opção A, mas continua bloqueada porque o aviso do servidor não identifica a gravação que o causou; suprimi-lo poderia esconder uma alteração simultânea feita por outra pessoa. A SCE-322 ainda depende de uma sessão do ERP legitimamente autenticada para conferir a tela; não havia essa sessão autorizada disponível. A SCE-270 depende de uma regra escrita para datas antigas e vazias. A SCE-232 depende de consumidor publicado e tráfego natural. Não alterei esses itens bloqueados, nem reapliquei as SCE-330/SCE-331, já executadas.
+
+**Leituras deste ciclo:** reli AGENTS.md §§24–25, a skill `supabase-consumption`, `rules/supabase/supabase-consumption.yml`, o cursor e a matriz deste roteiro, e os oito relatórios históricos indicados pelo roteiro. Os relatórios de alertas e cargas compactas confirmam que o sino e o painel compartilham leitura e fotografia, e que amostras de JSON não são saída faturada. Revisei somente `erp/src/pages/utils/notificationService.ts`, os consumidores `erp/src/components/shared/NotificationBell.tsx` e `erp/src/pages/App/Dashboard/components/AlertsPanel.tsx`, o helper `shared-utils/orderListServerQuery.ts` chamado pelo resumo, e os títulos dos casos já existentes em `erp/src/pages/utils/__tests__/notificationSnapshot.test.ts`. Não executei testes, não abri o conteúdo de notificações e não consultei dados operacionais, sessão, banco ou medidor de cobrança.
+
+**O que a equipe percebe:** a campainha e o quadro de alertas recebem a mesma lista preparada. Quando vários avisos chegam juntos, o código espera 750 ms e agrupa a atualização. Se uma leitura ainda está em andamento, marca apenas uma nova leitura de seguimento, em vez de iniciar uma chamada por assinante. A leitura também é retomada ao restabelecer o canal, voltar à janela e receber atualização de pedidos. Quando o último consumidor sai da tela, o serviço remove o canal e os ouvintes e interrompe uma leitura em andamento. Ao entrar ou trocar de conta, o retrato anterior é descartado.
+
+**Consumo, separado por tipo:**
+
+- **Chamadas:** cada atualização completa percorre, pelo código, duas funções do banco (`notification_product_summaries` e `list_order_page_ids`) e uma leitura da tabela `desire_matches`; falhas podem encerrar o fluxo antes de todas as etapas. O canal recebe avisos do Realtime e agrupa avisos próximos por 750 ms. Esses são números estruturais do caminho, não contagens de uso observadas. Os dois consumidores de tela compartilham um canal e uma leitura em andamento.
+- **Bytes/saída:** o resumo de produtos é compacto, mas não há tamanho atual de resposta nem medidor oficial disponível para esta execução. Não converti colunas, amostras antigas ou eventos em bytes faturados.
+- **Banco/rapidez:** cada atualização pode executar as duas funções e consultar avisos de interesse; não há plano, CPU, duração de consulta ou rapidez percebida desta tela medidos. Portanto não afirmo redução de carga nem melhora de velocidade.
+
+**Resultado do recorte:** o compartilhamento, o agrupamento, a retomada após reconexão e o encerramento ao sair do último consumidor já estão no código. Não encontrei evidência para propor uma alteração adicional sem arriscar perder avisos atuais; não criei novo ID. A cobertura é somente estática e documental. Os casos automatizados existentes têm nomes relativos ao compartilhamento da leitura, invalidação com agrupamento, contrato resumido e configuração; não foram executados.
+
+### Matriz e cursor atualizados
+
+| Recorte/ID | Estado | Evidência e limite |
+| --- | --- | --- |
+| ERP — fotografia agregada de alertas (`notificationService.ts`) | Revisado; nenhuma alteração nova indicada | Sino e painel compartilham assinaturas e leitura; eventos aguardam 750 ms, avisos durante uma leitura geram no máximo uma leitura de seguimento. Chamadas, bytes faturados, carga e rapidez real não foram medidos. |
+| ERP — lista de compras (SCE-323) | Opção A aceita; bloqueada por ausência de correlação segura | A origem local e as alterações simultâneas do servidor não podem ser distinguidas pelo aviso atual; não suprimir eventos. |
+| Catálogo Digital — painel de métricas (SCE-322) | Pendente de sessão ERP autorizada | Nenhum acesso à sessão ou a conteúdo de produtos/pessoas nesta execução. |
+| ERP — filtro da impressão do mostruário (SCE-270) | Aceita, mas bloqueada pela regra documental ausente | Preservar comportamento até haver definição segura para datas antigas/vazias/de limite. |
+| App/API — conferência mensal de cota (SCE-232) | Aceita, bloqueada até publicação e uso observado | Não reapresentada sem mudança de estado e tráfego natural. |
+
+**Próximo recorte exato:** revisar somente `erp/src/pages/utils/orderSyncQueries/sharedOrdersRealtime.ts` e os consumidores diretos de `subscribeToOrders`/`subscribeToOrderChanges`, exceto a tela de compras já coberta pela SCE-323 e a fotografia de alertas revisada neste ciclo. Conferir se os consumidores compartilham canais, o que acontece ao reconectar, quais callbacks iniciam leituras e se o canal é removido ao sair o último consumidor. Não abrir pedidos, nomes ou conteúdo de eventos. Separar contagens de chamadas, bytes/medidor oficial, trabalho/latência do banco e rapidez visível; registrar quando não houver coleta comparável. Não repetir os recortes concluídos SCE-324/SCE-325.
+
+---
+
+## Ciclo — 18/11/2026, 15:42 BRT (18:42Z) — reconciliar checkpoint já coberto de fotos (SCE-040)
+
+**Reconciliação do cursor:** o checkpoint de preparação de fotos deixado no ciclo de 15:35 BRT repetia a área da SCE-040. O histórico já registra que os mesmos arquivos de preparo e envio foram revisados, e que esse caminho administrativo envia imagens ao R2, não ao Storage do Supabase. Reconfirmei somente os três arquivos do cursor atual e eles não têm alterações locais em relação ao histórico. Não reabri a análise da SCE-040 nem criei sugestão duplicada.
+
+**Caminhos confirmados neste ciclo:** `digital-catalog/src/features/products/components/admin-modal/utils/productImageUploadUtils.ts`, `digital-catalog/src/lib/utils/image-optimization.ts` e `digital-catalog/src/features/products/components/admin-modal/steps/Step1Photos.tsx`. O registro anterior da SCE-040 e os relatórios de egress e catálogo vinculados no roteiro foram consultados para reconciliar o destino do envio e os limites das métricas. Não abri imagens, objetos remotos ou conteúdo de produtos.
+
+**Conclusão de consumo e experiência:** a imagem é reduzida no navegador para um corte quadrado de 1080 × 1080 e WebP com qualidade 0,85; o comentário do código que estima 100–200 KB não é uma medição. A função de lote processa e envia os arquivos um por vez. Pelo código, cada arquivo processado resulta em um envio ao R2; arrastar um endereço externo inclui uma busca externa antes do envio. Este recorte não tem chamada ao Supabase nem trabalho SQL/RPC atribuível ao upload. Não há contagens de envios, tamanho real dos arquivos, saída faturável do Supabase ou tempo de preparo/upload medidos. Como não houve mudança de comportamento, não há melhoria ou regressão de rapidez a afirmar. Uma comparação futura deverá medir separadamente tempo até a prévia aparecer e tempo até o envio terminar, no mesmo aparelho, rede e conjunto de imagens. Sem uma linha de base numérica, não recomendo reduzir mais a qualidade ou o tamanho. Para a página web, permanecem os limites de LCP até 2,5 s e resposta a interações até 200 ms no percentil 75, separados entre celular e computador.
+
+**Históricos consultados e escopo seguro:** `egress-supabase-morantehub.md`, `2026-09-15-supabase-egress.md`, `2026-11-04-egress-erp-app.md`, `egress-cargas-compactas-2026-11-04.md`, `roadmap-apis-ia-google-maps.md`, `produtos-alertas-resumo-estoque-2026-11-04.md`, `auditoria-ferramentas-seu-lizandro-2026-11-09.md` e `pedidos-filtros-servidor-2026-11-04.md`; usei as partes relacionadas a imagens, upload, armazenamento e medidas. Os registros confirmam que amostras de JSON não são bytes faturáveis e que fontes R2 e Supabase devem ser separadas. Nenhum acesso ao banco ou aos objetos ocorreu.
+
+### Matriz e cursor atualizados
+
+| Recorte/ID | Situação | Evidência e limite |
+| --- | --- | --- |
+| Seletor de produto e rapidez da prévia (SCE-331) | Opção B aplicada no ciclo anterior | Migration aplicada; os dados de desempenho só começam após publicação do código. |
+| Preparação de fotos do Catálogo Digital (SCE-040) | Já revisada; checkpoint duplicado encerrado | O upload administrativo usa R2. Sem medição de volume/bytes/tempo e sem nova proposta Supabase. |
+| Painel de métricas do Catálogo Digital (SCE-322) | Ainda precisa de sessão ERP legitimamente autenticada | Não fiz validação visual nesta execução. Não acessar dados de pessoas ou produtos. |
+| Impressão do mostruário (SCE-270) | Continua bloqueada por regra documental | Mantida conforme o histórico. |
+
+**Próximo recorte exato:** se houver sessão ERP autorizada, conferir visualmente `erp/src/pages/App/Dashboard/components/DigitalCatalogPanel.tsx` em largura estreita e larga, registrando estados de carregamento, erro e vazio e a separação entre visitas, visualizações e cliques. Não abrir detalhes de produtos ou pessoas nem fabricar tráfego. Se não houver essa sessão, deixar a validação visual pendente e avançar para outra área independente no próximo ciclo.
+
+---
+
+## Ciclo — 18/11/2026, 15:35 BRT (18:35Z) — aplicar SCE-331, opção B
+
+Ao procurar ou escolher um produto para uma publicação, a lista agora deixa de mostrar opções da busca anterior e informa quando a prévia está sendo preparada. A coleta para medir esses tempos usa o envio periódico já existente. Não acrescenta uma chamada a cada tecla ou clique.
+
+**Decisão reconciliada:** o operador autorizou os pendentes (“ACITO TODOS OS PENDENTES” e “pode aplicar o que está pendente”). A SCE-331 era a pendência acionável deste roteiro; apliquei a opção B recomendada. A SCE-270 continua bloqueada porque falta a regra documental necessária. A SCE-322 ainda requer sessão ERP autorizada para uma conferência visual; não fabricarei acesso nem tráfego.
+
+**Implementação local:** em `erp/src/pages/App/Marketing/Posts/components/PreviewProductPicker.tsx`, `erp/src/pages/App/Marketing/Posts/components/Editor/usePostEditor.ts` e `erp/src/pages/App/Marketing/Posts/index.tsx`, resultados antigos ficam ocultos até a resposta corresponder ao texto atual; erros de busca também encerram o estado de espera. Após uma escolha, o aviso `Carregando prévia do produto…` permanece até o produto estar pronto ou falhar. Filtros, debounce de 250 ms, página de 30 opções, detalhe e preparação da imagem não foram trocados. Para a equipe, isso reduz a chance de clicar numa sugestão que pertence à busca anterior e deixa o processamento da prévia mais claro.
+
+**Medição e tela do painel:** os tempos de digitação até a lista atualizada e de clique até a prévia pronta entram no buffer em memória. As medições LCP (conteúdo principal carregado) e INP (resposta às interações) são instaladas uma vez no layout autenticado do ERP, em `erp/src/AppLayout.tsx`, e usam a biblioteca `web-vitals` atualizada em `erp/package.json` e `erp/package-lock.json`. O painel em `erp/src/pages/App/Settings/SupabaseMonitor/components/SupabaseInteractionTimings.tsx` apresenta faixas aproximadas de p50/p75/p95, versão, classe ampla de rede, tela e resultado. Os tempos LCP/INP são da página web inteira, não isolados da tela de Publicações; o INP começa a ser observado depois que o layout autenticado registra o observador.
+
+**Envio e persistência:** não foi criada chamada por tecla, clique ou medição. O mesmo `flush_supabase_telemetry` continua enviando o buffer a cada cinco minutos. O painel troca a leitura de `get_aggregated_telemetry_v3` para `get_aggregated_telemetry_v4`; é uma leitura agregada no lugar da anterior, não uma segunda leitura. Métricas de chamadas ao Supabase continuam filtradas separadamente. Nenhum identificador de produto ou cliente é guardado nos novos eventos; os agrupamentos com menos de cinco medições ficam ocultos.
+
+A migration aditiva `supabase/migrations/20261118183507_product_preview_interaction_telemetry.sql` foi aplicada ao projeto MoranteHub `hkoxhourxwlddgsfdgws` e registrada remotamente como `20261118183507`. Ela cria uma tabela separada para estes tempos e preserva as restrições existentes da tabela de chamadas e de conclusão de venda. A verificação somente de estrutura confirmou a tabela, proteção por linha, políticas de inserção própria e leitura agregada administrativa, as duas funções e a permissão: `anon` não executa as funções; `authenticated` pode executá-las sob as políticas. O nome do arquivo local foi alinhado ao número remoto para impedir reaplicação futura. Não consultei linhas de telemetria nem dados operacionais.
+
+**Consumo, benefício e limites:** chamadas por digitação ou escolha: nenhuma nova; o envio continua no lote periódico. O painel substitui a chamada de resumo antiga por uma nova versão da mesma função. Bytes do lote, saída faturável, volume real, carga e latência do banco não foram medidos; a nova agregação pode aumentar um pouco o trabalho do banco. Os valores p50/p75/p95 são faixas estimadas a partir de grupos de duração, não tempos exatos. Não havia linha de base desta tela, e a mudança visual e a coleta foram preparadas juntas; depois de uma publicação autorizada, os primeiros dados mostrarão o estado posterior à mudança, mas não provarão sozinhos quanto ela melhorou. O código do ERP não foi publicado nesta execução, então a coleta de interface ainda não está ativa para os usuários. O envio continua limitado ao intervalo de cinco minutos: se a pessoa fechar ou sair da página antes do próximo lote, a última medição pode não chegar. Não alterei preço, estoque, disponibilidade, filtros de acesso, login ou funcionamento sem conexão.
+
+**Validação e reversão:** `supabase_apply_migration` respondeu sucesso; `supabase_list_migrations` confirmou o registro remoto; a consulta de conferência leu apenas catálogos de estrutura, políticas e permissões. Será executado `git diff --check`. Não rodei testes, compilação, navegador ou medições com sessões reais. Para reverter o comportamento, restaura-se a versão anterior do seletor e remove-se a coleta/uso do `v4`; a tabela e a função aditivas podem ficar sem uso, sem apagar registros. Nenhuma publicação ou atualização móvel foi feita.
+
+### Matriz atualizada
+
+| Recorte/ID | Situação | Evidência e limite |
+| --- | --- | --- |
+| Seletor de produto e rapidez da prévia (SCE-331) | Aceita opção B; código local alterado e migration aditiva aplicada | Espera anterior fica visível e não usa opções antigas. O envio permanece no lote de cinco minutos; não há baseline, egress faturável ou velocidade real medidos. |
+| Painel de rapidez de interações (SCE-330) | Preservado | As chamadas antigas continuam separadas; a leitura do painel passa a incluir o novo tipo de evento via `v4`. |
+| Painel do Catálogo Digital (SCE-322) | Continua pendente de sessão ERP autorizada | Sem acesso fabricado ou inspeção de dados de pessoas/produtos. |
+| Impressão do mostruário (SCE-270) | Continua bloqueada por regra documental | Não reapresentada nem contornada. |
+
+**Próximo recorte exato:** revisar somente a preparação de imagens antes do envio em `digital-catalog/src/features/products/components/admin-modal/utils/productImageUploadUtils.ts`, `digital-catalog/src/lib/utils/image-optimization.ts` e `digital-catalog/src/features/products/components/admin-modal/steps/Step1Photos.tsx`. Verificar formatos, dimensões, versões derivadas, compressão e indicação de progresso. Separar quantidade de envios, bytes enviados e trabalho de processamento. Não abrir fotos ou objetos nem consultar o armazenamento remoto.
+
+---
+
+## Ciclo — 18/11/2026, 14:49 BRT (17:49Z) — reconciliação da rapidez no seletor de produto para prévia (SCE-282 / nova SCE-331)
+
+Depois de escolher um produto para montar a prévia de Publicações, a lista fecha, mas o produto só aparece quando terminam a leitura detalhada e o preparo da imagem; não encontrei um aviso visível de que essa etapa continua trabalhando. Também é possível ver opções da busca anterior enquanto a nova busca está carregando. Ainda não há uma medida real de quanto isso demora.
+
+**Reconciliação do cursor e dos históricos:** reli AGENTS.md §§24–25, a skill `supabase-consumption`, `rules/supabase/supabase-consumption.yml`, este roteiro e os oito relatórios citados pelo ciclo anterior. O ponteiro do ciclo SCE-330 repetia a lista/busca de produtos e apontava para um caminho inexistente dentro de `Editor/`. A conferência do histórico confirmou que a otimização da lista compacta já foi concluída como SCE-282 em 15/11/2026. Não repeti filtros, campos, paginação, limite, debounce nem a proteção contra respostas antigas. O componente real está em `erp/src/pages/App/Marketing/Posts/components/PreviewProductPicker.tsx`.
+
+**Recorte desta execução:** examinei somente a resposta visual enquanto a busca muda e enquanto a escolha carrega a prévia. Caminhos: `erp/src/pages/App/Marketing/Posts/components/Editor/usePostEditor.ts`, `erp/src/pages/App/Marketing/Posts/components/PreviewProductPicker.tsx`, `erp/src/pages/App/Marketing/Posts/index.tsx`, `erp/src/pages/utils/productService/productQueryService.ts#getFullProduct`, `erp/src/pages/App/Marketing/Posts/services/templateService.ts`, `erp/src/pages/App/Marketing/Posts/services/imageSubjectBounds.ts` e o monitor em `erp/src/services/monitoring/{queryGuard,telemetryBuffer}.ts`. Consultei nos oito relatórios históricos apenas as referências a Publicações e produto; não encontrei medidas específicas desta ação.
+
+### Linha de base disponível e limites de rapidez
+
+- **Busca:** o código aguarda 250 ms após a digitação e pede até 30 opções; a chamada tem limite de 15 s. Até a resposta chegar, a lista antiga permanece no estado e seus botões continuam ativos, embora o texto novo já esteja no campo. A caixa mostra “Buscando produtos…”, mas também os resultados antigos. A resposta atrasada é ignorada pela tela; isso não demonstra que a consulta já enviada parou no banco.
+- **Escolha e prévia:** o clique fecha a caixa. `loading` é passado somente para o seletor e o aviso de carregamento dele só aparece quando as sugestões estão abertas. O estado do produto fica sem confirmação até `getFullProduct` (limite de 20 s) e análise local da imagem (10 s). Existe uma leitura condicional de modelos (20 s), mas o histórico de 15/11 já verificou que a campanha não é preenchida por nenhum consumidor ativo localizado; não a conto como chamada do fluxo de hoje. Portanto, os limites ativos somam até 30 s, não duração medida. Não encontrei um indicador de processamento em outro consumidor desta tela.
+- **Linha de base medida:** não há p50/p95 de digitação até resultados nem de clique até prévia pronta. O monitor atual mede pedidos individuais do Supabase; não mede a duração completa da interação. Embora `web-vitals` esteja entre as dependências do ERP, não encontrei chamada ativa que registre LCP/INP. Portanto não há comparação antes/depois, separação por dispositivo ou distribuição real de rede.
+- **Limites a preservar:** para a página web, LCP ≤2,5 s e INP ≤200 ms no p75, separados entre celular e computador. Para esta ação, proponho como alvo provisório que um sinal visual de processamento apareça em até 200 ms no p75 e que a prévia esteja pronta em até 3 s no p95 em rede 4G identificada; validar o alvo de 3 s com a equipe. Nenhuma resposta deve parecer congelada por 10 s sem sinal visível. Estes são limites propostos, não resultados observados.
+
+### Chamadas, bytes e banco — separados
+
+- **Chamadas:** a busca usa a consulta principal por texto estabilizado e conserva a busca de variações registrada na SCE-282. Ao escolher, o fluxo consulta o produto detalhado. A consulta condicional de modelos já foi revisada em 15/11 e nenhum consumidor ativo localizado preenche a campanha; não a conto como chamada normal nem proponho sua redução. O volume real não foi medido. A proposta de medição abaixo usaria o lote existente de cinco minutos, sem chamada nova por digitação ou seleção.
+- **Bytes/saída:** a lista compacta continua a da SCE-282. A escolha ainda carrega o detalhe e relações usados pela prévia; não estimei o tamanho da resposta e não consultei o medidor oficial de saída. Se a medição agregada for aceita, o lote levará contadores de faixa adicionais; bytes reais e egress faturável permanecem desconhecidos.
+- **Banco:** não proponho reduzir a consulta que traz o detalhe atual do produto nem as informações necessárias à prévia. A medição agregada exigiria permitir as novas dimensões na mesma tabela e somar as faixas no resumo; custo adicional de CPU/latência não medido. Não há base para declarar economia de banco.
+
+### Nova sugestão — SCE-331 — resposta visual e medição do seletor de produto — **decisão registrada no ciclo seguinte**
+
+**A — ajuste visual simples:** esconder as opções da busca anterior enquanto a nova busca aguarda resposta e mostrar claramente o estado “Buscando produtos…”. Depois do clique, fechar a lista e mostrar “Carregando prévia…” até a escolha ser confirmada ou falhar. Mantém os filtros, os 250 ms, a busca atual de variações, `getFullProduct`, os limites de espera e o comportamento local existente. Não altera chamadas, bytes de consultas, banco, permissões ou dados; não produziria p50/p95 de ponta a ponta.
+
+**B — ajuste visual e medição agregada (recomendada):** inclui A e registra, no lote existente de cinco minutos, o tempo da digitação até a lista atualizada e do clique até a prévia pronta, além de LCP e INP, com versão, classe ampla de rede e tamanho de tela. Não põe identificadores de produto ou cliente nos dados; o vínculo de usuário da linha permanece exatamente o que a função autenticada existente já grava, e o painel não agrupa por usuário. Oculta grupos com menos de cinco amostras. Exige uma migration aditiva para permitir as novas ações e medidas no contrato de telemetria. Não cria chamada por digitação ou seleção. A chamada de lote pode ficar um pouco maior e a agregação pode fazer mais trabalho no banco; bytes, saída faturável e latência extra não foram medidos. O painel passaria a mostrar faixas aproximadas de p50/p95 dos tempos de ação e p75 dos indicadores de página. Para comparar, primeiro recolher uma linha de base com a versão atual; depois publicar a correção visual e comparar nas mesmas classes de rede e aparelhos. Isso ainda depende de publicação autorizada e amostra suficiente.
+
+**Efeitos e proteção:** nenhuma opção muda os filtros dos produtos, preço usado na prévia, estoque, disponibilidade, permissões ou regras do servidor. A leitura detalhada e o fallback local já existente ao escolher o produto permanecem iguais; a busca da lista continua dependente do servidor. Principal risco de A/B é ocultar temporariamente opções válidas durante uma busca — o estado de carregamento deve deixar isso claro. Em B, conservar associação/autenticação existentes e limiar mínimo de grupo. Reversão: restaurar a exibição anterior das opções e remover a coleta; se B for escolhida, reverter a permissão de novas dimensões sem apagar os registros históricos.
+
+**Estado ao final deste ciclo:** a escolha A/B estava aguardando o operador. A SCE-331 foi aceita como opção B e executada no ciclo de 15:35 BRT acima. A SCE-282 já estava aplicada, sem necessidade de autorização repetida.
+
+| Recorte/ID | Situação | Evidência e limite |
+| --- | --- | --- |
+| Lista compacta de produto para prévia (SCE-282) | Já executada localmente; não repetida | Histórico registra projeção, filtros, ordem e paginação preservados. Não há bytes oficiais ou rapidez medidos. |
+| Resposta visual e tempo até prévia pronta (SCE-331) | Naquele momento, aguardava decisão; agora aceita B e executada | Ver ciclo de 15:35 BRT acima. A coleta ainda requer publicação e amostra mínima; não há p50/p95 real. |
+| Medição de finalização de venda (SCE-330) | Aceita, executada e migration aplicada no ciclo anterior | A coleta só poderá ser avaliada após publicação e amostra mínima; não há p50/p95 real. |
+| Painel do Catálogo Digital (SCE-322) | Aguarda sessão ERP autenticada para revisão visual | Não contornar autenticação nem acessar dados pessoais. |
+| Impressão do mostruário (SCE-270) | Bloqueada por regra documental | Não repetir sem nova evidência documental. |
+
+**Próximo recorte exato:** SCE-331 deixa de aguardar decisão. O próximo ciclo segue para somente a preparação de imagens antes do envio pelo Catálogo Digital, nos caminhos listados no ciclo de 15:35 BRT acima. Conferir formatos, dimensões, versões derivadas, compressão e sinal de progresso; separar quantidade de envios, bytes enviados e trabalho de processamento. Não abrir arquivos, fotos, chaves ou objetos reais e não consultar o armazenamento remoto. As revisões antigas de endereços/chaves de upload não substituem esta análise específica de otimização e compressão. Não repetir a lista compacta de produtos SCE-282 nem a consulta condicional de modelos já revisada em 15/11.
+
+---
+
+## Ciclo — 18/11/2026, 14:43 BRT (17:43Z) — aplicar medição da finalização de venda (SCE-330)
+
+Ao concluir uma venda comum, a equipe poderá ver quanto tempo leva para o indicador aparecer e quanto tempo a gravação leva para responder. Os tempos entram no lote de telemetria que já existe; não foi criada uma chamada por venda. O painel mostra faixas aproximadas de mediana (p50) e de 95% das medições (p95), somente depois de haver ao menos cinco medições por grupo.
+
+**Aceite e reconciliação:** a mensagem mais recente do operador — “pode aplicar o que ta pendente” — aceita a opção A da SCE-330. A opção B não foi escolhida. A SCE-330 foi implementada neste ciclo. SCE-324 e SCE-325 já constavam como executadas no ciclo anterior; conferi esse registro e não repeti suas mudanças. SCE-322 ainda depende de uma sessão ERP legitimamente autenticada para a conferência visual; SCE-270 segue bloqueada pela regra documental de datas legadas.
+
+**Leituras e confirmação do banco:** reli AGENTS.md §§24–25, a skill `supabase-consumption`, `rules/supabase/supabase-consumption.yml`, o início e o cursor do roteiro, e os relatórios históricos ligados pelo roteiro. Confirmei que o projeto remoto é o MoranteHub (`hkoxhourxwlddgsfdgws`) e que a tabela já exigia autenticação e restringia leitura a administradores/gerentes. A consulta foi apenas de estrutura, políticas e histórico de migrações; não li linhas operacionais. A migração `20261118173923_sales_order_completion_timing_histograms.sql` foi aplicada e aparece no histórico remoto. A verificação de estrutura confirmou as cinco colunas, três restrições e as duas funções como `SECURITY INVOKER` (executam com os direitos de quem chama). `anon` não pode chamar as funções; `authenticated` pode, sujeito às políticas já existentes.
+
+**Implementação e consumidores:** `NewSaleOrder.tsx` e `OrderSavingOverlay.tsx` guardam o clique até o primeiro ciclo de desenho do indicador. `useOrderFormSubmission.ts` registra separadamente o início e a resposta de `saveOrder` ou `updateOrder`, com resultado concluído/falhou. A coleta se limita a pedidos do tipo venda; orçamento e devolução ficam de fora. A versão vem de `erp/package.json`; a rede é uma classe ampla (`offline`, 2G/3G/4G ou não identificada). O navegador informa o primeiro tempo após duas oportunidades de desenho; isso é uma aproximação da aparição visual, não confirmação do que cada pessoa percebeu. Durações acima de dez minutos são descartadas.
+
+`TelemetryBuffer` agrupa tudo em dez faixas fixas (de 0–50 ms até acima de 30 s), por tela, etapa, versão, classe de rede e resultado. O envio continua no lote existente, em intervalos de cinco minutos. A migração adiciona campos e limites para aceitar somente essas faixas e dimensões; a função `get_aggregated_telemetry_v3` agrega os grupos e oculta os que têm menos de cinco medições. O painel administrativo troca a consulta antiga por essa versão e mantém as medições fora da contagem de chamadas do Supabase. Não são enviados identificadores de venda, produto ou cliente; a linha segue associada ao usuário autenticado pelo campo já existente, mas o resumo exibido não é agrupado nem retornado por usuário. Não há gravação local nova quando o navegador está sem conexão; a telemetria continua sujeita ao buffer e às tentativas existentes.
+
+### Chamadas, bytes, banco e rapidez percebida
+
+- **Chamadas:** zero chamadas novas por venda. O salvamento usa o mesmo caminho comercial de antes. O envio das faixas reaproveita a função em lote já chamada a cada cinco minutos. No painel, uma chamada de resumo substitui a anterior; não é uma segunda consulta. O número real de vendas e de envios não foi medido.
+- **Bytes/saída:** cada grupo ativo acrescenta dimensões e dez contadores de faixa ao lote. O volume adicional real e a saída oficial faturável não foram medidos; tamanho de amostra JSON não foi tratado como egress faturável.
+- **Banco:** o lote valida as faixas e o novo resumo soma dez contadores, usando o mesmo filtro por data. Não foi criado índice. A carga e a latência adicionais não foram medidas; não há motivo para declarar uma economia de banco.
+- **Rapidez:** ainda não há medições reais, pois a interface alterada não foi publicada. Depois da publicação, o painel estima p50 e p95 pelo limite das faixas: por exemplo, “101–250 ms”, não um valor exato. LCP ≤2,5 s e interação ≤200 ms no p75 continuam sem medição desta tela. A meta provisória de p95 ≤8 s até resposta da gravação continua com baixa confiança e precisa ser validada pela equipe.
+
+**Efeito, validação e reversão:** preços, estoque, permissões de negócio, confirmação de pedidos e fluxo offline não mudam. O serviço nativo continua sem formulário equivalente, conforme a entrada da SCE-174; o navegador móvel usa a mesma tela web do ERP. `git diff --check` passou. Não rodei testes, compilação ou venda real; não inseri dados de teste e não publiquei a interface. A verificação remota confirmou colunas, políticas e direitos das funções. Para reverter o comportamento do produto, retirar os dois pontos de coleta e voltar o painel para a consulta anterior; as colunas e a função aditiva podem permanecer sem uso, sem apagar histórico nem mexer em pedidos. A medição começará somente quando o código for publicado e houver cinco ocorrências por grupo.
+
+| Recorte/ID | Estado atual | Evidência e limite |
+| --- | --- | --- |
+| Medição da finalização de venda (SCE-330) | Opção A aceita e implementada localmente; migração aplicada no remoto | Dois histogramas em lote e sem IDs de negócio; uma consulta de painel substitui a anterior. Sem dados de uso pós-publicação, sem bytes faturáveis, sem carga/latência e sem p50/p95 medidos. |
+| Recuperação compartilhada de pedidos e avisos (SCE-324/SCE-325) | Já executadas no ciclo anterior | Conferi o registro e não reapliquei; consumidores e limites permanecem conforme o ciclo anterior. |
+| Painel do Catálogo Digital (SCE-322) | Aguardando sessão ERP autenticada para revisão visual | Não acessei sessão nem dados pessoais. |
+| Impressão do mostruário (SCE-270) | Aceita, mas bloqueada | Continua faltando regra documental segura para datas legadas. |
+
+**Próximo recorte exato:** revisar somente a busca de produtos do gerador de Publicações em `erp/src/pages/App/Marketing/Posts/components/Editor/usePostEditor.ts` e `erp/src/pages/App/Marketing/Posts/components/Editor/PreviewProductPicker.tsx`: lista inicial, busca remota e debounce, cancelamento/respostas antigas, campos necessários à prévia e limite de sugestões. Não repetir a auditoria já concluída de oportunidades, campanhas/modelos, salvamento ou biblioteca de artes da SCE-279. Separar chamadas, bytes/egress oficial, trabalho/latência do banco e rapidez percebida; não afirmar economia medida sem base equivalente.
+
+---
+
+## Ciclo — 18/11/2026, 14:09 BRT — conferir a rapidez percebida ao concluir uma venda (SCE-174; proposta SCE-330)
+
+Ao clicar em “Finalizar Cadastro”, o código liga o estado de salvamento antes da validação e da gravação. O ERP mostra o indicador de processamento e só apresenta sucesso e fecha a tela depois que a gravação retorna. Isso evita anunciar uma venda concluída antes da confirmação. O tempo real até a primeira imagem do indicador e até a gravação confirmada ainda não está medido.
+
+**Reconciliação e caminhos:** a conferência visual do painel SCE-322 continua dependendo de uma sessão ERP legitimamente autenticada; avancei para esta ação crítica independente, sem acessar tal sessão. Reli AGENTS.md §§24–25, a skill `supabase-consumption`, `rules/supabase/supabase-consumption.yml`, este roteiro e os relatórios de auditoria ligados por ele. Consultei também a entrada SCE-174 e `docs/fiscal/historico-correcoes-2026-11-16.md`. SCE-174 já está implementada no código local e não foi reaplicada. Os caminhos revistos foram `erp/src/pages/App/SalesOrder/hooks/useOrderFormSubmission.ts`, `erp/src/pages/App/SalesOrder/pages/NewSaleOrder.tsx`, `erp/src/pages/App/SalesOrder/components/OrderSavingOverlay.tsx` e `erp/src/pages/App/SalesOrder/components/SalesOrderFormSection.tsx`. O relatório da SCE-174 registra que o app nativo não tem formulário equivalente de criação/finalização; no navegador móvel, o ERP usa este mesmo fluxo web.
+
+**O que o código confirma:** o envio simultâneo é impedido enquanto a submissão atual está em andamento. O fluxo aguarda a gravação ativa do rascunho e a numeração; em seguida aguarda `updateOrder` ou `saveOrder`. Só então muda o status, mostra confirmação de sucesso e retorna o resultado que permite ao modal fechar. Falhas mostram erro e não marcam a venda como concluída. A nova venda continua usando a chave de idempotência existente. O indicador visual é um spinner com rótulo acessível, sem texto visível junto a ele. A inspeção estática confirma a ordem dessas etapas, mas não o tempo de pintura nem a duração percebida por uma pessoa.
+
+### Chamadas, bytes e trabalho do banco
+
+- **Chamadas:** esta revisão não altera chamadas. A SCE-174 já documenta compartilhamento da busca de numeração e reaproveitamento do rascunho somente quando o conteúdo validado coincide. A frequência real e a redução observada por finalização não estão medidas.
+- **Bytes/saída:** a seleção menor registrada na SCE-174 pode reduzir campos transferidos. Não há comparação de bytes desta ação nem leitura do medidor oficial de saída; não atribuo economia faturável.
+- **Banco:** o histórico contém uma amostra anterior de 141 respostas HTTP 200 da função de gravação, com p95 de 5,486 s, mas ela mistura criações, rascunhos e atualizações. Não identifica finalizações e não pode servir como p95 desta ação. Não há amostra comparável posterior à SCE-174, nem carga ou latência de banco atribuíveis à finalização.
+
+### Rapidez e proposta de medição
+
+Para esta tela web, manter LCP p75 até 2,5 s e INP p75 até 200 ms, separados entre celular e computador. Na ação crítica, medir em separado o clique até o indicador realmente aparecer e o envio até a confirmação da gravação; guardar mediana e p95 para ambos em rede identificada e condições equivalentes. Uma proposta provisória para validar com a equipe é p95 de até 8 s até a gravação confirmada em rede normal. A referência vem do p95 histórico misto de 5,486 s, com margem aproximada de 2,5 s para validação, rede e interface; como aquela amostra não representa esta ação e não define “rede normal”, a confiança da meta é baixa. Mais de 10 s sem qualquer resposta visual é falha importante; o spinner atual é a resposta visual prevista, mas sua exibição em tempo real não foi medida. A meta de 8 s ainda depende de confirmação da equipe.
+
+O monitor atual mede duração por requisição e agrega contagem e duração total por módulo/tela/ação/tabela/operação, com envio em lote a cada cinco minutos. A função de resumo devolve somas, não uma distribuição de tempos. Esse mecanismo não mede clique até indicador, gravação ponta a ponta, mediana ou p95. Portanto não dá para confirmar que a SCE-174 preservou ou melhorou a rapidez percebida. A comparação antes/depois da SCE-174 também não é recuperável pelos dados existentes: o registro anterior é misto e não tem medição equivalente da interface.
+
+### Proposta SCE-330 — aceita e executada no ciclo de 18/11/2026 às 14:43 BRT
+
+**A — recomendada:** estender a telemetria já agrupada para registrar duas distribuições limitadas — clique até primeiro indicador visível e envio até confirmação da gravação — por tela, versão, classe de rede e resultado. Usar faixas de duração agregadas no lote já enviado, sem identificador de venda, produto ou cliente; preservar a autenticação e revisar a associação por usuário já existente antes de habilitar a coleta. Isso permitiria calcular mediana e p95 e comparar mudanças futuras. Estruturalmente não adiciona uma chamada por venda; o lote pode carregar campos adicionais e exige mudança no formato e na agregação do banco. Bytes e carga extras não foram medidos.
+
+**B — manter o monitor como está:** não alterar código nem banco. Continuar com os agregados atuais de duração total e registrar que a mediana, o p95 e o tempo até o primeiro indicador ficam desconhecidos. Esta opção evita qualquer carga ou envio adicional, mas não permite validar a rapidez da finalização.
+
+**Efeitos, segurança e validação:** nenhuma opção altera preço, estoque, permissões de negócio, confirmação de venda ou modo offline. A opção A precisa limitar os dados a medidas agregadas, manter a autorização existente e evitar identificadores de negócio; o lote pode aumentar em bytes e o agrupamento acrescenta trabalho pequeno porém não quantificado ao banco. Após aceite, comparar versões antes/depois em condições de rede equivalentes, separando celular e computador, e validar com a equipe a meta provisória de 8 s. Reversão: remover a coleta específica e os campos agregados sem tocar em vendas ou dados fiscais. Não fiz alteração de código ou banco, consulta remota, teste, build, venda real ou gravação de dados neste ciclo.
+
+| Recorte/ID | Estado | Evidência e limite |
+| --- | --- | --- |
+| Finalização de venda no ERP (SCE-174) | Implementada localmente; rapidez ponta a ponta ainda sem validação | Indicador é ligado antes de validar/gravar; sucesso e fechamento aguardam a resposta de gravação. Sem tempo medido até o indicador, p50/p95 de conclusão ou comparação equivalente pós-alteração. |
+| Medição da rapidez da finalização (SCE-330) | Opção A aceita e executada no ciclo de 18/11/2026 às 14:43 BRT | Detalhes, migração e limites registrados no ciclo seguinte; sem dados reais até publicar o cliente atualizado. |
+| Painel do Catálogo Digital (SCE-322) | Conferência visual ainda pendente | Requer sessão ERP autenticada; não acessada neste ciclo. |
+| Impressão do mostruário (SCE-270) | Aceita, mas bloqueada | Continua faltando regra documental segura para datas legadas. |
+
+**Próximo recorte exato:** a SCE-330 foi aceita e executada no ciclo de 14:43 BRT, que registra a migração e a coleta. A retomada atual é a busca de produtos do gerador de Publicações, descrita no ciclo mais recente. Manter SCE-322 pendente até existir sessão legitimamente autenticada; não retomar SCE-270 sem a documentação que falta.
+
+---
+
+## Ciclo — 18/11/2026, 13:49 BRT — reconciliar a proteção das notas de entrada (SCE-115/SCE-299)
+
+Visitantes sem login continuam sem acesso às notas fiscais de entrada; a equipe autenticada segue usando as telas do ERP e do aplicativo. A autorização ampla do operador para aplicar pendências continua válida. A conferência mostrou que SCE-115 e SCE-299 já foram executadas no banco operacional em 16/11, então não repeti as mudanças.
+
+**Evidência e reconciliação:** consultei `docs/fiscal/README.md`, `docs/fiscal/historico-correcoes-2026-11-16.md`, as migrations `20261117003650_revoke_anon_inbound_invoice_read_insert_update.sql` e `20261117004534_revoke_anon_inbound_invoice_items_access.sql`, e os registros antigos e recentes deste roteiro. O histórico fiscal registra que ambas constam no histórico remoto e que a conferência dos metadados confirmou acesso removido para `anon`, mantendo `authenticated` e `service_role`. Não consultei notas, XML, linhas operacionais nem o banco nesta reconciliação; usei o registro de execução já existente como evidência. A linha antiga que ainda chamava SCE-115 de pendente é histórica e fica substituída por este estado atual.
+
+**Efeito para usuários e limites de consumo:** telas e serviços do ERP e do aplicativo mantêm a sessão autenticada; nenhum consumidor público legítimo foi documentado. A quantidade de chamadas não mudou. Bytes transferidos e saída oficial não foram medidos. Trabalho, carga e latência do banco também não foram medidos. Esta foi uma correção de acesso; não atribuo a ela economia de consumo. Restaurar o acesso anônimo reabriria a exposição e não deve ser feito como reversão rotineira.
+
+| Recorte/ID | Estado atual | Evidência ou limite |
+| --- | --- | --- |
+| Notas de entrada — cabeçalhos e itens (SCE-115/SCE-299) | Aceitas e já executadas no banco operacional em 16/11; nenhuma reaplicação neste ciclo | Registro fiscal e duas migrations locais identificadas; acessos autenticados preservados. Chamadas, bytes oficiais, carga e latência não medidos. |
+| Reservas de cota de IA (SCE-117) | Já reconciliada como protegida em 17/11 | Migrações locais e estado remoto foram conferidos no ciclo próprio; não reaberta. |
+| Impressão do mostruário (SCE-270) | Aceita, mas continua bloqueada | Falta regra documental segura sobre datas antigas, vazias e de limite; não inferir nem mudar o filtro. |
+| Painel do Catálogo Digital (SCE-322) | Código publicado; conferência visual continua pendente | Requer sessão ERP legitimamente autenticada; os eventos agregados já foram registrados separadamente. |
+
+**Próximo recorte exato:** retomar a validação visual da SCE-322 em `erp/src/pages/App/Dashboard/components/DigitalCatalogPanel.tsx`, em larguras estreita e larga, com sessão ERP legitimamente autenticada. Registrar carregamento, erro e estado vazio e confirmar que visitas, visualizações e cliques continuam separados. Não abrir dados de pessoas/produtos nem fabricar tráfego. Se não houver sessão autorizada disponível, não contornar a autenticação; manter essa validação pendente e avançar para uma área independente.
+
+---
+
+## Ciclo — 18/11/2026, 13:33 BRT — reavaliar a condição documental da SCE-270
+
+**Reconciliação:** o checkpoint da entrada anterior, a validação visual autenticada do painel SCE-322, não estava disponível nesta sessão. Avancei para a pendência aceita SCE-270, sem retomar propostas executadas. Reli AGENTS.md §§24–25, a skill `supabase-consumption`, `rules/supabase/supabase-consumption.yml`, este roteiro e os oito relatórios históricos indicados pelo índice. Os relatórios de filtros de pedidos e de consumo do ERP não documentam o formato legado específico que a impressão precisa preservar.
+
+**Caminhos revisados:** `erp/src/pages/types/Shipping.type.ts`; `erp/src/pages/App/Logistics/AssemblyPrintPage.tsx`; `erp/src/pages/utils/assemblyPrintOrdersService.ts`; o auxiliar SQL `order_operational_schedule_date` da migration `20261104225650_order_schedule_server_filters.sql`; e documentação fiscal/auditoria não pessoal encontrada na busca direcionada. A análise foi somente de código e documentação. Não consultei pedidos, seus campos, clientes ou valores, e não acessei o banco.
+
+**Resultado:** a tela atual compara o texto `order_data.shipping.scheduling.date` com a data de ontem em formato `YYYY-MM-DD`, conservando também datas vazias. O tipo `Shipping` declara `date` como `string`, sem contrato de formato ou garantia de ordenação textual. A função SQL de agenda considera datas alternativas e opções de entrega, portanto não é equivalente ao filtro específico da impressão. A documentação consultada não define como registros antigos, vazios ou de limite são representados. A aprovação anterior da SCE-270 continua válida, mas não supre essa evidência semântica; manter o filtro no navegador e não criar RPC/migration até haver a regra escrita segura exigida.
+
+### Consumo e rapidez, separados
+
+- **Chamadas:** o desenho atual faz uma seleção de identificadores e busca os detalhes em blocos de até 100; o filtro por data acontece depois, na tela. Aplicar a data à seleção pode reduzir os blocos de detalhes, mas a quantidade real de identificadores e chamadas desta tela não foi medida. A leitura de montagens do mostruário permanece independente.
+- **Bytes/saída:** podem deixar de ser transferidos detalhes de pedidos antigos se a regra de data puder ser preservada no servidor. Não tenho contagem de linhas desta tela, tamanho de respostas nem medidor oficial; não quantifico egress faturável.
+- **Banco:** o filtro adicional sobre o JSON poderia reduzir linhas retornadas, mas pode acrescentar trabalho ao banco. Não há plano, CPU ou latência desta consulta medidos, então não afirmo redução de carga.
+- **Velocidade percebida:** não há linha de base específica. Se a mudança for destravada, comparar antes/depois em celular e computador, na mesma rede e com conjuntos equivalentes; manter conteúdo principal em até 2,5 s e resposta visual em até 200 ms no percentil 75. Para a lista pronta para imprimir, manter a referência provisória p95 de até 3 s, excluindo a espera intencional de 1 s. São critérios, não resultados observados.
+
+### Matriz e cursor
+
+| Recorte/ID | Estado | Evidência e limite |
+| --- | --- | --- |
+| ERP — filtrar pedidos antigos antes de buscar detalhes na impressão (SCE-270) | Aceita, ainda bloqueada | Contrato local só tipa a data como texto; regra para valores antigos/vazios/de limite não encontrada. Nenhum filtro ou migração aplicada. |
+| Catálogo — conferência visual do painel de métricas (SCE-322) | Pendente de sessão ERP autenticada | Implantação e eventos agregados já conferidos no ciclo anterior; visualização autenticada não realizada. |
+| Catálogo — preparação de fotos (SCE-040) | Revisada anteriormente | Sem repetição do fallback ou criação de proposta duplicada. |
+
+**Próximo recorte exato:** retomar somente a conferência visual de `erp/src/pages/App/Dashboard/components/DigitalCatalogPanel.tsx`, nas larguras estreita e larga, com sessão ERP legitimamente autenticada. Registrar estados de carregamento, erro e painel vazio, além da separação entre visitas, visualizações e cliques; não abrir dados de produtos/pessoas nem fabricar tráfego. Se a sessão continuar indisponível, deixar a validação explícita como pendente e avançar para outra área independente.
+
+---
+
+## Ciclo — 18/11/2026, 13:29 BRT — conciliação da fila aprovada e publicação SCE-322
+
+**Reconciliação e aceite:** o pedido atual para aplicar o que estava pendente foi conferido contra a matriz mais recente. A SCE-329 já foi aplicada localmente às 12:59 BRT; a SCE-313 e a SCE-321 já constam como executadas em ciclos anteriores. A SCE-270 permanece bloqueada pela falta da regra escrita não pessoal exigida no próprio registro. O recorte de preparação de fotos indicado no checkpoint anterior já foi coberto na SCE-040; não criei uma segunda recomendação sobre fallback de imagens. Não encontrei outra alteração de código aceita que ainda não tenha execução registrada.
+
+**Publicação SCE-322:** a consulta somente a metadados da hospedagem encontrou o projeto de produção `catalogo-digital` em estado `READY`, apontando para o commit atual `140f8c3`; o código dos novos eventos consta no histórico desse commit. Portanto, a publicação aconteceu automaticamente após a sincronização do código. Não executei deploy. A configuração Vercel ligada à raiz continua apontando para `erp`, então não usei o comando de publicação da raiz.
+
+**Conferência agregada após a publicação:** executei uma consulta somente de leitura agrupada por `event_type` em `public.product_analytics`, desde 18/11/2026 15:29:02 UTC (aproximadamente uma hora antes desta conferência). O resultado foi 7 registros `catalog_visit`, 3 `product_view` e 0 `product_click`. São eventos gravados, não uma contagem de pedidos HTTP do navegador, pessoas, compras ou conversões. A consulta agregada foi uma leitura; não medi a quantidade de chamadas do site, bytes de resposta/saída oficial, CPU ou latência. Não consultei linhas individuais nem conteúdo de produto, preço, estoque, cliente ou pedido. A conferência visual autenticada do painel ainda não foi feita.
+
+**Incidente de leitura:** um comando amplo anterior exibiu ao agente literais de credenciais presentes em `erp/api/upload.ts`. Os valores não foram guardados nesta documentação nem serão repetidos. O operador foi avisado; trate as credenciais como expostas e faça a rotação pelos canais operacionais apropriados. Não alterei o endpoint nem as credenciais nesta auditoria.
+
+### Métricas e estado
+
+| Recorte | Estado atual | Chamadas | Bytes/saída | Banco e experiência |
+| --- | --- | --- | --- | --- |
+| Métricas do Catálogo Digital (SCE-322) | Código publicado em produção no commit `140f8c3`; início de eventos confirmado por consulta agregada | A consulta de conferência foi uma leitura agregada. Chamadas HTTP dos emissores não medidas; os 10 registros são eventos armazenados | Payloads e medidor oficial não consultados | Contagens de eventos observadas; plano, carga e latência não medidos. Painel visual ainda depende de sessão autenticada autorizada |
+| Ficha detalhada do assistente móvel (SCE-329) | Opção A aplicada localmente no ciclo anterior | Sem redução prevista | Omitido `cost_price` da projeção para perfis sem permissão; economia faturável não medida | Resultados e permissões preservados; CPU/latência e publicação móvel não medidos |
+| Seletor de produto pai (SCE-313), acesso a atributos (SCE-321) | Executados em ciclos anteriores | Conforme registros próprios | Conforme registros próprios; sem medição oficial adicional nesta conciliação | Sem repetição de consultas nem mudança de acesso |
+| Impressão do mostruário (SCE-270) | Continua bloqueada | — | — | Aguardando regra documental não pessoal sobre datas vazias, antigas e de limite |
+| Próximo checkpoint de imagens | Já revisado na SCE-040; checkpoint duplicado encerrado | — | — | Sem nova proposta ou recálculo |
+
+**Próximo recorte exato:** concluir somente a validação visual da SCE-322 no painel autenticado `erp/src/pages/App/Dashboard/components/DigitalCatalogPanel.tsx`, em larguras estreita e larga, usando uma sessão de ERP legitimamente autorizada e sem abrir dados de produtos/pessoas. Registrar apenas o que a tela mostra e se os indicadores visitam/visualizações/cliques permanecem separados; não fabricar tráfego nem inferir vendas. Se não houver sessão autorizada disponível, manter a validação visual pendente e avançar para uma área independente na próxima execução. Não há mudança de código ou decisão nova aguardando aplicação neste momento.
+
+---
+
+## Ciclo — 18/11/2026, 12:59 BRT (15:59Z) — aplicar SCE-329 na ficha detalhada móvel
+
+**Reconciliação e aceite:** o pedido atual “pode aplicar o que está pendente” confirma a SCE-329, que ainda aguardava decisão no ciclo das 12:41 BRT. As SCE-229 e SCE-230 já constavam como executadas. A SCE-270 continua bloqueada pela falta da documentação não pessoal exigida no registro; ela não foi alterada.
+
+**Caminhos conferidos:** `mobile/src/services/aiAgent/productAgentService.ts#getMobileProductDetails`; chamador `mobile/src/services/aiAgent/mobileAgentTools.ts#obterDetalhesProduto`; permissão compartilhada em `shared-utils/agentPermissionGuard.ts`; proposta SCE-329 neste roteiro; e o inventário `auditoria-ferramentas-seu-lizandro-2026-11-09.md`. A inspeção foi estática. Não consultei produtos, valores, saldos ou dados de pessoas.
+
+**Aplicação local:** `getMobileProductDetails` agora resolve `viewProductCost` antes de iniciar as leituras. A mesma decisão monta a seleção explícita do produto pai e das variações: `cost_price` só entra nas duas projeções para perfis autorizados. O mesmo valor continua controlando a inclusão de `precoCusto` na resposta. Identificadores por código/SKU, filtros, dados da ficha, preço de venda, estoque e tratamentos atuais permanecem. O chamador continua passando o mesmo contexto de permissão. `freight_cost`/`custoFrete` segue inalterado por esta proposta específica; nenhuma regra de acesso foi redesenhada.
+
+**Chamadas, bytes e trabalho do banco — separados:**
+
+- **Chamadas:** não há redução. A busca direta continua com uma leitura; a busca por SKU de variação pode continuar com até três leituras sequenciais. A frequência real não é conhecida.
+- **Bytes/saída:** para quem não pode ver custo, a resposta deixa de carregar um campo numérico do produto pai e o mesmo campo de cada variação retornada. O tamanho real e o medidor oficial de saída não estão disponíveis; não calculei economia faturável. Para perfis autorizados, os campos de custo continuam presentes.
+- **Banco:** filtros, linhas, relações consultadas e atualidade de preço/estoque não mudam; apenas uma coluna opcional deixa de ser projetada para o perfil restrito. Não medi plano, CPU nem latência e não afirmo redução desses custos.
+
+**Permissões e experiência:** a função usa a mesma regra de `viewProductCost` que antes ocultava `precoCusto` na resposta. A alteração não concede acesso a ninguém e não muda as políticas do banco. A ficha mantém preço de venda e estoque da leitura atual. Não há mudança no comportamento sem conexão, cache ou atualização após reconectar.
+
+**Rapidez, risco e reversão:** não há linha de base móvel para esta ação. Medir em aparelhos Android e iOS, em redes comparáveis, o tempo até o primeiro retorno visual e até a ficha completa (mediana e p95); a meta documentada é não piorar o p95 e tratar mais de 10 segundos sem resposta visível como falha. Isso é critério futuro, não resultado medido. A projeção e a resposta compartilham a mesma decisão booleana; revisar separadamente perfis autorizados e restritos antes de publicar. Para reverter, restaurar a seleção fixa com `cost_price` e calcular `allowCost` depois da leitura.
+
+**Validação:** revisão estática e `git diff --check` passaram. Não rodei testes ou build, não consultei o Supabase remoto, não executei gravações, DML/fixtures, migration, deploy ou atualização do aplicativo. A mudança está apenas no código local; a publicação e a medição permanecem pendentes.
+
+### Matriz atualizada
+
+| Área | Estado | Evidência e limite |
+| --- | --- | --- |
+| Aplicativo móvel — ficha detalhada do assistente (SCE-329) | Opção A aceita e aplicada localmente | `cost_price` omitido das projeções do produto e das variações para perfis restritos. Chamadas não mudam; bytes oficiais, CPU, latência e rapidez não medidos. |
+| ERP — busca resumida do assistente (SCE-230) | Aplicada anteriormente; preservada | Projeção do custo condicionada à mesma permissão; sem medição de bytes faturáveis. |
+| SCE-270 | Bloqueada; mantida | A dependência documental não foi resolvida nem contornada. |
+
+**Próximo recorte exato:** retomar a preparação e o envio de fotos do catálogo em `digital-catalog/src/features/products/components/admin-modal/utils/productImageUploadUtils.ts`, `digital-catalog/src/lib/utils/image-optimization.ts` e `digital-catalog/src/features/products/components/admin-modal/steps/Step1Photos.tsx`. Conferir dimensões e formatos, quantidade de envios, versões derivadas mantidas, compressão e retorno visual. Separar pedidos de envio, bytes transferidos e trabalho de processamento. Não abrir objetos nem consultar Storage real.
+
+---
+
+## Ciclo — 18/11/2026, 12:41 BRT (15:41Z) — ficha pública de produto e carregamento de imagens no catálogo
+
+**Reconciliação:** a SCE-329, sobre não transferir `cost_price` oculto na ficha do assistente móvel, continua aguardando a decisão já solicitada; nenhum código móvel foi alterado. Segui para um recorte independente do catálogo. A SCE-136 e a função compacta `public_catalog_product_detail_with_campaign_compact` já estão executadas; não reabri nem dupliquei essa recomendação.
+
+**Leituras obrigatórias e registros consultados:** AGENTS.md §§24–25; skill `supabase-consumption`; `rules/supabase/supabase-consumption.yml`; este roteiro; `egress-supabase-morantehub.md`; `2026-09-15-supabase-egress.md`; `2026-11-04-egress-erp-app.md`; `egress-cargas-compactas-2026-11-04.md`; `roadmap-apis-ia-google-maps.md`; `produtos-alertas-resumo-estoque-2026-11-04.md`; `auditoria-ferramentas-seu-lizandro-2026-11-09.md`; e `pedidos-filtros-servidor-2026-11-04.md`. O histórico confirma a compactação anterior da ficha, mas não mede esta tela em bytes faturáveis ou em velocidade. A amostra de 25.399 bytes registrada para a lista de cartões não foi reutilizada como medida da ficha.
+
+**Caminhos conferidos:** `digital-catalog/src/app/produto/[slug]/page.tsx`; `digital-catalog/src/features/products/hooks/useProductPageDisplayState.ts`; `digital-catalog/src/features/products/components/product-page-content.tsx`; `ProductGallery.tsx`; `ProductVariantSelector.tsx`; `CatalogProductImage.tsx`; `digital-catalog/src/lib/utils/imageUrlUtils.ts`; `digital-catalog/src/lib/store-settings-cache.ts`; `digital-catalog/src/features/products/hooks/useProductViewTracking.ts`; `digital-catalog/src/features/analytics/trackCatalogEvent.ts`; `digital-catalog/src/app/api/analytics/track/route.ts`; `digital-catalog/src/app/api/og-image/route.ts`; e a migration `supabase/migrations/20261116174016_compact_public_product_detail_variations.sql`. A análise foi estática; não abri produto, imagem, preço, estoque, cliente ou evento real.
+
+**O que a pessoa percebe:** ao abrir um link, a ficha mostra nome, descrição, preço atual, campanha, opções publicadas e as fotos correspondentes. A imagem principal recebe prioridade; as miniaturas usam o carregamento padrão sob demanda; a foto original só é pedida ao abrir a ampliação. Isso preserva a primeira imagem visível sem baixar de início todas as versões originais.
+
+**Chamadas, bytes e banco — separados:**
+
+- **Chamadas:** a página executa a RPC `public_catalog_product_detail_with_campaign_compact` uma vez por renderização do servidor. `React cache` compartilha o resultado entre a geração de metadados e o componente na mesma renderização, evitando uma segunda leitura ali. O estilo usa `getCachedStoreStyleSettings`, com uma leitura PostgREST quando a cache de módulo está fria e retenção de até 10 minutos no processo; a página só usa `button_style`, mas a projeção compartilhada também atende outras telas. A visualização do produto envia um evento separado para a API, uma vez por produto por sessão do navegador; o endpoint grava em `product_analytics` e pode consultar geolocalização externa se os cabeçalhos não trouxerem a localização. Esses eventos não foram consultados nem contados em produção.
+- **Bytes e imagens:** a RPC já limita explicitamente os campos do produto e das variações às necessidades da ficha, inclusive preço atual e opções publicadas. Ela devolve as URLs necessárias para a galeria e as opções; a tela também precisa das imagens de variação para trocar a foto quando muda a opção. `getDerivedImageUrl` pede nomes `_medium.webp` e `_thumb.webp`; a galeria usa a original somente na ampliação e tenta versões de reserva em caso de falha. A prévia social usa `/api/og-image`, que mantém cache de busca de até 24 horas e envia `Cache-Control` de um ano ao navegador/CDN. O código aceita origens R2, Supabase e outras permitidas, então não é possível atribuir todas as imagens ao Storage do Supabase sem observar as URLs reais — o que não foi feito. Tamanhos reais, falhas das versões derivadas e egress oficial são desconhecidos.
+- **Banco e atualização:** a página é `force-dynamic`, e a RPC limita o detalhe a produto publicado, não removido e com ao menos uma variação publicada, quando houver variações. Preço é combinado com `catalog_current_prices` dentro da função. A página não lê saldo de estoque; a confirmação da cotação do carrinho permanece no fluxo separado já documentado. O estilo pode ficar até 10 minutos na cache, mas o preço/publicação do produto não recebe essa cache. Não consultei plano, CPU ou latência.
+- **Falhas e desempenho:** se a RPC retorna erro ou vazio, `getProductData` devolve `null` e a página exibe o estado de produto não encontrado; este código não usa cache offline nem repetição automática. Isso não gera chamada adicional, mas não distingue falha temporária de produto inexistente. Não encontrei medida inicial de LCP/INP p75 separada entre celular e computador para esta ficha. Antes de qualquer nova redução, medir esses valores e a resposta às interações nas mesmas condições; manter LCP p75 até 2,5 s e INP p75 até 200 ms em cada tipo de dispositivo. Esses limites são referência, não prova de que a tela já os cumpre. Não alterei a mensagem ou o comportamento de falha neste recorte.
+
+**Resultado:** não encontrei redução de consulta ou de imagens que possa ser recomendada sem risco de tirar dados necessários à escolha de variação, preço vigente, prévia ou galeria. A leitura já é compacta; a cache de estilo e o compartilhamento entre metadados e página reduzem trabalho repetido. Os caminhos de imagem já priorizam a principal, entregam miniaturas e deixam a original para ação explícita. Não criei nova SCE. A linha histórica do relatório de egress que atribuía ao detalhe apenas `button_style` está desatualizada: hoje a página usa o helper compartilhado, cuja leitura fria traz a projeção completa de estilo para atender várias telas. Como separar essa leitura poderia causar uma consulta extra, não sugiro reduzi-la sem medida do uso da cache e do tempo percebido.
+
+**Validação:** inspeção estática e revisão de `git diff --check`; nenhum teste, visita real, consulta remota, métrica de usuários, DML, migration, deploy ou OTA foi executado. O baseline inicial de velocidade não está disponível; coletá-lo, separado por celular/computador e comparando rede e versão, é o próximo passo antes de propor otimização nesta tela.
+
+### Matriz de cobertura deste ciclo
+
+| Área | Cobertura nesta execução | Estado registrado |
+| --- | --- | --- |
+| Catálogo digital — ficha pública | RPC compacta, preço atual, opções publicadas, cache da renderização e fallback de falha | Revisado; sem nova recomendação de consumo. LCP/INP p75 não medidos. |
+| Catálogo digital — imagens e Storage | Versões principal/miniatura/original, carregamento sob demanda, fallback e proxy de prévia social | Revisado estaticamente; bytes, origem real por objeto e egress não atribuídos. |
+| Catálogo digital — eventos de visualização | Desduplicação de sessão e caminho API que grava evento | Confirmado como uma escrita intencional por produto/sessão; sem consulta ou contagem de produção. |
+| App móvel — ficha detalhada do assistente (SCE-329) | Sem nova revisão nesta execução | Continua aguardando decisão; não alterado. |
+| ERP, APIs compartilhadas, SQL/RPC, Realtime | RPC de detalhe do catálogo revisada em migration local | Sem alteração de função ou permissão neste ciclo. |
+
+| Recorte/ID | Estado atual | Limite ou próximo passo |
+| --- | --- | --- |
+| Catálogo — detalhe compacto (SCE-136) | Já executado anteriormente; preservado | A função atual permanece. Não reabrir sem evidência nova de resposta ou velocidade. |
+| Mobile — custo oculto na ficha detalhada (SCE-329) | Aguarda aceitar ou recusar | Permanece visível enquanto sigo com recorte independente. |
+
+**Próximo recorte exato:** `digital-catalog/src/features/products/components/admin-modal/utils/productImageUploadUtils.ts`, `digital-catalog/src/lib/utils/image-optimization.ts` e `digital-catalog/src/features/products/components/admin-modal/steps/Step1Photos.tsx`. Revisar apenas a preparação das imagens antes do envio ao armazenamento: dimensões/formatos, quantidade de envios, versões mantidas e se a compressão conserva qualidade e velocidade para a ficha. Separar requisições de envio, bytes transferidos e trabalho de processamento. Não abrir objetos nem consultar Storage real.
+
+---
+
+## Ciclo — 18/11/2026, 12:30 BRT (15:30Z) — aplicar SCE-230 e revisar a ficha de produto móvel
+
+**Reconciliação e decisão:** a SCE-230 constava como pendente no registro de 13/11. O operador já havia autorizado a aplicação de todos os pendentes. Apliquei a opção A somente na busca resumida do agente no ERP. O detalhe de produto móvel foi revisado como recorte atual; a nova recomendação abaixo (SCE-329) ainda aguarda uma decisão específica. A SCE-270 continua bloqueada por falta de documentação não pessoal sobre as datas antigas.
+
+### SCE-230 — aplicada localmente, opção A
+
+Em `erp/src/services/aiAgent/productAgentTools.ts`, a permissão `viewProductCost` agora é calculada antes da leitura. `cost_price` só entra na projeção de `buscarProdutos` para quem já pode ver custo. O mesmo valor de permissão alimenta o sanitizador que já existia. Os demais campos, filtros, ordenação, limite de 30 e contagem exata permanecem; perfis autorizados continuam recebendo custo.
+
+- **Chamadas:** quantidade de consultas e contagem não mudam. A busca continua com a mesma consulta principal e os mesmos auxiliares condicionais.
+- **Bytes/egress:** para perfis sem permissão, deixam de ser pedidos até 30 valores de `cost_price` da página. O tamanho real e a saída faturável não foram medidos; não há percentual calculado.
+- **Banco:** a leitura continua necessária e conserva filtros, contagem e linhas. A projeção tem um campo a menos para perfis sem custo; não medi plano, CPU ou latência.
+- **Resultados e permissões:** a lista visível permanece igual para cada perfil; a busca já omitia `precoCusto` na resposta restrita. O preço de venda e o estoque não mudam. A permissão de custo não foi ampliada.
+- **Velocidade percebida:** não há medida inicial específica da busca pelo assistente. Para a tela web do ERP, a referência deve ser medida separadamente em celular e computador: conteúdo principal (LCP) no p75 até 2,5 s e resposta às interações (INP) no p75 até 200 ms. Para a ação de buscar, registrar antes/depois o tempo até o primeiro sinal visual e até o resultado final, mediana e p95, nas mesmas condições de rede. O limite de ação é não piorar o p95 medido; 10 s sem qualquer resposta visível é falha importante. Como ainda não existe baseline, não afirmo melhora nem desempenho validado e esta alteração permanece local, sem publicação.
+- **Validação/reversão:** revisão estática e `git diff --check` passaram. Não rodei testes, chamadas reais, consulta ao banco, migração, deploy ou OTA. Reversão: recolocar `cost_price` na projeção e restaurar o cálculo posterior da permissão.
+
+### Revisão móvel — ficha detalhada por código ou SKU
+
+**Caminhos conferidos:** `mobile/src/services/aiAgent/productAgentService.ts#getMobileProductDetails`, seu chamador `mobile/src/services/aiAgent/mobileAgentTools.ts#obterDetalhesProduto`, a regra em `shared-utils/agentPermissionGuard.ts` e o histórico `auditoria-ferramentas-seu-lizandro-2026-11-09.md`. Não consultei produtos, preços, custos ou saldos reais.
+
+- **Chamadas:** um produto pai encontrado diretamente requer uma leitura. Se o identificador for o SKU de uma variação, o caminho pode fazer a leitura inicial do pai, uma leitura da variação para achar o pai e outra leitura do pai: até três consultas sequenciais, conforme o caso. Frequência real não medida.
+- **Dados:** a projeção é explícita e os detalhes selecionados alimentam o retorno da ferramenta. Preço de venda e estoque vêm da leitura ao vivo; `cost_price` do produto pai e das variações também é selecionado sempre, mas o sanitizador só inclui `precoCusto` quando a permissão `viewProductCost` autoriza. Assim, para perfil sem essa permissão, o campo é transferido ao aparelho antes de ser ocultado. Bytes e egress faturável não medidos.
+- **Permissões e falha:** o despachante exige uma permissão de consulta de produto/estoque, enquanto `viewProductCost` controla separadamente a exposição do custo no resultado. A ficha consulta o Supabase diretamente; sem conexão retorna erro, sem cache ou busca automática ao reconectar. Não alterei esse comportamento.
+- **Velocidade nativa:** o aplicativo usa React Native. Não apliquei automaticamente os limites de página web. Não existe baseline localizado para esta ação: medir em aparelhos Android e iOS o tempo até o primeiro retorno visual e até a ficha completa, com mediana e p95, em redes identificadas. Limite proposto: p95 depois da mudança não pode ser pior que o baseline nas mesmas condições, e mais de 10 s sem resposta visual deve contar como falha. Ainda não há valor inicial medido; nenhum ganho de rapidez é estimado.
+
+### SCE-329 — evitar transferir custo oculto na ficha detalhada móvel
+
+**Status:** nova proposta; aguarda aceitar ou recusar. Nenhum código da ficha detalhada foi alterado.
+
+- **A — recomendada:** calcular a mesma permissão `viewProductCost` antes das leituras e incluir `cost_price` na projeção do produto e das variações somente para perfis autorizados. O retorno já omite `precoCusto` para perfis restritos, então a lista de detalhes visível fica igual. Manter chamadas, busca por código/SKU, preço de venda, estoque, outros campos e checagens atuais.
+- **B — manter a projeção e medir/rever primeiro:** manter a leitura atual até obter baseline de tempo da ação em Android/iOS e confirmar com a equipe o contrato de exposição do custo na ficha. Não coletar identificadores, valores ou conteúdo de produtos.
+- **Economia e incerteza:** opção A não reduz consultas; para perfis restritos evita o campo de custo do pai e de cada variação retornada. Número de variações por ficha, bytes e egress oficial não foram medidos. Não há prova de redução de CPU/latência.
+- **Condições de desempenho:** antes/depois em aparelhos e redes comparáveis, mediana e p95 do primeiro sinal visual e da ficha final; preservar o p95 baseline e tratar 10 s sem resposta visível como falha. Como o baseline está ausente, não declarar que a mudança acelerou a ação.
+- **Impactos e reversão:** custo permanece para quem tem permissão; preço de venda, estoque, filtros e caminhos online/offline não mudam. Risco: uma divergência entre a permissão calculada e o sanitizador poderia ocultar o campo autorizado, por isso ambos devem usar o mesmo resultado calculado. Reverter recolocando `cost_price` nas projeções.
+
+### Matriz de cobertura deste ciclo
+
+| Área | Cobertura nesta execução | Estado registrado |
+| --- | --- | --- |
+| ERP — assistente / busca resumida de produtos | Projeção de custo por permissão | SCE-230 aplicada localmente; baseline de velocidade ainda não medido. |
+| Aplicativo móvel — assistente / ficha detalhada | Consultas por código e SKU de variação, campos, permissão, preço/estoque e erro sem conexão | Revisado; SCE-329 aguarda decisão. |
+| Catálogo digital, Realtime e Storage | Não reabertos neste ciclo | Histórico e decisões preservados. |
+| Serviços compartilhados e SQL/RPC | Guardas de permissão do agente conferidas; nenhuma RPC alterada | Revisado somente para o contrato desta ferramenta. |
+
+**Próximo recorte exato:** catálogo público, começando por `digital-catalog/src/app/produto/[slug]/page.tsx` e `digital-catalog/src/features/products/hooks/useCatalogProductsQuery.ts`. Revisar a leitura da ficha e a origem das imagens/arquivos, com o tempo de conteúdo principal e a resposta às interações separados em celular e computador (p75; limites 2,5 s e 200 ms), além da conclusão da ação em condições equivalentes. Não consultar registros de clientes nem mídia privada; separar chamadas, bytes/egress e trabalho/latência.
+
+---
+
 ## Ciclo — 18/11/2026, 12:11 BRT (15:11Z) — aplicação da SCE-229 na busca de produtos do assistente móvel
 
 **Reconciliação e decisão:** o operador autorizou aplicar todos os itens pendentes (“ACITO TODOS OS PENDENTES” e “pode aplicar o que está pendente”). A SCE-229 estava registrada como aguardando decisão e não há lançamento posterior de execução ou recusa. Apliquei a opção A, restrita à busca resumida do assistente móvel. Não alterei os padrões dos outros consumidores do serviço.
@@ -7576,7 +8058,7 @@ Essa sugestão fica limitada a `saveMobileEnvironment`. Não proponho mudar `res
 
 ### SCE-230 — não transferir o custo na lista para perfis que não o recebem
 
-**Status:** aguarda aceitar ou recusar. Nenhum código, banco ou migration foi alterado.
+**Status no registro original (13/11):** aguardava aceitar ou recusar. Atualizado em 18/11/2026 12:30 BRT: aceita pelo aceite geral do operador e opção A executada localmente em `erp/src/services/aiAgent/productAgentTools.ts`; nenhum banco ou migration foi alterado.
 
 - **A — recomendada:** em `productAgentTools.buscarProdutos`, calcular o mesmo `allowCost` antes da consulta e incluir `cost_price` na projeção somente quando esse controle permitir. Reusar o resultado no sanitizador já existente. Manter `cost_price` para perfis autorizados e preservar os demais campos, filtros, busca de variações, ordenação, contagem, limite de 30 e formato da resposta.
 - **B — manter e medir primeiro:** deixar a projeção atual e, se houver telemetria agregada autorizada por ferramenta e perfil, comparar somente contagem de linhas e bytes das respostas com o medidor oficial no mesmo período. Não registrar conteúdo ou identificadores de produtos.
@@ -20396,3 +20878,15 @@ A leitura somente de metadados autorizada para conferir as permissões da SCE-24
 | Cobertura geral (SCE-154) | Bloqueada | Mantida conforme decisão histórica. |
 
 **Próximo recorte exato:** executar a SCE-321, revisão das políticas de acesso às tabelas do catálogo global de atributos já descritas no respectivo registro do roadmap. Mapear leitura pública necessária e escrita anônima nas tabelas e funções relacionadas; preservar consumidores públicos, escopo e permissões legítimos. Não aplicar mudança remota sem confirmar todos os leitores/escritores e o caminho de reversão. Separar chamadas, bytes/saída, trabalho/latência do banco e rapidez percebida. Não misturar com a SCE-319, não ler conteúdo pessoal ou dados operacionais, e não consultar segredos.
+
+### Ciclo — 18/11/2026, 15:11 BRT — reduzir espera na busca de produtos do formulário de venda
+
+**Sintoma e evidência:** a solicitação relatou demora ao buscar produtos no formulário de venda. A leitura estática do autocomplete encontrou uma projeção larga com categorias, imagens e todas as colunas das variações; a busca de variações por relacionamento também recebia linhas completas embora o filtro só precisasse testar a existência. O fluxo ainda consultava a elegibilidade para lixeira, que não é usada ao escolher um item, e só removia serviços/combinações depois de buscar a página. Não havia medição atual do tempo de tela ou da latência do banco, então esses fatores são oportunidades estruturais confirmadas, não uma causa única cronometrada.
+
+**Alteração local:** o formulário de venda usa uma projeção compacta com os campos necessários à seleção, inclusive preço/preço promocional, estoque, custo, unidade e dados fiscais/ajustes fiscais das variações. Categorias, imagens e campos não usados deixaram de ser carregados nessa busca. O embed auxiliar de busca de variações agora devolve somente IDs, suficientes para os filtros existentes. Serviços, composições e combinações são filtrados no servidor antes da paginação. A consulta de elegibilidade da lixeira foi dispensada neste seletor; a leitura das campanhas ativas foi mantida para preservar a apresentação de preços e promoções atuais. Busca com três caracteres, debounce de 300 ms, até cinco sugestões, normalização sem acentos, descarte de respostas antigas e o limite de tempo existente continuam iguais.
+
+**Chamadas, bytes e latência:** estruturalmente, deixam de ocorrer uma RPC de elegibilidade e, quando havia composições entre os candidatos, a consulta adicional de estoque de componentes. Permanecem a busca de correspondências nas variações, a leitura paginada de produtos e a leitura de preços promocionais em lote; não foram introduzidas novas chamadas. A projeção remove campos relacionais desnecessários, mas não foram medidos bytes reais, egress oficial, plano/carga do banco ou latência antes/depois. Não afirmar ganho cronometrado até medir a mesma busca sob a mesma rede e sessão.
+
+**Paridade e validação:** os campos preservados cobrem o contrato usado pelo formulário web responsivo nas larguras desktop e mobile. A busca nativa de criação de venda não existe no aplicativo; os caminhos mobile encontrados são de pedidos/logística e estoque, não de criação de venda. Revisão estática e `git diff --check`; nenhum teste foi executado. Sem consulta ou escrita no Supabase remoto, fixture, migration, deploy ou publicação OTA.
+
+**Arquivos alterados:** `erp/src/components/ProductAutocomplete.tsx`, `erp/src/components/hooks/useProductAutocomplete.ts`, `erp/src/components/productAutocompleteUtils.tsx`, `erp/src/pages/App/SalesOrder/ItemsTable/BodyRowDesktop.tsx`, `erp/src/pages/App/SalesOrder/ItemsTable/BodyRowMobile.tsx`, `erp/src/pages/utils/productService/productFilterBuilder.ts` e `erp/src/pages/utils/productService/productQueryService.ts`.

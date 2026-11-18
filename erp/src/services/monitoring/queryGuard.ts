@@ -1,4 +1,4 @@
-import { SupabaseAnomalyEvent, OperationType, CircuitBreakerError, GUARD_CONFIG } from './types';
+import { SupabaseAnomalyEvent, OperationType, CircuitBreakerError, GUARD_CONFIG, InteractionTimingSample } from './types';
 import { CircuitBreaker } from './circuitBreaker';
 import { TelemetryBuffer } from './telemetryBuffer';
 import { AnomalyDetector } from './anomalyDetector';
@@ -34,6 +34,10 @@ class QueryGuard {
 
   public setContext(module: string, screen: string = 'N/A', action: string = 'N/A') {
     this.currentContext = { module, screen, action };
+  }
+
+  public trackInteractionTiming(sample: InteractionTimingSample) {
+    this.telemetryBuffer.trackInteractionTiming(sample);
   }
 
   private emitAnomaly(anomaly: SupabaseAnomalyEvent) {

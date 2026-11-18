@@ -13,6 +13,7 @@ interface NewSaleOrderHeaderProps {
   orderIndex: number | null;
   isGeneratingCode: boolean;
   currentStep: number;
+  isLogisticsDisabled: boolean;
   jumpToStep: (step: number) => void;
   errors: Record<string, string>;
   onClose: () => void;
@@ -26,6 +27,7 @@ export const NewSaleOrderHeader = ({
   orderIndex,
   isGeneratingCode,
   currentStep,
+  isLogisticsDisabled,
   jumpToStep,
   errors,
   onClose,
@@ -82,6 +84,7 @@ export const NewSaleOrderHeader = ({
           jumpToStep={jumpToStep}
           errors={errors}
           isBudget={isBudget}
+          isLogisticsDisabled={isLogisticsDisabled}
         />
       </div>
 

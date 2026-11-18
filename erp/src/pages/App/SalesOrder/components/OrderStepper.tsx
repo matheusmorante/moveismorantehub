@@ -11,6 +11,7 @@ interface OrderStepperProps {
   jumpToStep: (step: number) => void;
   errors?: Record<string, string>;
   isBudget?: boolean;
+  isLogisticsDisabled?: boolean;
 }
 
 const OrderStepper = ({
@@ -18,6 +19,7 @@ const OrderStepper = ({
   jumpToStep,
   errors = {},
   isBudget = false,
+  isLogisticsDisabled = false,
 }: OrderStepperProps) => {
   const visibleSteps = getVisibleOrderSteps(isBudget);
   const getStepStatus = (step: number) => getOrderStepStatus(step, currentStep, errors);
@@ -27,6 +29,7 @@ const OrderStepper = ({
   const activeStepStatus = getStepStatus(activeStep.step);
   const previousStep = visibleSteps[activeStepIndex - 1];
   const nextStep = visibleSteps[activeStepIndex + 1];
+  const isStepDisabled = (step: number) => step === 4 && isLogisticsDisabled;
 
   return (
     <div className="relative w-full max-w-full min-w-0 py-0.5">
@@ -35,8 +38,10 @@ const OrderStepper = ({
           <button
             type="button"
             aria-label={`Voltar para ${previousStep.label}`}
+            disabled={isStepDisabled(previousStep.step)}
+            title={isStepDisabled(previousStep.step) ? 'Selecione um cliente para acessar Logística.' : undefined}
             onClick={() => jumpToStep(previousStep.step)}
-            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:text-slate-300 dark:hover:bg-slate-800 sm:h-10 sm:w-10"
+            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-40 dark:text-slate-300 dark:hover:bg-slate-800 sm:h-10 sm:w-10"
           >
             <ChevronLeft className="h-4 w-4 sm:h-5 sm:w-5" aria-hidden="true" />
           </button>
@@ -57,8 +62,10 @@ const OrderStepper = ({
           <button
             type="button"
             aria-label={`Avançar para ${nextStep.label}`}
+            disabled={isStepDisabled(nextStep.step)}
+            title={isStepDisabled(nextStep.step) ? 'Selecione um cliente para acessar Logística.' : undefined}
             onClick={() => jumpToStep(nextStep.step)}
-            className="ml-auto inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:text-slate-300 dark:hover:bg-slate-800 sm:h-10 sm:w-10"
+            className="ml-auto inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-40 dark:text-slate-300 dark:hover:bg-slate-800 sm:h-10 sm:w-10"
           >
             <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5" aria-hidden="true" />
           </button>
@@ -68,14 +75,18 @@ const OrderStepper = ({
       <div className="hidden w-full items-center justify-between gap-1 lg:flex lg:gap-1.5 2xl:gap-2">
         {visibleSteps.map((s, idx) => {
           const status = getStepStatus(s.step);
+          const disabled = isStepDisabled(s.step);
           return (
             <React.Fragment key={s.step}>
               <button
                 type="button"
+                disabled={disabled}
                 onClick={() => jumpToStep(s.step)}
-                className="group flex min-w-0 shrink-0 items-center gap-1.5 rounded-xl px-0.5 py-0.5 text-left outline-none transition-colors hover:bg-slate-100 focus-visible:ring-2 focus-visible:ring-blue-500 dark:hover:bg-slate-800 2xl:flex-1 2xl:gap-2"
+                className="group flex min-w-0 shrink-0 items-center gap-1.5 rounded-xl px-0.5 py-0.5 text-left outline-none transition-colors hover:bg-slate-100 focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent dark:hover:bg-slate-800 2xl:flex-1 2xl:gap-2"
                 title={
-                  status === 'error'
+                  disabled
+                    ? 'Selecione um cliente para acessar Logística.'
+                    : status === 'error'
                     ? `Passo ${s.step}: ${s.label}. Há erros para revisar.`
                     : `Passo ${s.step}: ${s.label}`
                 }

@@ -84,6 +84,7 @@ export const OrderEditModalContent: React.FC<OrderEditModalContentProps> = ({
       <OrderEditModalHeader
         reconciliationMode={reconciliationMode}
         currentStep={form.state.currentStep}
+        isLogisticsDisabled={!form.state.customerData.id}
         jumpToStep={form.actions.jumpToStep}
         errors={form.state.errors}
         onClose={onClose}

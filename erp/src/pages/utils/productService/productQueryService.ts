@@ -25,6 +25,10 @@ export const LIGHT_COLUMNS_WITH_CATS =
   LIGHT_COLUMNS +
   ', product_categories(*, categories(*)), product_variations(*), product_images(image_url,is_main), category_details:categories!products_category_id_fkey(id, name)';
 
+/** Minimal product and variation data needed to search and add items to a sale. */
+export const SALES_ORDER_AUTOCOMPLETE_COLUMNS =
+  'id,name,marketplace_title,code,description,unit,unit_price,price,promo_price,cost_price,stock,active,is_draft,status,deleted,supplier_id,main_supplier_id,supplier_ids,product_kind,condition,is_salvado,item_type,is_combo,fiscal,variation_details:technical_specs->variationDetails,product_variations(id,product_id,sku,name,stock,price,promo_price,cost_price,active,status,merged_to_variation_id,attributes,use_parent_name,use_parent_price,use_parent_promo_price,use_parent_dimensions,use_parent_description)';
+
 export type ProductPreviewOption = {
   id: string;
   name: string;
@@ -175,7 +179,7 @@ export const fetchProductsPage = async (
     throwOnError?: boolean;
     includeTrashEligibility?: boolean;
     includeTotal?: boolean;
-    productProjection?: 'componentAutocomplete';
+    productProjection?: 'componentAutocomplete' | 'salesOrderAutocomplete';
     searchVariationsAsEmbed?: boolean;
   } = {}
 ): Promise<{ data: Product[]; total: number }> => {
@@ -200,18 +204,25 @@ export const fetchProductsPage = async (
 
     const isComponentAutocompleteProjection =
       requestOptions.productProjection === 'componentAutocomplete';
+    const isSalesOrderAutocompleteProjection =
+      requestOptions.productProjection === 'salesOrderAutocomplete';
     const searchVariationsAsEmbed = Boolean(requestOptions.searchVariationsAsEmbed && options?.search);
     const projection = isComponentAutocompleteProjection
       ? PRODUCT_COMPONENT_AUTOCOMPLETE_COLUMNS
-      : LIGHT_COLUMNS_WITH_CATS;
+      : isSalesOrderAutocompleteProjection
+        ? SALES_ORDER_AUTOCOMPLETE_COLUMNS
+        : LIGHT_COLUMNS_WITH_CATS;
     const baseQuery = supabase.from(TABLE_NAME).select(
-      searchVariationsAsEmbed ? `${projection},search_variations:product_variations()` : projection,
+      searchVariationsAsEmbed ? `${projection},search_variations:product_variations(id)` : projection,
       requestOptions.includeTotal === false ? {} : { count: 'exact' }
     );
 
     const filters = {
       ...options,
-      ...(isComponentAutocompleteProjection ? { excludeCombos: true } : {}),
+      ...(isComponentAutocompleteProjection || isSalesOrderAutocompleteProjection
+        ? { excludeCombos: true }
+        : {}),
+      ...(isSalesOrderAutocompleteProjection ? { productsOnly: true } : {}),
       searchVariationsAsEmbed,
     };
     const { data, error, count } = await applyProductFiltersAndSort(baseQuery, filters, {
@@ -287,7 +298,12 @@ export const fetchProductsPage = async (
     const mapped: Product[] = (data || []).map((p: any, idx: number) => {
       const product = isComponentAutocompleteProjection
         ? mapProductComponentAutocompleteCandidate(p, idx)
-        : mapFromDB(p, idx);
+        : mapFromDB(
+            isSalesOrderAutocompleteProjection
+              ? { ...p, technical_specs: { variationDetails: p.variation_details } }
+              : p,
+            idx,
+          );
       const productCampaign = campaignByProduct.get(String(product.id || ''));
       const currentProduct = productCampaign
         ? {
@@ -322,7 +338,7 @@ export const fetchProductsPage = async (
     });
 
     return {
-      data: isComponentAutocompleteProjection
+      data: isComponentAutocompleteProjection || isSalesOrderAutocompleteProjection
         ? mapped
         : await applyCompositionAvailability(mapped),
       total: count ?? 0,

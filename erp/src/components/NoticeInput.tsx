@@ -11,6 +11,8 @@ interface NoticeInputProps {
   placeholder?: string;
   className?: string;
   label?: string;
+  ariaLabel?: string;
+  enableSuggestions?: boolean;
 }
 
 const NoticeInput = ({
@@ -19,6 +21,8 @@ const NoticeInput = ({
   placeholder = 'Adicionar aviso...',
   className = '',
   label,
+  ariaLabel,
+  enableSuggestions = true,
 }: NoticeInputProps) => {
   const [inputValue, setInputValue] = useState('');
   const [frequencies, setFrequencies] = useState<Record<string, number>>({});
@@ -30,6 +34,8 @@ const NoticeInput = ({
   const tags = useMemo(() => splitNoticeTags(value), [value]);
 
   useEffect(() => {
+    if (!enableSuggestions) return;
+
     const loadFrequencies = async () => {
       try {
         const freq = await getNoticeFrequency();
@@ -39,7 +45,7 @@ const NoticeInput = ({
       }
     };
     loadFrequencies();
-  }, []);
+  }, [enableSuggestions]);
 
   const suggestions = useMemo(() => {
     const query = inputValue.toLowerCase().trim();
@@ -140,7 +146,7 @@ const NoticeInput = ({
             <span
               key={index}
               onClick={() => startEditing(index, tag)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-2xl text-[11px] border transition-all animate-in fade-in zoom-in-95 duration-300 cursor-pointer hover:ring-2 hover:ring-slate-200 dark:hover:ring-slate-800 ${getTagColor(tag)}`}
+              className={`group flex items-center gap-2 px-4 py-2 rounded-2xl text-[11px] border transition-all animate-in fade-in zoom-in-95 duration-300 cursor-pointer hover:ring-2 hover:ring-slate-200 dark:hover:ring-slate-800 ${getTagColor(tag)}`}
             >
               {tag}
               <button
@@ -149,7 +155,8 @@ const NoticeInput = ({
                   e.stopPropagation();
                   removeTag(index);
                 }}
-                className="hover:scale-125 transition-transform"
+                aria-label={`Remover aviso ${tag}`}
+                className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100 hover:scale-125 transition-all"
               >
                 <i className="bi bi-x-circle-fill opacity-50 hover:opacity-100 transition-opacity" />
               </button>
@@ -161,17 +168,18 @@ const NoticeInput = ({
           value={inputValue}
           onChange={(e) => {
             setInputValue(e.target.value);
-            setShowSuggestions(true);
+            setShowSuggestions(enableSuggestions);
           }}
-          onFocus={() => setShowSuggestions(true)}
+          onFocus={() => setShowSuggestions(enableSuggestions)}
           onKeyDown={handleKeyDown}
           placeholder={tags.length === 0 ? placeholder : ''}
+          aria-label={ariaLabel}
           className="flex-1 min-w-[150px] bg-transparent outline-none text-sm py-2 placeholder:text-slate-300 dark:placeholder:text-slate-700 dark:text-slate-300 font-bold tracking-tight"
         />
       </div>
 
       {/* Suggestions Dropdown */}
-      <DropdownPortal anchorRef={containerRef} isOpen={showSuggestions && suggestions.length > 0}>
+      <DropdownPortal anchorRef={containerRef} isOpen={enableSuggestions && showSuggestions && suggestions.length > 0}>
         <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl shadow-2xl overflow-hidden animate-slide-up py-2">
           <div className="px-5 py-2 border-b border-slate-50 dark:border-slate-800">
             <span className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400">

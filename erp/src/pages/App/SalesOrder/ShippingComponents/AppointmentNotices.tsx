@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import SectionCard from '@/components/SectionCard';
+import NoticeInput from '@/components/NoticeInput';
 import type Shipping from '@/pages/types/Shipping.type';
 import {
   DELIVERY_NOTICE_OPTIONS,
@@ -117,15 +118,14 @@ export const AppointmentNotices: React.FC<Props> = ({
         </div>
       )}
 
-      <label className="block">
-        <textarea
-          aria-label={instructionsLabel}
-          value={instructionsValue}
-          onChange={(event) => onChange({ instructions: event.target.value })}
-          rows={4}
-          className="min-h-[120px] w-full resize-y rounded-[2rem] border border-slate-100 bg-white p-4 text-sm font-medium tracking-tight text-slate-800 shadow-inner outline-none transition-all focus:border-amber-500/30 focus:ring-4 focus:ring-amber-500/5 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100"
-        />
-      </label>
+      <NoticeInput
+        ariaLabel={instructionsLabel}
+        value={instructionsValue}
+        onChange={(instructions) => onChange({ instructions })}
+        placeholder=""
+        enableSuggestions={false}
+        className="w-full"
+      />
     </SectionCard>
   );
 };

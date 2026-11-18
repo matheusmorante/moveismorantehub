@@ -27,6 +27,7 @@ export const fetchAllProductSearchResults = async (
   includeTrashEligibility = true,
   filterCombosOnServer = false,
   compactComponentProjection = false,
+  compactSalesOrderProjection = false,
 ) => {
   const trimmed = search.trim();
   if (!trimmed) return [];
@@ -43,7 +44,11 @@ export const fetchAllProductSearchResults = async (
     includeTrashEligibility,
     includeTotal: false,
     searchVariationsAsEmbed: true,
-    productProjection: compactComponentProjection ? 'componentAutocomplete' : undefined,
+    productProjection: compactComponentProjection
+      ? 'componentAutocomplete'
+      : compactSalesOrderProjection
+        ? 'salesOrderAutocomplete'
+        : undefined,
   });
 
   if (!result || !Array.isArray(result.data)) throw new Error('A busca de produtos não foi confirmada.');

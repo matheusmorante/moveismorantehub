@@ -479,6 +479,49 @@ export const buildDeliveryMessage = (order: Order) => {
   return finalMessage;
 };
 
+const repairCustomerMessageEmojis = (message: string) => {
+  const emojiForLabel = (label: string) => {
+    const normalized = label.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    if (normalized.startsWith('etapas')) return '📋';
+    if (normalized.startsWith('valor total')) return '💰';
+
+    const emojiByLabel: Record<string, string> = {
+      entrega: '🚚',
+      retirada: '🏬',
+      agendamento: '🗓️',
+      agendamentos: '🗓️',
+      programacao: '🗓️',
+      endereco: '🏠',
+      itens: '🛒',
+      pagamento: '💳',
+      contato: '📞',
+      vendedor: '👤',
+      frete: '🚚',
+      distancia: '📍',
+      'avisos importantes': '⚠️',
+    };
+    return emojiByLabel[normalized] || '';
+  };
+
+  const withRestoredGreetingEmoji = message.replace(
+    /^(\s*\*Olá\b[^\r\n]*?\*)[ \t]*(?:\uFFFD[ \t]*)+/i,
+    '$1 📦'
+  );
+  const withRestoredLabelEmojis = withRestoredGreetingEmoji.replace(
+    /(?:\uFFFD[ \t]*)+(?=\*{0,2}[ \t]*(Etapas do pedido|Entrega|Retirada|Agendamento|Agendamentos|Programação|Endereço|Itens(?: desta operação)?|Valor total(?: da compra| do pedido)?|Pagamento|Contato|Vendedor|Frete|Distância|Avisos importantes)[ \t]*:)/giu,
+    (_replacement, label: string) => {
+      const emoji = emojiForLabel(label);
+      return emoji ? `${emoji} ` : '';
+    }
+  );
+
+  // Replacement characters that were standalone emoji glyphs in legacy templates
+  // should not leak into the WhatsApp message when their original glyph is unknown.
+  return withRestoredLabelEmojis
+    .replace(/(^|[ \t])(?:\uFFFD[ \t]*)+(?=$|\n)/gm, '$1')
+    .replace(/[ \t]+\n/g, '\n');
+};
+
 export const buildCustomerOrderMessage = (order: Order) => {
   const settings = getSettings();
   const customer = order.customerData;
@@ -502,11 +545,13 @@ export const buildCustomerOrderMessage = (order: Order) => {
     .replace(/{{seller}}/g, () => order.seller || 'Não informado')
     .replace(/{{payments}}/g, () => stringifyPayments(order.payments || []));
 
-  return finalMessage
-    .replace(/R\$\s*R\$/g, 'R$')
-    .replace(/[ \t]+\n/g, '\n')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
+  return repairCustomerMessageEmojis(
+    finalMessage
+      .replace(/R\$\s*R\$/g, 'R$')
+      .replace(/[ \t]+\n/g, '\n')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim()
+  );
 };
 
 export const buildAssistanceMessage = (order: Order) => {

@@ -9,6 +9,7 @@ import { useSalesOrderForm } from '../hooks/useSalesOrderForm';
 import SalesOrderFormSection from '../components/SalesOrderFormSection';
 import OrderSavingOverlay from '../components/OrderSavingOverlay';
 import OrderFormLoadingOverlay from '../components/OrderFormLoadingOverlay';
+import { recordSalesOrderCompletionTiming } from '@/services/monitoring/salesOrderCompletionTelemetry';
 import SellerSearchModal from '../modals/SellerSearchModal';
 import { NewSaleOrderHeader } from './NewSaleOrderHeader';
 import {
@@ -52,6 +53,8 @@ const NewSaleOrder = ({
   const [isScrolled, setIsScrolled] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
   const closingRef = useRef(false);
+  const completionStartedAtRef = useRef<number | null>(null);
+  const completionIndicatorRecordedRef = useRef(false);
 
   const [isSellerSearchOpen, setIsSellerSearchOpen] = useState(false);
   const [isSellerRegistrationOpen, setIsSellerRegistrationOpen] = useState(false);
@@ -88,6 +91,18 @@ const NewSaleOrder = ({
       setIsClosing(false);
     }
   }, [form.actions.flushDraftAutoSave, form.state.isSaving, onClose]);
+
+  const handleCompletionIndicatorVisible = useCallback(() => {
+    const startedAt = completionStartedAtRef.current;
+    if (startedAt === null || completionIndicatorRecordedRef.current) return;
+
+    completionIndicatorRecordedRef.current = true;
+    recordSalesOrderCompletionTiming(
+      'sale_completion_click_to_indicator',
+      'visible',
+      performance.now() - startedAt,
+    );
+  }, []);
 
   const applyOrderData = useCallback(
     (migrated: any) => applyImportedOrderDataToForm(migrated, form.actions),
@@ -172,21 +187,37 @@ const NewSaleOrder = ({
   const handleComplete = useCallback(
     async (e?: React.MouseEvent) => {
       if (e) e.preventDefault();
-      const result = await form.actions.handleCompleteOrder(e);
-      if (result) {
-        const savedId = typeof result === 'string' ? result : (result as any)?.id;
-        const completedOrder =
-          typeof result === 'object' && result !== null
-            ? result
-            : {
-                ...form.state.currentOrder,
-                id: savedId,
-                status: form.state.currentOrder.orderType === 'budget' ? 'quoted' : 'scheduled',
-              };
-        onSaveSuccess(savedId, completedOrder);
-        onClose();
+      const shouldMeasureCompletion = form.state.currentOrder.orderType === 'sale';
+      if (shouldMeasureCompletion && completionStartedAtRef.current !== null) return false;
+
+      const startedAt = performance.now();
+      if (shouldMeasureCompletion) {
+        completionStartedAtRef.current = startedAt;
+        completionIndicatorRecordedRef.current = false;
       }
-      return result;
+
+      try {
+        const result = await form.actions.handleCompleteOrder(e);
+        if (result) {
+          const savedId = typeof result === 'string' ? result : (result as any)?.id;
+          const completedOrder =
+            typeof result === 'object' && result !== null
+              ? result
+              : {
+                  ...form.state.currentOrder,
+                  id: savedId,
+                  status: form.state.currentOrder.orderType === 'budget' ? 'quoted' : 'scheduled',
+                };
+          onSaveSuccess(savedId, completedOrder);
+          onClose();
+        }
+        return result;
+      } finally {
+        if (shouldMeasureCompletion) {
+          completionStartedAtRef.current = null;
+          completionIndicatorRecordedRef.current = false;
+        }
+      }
     },
     [form.actions, form.state.currentOrder, onSaveSuccess, onClose]
   );
@@ -206,7 +237,11 @@ const NewSaleOrder = ({
         className="relative bg-white dark:bg-slate-900 w-full h-full flex flex-col overflow-hidden animate-reveal"
         onClick={(e) => e.stopPropagation()}
       >
-        {(form.state.isSaving || isClosing) && <OrderSavingOverlay />}
+        {(form.state.isSaving || isClosing) && (
+          <OrderSavingOverlay
+            onFirstFrameVisible={completionStartedAtRef.current !== null ? handleCompletionIndicatorVisible : undefined}
+          />
+        )}
 
         <NewSaleOrderHeader
           isScrolled={isScrolled}
@@ -216,6 +251,7 @@ const NewSaleOrder = ({
           orderIndex={form.state.orderIndex}
           isGeneratingCode={form.state.isGeneratingCode}
           currentStep={form.state.currentStep}
+          isLogisticsDisabled={!form.state.customerData.id}
           jumpToStep={form.actions.jumpToStep}
           errors={form.state.errors}
           onClose={() => { void handleUserClose(); }}

@@ -4,6 +4,7 @@ import { SupabaseMonitorHeader } from './components/SupabaseMonitorHeader';
 import { SupabaseMonitorStatsCards } from './components/SupabaseMonitorStatsCards';
 import { SupabaseMonitorDrillDown } from './components/SupabaseMonitorDrillDown';
 import { SupabaseMassLoadHistory } from './components/SupabaseMassLoadHistory';
+import { SupabaseInteractionTimings } from './components/SupabaseInteractionTimings';
 
 export default function SupabaseMonitorDashboard() {
   const {
@@ -21,6 +22,7 @@ export default function SupabaseMonitorDashboard() {
     activeAction,
     globalStats,
     drillDownView,
+    interactionTimings,
     handleRowClick,
     resetDrillDown,
   } = useSupabaseTelemetry();
@@ -55,6 +57,8 @@ export default function SupabaseMonitorDashboard() {
       ) : (
         <div className="space-y-6">
           {!activeModule && <SupabaseMonitorStatsCards stats={globalStats} />}
+
+          {!activeModule && <SupabaseInteractionTimings rows={interactionTimings} />}
 
           <SupabaseMonitorDrillDown
             drillDownView={drillDownView}

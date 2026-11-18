@@ -16,6 +16,7 @@ interface Props {
   itemIndex: number;
   cfopOptions?: readonly NfeItemCfopOption[];
   cfopContextMessage?: string;
+  expandCfopByDefault?: boolean;
   fieldError?: { field: 'ncm' | 'cfop' | 'cst' | 'origem'; message: string } | null;
   onUpdateFiscal: (field: keyof NfeItemFiscal, value: string) => void;
   fiscalComposition?: FiscalProductItem;
@@ -28,13 +29,14 @@ export const NfeItemRow: React.FC<Props> = ({
   itemIndex,
   cfopOptions = [],
   cfopContextMessage,
+  expandCfopByDefault = false,
   fieldError,
   onUpdateFiscal,
   fiscalComposition,
   onClearFieldError,
   onUpdateFiscalBlur,
 }) => {
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(expandCfopByDefault);
   const [cfopSearch, setCfopSearch] = useState<string | null>(null);
   const [activeCfopReason, setActiveCfopReason] = useState<string | null>(null);
   const advancedChanged = useRef(false);
@@ -82,6 +84,10 @@ export const NfeItemRow: React.FC<Props> = ({
       setIsExpanded(true);
     }
   }, [hasCfopError, hasCstError, hasOrigemError]);
+
+  React.useEffect(() => {
+    if (expandCfopByDefault) setIsExpanded(true);
+  }, [expandCfopByDefault]);
 
   // Garante que o CSOSN padrão '103' esteja sincronizado no estado se vazio
   React.useEffect(() => {
@@ -265,11 +271,14 @@ export const NfeItemRow: React.FC<Props> = ({
                           cf.label +
                           '. Indisponível: ' +
                           (cf.disabledReason || 'Este CFOP não foi aprovado para a operação atual.')
-                        : 'CFOP ' + cf.value + ': ' + cf.label
+                        : 'CFOP ' + cf.value + ': ' + cf.label +
+                          (cf.reviewOnly
+                            ? '. Editável para revisão; a emissão interestadual continua bloqueada até aprovação da matriz fiscal.'
+                            : '')
                     }
                     title={cf.disabledReason}
                     aria-describedby={
-                      cf.disabled && activeCfopReason === cf.value
+                      (cf.disabled || cf.reviewOnly) && activeCfopReason === cf.value
                         ? `nfe-cfop-diagnostic-${itemIndex}-${cf.value}`
                         : undefined
                     }
@@ -319,7 +328,9 @@ export const NfeItemRow: React.FC<Props> = ({
                         className="mt-2 max-w-[34rem] rounded-lg bg-slate-900 px-3 py-2 text-[10px] leading-4 text-white shadow-lg"
                       >
                         <div className="mb-1 font-bold">
-                          CFOP {cf.value} indisponível
+                          {cf.reviewOnly
+                            ? `CFOP ${cf.value} selecionável para revisão`
+                            : `CFOP ${cf.value} indisponível`}
                         </div>
                         {cf.diagnostic ? (
                           <>

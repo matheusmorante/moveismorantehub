@@ -7,6 +7,9 @@ type Props = {
   products: ProductPreviewOption[];
   selected: Product | null;
   loading: boolean;
+  selectionLoading?: boolean;
+  resultsSearch?: string;
+  searchError?: string;
   onSearch: (value: string) => void;
   onSelect: (id: string) => void;
 };
@@ -16,6 +19,9 @@ export function PreviewProductPicker({
   products,
   selected,
   loading,
+  selectionLoading = false,
+  resultsSearch,
+  searchError,
   onSearch,
   onSelect,
 }: Props) {
@@ -34,6 +40,8 @@ export function PreviewProductPicker({
     setOpen(false);
   };
   const showSuggestions = open && !selected && search.trim().length >= 2;
+  const resultsAreCurrent = resultsSearch === undefined || resultsSearch === search.trim();
+  const searching = loading || !resultsAreCurrent;
   return (
     <div ref={container} className="relative text-xs font-semibold">
       Produto para preview padrão
@@ -66,9 +74,16 @@ export function PreviewProductPicker({
         )}
         {selected && <i className="bi bi-check-lg mr-2 text-emerald-600" aria-label="Produto selecionado" />}
       </div>
+      {selectionLoading && (
+        <p role="status" aria-live="polite" className="mt-2 text-xs font-medium text-indigo-600 dark:text-indigo-300">
+          Carregando prévia do produto…
+        </p>
+      )}
       {showSuggestions && (
         <div className="absolute z-40 mt-1 max-h-64 w-full overflow-auto rounded-lg border border-slate-700 bg-slate-950 p-1 shadow-xl">
-          {products.map((product) => (
+          {searching && <p role="status" aria-live="polite" className="p-3 text-slate-400">Buscando produtos…</p>}
+          {!searching && searchError && <p role="alert" className="p-3 text-rose-300">{searchError}</p>}
+          {!searching && !searchError && products.map((product) => (
             <button
               key={product.id}
               type="button"
@@ -81,8 +96,7 @@ export function PreviewProductPicker({
               {product.name || product.title}
             </button>
           ))}
-          {loading && <p className="p-3 text-slate-400">Buscando produtos…</p>}
-          {!loading && !products.length && (
+          {!searching && !searchError && !products.length && (
             <p className="p-3 text-slate-500">Nenhum produto encontrado.</p>
           )}
         </div>

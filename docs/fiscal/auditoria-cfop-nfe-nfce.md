@@ -15,8 +15,8 @@ Em 04/09/2026, o Portal Nacional publicou o Informe Técnico 2023.002 v2.10 para
 | CFOP | Classificação semântica | Uso no modal | Estado da regra tributária |
 | --- | --- | --- | --- |
 | 5102 | Venda interna de mercadoria de terceiros | Opção habilitada somente no cenário HML interno já aprovado | A única regra habilitada deste fluxo é PR→PR, produto de terceiros sem ST |
-| 6102 | Venda interestadual de mercadoria de terceiros | Candidato desabilitado em operação interestadual | DRAFT; não autoriza emissão |
-| 6108 | Venda interestadual de mercadoria de terceiros para não contribuinte | Candidato condicional desabilitado; não deve ser usado para contribuinte | DRAFT; incidência e tratamento de ST dependem do cenário |
+| 6102 | Venda interestadual de mercadoria de terceiros | Candidato editável para revisão; padrão quando o destinatário não é não contribuinte | DRAFT; não autoriza emissão |
+| 6108 | Venda interestadual de mercadoria de terceiros para não contribuinte | Candidato editável para revisão somente para destinatário não contribuinte | DRAFT; incidência e tratamento de ST dependem do cenário |
 | 5403 | Venda interna de mercadoria de terceiros na condição de substituto tributário | Exibido conforme escopo e produto, desabilitado sem matriz aplicável | Sem regra aprovada neste fluxo |
 | 6403 | Venda interestadual de mercadoria de terceiros na condição de substituto tributário | Candidato conforme escopo/ST, desabilitado | Sem regra aprovada neste fluxo |
 | 6933 | Prestação de serviço sujeita ao ISSQN para fora do Estado | Apenas item de serviço; nunca venda de produto | Regra de serviço específica necessária |
@@ -61,7 +61,7 @@ Para aprovar qualquer linha ainda devem ser definidos, por cenário e produto, o
 1. `resolveInterstateOutboundFiscalMatrix` ignora `DRAFT` para determinação de tributos e só considera `APPROVED` com critérios, escopos normativos, tratamento, vigência e fontes completos.
 2. Ausência de fatos necessários, regra ausente, regra incompleta ou empate entre regras termina em bloqueio; não há fallback silencioso.
 3. A validação ocorre em `createHmlNormalSaleRuleSet`, chamado antes da RPC que prepara o snapshot fiscal numerado. A falha registra `numberReserved: false` e `sefazContacted: false`.
-4. O modal apresenta os CFOPs semânticos do contexto, com 6102/6108 desabilitados enquanto não houver aprovação. PR→PR só habilita 5102 na regra atual.
+4. No modal, CFOPs interestaduais estruturalmente compatíveis podem ser escolhidos para revisão; a tela marca a seleção como candidata, mantém 6102 como padrão para mercadoria de terceiros e usa 6108 para destinatário não contribuinte. Isso não aprova a matriz nem libera a emissão. PR→PR continua seguindo somente a regra interna aprovada.
 5. Nenhuma transmissão foi iniciada durante esta alteração.
 
 ## Evidência a registrar na implementação

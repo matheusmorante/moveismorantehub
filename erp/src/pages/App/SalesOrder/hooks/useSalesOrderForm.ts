@@ -63,7 +63,7 @@ export const useSalesOrderForm = (
   const [linkedOrderId, setLinkedOrderId] = useState('');
   const [isButtonsClicked, setIsButtonsClicked] = useState<Order['isButtonsClicked']>(undefined);
   const { currentStep, setCurrentStep, goToNextStep, goToPrevStep } =
-    useOrderFormStepNavigation(orderType);
+    useOrderFormStepNavigation(orderType, Boolean(customerData.id));
   const [testModeFields, setTestModeFields] = useState<Pick<Order, 'is_test' | 'testArtifact'>>({});
   const [fiscalContext, setFiscalContext] = useState<Order['fiscalContext']>();
   const isTestMode = testModeFields.is_test === true;
@@ -418,6 +418,11 @@ export const useSalesOrderForm = (
     });
   }, []);
 
+  const jumpToStep = useCallback((step: number) => {
+    if (step === 4 && !customerData.id) return;
+    setCurrentStep(step);
+  }, [customerData.id, setCurrentStep]);
+
   const actions = useMemo(
     () => ({
       setItems: (update: React.SetStateAction<Item[]>) => {
@@ -489,9 +494,7 @@ export const useSalesOrderForm = (
       },
       goToNextStep,
       goToPrevStep,
-      jumpToStep: (step: number) => {
-        setCurrentStep(step);
-      },
+      jumpToStep,
     }),
     [
       setItemsWithHandlingReset,
@@ -519,6 +522,7 @@ export const useSalesOrderForm = (
       clearForm,
       goToNextStep,
       goToPrevStep,
+      jumpToStep,
     ]
   );
 

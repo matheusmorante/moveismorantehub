@@ -247,6 +247,9 @@ export const BodyRowMobile: React.FC<BodyRowViewProps> = ({
             maxSuggestions={5}
             productsOnly
             excludeCombos
+            filterCombosOnServer
+            includeTrashEligibility={false}
+            compactSalesOrderProjection
             isTemporary={showTemporaryProductLabel}
             inputEndAdornment={showTemporaryProductLabel ? <TemporaryProductWarning /> : undefined}
             isSelected={isLinkedProduct}

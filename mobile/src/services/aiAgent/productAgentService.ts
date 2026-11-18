@@ -177,8 +177,68 @@ export async function getMobileProductDetails(
   if (!/^[a-z\d_-]+$/i.test(target))
     throw new Error('O código ou SKU do produto contém caracteres inválidos.');
   const exactCode = /^\d{1,6}$/.test(target) ? target.padStart(6, '0') : target;
-  const detailsColumns =
-    'id,code,sku,name,title,description,category,brand,line,condition,unit_price,price,promo_price,cost_price,freight_cost,stock,min_stock,unit,active,deleted,width,height,depth,weight,pkg_width,pkg_height,pkg_depth,extra_dimensions,images,has_variations,technical_specs,fiscal,material,colors,main_differential,not_included,product_variations(id,sku,name,unit_price,price,promo_price,cost_price,stock,active,attributes,images,image_url,height,width,depth,weight)';
+  const allowCost = permissionContext === undefined
+    ? canAgentViewProductCost()
+    : permissionContext === null
+      ? false
+      : canAgentViewProductCost(permissionContext);
+  const productDetailFields = [
+    'id',
+    'code',
+    'sku',
+    'name',
+    'title',
+    'description',
+    'category',
+    'brand',
+    'line',
+    'condition',
+    'unit_price',
+    'price',
+    'promo_price',
+    ...(allowCost ? ['cost_price'] : []),
+    'freight_cost',
+    'stock',
+    'min_stock',
+    'unit',
+    'active',
+    'deleted',
+    'width',
+    'height',
+    'depth',
+    'weight',
+    'pkg_width',
+    'pkg_height',
+    'pkg_depth',
+    'extra_dimensions',
+    'images',
+    'has_variations',
+    'technical_specs',
+    'fiscal',
+    'material',
+    'colors',
+    'main_differential',
+    'not_included',
+  ];
+  const variationDetailFields = [
+    'id',
+    'sku',
+    'name',
+    'unit_price',
+    'price',
+    'promo_price',
+    ...(allowCost ? ['cost_price'] : []),
+    'stock',
+    'active',
+    'attributes',
+    'images',
+    'image_url',
+    'height',
+    'width',
+    'depth',
+    'weight',
+  ];
+  const detailsColumns = `${productDetailFields.join(',')},product_variations(${variationDetailFields.join(',')})`;
 
   // 1. Consulta pelo código ou SKU do produto pai
   let { data, error } = await supabase
@@ -213,11 +273,6 @@ export async function getMobileProductDetails(
 
   if (!data || isTestProduct(data)) return null;
 
-  const allowCost = permissionContext === undefined
-    ? canAgentViewProductCost()
-    : permissionContext === null
-      ? false
-      : canAgentViewProductCost(permissionContext);
   const rawVars = data.product_variations || [];
   const parentCode = data.code || data.sku || '';
 

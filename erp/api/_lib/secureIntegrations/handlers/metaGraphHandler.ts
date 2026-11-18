@@ -191,7 +191,7 @@ export async function handleMetaGraph(req: VercelRequest, res: VercelResponse): 
         method: requestPlan.method,
         headers: {
           Authorization: `Bearer ${metaToken}`,
-          ...(requestPlan.body ? { 'Content-Type': 'application/json' } : {}),
+          ...(requestPlan.body ? { 'Content-Type': 'application/json; charset=utf-8' } : {}),
         },
         ...(requestPlan.body ? { body: JSON.stringify(requestPlan.body) } : {}),
         signal: controller.signal,

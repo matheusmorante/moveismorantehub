@@ -197,20 +197,9 @@ const OrderHistoryList = forwardRef<OrderHistoryListRef, OrderHistoryListProps>(
       });
     };
 
-    const [showTroubleshoot, setShowTroubleshoot] = React.useState(false);
-
-    React.useEffect(() => {
-      if (loading) {
-        const timer = setTimeout(() => setShowTroubleshoot(true), 3000);
-        return () => clearTimeout(timer);
-      } else {
-        setShowTroubleshoot(false);
-      }
-    }, [loading]);
-
     const renderContent = () => {
       if (loading && orders.length === 0) {
-        return <OrderHistoryLoadingView showTroubleshoot={showTroubleshoot} />;
+        return <OrderHistoryLoadingView />;
       }
 
       if (error && orders.length === 0) {

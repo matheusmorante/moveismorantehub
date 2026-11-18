@@ -317,6 +317,9 @@ export const BodyRowDesktop: React.FC<BodyRowViewProps> = ({
               maxSuggestions={5}
               productsOnly
               excludeCombos
+              filterCombosOnServer
+              includeTrashEligibility={false}
+              compactSalesOrderProjection
               allowedProductKinds={STOCK_ORIGIN_PRODUCT_KINDS[item.condition ?? '']}
               includeDeactivated
               placeholder="Busque ou descreva o produto... (mínimo de 3 caracteres para buscar)"

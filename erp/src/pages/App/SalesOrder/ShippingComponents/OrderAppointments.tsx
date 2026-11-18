@@ -26,7 +26,7 @@ import { normalizeSingleOperationMethod } from './normalizeSingleOperationMethod
 type Schedule = Shipping['scheduling'];
 type Appointment = NonNullable<Shipping['scheduling']['appointments']>[number];
 type ScheduleWithAppointments = Schedule & { appointments?: Appointment[] };
-type OperationStep = 'items' | 'address' | 'schedule' | 'notices';
+type OperationStep = 'method' | 'items' | 'address' | 'schedule' | 'notices';
 
 interface Props {
   shipping: Shipping;
@@ -60,6 +60,14 @@ const formatFreight = (value: number) => `R$ ${(Number.isFinite(value) ? value :
 
 const hasCompleteAddress = (address?: FullAddress) => Boolean(
   address?.street?.trim() && address.number?.trim() && address.city?.trim()
+);
+
+const hasRoutableAddress = (address?: FullAddress) => Boolean(
+  address && (
+    address.street?.trim() || address.neighborhood?.trim() || address.city?.trim() || address.cep?.trim() ||
+    address.mapsUrl?.trim() || address.googleMapsUrl?.trim() || address.mapsLink?.trim() || address.placeId?.trim() ||
+    (Array.isArray(address.coords) && address.coords.length === 2)
+  )
 );
 
 const getAppointments = (shipping: Shipping, items: Item[], isNewSale = false): Appointment[] => {
@@ -119,7 +127,7 @@ export const OrderAppointments: React.FC<Props> = ({
     setActiveAppointmentModal(null);
   }, []);
   const openAppointmentModal = (appointmentId: string, mode: 'add' | 'edit') => {
-    setActiveOperationSteps((current) => ({ ...current, [appointmentId]: 'items' }));
+    setActiveOperationSteps((current) => ({ ...current, [appointmentId]: 'method' }));
     setActiveAppointmentModal({ id: appointmentId, mode });
   };
   const setOperationStep = (appointmentId: string, step: OperationStep) => {
@@ -253,6 +261,29 @@ export const OrderAppointments: React.FC<Props> = ({
     });
   };
 
+  const autoCalculateAppointmentDistance = (
+    appointmentId: string,
+    address?: FullAddress,
+    silentSuccess = true,
+  ) => {
+    if (!onAutoCalculateDistance || !hasRoutableAddress(address)) return;
+    void onAutoCalculateDistance(address, {
+      silentSuccess,
+      onCalculated: (route, freight) => updateAppointments((current) => current.map((entry) =>
+        entry.id === appointmentId
+          ? {
+              ...entry,
+              distance: route.distanceKm,
+              freightValue: freight,
+              durationMinutes: route.durationMinutes,
+              destinationCoords: route.destinationCoords,
+              routeGeoJSON: route.routeGeoJSON,
+            }
+          : entry
+      ), { autoCalculateValue: true }),
+    });
+  };
+
   return (
     <section className="flex min-w-0 flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -383,12 +414,13 @@ export const OrderAppointments: React.FC<Props> = ({
         const isDelivery = appointment.deliveryMethod === 'delivery' ||
           (!appointment.deliveryMethod && !isNewSaleFlow && shipping.deliveryMethod === 'delivery');
         const operationSteps: { id: OperationStep; label: string }[] = [
+          { id: 'method', label: 'Modalidade' },
           { id: 'items', label: 'Itens' },
           ...(isDelivery ? [{ id: 'address' as const, label: 'Endereço e frete' }] : []),
           { id: 'schedule', label: 'Agendamento' },
           ...(isSale && (isDelivery || isPickup) ? [{ id: 'notices' as const, label: 'Avisos' }] : []),
         ];
-        const requestedStep = activeOperationSteps[appointment.id] ?? 'items';
+        const requestedStep = activeOperationSteps[appointment.id] ?? 'method';
         const matchedStepIndex = operationSteps.findIndex((step) => step.id === requestedStep);
         const activeStepIndex = matchedStepIndex >= 0 ? matchedStepIndex : 0;
         const activeStep = operationSteps[activeStepIndex].id;
@@ -612,44 +644,6 @@ export const OrderAppointments: React.FC<Props> = ({
                       <h2 id={`appointment-modal-title-${appointment.id}`} className="text-lg font-semibold">
                         {activeAppointmentModal?.mode === 'add' ? 'Adicionar operação' : `Editar operação ${index + 1}`}
                       </h2>
-                      <fieldset
-                        className={`flex min-w-0 flex-wrap items-center gap-2 ${deliveryMethodError ? 'border-b-2 border-red-500 pb-1' : ''}`}
-                        aria-invalid={Boolean(deliveryMethodError)}
-                      >
-                        <legend className="sr-only">Modalidade</legend>
-                        <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-                          <span className={`mr-1 text-[11px] font-semibold ${deliveryMethodError ? 'text-red-600 dark:text-red-400' : 'text-slate-500 dark:text-slate-400'}`}>
-                            Modalidade <span className="text-red-500">*</span>
-                          </span>
-                          {(['delivery', 'pickup'] as const).map((method) => (
-                            <label key={method} className={`flex min-h-9 cursor-pointer items-center gap-2 rounded-lg px-2 text-sm font-medium transition-colors hover:bg-slate-50 dark:hover:bg-slate-800 ${deliveryMethodError ? 'text-red-700 dark:text-red-300' : 'text-slate-700 dark:text-slate-200'}`}>
-                              <input type="radio" name={`appointment-method-${appointment.id}`} required={!appointment.deliveryMethod} checked={appointment.deliveryMethod === method} aria-invalid={Boolean(deliveryMethodError)} title={deliveryMethodError || undefined} className={deliveryMethodError ? 'accent-red-600' : 'accent-blue-600'} onChange={() => {
-                                if (index === 0 && sessionMemoryRef) sessionMemoryRef.current = null;
-                                else if (memoryRefs.current[appointment.id]) memoryRefs.current[appointment.id].current = null;
-                                if (method === 'pickup' && activeOperationSteps[appointment.id] === 'address') {
-                                  setOperationStep(appointment.id, 'schedule');
-                                }
-                                updateAppointments((current) => current.map((entry) => {
-                                  if (entry.id !== appointment.id || entry.deliveryMethod === method) return entry;
-                                  const itemHandlings = handlingsForSelectedItems(entry);
-                                  for (const itemId of entry.itemIds) itemHandlings[itemId] = { handlingType: '', assemblyResponsible: '' };
-                                  const scheduling = method === 'delivery' && (entry.scheduling.immediatePickup || entry.scheduling.notInformed)
-                                    ? { ...entry.scheduling, immediatePickup: false, notInformed: false, date: '', endDate: '', time: '', startTime: '', endTime: '' }
-                                    : entry.scheduling;
-                                  return {
-                                    ...entry,
-                                    deliveryMethod: method,
-                                    itemHandlings,
-                                    scheduling,
-                                    ...(method === 'pickup' ? { durationMinutes: undefined, destinationCoords: undefined, routeGeoJSON: undefined } : {}),
-                                  };
-                                }), { clearRoute: method === 'pickup' });
-                              }} />
-                              {method === 'delivery' ? 'Entrega' : 'Retirada'}
-                            </label>
-                          ))}
-                        </div>
-                      </fieldset>
                     </div>
                     <button
                       type="button"
@@ -685,13 +679,91 @@ export const OrderAppointments: React.FC<Props> = ({
                       type="button"
                       aria-label={`Avançar para ${nextStep.label}`}
                       onClick={() => setOperationStep(appointment.id, nextStep.id)}
-                      className="ml-auto inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 sm:h-10 sm:w-10"
+                      disabled={activeStep === 'method' && !appointment.deliveryMethod}
+                      className="ml-auto inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40 dark:text-slate-300 dark:hover:bg-slate-800 sm:h-10 sm:w-10"
                     >
                       <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5" aria-hidden="true" />
                     </button>
                   )}
                 </div>
               </nav>
+              {activeStep === 'method' && (
+                <section className="flex min-w-0 flex-col gap-4" aria-label="Escolher modalidade da operação">
+                  <fieldset aria-invalid={Boolean(deliveryMethodError)} className="flex min-w-0 flex-col gap-3">
+                    <legend className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+                      Escolha a modalidade <span className="text-red-500">*</span>
+                    </legend>
+                    <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
+                      {(['delivery', 'pickup'] as const).map((method) => {
+                        const selected = appointment.deliveryMethod === method;
+                        return (
+                          <label
+                            key={method}
+                            className={`flex min-h-16 cursor-pointer items-center gap-3 rounded-xl border px-4 py-3 text-sm font-semibold transition-colors ${
+                              selected
+                                ? method === 'delivery'
+                                  ? 'border-emerald-500 bg-emerald-50 text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-200'
+                                  : 'border-purple-500 bg-purple-50 text-purple-800 dark:bg-purple-950/30 dark:text-purple-200'
+                                : 'border-slate-200 text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800'
+                            }`}
+                          >
+                            <input
+                              type="radio"
+                              name={`appointment-method-${appointment.id}`}
+                              value={method}
+                              required
+                              checked={selected}
+                              aria-invalid={Boolean(deliveryMethodError)}
+                              className={method === 'delivery' ? 'accent-emerald-600' : 'accent-purple-600'}
+                              onChange={() => {
+                                if (index === 0 && sessionMemoryRef) sessionMemoryRef.current = null;
+                                else if (memoryRefs.current[appointment.id]) memoryRefs.current[appointment.id].current = null;
+                                const operationAddress = appointment.useCustomerAddress === false
+                                  ? appointment.deliveryAddress
+                                  : customerData?.fullAddress;
+                                const distanceIsMissing = !Number.isFinite(appointment.distance) ||
+                                  (appointment.distance ?? 0) <= 0;
+                                updateAppointments((current) => current.map((entry) => {
+                                  if (entry.id !== appointment.id || entry.deliveryMethod === method) return entry;
+                                  const itemHandlings = handlingsForSelectedItems(entry);
+                                  for (const itemId of entry.itemIds) itemHandlings[itemId] = { handlingType: '', assemblyResponsible: '' };
+                                  const scheduling = method === 'delivery' && (entry.scheduling.immediatePickup || entry.scheduling.notInformed)
+                                    ? { ...entry.scheduling, immediatePickup: false, notInformed: false, date: '', endDate: '', time: '', startTime: '', endTime: '' }
+                                    : entry.scheduling;
+                                  return {
+                                    ...entry,
+                                    deliveryMethod: method,
+                                    itemHandlings,
+                                    scheduling,
+                                    ...(method === 'pickup' ? { durationMinutes: undefined, destinationCoords: undefined, routeGeoJSON: undefined } : {}),
+                                  };
+                                }), { clearRoute: method === 'pickup' });
+                                if (
+                                  method === 'delivery' && distanceIsMissing &&
+                                  !(appointment.useCustomerAddress !== false && (shipping.noAddress || customerData?.noAddress))
+                                ) {
+                                  autoCalculateAppointmentDistance(appointment.id, operationAddress);
+                                }
+                              }}
+                            />
+                            {method === 'delivery' ? (
+                              <Truck className="h-5 w-5" aria-hidden="true" />
+                            ) : (
+                              <Store className="h-5 w-5" aria-hidden="true" />
+                            )}
+                            {method === 'delivery' ? 'Entrega' : 'Retirada'}
+                          </label>
+                        );
+                      })}
+                    </div>
+                    {deliveryMethodError && (
+                      <p role="alert" className="text-xs font-semibold text-red-600 dark:text-red-400">
+                        {String(deliveryMethodError)}
+                      </p>
+                    )}
+                  </fieldset>
+                </section>
+              )}
               {activeStep === 'items' && (
                 <section className="min-w-0" aria-label="Itens desta operação">
                 <AppointmentItemsTable
@@ -723,29 +795,39 @@ export const OrderAppointments: React.FC<Props> = ({
                   customerAddress={customerData?.fullAddress}
                   deliveryAddress={appointment.deliveryAddress}
                   addressError={operationAddressError}
-                  onUseCustomerAddress={(useCustomerAddress) => updateAppointments((current) => current.map((entry) =>
-                    entry.id === appointment.id ? {
-                      ...entry,
-                      useCustomerAddress,
-                      durationMinutes: undefined,
-                      destinationCoords: undefined,
-                      routeGeoJSON: undefined,
-                    } : entry
-                  ), { clearRoute: true })}
-                  onSaveAddress={(deliveryAddress) => updateAppointments((current) => current.map((entry) =>
-                    entry.id === appointment.id ? {
-                      ...entry,
-                      useCustomerAddress: false,
-                      deliveryAddress,
-                      durationMinutes: undefined,
-                      destinationCoords: undefined,
-                      routeGeoJSON: undefined,
-                    } : entry
-                  ), { clearRoute: true })}
+                  onUseCustomerAddress={(useCustomerAddress) => {
+                    const selectedAddress = useCustomerAddress ? customerData?.fullAddress : appointment.deliveryAddress;
+                    updateAppointments((current) => current.map((entry) =>
+                      entry.id === appointment.id ? {
+                        ...entry,
+                        useCustomerAddress,
+                        distance: undefined,
+                        durationMinutes: undefined,
+                        destinationCoords: undefined,
+                        routeGeoJSON: undefined,
+                      } : entry
+                    ), { clearRoute: true });
+                    autoCalculateAppointmentDistance(appointment.id, selectedAddress);
+                  }}
+                  onSaveAddress={(deliveryAddress) => {
+                    updateAppointments((current) => current.map((entry) =>
+                      entry.id === appointment.id ? {
+                        ...entry,
+                        useCustomerAddress: false,
+                        deliveryAddress,
+                        distance: undefined,
+                        durationMinutes: undefined,
+                        destinationCoords: undefined,
+                        routeGeoJSON: undefined,
+                      } : entry
+                    ), { clearRoute: true });
+                    autoCalculateAppointmentDistance(appointment.id, deliveryAddress);
+                  }}
                   onRemoveAddress={() => updateAppointments((current) => current.map((entry) =>
                     entry.id === appointment.id ? {
                       ...entry,
                       deliveryAddress: undefined,
+                      distance: undefined,
                       durationMinutes: undefined,
                       destinationCoords: undefined,
                       routeGeoJSON: undefined,
@@ -775,23 +857,9 @@ export const OrderAppointments: React.FC<Props> = ({
                         ...(distance === undefined ? {} : { freightValue: calculateFreightByDistance(distance) }),
                       } : entry), { autoCalculateValue: true });
                     }}
-                    onAutoCalculateDistance={hasOperationAddress ? () => onAutoCalculateDistance?.(
-                      operationAddress,
-                      {
-                        onCalculated: (route, freight) => updateAppointments((current) => current.map((entry) =>
-                          entry.id === appointment.id
-                            ? {
-                                ...entry,
-                                distance: route.distanceKm,
-                                freightValue: freight,
-                                durationMinutes: route.durationMinutes,
-                                destinationCoords: route.destinationCoords,
-                                routeGeoJSON: route.routeGeoJSON,
-                              }
-                            : entry
-                        ), { autoCalculateValue: true }),
-                      },
-                    ) : undefined}
+                    onAutoCalculateDistance={hasOperationAddress
+                      ? () => autoCalculateAppointmentDistance(appointment.id, operationAddress, false)
+                      : undefined}
                   />
                 </AppointmentAddressDialog>
               )}
@@ -884,7 +952,8 @@ export const OrderAppointments: React.FC<Props> = ({
                       <button
                         type="button"
                         onClick={() => setOperationStep(appointment.id, nextStep.id)}
-                        className="ml-auto inline-flex min-h-11 items-center gap-1 rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white transition-colors hover:bg-blue-700"
+                        disabled={activeStep === 'method' && !appointment.deliveryMethod}
+                        className="ml-auto inline-flex min-h-11 items-center gap-1 rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         Próxima etapa <ChevronRight className="h-4 w-4" aria-hidden="true" />
                       </button>

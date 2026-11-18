@@ -48,6 +48,8 @@ interface ProductAutocompleteProps {
   filterCombosOnServer?: boolean;
   /** Usa projeção compacta exclusiva para selecionar componentes de composições. */
   compactComponentProjection?: boolean;
+  /** Usa projeção compacta com os dados fiscais e comerciais necessários à venda. */
+  compactSalesOrderProjection?: boolean;
   allowedProductKinds?: readonly ProductKind[];
   excludedProductLinks?: readonly ProductAutocompleteExcludedLink[];
   products?: Product[];
@@ -90,6 +92,7 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
   includeTrashEligibility = true,
   filterCombosOnServer = false,
   compactComponentProjection = false,
+  compactSalesOrderProjection = false,
   allowedProductKinds,
   excludedProductLinks,
   products: localProducts,
@@ -122,6 +125,7 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
     includeTrashEligibility,
     filterCombosOnServer,
     compactComponentProjection,
+    compactSalesOrderProjection,
     allowedProductKinds,
     excludedProductLinks,
     localProducts,

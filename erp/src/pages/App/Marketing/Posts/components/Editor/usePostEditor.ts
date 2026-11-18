@@ -14,8 +14,14 @@ import { postProduct } from '../../services/postProduct';
 import { detectImageSubjectBounds } from '../../services/imageSubjectBounds';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { marketingTemplateFormSchema, marketingTemplateFormValues } from '../../../../../../../../shared-utils/marketingFormSchemas';
+import { recordMarketingPostTiming } from '@/services/monitoring/salesOrderCompletionTelemetry';
 
 const defaultPreviewProductKey = 'morante_post_creator_default_preview_product_id';
+const now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
+const afterPaint = (callback: () => void) => {
+  if (typeof window === 'undefined') return callback();
+  window.requestAnimationFrame(() => window.requestAnimationFrame(callback));
+};
 
 type PostEditorOpportunity = {
   id: string;
@@ -49,6 +55,10 @@ export function usePostEditor() {
   const actorScope = actor.current;
   const currentActor = () => active.current && actor.current === actorScope;
   const [listLoading, setListLoading] = useState(false);
+  const [resultsSearch, setResultsSearch] = useState('');
+  const [listError, setListError] = useState('');
+  const searchSequence = useRef(0);
+  const searchTiming = useRef<{ sequence: number; search: string; startedAt: number } | null>(null);
   const templateForm = useZodForm(marketingTemplateFormSchema, marketingTemplateFormValues({ ...template, layers }));
   const { enqueueAndRun: queryProducts } = useZodForm(postProductQueryFormSchema, { search, page });
   const { enqueueAndRun: chooseProduct } = useZodForm(postPreviewProductFormSchema, { id: '' });
@@ -58,7 +68,10 @@ export function usePostEditor() {
   useEffect(() => { active.current = true; return () => { active.current = false; }; }, []);
   useEffect(() => {
     let alive = true;
+    const measurement = searchTiming.current?.search === search ? searchTiming.current : null;
+    let outcome: 'success' | 'failure' = 'failure';
     setListLoading(true);
+    setListError('');
     const timer = setTimeout(() => {
       void queryProducts({ page, search }, async (values) => {
         if (!alive || !active.current || actor.current !== actorScope || !actorScope.id) return false;
@@ -66,10 +79,34 @@ export function usePostEditor() {
         if (!alive || !active.current || actor.current !== actorScope) return false;
         if (!result || !Array.isArray(result.data)) throw new Error('A busca de produtos não foi confirmada. Tente novamente.');
         setProducts((current) => values.page === 1 ? result.data : [...current, ...result.data.filter((item) => !current.some((existing) => existing.id === item.id))]);
-        setHasMore(result.hasMore === true); return true;
-      }, (errors) => { if (alive && active.current && actor.current === actorScope) setMessage(Object.values(flattenFormErrors(errors))[0]); }).catch((error) => {
-        if (alive && active.current && actor.current === actorScope) setMessage(error instanceof Error ? error.message : 'A busca não foi confirmada.');
-      }).finally(() => { if (alive && active.current && actor.current === actorScope) setListLoading(false); });
+        setResultsSearch(values.search);
+        setHasMore(result.hasMore === true);
+        outcome = 'success';
+        return true;
+      }, (errors) => {
+        if (alive && active.current && actor.current === actorScope) {
+          const errorMessage = Object.values(flattenFormErrors(errors))[0];
+          if (page === 1) { setProducts([]); setResultsSearch(search.trim()); }
+          setListError(errorMessage);
+          setMessage(errorMessage);
+        }
+      }).catch((error) => {
+        if (alive && active.current && actor.current === actorScope) {
+          const errorMessage = error instanceof Error ? error.message : 'A busca não foi confirmada.';
+          if (page === 1) { setProducts([]); setResultsSearch(search.trim()); }
+          setListError(errorMessage);
+          setMessage(errorMessage);
+        }
+      }).finally(() => {
+        if (!alive || !active.current || actor.current !== actorScope) return;
+        setListLoading(false);
+        if (!measurement || searchTiming.current?.sequence !== measurement.sequence) return;
+        afterPaint(() => {
+          if (!currentActor() || searchTiming.current?.sequence !== measurement.sequence) return;
+          recordMarketingPostTiming('post_picker_search_to_results', outcome, now() - measurement.startedAt);
+          searchTiming.current = null;
+        });
+      });
     }, 250);
     return () => { alive = false; clearTimeout(timer); };
   }, [page, search, queryProducts, actorScope]);
@@ -116,11 +153,13 @@ export function usePostEditor() {
   }
   async function selectProduct(id: string): Promise<boolean | undefined> {
     if (inFlight.current) { setMessage('Aguarde a operação do editor.'); return false; }
+    const startedAt = now();
+    let outcome: 'success' | 'failure' = 'failure';
     resetContent();
     const version = revision.current, current = () => currentActor() && revision.current === version;
     setLoading(true);
     try {
-      return await chooseProduct({ id }, async (values) => {
+      const selectedProduct = await chooseProduct({ id }, async (values) => {
         if (!current() || !actorScope.id) return false;
         if (!values.id) {
           localStorage.removeItem(defaultPreviewProductKey);
@@ -153,8 +192,17 @@ export function usePostEditor() {
         }));
         return true;
       }, invalid);
+      if (selectedProduct === true) outcome = 'success';
+      return selectedProduct;
     } catch (error) { if (current()) setMessage(error instanceof Error ? error.message : 'Não foi possível selecionar o produto.'); return false; }
-    finally { if (current()) setLoading(false); }
+    finally {
+      if (current()) {
+        setLoading(false);
+        if (id) afterPaint(() => {
+          if (current()) recordMarketingPostTiming('post_picker_select_to_preview', outcome, now() - startedAt);
+        });
+      }
+    }
   }
   selectProductCurrent.current = selectProduct;
   async function selectTemplate(next: MarketingTemplate) {
@@ -257,9 +305,18 @@ export function usePostEditor() {
     selectProduct,
     search,
     setSearch: (value: string) => {
+      if (value !== search) {
+        searchSequence.current += 1;
+        searchTiming.current = { sequence: searchSequence.current, search: value, startedAt: now() };
+        setListError('');
+      }
       setSearch(value);
       setPage(1);
     },
+    resultsSearch,
+    listError,
+    listLoading,
+    selectionLoading: loading,
     page,
     setPage,
     hasMore,

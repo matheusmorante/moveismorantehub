@@ -75,7 +75,7 @@ Essa verificação foi das seções pertinentes, não da conformidade integral d
 
 São independentes: modelo, finalidade, origem/destino fiscal, PF/PJ, indIEDest, indFinal, mercadoria própria/terceiros, produto, NCM, CEST, origem fiscal, ST e vigência. CFOP, CSOSN, ICMS, DIFAL, FCP e FCP-ST são decisões do tratamento; não se inferem uns dos outros. O CSOSN indicado para esta matriz é um candidato comum do emitente/operação, não uma regra selecionada pela UF de destino. A preferência atual registrada é `103` para todas as UFs; sua comprovação legal continua pendente e, por isso, não libera as famílias `DRAFT`.
 
-O filtro de CFOP continua classificando `internal`/`interstate`/`foreign` antes de natureza da operação, tipo de mercadoria, destinatário e ST. 6102 e 6108 são candidatos condicionais. Não se escolhe 6102 apenas porque o estado mudou. 6933 não é candidato para venda de mercadoria. CEST não prova ST.
+O filtro de CFOP continua classificando `internal`/`interstate`/`foreign` antes de natureza da operação, tipo de mercadoria, destinatário e ST. 6102 e 6108 são candidatos condicionais. A interface pode preencher um candidato para revisão com base na origem da mercadoria e no destinatário (6102 para terceiros; 6108 para terceiros destinados a não contribuinte), mas essa sugestão não aprova a tributação nem libera emissão. Não se escolhe 6102 apenas porque o estado mudou. 6933 não é candidato para venda de mercadoria. CEST não prova ST.
 
 | Referência do inventário | Ramo fiscal a comprovar | Pendência que impede executar |
 | --- | --- | --- |

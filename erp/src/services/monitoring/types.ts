@@ -7,6 +7,65 @@ export type OperationType =
   | 'REALTIME'
   | 'STORAGE'
   | 'UNKNOWN';
+
+export const INTERACTION_DURATION_BUCKETS = [
+  'b_0_50_ms',
+  'b_51_100_ms',
+  'b_101_250_ms',
+  'b_251_500_ms',
+  'b_501_1000_ms',
+  'b_1001_2000_ms',
+  'b_2001_5000_ms',
+  'b_5001_10000_ms',
+  'b_10001_30000_ms',
+  'b_gt_30000_ms',
+] as const;
+
+export type InteractionDurationBucket = (typeof INTERACTION_DURATION_BUCKETS)[number];
+export type InteractionDurationHistogram = Record<InteractionDurationBucket, number>;
+export const PRODUCT_INTERACTION_DURATION_BUCKETS = [
+  'b_0_50_ms',
+  'b_51_100_ms',
+  'b_101_200_ms',
+  'b_201_250_ms',
+  'b_251_500_ms',
+  'b_501_1000_ms',
+  'b_1001_2000_ms',
+  'b_2001_2500_ms',
+  'b_2501_4000_ms',
+  'b_4001_5000_ms',
+  'b_5001_10000_ms',
+  'b_10001_30000_ms',
+  'b_gt_30000_ms',
+] as const;
+
+export type ProductInteractionDurationBucket = (typeof PRODUCT_INTERACTION_DURATION_BUCKETS)[number];
+export type ProductInteractionDurationHistogram = Record<ProductInteractionDurationBucket, number>;
+export type InteractionMetricKind = 'interaction_timing' | 'product_interaction_timing';
+export type InteractionTimingAction =
+  | 'sale_completion_click_to_indicator'
+  | 'sale_completion_click_to_result'
+  | 'post_picker_search_to_results'
+  | 'post_picker_select_to_preview'
+  | 'erp_page_lcp'
+  | 'erp_page_inp';
+export type MarketingPostTimingAction = 'post_picker_search_to_results' | 'post_picker_select_to_preview';
+export type InteractionTimingResult = 'visible' | 'success' | 'failure' | 'observed';
+export type InteractionNetworkClass = 'offline' | 'slow-2g' | '2g' | '3g' | '4g' | 'unknown';
+export type InteractionViewportClass = 'phone' | 'tablet' | 'desktop' | 'unknown';
+
+export interface InteractionTimingSample {
+  metric_kind?: InteractionMetricKind;
+  module: 'Sales' | 'Marketing' | 'Global';
+  screen: 'NewSaleOrder' | 'Posts' | 'ERP';
+  action: InteractionTimingAction;
+  app_version: string;
+  network_class: InteractionNetworkClass;
+  viewport_class: InteractionViewportClass;
+  result: InteractionTimingResult;
+  duration_ms: number;
+}
+
 export type AlertLevel = 'INFO' | 'WARNING' | 'CRITICAL';
 export type CircuitState = 'CLOSED' | 'OPEN' | 'HALF_OPEN';
 
@@ -34,6 +93,12 @@ export interface AggregatedMetric {
   unknown_rows_count?: number;
   response_bytes?: number;
   measured_response_count?: number;
+  metric_kind?: 'supabase_request' | InteractionMetricKind;
+  app_version?: string | null;
+  network_class?: InteractionNetworkClass | null;
+  viewport_class?: InteractionViewportClass | null;
+  result?: InteractionTimingResult | null;
+  duration_buckets?: Record<string, number> | null;
 }
 
 export interface SupabaseAnomalyEvent {

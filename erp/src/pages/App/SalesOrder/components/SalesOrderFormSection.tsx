@@ -118,6 +118,7 @@ const SalesOrderFormSection = ({
         }
         onPrev={actions.goToPrevStep}
         onNext={actions.goToNextStep}
+        nextDisabled={state.currentStep === 3 && !state.customerData.id}
         currentStep={currentStep}
         buttonLabel={
           isBudget

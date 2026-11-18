@@ -1,7 +1,6 @@
-import React, { useId, useRef, useState } from 'react';
+import React, { useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Drill } from '@/components/shared/DrillIcon';
-import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 import { isGenericHandlingLabel } from '@/pages/utils/handlingMigration';
 import type { HandlingOption } from '@/pages/utils/settingsService';
 
@@ -55,14 +54,11 @@ export const HandlingSelect: React.FC<HandlingSelectProps> = ({
 }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
+  const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0, width: 0, maxHeight: 0 });
   const triggerRef = useRef<HTMLButtonElement>(null);
-  const dialogRef = useRef<HTMLDivElement>(null);
-  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const optionRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const listboxId = useId();
-  const dialogId = useId();
-  const dialogTitleId = useId();
-  useBodyScrollLock(isMenuOpen && useViewportMenu);
 
   const selectedOption = options.find((option) => option.label === value);
   const hasAssemblyIcon = Boolean(
@@ -84,10 +80,9 @@ export const HandlingSelect: React.FC<HandlingSelectProps> = ({
   const openMenu = () => {
     const nextActiveIndex = selectedIndex >= 0 ? selectedIndex : 0;
     setActiveIndex(nextActiveIndex);
+    setMenuPosition({ top: 0, left: 0, width: 0, maxHeight: 0 });
     setIsMenuOpen(true);
-    window.requestAnimationFrame(() => (
-      optionRefs.current[nextActiveIndex] || closeButtonRef.current
-    )?.focus());
+    window.requestAnimationFrame(() => optionRefs.current[nextActiveIndex]?.focus());
   };
 
   const closeMenu = () => {
@@ -118,28 +113,55 @@ export const HandlingSelect: React.FC<HandlingSelectProps> = ({
     }
   };
 
-  const handleDialogKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
-    if (event.key === 'Escape') {
-      event.preventDefault();
-      closeMenu();
-      return;
-    }
-    if (event.key !== 'Tab') return;
+  useEffect(() => {
+    if (!isMenuOpen || !useViewportMenu) return;
 
-    const focusable = Array.from(
-      dialogRef.current?.querySelectorAll<HTMLButtonElement>('button:not(:disabled)') || []
-    ).filter((element) => element.tabIndex >= 0);
-    if (focusable.length === 0) return;
-    const first = focusable[0];
-    const last = focusable[focusable.length - 1];
-    if (event.shiftKey && document.activeElement === first) {
-      event.preventDefault();
-      last.focus();
-    } else if (!event.shiftKey && document.activeElement === last) {
-      event.preventDefault();
-      first.focus();
-    }
-  };
+    const updateMenuPosition = () => {
+      const rect = triggerRef.current?.getBoundingClientRect();
+      if (!rect) return;
+
+      const margin = 8;
+      const width = Math.min(Math.max(rect.width, 220), window.innerWidth - margin * 2);
+      const left = Math.min(Math.max(margin, rect.left), window.innerWidth - width - margin);
+      const availableBelow = Math.max(0, window.innerHeight - rect.bottom - margin);
+      const openAbove = availableBelow < 140 && rect.top > 140;
+      const maxHeight = openAbove
+        ? Math.min(288, rect.top - margin)
+        : Math.min(288, Math.max(96, availableBelow));
+
+      setMenuPosition({
+        top: openAbove ? rect.top - maxHeight : rect.bottom + 4,
+        left,
+        width,
+        maxHeight,
+      });
+    };
+    const handleOutsidePointer = (event: PointerEvent) => {
+      const target = event.target as Node | null;
+      if (target && !triggerRef.current?.contains(target) && !menuRef.current?.contains(target)) {
+        setIsMenuOpen(false);
+      }
+    };
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        setIsMenuOpen(false);
+        triggerRef.current?.focus();
+      }
+    };
+
+    updateMenuPosition();
+    window.addEventListener('resize', updateMenuPosition);
+    document.addEventListener('scroll', updateMenuPosition, true);
+    document.addEventListener('pointerdown', handleOutsidePointer);
+    document.addEventListener('keydown', handleEscape);
+    return () => {
+      window.removeEventListener('resize', updateMenuPosition);
+      document.removeEventListener('scroll', updateMenuPosition, true);
+      document.removeEventListener('pointerdown', handleOutsidePointer);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [isMenuOpen, useViewportMenu]);
 
   if (useViewportMenu) {
     return (
@@ -158,9 +180,9 @@ export const HandlingSelect: React.FC<HandlingSelectProps> = ({
           role="combobox"
           aria-label={ariaLabel}
           aria-invalid={Boolean(error)}
-          aria-haspopup="dialog"
+          aria-haspopup="listbox"
           aria-expanded={isMenuOpen}
-          aria-controls={dialogId}
+          aria-controls={listboxId}
           title={title}
           disabled={disabled}
           className={`${className} !pr-6 ${hasAssemblyIcon ? '!pl-7' : ''} text-left`}
@@ -188,84 +210,58 @@ export const HandlingSelect: React.FC<HandlingSelectProps> = ({
           className={`bi ${isMenuOpen ? 'bi-chevron-up' : 'bi-chevron-down'} pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-slate-400`}
           aria-hidden="true"
         />
-        {isMenuOpen && typeof document !== 'undefined' && createPortal(
+        {isMenuOpen && menuPosition.width > 0 && typeof document !== 'undefined' && createPortal(
           <div
-            className="fixed inset-0 z-[100000000] flex items-center justify-center bg-slate-950/45 p-4"
-            onMouseDown={(event) => {
-              if (event.target === event.currentTarget) closeMenu();
+            ref={menuRef}
+            id={listboxId}
+            role="listbox"
+            aria-label={ariaLabel}
+            className="fixed z-[100000000] min-w-0 overflow-y-auto overscroll-contain rounded-xl border border-slate-200 bg-white p-2 shadow-xl dark:border-slate-700 dark:bg-slate-900"
+            style={{
+              top: menuPosition.top,
+              left: menuPosition.left,
+              width: menuPosition.width,
+              maxHeight: menuPosition.maxHeight,
             }}
           >
-            <div
-              ref={dialogRef}
-              id={dialogId}
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby={dialogTitleId}
-              className="flex w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900"
-              style={{ maxHeight: 'calc(100dvh - 2rem)' }}
-              onKeyDown={handleDialogKeyDown}
-            >
-              <header className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-200 px-4 py-3 dark:border-slate-700 sm:px-5">
-                <h2 id={dialogTitleId} className="min-w-0 break-words text-sm font-semibold text-slate-900 dark:text-slate-100">
-                  {ariaLabel}
-                </h2>
-                <button
-                  ref={closeButtonRef}
-                  type="button"
-                  aria-label="Fechar seleção de manuseio"
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800 dark:hover:bg-slate-800 dark:hover:text-slate-100"
-                  onClick={closeMenu}
-                >
-                  <i className="bi bi-x-lg" aria-hidden="true" />
-                </button>
-              </header>
-              <div
-                id={listboxId}
-                role="listbox"
-                aria-label={ariaLabel}
-                className="min-h-0 overflow-y-auto overscroll-contain p-2 sm:p-3"
-                style={{ maxHeight: 'max(6rem, calc(100dvh - 9rem))' }}
-              >
-                {menuOptions.length === 0 ? (
-                  <div className="px-3 py-2 text-sm text-slate-500 dark:text-slate-400">{placeholder}</div>
-                ) : (
-                  menuOptions.map((entry, index) => {
-                    const isSelected = entry.value === value;
-                    const optionColor = entry.option ? getHandlingColor(entry.option) : '#64748b';
-                    const hasOptionAssemblyIcon = Boolean(
-                      entry.option?.includeInAssemblySchedule || entry.option?.isAssemblyOutside
-                    );
+            {menuOptions.length === 0 ? (
+              <div className="px-3 py-2 text-sm text-slate-500 dark:text-slate-400">{placeholder}</div>
+            ) : (
+              menuOptions.map((entry, index) => {
+                const isSelected = entry.value === value;
+                const optionColor = entry.option ? getHandlingColor(entry.option) : '#64748b';
+                const hasOptionAssemblyIcon = Boolean(
+                  entry.option?.includeInAssemblySchedule || entry.option?.isAssemblyOutside
+                );
 
-                    return (
-                      <button
-                        key={`${entry.value}-${index}`}
-                        ref={(element) => { optionRefs.current[index] = element; }}
-                        type="button"
-                        role="option"
-                        aria-selected={isSelected}
-                        tabIndex={activeIndex === index ? 0 : -1}
-                        className={`flex min-h-11 w-full min-w-0 items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${isSelected ? 'bg-blue-50 dark:bg-blue-950/40' : 'hover:bg-slate-50 dark:hover:bg-slate-800'}`}
-                        style={{ color: optionColor }}
-                        onFocus={() => setActiveIndex(index)}
-                        onKeyDown={(event) => handleOptionKeyDown(event, index)}
-                        onClick={() => {
-                          if (entry.value !== value) onChange(entry.value);
-                          closeMenu();
-                        }}
-                      >
-                        <span className="flex min-w-0 items-center gap-2">
-                          {hasOptionAssemblyIcon && (
-                            <Drill size={13} aria-hidden="true" className="shrink-0" style={{ color: optionColor }} />
-                          )}
-                          <span className="break-words">{entry.label}</span>
-                        </span>
-                        {isSelected && <i className="bi bi-check2 shrink-0" aria-hidden="true" />}
-                      </button>
-                    );
-                  })
-                )}
-              </div>
-            </div>
+                return (
+                  <button
+                    key={`${entry.value}-${index}`}
+                    ref={(element) => { optionRefs.current[index] = element; }}
+                    type="button"
+                    role="option"
+                    aria-selected={isSelected}
+                    tabIndex={activeIndex === index ? 0 : -1}
+                    className={`flex min-h-11 w-full min-w-0 items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${isSelected ? 'bg-blue-50 dark:bg-blue-950/40' : 'hover:bg-slate-50 dark:hover:bg-slate-800'}`}
+                    style={{ color: optionColor }}
+                    onFocus={() => setActiveIndex(index)}
+                    onKeyDown={(event) => handleOptionKeyDown(event, index)}
+                    onClick={() => {
+                      if (entry.value !== value) onChange(entry.value);
+                      closeMenu();
+                    }}
+                  >
+                    <span className="flex min-w-0 items-center gap-2">
+                      {hasOptionAssemblyIcon && (
+                        <Drill size={13} aria-hidden="true" className="shrink-0" style={{ color: optionColor }} />
+                      )}
+                      <span className="break-words">{entry.label}</span>
+                    </span>
+                    {isSelected && <i className="bi bi-check2 shrink-0" aria-hidden="true" />}
+                  </button>
+                );
+              })
+            )}
           </div>,
           document.body
         )}

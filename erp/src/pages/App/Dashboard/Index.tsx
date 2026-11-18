@@ -55,6 +55,9 @@ export default function Dashboard() {
   const periodSubtitle = period === 'specific_month'
     ? `Mês específico · ${new Date(`${specificMonth}-01T00:00:00`).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}`
     : PERIODS.find((p) => p.value === period)?.label || '';
+  const isSingleDayPeriod = period === 'today'
+    || period === 'yesterday'
+    || (period === 'custom' && Boolean(customStartDate) && customStartDate === customEndDate);
 
   const updateCustomStartDate = (value: string) => {
     setCustomStartDate(value);
@@ -164,18 +167,20 @@ export default function Dashboard() {
             <KpiRow stats={stats} prevStats={prevStats} />
           )}
 
-          {/* ── Desempenho de vendas ── */}
-          <div className="grid min-w-0 grid-cols-1 gap-4 sm:gap-6">
-            <div className="min-w-0">
-              {loading ? (
-                <ChartSkeleton />
-              ) : (
-                <ChartContainer title="Desempenho de Vendas" subtitle={`Evolução no período · ${periodSubtitle}`}>
-                  <SalesChart data={salesOverTime} />
-                </ChartContainer>
-              )}
+          {/* Gráficos de evolução e distribuição não são exibidos para um único dia. */}
+          {!isSingleDayPeriod && (
+            <div className="grid min-w-0 grid-cols-1 gap-4 sm:gap-6">
+              <div className="min-w-0">
+                {loading ? (
+                  <ChartSkeleton />
+                ) : (
+                  <ChartContainer title="Desempenho de Vendas" subtitle={`Evolução no período · ${periodSubtitle}`}>
+                    <SalesChart data={salesOverTime} />
+                  </ChartContainer>
+                )}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* ── Produtos ── */}
           <div className="min-w-0">
@@ -183,8 +188,10 @@ export default function Dashboard() {
           </div>
 
           {/* ── Mapa e logística ── */}
-          <div className="grid min-w-0 grid-cols-1 gap-4 pb-16 sm:gap-6 lg:grid-cols-3">
-            <div className="min-w-0 lg:col-span-2"><GeoMapPanel orders={geoMapOrders} /></div>
+          <div className={`grid min-w-0 grid-cols-1 gap-4 pb-16 sm:gap-6 ${isSingleDayPeriod ? '' : 'lg:grid-cols-3'}`}>
+            {!isSingleDayPeriod && (
+              <div className="min-w-0 lg:col-span-2"><GeoMapPanel orders={geoMapOrders} /></div>
+            )}
             <div>{loading ? <PanelSkeleton rows={4} /> : <LogisticsPanel data={logistics} />}</div>
           </div>
         </>

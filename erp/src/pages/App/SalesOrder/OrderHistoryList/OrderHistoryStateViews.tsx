@@ -1,20 +1,11 @@
 import React from 'react';
 
-export const OrderHistoryLoadingView: React.FC<{ readonly showTroubleshoot: boolean }> = ({
-  showTroubleshoot,
-}) => (
+export const OrderHistoryLoadingView: React.FC = () => (
   <div className="flex flex-col items-center justify-center py-20 gap-6">
     <div className="w-12 h-12 border-4 border-blue-100 dark:border-blue-900 border-t-blue-600 dark:border-t-blue-500 rounded-full animate-spin"></div>
-    <div className="flex flex-col items-center gap-2">
-      <p className="text-slate-400 dark:text-slate-600 font-bold tracking-widest uppercase text-xs">
-        Carregando pedidos da nuvem...
-      </p>
-      {showTroubleshoot && (
-        <p className="text-[10px] text-blue-500 font-bold uppercase tracking-tight opacity-75">
-          Demorando muito? Verifique a conexão ou o Console (F12)
-        </p>
-      )}
-    </div>
+    <p className="text-slate-400 dark:text-slate-600 font-bold tracking-widest uppercase text-xs">
+      Carregando pedidos da nuvem...
+    </p>
   </div>
 );
 

@@ -29,6 +29,7 @@ export interface NfeItemCfopOption {
   label: string;
   disabled?: boolean;
   disabledReason?: string;
+  reviewOnly?: boolean;
   diagnostic?: NfeItemCfopDiagnostic;
 }
 

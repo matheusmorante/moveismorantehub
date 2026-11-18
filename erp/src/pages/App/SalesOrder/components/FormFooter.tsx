@@ -11,6 +11,7 @@ interface FormFooterProps {
   onCompleteOrder: (e?: React.MouseEvent) => void;
   onPrev?: () => void;
   onNext?: () => void;
+  nextDisabled?: boolean;
   currentStep: number;
   buttonLabel?: string;
   colorScheme?: 'blue' | 'emerald' | 'indigo';
@@ -28,6 +29,7 @@ const FormFooter = ({
   onCompleteOrder,
   onPrev,
   onNext,
+  nextDisabled = false,
   currentStep,
   buttonLabel,
   colorScheme = 'emerald',
@@ -157,11 +159,13 @@ const FormFooter = ({
             {!isLastStep ? (
               <button
                 type="button"
+                disabled={nextDisabled}
+                title={nextDisabled ? 'Selecione um cliente para acessar Logística.' : undefined}
                 onClick={(e) => {
                   e.preventDefault();
                   onNext?.();
                 }}
-                className="flex-1 md:flex-none flex items-center justify-center gap-2 px-10 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-black uppercase tracking-widest text-[10px] shadow-lg shadow-blue-500/20 transition-all active:scale-95"
+                className="flex-1 md:flex-none flex items-center justify-center gap-2 px-10 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-black uppercase tracking-widest text-[10px] shadow-lg shadow-blue-500/20 transition-all active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-blue-600 disabled:active:scale-100"
               >
                 Próxima Etapa
                 <i className="bi bi-arrow-right" />

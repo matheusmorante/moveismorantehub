@@ -11,8 +11,27 @@ export interface TelemetryRow {
   unknown_rows_count: number;
   response_bytes: number;
   measured_response_count: number;
+  metric_kind?: 'supabase_request' | 'interaction_timing' | 'product_interaction_timing';
+  app_version?: string | null;
+  network_class?: string | null;
+  viewport_class?: 'phone' | 'tablet' | 'desktop' | 'unknown' | null;
+  result?: string | null;
+  duration_buckets?: Record<string, number> | null;
   user_id: string;
   recorded_at: string;
+}
+
+export interface InteractionTimingRow {
+  metric_kind: 'interaction_timing' | 'product_interaction_timing';
+  screen: string;
+  action: string;
+  app_version: string;
+  network_class: string;
+  viewport_class: string;
+  result: string;
+  execution_count: number;
+  total_duration_ms: number;
+  duration_buckets: Record<string, number>;
 }
 
 export interface GlobalStats {
