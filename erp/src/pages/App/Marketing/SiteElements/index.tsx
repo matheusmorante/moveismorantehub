@@ -9,21 +9,28 @@ import SiteElementDeleteDialog from './SiteElementDeleteDialog';
 import { fetchSiteElementModels, SITE_ELEMENT_PAGE_SIZE, siteElementErrorMessage, siteElementImageUrl, type SiteElementModel } from './siteElementService';
 
 export default function SiteElementsPage() {
-  const [kind, setKind] = useState<SiteElementKind>('carousel');
+  const [kind, setKind] = useState<SiteElementKind | null>(null);
   return <div className="space-y-6 pb-12 text-slate-800 dark:text-slate-100">
     <header>
       <p className="mb-1 text-xs font-bold uppercase tracking-widest text-pink-600 dark:text-pink-400">Marketing</p>
       <h1 className="text-2xl font-black tracking-tight sm:text-3xl">Elementos do site</h1>
-      <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">Biblioteca de modelos de imagem para o catálogo digital. As barras de destaque têm arquivos separados para celular, tablet e desktop.</p>
+      <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">Biblioteca de modelos de imagem para o catálogo digital. A barra de destaque é configurada para exibição em telas desktop.</p>
     </header>
-    <label className="flex max-w-sm flex-col gap-2 text-xs font-bold uppercase tracking-wide text-slate-500">
-      Tipo de elemento
-      <select value={kind} onChange={(event) => setKind(event.target.value as SiteElementKind)}
-        className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold normal-case tracking-normal text-slate-700 outline-none transition focus:border-pink-500 focus:ring-2 focus:ring-pink-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:focus:ring-pink-950">
-        {SITE_ELEMENT_KINDS.map((value) => <option key={value} value={value}>{SITE_ELEMENT_CONFIG[value].label}</option>)}
-      </select>
-    </label>
-    <ElementModelsSection key={kind} kind={kind} />
+    {kind === null ? <nav aria-label="Submódulos de elementos do site" className="flex max-w-xl flex-col gap-2">
+        {SITE_ELEMENT_KINDS.map((value) => <button key={value} type="button" aria-current={kind === value ? 'page' : undefined}
+          onClick={() => setKind(value)}
+          className="flex w-full items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-4 text-left text-sm font-bold text-slate-700 transition-colors hover:border-pink-300 hover:bg-pink-50 hover:text-pink-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-pink-900 dark:hover:bg-pink-950/30 dark:hover:text-pink-300">
+          <i className={`bi ${SITE_ELEMENT_CONFIG[value].icon}`} aria-hidden="true" />
+          {SITE_ELEMENT_CONFIG[value].label}
+          <i className="bi bi-chevron-right ml-auto text-xs" aria-hidden="true" />
+        </button>)}
+    </nav> : <div className="space-y-5">
+      <button type="button" onClick={() => setKind(null)}
+        className="inline-flex items-center gap-2 rounded-lg px-2 py-1 text-sm font-semibold text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white">
+        <i className="bi bi-arrow-left" aria-hidden="true" />Voltar à lista de submódulos
+      </button>
+      <ElementModelsSection key={kind} kind={kind} />
+    </div>}
   </div>;
 }
 
@@ -55,8 +62,8 @@ function ElementModelsSection({ kind }: { kind: SiteElementKind }) {
         <h2 id={`site-section-${kind}`} className="text-lg font-bold">{config.label}</h2>
         <p className="mt-1 text-sm text-slate-500">{config.description}</p>
       {kind === 'top_bar' ? <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs font-semibold text-pink-600 dark:text-pink-400">
-        {Object.values(SITE_ELEMENT_CONFIG.top_bar.responsive).map((size) => <span key={size.label}>{size.label}: {size.width} × {size.height} px</span>)}
-        <span>PNG, JPG ou WebP · até 5 MB por imagem</span>
+        <span>Desktop: {config.width} × {config.height} px</span>
+        <span>PNG, JPG ou WebP · até 5 MB</span>
       </div> : <p className="mt-2 text-xs font-semibold text-pink-600 dark:text-pink-400">{config.width} × {config.height} px · PNG, JPG ou WebP · até 5 MB</p>}
       </div>
       <div className="flex gap-2">
@@ -69,26 +76,21 @@ function ElementModelsSection({ kind }: { kind: SiteElementKind }) {
         <i className={`bi ${config.icon} mb-3 inline-block text-4xl text-slate-300`} aria-hidden="true" />
         <h3 className="text-lg font-bold">Nenhum modelo cadastrado</h3>
         <p className="mx-auto mt-2 max-w-md text-sm text-slate-500">{kind === 'top_bar'
-          ? 'Adicione o primeiro modelo da barra de destaque com uma imagem para celular, tablet e desktop.'
+          ? `Adicione o primeiro modelo da barra de destaque com uma imagem desktop de ${config.width} × ${config.height} px.`
           : `Adicione o primeiro modelo de carrossel com uma imagem de ${config.width} × ${config.height} px.`}</p>
         <button type="button" onClick={() => setEditor('new')} className="mt-5 text-sm font-bold text-pink-600 hover:underline">Adicionar primeiro modelo</button>
       </div> : <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {rows.map((model) => <article key={model.id} className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
-          {model.kind === 'top_bar' ? <div className="grid grid-cols-3 gap-2 border-b border-slate-100 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-800/50">
-            {[
-              { label: 'Celular', path: model.mobile_image_path, fileName: model.mobile_file_name, size: model.mobile_size_bytes, width: SITE_ELEMENT_CONFIG.top_bar.responsive.mobile.width, height: SITE_ELEMENT_CONFIG.top_bar.responsive.mobile.height },
-              { label: 'Tablet', path: model.tablet_image_path, fileName: model.tablet_file_name, size: model.tablet_size_bytes, width: SITE_ELEMENT_CONFIG.top_bar.responsive.tablet.width, height: SITE_ELEMENT_CONFIG.top_bar.responsive.tablet.height },
-              { label: 'Desktop', path: model.image_path, fileName: model.file_name, size: model.size_bytes, width: SITE_ELEMENT_CONFIG.top_bar.responsive.desktop.width, height: SITE_ELEMENT_CONFIG.top_bar.responsive.desktop.height },
-            ].map((image) => <div key={image.label} className="min-w-0 rounded-lg border border-slate-200 bg-white p-2 dark:border-slate-700 dark:bg-slate-900">
-              <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-slate-500">{image.label}</p>
+          {model.kind === 'top_bar' ? <div className="border-b border-slate-100 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-800/50">
+            <div className="min-w-0 overflow-hidden rounded-lg border border-slate-200 bg-white p-2 dark:border-slate-700 dark:bg-slate-900">
+              <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-slate-500">Desktop</p>
               <div className="flex min-h-12 items-center overflow-hidden rounded bg-slate-100 dark:bg-slate-800">
-                {image.path ? <img src={siteElementImageUrl(image.path)} alt={`${model.name}, ${image.label.toLowerCase()}`} loading="lazy" decoding="async"
-                  width={image.width} height={image.height} className="w-full object-contain" style={{ aspectRatio: `${image.width} / ${image.height}` }} />
-                  : <span className="p-2 text-center text-[10px] text-slate-400">Imagem não cadastrada</span>}
+                <img src={siteElementImageUrl(model.image_path)} alt={`${model.name}, desktop`} loading="lazy" decoding="async"
+                  width={config.width} height={config.height} className="w-full object-contain" style={{ aspectRatio: `${config.width} / ${config.height}` }} />
               </div>
-              <p className="mt-1 truncate text-[10px] text-slate-500" title={image.fileName || ''}>{image.fileName || 'Pendente'}</p>
-              {image.size && <p className="text-[10px] text-slate-400">{image.width} × {image.height} · {(image.size / 1024).toLocaleString('pt-BR', { maximumFractionDigits: 0 })} KB</p>}
-            </div>)}
+              <p className="mt-1 truncate text-[10px] text-slate-500" title={model.file_name}>{model.file_name}</p>
+              <p className="text-[10px] text-slate-400">{model.width} × {model.height} · {(model.size_bytes / 1024).toLocaleString('pt-BR', { maximumFractionDigits: 0 })} KB</p>
+            </div>
           </div> : <div className="flex min-h-24 items-center border-b border-slate-100 bg-slate-100 dark:border-slate-800 dark:bg-slate-800">
             <img src={siteElementImageUrl(model.image_path)} alt={model.name} loading="lazy" decoding="async" width={model.width} height={model.height}
               className="w-full object-contain" style={{ aspectRatio: `${model.width} / ${model.height}` }} />

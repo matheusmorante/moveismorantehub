@@ -12,7 +12,7 @@ export const SITE_ELEMENT_CONFIG = {
   },
   top_bar: {
     label: 'Barra de destaque do topo',
-    description: 'Modelos com imagens próprias para celular, tablet e desktop.',
+    description: 'Modelo exibido somente em telas desktop.',
     width: 2880,
     height: 720,
     responsive: {
@@ -67,10 +67,8 @@ export const siteElementModelFormSchema = z.object({
     for (const variant of ['mobile', 'tablet'] as const) {
       const target = SITE_ELEMENT_CONFIG.top_bar.responsive[variant];
       const image = value[variant];
-      if (!image.file && !image.existingImagePath) {
-        context.addIssue({ code: 'custom', path: [variant, 'file'], message: `Adicione a imagem para ${target.label.toLowerCase()}.` });
-      }
-      if (image.width !== target.width || image.height !== target.height) {
+      const hasImage = !!image.file || !!image.existingImagePath;
+      if (hasImage && (image.width !== target.width || image.height !== target.height)) {
         context.addIssue({ code: 'custom', path: [variant, 'file'], message: `A imagem para ${target.label.toLowerCase()} deve ter ${target.width} × ${target.height} px.` });
       }
     }

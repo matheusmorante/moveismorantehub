@@ -15,7 +15,7 @@ describe('site element model validation', () => {
   });
   it('requires the standard dimensions for each element and accepts existing images for rename', () => {
     expect(siteElementModelFormSchema.safeParse({ ...values(), width: 1080 }).success).toBe(false);
-    expect(siteElementModelFormSchema.safeParse({ ...values(), kind: 'top_bar' }).success).toBe(false);
+    expect(siteElementModelFormSchema.safeParse({ ...values(), kind: 'top_bar' }).success).toBe(true);
     expect(siteElementModelFormSchema.safeParse(topBarValues()).success).toBe(true);
     expect(siteElementModelFormSchema.safeParse({ ...topBarValues(), tablet: { ...topBarValues().tablet, width: 900 } }).success).toBe(false);
     expect(siteElementModelFormSchema.safeParse({ ...values(), file: null, existingImagePath: 'existing/path.png' }).success).toBe(true);

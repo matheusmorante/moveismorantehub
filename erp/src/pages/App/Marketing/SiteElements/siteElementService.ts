@@ -75,30 +75,20 @@ export async function saveSiteElementModel(values: SiteElementModelFormValues, o
     || (original.tablet_image_path ?? null) !== parsed.tablet.existingImagePath)) {
     throw new Error('O modelo mudou. Feche o formulário e abra novamente.');
   }
-  if (!original && (!parsed.file || (parsed.kind === 'top_bar' && (!parsed.mobile.file || !parsed.tablet.file)))) {
-    throw new Error('Selecione uma imagem para cada proporção do modelo.');
+  if (!original && !parsed.file) {
+    throw new Error('Selecione a imagem do modelo.');
   }
   const id = original?.id || crypto.randomUUID();
-  const assets = {
-    desktop: { file: parsed.file },
-    mobile: { file: parsed.mobile.file },
-    tablet: { file: parsed.tablet.file },
-  } as const;
+  const desktopFile = parsed.file;
   const uploadedPaths: string[] = [];
-  const imagePaths: Record<keyof typeof assets, string> = {
-    desktop: original?.image_path || '',
-    mobile: original?.mobile_image_path || '',
-    tablet: original?.tablet_image_path || '',
-  };
-  for (const slot of ['desktop', 'mobile', 'tablet'] as const) {
-    const file = assets[slot].file;
-    if (!file) continue;
-    const extension = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp' }[file.type];
+  let desktopImagePath = original?.image_path || '';
+  if (desktopFile) {
+    const extension = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp' }[desktopFile.type];
     const path = `site-elements/${parsed.kind}/${id}/${crypto.randomUUID()}.${extension}`;
     let upload;
     try {
-      upload = await withTimeout(supabase.storage.from(BUCKET).upload(path, file, {
-        contentType: file.type, cacheControl: '31536000', upsert: false,
+      upload = await withTimeout(supabase.storage.from(BUCKET).upload(path, desktopFile, {
+        contentType: desktopFile.type, cacheControl: '31536000', upsert: false,
       }), REQUEST_TIMEOUT, null, 'Enviar imagem do elemento');
     } catch (error) {
       await removeImages(uploadedPaths);
@@ -113,13 +103,10 @@ export async function saveSiteElementModel(values: SiteElementModelFormValues, o
       throw upload.error;
     }
     uploadedPaths.push(path);
-    imagePaths[slot] = path;
+    desktopImagePath = path;
   }
-  const desktopFile = assets.desktop.file;
-  const mobileFile = assets.mobile.file;
-  const tabletFile = assets.tablet.file;
   const basePayload = {
-    id, name: parsed.name, image_path: imagePaths.desktop,
+    id, name: parsed.name, image_path: desktopImagePath,
     file_name: desktopFile?.name ?? original!.file_name,
     mime_type: desktopFile?.type ?? original!.mime_type,
     size_bytes: desktopFile?.size ?? original!.size_bytes,
@@ -128,18 +115,18 @@ export async function saveSiteElementModel(values: SiteElementModelFormValues, o
   };
   const payload = parsed.kind === 'top_bar' ? {
     ...basePayload,
-    mobile_image_path: imagePaths.mobile,
-    mobile_file_name: mobileFile?.name ?? original?.mobile_file_name,
-    mobile_mime_type: mobileFile?.type ?? original?.mobile_mime_type,
-    mobile_size_bytes: mobileFile?.size ?? original?.mobile_size_bytes,
-    mobile_width: parsed.mobile.width,
-    mobile_height: parsed.mobile.height,
-    tablet_image_path: imagePaths.tablet,
-    tablet_file_name: tabletFile?.name ?? original?.tablet_file_name,
-    tablet_mime_type: tabletFile?.type ?? original?.tablet_mime_type,
-    tablet_size_bytes: tabletFile?.size ?? original?.tablet_size_bytes,
-    tablet_width: parsed.tablet.width,
-    tablet_height: parsed.tablet.height,
+    mobile_image_path: original?.mobile_image_path ?? null,
+    mobile_file_name: original?.mobile_file_name ?? null,
+    mobile_mime_type: original?.mobile_mime_type ?? null,
+    mobile_size_bytes: original?.mobile_size_bytes ?? null,
+    mobile_width: original?.mobile_width ?? null,
+    mobile_height: original?.mobile_height ?? null,
+    tablet_image_path: original?.tablet_image_path ?? null,
+    tablet_file_name: original?.tablet_file_name ?? null,
+    tablet_mime_type: original?.tablet_mime_type ?? null,
+    tablet_size_bytes: original?.tablet_size_bytes ?? null,
+    tablet_width: original?.tablet_width ?? null,
+    tablet_height: original?.tablet_height ?? null,
   } : { ...basePayload, kind: parsed.kind };
   const table = parsed.kind === 'top_bar' ? 'site_element_top_bar_models' : 'site_element_models';
   const fields = parsed.kind === 'top_bar' ? TOP_BAR_FIELDS : CAROUSEL_FIELDS;
@@ -154,8 +141,12 @@ export async function saveSiteElementModel(values: SiteElementModelFormValues, o
     if (result.error) throw result.error;
     throw new Error('O modelo foi alterado ou removido por outro usuário. Atualize a lista.');
   }
+  const retainedPaths = new Set([
+    desktopImagePath,
+    ...(parsed.kind === 'top_bar' ? [original?.mobile_image_path, original?.tablet_image_path] : []),
+  ].filter((path): path is string => !!path));
   const oldPaths = original ? [original.image_path, original.mobile_image_path, original.tablet_image_path]
-    .filter((path): path is string => !!path && !Object.values(imagePaths).includes(path)) : [];
+    .filter((path): path is string => !!path && !retainedPaths.has(path)) : [];
   const cleanupFailed = oldPaths.length > 0 && !(await removeImages(oldPaths));
   const model = parsed.kind === 'top_bar' ? { ...result.data, kind: 'top_bar' as const } : result.data;
   return { model: model as SiteElementModel, cleanupFailed };

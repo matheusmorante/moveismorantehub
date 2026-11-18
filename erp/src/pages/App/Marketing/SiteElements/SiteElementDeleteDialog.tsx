@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { siteElementDeleteFormSchema } from '../../../../../../shared-utils/siteElementSchemas';
 import { deleteSiteElementModel, siteElementErrorMessage, type SiteElementModel } from './siteElementService';
@@ -20,7 +21,7 @@ export default function SiteElementDeleteDialog({ model, onClose, onDeleted }: P
     cancelButton.current?.focus();
     return () => previous?.focus();
   }, []);
-  return <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
+  return createPortal(<div className="fixed inset-0 z-[100000] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
     <form ref={dialog} noValidate role="alertdialog" tabIndex={-1} aria-modal="true" aria-labelledby="site-element-delete-title" aria-describedby="site-element-delete-message"
       className="w-full max-w-md space-y-4 rounded-2xl bg-white p-6 shadow-2xl dark:bg-slate-900"
       onKeyDown={(event) => {
@@ -56,5 +57,5 @@ export default function SiteElementDeleteDialog({ model, onClose, onDeleted }: P
         <button type="submit" disabled={isSubmitting} className="rounded-xl bg-red-600 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50">Excluir modelo</button>
       </div>
     </form>
-  </div>;
+  </div>, document.body);
 }

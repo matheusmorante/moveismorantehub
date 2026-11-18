@@ -47,6 +47,8 @@ export const searchInboundInvoiceProducts = async (
       statusFilter: 'active',
       itemType: values.itemType,
       includeMerged: false,
+      includeTotal: false,
+      includeTrashEligibility: false,
       throwOnError: true,
     }
   );

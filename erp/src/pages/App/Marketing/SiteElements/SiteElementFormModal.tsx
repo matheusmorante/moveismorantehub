@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import FixedAspectImageCropper from '../Posts/FixedAspectImageCropper';
@@ -11,8 +12,7 @@ import {
 } from '../../../../../../shared-utils/siteElementSchemas';
 import { saveSiteElementModel, siteElementErrorMessage, siteElementImageUrl, type SiteElementModel } from './siteElementService';
 
-type ImageSlot = 'desktop' | 'mobile' | 'tablet';
-type CropRequest = { slot: ImageSlot; file: File };
+type CropRequest = { file: File };
 
 interface Props {
   kind: SiteElementKind;
@@ -33,11 +33,7 @@ export default function SiteElementFormModal({ kind, model, onClose, onSaved }: 
     },
   });
   const file = form.watch('file');
-  const mobileFile = form.watch('mobile.file');
-  const tabletFile = form.watch('tablet.file');
   const existingImagePath = form.watch('existingImagePath');
-  const mobileImagePath = form.watch('mobile.existingImagePath');
-  const tabletImagePath = form.watch('tablet.existingImagePath');
   const [reading, setReading] = useState(false);
   const [cropRequest, setCropRequest] = useState<CropRequest | null>(null);
   const submitLock = useRef(false);
@@ -93,27 +89,15 @@ export default function SiteElementFormModal({ kind, model, onClose, onSaved }: 
     return () => previous?.focus();
   }, []);
 
-  const setFileError = (slot: ImageSlot, message: string) => {
-    if (slot === 'desktop') form.setError('file', { message });
-    else if (slot === 'mobile') form.setError('mobile.file', { message });
-    else form.setError('tablet.file', { message });
-  };
-
-  const clearFileError = (slot: ImageSlot) => {
-    if (slot === 'desktop') form.clearErrors('file');
-    else if (slot === 'mobile') form.clearErrors('mobile.file');
-    else form.clearErrors('tablet.file');
-  };
-
-  const selectFile = (slot: ImageSlot, selected: File) => {
+  const selectFile = (selected: File) => {
     const parsed = siteElementImageFileSchema.safeParse(selected);
     if (!parsed.success) {
-      setFileError(slot, parsed.error.issues[0].message);
+      form.setError('file', { message: parsed.error.issues[0].message });
       return;
     }
-    clearFileError(slot);
+    form.clearErrors('file');
     if (kind === 'top_bar') {
-      setCropRequest({ slot, file: parsed.data });
+      setCropRequest({ file: parsed.data });
       return;
     }
     form.setValue('width', 0);
@@ -123,21 +107,10 @@ export default function SiteElementFormModal({ kind, model, onClose, onSaved }: 
 
   const confirmCrop = (croppedFile: File) => {
     if (!cropRequest || kind !== 'top_bar') return;
-    const target = SITE_ELEMENT_CONFIG.top_bar.responsive[cropRequest.slot];
-    if (cropRequest.slot === 'desktop') {
-      form.setValue('file', croppedFile, { shouldDirty: true });
-      form.setValue('width', target.width);
-      form.setValue('height', target.height);
-    } else if (cropRequest.slot === 'mobile') {
-      form.setValue('mobile.file', croppedFile, { shouldDirty: true });
-      form.setValue('mobile.width', target.width);
-      form.setValue('mobile.height', target.height);
-    } else {
-      form.setValue('tablet.file', croppedFile, { shouldDirty: true });
-      form.setValue('tablet.width', target.width);
-      form.setValue('tablet.height', target.height);
-    }
-    clearFileError(cropRequest.slot);
+    form.setValue('file', croppedFile, { shouldDirty: true });
+    form.setValue('width', config.width);
+    form.setValue('height', config.height);
+    form.clearErrors('file');
     setCropRequest(null);
   };
 
@@ -155,13 +128,10 @@ export default function SiteElementFormModal({ kind, model, onClose, onSaved }: 
     }
   });
 
-  const responsive = kind === 'top_bar' ? SITE_ELEMENT_CONFIG.top_bar.responsive : null;
-  const desktopSize = responsive?.desktop || config;
+  const desktopSize = config;
   const desktopError = errors.file?.message;
-  const mobileError = errors.mobile?.file?.message;
-  const tabletError = errors.tablet?.file?.message;
 
-  return <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
+  return createPortal(<div className="fixed inset-0 z-[100000] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
     <div ref={dialog} role="dialog" tabIndex={-1} aria-modal="true" aria-labelledby="site-element-dialog-title"
       className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl dark:bg-slate-900"
       onKeyDown={(event) => {
@@ -194,30 +164,20 @@ export default function SiteElementFormModal({ kind, model, onClose, onSaved }: 
             className="w-full rounded-xl border border-slate-300 bg-transparent px-3 py-2.5 outline-none focus:border-pink-500 dark:border-slate-700" />
           {errors.name && <p id="site-element-name-error" role="alert" className="mt-1 text-sm text-red-600">{errors.name.message}</p>}
         </div>
-        {responsive ? <div className="space-y-4">
+        {kind === 'top_bar' ? <div className="space-y-4">
           <div>
-            <h3 className="text-sm font-semibold">Imagens por tela</h3>
-            <p className="mt-1 text-sm text-slate-500">Selecione uma imagem para cada proporção e ajuste o recorte antes de salvar. PNG, JPG ou WebP, até 5 MB por arquivo.</p>
+            <h3 className="text-sm font-semibold">Imagem para desktop</h3>
+            <p className="mt-1 text-sm text-slate-500">Esta barra será exibida somente em telas desktop. Selecione uma imagem e ajuste o recorte antes de salvar. PNG, JPG ou WebP, até 5 MB.</p>
           </div>
-          <div className="grid gap-4 md:grid-cols-3">
-            <SiteElementAssetField id="site-element-mobile" label="Celular" dimensions={responsive.mobile}
-              file={mobileFile} existingImagePath={mobileImagePath} existingFileName={model?.mobile_file_name || undefined}
-              error={mobileError} disabled={busy} required={!model || !mobileImagePath}
-              onSelect={(selected) => selectFile('mobile', selected)} />
-            <SiteElementAssetField id="site-element-tablet" label="Tablet" dimensions={responsive.tablet}
-              file={tabletFile} existingImagePath={tabletImagePath} existingFileName={model?.tablet_file_name || undefined}
-              error={tabletError} disabled={busy} required={!model || !tabletImagePath}
-              onSelect={(selected) => selectFile('tablet', selected)} />
-            <SiteElementAssetField id="site-element-desktop" label="Desktop" dimensions={responsive.desktop}
-              file={file} existingImagePath={existingImagePath} existingFileName={model?.file_name}
-              error={desktopError} disabled={busy} required={!model || !existingImagePath}
-              onSelect={(selected) => selectFile('desktop', selected)} />
-          </div>
+          <SiteElementAssetField id="site-element-desktop" label="Imagem para desktop" dimensions={desktopSize}
+            file={file} existingImagePath={existingImagePath} existingFileName={model?.file_name}
+            error={desktopError} disabled={busy} required={!model || !existingImagePath}
+            onSelect={selectFile} />
         </div> : <SiteElementAssetField id="site-element-file" label="Arquivo da imagem" dimensions={desktopSize}
           file={file} existingImagePath={existingImagePath} existingFileName={model?.file_name}
           error={desktopError} disabled={busy} required={!model}
           help="PNG, JPG ou WebP, até 5 MB."
-          onSelect={(selected) => selectFile('desktop', selected)} />}
+          onSelect={selectFile} />}
         {errors.root && <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950/30 dark:text-red-300">{errors.root.message}</p>}
         {busy && <p role="status" className="flex items-center gap-2 text-sm text-pink-600"><i className="bi bi-arrow-repeat animate-spin" />{reading ? 'Conferindo a imagem…' : cropRequest ? 'Recortando a imagem…' : 'Salvando modelo…'}</p>}
         <div className="flex justify-end gap-3 border-t border-slate-100 pt-4 dark:border-slate-800">
@@ -227,9 +187,9 @@ export default function SiteElementFormModal({ kind, model, onClose, onSaved }: 
       </form>
     </div>
     {cropRequest && <FixedAspectImageCropper file={cropRequest.file} kind="header"
-      label={responsive?.[cropRequest.slot].label.toLowerCase() || 'imagem'} targetSize={responsive?.[cropRequest.slot]}
+      label="desktop" targetSize={desktopSize}
       onCancel={() => setCropRequest(null)} onConfirm={confirmCrop} />}
-  </div>;
+  </div>, document.body);
 }
 
 function SiteElementAssetField({
