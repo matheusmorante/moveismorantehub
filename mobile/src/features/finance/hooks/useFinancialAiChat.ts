@@ -25,6 +25,11 @@ import { financialChatUtilityFormSchema } from '../../../../../shared-utils/fina
 import { advanceFinancialBatch, rebuildFinancialBatch } from '../../../services/financial/financialBatchQueue';
 import { confirmationFormSchema, messageFormSchema, singleTransactionFormSchema } from './financialAiChatSchemas';
 import { useFinancialAiVoiceSession } from './useFinancialAiVoiceSession';
+import {
+  beginAssistantOrderTimingTurn,
+  cancelAssistantOrderTimingTurn,
+  markAssistantOrderFirstSignal,
+} from '../../../../../shared-utils/assistantOrderTimingMetrics';
 
 const uncertainMessage = 'Não foi possível confirmar o registro. Confira as movimentações antes de repetir.';
 
@@ -227,13 +232,30 @@ export function useFinancialAiChat({
     const revision = scope.revision;
     const isCurrent = () => mountedRef.current && scopeRef.current === scope && scope.revision === revision;
     operationRef.current = token;
-    if (kind === 'message') setLoading(true); else if (kind === 'write') setRegistering(true); else setMediaBusy(true);
+    if (kind === 'message') {
+      beginAssistantOrderTimingTurn('mobile');
+      setLoading(true);
+    } else if (kind === 'write') setRegistering(true); else setMediaBusy(true);
     try { return await action(isCurrent); }
     finally {
       if (operationRef.current === token) operationRef.current = null;
+      if (kind === 'message') cancelAssistantOrderTimingTurn('mobile');
       if (mountedRef.current) { if (kind === 'message') setLoading(false); else if (kind === 'write') setRegistering(false); else setMediaBusy(mediaControlBusy.current); }
     }
   };
+
+  useEffect(() => {
+    if (!loading) return;
+    let firstFrame = 0;
+    let secondFrame = 0;
+    firstFrame = requestAnimationFrame(() => {
+      secondFrame = requestAnimationFrame(() => markAssistantOrderFirstSignal('mobile'));
+    });
+    return () => {
+      cancelAnimationFrame(firstFrame);
+      if (secondFrame) cancelAnimationFrame(secondFrame);
+    };
+  }, [loading]);
 
   const voice = useFinancialAiVoiceSession({
     userName,

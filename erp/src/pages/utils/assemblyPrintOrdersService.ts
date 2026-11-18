@@ -1,6 +1,23 @@
 import { supabase } from './supabaseConfig';
 import { withAbortTimeout } from '../../../../shared-utils/withAbortTimeout';
 
+export interface ShowroomAssemblyPrintRow {
+  id: string;
+  item: string | null;
+  date: string | null;
+  time: string | null;
+}
+
+export const fetchShowroomAssemblyPrintRows = async (): Promise<ShowroomAssemblyPrintRow[]> => {
+  const { data, error } = await withAbortTimeout(
+    supabase.from('showroom_assemblies').select('id,item,date,time'),
+    'montagens:mostruario-para-impressao',
+    15_000,
+  );
+  if (error) throw error;
+  return (data || []) as ShowroomAssemblyPrintRow[];
+};
+
 export const fetchAssemblyPrintOrders = async () => {
   const selected = await withAbortTimeout(supabase.rpc('list_order_assembly_print_ids'), 'montagens:selecao-para-impressao', 15_000);
   if (selected.error) throw selected.error;

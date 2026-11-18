@@ -280,13 +280,17 @@ export const productAgentTools = {
       const categoryFilter = args.categoria?.trim();
       const inTrash = Boolean(args.naLixeira);
       const onlyActive = !inTrash && args.apenasAtivos !== false;
+      const allowCost = permissionContext === undefined
+        ? canAgentViewProductCost()
+        : permissionContext === null
+          ? false
+          : canAgentViewProductCost(permissionContext);
+      const summaryColumns =
+        `id,code,sku,name,title,description,category,brand,line,condition,unit_price,price,promo_price,${allowCost ? 'cost_price,' : ''}stock,unit,active,deleted,item_type,is_draft,status,product_variations(sku,name)`;
 
       let query = supabase
         .from(TABLE_NAME)
-        .select(
-          'id,code,sku,name,title,description,category,brand,line,condition,unit_price,price,promo_price,cost_price,stock,unit,active,deleted,item_type,is_draft,status,product_variations(sku,name)',
-          { count: 'exact' }
-        )
+        .select(summaryColumns, { count: 'exact' })
         .eq('deleted', inTrash);
 
       if (onlyActive) {
@@ -355,11 +359,6 @@ export const productAgentTools = {
           )
         : data || [];
       const products: Product[] = matchedRows.map((row, idx) => mapFromDB(row, idx));
-      const allowCost = permissionContext === undefined
-        ? canAgentViewProductCost()
-        : permissionContext === null
-          ? false
-          : canAgentViewProductCost(permissionContext);
       const sanitized = products.map((p) => sanitizeProductSummaryForAgent(p, allowCost));
 
       return {

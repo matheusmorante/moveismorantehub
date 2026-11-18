@@ -1,7 +1,8 @@
 import Order from '../../types/order.type';
 
 export type OrdersSubscriber = (orders: Order[]) => void;
-export type OrdersChangeSubscriber = () => void;
+export type OrdersChangeEvent = { reason: 'change' | 'reconnected' };
+export type OrdersChangeSubscriber = (event?: OrdersChangeEvent) => void;
 
 export interface FetchFulfilledOrdersOptions {
   page?: number;

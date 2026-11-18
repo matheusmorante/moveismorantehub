@@ -117,6 +117,13 @@ export async function syncProductToMetaCatalog(
     if (prodErr || !product) {
       return { success: false, count: 0, error: prodErr?.message || 'Produto não encontrado.' };
     }
+    if (varErr) {
+      return {
+        success: false,
+        count: 0,
+        error: `Não foi possível carregar as variações do produto: ${varErr.message}`,
+      };
+    }
 
     if (isTestProduct(product)) {
       return { success: true, count: 0 };
@@ -134,7 +141,13 @@ export async function syncProductToMetaCatalog(
       varList,
       (opportunities || []) as MetaCatalogOpportunitySource[]
     );
-    if (itemsToSend.length === 0) return { success: true, count: 0 };
+    if (itemsToSend.length === 0) {
+      return {
+        success: false,
+        count: 0,
+        error: 'Nenhum item elegível foi montado para sincronização com a Meta.',
+      };
+    }
 
     const candidateCodes = Array.from(
       new Set(
@@ -256,4 +269,20 @@ export function triggerProductMetaCatalogSync(
 
   pendingSyncs.set(productId, scheduled);
   return scheduled.promise;
+}
+
+/**
+ * Aguarda a sincronização já agendada pelo salvamento ou inicia uma nova
+ * quando ainda não existe nenhuma pendente/em andamento.
+ */
+export function ensureProductMetaCatalogSync(
+  productId: string
+): Promise<ProductMetaCatalogSyncResult> {
+  const pending = pendingSyncs.get(productId);
+  if (pending) return pending.promise;
+
+  const inFlight = inFlightSyncs.get(productId);
+  if (inFlight) return inFlight;
+
+  return triggerProductMetaCatalogSync(productId);
 }

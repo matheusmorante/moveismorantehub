@@ -218,7 +218,7 @@ export async function resolveOrderItems(
       try {
         const { data: prod } = await supabase
           .from('products')
-          .select('id, code, sku, name, unit_price, price, cost_price, product_variations(*)')
+          .select('id, code, sku, name, unit_price, price, cost_price, product_variations(id,sku)')
           .eq('deleted', false)
           .or(`code.eq.${code},sku.eq.${code}`)
           .maybeSingle();

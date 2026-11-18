@@ -166,7 +166,10 @@ const buildProductNotifications = (products: Product[]): AppNotification[] => {
   return notifications;
 };
 
-const buildMatchNotifications = async (products: Product[]): Promise<AppNotification[]> => {
+const buildMatchNotifications = async (
+  products: Product[],
+  signal?: AbortSignal,
+): Promise<AppNotification[]> => {
   const readIds = getReadIds();
   const notifications: AppNotification[] = [];
 
@@ -174,7 +177,7 @@ const buildMatchNotifications = async (products: Product[]): Promise<AppNotifica
   const { data: matches, error } = await withAbortTimeout(supabase
     .from('desire_matches')
     .select('id,product_id,created_at,customer_desires(customer_name)')
-    .eq('notified', false), 'alertas:interesses', 15_000);
+    .eq('notified', false), 'alertas:interesses', 15_000, signal);
 
   if (error || !matches) return [];
 
@@ -235,69 +238,112 @@ let notificationSnapshot: AppNotification[] = [];
 let notificationRequest: Promise<void> | null = null;
 let notificationGeneration = 0;
 let notificationFetchedAt = 0;
+let notificationSessionInvalidated = false;
 let notificationStop: (() => void) | null = null;
 let notificationNeedsRefresh = false;
+let notificationAbortController: AbortController | null = null;
+let notificationRequestStartedAt = 0;
+let notificationLastAttemptStartedAt = 0;
+let notificationLastAttemptSucceeded = false;
+let notificationReconnectBatchStartedAt = 0;
+let notificationReconnectBatchUntil = 0;
 const publishNotifications = () => {
   const read = getReadIds();
   const snapshot = notificationSnapshot.map((entry) => ({ ...entry, read: read.has(entry.id) }));
   notificationSubscribers.forEach((subscriber) => subscriber(snapshot));
 };
 
+const invalidateNotificationWork = () => {
+  notificationGeneration += 1;
+  notificationAbortController?.abort();
+  notificationAbortController = null;
+  notificationRequest = null;
+  notificationRequestStartedAt = 0;
+  notificationNeedsRefresh = false;
+  notificationLastAttemptStartedAt = 0;
+  notificationLastAttemptSucceeded = false;
+  notificationReconnectBatchStartedAt = 0;
+  notificationReconnectBatchUntil = 0;
+};
+
 const fetchAndNotify = async () => {
+  if (!notificationSubscribers.size || notificationSessionInvalidated) return;
   if (notificationRequest) return notificationRequest;
   const generation = notificationGeneration;
+  const controller = new AbortController();
+  const requestStartedAt = Date.now();
+  notificationAbortController = controller;
+  notificationRequestStartedAt = requestStartedAt;
+  notificationLastAttemptStartedAt = requestStartedAt;
+  notificationLastAttemptSucceeded = false;
+  const isCurrent = () => generation === notificationGeneration &&
+    !controller.signal.aborted && notificationSubscribers.size > 0 && !notificationSessionInvalidated;
+
   notificationRequest = (async () => {
+    let succeeded = false;
     try {
-    // Fetch Products
-    const { data: pData, error: pError } = await withAbortTimeout(supabase.rpc('notification_product_summaries', {
-      p_conditions: getSettings().stockNotificationConditions || ['novo'],
-    }), 'alertas:produtos', 15_000);
+      // Fetch Products
+      const { data: pData, error: pError } = await withAbortTimeout(supabase.rpc('notification_product_summaries', {
+        p_conditions: getSettings().stockNotificationConditions || ['novo'],
+      }), 'alertas:produtos', 15_000, controller.signal);
+      if (!isCurrent()) return;
 
-    // O alerta usa apenas a contagem já filtrada, sem baixar pedidos candidatos.
-    let draftCount: number;
-    try {
-      const page = await fetchServerOrderPage(supabase, {
-        filters: { includeAllTypes: true, isDraft: true }, page: 1, pageSize: 1, mode: 'erp',
+      // O alerta usa apenas a contagem já filtrada, sem baixar pedidos candidatos.
+      let draftCount: number;
+      try {
+        const page = await fetchServerOrderPage(supabase, {
+          filters: { includeAllTypes: true, isDraft: true }, page: 1, pageSize: 1, mode: 'erp',
+          signal: controller.signal,
+        });
+        draftCount = page.total;
+      } catch { return; }
+      if (!isCurrent() || pError || !Array.isArray(pData)) return;
+
+      const products: Product[] = pData.filter((d: any) => !isIdentifiedTestArtifact(d)).map((d: any) => ({
+        id: String(d.id),
+        description: d.description,
+        stock: Number(d.stock ?? 0),
+        minStock: Number(d.min_stock ?? 0),
+        unit: d.unit || 'un',
+        active: d.active,
+        deleted: d.deleted,
+        hasVariations: d.has_variations,
+        variations: d.variations,
+        itemType: d.item_type || 'product',
+        unitPrice: Number(d.unit_price ?? 0),
+        condition: d.condition || '',
+        notificationConfig: d.notification_config,
+      }));
+
+      const productNotifs = buildProductNotifications(products);
+      const orderNotifs = buildOrderNotifications(draftCount);
+      const matchNotifs = await buildMatchNotifications(products, controller.signal);
+      if (!isCurrent()) return;
+
+      const allNotifications = [...productNotifs, ...orderNotifs, ...matchNotifs];
+
+      // Sort: critical first, then warning, then match/info
+      allNotifications.sort((a, b) => {
+        const order = { critical: 0, warning: 1, info: 2, match: 2 };
+        return (order[a.severity] || 3) - (order[b.severity] || 3);
       });
-      draftCount = page.total;
-    } catch { return; }
-    if (pError || !Array.isArray(pData)) return;
 
-    const products: Product[] = (pData || []).filter((d: any) => !isIdentifiedTestArtifact(d)).map((d: any) => ({
-      id: String(d.id),
-      description: d.description,
-      stock: Number(d.stock ?? 0),
-      minStock: Number(d.min_stock ?? 0),
-      unit: d.unit || 'un',
-      active: d.active,
-      deleted: d.deleted,
-      hasVariations: d.has_variations,
-      variations: d.variations,
-      itemType: d.item_type || 'product',
-      unitPrice: Number(d.unit_price ?? 0),
-      condition: d.condition || '',
-      notificationConfig: d.notification_config,
-    }));
-
-    const productNotifs = buildProductNotifications(products);
-    const orderNotifs = buildOrderNotifications(draftCount);
-    const matchNotifs = await buildMatchNotifications(products);
-
-    const allNotifications = [...productNotifs, ...orderNotifs, ...matchNotifs];
-
-    // Sort: critical first, then warning, then match/info
-    allNotifications.sort((a, b) => {
-      const order = { critical: 0, warning: 1, info: 2, match: 2 };
-      return (order[a.severity] || 3) - (order[b.severity] || 3);
-    });
-
-    if (generation === notificationGeneration) { notificationSnapshot = allNotifications; notificationFetchedAt = Date.now(); }
+      notificationSnapshot = allNotifications;
+      notificationFetchedAt = Date.now();
+      succeeded = true;
     } catch (error) {
-      console.warn('[Alertas] Não foi possível atualizar os alertas:', error);
+      if (isCurrent()) console.warn('[Alertas] Não foi possível atualizar os alertas:', error);
     } finally {
-      if (generation === notificationGeneration) {
-        notificationRequest = null; publishNotifications();
-        if (notificationNeedsRefresh) { notificationNeedsRefresh = false; void fetchAndNotify(); }
+      if (generation === notificationGeneration && notificationAbortController === controller) {
+        notificationAbortController = null;
+        notificationRequest = null;
+        notificationRequestStartedAt = 0;
+        notificationLastAttemptSucceeded = succeeded;
+        publishNotifications();
+        if (notificationNeedsRefresh && notificationSubscribers.size) {
+          notificationNeedsRefresh = false;
+          void fetchAndNotify();
+        }
       }
     }
   })();
@@ -308,36 +354,90 @@ export const subscribeToNotifications = (callback: (notifications: AppNotificati
   notificationSubscribers.add(callback);
   if (!notificationStop) {
     let timer: ReturnType<typeof setTimeout> | undefined;
+    let stopped = false;
+    let reconnectRefreshScheduled = false;
+    const runRefresh = () => {
+      timer = undefined;
+      reconnectRefreshScheduled = false;
+      if (stopped || !notificationSubscribers.size || notificationSessionInvalidated) return;
+      if (notificationRequest) notificationNeedsRefresh = true;
+      else void fetchAndNotify();
+    };
     const refresh = () => {
+      if (stopped || !notificationSubscribers.size || notificationSessionInvalidated) return;
       if (timer) clearTimeout(timer);
-      timer = setTimeout(() => {
-        if (notificationRequest) notificationNeedsRefresh = true;
-        else void fetchAndNotify();
-      }, 750);
+      timer = setTimeout(runRefresh, 750);
+    };
+    const refreshAfterReconnect = (delayMs = 750) => {
+      if (stopped || !notificationSubscribers.size || notificationSessionInvalidated) return;
+      const now = Date.now();
+      if (notificationReconnectBatchUntil <= now) {
+        notificationReconnectBatchStartedAt = now;
+        notificationReconnectBatchUntil = now + 3_500;
+      }
+
+      const batchStartedAt = notificationReconnectBatchStartedAt;
+      const requestAlreadyCoversReconnect = notificationRequest !== null &&
+        notificationRequestStartedAt >= batchStartedAt;
+      const successfulAttemptAlreadyCoversReconnect = notificationLastAttemptSucceeded &&
+        notificationLastAttemptStartedAt >= batchStartedAt;
+      if (requestAlreadyCoversReconnect || successfulAttemptAlreadyCoversReconnect) return;
+      if (reconnectRefreshScheduled) return;
+      reconnectRefreshScheduled = true;
+      // Keep an already scheduled regular refresh; it will fetch the same current snapshot.
+      if (timer) return;
+      timer = setTimeout(runRefresh, delayMs);
     };
     const focus = () => { if (document.visibilityState === 'visible') refresh(); };
+    let hasSubscribedOnce = false;
+    let hadIssueBeforeFirstSubscription = false;
     const channel = supabase.channel('notification-snapshot-updates')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, refresh)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'product_variations' }, refresh)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'desire_matches' }, refresh)
-      .subscribe((status) => { if (status === 'SUBSCRIBED' && notificationFetchedAt) refresh(); });
+      .subscribe((status) => {
+        if (stopped) return;
+        if (status === 'SUBSCRIBED') {
+          if (!hasSubscribedOnce) {
+            hasSubscribedOnce = true;
+            if (hadIssueBeforeFirstSubscription) refreshAfterReconnect(3_250);
+            return;
+          }
+          refreshAfterReconnect(3_250);
+          return;
+        }
+
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+          hadIssueBeforeFirstSubscription = true;
+        }
+      });
     let conditionKey = JSON.stringify(getSettings().stockNotificationConditions || ['novo']);
     const stopSettings = subscribeToSettings((settings) => {
       const key = JSON.stringify(settings.stockNotificationConditions || ['novo']);
       if (key !== conditionKey) { conditionKey = key; refresh(); }
     });
-    const stopOrders = subscribeToOrderChanges(refresh);
+    const stopOrders = subscribeToOrderChanges((event) => {
+      if (event?.reason === 'reconnected') refreshAfterReconnect();
+      else refresh();
+    });
     const auth = supabase.auth.onAuthStateChange((event) => {
       if (event === 'SIGNED_OUT' || event === 'SIGNED_IN') {
-        notificationGeneration += 1; notificationSnapshot = []; notificationRequest = null; notificationFetchedAt = 0;
-        notificationNeedsRefresh = false;
+        notificationSessionInvalidated = event === 'SIGNED_OUT';
+        if (timer) clearTimeout(timer);
+        timer = undefined;
+        reconnectRefreshScheduled = false;
+        invalidateNotificationWork();
+        notificationSnapshot = []; notificationFetchedAt = 0;
         publishNotifications(); if (event === 'SIGNED_IN') refresh();
       }
     });
     document.addEventListener('visibilitychange', focus);
     window.addEventListener('focus', focus);
     notificationStop = () => {
+      stopped = true;
       if (timer) clearTimeout(timer);
+      timer = undefined;
+      reconnectRefreshScheduled = false;
       stopSettings(); stopOrders(); auth.data.subscription.unsubscribe(); void supabase.removeChannel(channel);
       document.removeEventListener('visibilitychange', focus); window.removeEventListener('focus', focus);
     };
@@ -347,9 +447,8 @@ export const subscribeToNotifications = (callback: (notifications: AppNotificati
   return () => {
     notificationSubscribers.delete(callback);
     if (!notificationSubscribers.size) {
-      notificationStop?.(); notificationStop = null; notificationGeneration += 1;
-      notificationRequest = null; notificationSnapshot = []; notificationFetchedAt = 0;
-      notificationNeedsRefresh = false;
+      notificationStop?.(); notificationStop = null;
+      invalidateNotificationWork(); notificationSnapshot = []; notificationFetchedAt = 0;
     }
   };
 };

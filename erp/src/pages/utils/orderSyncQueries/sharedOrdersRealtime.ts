@@ -3,7 +3,7 @@ import { supabase } from '@/pages/utils/supabaseConfig';
 import { capitalizeOrder } from '../formatters';
 import { mapOrderFromDatabase } from '../orderMapper';
 import { TABLE_NAME, ORDER_LIST_COLUMNS, recordOrdersReadMetric } from './orderSyncConstants';
-import { OrdersSubscriber, OrdersChangeSubscriber } from './orderSyncTypes';
+import { OrdersChangeEvent, OrdersSubscriber, OrdersChangeSubscriber } from './orderSyncTypes';
 import { isValidOrderRow, enrichOrdersWithPeopleOrigins } from './orderPeopleEnrichment';
 
 // Uma única consulta e um único canal são compartilhados pelos módulos que
@@ -15,6 +15,7 @@ let sharedOrdersChannel: ReturnType<typeof supabase.channel> | null = null;
 let sharedOrdersSnapshot: Order[] | null = null;
 let sharedOrdersRequest: Promise<void> | null = null;
 let sharedOrdersRefreshTimer: ReturnType<typeof setTimeout> | null = null;
+let sharedOrdersReconnectPending = false;
 
 const notifyOrdersSubscribers = () => {
   if (!sharedOrdersSnapshot) return;
@@ -60,12 +61,17 @@ const fetchSharedOrders = async () => {
   return sharedOrdersRequest;
 };
 
-const scheduleSharedOrdersRefresh = () => {
-  if ((ordersSubscribers.size === 0 && orderChangeSubscribers.size === 0) || sharedOrdersRefreshTimer)
-    return;
+const scheduleSharedOrdersRefresh = (reconnected = false) => {
+  if (ordersSubscribers.size === 0 && orderChangeSubscribers.size === 0) return;
+  if (reconnected) sharedOrdersReconnectPending = true;
+  if (sharedOrdersRefreshTimer) return;
   sharedOrdersRefreshTimer = setTimeout(() => {
     sharedOrdersRefreshTimer = null;
-    orderChangeSubscribers.forEach((callback) => callback());
+    const event: OrdersChangeEvent = {
+      reason: sharedOrdersReconnectPending ? 'reconnected' : 'change',
+    };
+    sharedOrdersReconnectPending = false;
+    orderChangeSubscribers.forEach((callback) => callback(event));
     if (ordersSubscribers.size > 0) void fetchSharedOrders();
   }, 3000);
 };
@@ -76,10 +82,28 @@ const notifyOrderChange = () => {
 
 const ensureSharedOrdersChannel = () => {
   if (sharedOrdersChannel) return;
+  let hasSubscribedOnce = false;
+  let hadIssueBeforeFirstSubscription = false;
   sharedOrdersChannel = supabase
     .channel('orders_changes_shared')
     .on('postgres_changes', { event: '*', schema: 'public', table: TABLE_NAME }, notifyOrderChange)
-    .subscribe();
+    .subscribe((status) => {
+      if (status === 'SUBSCRIBED') {
+        if (!hasSubscribedOnce) {
+          hasSubscribedOnce = true;
+          if (hadIssueBeforeFirstSubscription) scheduleSharedOrdersRefresh(true);
+          return;
+        }
+        // A later SUBSCRIBED means the shared channel rejoined after a drop.
+        // Use the same debounce as database changes to recover missed updates.
+        scheduleSharedOrdersRefresh(true);
+        return;
+      }
+
+      if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+        hadIssueBeforeFirstSubscription = true;
+      }
+    });
 };
 
 const releaseSharedOrdersChannelIfUnused = () => {
@@ -88,6 +112,7 @@ const releaseSharedOrdersChannelIfUnused = () => {
     clearTimeout(sharedOrdersRefreshTimer);
     sharedOrdersRefreshTimer = null;
   }
+  sharedOrdersReconnectPending = false;
   if (sharedOrdersChannel) {
     void supabase.removeChannel(sharedOrdersChannel);
     sharedOrdersChannel = null;

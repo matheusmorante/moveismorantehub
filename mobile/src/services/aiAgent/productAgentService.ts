@@ -117,6 +117,8 @@ export async function searchMobileProducts(input: {
     includeDeactivated: input.apenasAtivos === false || Boolean(input.naLixeira),
     summaryOnly: true,
     agentSearchMode: true,
+    includeTotal: false,
+    includeTrashEligibility: false,
     throwOnError: true,
   });
 

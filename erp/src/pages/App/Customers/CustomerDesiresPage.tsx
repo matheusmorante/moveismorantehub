@@ -1,80 +1,184 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useState, useEffect } from 'react';
 import { supabase } from '@/pages/utils/supabaseConfig';
-import { crmIntelligenceService, CustomerDesire } from '../../utils/crmIntelligenceService';
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import type { CustomerDesire } from '../../utils/crmIntelligenceService';
+
+const PAGE_SIZE = 50;
+
+interface PageCursor {
+  createdAt: string | null;
+  id: string;
+}
+
+type CustomerDesireRow = Omit<CustomerDesire, 'id' | 'created_at'> & {
+  id: string;
+  created_at: string | null;
+};
 
 interface MatchWithData {
   id: string;
-  desire_id: string;
-  product_id: string;
-  notified: boolean;
-  created_at: string;
+  created_at: string | null;
   product?: {
     description: string;
-    unit_price: number;
-  };
-  desire?: CustomerDesire;
+  } | null;
+  desire?: Pick<CustomerDesire, 'customer_name' | 'customer_phone'> | null;
 }
 
+const getNextCursor = <T extends { created_at: string | null; id: string }>(items: T[]) => {
+  const lastItem = items[items.length - 1];
+  return lastItem ? { createdAt: lastItem.created_at, id: lastItem.id } : null;
+};
+
+const applyCursor = <T extends { or: (filter: string) => T }>(
+  query: T,
+  cursor: PageCursor | null
+) => {
+  if (!cursor) return query;
+
+  const filter = cursor.createdAt
+    ? `created_at.lt.${cursor.createdAt},and(created_at.eq.${cursor.createdAt},id.lt.${cursor.id}),created_at.is.null`
+    : `and(created_at.is.null,id.lt.${cursor.id})`;
+
+  return query.or(filter);
+};
+
 const CustomerDesiresPage = () => {
-  const [desires, setDesires] = useState<CustomerDesire[]>([]);
+  const [desires, setDesires] = useState<CustomerDesireRow[]>([]);
   const [matches, setMatches] = useState<MatchWithData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [desiresCursor, setDesiresCursor] = useState<PageCursor | null>(null);
+  const [matchesCursor, setMatchesCursor] = useState<PageCursor | null>(null);
+  const [desiresHasMore, setDesiresHasMore] = useState(false);
+  const [matchesHasMore, setMatchesHasMore] = useState(false);
+  const [loadingMoreDesires, setLoadingMoreDesires] = useState(false);
+  const [loadingMoreMatches, setLoadingMoreMatches] = useState(false);
+  const [notifyingMatchId, setNotifyingMatchId] = useState<string | null>(null);
+  const [updatingDesireId, setUpdatingDesireId] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchData();
+  const fetchDesiresPage = useCallback(async (cursor: PageCursor | null) => {
+    let query = supabase
+      .from('customer_desires')
+      .select('id,customer_name,customer_phone,product_name,details,status,created_at');
+    query = applyCursor(query, cursor)
+      .order('created_at', { ascending: false, nullsFirst: false })
+      .order('id', { ascending: false })
+      .limit(PAGE_SIZE);
+
+    const { data, error } = await query;
+    if (error) throw error;
+    const items = (data || []) as CustomerDesireRow[];
+    return { items, cursor: getNextCursor(items), hasMore: items.length === PAGE_SIZE };
   }, []);
 
-  const fetchData = async () => {
+  const fetchMatchesPage = useCallback(async (cursor: PageCursor | null) => {
+    let query = supabase
+      .from('desire_matches')
+      .select(
+        'id,created_at,product:products(description),desire:customer_desires(customer_name,customer_phone)'
+      )
+      .eq('notified', false);
+    query = applyCursor(query, cursor)
+      .order('created_at', { ascending: false, nullsFirst: false })
+      .order('id', { ascending: false })
+      .limit(PAGE_SIZE);
+
+    const { data, error } = await query;
+    if (error) throw error;
+    const items = (data || []) as MatchWithData[];
+    return { items, cursor: getNextCursor(items), hasMore: items.length === PAGE_SIZE };
+  }, []);
+
+  const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const { data: desiresData, error: desiresError } = await supabase
-        .from('customer_desires')
-        .select('*')
-        .order('created_at', { ascending: false });
+      const desiresPage = await fetchDesiresPage(null);
+      setDesires(desiresPage.items);
+      setDesiresCursor(desiresPage.cursor);
+      setDesiresHasMore(desiresPage.hasMore);
 
-      if (desiresError) throw desiresError;
-
-      const { data: matchesData, error: matchesError } = await supabase
-        .from('desire_matches')
-        .select('*, product:products(description, unit_price), desire:customer_desires(*)')
-        .eq('notified', false);
-
-      if (matchesError) throw matchesError;
-
-      setDesires(desiresData || []);
-      setMatches(matchesData || []);
+      const matchesPage = await fetchMatchesPage(null);
+      setMatches(matchesPage.items);
+      setMatchesCursor(matchesPage.cursor);
+      setMatchesHasMore(matchesPage.hasMore);
     } catch (err: unknown) {
       console.error('Erro ao carregar lista de desejos:', err);
     } finally {
       setLoading(false);
     }
-  };
+  }, [fetchDesiresPage, fetchMatchesPage]);
 
-  const markAsNotified = async (matchId: string) => {
+  useEffect(() => {
+    void fetchData();
+  }, [fetchData]);
+
+  const loadMoreDesires = async () => {
+    if (!desiresHasMore || !desiresCursor || loadingMoreDesires) return;
+    setLoadingMoreDesires(true);
     try {
-      const { error } = await supabase
-        .from('desire_matches')
-        .update({ notified: true })
-        .eq('id', matchId);
-      if (error) throw error;
-      void fetchData();
+      const page = await fetchDesiresPage(desiresCursor);
+      setDesires((current) => [...current, ...page.items]);
+      setDesiresCursor(page.cursor);
+      setDesiresHasMore(page.hasMore);
     } catch (err: unknown) {
-      console.error('Erro ao marcar desejo como notificado:', err);
+      console.error('Erro ao carregar mais desejos:', err);
+    } finally {
+      setLoadingMoreDesires(false);
     }
   };
 
-  const updateDesireStatus = async (desireId: string, status: string) => {
+  const loadMoreMatches = async () => {
+    if (!matchesHasMore || !matchesCursor || loadingMoreMatches) return;
+    setLoadingMoreMatches(true);
     try {
-      const { error } = await supabase
+      const page = await fetchMatchesPage(matchesCursor);
+      setMatches((current) => [...current, ...page.items]);
+      setMatchesCursor(page.cursor);
+      setMatchesHasMore(page.hasMore);
+    } catch (err: unknown) {
+      console.error('Erro ao carregar mais avisos:', err);
+    } finally {
+      setLoadingMoreMatches(false);
+    }
+  };
+
+  const markAsNotified = async (matchId: string) => {
+    setNotifyingMatchId(matchId);
+    try {
+      const { data, error } = await supabase
+        .from('desire_matches')
+        .update({ notified: true })
+        .eq('id', matchId)
+        .select('id')
+        .maybeSingle();
+      if (error) throw error;
+      if (!data) throw new Error('Aviso de desejo não encontrado para atualização.');
+      setMatches((current) => current.filter((match) => match.id !== matchId));
+    } catch (err: unknown) {
+      console.error('Erro ao marcar desejo como notificado:', err);
+    } finally {
+      setNotifyingMatchId(null);
+    }
+  };
+
+  const updateDesireStatus = async (desireId: string, status: CustomerDesire['status']) => {
+    setUpdatingDesireId(desireId);
+    try {
+      const { data, error } = await supabase
         .from('customer_desires')
         .update({ status })
-        .eq('id', desireId);
+        .eq('id', desireId)
+        .select('id')
+        .maybeSingle();
       if (error) throw error;
-      void fetchData();
+      if (!data) throw new Error('Desejo não encontrado para atualização.');
+      setDesires((current) =>
+        current.map((desire) =>
+          desire.id === desireId ? { ...desire, status } : desire
+        )
+      );
     } catch (err: unknown) {
       console.error('Erro ao atualizar status do desejo:', err);
+    } finally {
+      setUpdatingDesireId(null);
     }
   };
 
@@ -96,7 +200,9 @@ const CustomerDesiresPage = () => {
             <i className="bi bi-stars"></i> Matches de Estoque
           </h2>
 
-          {matches.length === 0 ? (
+          {loading && matches.length === 0 ? (
+            <p className="text-sm text-slate-500" role="status">Carregando avisos...</p>
+          ) : matches.length === 0 ? (
             <div className="p-8 bg-white dark:bg-slate-900 rounded-[2rem] border border-slate-100 dark:border-slate-800 text-center">
               <p className="text-slate-400 font-bold uppercase text-[10px] tracking-widest">
                 Nenhum match pendente
@@ -125,12 +231,23 @@ const CustomerDesiresPage = () => {
                 </div>
                 <button
                   onClick={() => markAsNotified(match.id)}
+                  disabled={notifyingMatchId !== null}
                   className="w-full py-3 bg-white text-blue-600 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-blue-50 transition-colors"
                 >
-                  Marcar como Notificado
+                  {notifyingMatchId === match.id ? 'Atualizando...' : 'Marcar como Notificado'}
                 </button>
               </div>
             ))
+          )}
+          {matchesHasMore && (
+            <button
+              type="button"
+              onClick={() => void loadMoreMatches()}
+              disabled={loading || loadingMoreMatches}
+              className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm font-bold text-blue-600 disabled:opacity-60"
+            >
+              {loadingMoreMatches ? 'Carregando...' : 'Carregar mais avisos'}
+            </button>
           )}
         </div>
 
@@ -171,7 +288,13 @@ const CustomerDesiresPage = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
-                {desires.map((desire) => (
+                {loading && desires.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="px-8 py-6 text-sm text-slate-500" role="status">
+                      Carregando desejos...
+                    </td>
+                  </tr>
+                ) : desires.map((desire) => (
                   <tr
                     key={desire.id}
                     className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
@@ -206,8 +329,14 @@ const CustomerDesiresPage = () => {
                     <td className="px-8 py-6">
                       <select
                         value={desire.status}
+                        disabled={updatingDesireId === desire.id}
                         aria-label={`Atualizar status do desejo de ${desire.customer_name || 'cliente'}`}
-                        onChange={(e) => updateDesireStatus(desire.id!, e.target.value)}
+                        onChange={(e) =>
+                          void updateDesireStatus(
+                            desire.id,
+                            e.target.value as CustomerDesire['status']
+                          )
+                        }
                         className="bg-transparent border-none text-[10px] font-black uppercase tracking-widest text-blue-600 focus:ring-0 cursor-pointer"
                       >
                         <option value="pending">Pendente</option>
@@ -219,6 +348,16 @@ const CustomerDesiresPage = () => {
                 ))}
               </tbody>
             </table>
+            {desiresHasMore && (
+              <button
+                type="button"
+                onClick={() => void loadMoreDesires()}
+                disabled={loading || loadingMoreDesires}
+                className="w-full border-t border-slate-100 px-4 py-3 text-sm font-bold text-blue-600 disabled:opacity-60"
+              >
+                {loadingMoreDesires ? 'Carregando...' : 'Carregar mais desejos'}
+              </button>
+            )}
           </div>
         </div>
       </div>

@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { fetchAssemblyPrintOrders } from '@/pages/utils/assemblyPrintOrdersService';
+import { fetchAssemblyPrintOrders, fetchShowroomAssemblyPrintRows } from '@/pages/utils/assemblyPrintOrdersService';
 import { getSettings } from '@/pages/utils/settingsService';
-import { getShowcaseAssemblies } from '@/pages/utils/showcaseAssemblyService';
 import { formatToBRDate } from '@/pages/utils/formatters';
 import { formatOrderCode } from '@/pages/utils/orderCode';
 import { mapOrderFromDatabase } from '@/pages/utils/orderMapper';
@@ -76,15 +75,14 @@ const AssemblyPrintPage = () => {
         }));
 
       // 2. Fetch Showcase
-      const showcaseData = await getShowcaseAssemblies();
+      const showcaseData = await fetchShowroomAssemblyPrintRows();
       const showcaseTasks = showcaseData.map((as) => ({
         id: as.id || '',
         type: 'MOSTRUÁRIO',
-        title: as.description,
-        date: as.date,
-        items: `${as.quantity} un ${as.description}`,
-        observation: as.observation || '',
-        status: as.status === 'completed' ? 'FINALIZADO' : 'PENDENTE',
+        title: 'Montagem de mostruário',
+        date: as.date || '',
+        time: as.time || '',
+        items: as.item || '',
       }));
 
       // Unified & Initial Sort (for grouping)

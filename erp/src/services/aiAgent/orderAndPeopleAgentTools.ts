@@ -12,6 +12,7 @@ import {
   type UpsertAgentCustomerInput,
   normalizeAgentOrderIdentifier,
 } from '../../../../shared-utils/agentOrderAndPeopleOperations';
+import { recordAssistantOrderTiming } from '../../../../shared-utils/assistantOrderTimingMetrics';
 import {
   getActiveAgentPermissionContext,
   hasAgentActionPermission,
@@ -462,12 +463,14 @@ export const orderAndPeopleAgentTools = {
   async criarPedidoOperacao(args: CreateAgentOrderOperationInput): Promise<ToolExecutionResponse> {
     try {
       const created = await createOrderOperationForAgent(supabase, args);
+      recordAssistantOrderTiming('erp', 'create', true);
       return {
         success: true,
         data: created,
         message: `${created.tipo.charAt(0).toUpperCase() + created.tipo.slice(1)} #${created.codigo} criado(a) com sucesso para ${created.cliente}.`,
       };
     } catch (error: unknown) {
+      recordAssistantOrderTiming('erp', 'create', false);
       return {
         success: false,
         code: 'ORDER_OPERATION_CREATE_ERROR',
@@ -479,12 +482,14 @@ export const orderAndPeopleAgentTools = {
   async editarPedidoOperacao(args: UpdateAgentOrderOperationInput): Promise<ToolExecutionResponse> {
     try {
       const updated = await updateOrderOperationForAgent(supabase, args);
+      recordAssistantOrderTiming('erp', 'edit', true);
       return {
         success: true,
         data: updated,
         message: `${updated.tipo.charAt(0).toUpperCase() + updated.tipo.slice(1)} #${updated.codigo} atualizado(a) com sucesso.`,
       };
     } catch (error: unknown) {
+      recordAssistantOrderTiming('erp', 'edit', false);
       return {
         success: false,
         code: 'ORDER_OPERATION_UPDATE_ERROR',

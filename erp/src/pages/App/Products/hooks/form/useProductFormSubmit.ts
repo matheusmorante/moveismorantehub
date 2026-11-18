@@ -3,6 +3,7 @@ import { useCallback, useRef } from 'react';
 import Swal from 'sweetalert2';
 import Product from '@/pages/types/product.type';
 import { saveProduct } from '@/pages/utils/productService';
+import { ensureProductMetaCatalogSync } from '@/pages/utils/productService/productMetaCatalogSync';
 import { checkERPLegibility, checkEcomLegibility, buildPublishedCatalogEditConfirmationMessage } from '../../domain/productLegibilityRules';
 import { toast } from 'react-toastify';
 import { resolveVariationDimensions } from '../../domain/variationRegistrationRules';
@@ -269,6 +270,19 @@ export const useProductFormSubmit = ({
               normalizedData.id = savedId;
             }
             savedProduct = normalizedData;
+
+            if (normalizedData.id && !isCatalogTestProduct) {
+              void ensureProductMetaCatalogSync(normalizedData.id).then((syncResult) => {
+                if (!syncResult.success) {
+                  toast.warn(
+                    `Produto salvo no ERP, mas a Meta não confirmou a sincronização: ${syncResult.error || 'tente novamente.'}`,
+                    PRODUCT_FORM_ERROR_TOAST_OPTIONS
+                  );
+                } else if (syncResult.count > 0) {
+                  toast.success('Catálogo Meta sincronizado com os dados do produto.');
+                }
+              });
+            }
 
             setFormData((prev) => ({
               ...prev,

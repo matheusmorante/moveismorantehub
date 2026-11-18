@@ -15,6 +15,11 @@ import { getAgentPageContext } from '@/services/aiAgent/getAgentPageContext';
 import { AIChatAssistantHeader } from './AIChatAssistantHeader';
 import { AIChatAssistantInputFooter } from './AIChatAssistantInputFooter';
 import { AIChatAssistantMessages, type ChatMessage } from './AIChatAssistantMessages';
+import {
+  beginAssistantOrderTimingTurn,
+  cancelAssistantOrderTimingTurn,
+  markAssistantOrderFirstSignal,
+} from '../../../../shared-utils/assistantOrderTimingMetrics';
 
 export interface AIChatAssistantProps {
   isFloating?: boolean;
@@ -129,6 +134,18 @@ export default function AIChatAssistant({
     mountedRef.current = true;
     return () => { mountedRef.current = false; requestRef.current?.controller.abort(); };
   }, []);
+  useEffect(() => {
+    if (!isLoading) return;
+    let firstFrame = 0;
+    let secondFrame = 0;
+    firstFrame = requestAnimationFrame(() => {
+      secondFrame = requestAnimationFrame(() => markAssistantOrderFirstSignal('erp'));
+    });
+    return () => {
+      cancelAnimationFrame(firstFrame);
+      if (secondFrame) cancelAnimationFrame(secondFrame);
+    };
+  }, [isLoading]);
   useEffect(() => {
     const currentScope = scope;
     return () => {
@@ -255,6 +272,7 @@ export default function AIChatAssistant({
     const originalInput = textToSend ?? inputRef.current;
     const fingerprint = originalInput.trim().replace(/\s+/g, ' ').toLocaleLowerCase('pt-BR');
     if (uncertainTextsRef.current.has(fingerprint)) { showError('Esta mensagem tem uma ação sem confirmação. Confira o resultado no ERP antes de repetir.'); return; }
+    beginAssistantOrderTimingTurn('erp');
     busyRef.current = true; setIsLoading(true);
     if (cacheAvailableRef.current) setError('');
     const request = { controller: new AbortController(), scope: scopeRef.current };
@@ -302,6 +320,7 @@ export default function AIChatAssistant({
         showError(knownFailure ? message : `${message} Confira o resultado das ações no ERP antes de repetir esta mensagem.`);
       }
     } finally {
+      cancelAssistantOrderTimingTurn('erp');
       if (requestRef.current === request) requestRef.current = null;
       busyRef.current = false;
       if (mountedRef.current) {
