@@ -30,3 +30,33 @@ A seleção padrão considera o tipo de mercadoria e o destinatário: 6102 class
 - Revisão estática do fluxo do modal e do bloqueio server-side; `git diff --check` executado.
 - Testes automatizados e transmissão fiscal não foram executados nesta alteração.
 - O aplicativo móvel não contém o modal de emissão normal de NF-e; o caminho afetado é exclusivo do ERP.
+
+## Remoção do vínculo manual de serviço com produto
+
+### Problema observado
+
+O formulário de venda/orçamento permitia escolher manualmente produtos da venda para vincular a uma linha de serviço. O operador pediu a remoção desse campo e do fluxo de seleção correspondente.
+
+### Causa raiz comprovada
+
+O seletor era montado em `BodyRow` como uma lista de caixas de seleção e enviado ao pedido por `linkedProductOrderItemIds`/`linkedProductOrderItemId`. O mesmo controle era passado aos layouts desktop e mobile e aparecia no editor modal de itens do orçamento. A composição fiscal atual consome esses metadados: serviços sem vínculo válido permanecem pendentes e `xmlItemsBlock` bloqueia a preparação do XML. A auditoria de domínio ainda marca como **REQUER VALIDAÇÃO DO RESPONSÁVEL FISCAL** a decisão sobre quando serviço/montagem compõe mercadoria ou requer tratamento/documento próprio.
+
+### Arquivos e linhas alterados
+
+- `erp/src/pages/App/SalesOrder/ItemsTable/Body.tsx:273-307`: deixa de montar e repassar a lista de linhas de produto às linhas do formulário.
+- `erp/src/pages/App/SalesOrder/ItemsTable/BodyRow.tsx:16,43,132-191`: remove a prop `productItems`, a lista de seleção, a atualização de vínculos e o nó visual compartilhado.
+- `erp/src/pages/App/SalesOrder/ItemsTable/BodyRowDesktop.tsx:50,226`: remove o vínculo visual do layout desktop.
+- `erp/src/pages/App/SalesOrder/ItemsTable/BodyRowMobile.tsx:55,93,251-261`: remove a prop e o seletor dos layouts mobile e do editor modal; observação fica independente do vínculo.
+- `erp/src/pages/App/SalesOrder/__tests__/itemsTableTabs.test.tsx:163-192`: substitui a cobertura de seleção manual por regressão que confirma ausência do controle e preservação do metadado antigo no item.
+- `erp/src/pages/App/SalesOrder/__tests__/salesOrderItemHandlingOptions.test.tsx:57-304`: remove as props obsoletas dos cenários que renderizam as linhas desktop/mobile.
+- `docs/fiscal/README.md:9`: inclui esta correção nas referências vigentes.
+
+### Comportamento fiscal preservado
+
+Esta alteração remove apenas o controle comercial. Ela não apaga campos de vínculos já persistidos, não reescreve snapshots de pedidos/notas existentes e não modifica o cálculo fiscal. O seletor manual não existe no caminho mobile nativo, então não houve alteração nesse cliente. Como a regra fiscal para serviços/montagem segue pendente de validação, uma nova linha de serviço sem vínculo válido continuará bloqueada na preparação da NF-e; não foi criada uma regra presumida para permitir emissão ou alterar `vOutro`/`vProd`.
+
+### Validação
+
+- Comando: `npm run test:unit -- src/pages/App/SalesOrder/__tests__/itemsTableTabs.test.tsx src/pages/App/SalesOrder/__tests__/salesOrderItemHandlingOptions.test.tsx src/pages/utils/nfe/__tests__/serviceFiscalComposition.test.ts` (executado em `erp`). Resultado: 9 aprovações em `serviceFiscalComposition.test.ts`, 7 em `salesOrderItemHandlingOptions.test.tsx`; em `itemsTableTabs.test.tsx`, a nova regressão passou e 4 outras expectativas falharam: contador “3 itens”, ordem de itens, expansão de serviço e campo de descrição de produto.
+- `git diff --check` executado sem erros; o Git reportou apenas avisos de conversão de finais de linha em arquivos já modificados.
+- Busca estática confirmou que não há seletor de vínculo de serviço em `mobile/src` e que o texto do controle só permanece na asserção negativa do teste.

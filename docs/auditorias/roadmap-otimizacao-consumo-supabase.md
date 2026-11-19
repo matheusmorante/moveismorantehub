@@ -1,6 +1,513 @@
-## Ciclo — 18/11/2026, 17:53 BRT (20:53Z) — busca de fornecedor para vínculo de nota no app (SCE-333)
+## Ciclo — 18/11/2026, 21:42 BRT (00:42Z) — projeção das linhas fiscais da devolução (SCE-343)
 
-**Reconciliação:** o cursor indicava `mobile/src/services/stock/invoices/inboundInvoiceCatalogLookupService.ts#searchInboundInvoiceSuppliers` e seu consumidor em `useInboundMappingSearches.ts`. A SCE-332 foi aceita pela confirmação global “ACITO TODOS OS PENDENTES” e aplicada no ciclo anterior. As SCE-323/322/270/232 continuam aceitas, mas bloqueadas pelas pré-condições de segurança ou negócio já registradas. Reli AGENTS.md §§24–25, `supabase-consumption`, `rules/supabase/supabase-consumption.yml`, o roteiro e os oito relatórios históricos indicados pelo roteiro. Nenhum deles contém este consumidor mobile pelo nome. A busca histórica encontrou a projeção do seletor ERP (SCE-298), já executada; não a repito nem altero a lista de fornecedores do ERP.
+**Reconciliação e cursor:** a SCE-342 sobre a resposta do cadastro assistido continua pendente; não a reapresento. O cursor anterior indicava `api/products/classify.ts#search_ncms`, mas a busca no próprio roteiro encontrou a SCE-165 sobre essa mesma rota, negada em 11/11/2026. Sem evidência nova, não repito a proposta nem altero a classificação fiscal. Avancei para `api/nfe/return-capacity.ts`, uma leitura independente que não apareceu nas buscas de caminhos exatos feitas nos oito relatórios históricos nem no roteiro antes deste ciclo.
+
+**Leituras e limites:** reli AGENTS.md §§24–25, a skill `supabase-consumption`, `rules/supabase/supabase-consumption.yml`, o cursor e os oito relatórios históricos indicados pelo índice. Revisei somente código e contratos de `api/nfe/return-capacity.ts`, seu encaminhamento em `erp/api/nfe/auxiliary.ts`/`erp/vercel.json`, e o consumidor ERP `erp/src/pages/App/SalesOrder/OrderActions/return-order-modal/useReturnOrderData.ts` e seu estado visível em `ReturnOrderFooter.tsx`. A busca em `mobile/src` não encontrou consumidor desta rota. Não abri notas, XMLs, pedidos ou linhas reais; não consultei métricas, segredos ou o Supabase remoto; não chamei o endpoint e não fiz escrita.
+
+### O que a pessoa percebe
+
+Ao abrir a devolução comercial, o ERP confere as devoluções anteriores e, se houver nota autorizada, consulta a capacidade fiscal antes de habilitar a geração do pedido. Enquanto confere, o botão mostra “Conferindo saldos...”; se a conferência falhar, o botão continua bloqueado e a tela informa o problema. Portanto a quantidade de devolução não deve ficar disponível antes da validação completa.
+
+Não há medida inicial de abertura até a conferência pronta, nem distribuição mediana/p95 desta tela. Para preservar a rapidez, comparar antes/depois na mesma versão e redes identificadas: tempo até o estado “Conferindo saldos...” ficar visível e até a conferência liberar a tela, com mediana e p95. Meta provisória para validar com a equipe: status visível em até 200 ms e conferência pronta no p95 em até 3 s em rede normal; 10 s sem resposta visível é falha importante. Como é uma tela web, acompanhar também conteúdo principal em até 2,5 s e resposta às interações em até 200 ms no percentil 75, separados entre computador e celular. Esses indicadores ainda não foram medidos neste ciclo. A criação do pedido de devolução é uma etapa posterior: qualquer comparação futura deve separar o primeiro retorno visual da confirmação de gravação, e só mostrar conclusão depois da resposta real do servidor.
+
+### Evidência e proposta — SCE-343
+
+`api/nfe/return-capacity.ts` lê o XML autorizado para obter código, descrição e quantidade faturada. Para cada documento fiscal encontrado, consulta `nfe_document_items` com `item_number`, `billed_quantity`, `product_code` e `description`. O tipo `FiscalSnapshotRow` contém apenas `item_number` e `billed_quantity`, e a validação usa somente esses dois campos; o código e a descrição devolvidos ao ERP vêm do XML analisado, não das duas colunas extras do snapshot.
+
+**A — manter quatro campos:** conserva a projeção atual, sem mudança de comportamento.
+
+**B — recomendada, decisão pendente:** pedir apenas `item_number,billed_quantity` nessa leitura. Preservar a consulta por `document_id`, o número de consultas, a comparação de quantidade e de linhas, o erro que impede a devolução quando o snapshot não corresponde ao XML, e os valores de código/descrição extraídos do XML. Não alterar autenticação fiscal, autorização, leitura do XML, alocação de devoluções ou gravação do pedido.
+
+- **Chamadas:** não reduz nenhuma. Para `D` documentos autorizados, permanecem `D` leituras sequenciais de itens fiscais. Na rota, quando existem documentos, também permanecem duas leituras iniciais (`orders` e `nfe_documents`), mais uma leitura de devoluções anteriores, uma de alocações e, se houver devoluções alocadas, uma leitura opcional dos pedidos correspondentes. As consultas de autorização e as leituras feitas antes da rota pelo formulário são etapas separadas, não incluídas nesta contagem. Sem documento autorizado, a rota encerra após as duas leituras iniciais.
+- **Bytes/saída:** B deixa de devolver `product_code` e `description` do snapshot por linha. O ganho depende da quantidade de linhas e do preenchimento desses campos; não há captura de resposta nem medidor oficial atribuído à rota. Não quantifico bytes faturáveis. O XML completo continua necessário e pode representar a maior parte da leitura.
+- **Banco e rapidez:** mantém o mesmo filtro e as mesmas linhas. Menos campos podem reduzir a resposta e o trabalho de montagem/transferência, mas não há plano, CPU, duração ou medida antes/depois que demonstre redução. A proposta só deve ser mantida se a conferência continuar correta e a experiência da tela não piorar dentro dos limites acima.
+- **Permissões e domínio:** a autorização fiscal ocorre antes das leituras; não ampliar nem contornar esse controle. A validação de capacidade continua baseada nas quantidades do XML e do snapshot. Não muda preço, saldo de estoque, modo offline ou recuperação após desconexão; a tela não tem consumidor móvel localizado.
+- **Risco e reversão:** o risco é confundir os valores do XML com os do snapshot e remover uma comparação necessária. Antes de aplicar, confirmar o mesmo bloqueio para snapshot ausente, quantidade de linhas diferente e quantidade faturada divergente. Reverter é restaurar `product_code,description` na projeção. Não exige migração.
+
+**Histórico consultado:** `egress-supabase-morantehub.md`, `2026-09-15-supabase-egress.md`, `2026-11-04-egress-erp-app.md`, `egress-cargas-compactas-2026-11-04.md`, `roadmap-apis-ia-google-maps.md`, `produtos-alertas-resumo-estoque-2026-11-04.md`, `auditoria-ferramentas-seu-lizandro-2026-11-09.md` e `pedidos-filtros-servidor-2026-11-04.md`. A busca do nome exato da rota e do consumidor não encontrou revisão anterior nesses registros. No roteiro, encontrei análise e decisão negada da SCE-165 para `search_ncms`; ela foi mantida como negada e não repetida.
+
+| Recorte/ID | Estado | Evidência e limite |
+| --- | --- | --- |
+| API fiscal + ERP — conferência da capacidade da devolução (SCE-343) | Revisado; **SCE-343 pendente de decisão** | A consulta seleciona duas colunas que não são lidas; B retira apenas essas colunas. Chamadas iguais; bytes oficiais, carga, latência e baseline de experiência não medidos. Autorização e bloqueios fiscais preservados. |
+| SCE-342 — retorno do cadastro assistido de cliente | Continua pendente; sem reapresentação neste ciclo | Proposta e limites permanecem no registro anterior. |
+| Classificação NCM — SCE-165 | Negada em 11/11/2026 | Não reaberta; não surgiu evidência nova. |
+| ERP web — rapidez da conferência da devolução | Baseline ausente | Requer medição antes/depois da primeira indicação visível, conferência pronta e conclusão posterior do salvamento, em redes identificadas; mediana/p95 e métricas web p75 por dispositivo. |
+
+**Decisão solicitada — somente SCE-343:** aceitar B para deixar de trazer código e descrição redundantes do snapshot, mantendo os mesmos cálculos e bloqueios; ou recusar e conservar os quatro campos. O número de chamadas permanece igual. A resposta pode diminuir, mas os bytes faturáveis e qualquer ganho de tempo ainda não foram medidos.
+
+**Próximo recorte exato:** revisar somente `api/nfe/export-documents.ts#handler` e o consumidor ERP que o chama. Primeiro conferir nos oito históricos e no roteiro se esse endpoint já foi auditado; mapear filtros, projeção e tamanho estrutural de exportação sem ler documentos/XMLs reais, acionar a rota, consultar métricas, alterar regra fiscal, executar escrita ou teste. Manter visíveis SCE-342 e SCE-343; não reabrir a SCE-165 negada.
+
+---
+
+## Ciclo — 18/11/2026, 21:29 BRT (00:29Z) — aplicar SCE-341 e cadastro assistido de cliente (SCE-342)
+
+**Reconciliação:** o operador autorizou aplicar o que estava pendente. A SCE-341 era a proposta pendente e foi aceita e aplicada localmente neste ciclo. As SCE-270 e demais itens ainda descritos como bloqueados continuam sujeitos às condições de segurança e negócio de seus próprios registros. Não abri dados reais nem consultei o Supabase remoto.
+
+### SCE-341 — edição assistida de pedido, aceita e aplicada localmente
+
+Em ERP e aplicativo, a edição do assistente deixa de pedir três campos que não usa. `findOrderRowForUpdateByIdOrNumber` usa uma projeção dedicada de 15 campos; a projeção ampla existente e a projeção estreita da criação vinculada (SCE-340) continuam preservadas. A leitura ainda usa os mesmos filtros de pedido ativo e a checagem de artefato identificado; `order_data` continua disponível para essa checagem. A edição ainda confirma o pedido antes de informar sucesso.
+
+- **Arquivos:** `shared-utils/agentOrderHelpers.ts` e `shared-utils/agentOrderAndPeopleOperations.ts`.
+- **Chamadas:** não diminuem. Continua uma leitura para localizar o pedido, uma leitura fiscal condicional quando a edição muda um pedido para cancelado e a mesma gravação pela RPC ou pelo caminho de contingência já existente.
+- **Bytes:** a projeção não devolve `linked_order_id`, `return_order_id` nem o valor da coluna `deleted`. Esses três campos deixam de ser selecionados; o filtro de exclusão continua aplicado. A redução de resposta pode ser pequena, porque `order_data` permanece. Não há captura por chamada nem leitura do medidor oficial de saída; a economia faturável não foi quantificada.
+- **Banco/latência:** predicados, linha candidata, leitura fiscal e gravação permanecem. Não há evidência de redução de CPU ou tempo do banco.
+- **Comportamento:** preço, estoque, permissões, dados locais sem conexão, reconexão e mensagem de conclusão não mudam. ERP e app nativo continuam usando o mesmo serviço compartilhado.
+- **Reversão:** voltar a usar `findOrderRowByIdOrNumber` na edição e remover `ORDER_EDIT_ROW_COLUMNS`/`findOrderRowForUpdateByIdOrNumber`. Nenhuma migração ou publicação foi feita.
+- **Validação feita:** revisão estática dos acessos `currentRow` confirmou que os 15 campos projetados cobrem os campos lidos; `git diff --check` passou. Não rodei testes ou compilação, conforme o escopo deste pedido, e não executei escrita remota.
+
+### SCE-342 — resposta menor ao criar ou atualizar cliente pelo assistente (decisão pendente)
+
+`upsertCustomerForAgent` faz uma gravação e recebe de volta sete campos. O código usa o endereço retornado somente para ler a cidade; os demais dados de `full_address` não são usados nessa resposta. ERP e app chamam o mesmo serviço, e cada adaptador só mostra sucesso depois que a gravação retorna.
+
+**Opções:** A) manter o retorno atual, que inclui o objeto completo `full_address`; B) recomendada: pedir a cidade diretamente como texto (`cidade:full_address->>city`) junto aos seis outros campos necessários e mapear esse valor para o mesmo campo `cidade` retornado hoje. Manter a gravação do endereço completo, os fallbacks de entrada, `.single()`, tratamento de erros e acesso autenticado.
+
+- **Chamadas:** nenhuma redução estimada; cada ramo, atualização ou criação, continua com uma gravação que retorna uma linha.
+- **Bytes:** B evita retornar outras partes do objeto do endereço. O tamanho real depende dos endereços preenchidos; não há amostra capturada ou medidor faturável atribuível a este fluxo. Economia não quantificável. Medir, se houver publicação autorizada, pelo tráfego agregado do mesmo período e versão, acompanhado da contagem agregada dessas operações; um tamanho de JSON local seria apenas aproximação, não cobrança oficial.
+- **Banco:** pode haver extração do texto da cidade para montar a resposta. Não há plano ou medição de CPU/latência que prove efeito; não atribuo economia de banco.
+- **Usuário e segurança:** o retorno continua expondo `cidade`, e o endereço completo continua salvo. Não muda a mensagem de sucesso, os dados de preço/estoque, o modo offline ou as permissões/RLS. O risco é uma diferença no alias ou no tratamento de cidade nula; validar o mesmo contrato de retorno para atualização e criação, com e sem cidade fornecida, sem registros reais.
+- **Reversão:** restaurar `full_address` no `.select()` e a leitura `data.full_address?.city`; não exige migração.
+- **Referência de sintaxe consultada:** documentação oficial de seleção de colunas e caminhos JSON no cliente Supabase: https://supabase.com/docs/reference/javascript/select.
+
+**Histórico reconciliado:** busquei `findOrderRowByIdOrNumber`, `ORDER_ROW_COLUMNS`, `updateOrderOperationForAgent` e `editarPedidoOperacao` nos oito registros indicados pelo roteiro: `egress-supabase-morantehub.md`, `2026-09-15-supabase-egress.md`, `2026-11-04-egress-erp-app.md`, `egress-cargas-compactas-2026-11-04.md`, `roadmap-apis-ia-google-maps.md`, `produtos-alertas-resumo-estoque-2026-11-04.md`, `auditoria-ferramentas-seu-lizandro-2026-11-09.md` e `pedidos-filtros-servidor-2026-11-04.md`. Só o inventário do assistente lista a ferramenta de edição, sem revisão desta projeção. A verificação de `upsertCustomerForAgent` nos históricos não encontrou medição específica; o inventário lista a ferramenta, sem comparar campos. A SCE-342 não constava neste roteiro antes deste ciclo.
+
+| Recorte/ID | Estado | Evidência e limite |
+| --- | --- | --- |
+| ERP + app — projeção de edição assistida de pedido (SCE-341) | **Aceita e aplicada localmente** em 18/11/2026, 21:29 BRT | 18 para 15 colunas solicitadas; filtros e gravação preservados. Chamadas inalteradas. Sem medida de bytes oficiais, CPU, latência ou publicação. |
+| ERP + app — retorno do cadastro assistido de cliente (SCE-342) | **Pendente de decisão** | O objeto do endereço é retornado, mas apenas sua cidade é lida para a resposta. Opção B preserva gravação e contrato público; redução de bytes não medida, chamadas inalteradas e efeito no banco desconhecido. |
+| Matriz — SQL/RPC, Realtime, Storage, preços/estoque e modo offline | Sem nova mudança neste recorte | Contratos e dados não foram alterados; nenhuma economia foi medida. |
+
+**Decisão solicitada — somente SCE-342:** aceitar B para devolver apenas a cidade do endereço, mantendo o endereço completo salvo e a mesma mensagem ao usuário; ou recusar e conservar o retorno atual. A mudança pode reduzir a resposta quando o endereço contém outros campos, mas não reduz o número de gravações e não tem economia de bytes faturáveis medida.
+
+**Próximo recorte exato:** revisar somente `api/products/classify.ts#search_ncms` e suas chamadas imediatas. Primeiro confirmar nos oito históricos e neste roteiro se esse endpoint já foi analisado; limitar-se a consultas, projeções, filtros e chamadas por invocação no código. Não chamar endpoint, ler catálogo remoto, consultar métricas operacionais, nem alterar produto, classificação, RPC ou regra fiscal. Manter SCE-342 visível sem reabrir a edição de pedido já executada.
+
+---
+
+## Ciclo — 18/11/2026, 21:09 BRT (00:09Z) — leitura usada pela edição assistida de pedido (SCE-341)
+
+**Reconciliação e histórico:** SCE-340 foi aceita e aplicada localmente; não a reabri. Reli AGENTS.md §§24–25, a skill `supabase-consumption`, `rules/supabase/supabase-consumption.yml`, este roteiro e os oito relatórios históricos indicados por ele. A busca direcionada por `updateOrderOperationForAgent` e `ORDER_ROW_COLUMNS` não encontrou uma revisão anterior da projeção desta edição. O relatório das ferramentas do assistente lista `editarPedidoOperacao`, mas não compara os campos usados à projeção. Li código e contratos apenas; não consultei pedidos, clientes, dados operacionais ou o Supabase remoto.
+
+### O que a pessoa percebe
+
+O assistente só informa que a edição terminou depois que a rotina recebe a confirmação da gravação. ERP e aplicativo nativo chamam a mesma rotina compartilhada. A edição lê a linha existente, monta o conteúdo novo e grava pela mesma operação transacional; em cancelamento, pode haver uma leitura adicional para conferir nota fiscal. O tempo desta ação não foi medido neste ciclo.
+
+### Evidência e opções — SCE-341
+
+`findOrderRowByIdOrNumber` solicita 18 colunas. A inspeção de todos os acessos a `currentRow` dentro de `updateOrderOperationForAgent` encontrou 15 usadas: `id`, `order_data`, `order_type`, `status`, `customer_name`, `total_amount`, `scheduled_date`, `scheduled_start_time`, `scheduled_end_time`, `delivery_method`, `order_number`, `order_index`, `customer_id`, `seller_name` e `items`. `linked_order_id` e `return_order_id` não são lidas. `deleted` continua necessário no filtro que exclui pedidos apagados, mas o valor retornado não é usado. `order_data` permanece para conservar os dados e excluir artefatos identificados como teste.
+
+- **A — manter a projeção atual:** seguir pedindo as 18 colunas.
+- **B — recomendada, decisão pendente:** usar uma projeção de 15 colunas somente na edição. Manter o leitor de criação já aplicado pela SCE-340, o filtro de `deleted`, as verificações de artefato, a leitura condicional de nota fiscal e a confirmação da gravação.
+
+### Chamadas, bytes e trabalho do banco
+
+- **Chamadas:** B não remove chamadas. Permanece uma leitura de pedido para um identificador válido; a leitura de nota fiscal ocorre só ao mudar para cancelado quando o estado anterior ainda não era cancelado; a gravação segue pela RPC existente, ou pelo mesmo `update` de contingência se o cliente não tiver RPC.
+- **Bytes:** B deixaria de selecionar três colunas: dois vínculos e a marca de exclusão. Isso conta campos, não estima uma porcentagem de bytes. Os vínculos podem estar vazios, e `order_data` pode ser a maior parte da resposta. Não há captura de tamanho por requisição nem leitura do medidor oficial de saída faturada. Economia em bytes não quantificável; confiança alta sobre os campos usados e baixa sobre o benefício material.
+- **Banco:** filtros, linha candidata e gravação ficam iguais. Não há evidência de redução de carga, CPU ou latência; não proponho mudança de índice, RPC ou permissão.
+
+### Rapidez, exatidão e limites de manutenção
+
+O buffer existente guarda até 200 amostras locais com plataforma, ação, resultado, primeiro sinal visível e resultado final. Ele mede o intervalo da ação do assistente, não a consulta isolada; não é um histórico persistente, não identifica classe de rede e não fornece uma linha de base comparável consultada para esta edição. No caminho de voz do app, a ferramenta é despachada diretamente por `MobileToolDispatcher`; não confirmei que esse caminho inicia o mesmo relógio. Antes/depois deve medir ERP e app separadamente, na mesma versão e rede: primeira indicação visível e confirmação persistida, mediana e p95. No ERP web, verificar também conteúdo principal até 2,5 s e resposta visual a interações até 200 ms no p75, separados entre computador e celular; esses indicadores não substituem o tempo de gravação. No app nativo, usar medidas da plataforma. Meta provisória para a operação: p95 da confirmação em até 3 s em rede normal, a validar com a equipe; 10 s sem qualquer resposta visível é falha importante. A interface só deve mostrar concluído após a RPC ou o `update` de contingência retornar sem erro e deve manter estado de processamento se demorar. Não alterar tentativas ou proteção contra duplicidade; o recibo atual de chamada de voz fica intacto.
+
+Não muda preço, estoque, cliente, cache offline ou atualização ao reconectar. Em caso de aceite, validar que os mesmos dados/fallbacks da linha continuam disponíveis e que a experiência não piora; não criar venda, pedido, fixture ou escrita remota para medir. Se os dados autorizados não permitirem comparar antes e depois, deixar essa limitação explícita e medir somente após autorização de publicação e com tráfego natural agregado.
+
+### Matriz de cobertura deste ciclo
+
+| Área | Cobertura | Estado |
+| --- | --- | --- |
+| ERP — edição assistida | Conferidos os 15 acessos à linha, leitura condicional de nota e confirmação após RPC | Revisado; proposta SCE-341 pendente; sem mudança de código |
+| App nativo — edição assistida | Confirmado o mesmo serviço compartilhado e o adaptador móvel | Revisado; baseline de rede/tempos não disponível |
+| Chamadas, bytes e banco | Contagem estrutural e campos comparados separadamente | Chamadas mapeadas; bytes oficiais e carga/latência não medidos |
+| SQL/RPC, Realtime, Storage, preço e estoque | Fora da alteração candidata | Sem novo achado neste recorte |
+| SCE-340 | Projeção estreita da criação vinculada aplicada localmente | Resolvida; não repetir |
+
+**Decisão solicitada para SCE-341:** aceitar B para deixar de trazer três campos que esta edição não usa, mantendo todos os filtros e confirmações; ou recusar e conservar as 18 colunas. O número de chamadas não cai. A resposta pode ficar um pouco menor, mas `order_data` permanece e não há bytes nem rapidez medidos.
+
+**Próximo recorte exato:** revisar somente `shared-utils/agentPeopleOperations.ts#upsertCustomerForAgent` e os adaptadores `criarOuEditarCliente` em `erp/src/services/aiAgent/orderAndPeopleAgentTools.ts` e `mobile/src/services/aiAgent/mobileAgentTools.ts`. Mapear consultas, escritas, campos e resposta ao usuário pelo código e contratos; não consultar nem alterar dados de clientes, não executar escrita ou fixture e não reabrir as buscas de clientes/colaboradores já inventariadas. Consultar os oito relatórios históricos para esse método. Separar chamadas, bytes, trabalho/latência e, se houver nova proposta, primeira indicação visível e conclusão persistida por plataforma e rede identificada; manter os limites web e nativo descritos acima.
+
+---
+
+## Ciclo — 18/11/2026, 20:53 BRT (23:53Z) — aplicar aceite da SCE-340
+
+**Decisão e reconciliação:** o operador aceitou os itens pendentes. Neste ciclo havia uma proposta nova aguardando decisão, a SCE-340; as propostas antigas ainda bloqueadas continuam sujeitas às condições de segurança e negócio já registradas. A SCE-340 foi aplicada localmente, sem consultar dados, segredos ou o Supabase remoto.
+
+**Mudança:** a criação assistida com pedido vinculado agora usa `findLinkedOrderReferenceByIdOrNumber`, que compartilha a normalização, os filtros e a checagem de artefatos de teste da busca original, mas pede apenas `id, order_data`. O campo `order_data` foi mantido porque o classificador de registros de teste precisa examiná-lo. A edição continua chamando `findOrderRowByIdOrNumber` e recebendo a projeção completa. A identificação do pedido usado no vínculo e a RPC de gravação não mudaram.
+
+**Consumo e experiência:** chamadas permanecem em uma leitura quando há identificador válido e em zero sem identificador válido; nenhuma chamada foi removida. A solicitação deixa de pedir 16 das 18 colunas, mas `order_data` pode ser grande, então a redução de bytes é provável apenas quando os campos omitidos têm conteúdo e não foi medida. Filtros, linha retornada, permissão, preço, estoque e confirmação da gravação permanecem iguais. Não há evidência de redução de trabalho ou tempo do banco. A latência por rede, a primeira indicação visível e a confirmação persistida seguem sem linha de base isolada; as metas provisórias da proposta continuam pendentes de validação pela equipe.
+
+**Arquivos e validação:** `shared-utils/agentOrderHelpers.ts` e `shared-utils/agentOrderAndPeopleOperations.ts`. A inspeção estática confirmou que a classificação ainda recebe `order_data`, que a criação usa somente o identificador e que a edição mantém a projeção ampla. `git diff --check` passou em 18/11/2026, 20:53 BRT. Não executei testes ou build, não acessei o Supabase remoto e não alterei banco, política, migration ou publicação. A reversão é retornar a chamada da criação ao leitor completo e remover o leitor estreito.
+
+| Área/ID | Estado | Evidência e limite |
+| --- | --- | --- |
+| Criação assistida de pedido vinculado (SCE-340) | **Aceita e aplicada localmente** em 18/11/2026, 20:53 BRT | `id, order_data` no ramo de criação; edição continua com 18 colunas. Chamadas iguais. Bytes oficiais, carga do banco e latência sem medição; nenhuma publicação. |
+| SCE-337, SCE-334/335 e SCE-338 | Executadas localmente conforme registros anteriores | Mantidas sem reabertura neste ciclo. |
+| SCE-270 e demais itens bloqueados | Bloqueados pelas condições já registradas | O aceite dos pendentes não removeu as pré-condições de segurança ou negócio. |
+
+**Próximo recorte exato:** revisar apenas `updateOrderOperationForAgent` em `shared-utils/agentOrderAndPeopleOperations.ts`, mapear todos os campos lidos de `currentRow` e compará-los a `ORDER_ROW_COLUMNS`. A proposta SCE-340 já foi aplicada; não reabrir seu ramo de criação. Não estreitar o leitor da edição sem uma proposta separada e evidência de que todos os campos usados e fallbacks continuam corretos. Não consultar pedidos reais nem o Supabase remoto. Separar chamadas, bytes/saída oficial e trabalho/latência do banco; registrar qualquer lacuna de rapidez com primeira indicação visível e confirmação persistida, mediana/p95 e rede identificada.
+
+---
+
+## Ciclo — 18/11/2026, 20:33 BRT (23:33Z) — incluir produtos compostos na busca de itens da venda (SCE-339)
+
+**Solicitação e escopo:** retirar a opção separada “Produto composto” e localizar kits na mesma busca de produto. Ao escolher um kit, incluir todas as linhas de seus componentes. Alteração local no ERP; a tela de criação de vendas equivalente não existe no app. Não alterei schema, dados remotos, publicação ou outro fluxo.
+
+**Implementação:** o menu de itens agora oferece Produto e Serviço. A busca comum continua usando a projeção compacta de venda e o filtro no servidor permite produtos e composições, sem serviços. Em paralelo, a mesma busca consulta o RPC existente `search_catalog_with_campaign_prices` para localizar composições da tabela de kits (limite do RPC: 15 resultados). As sugestões compostas recebem fundo azul e rótulo “Composto”; a lista mantém o máximo de cinco sugestões. Se o RPC de composições falhar, os produtos comuns ainda aparecem e a interface informa que os kits não puderam ser carregados. A seleção reutiliza `fetchSelectableDeep` e `useOrderProductSelection` para hidratar o kit e expandir todos os componentes. A busca continua com mínimo de três caracteres, debounce, validação Zod, descarte de respostas obsoletas e limite de tempo.
+
+**Chamadas, bytes e banco:** a leitura compacta de produtos e a leitura em lote de campanhas permanecem; não se consulta a elegibilidade de lixeira. Para cada busca de produto válida no formulário de venda, acrescenta-se uma chamada RPC somente de leitura, limitada a 15 resultados; a seleção continua buscando os dados profundos do kit pelo caminho já existente. Não capturei contagem real, bytes, duração, carga de banco ou egress faturável. A lista final de sugestões continua limitada a cinco. Como o RPC limita antes de a interface filtrar as composições, consultas com mais de 15 correspondências gerais ainda podem não trazer todos os kits; o escopo não alterou o ranking nem o limite do RPC.
+
+**Arquivos e validação:** `ItemsTableHeader.tsx`, `ItemsTable/index.tsx`, `ItemsTable/Body.tsx`, `ItemsTable/BodyRow.tsx`, `ItemsTable/BodyRowDesktop.tsx`, `ItemsTable/BodyRowMobile.tsx`, remoção de `ItemsTable/CompositionAutocomplete.tsx`, `ProductAutocomplete.tsx`, `useProductAutocomplete.ts`, `productAutocompleteUtils.tsx`, `productFilterBuilder.ts` e `productQueryService.ts`. `git diff --check` passou. Não rodei testes/build nem consulta remota; não houve escrita ou migration no Supabase.
+
+| Recorte/ID | Estado | Evidência e limite |
+| --- | --- | --- |
+| ERP — produtos compostos na busca de itens (SCE-339) | **Executada localmente** em 18/11/2026, 20:33 BRT | Menu separado removido; busca de produtos e RPC de composições combinados; kits expandidos pela seleção existente. Uma chamada RPC adicional por busca válida; limite de 15 no RPC e cinco sugestões na interface. Sem teste, medição de rede/banco ou publicação. |
+
+---
+
+## Ciclo — 18/11/2026, 20:40 BRT (23:40Z) — pedido vinculado na criação assistida (SCE-340)
+
+**Reconciliação e cursor:** a SCE-338 foi aceita e aplicada localmente no ciclo anterior; sua comparação de desempenho real ainda não foi feita. A SCE-337 e as SCE-334/335 também permanecem aplicadas conforme seus registros. A SCE-329 já está marcada como aplicada no ciclo de 12:59 BRT. A busca mobile de vínculo de nota já passa `includeTotal: false` e `includeTrashEligibility: false`, por isso a SCE-332 não foi repetida. Mantive os bloqueios que o roteiro atribui a SCE-270 e a outras propostas sem pré-requisito. A SCE-339 já identifica outro ciclo sobre produtos compostos; usei o próximo ID livre, SCE-340, para esta sugestão.
+
+**Leituras obrigatórias e histórico:** reli AGENTS.md §§24–25, `supabase-consumption`, `rules/supabase/supabase-consumption.yml`, este roteiro e os oito relatórios históricos que ele aponta. A busca direcionada por `findOrderRowByIdOrNumber`, `ORDER_ROW_COLUMNS` e `linkedParam` não encontrou auditoria anterior nesses relatórios. O inventário do assistente registra os chamadores, mas não analisa a projeção desta consulta. Inspecionei apenas o código e os nomes de campos; não consultei pedidos, clientes, cadastros, segredos ou o Supabase.
+
+### O que a pessoa percebe
+
+Quando o assistente cria uma operação ligada a um pedido existente, ele procura esse pedido antes de salvar e usa seu identificador na nova operação. A tela continua aguardando o resultado real da gravação. Hoje essa procura traz vários detalhes do pedido, embora a criação use apenas o identificador e uma conferência interna que identifica registros de teste. Não há medição que mostre quanto essa resposta pesa ou quanto demora.
+
+### Evidência no código e limites do recorte
+
+- `shared-utils/agentOrderAndPeopleOperations.ts#createOrderOperationForAgent` só chama a busca quando há `linkedParam`; depois, consome `linked?.id`. A gravação segue pela RPC transacional existente, com confirmação de sucesso depois da resposta dela.
+- `shared-utils/agentOrderHelpers.ts#findOrderRowByIdOrNumber` usa `ORDER_ROW_COLUMNS`, hoje com 18 campos. O verificador `shared-utils/testArtifactPolicy.ts#isIdentifiedTestArtifact` precisa do campo `order_data` completo para reconhecer marcadores históricos. A opção menor segura ainda precisa de `id, order_data`; selecionar apenas `id` poderia deixar passar a classificação de registros de teste.
+- O mesmo leitor é usado por `updateOrderOperationForAgent`, que acessa vários campos da linha. Não é seguro estreitar a projeção compartilhada para ambos os usos.
+- Para identificador que passa pela normalização, a busca faz uma leitura; sem vínculo ou com identificador inválido, não faz essa leitura. Os filtros por `id` ou número/índice, o tratamento de erro e a condição de registro não excluído foram conferidos.
+
+### SCE-340 — reduzir os detalhes lidos somente na criação vinculada
+
+**A — manter a projeção ampla:** conserva o leitor compartilhado atual, que também atende a edição. A criação continua recebendo campos que não usa.
+
+**B — recomendada, aguardando decisão:** criar um caminho estreito apenas para a criação com vínculo, selecionando `id, order_data`. Manter normalização, buscas por identificador e por número/índice, filtros de exclusão, cliente autenticado e a mesma classificação de artefato de teste. A edição mantém o leitor completo. A recomendação é limitada a estes campos: a classificação atual não permite remover `order_data` com segurança.
+
+### Chamadas, bytes, banco e rapidez — separados
+
+- **Chamadas:** A e B fazem a mesma leitura única quando o identificador é válido; ausência ou valor inválido continuam sem leitura. Não há redução de quantidade de requisições.
+- **Bytes/egress:** a projeção atual pede 18 colunas; B pediria duas e deixaria de retornar até 16 colunas de topo, entre elas `items` e dados de apresentação. `order_data` permanece, e pode carregar bastante conteúdo. Não medi respostas nem o medidor oficial de saída faturada. A direção provável é reduzir bytes por resposta quando os campos omitidos têm conteúdo; não há base para quantificar o valor ou a cobrança.
+- **Banco:** filtros, busca de linha e verificação local de artefato permanecem. Menos campos de saída podem reduzir serialização, mas a consulta, o número de linhas e os predicados são os mesmos. Não há plano, CPU ou latência medidos; não declaro economia de carga.
+- **Rapidez percebida:** a amostra em memória descrita na SCE-328 registra no máximo 200 eventos gerais de criação/edição, mas não marca se o pedido tinha vínculo, nem separa duração dessa leitura, classe de rede ou distribuição. Portanto, a medida inicial desta ação específica está indisponível. Se aceita, comparar ERP e app nas mesmas versões e redes: primeiro estado visível e gravação realmente confirmada, mediana e p95, separando operações com e sem vínculo. No ERP web, acompanhar conteúdo principal no p75 até 2,5 s e resposta visual às interações no p75 até 200 ms, em computador e celular; esses limites não medem o tempo de gravação. No app nativo, usar o primeiro indicador e o resultado final da plataforma, sem aplicar métricas web. Meta provisória para a operação, a validar com a equipe: p95 de confirmação até 3 s em rede normal e nunca mais de 10 s sem resposta visível. Só apresentar concluído depois da confirmação da RPC.
+
+### Permissões, preço/estoque, modo sem conexão e reversão
+
+O fluxo usa o mesmo cliente Supabase, a mesma tabela, os mesmos filtros e as regras de acesso. Esta leitura não usa preço ou estoque; a RPC de criação e seus ajustes de estoque não mudam. Não há cache offline hoje e B não acrescentaria um: falhas da procura continuam pelo mesmo tratamento atual. Reversão: voltar o ramo de criação para `findOrderRowByIdOrNumber` e `ORDER_ROW_COLUMNS`; sem migração. Se aceita, validar busca por UUID, número e índice, exclusão, marcador de teste no `order_data`, falha e ausência de vínculo, além de provar que a edição ainda recebe a linha completa. Comparar resposta e tempo antes/depois com operação de teste controlada, sem usar linhas pessoais ou medir amostra JSON como cobrança.
+
+| Área/ID | Estado | Evidência e limite |
+| --- | --- | --- |
+| Criação de pedido assistida com vínculo (SCE-340) | **Aceita e executada localmente** em 18/11/2026, 20:53 BRT | A criação usa a projeção `id, order_data` e o classificador de artefato continua aplicado; a edição mantém 18 campos. Chamadas não mudam. Bytes oficiais, carga do banco e latência seguem sem medição; sem publicação. |
+| Edição assistida (leitor compartilhado) | Não alterada; próxima conferência | A edição consome outros campos da linha e não pode herdar automaticamente a projeção estreita da criação. |
+| Criação/edição ERP e app — SCE-338 | Executada localmente | O lote de produtos não foi reaberto; comparação de rapidez real permanece necessária antes de publicação. |
+| SCE-270 e demais bloqueios | Bloqueadas conforme pré-requisitos anteriores | Não foram contornadas nem modificadas neste recorte. |
+
+**Decisão registrada:** o operador aceitou B nesta conversa e a aplicação local está descrita no ciclo de 20:53 BRT no início deste documento. O número de chamadas não cai. A economia em bytes não pode ser quantificada sem resposta equivalente e medidor oficial, e não há ganho de rapidez medido. A mudança só deve ser mantida se o vínculo, as permissões e o tempo até a confirmação real permanecerem corretos.
+
+**Próximo recorte exato:** revisar somente `updateOrderOperationForAgent` em `shared-utils/agentOrderAndPeopleOperations.ts`, mapeando quais campos da linha atual são lidos pelo ramo de edição e comparando-os com `ORDER_ROW_COLUMNS`. Confirmar se a projeção ampla continua necessária; não estreitar o leitor nem reapresentar a SCE-340, já aplicada. Não reabrir a SCE-338, a RPC de criação/estoque, preços, Realtime ou Storage. Separar chamadas, campos/bytes e banco/latência; não abrir pedidos reais. Para experiência, registrar como limite a necessidade de primeira indicação visível e confirmação persistida, com mediana/p95 e rede identificada; a linha de base atual não isola edição com vínculo.
+
+---
+
+## Ciclo — 18/11/2026, 20:34 BRT (23:34Z) — aplicar a busca em lote de itens do pedido assistido (SCE-338)
+
+**Reconciliação da decisão:** o operador autorizou aplicar os itens pendentes. Neste ponto, a única sugestão aguardando decisão era a SCE-338; as SCEs anteriores aceitas já estavam aplicadas ou bloqueadas pelos pré-requisitos anotados em seus ciclos. A SCE-338 foi aceita e aplicada localmente. A SCE-337 permanece aplicada. Não publiquei ERP ou aplicativo e não alterei banco.
+
+### O que mudou para a pessoa
+
+Ao criar ou trocar vários itens de um pedido pelo assistente, o catálogo agora pode ser consultado em grupos, em vez de esperar uma resposta separada para cada código. O pedido mantém a ordem e as linhas repetidas que a pessoa informou. Se um código não puder ser confirmado com segurança, continua sem vínculo e preserva o nome e o preço informados. A confirmação de gravação continua sendo a etapa que permite mostrar sucesso.
+
+### Implementação e caminhos atingidos
+
+- `shared-utils/agentOrderHelpers.ts#resolveOrderItems`: para três ou mais itens com código/SKU, reúne valores repetidos e envia os identificadores simples em grupos de até 25. A consulta usa `products`, a mesma projeção curta da SCE-327 e o mesmo filtro `deleted = false`. Os resultados são associados por igualdade exata de `code` ou `sku`, e cada linha de entrada é remontada na ordem original.
+- Os identificadores que não podem ser representados com segurança no filtro em lote continuam usando a consulta individual antiga. Se o lote falha, a resposta atinge o limite explícito de 100 linhas, ou um produto tem mais de uma variação sem ordenação definida, o código volta à leitura individual. Isso mantém o tratamento de falhas, o resultado sem vínculo quando há ambiguidade e a primeira variação observada pelo caminho antigo. Uma falha individual continua sendo ignorada como antes.
+- `erp/src/services/aiAgent/agentOrderHelpers.test.ts`: oito testes locais com cliente falso para lista curta, lote e limite de 25 identificadores, linhas repetidas, código ambíguo, identificadores que não podem entrar no lote, falha ou página cheia e preservação da primeira variação. Não usa conexão, cadastro ou dados reais do Supabase.
+- Os consumidores continuam sendo a criação e edição de pedido assistidas do ERP e do aplicativo, por `shared-utils/agentOrderAndPeopleOperations.ts`. Não houve mudança nos campos de preço/custo escolhidos, na precedência do preço informado, no cálculo de cada linha, na RPC transacional de estoque, nem na mensagem de conclusão.
+
+### Chamadas, bytes e banco — medidos separadamente
+
+- **Chamadas:** com menos de três itens identificados, continua uma leitura por item. No caminho de lote bem-sucedido, se `U` for a quantidade de identificadores simples distintos, o lote faz `ceil(U/25)` leituras, mais uma leitura individual por identificador simples cujo produto tenha mais de uma variação; valores com caracteres fora do filtro seguro continuam com uma leitura por item. Se um lote falhar ou chegar às 100 linhas, há uma tentativa de lote e depois a leitura individual dos identificadores daquele grupo. Assim, a redução depende de repetição, quantidade e variações; em listas com muitas variações pode não haver redução e pode haver chamadas extras. Não há contagem de uso real.
+- **Bytes/saída:** os mesmos campos de cada produto continuam solicitados. Valores repetidos deixam de trazer a mesma linha várias vezes em respostas separadas, mas o lote também agrupa produtos distintos. Não há captura equivalente de resposta nem medidor oficial de saída faturável; economia em bytes não foi medida.
+- **Banco/latência:** filtros de exclusão, campos, relação de variações e acesso autenticado/RLS permanecem. Um filtro por grupo pode ter trabalho diferente do filtro individual, e as leituras de segurança podem anular parte da redução de viagens. Não há medida de CPU, duração, mediana ou p95 desta função. Não declaro redução medida de carga ou tempo.
+
+### Preços, estoque, permissão, modo sem conexão e reversão
+
+O valor informado no item continua prevalecendo quando preenchido; sem ele, o código usa o preço atual retornado pelo catálogo, incluindo o campo legado, e mantém o custo usado para a operação. Não há cache novo de preço. O saldo de estoque continua sendo ajustado pela gravação transacional existente. A consulta usa o mesmo cliente autenticado e o mesmo filtro de produto não excluído; não amplia RLS nem permissões. Não foi criado modo offline: quando a leitura não funciona, o item conserva os dados de entrada, como antes, e a confirmação do pedido continua dependente da operação existente no servidor.
+
+Para reverter, remover o pré-carregamento em grupos e restaurar a consulta individual dentro do laço. Não há migração, alteração operacional ou publicação. `git diff --check` passou. O teste Vitest isolado passou em 8 casos. O teste passou na checagem do Biome; no helper, a checagem de erros do Biome foi feita sem reformatar o arquivo compartilhado existente, que usa um estilo diferente. A verificação estrita de tipos do teste e dos módulos que ele importa passou. A verificação ampla do TypeScript do ERP não passou por erros em outros módulos do repositório, fora dos arquivos desta mudança; por isso, não serve como validação global. A primeira tentativa com `npx` não encontrou o arquivo porque ele estava fora da lista de inclusão; depois o teste foi movido para a área incluída e executado com o Vitest local do ERP. Não fiz consulta remota.
+
+**Estado da SCE-338:** aceita e executada localmente; comparação antes/depois em ERP e aplicativo, rede real, saída oficial e tempo de banco continuam pendentes antes de atribuir economia ou publicar. Critério de manutenção: comparar pedidos curtos, códigos distintos, códigos repetidos, ambiguidade, variações e falha/página cheia de lote; manter só se a ordem, os campos e a experiência forem equivalentes e a rapidez não piorar. Não afirmar p95 nem economia medidos a partir destes testes simulados.
+
+| Recorte/ID | Estado | Evidência e limite |
+| --- | --- | --- |
+| ERP — produtos compostos na busca de itens (SCE-339) | **Executada localmente** em 18/11/2026, 20:33 BRT | Menu separado removido; busca de produtos e RPC de composições combinados; kits expandidos pela seleção existente. Uma chamada RPC adicional por busca válida; limite de 15 no RPC e cinco sugestões na interface. Sem teste, medição de rede/banco ou publicação. |
+| ERP + app — leituras de produto ao montar os itens do pedido assistido (SCE-338) | **Aceita e executada localmente** em 18/11/2026, 20:34 BRT | Lote limitado a 25 identificadores; consultas individuais preservadas para valores não seguros, erros, respostas cheias e casos com múltiplas variações. Oito testes locais passaram. Volume, bytes oficiais, carga e rapidez em uso real são desconhecidos; não houve publicação. |
+| ERP + app — projeção das variações no mesmo resolver (SCE-327) | Aplicada localmente | Não reaberta; a projeção permanece igual. |
+| ERP/app — experiência de criação/edição (SCE-328) | Instrumentação local em memória | Amostra limitada; não fornece distribuição de rede ou p95 de produção. |
+| SCE-269/270/322/323 | Bloqueadas pelos pré-requisitos já registrados | A autorização desta mudança não remove as condições documentadas. |
+
+**Próximo recorte exato:** conferir somente `shared-utils/agentOrderHelpers.ts#findOrderRowByIdOrNumber` quando chamado pela criação via `createOrderOperationForAgent` com `linkedParam`. Verificar se esse ramo usa apenas `id`, mas ainda precisa projetar `order_data` para `isIdentifiedTestArtifact`; conservar a normalização, os dois formatos de busca, o filtro `deleted` e o comportamento de artefatos de teste. Não mudar o leitor compartilhado usado na edição, que precisa dos demais campos, nem reabrir a busca em lote SCE-338, a RPC de gravação, preço/custo, estoque, Realtime ou Storage. Procurar primeiro os oito relatórios históricos por esta função; separar chamadas, campos/bytes e trabalho/latência. Não abrir linhas reais nem chamar Supabase.
+
+---
+
+## Ciclo — 18/11/2026, 20:02 BRT (23:02Z) — leitura de produtos por item no pedido assistido (SCE-338)
+
+**Reconciliação e cursor:** SCE-337 foi aceita e aplicada localmente no ciclo anterior. SCE-326/327/328 já estão aplicadas; SCE-269/270/322/323 continuam bloqueadas pelas condições registradas em seus ciclos. Retomei exatamente o recorte deste roteiro: o número de leituras em `resolveOrderItems`. Não reabri a projeção de variações da SCE-327 nem o vínculo manual da SCE-337.
+
+**Leituras obrigatórias e histórico:** reli AGENTS.md §§24–25, a skill `supabase-consumption`, `rules/supabase/supabase-consumption.yml`, este roteiro e os oito relatórios históricos citados por ele. A busca direcionada não encontrou auditoria anterior de `resolveOrderItems` nos relatórios. `auditoria-ferramentas-seu-lizandro-2026-11-09.md` inventaria o utilitário e os chamadores, mas não mede estas leituras. O roteiro já cobria os campos da variação pela SCE-327; essa mudança está executada e não é repetida aqui. Não iniciei venda, edição ou chamada ao Supabase, e não abri dados de clientes, pedidos ou produtos.
+
+### O que a pessoa percebe
+
+Ao criar ou substituir os itens de um pedido pelo assistente, cada item que contém código ou SKU é conferido no catálogo antes de salvar. Hoje essas conferências são feitas uma após a outra. Se o pedido tem vários itens identificados, a pessoa pode esperar o fim de todas elas antes da confirmação final. O ERP e o aplicativo usam o mesmo caminho. Não há medição que confirme a duração ou quantas operações contêm vários itens.
+
+### Caminho e comportamento que precisam permanecer
+
+- `shared-utils/agentOrderHelpers.ts#resolveOrderItems` percorre a lista em ordem. Para cada item com código/SKU não vazio, faz uma consulta em `products`, filtra `deleted = false` e compara o valor exatamente com `code` ou `sku`. Itens sem código não fazem essa leitura.
+- A projeção atual já está reduzida pela SCE-327: `id, code, sku, name, unit_price, price, cost_price, product_variations(id,sku)`. Quando o resultado é único, usa a primeira variação retornada. Se a consulta der erro ou não for única, o erro é ignorado e o item segue com os dados fornecidos pelo assistente.
+- `createOrderOperationForAgent` e `updateOrderOperationForAgent` em `shared-utils/agentOrderAndPeopleOperations.ts` usam o resolver. Chamadores ativos: `erp/src/services/aiAgent/orderAndPeopleAgentTools.ts` e `mobile/src/services/aiAgent/mobileAgentTools.ts`. Ao editar, a busca ocorre quando `input.itens` foi informado; sem uma nova lista, os itens anteriores são mantidos.
+- O preço informado no item prevalece quando é diferente de zero; sem ele, o código usa `unit_price` e o legado `price`. O custo atual (`cost_price`) é incluído em `unitCost/totalCost`. A correspondência e esses campos devem continuar por item e em sua ordem. RLS, as regras de acesso atuais e a RPC transacional de gravação/ajuste de estoque não fazem parte desta possível mudança.
+
+### Chamadas, bytes e banco — separados
+
+- **Chamadas:** com `M` itens com código/SKU, o código faz exatamente `M` consultas REST sequenciais. Para zero itens identificados, faz zero consultas neste trecho. O número real de itens, repetições de códigos e operações não foi medido. Deduções por operação: manter a forma atual custa `M` leituras; uma alternativa em lote, com busca segura e limitada, pode usar 1–2 leituras por grupo de valores únicos. Se houver `U` valores únicos e limite de `B` valores por grupo, o alvo seria até `2 × ceil(U/B)` leituras, ou `ceil(U/B)` se a busca combinada puder ser codificada sem alterar a comparação exata. Essa fórmula é estimativa de desenho, não economia observada; com um item não há benefício, e com vários itens a redução depende de `U`, `B` e dos casos que exijam consulta de segurança adicional.
+- **Bytes/saída:** a projeção por linha permanece a mesma. Um lote pode evitar reenviar a resposta do mesmo produto quando o mesmo código aparece em vários itens; para códigos todos distintos, os bytes podem ficar parecidos. Não há resposta capturada nem medidor oficial de saída faturada; não quantifico e não uso tamanho de JSON como cobrança.
+- **Banco e rapidez:** menos viagens podem diminuir a espera total, mas um filtro com mais valores também pode alterar o trabalho do banco. Não há plano, CPU ou duração por consulta desta função. Nenhuma redução de carga ou latência está medida.
+
+### SCE-338 — agrupar as buscas de produtos por item
+
+**A — manter a consulta atual:** continua uma leitura em sequência por item com código/SKU. Preserva o comportamento atual e não acrescenta risco de correspondência, mas mantém `M` chamadas sequenciais.
+
+**B — recomendada, sujeita a comparação antes/depois:** para três ou mais itens identificados, buscar os códigos/SKUs únicos em grupos limitados com filtros do servidor; reconstruir o resultado de cada item na ordem original. Para zero a dois itens, manter a consulta existente, evitando custo extra em pedidos pequenos. Se a combinação segura de código e SKU exigir duas consultas por grupo, usar até duas em vez de fabricar expressão `or` com valores sem escape. Não selecionar produto arbitrariamente quando um código corresponder a mais de um cadastro: manter o mesmo resultado sem vínculo do comportamento atual ou recorrer à busca individual. Manter o filtro de produto não removido, a projeção da SCE-327, os campos de preço/custo, a primeira variação escolhida e a gravação transacional. Uma falha do lote precisa conservar a mesma indicação de processamento e o tratamento atual; não mostrar conclusão até a RPC de gravação confirmar.
+
+**Condições para manter B:** confirmar que valores repetidos são consultados uma vez, mas continuam como linhas separadas e na ordem original; que códigos iguais a SKU de outro produto continuam sem escolha arbitrária; e que a variação usada para o item permaneça a mesma. A relação não tem ordenação explícita hoje, então comparar a primeira variação em respostas equivalentes é um ponto de segurança funcional. Preservar o mesmo acesso autenticado/RLS; não ampliar a leitura de `cost_price`. O estoque continua atualizado pela operação transacional existente, e nenhum preço em cache é introduzido.
+
+**Rapidez, estado visível e critério de aceitação:** não existe linha de base comparável desta função. A medição local já registrada pela SCE-328 guarda até 200 amostras em memória, com plataforma, ação, resultado, primeiro sinal e resultado final; ela não guarda rede, duração por consulta, distribuição central nem telemetria de produção. Antes/depois deve medir, para ERP web e aplicativo separadamente, o tempo até a primeira indicação visível e o tempo até a confirmação real da gravação, mediana e p95, com quantidade de itens, valores únicos e condição de rede agregados. No ERP web, acompanhar também conteúdo principal e resposta a interações no percentil 75, separados entre celular e computador; para o app, usar medidas nativas de primeiro quadro/indicador. Meta provisória para validar com a equipe: conclusão no p95 até 3 s em rede normal, e nunca mais de 10 s sem estado visível. Se demorar, manter o indicador “processando”; só informar concluído depois da RPC confirmada. Não criar repetição automática que possa duplicar pedidos. A proposta só pode permanecer se os resultados forem idênticos e a experiência não piorar.
+
+**Reversão e validação futura:** reverter B restaurando o laço e a consulta atuais em `resolveOrderItems`; nenhuma migração é prevista. Após aceite, comparar lista curta, lista com vários códigos distintos, códigos repetidos e correspondência ambígua, sem usar cadastros reais para construir exemplos; comparar campos e ordem e medir o tempo de operação pelas plataformas. Neste ciclo não rodei testes, compilação, consultas remotas ou gravações.
+
+| Recorte/ID | Estado | Evidência e limite |
+| --- | --- | --- |
+| ERP + app — leituras de produtos ao montar itens do pedido assistido (SCE-338) | **Aceita e executada localmente** no ciclo de 20:26 BRT | Consulta em grupos de até 25 valores seguros, com retorno individual nos casos ambíguos, de erro, página cheia ou múltiplas variações. Cinco testes locais passaram; volume, bytes oficiais, CPU e latência real continuam desconhecidos. |
+| ERP + app — projeção das variações do mesmo resolver (SCE-327) | Aplicada localmente, sem publicação/comparação registrada | Já pede `id,sku`; não repetir. Esta SCE-338 trata somente a quantidade e sequência das leituras. |
+| ERP/app — experiência de criação/edição (SCE-328) | Instrumentação local em memória | Sem distribuição real por rede ou comparação antes/depois; limite descrito acima. |
+
+**Decisão neste ciclo:** o operador aceitou a opção B nesta conversa. A aplicação local e as ressalvas de medição constam no ciclo de 20:34 BRT; não houve publicação nem economia medida.
+
+**Próximo recorte exato:** após aplicar a SCE-338, revisar somente a busca do pedido vinculado na criação, em `shared-utils/agentOrderHelpers.ts#findOrderRowByIdOrNumber` chamada por `createOrderOperationForAgent` quando `linkedParam` existe. Conferir os campos usados nesse ramo (`id` e a checagem de artefatos de teste), os filtros de exclusão e se a leitura pode ser estreitada sem mudar o resultado. Não reabrir o uso de edição, que precisa preservar o pedido atual completo, nem a busca de produtos da SCE-338, a gravação/RPC ou a reconexão Realtime. Contar chamadas separadamente; sem operações reais, obter bytes oficiais ou inferir carga/latência. A busca nos oito relatórios e no roteiro não encontrou esta função por nome.
+
+## Ciclo — 18/11/2026, 19:54 BRT (22:54Z) — aplicar a confirmação enxuta do vínculo manual (SCE-337)
+
+**Reconciliação:** o operador autorizou aplicar o que está pendente. A SCE-337 foi aceita e aplicada localmente pela opção B recomendada, com uma adaptação de segurança para manter a formatação antiga do código da variação. As SCE-326, SCE-327 e SCE-328 já constavam como aplicadas localmente; as SCE-269, SCE-270, SCE-322 e SCE-323 continuam bloqueadas pelas condições de contrato, evidência ou publicação descritas em seus ciclos. Não tentei contornar esses bloqueios.
+
+**Leituras obrigatórias e histórico:** reli AGENTS.md §§24–25, a skill `supabase-consumption`, `rules/supabase/supabase-consumption.yml`, este roteiro e os oito relatórios históricos citados por ele. A busca direcionada nos oito relatórios não encontrou uma análise anterior desta leitura de detalhe do vínculo manual; o registro anterior desta própria área é o ciclo da SCE-337 no início do roteiro. Não consultei linhas, cadastros, notas, valores operacionais ou segredos.
+
+### O que muda para quem vincula um produto à nota
+
+Ao escolher um produto ou variação, o ERP continua conferindo se o produto não foi excluído e se a variação escolhida existe antes de gravar o código do fornecedor. A confirmação agora pede uma resposta menor. Depois, a gravação e a leitura que confirma o vínculo permanecem iguais. Para produto composto com componentes, deixa de calcular novamente um estoque que esta confirmação não exibe nem usa. A indicação de processamento, o erro e a possibilidade de tentar de novo permanecem no mesmo fluxo.
+
+### Arquivos e comportamento
+
+- `erp/src/pages/utils/productService/productQueryService.ts`: adicionei `getProductLinkConfirmation`. Ele pede os campos usados para a confirmação e não atualiza o catálogo completo guardado no navegador. A relação de variações pede somente `id`, `product_id`, `sku`, `name` e `use_parent_name`; quando uma variação foi escolhida, somente ela é devolvida ao chamador. A consulta ainda carrega essas poucas colunas das variações irmãs para manter a numeração legada de SKU feita por `mapFromDB`; filtrar a relação antes desse mapeamento poderia mudar o código exibido para cadastros antigos. Categorias, imagens, atributos, preço, custo e estoque não são selecionados.
+- `erp/src/pages/App/Stock/InboundInvoices/hooks/useInboundInvoiceItemsReview.ts`: a confirmação do vínculo usa o novo leitor; o restante de `selectProduct` e `acceptSuggestion` não mudou. `saveProductSupplierCode` e a releitura de confirmação continuam obrigatórios antes de aplicar a mudança ao item da nota ou mostrar sucesso.
+- Se a leitura online falhar, o leitor ainda procura o produto no catálogo local, como o caminho anterior. Ele não troca uma entrada completa do cache por um produto parcial e não faz uma consulta separada de estoque de composição. A gravação continua dependente de conexão e autorização do servidor; a falha continua visível e não é apresentada como sucesso.
+
+### Chamadas, bytes e trabalho do banco — separados
+
+- **Chamadas:** continua uma leitura de confirmação por seleção e permanecem a gravação e a releitura que confirma o vínculo. Para uma composição com componentes, o caminho anterior podia acrescentar uma chamada de estoque; esta confirmação não a faz mais. Não há contagem de uso real.
+- **Bytes/saída:** a leitura deixou de pedir todas as colunas do produto, imagens, categorias e todos os campos de cada variação. Ainda envia as cinco colunas pequenas das variações irmãs para preservar o mapeamento legado. Não há captura equivalente de bytes nem medidor oficial de saída faturável; o ganho em bytes não é quantificado.
+- **Banco e rapidez:** o trabalho de ler os campos restantes e das variações irmãs continua; a consulta de estoque dos componentes deixa de ocorrer neste ponto quando aplicável. Não há medida de CPU, duração da consulta, mediana ou p95 antes/depois, então não declaro redução medida de carga ou latência.
+
+### Preço, estoque, acesso e reversão
+
+Este vínculo não usa preço de venda, custo ou saldo para calcular a nota; esses valores continuam vindo dos fluxos existentes. Nenhuma gravação de produto ou estoque foi alterada. A leitura usa o mesmo cliente autenticado, tabela, filtro por identificador e políticas de acesso; não ampliei permissões. A verificação de produto e variação ainda usa dados online quando disponíveis e mantém o fallback de leitura local anterior. Para reverter, o chamador pode voltar a `getFullProduct`; isso restaura a resposta completa, o aquecimento do cache e o possível cálculo de disponibilidade dos componentes nesta confirmação.
+
+**Validação e limites:** `git diff --check` passou nos dois arquivos alterados. Não rodei testes, compilação nem chamadas remotas, conforme o escopo somente de leitura e sem pedido de teste. A alteração está apenas no código local; não houve migration, mudança no banco, publicação ou atualização do aplicativo. A condição da proposta para manter a mudança — comparar a seleção de produto simples e composição e confirmar que a gravação e a experiência não ficaram mais lentas — ainda precisa de observação controlada antes de atribuir ganho ou fazer publicação.
+
+| Recorte/ID | Estado/data | Evidência e limite |
+| --- | --- | --- |
+| ERP — confirmação de produto/variação no vínculo manual (SCE-337) | **Aceita e aplicada localmente** em 18/11/2026, 19:54 BRT | Uma leitura de confirmação permanece; composição deixa de recalcular estoque neste ponto. Projeção reduzida, mantendo cinco campos das variações irmãs para preservar o código legado. Bytes oficiais, carga e tempos reais continuam desconhecidos. |
+| SCE-326/SCE-327/SCE-328 | Aplicadas localmente em ciclos anteriores | Estado e limites documentados nos respectivos ciclos; não reabertas. |
+| SCE-269/SCE-270/SCE-322/SCE-323 | Aceitas ou em acompanhamento, mas ainda bloqueadas conforme o caso | Não resolvidas por esta autorização; permanecem os pré-requisitos já registrados. |
+
+**Próximo recorte exato:** revisar somente o número de leituras sequenciais de produto por item em `shared-utils/agentOrderHelpers.ts#resolveOrderItems`, chamado por criação/edição do pedido assistido no ERP e no aplicativo móvel. A projeção das variações SCE-327 já está aplicada e não deve ser repetida. Verificar como a correspondência por código/SKU, duplicidades, ordem, preço atual e custo permitido seriam preservados caso se considere agrupar as leituras; não alterar a gravação transacional de estoque nem o fluxo de preço. Separar chamadas, bytes/egress oficial e trabalho/latência, e não propor redução de chamadas sem preservar resultados e segurança.
+
+## Ciclo — 18/11/2026, 19:20 BRT (22:20Z) — leitura de detalhes ao confirmar vínculo manual no ERP
+
+**Reconciliação e cursor:** a SCE-336 foi aplicada no ciclo anterior aos dois seletores da nota. As SCE-334/335 também estão executadas; as SCE-323/322/270/232 seguem aceitas, mas bloqueadas pelas condições já documentadas. Reli AGENTS.md §§24–25, a skill `supabase-consumption`, a regra Supabase, este roteiro e os oito relatórios históricos citados. O histórico de 05/11 já tinha confirmado que a seleção simples encaminha o vínculo, mas não descrevia esta leitura de detalhe. Não alterei o `getFullProduct` compartilhado nem reabri a SCE-334 do cadastro rápido.
+
+**Caminhos conferidos:** `InboundInvoiceItemRow.tsx` encaminha o modo simples a `InboundItemSingleMode.tsx`, que chama `useInboundInvoiceItemsReview.ts#selectProduct`. A função consulta `getFullProduct`, verifica se o produto não foi excluído e se a variação ainda existe, obtém código/nome e só então grava e relê o vínculo do fornecedor antes de avisar sucesso. O detalhe consultado seleciona todos os campos do produto, todas as variações, categorias e imagens. Para produtos do tipo composição, `getFullProduct` ainda chama `applyCompositionAvailability`, que pode fazer outra leitura dos estoques dos componentes. O fluxo só usa a exclusão do produto, existência da variação e código/nome para confirmar o vínculo. O preço de venda e o estoque apresentados vêm da busca; o custo lançado continua sendo o custo da nota. A verificação de elegibilidade da lixeira não é usada aqui e já foi dispensada pela SCE-336.
+
+**Medidas disponíveis e limite:** por inspeção de código, selecionar um produto simples acrescenta uma leitura de detalhe, além da gravação e leitura de confirmação já existentes. Se a seleção for uma composição com componentes, a leitura de detalhe pode acrescentar também uma consulta de estoque dos componentes. Não há telemetria agregada de frequência, tamanho da resposta, tempo de busca, tempo até o primeiro retorno visual, tempo até o vínculo confirmado ou percentis; isso não prova volume real nem economia faturada.
+
+### SCE-337 — consulta enxuta para confirmar o vínculo
+
+**Opções:** A) manter `getFullProduct`; preserva a atualização ampla do cache local, mas lê dados que este vínculo não usa e pode reler estoques de componentes de uma composição. B) criar uma leitura própria para este vínculo, limitada a `id`, `deleted`, nome, código e identificador/código/nome da variação escolhida; não chamar o cálculo de estoque de composição nesta confirmação. Manter a busca, a validação da seleção, a gravação e a releitura que confirma o vínculo. A opção B é a recomendação para experimentar, desde que a equipe confirme que este caminho não precisa aquecer o cache global ou que a atualização do cache possa ser preservada sem substituir o produto completo por dados parciais. O método compartilhado fica intacto.
+
+- **Chamadas:** B não remove a leitura que confirma produto/variação. Pode evitar uma chamada de estoque de componentes por seleção de composição que tenha componentes; para produto simples, não reduz chamadas. A gravação e a confirmação do vínculo permanecem. Frequência real não medida.
+- **Bytes:** a consulta de confirmação deixaria de transferir imagens, categorias, atributos, campos fiscais e variações não escolhidas. A redução não pode ser quantificada sem uma medição equivalente; nenhum valor amostral será tratado como egress faturável.
+- **Banco e rapidez:** B evita o cálculo/leitura de estoque de componentes somente no caso descrito. CPU, latência e ganho percebido não foram medidos. A mudança só deve ser mantida se o antes/depois mostrar que a busca e a tarefa não ficaram mais lentas.
+- **Desempenho e experiência:** hoje o código mostra “Confirmando a alteração do vínculo...”, mas não há tempo medido até esse aviso ou até o sucesso real. Antes/depois deve separar a busca, o primeiro aviso visual e a gravação confirmada, com mediana e p95 em rede identificada. Meta provisória, a validar com a equipe: aviso visual no p75 até 200 ms; conclusão confirmada no p95 até 3 s em rede normal; dez segundos sem qualquer resposta visível contam como falha. Para a página, acompanhar LCP e INP no p75 separadamente em celular e computador, respeitando 2,5 s e 200 ms. Não declarar meta cumprida sem medida.
+- **Preço, estoque, acesso e falhas:** não mudar o preço/estoque apresentados na busca nem o custo da nota. A leitura e a gravação mantêm as regras de acesso existentes. Confirmar ausência de regressão no cache local e preservar erro, repetição e confirmação real; nunca mostrar sucesso antes da leitura de confirmação.
+- **Validação e reversão:** comparar a seleção de produto simples e composição, conferindo o vínculo salvo, código/nome, mensagem de erro e reabertura da busca. Reversão: voltar a usar `getFullProduct` nesta seleção. Não rodei testes, não fiz chamadas ao Supabase e não consultei dados operacionais.
+
+**Matriz deste ciclo:**
+
+| Área | Cobertura/status | Evidência e limite |
+| --- | --- | --- |
+| ERP — leitura de detalhe após seleção manual | Revisada; SCE-337 aguardando decisão | Projeção ampla e possível leitura extra de estoque em composição; frequência, resposta, latência e cache não medidos. |
+| ERP — busca manual e elegibilidade de lixeira (SCE-336) | Executada | Um pedido de elegibilidade a menos por busca com candidatos; demais filtros, preço/estoque e confirmação mantidos. |
+| App — cadastro rápido e sugestões de vínculo (SCE-334/335) | Executadas | Estado registrado no ciclo anterior; limites de medição mantidos. |
+| SCE-323/322/270/232 | Aceitas, ainda bloqueadas | Pré-requisitos de segurança/negócio pendentes; não contornados. |
+
+**Decisão solicitada:** para a nova SCE-337, aceitar a opção B para uma leitura menor e sem cálculo de estoque não usado, condicionada à preservação do cache e à comparação de desempenho; ou recusar e manter a consulta completa. A autorização anterior foi para as propostas então pendentes; esta é uma proposta nova.
+
+**Próximo recorte exato:** enquanto a decisão da SCE-337 aguarda, revisar somente `erp/src/services/aiAgent/aiFeedbackService.ts` e os chamadores diretos do ERP, como indicado no roteiro anterior. Contar leituras/gravações e campos pelo código, sem abrir respostas, avaliações, nomes ou registros reais; confirmar primeiro se há chamador ativo. Separar chamadas, bytes oficiais e trabalho/latência do banco. Não reabrir `sharedOrdersRealtime.ts`, o catálogo mobile da nota nem a busca compartilhada de produtos, já cobertos. Para rapidez, localizar qualquer medida de resposta visível e gravação confirmada; se não houver, registrar a lacuna e a medição necessária. Em página web, comparar LCP e INP no p75 para celular e computador; para o envio da avaliação, medir primeira resposta visual e gravação concluída, com mediana/p95, rede identificada e meta provisória validada pela equipe. Sem mais de dez segundos sem estado visível; não recomendar redução que piore esses limites.
+
+---
+
+## Ciclo — 18/11/2026, 19:08 BRT (22:08Z) — dispensar consulta de lixeira no vínculo manual da nota (SCE-336)
+
+**Reconciliação e cursor:** retomei a busca manual indicada no ciclo anterior. Reli AGENTS.md §§24–25, a skill `supabase-consumption`, a regra `rules/supabase/supabase-consumption.yml`, este roteiro e os oito relatórios históricos citados por ele. O histórico de 05/11 já registrava que a seleção manual encaminha o vínculo sem usar `can_trash`; a SCE-012 foi aplicada somente em Compras e não abrangia estas duas telas. SCE-334/335 foram aplicadas no ciclo anterior. SCE-323/322/270/232 continuam aceitas, mas sem os pré-requisitos já documentados; não os contornei. Como o operador autorizou aplicar todos os pendentes, apliquei a alteração pequena abaixo e a registrei como executada.
+
+### SCE-336 — deixar de pedir elegibilidade para excluir produtos nestes seletores
+
+**Evidência e mudança:** os autocompletes de produto/variação em `InboundItemSingleMode.tsx` e produto composto em `InboundItemCompositionMode.tsx` não recebem `includeTrashEligibility`, cujo padrão é `true`. A busca usada por ambos retorna nome, código, preço de venda e estoque. Nenhum desses seletores mostra ou usa `can_trash`/`trash_block_reason`, nem oferece ação de excluir. Marquei `includeTrashEligibility={false}` nos dois chamadores. O caminho compartilhado então deixa de chamar `get_products_trash_eligibility` para esses usos. A consulta principal, o filtro de fornecedor, ativo/não rascunho, as exclusões de vínculos, as permissões já existentes e a confirmação da gravação não mudam. O preço de venda continua visível como referência da busca; o custo lançado na nota continua vindo do próprio item da nota.
+
+- **Chamadas:** reduz uma chamada RPC de elegibilidade por busca válida que devolva candidatos. A busca principal e a leitura de campanhas continuam; não medi quantas buscas assim ocorrem no uso real.
+- **Bytes:** deixa de transferir a resposta de elegibilidade de lixeira deste consumidor. Não há medição de bytes HTTP nem do medidor oficial de saída faturável; não converto campos ou tamanho de JSON em economia faturada.
+- **Banco e rapidez:** a função de elegibilidade deixa de executar nestes caminhos. O trabalho poupado e o tempo percebido não foram medidos; não atribuo redução específica de CPU ou latência.
+- **Preço, estoque, permissões e modo sem conexão:** preço e estoque da lista continuam na consulta normal e são os mesmos que a pessoa via antes. O custo da nota e a gravação/checagem do vínculo não mudaram. A regra de acesso não foi ampliada. Este fluxo web continua dependendo da busca online e mostra o erro/repetição existente quando ela falha.
+- **Reversão:** remover a propriedade dos dois chamadores restaura o comportamento padrão e a verificação de lixeira. Não há migração, alteração de banco ou implantação feita.
+
+**Validação local:** `git diff --check` passou nos dois arquivos de código. Não rodei testes, compilação nem consultas remotas.
+
+**Matriz deste ciclo:**
+
+| Área | Cobertura/status | Evidência e limite |
+| --- | --- | --- |
+| ERP — busca manual, modo único | SCE-336 executada | Uma chamada de elegibilidade a menos por busca com candidatos; fornecedores, campos mostrados e confirmação do vínculo preservados. Volume e bytes reais não medidos. |
+| ERP — busca manual, modo composição | SCE-336 executada | Mesmo opt-out isolado; pesquisa principal e disponibilidade exibida permanecem. Volume, bytes oficiais e carga não medidos. |
+| App — cadastro rápido e sugestões de vínculo | SCE-334/335 executadas | Estado do ciclo anterior preservado. |
+| SCE-323/322/270/232 | Aceitas, ainda bloqueadas | Pré-requisitos de segurança ou negócio ainda não atendidos; nenhuma alteração aplicada. |
+
+**Próximo recorte exato:** revisar somente a leitura de detalhe feita por `useInboundInvoiceItemsReview.ts#executeLinkOperation('select')` → `getFullProduct` em `erp/src/pages/utils/productService/productQueryService.ts`. Contar chamadas separadamente, identificar os campos realmente lidos depois da resposta e conferir o efeito de atualizar o cache local; não modificar o `getFullProduct` compartilhado nem reabrir a forma completa exigida por `SCE-334`. Preservar a checagem atual de produto/variação, preço e estoque mostrados na busca, custo da nota, RLS e confirmação do vínculo. Não abrir dados reais nem fazer chamadas ao Supabase.
+
+---
+
+## Ciclo — 18/11/2026, 19:02 BRT (22:02Z) — SCE-334 e SCE-335 aplicadas após aceite
+
+**Reconciliação da decisão:** o operador disse “ACITO TODOS OS PENDENTES” e renovou o pedido para aplicar o que aguardava. Apliquei as opções A registradas para SCE-334 e SCE-335. As SCE-323/322/270/232 permanecem aceitas, mas bloqueadas pelos pré-requisitos de segurança ou negócio já escritos; a autorização geral não remove esses bloqueios. A SCE-333 já estava aplicada. As entradas abaixo preservam o histórico da proposta; este ciclo registra o estado atual.
+
+**SCE-334 — lista enxuta e cadastro completo apenas depois da escolha.** A busca de produtos-pai agora traz somente o identificador, nome, código e identificadores das variações usados para mostrar a quantidade. Ao tocar no resultado, o aplicativo consulta o produto completo, incluindo variações e imagens, antes de abrir `ProductFormScreen`. Essa consulta adicional repete no servidor o fornecedor selecionado e as condições de produto ativo e disponível, além das permissões que já valem para a conta. A tela mostra o carregamento; se não conseguir confirmar o cadastro, mantém a lista aberta com erro e permite tentar de novo. Não abre o formulário com os dados parciais da lista. A leitura completa usa a forma já exigida pelo formulário de edição, em um único produto escolhido.
+
+- **Chamadas:** a busca por texto continua sendo uma consulta por busca válida; selecionar um produto acrescenta uma consulta de detalhes. A lista continua contando as variações a partir de seus identificadores, não de uma contagem agregada no banco. Não houve medição de frequência.
+- **Bytes:** a lista deixa de receber campos de preço, custo, atributos, estoque, imagens e composição das variações candidatas, mantendo seus identificadores para contar. Na escolha, os dados completos vêm apenas para o produto escolhido. A redução real não foi medida em bytes HTTP nem no medidor oficial de saída faturável; não converto uma amostra de JSON em cobrança.
+- **Banco e rapidez:** há uma leitura adicional por escolha e menos campos retornados na busca. Não há medição de trabalho do banco, carga, mediana nem p95 (o tempo abaixo do qual ficam 95% das medições) até abrir o formulário. O usuário espera a leitura completa; agora vê o indicador de carregamento, e uma falha não perde os dados nem abre um formulário incompleto.
+- **Preço, estoque, acesso e reversão:** o formulário recebe preço e estoque do cadastro completo mais recente lido antes de abrir; a gravação da nova variação continua na operação existente. O fornecedor, os filtros de ativo/excluído/rascunho e as permissões não são ampliados. Sem rede, a tela não trata a busca local como confirmação. Reverter exige voltar à resposta ampla da lista e à abertura imediata baseada nela, reintroduzindo o risco documentado de preencher e salvar campos que não vieram na busca.
+
+**SCE-335 — reaproveitar o catálogo e conferir o preço antes de vincular.** Ao esconder a janela, o aplicativo agora zera a chave que impede repetir o cálculo local; reabrir o mesmo fornecedor e os mesmos itens recalcula e volta a mostrar as sugestões. A promessa em memória do catálogo permanece associada ao fornecedor, portanto não baixa todas as páginas outra vez só por reabrir a janela. O cartão identifica o preço em memória como referência. Ao escolher a sugestão, uma leitura busca o produto atual ligado ao fornecedor e ainda disponível. Se o preço mudou, a tela mostra o valor anterior e o atual e só grava depois de a pessoa confirmar. Se não conseguir conferir, mostra o erro e não grava. O vínculo só aparece depois da confirmação de gravação que já existia.
+
+- **Chamadas:** as páginas do catálogo permanecem inalteradas e continuam reaproveitadas em memória. Cada tentativa de vínculo acrescenta uma leitura para produto simples; para uma variação, acrescenta uma chamada para localizar seu identificador atual e duas leituras (variação e produto-pai). A gravação existente do vínculo permanece. Não há contagem real de aberturas ou escolhas.
+- **Bytes:** a conferência traz campos do produto escolhido; não renova o catálogo inteiro. A quantidade em bytes nem a saída faturável oficial foram medidas.
+- **Banco e rapidez:** o trabalho extra acontece apenas quando a pessoa escolhe uma sugestão. Não medi carga nem tempo; Android e iOS precisam ser comparados na mesma versão/rede, medindo a mediana e o p95 (o tempo abaixo do qual ficam 95% das medições) até a sugestão, até a conferência do preço e até a gravação confirmada. O preço pode mudar entre a leitura e a gravação; esta confirmação reduz o uso de valor antigo, mas não substitui validação atômica no banco. O estoque não é alterado por este vínculo.
+- **Acesso e modo sem conexão:** a busca atual filtra o fornecedor e produto ativo, não excluído e não rascunho; a leitura selecionada repete esses critérios e continua sujeita às permissões atuais. A conferência mantém o tratamento já usado pela busca manual: variação desativada ou consolidada em outra é recusada, e variação antiga sem o campo “ativo” preenchido continua elegível. Sem rede ou sem autorização para ler, nenhuma gravação é iniciada, e a tela pede nova tentativa. Não foi criado salvamento ou cache offline.
+- **Reversão:** restaurar a chave antiga ao fechar e remover a leitura de preço atual com a confirmação. Isso volta a poder omitir sugestões ao reabrir e a gravar preço antigo do catálogo em memória.
+
+**Arquivos alterados:** `shared-utils/inboundProductLinkFormSchemas.ts`; `mobile/src/services/stock/invoices/inboundInvoiceCatalogLookupService.ts`; `mobile/src/features/stock/invoices/modals/inbound-mappings/hooks/useInboundQuickRegistration.ts`; `mobile/src/features/stock/invoices/modals/inbound-mappings/InboundQuickProductModal.tsx`; `mobile/src/features/stock/invoices/modals/inbound-mappings/hooks/useInboundMappingSuggestions.ts`; `mobile/src/features/stock/invoices/modals/inbound-mappings/hooks/useInboundInvoiceMappings.ts`; `mobile/src/features/stock/invoices/modals/inbound-mappings/InboundInvoiceMappingsModalContent.tsx`; `mobile/src/features/stock/invoices/modals/inbound-mappings/InboundMappingItemCard.tsx`; `mobile/src/features/stock/invoices/modals/inbound-mappings/InboundItemSuggestionsCard.tsx`.
+
+**Validação e limites:** revisei estaticamente os chamadores e filtros de fornecedor, disponibilidade e gravação; `git diff --check` passou nos arquivos deste ciclo. Não rodei testes, compilação, consulta remota ou operação no banco. Não houve migration. Portanto, o comportamento implementado está conferido no código, mas a redução de bytes, o trabalho real do banco, a experiência p50/p95 e os casos visuais ainda precisam de observação em aparelhos Android e iOS, em condições equivalentes. Para medir: comparar busca→lista e toque→formulário completo na SCE-334; em SCE-335 comparar reabertura, toque→preço atual e toque→gravação confirmada. Registrar contagens agregadas sem texto ou identificadores de nota/produto/fornecedor. Alvo provisório a validar com a equipe: p95 até 3 s em rede normal, indicador visível imediatamente e nenhum estado sem explicação por mais de 10 s.
+
+| Área/ID | Estado atual | Evidência e limite |
+| --- | --- | --- |
+| App — cadastro rápido de variação (SCE-334) | **Executada após aceite** | Busca estreita; leitura do cadastro completo ao escolher com fornecedor/estado filtrados; indicador e falha visível. Uma leitura extra por escolha. Bytes e rapidez reais não medidos. |
+| App — sugestões do vínculo de nota (SCE-335) | **Executada após aceite** | Recalcula sugestões ao reabrir usando catálogo em memória; preço atual conferido antes de gravar e preço alterado exige confirmação. Uma leitura simples ou três chamadas para variação por tentativa; saída e carga não medidas. |
+| App — busca de fornecedor (SCE-333) | Executada no ciclo anterior | Cancelamento local registrado; economia real não medida. |
+| ERP — sugestões automáticas no modal de vínculo | Sem consumidor ativo | `ManageInboundInvoiceMappingsModal.tsx` desativa as sugestões; não há cópia ativa de SCE-335 neste modal. |
+| SCE-323/322/270/232 | Aceitas, pré-requisitos ainda bloqueiam alteração | Não contornei correlação, sessão autorizada, regra documental ou publicação/uso natural. |
+
+**Próximo recorte exato:** revisar apenas o contrato da busca manual de produtos na nota de entrada do ERP em `erp/src/pages/App/Stock/InboundInvoices/components/InboundInvoiceItemRow.tsx#ProductAutocomplete`, pelo encaminhamento em `InboundItemSingleMode.tsx` e `InboundItemCompositionMode.tsx` até `useInboundInvoiceItemsReview.ts#selectProduct`. Conferir fornecedor, vínculos excluídos, limite, preço exibido e confirmação da gravação; tratar `useProductAutocomplete` como dependência já auditada e não refazer a revisão geral. Não abrir notas, cadastros ou valores reais.
+
+---
+
+## Ciclo — 18/11/2026, 18:31 BRT (21:31Z) — sugestões automáticas de produtos no vínculo mobile (SCE-335)
+
+**Reconciliação:** a SCE-334 continua aguardando resposta; não a tratei como aceita. A SCE-333 já foi aplicada no hook de busca de fornecedor. Retomei o recorte exato de `fetchInboundInvoiceSupplierCatalog` e `useInboundMappingSuggestions`. Reli AGENTS.md §§24–25, a skill `supabase-consumption`, as regras Supabase, o roteiro e os oito relatórios históricos citados pelo roteiro. A busca exata pelo nome deste serviço não encontrou auditoria anterior. Confirmei também a contraparte ERP: o único consumidor de `InboundInvoiceItemsReview` em `ManageInboundInvoiceMappingsModal.tsx` desativa sugestões automáticas (`suggestionsEnabled={false}`); portanto não repliquei a proposta mobile no ERP.
+
+**O que a pessoa vê:** no aplicativo, cada item sem vínculo pode receber uma sugestão automática com nome, código, preço de venda e confiança. A pessoa confirma antes de vincular. A tela mantém “Analisando sugestões de vínculo...” enquanto carrega ou recalcula; ao vincular, a tela só troca os itens depois que a gravação retorna confirmada.
+
+**Evidência no código e limite:** `fetchInboundInvoiceSupplierCatalog` busca todos os produtos ativos, não excluídos, não rascunho e ligados ao fornecedor, em páginas de 100. Cada linha é expandida em produtos/variações para `rankInboundSuggestions`, que compara o item com o catálogo inteiro e retorna no máximo uma sugestão por item sem vínculo. O catálogo completo serve ao cálculo de frequência dos termos e à classificação atual; reduzir a lista sem preservar essa conta pode alterar a ordem/confiança das sugestões. Não propus trocar o método de classificação nem um filtro SQL aproximado.
+
+O hook guarda a promessa do catálogo em memória, indexada só pelo identificador do fornecedor, e não a limpa quando a janela fecha. Isso evita reler as páginas ao reabrir a janela, mas também deixa preços antigos disponíveis durante a vida do componente. O cartão mostra `sellingPrice` vindo desse catálogo; ao tocar em “Vincular”, o valor entra no mapeamento e segue para gravação sem uma leitura de preço atual do produto. Não abri valores reais nem confirmei se houve divergência em cadastros. Há ainda uma falha de reapresentação: ao fechar, o hook limpa as sugestões visíveis mas não zera `suggestionRunKey`; se reabrir o mesmo item ainda sem vínculo, a chave pode ser idêntica e o efeito retorna sem recalcular as sugestões.
+
+### SCE-335 — reaproveitar o catálogo para classificar e conferir o preço ao vincular
+
+**Opção A recomendada, aguardando decisão:** manter o catálogo em memória para não baixar todas as páginas novamente, zerar a chave de execução ao esconder a janela para recalcular as sugestões ao reabrir e consultar o produto escolhido antes de gravar o vínculo. Mostrar o preço atualizado e pedir confirmação quando ele tiver mudado. Uma leitura atualizada do produto-pai ou da variação deve confirmar que continua ativa e ligada ao fornecedor selecionado, respeitando as permissões atuais. Enquanto o valor ainda vier do catálogo guardado, a tela deve identificá-lo como referência e não afirmar que é o preço atual. Se não houver conexão, manter a sugestão local identificada como antiga, oferecer o erro/repetição existente e não confirmar nem gravar o vínculo sem a conferência online; o salvamento atual já depende do servidor.
+
+**Opção B:** descartar o catálogo em memória e baixá-lo novamente sempre que a janela reabrir. Isso também atualiza a lista usada pelo classificador, mas repete todas as páginas e seus dados. Em ambos os casos, uma sugestão só aparece como salva depois da confirmação real da gravação existente.
+
+**Chamadas, bytes e banco separados:**
+
+- **Chamadas:** hoje, na primeira carga para um fornecedor, são `floor(N/100)+1` consultas REST para `N` produtos encontrados (inclusive uma página vazia quando `N` é múltiplo de 100); a promessa em memória evita essas páginas nas reaberturas do mesmo fornecedor enquanto o hook existir. A opção A mantém essa quantidade e acrescenta uma conferência somente quando a pessoa tenta vincular: o helper atual faz uma leitura de produto para um produto simples ou, para uma variação, uma chamada para resolver a variação canônica e duas leituras em lote de variações/produtos. A opção B repete `floor(N/100)+1` chamadas em cada reabertura que hoje seria atendida pelo cache. Não há contagem real de produtos, aberturas ou seleções.
+- **Bytes/saída:** o carregamento inicial transfere nomes e códigos do catálogo completo para classificar, além dos preços mostrados nos cartões; as páginas não são limitadas à quantidade de itens da nota. A opção A acrescenta somente os campos do produto escolhido antes da gravação; a opção B transfere o catálogo inteiro de novo por abertura. Sem tamanhos HTTP e sem o medidor oficial, não quantifico bytes faturáveis.
+- **Banco:** a opção A adiciona a leitura de confirmação somente na escolha. A opção B repete a consulta paginada completa ao reabrir. Não há métrica agregada de carga/latência que permita comparar o trabalho; não recomendo índice, função SQL ou mudança de permissão.
+
+**Rapidez, preço, rede e segurança:** não existe medida inicial de tempo. No aplicativo, comparar em Android e iOS, mesma versão/aparelho/rede: tempo até sugestões aparecerem, tempo do toque até mostrar o preço atualizado e tempo do toque até o vínculo realmente salvo, separando mediana e p95. Meta provisória a validar com a equipe: confirmação final até 3 s no p95 em rede normal; mostrar processamento imediatamente e nunca passar 10 s sem estado visível. A conferência pode atrasar a escolha; a tela precisa mostrar o preço novo antes de concluir e manter a repetição para falhas. Preço atual é relevante; estoque não é mostrado nem alterado por este caminho. A conferência mantém o fornecedor e as regras de acesso; não cria cache offline ou gravação offline. Se a leitura falhar, preservar dados e não exibir o vínculo como concluído. Reversão: retirar a conferência e voltar a usar o preço já guardado; isso também reintroduz o risco de preço desatualizado.
+
+**Matriz deste ciclo:**
+
+| Área | Cobertura/status | Evidência e limite |
+| --- | --- | --- |
+| App — catálogo para sugestões por fornecedor (SCE-335) | Revisada; opção A pendente | Páginas completas guardadas em memória; preço sugerido pode estar antigo e a chave pode impedir que sugestões reapareçam ao reabrir. Uso, bytes oficiais, carga e tempos não medidos. |
+| ERP — sugestão automática na tela de vínculo | Conferida, sem consumidor ativo nesse modal | `ManageInboundInvoiceMappingsModal.tsx` passa `suggestionsEnabled={false}`. Não repliquei o achado mobile no ERP. |
+| App — busca de fornecedor no vínculo (SCE-333) | Executada | Cancelamento no aparelho aplicado; economia de bytes, trabalho do banco e rapidez reais continuam sem medida. |
+| App — seleção de produto-pai para cadastro rápido (SCE-334) | Proposta A ainda pendente | Lista curta vs. formulário que salva cadastro incompleto; sem confirmação em dados reais. |
+| Outras áreas ERP / SQL / Realtime / Storage | Não reabertas | Cobertura anterior preservada. SCE-323/322/270/232 seguem aceitas, mas bloqueadas pelas pré-condições já registradas. |
+
+**Decisões solicitadas:** para SCE-334, aceitar ou recusar carregar o cadastro completo apenas depois de escolher o produto-pai. Para SCE-335, aceitar ou recusar manter o catálogo local para classificar, mas conferir o preço atual antes de gravar o vínculo. São propostas separadas; aceite de uma não altera a outra.
+
+**Próximo recorte exato, independente destas decisões:** conferir a busca manual do ERP em `erp/src/pages/App/Stock/InboundInvoices/components/InboundInvoiceItemRow.tsx#ProductAutocomplete`, o encaminhamento em `InboundItemSingleMode.tsx` / `InboundItemCompositionMode.tsx` e `useInboundInvoiceItemsReview.ts#selectProduct`. Verificar somente o contrato desta tela (fornecedor, itens excluídos, limite, preço e confirmação da gravação) ao chegar ao `useProductAutocomplete` já revisado para outros consumidores; não repetir a auditoria geral do autocomplete nem abrir notas, cadastros ou preços reais.
+
+---
+
+## Ciclo — 18/11/2026, 18:17 BRT (21:17Z) — cadastro rápido de variação a partir da busca (SCE-334)
+
+**Reconciliação:** a autorização recente para aplicar o que estava pendente foi usada na SCE-333, agora implementada no serviço e no hook mobile. As SCE-323/322/270/232 continuam aceitas, mas ainda bloqueadas por suas condições de segurança ou negócio; não forcei esses limites. Retomei o recorte exato indicado abaixo da SCE-333. Reli AGENTS.md §§24–25, a skill `supabase-consumption`, as regras Supabase, o roteiro e os oito relatórios históricos que ele aponta. A busca por nome exato não encontrou revisão anterior de `searchInboundInvoiceProductParents`, nem nos registros históricos.
+
+**O que a pessoa vê:** ao procurar um produto-pai para incluir uma nova variação, aparecem até cinco nomes, códigos e quantidades de variações. Ao tocar num deles, a mesma lista parcial alimenta `ProductFormScreen`, que pode salvar o cadastro existente junto com a nova variação.
+
+**Evidência e risco observado no código:** `searchInboundInvoiceProductParents` retorna, para até cinco candidatos, campos de variação como imagens, estoque, atributos e itens de composição. A lista visível usa somente nome, código e contagem dessas variações. Depois, o formulário espera muitos outros campos do produto e das variações. Por exemplo, a busca não seleciona `item_type`, imagens do produto, dados fiscais, dimensões e descrições de venda; a inicialização do formulário preenche alguns desses valores com padrões. O caminho de gravação constrói um retrato completo do formulário e chama a gravação do produto existente. Isso cria risco de exibir ou enviar valores padrão para dados que não vieram na busca. Não consultei cadastros nem confirmei ocorrência de alteração indevida; o efeito real no banco precisa ser validado em ambiente autorizado antes de qualquer publicação.
+
+### SCE-334 — separar a lista curta do carregamento do produto escolhido
+
+**Opção recomendada A, ainda aguardando decisão:** a busca traria apenas os campos que a lista mostra (identificador, nome e código) e a contagem de variações. Ao tocar num resultado, o app buscaria o cadastro completo e atual do produto selecionado antes de abrir o formulário. A busca de detalhes teria de manter a mesma verificação de vínculo com o fornecedor, as regras de acesso do banco e as condições de produto ativo e disponível. Se a pessoa perder a conexão nessa etapa, mostrar carregamento e falha com opção de tentar novamente; não abrir o formulário com dados incompletos. Assim a lista deixa de transportar detalhes das variações dos demais candidatos e o formulário recebe o retrato completo, inclusive preços e estoque atuais.
+
+**Opção B:** continuar abrindo o formulário de imediato, mas ampliar a consulta de busca para trazer todos os campos que o formulário pode salvar, para cada um dos até cinco candidatos. Evita uma espera extra ao tocar, mas pode aumentar os dados transferidos em cada busca e mantém detalhes de candidatos não escolhidos no aparelho.
+
+**Chamadas, bytes e banco — separados:**
+
+- **Chamadas:** hoje, uma chamada de lista por busca que passa pela pausa de 300 ms. A opção A mantém essa chamada e acrescenta exatamente uma chamada de detalhes para cada seleção de produto-pai; para `Q` buscas e `K` seleções, seriam `Q + K` chamadas, contra `Q` hoje. Não há contagem de uso para saber a relação `K/Q`.
+- **Bytes/saída:** a tela só apresenta nome, código e contagem, mas hoje recebe campos de variação dos cinco resultados. A opção A envia uma linha curta por resultado e os detalhes completos somente para o escolhido. O efeito líquido não pode ser quantificado sem medir tamanho HTTP e quantidade de variações: a busca curta economiza detalhes dos não escolhidos, enquanto o carregamento posterior traz campos adicionais do escolhido. Tamanho de amostra JSON não é egress faturável.
+- **Banco:** a chamada de detalhes acrescenta uma leitura por seleção; a busca curta ainda precisa calcular a contagem de variações. Não há medição agregada de trabalho, carga ou latência, então não atribuo economia de banco nem recomendo índice ou função SQL.
+
+**Impacto para a pessoa, proteção e validação necessária:** a lista pode responder com menos dados, mas abrir o formulário passa a esperar uma leitura adicional. Medir tempo da busca e tempo do toque até o formulário ficar pronto, com mediana e p95 em Android e iOS nas mesmas condições. Preservar preço e estoque atuais, todos os dados existentes, as regras de vínculo com o fornecedor e as permissões; não acrescentar cache offline. Validar cancelamento/fechamento, erro e repetição, seleção ainda pertencente ao fornecedor e gravação de uma nova variação sem mudar campos do produto-pai ou das variações anteriores. Reversão: voltar à consulta e seleção atuais. Nenhuma alteração de código foi feita para SCE-334.
+
+**Matriz deste ciclo:**
+
+| Área | Cobertura/status | Evidência e limite |
+| --- | --- | --- |
+| App — busca de fornecedores no vínculo da nota (SCE-333) | Aplicada após autorização do operador | Chamada antiga agora recebe cancelamento do aparelho; volume, bytes oficiais, carga e tempo real continuam sem medida. |
+| App — busca de produto-pai para cadastro rápido (SCE-334) | Revisada; proposta A pendente | A lista usa poucos campos, mas traz variações e alimenta um formulário que salva o registro. Ganho líquido de bytes desconhecido; detalhes não confirmados em dados reais. |
+| ERP / SQL / Realtime / Storage | Nenhum caminho reaberto neste ciclo | Cobertura anterior preservada; sem leitura de dados operacionais. |
+| SCE-323/322/270/232 | Aceitas, execução ainda bloqueada | Preservadas conforme as pré-condições já anotadas. |
+
+**Decisão solicitada:** aceitar a opção A da SCE-334 (lista enxuta e carregar o cadastro completo somente ao escolher) ou recusar. A opção B permanece descrita como alternativa técnica. A autorização anterior foi para pendências já existentes; esta é uma proposta nova.
+
+**Próximo recorte exato, independente da decisão:** revisar `mobile/src/services/stock/invoices/inboundInvoiceCatalogLookupService.ts#fetchInboundInvoiceSupplierCatalog` e seu consumidor em `mobile/src/features/stock/invoices/modals/inbound-mappings/hooks/useInboundMappingSuggestions.ts`. Examinar paginação em blocos, cache local e regras para preço/variação sem abrir produtos, fornecedores, notas ou preços reais. Separar chamadas, bytes oficiais, trabalho/latência e tempo percebido; preservar fornecedor, permissões, preço atual, falhas e comportamento sem conexão. A busca nominal nos relatórios e no roteiro não encontrou esse método.
+
+---
+
+## Ciclo — 18/11/2026, 18:08 BRT (21:08Z) — SCE-333 aplicada: cancelar busca antiga de fornecedor
+
+**Reconciliação:** o cursor indicava `mobile/src/services/stock/invoices/inboundInvoiceCatalogLookupService.ts#searchInboundInvoiceSuppliers` e seu consumidor em `useInboundMappingSearches.ts`. Depois que a SCE-333 foi registrada como pendente, o operador autorizou “pode aplicar o que está pendente”; apliquei a opção A abaixo. A SCE-332 já havia sido aplicada no ciclo anterior. As SCE-323/322/270/232 continuam aceitas, mas bloqueadas pelas pré-condições de segurança ou negócio já registradas. Reli AGENTS.md §§24–25, `supabase-consumption`, `rules/supabase/supabase-consumption.yml`, o roteiro e os oito relatórios históricos indicados pelo roteiro. Nenhum deles contém este consumidor mobile pelo nome. A busca histórica encontrou a projeção do seletor ERP (SCE-298), já executada; não a repito nem altero a lista de fornecedores do ERP.
 
 **O que a pessoa vê e o que o código faz:** quando o modal de vínculo está aberto, não há fornecedor escolhido e a pessoa digita ao menos três caracteres, o app mostra “Buscando fornecedores...” e espera 300 ms antes de chamar a busca. A consulta pede uma vez `id, full_name, social_name, nickname, cpf_cnpj`, filtra no servidor fornecedores não excluídos, ordena pelo nome e traz no máximo cinco opções. A função de busca textual SQL usada como campo calculado é `SECURITY INVOKER` (executa com as permissões da pessoa que chamou), e os filtros de fornecedor e exclusão permanecem na consulta. A tela usa todos os cinco campos: nome, nome fantasia/apelido e documento para diferenciar fornecedores; não abri nem consultei valores reais. Em erro, a tela oferece tentar novamente. Não encontrei cache local nem busca offline neste fluxo.
 
@@ -8,27 +515,27 @@
 
 ### SCE-333 — cancelar busca de fornecedor que ficou desatualizada no app
 
-**Achado e opção recomendada A:** o hook marca a busca anterior como inativa e impede que sua resposta substitua a lista nova, mas não cancela a chamada que já saiu do aparelho. Se uma busca ainda estiver em andamento quando outro texto válido iniciar a próxima, a primeira pode continuar recebendo resposta que não será mostrada. Proponho passar um sinal de cancelamento à consulta e cancelar somente a chamada antiga quando o texto mudar, o fornecedor for escolhido ou o modal fechar. O pacote móvel resolvido no lockfile é `@supabase/supabase-js`/`@supabase/postgrest-js` 2.101.1 e inclui `.abortSignal(signal)`; isso torna a opção tecnicamente disponível sem trocar dependências ou criar rotina no banco. A implementação deve ignorar cancelamento intencional como erro e conservar o indicador, a lista nova e o botão de repetição para falhas reais.
+**Mudança aplicada — opção A:** o hook continua impedindo que uma resposta antiga substitua a lista nova e agora também aborta a chamada HTTP quando o texto muda, o fornecedor passa a estar escolhido ou o modal fecha. O serviço recebe o sinal e o encaminha à consulta com `.abortSignal(signal)`, recurso disponível na versão móvel resolvida no lockfile (`@supabase/supabase-js`/`@supabase/postgrest-js` 2.101.1). Cancelamentos intencionais não são registrados como falha, não limpam a busca mais recente nem escondem o botão de repetição para erros reais. Não houve troca de dependência, mudança de filtros ou trabalho no banco.
 
-**Opção B:** manter a chamada atual sem cancelamento e acrescentar somente contagem agregada de buscas iniciadas, respostas que chegaram depois da troca de texto e tempos. A opção evita qualquer mudança de comportamento, mas mantém respostas antigas em trânsito enquanto forem necessárias. **Operador: aceitar a opção A ou recusar SCE-333.** A autorização global cobre sugestões já aceitas; por ser um achado novo, esta SCE aguarda escolha específica.
+**Alternativa considerada:** manter a chamada sem cancelamento e coletar contagens agregadas. Não foi escolhida; além de não interromper a resposta antiga, exigiria instrumentação adicional. O operador autorizou aplicar o item pendente.
 
 **Chamadas, bytes e banco — separados:**
 
-- **Chamadas:** há uma chamada REST para cada texto válido que passa pela pausa de 300 ms. Cancelar uma chamada depois de iniciada não apaga essa requisição da contagem e não garante diminuir o total de chamadas; a espera já evita chamadas para digitação ainda não concluída. O potencial é impedir que uma requisição antiga continue concorrendo quando ainda está em andamento. A quantidade real de buscas sobrepostas não foi medida.
-- **Bytes/egress:** os mesmos campos são necessários para mostrar e selecionar o fornecedor. Se o corpo de resposta ainda estiver em trânsito no momento do cancelamento, o app pode deixar de receber parte dele; o ganho pode ser zero se a resposta já terminou. Não há tamanho HTTP por consulta nem medidor oficial atribuído à tela, portanto não quantifico bytes ou cobrança.
-- **Banco:** a consulta já filtra, ordena e limita no servidor. Cancelar no cliente não garante que o servidor interrompa uma consulta que já começou. Sem medição agregada de cancelamentos e carga/latência, não atribuo economia ao banco nem recomendo índice ou alteração SQL.
+- **Chamadas:** continua existindo uma chamada por texto válido que passa pela pausa de 300 ms. O cancelamento não apaga uma chamada já iniciada e não reduz esse total; ele encerra a espera/transferência da chamada antiga quando ainda está em andamento. A quantidade real de buscas sobrepostas não foi medida.
+- **Bytes/egress:** quando a resposta antiga ainda está em trânsito, o aparelho pode parar de recebê-la. O ganho pode ser zero se a resposta já terminou. Não há tamanho HTTP por consulta nem medidor oficial atribuído à tela, portanto não quantifico bytes ou cobrança.
+- **Banco:** a consulta continua filtrando, ordenando e limitando no servidor. Cancelar no cliente não garante interromper o trabalho que o servidor já iniciou. Sem medição agregada de cancelamentos e carga/latência, não atribuo economia ao banco nem recomendo índice ou alteração SQL.
 
-**Rapidez e segurança para quem usa:** o indicador atual aparece antes da espera de 300 ms e respostas de textos antigos já são descartadas. A opção A não deve atrasar a busca mais recente nem esconder erro real. Como a tela é nativa, registrar antes e depois o tempo desde o terceiro caractere válido até resultados ou erro, incluindo a espera de 300 ms; comparar mediana e p95 em Android e iOS, no mesmo aparelho/rede/versão. Não existe baseline. Proponho provisoriamente p95 de até 3 s em rede normal, indicador visível desde o início e nenhum intervalo superior a 10 s sem status visível; a equipe precisa validar a meta antes de publicar. Continuam iguais documento e nome exibidos, fornecedor escolhido, filtros/RLS, permissões, mensagens de falha/repetição e ausência de cache offline. Preço/estoque não fazem parte desta busca e não mudam. Não altera reconexão nem inclui tentativas automáticas.
+**Rapidez e segurança para quem usa:** o indicador continua aparecendo antes da espera de 300 ms. A chamada antiga pode ser encerrada no aparelho, e a busca mais recente mantém os mesmos cinco resultados potenciais e o mesmo tratamento de falha/repetição. Não há medição de tempo antes/depois nem baseline; para confirmar rapidez, comparar mediana e p95 em Android e iOS no mesmo aparelho, rede e versão. A referência provisória continua sendo p95 até 3 s em rede normal, indicador visível desde o início e nenhum intervalo superior a 10 s sem status visível; a equipe precisa validar a meta antes de publicá-la. Nome, documento, fornecedor selecionado, filtros e permissões permanecem iguais. O fluxo continua sem cache offline. Preço/estoque não fazem parte desta busca e não mudam. Não altera reconexão nem inclui tentativas automáticas.
 
-**Risco, reversão e validação:** o principal limite é que cancelar o envio/recebimento no aparelho pode não parar o trabalho já iniciado no servidor. Validar que um cancelamento intencional não mostra erro, que a busca atual continua exibindo as mesmas cinco opções e que falha real ainda oferece “Tentar novamente”. Reverter retirando o sinal de cancelamento; nenhum SQL, migration ou ajuste de permissão é necessário. Antes/depois devem contar chamadas iniciadas, cancelamentos e respostas recebidas separadamente, medir tamanho/egress somente por fonte oficial e carga/latência em métricas agregadas autorizadas. A frequência, economia de bytes, custo do banco e tempos reais são desconhecidos; não usei erros agregados como indício de repetição. Não rodei testes, não acessei o banco remoto, dados pessoais, cadastros, notas ou métricas operacionais e não alterei código.
+**Arquivos, risco, reversão e validação:** alterei `mobile/src/services/stock/invoices/inboundInvoiceCatalogLookupService.ts` para encaminhar o sinal e `mobile/src/features/stock/invoices/modals/inbound-mappings/hooks/useInboundMappingSearches.ts` para cancelar no descarte do efeito e ignorar cancelamentos intencionais. O principal limite é que o cancelamento no aparelho pode não parar o trabalho já iniciado no servidor. A inspeção estática confirmou o sinal ligado à consulta e a guarda de estado nos caminhos de sucesso, falha e finalização. Não rodei testes ou build. Reverter removendo o sinal dos dois arquivos; nenhum SQL, migration ou ajuste de permissão é necessário. Chamadas iniciadas, respostas interrompidas, bytes oficiais, carga/latência e tempos reais seguem sem medição; não usei erros agregados como indício de repetição. Não acessei banco remoto, dados pessoais, cadastros, notas ou métricas operacionais.
 
 | Recorte/ID | Estado | Evidência e limite |
 | --- | --- | --- |
-| App — busca de fornecedor em vínculo de nota (SCE-333) | Proposta nova; aguardando aceitar/recusar | Uma chamada por texto válido após pausa; resposta antiga é ignorada pela tela, mas não cancelada. O total de chamadas iniciadas permanece; resposta em trânsito pode ser interrompida. Uso, bytes oficiais, carga/latência e rapidez não medidos. |
+| App — busca de fornecedor em vínculo de nota (SCE-333) | Executada em 18/11 após autorização do operador | Sinal de cancelamento ligado à consulta e ao descarte do efeito; chamadas iniciadas continuam na contagem, resposta ainda em trânsito pode ser interrompida. Uso, bytes oficiais, carga/latência e rapidez não medidos. |
 | ERP — lista de fornecedores no modal de vínculos (SCE-298) | Executada em 16/11; não repetir | A projeção já foi reduzida de 23 para 8 campos; filtro local e paginação existentes foram preservados. |
 | SCE-323/322/270/232 | Aceitas, ainda bloqueadas | Continuam sem correlação segura, sessão ERP autorizada, regra escrita de datas ou publicação/uso natural, respectivamente. |
 
-**Próximo recorte exato:** revisar somente `mobile/src/services/stock/invoices/inboundInvoiceCatalogLookupService.ts#searchInboundInvoiceProductParents` e os chamadores em `mobile/src/features/stock/invoices/modals/inbound-mappings/hooks/useInboundQuickRegistration.ts`. Conferir filtros e campos da consulta ao escolher produto pai para cadastro rápido, o que o formulário realmente apresenta, limite/ordenação, duplicidade e estados de carregamento/erro. Não abrir produtos, notas, fornecedores, preços ou estoque reais. Separar chamadas, bytes/saída oficial, carga/latência e tempo percebido; preservar permissões, preço atual, resultado selecionado, status de rede e mensagens de falha. Busca pelo nome exato nos oito relatórios históricos e no roteiro não localizou revisão anterior desse método. SCE-333 fica visível enquanto a auditoria avança nesse recorte independente.
+**Próximo recorte exato:** revisar somente `mobile/src/services/stock/invoices/inboundInvoiceCatalogLookupService.ts#searchInboundInvoiceProductParents` e os chamadores em `mobile/src/features/stock/invoices/modals/inbound-mappings/hooks/useInboundQuickRegistration.ts`. Conferir filtros e campos da consulta ao escolher produto pai para cadastro rápido, o que o formulário realmente apresenta, limite/ordenação, duplicidade e estados de carregamento/erro. Não abrir produtos, notas, fornecedores, preços ou estoque reais. Separar chamadas, bytes/saída oficial, carga/latência e tempo percebido; preservar permissões, preço atual, resultado selecionado, status de rede e mensagens de falha. Busca pelo nome exato nos oito relatórios históricos e no roteiro não localizou revisão anterior desse método. SCE-333 foi concluída e não deve ser reapresentada sem evidência nova.
 
 ---
 

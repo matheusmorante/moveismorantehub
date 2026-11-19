@@ -31,8 +31,10 @@ export const useInboundMappingSuggestions = ({
       (item) => item.linkMode !== 'not_applicable' && !item.matchedProductId && !item.compositionLinks?.length
     );
     if (!visible || !supplierId || unresolved.length === 0) {
+      suggestionRunKey.current = '';
       setSuggestionsLoading(false);
       setSuggestions({});
+      setSuggestionsError('');
       return;
     }
 

@@ -85,6 +85,7 @@ export const InboundItemSingleMode: React.FC<InboundItemSingleModeProps> = ({
             className="w-full"
             supplierId={supplierId}
             variationsOnly
+            includeTrashEligibility={false}
             excludedProductLinks={excludedProductLinks}
             isSelected={false}
             placeholder="Digite pelo menos 3 caracteres para buscar..."

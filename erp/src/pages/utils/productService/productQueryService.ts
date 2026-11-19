@@ -28,6 +28,12 @@ export const LIGHT_COLUMNS_WITH_CATS =
 /** Minimal product and variation data needed to search and add items to a sale. */
 export const SALES_ORDER_AUTOCOMPLETE_COLUMNS =
   'id,name,marketplace_title,code,description,unit,unit_price,price,promo_price,cost_price,stock,active,is_draft,status,deleted,supplier_id,main_supplier_id,supplier_ids,product_kind,condition,is_salvado,item_type,is_combo,fiscal,variation_details:technical_specs->variationDetails,product_variations(id,product_id,sku,name,stock,price,promo_price,cost_price,active,status,merged_to_variation_id,attributes,use_parent_name,use_parent_price,use_parent_promo_price,use_parent_dimensions,use_parent_description)';
+const PRODUCT_LINK_CONFIRMATION_COLUMNS =
+  'id,deleted,sku,code,name,title,marketplace_title,description,is_draft,status,item_type';
+const PRODUCT_LINK_CONFIRMATION_WITH_VARIATION_COLUMNS = [
+  PRODUCT_LINK_CONFIRMATION_COLUMNS,
+  'product_variations(id,product_id,sku,name,use_parent_name)',
+].join(',');
 
 export type ProductPreviewOption = {
   id: string;
@@ -180,6 +186,7 @@ export const fetchProductsPage = async (
     includeTrashEligibility?: boolean;
     includeTotal?: boolean;
     productProjection?: 'componentAutocomplete' | 'salesOrderAutocomplete';
+    includeCompositions?: boolean;
     searchVariationsAsEmbed?: boolean;
   } = {}
 ): Promise<{ data: Product[]; total: number }> => {
@@ -219,10 +226,14 @@ export const fetchProductsPage = async (
 
     const filters = {
       ...options,
-      ...(isComponentAutocompleteProjection || isSalesOrderAutocompleteProjection
+      ...(isComponentAutocompleteProjection
         ? { excludeCombos: true }
         : {}),
-      ...(isSalesOrderAutocompleteProjection ? { productsOnly: true } : {}),
+      ...(isSalesOrderAutocompleteProjection
+        ? requestOptions.includeCompositions
+          ? { excludeCombos: false, productsAndCompositionsOnly: true }
+          : { excludeCombos: true, productsOnly: true }
+        : {}),
       searchVariationsAsEmbed,
     };
     const { data, error, count } = await applyProductFiltersAndSort(baseQuery, filters, {
@@ -427,6 +438,57 @@ export const getFullProduct = async (id: string): Promise<Product | null> => {
   return product
     ? (await applyCompositionAvailability([product]))[0]
     : null;
+};
+
+export type ProductLinkConfirmation = Pick<
+  Product,
+  'id' | 'deleted' | 'code' | 'name' | 'title'
+> & {
+  variations?: Pick<Variation, 'id' | 'sku' | 'name' | 'title'>[];
+};
+
+const toProductLinkConfirmation = (
+  product: Product,
+  variationId?: string
+): ProductLinkConfirmation => ({
+  id: product.id,
+  deleted: product.deleted,
+  code: product.code,
+  name: product.name,
+  title: product.title,
+  variations: product.variations
+    ?.filter((variation) => !variationId || variation.id === variationId)
+    .map(({ id, sku, name, title }) => ({ id, sku, name, title })),
+});
+
+/** Confere somente os dados usados ao vincular um produto a um código de fornecedor. */
+export const getProductLinkConfirmation = async (
+  id: string,
+  variationId?: string
+): Promise<ProductLinkConfirmation | null> => {
+  try {
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+    if (isUUID) {
+      const { data, error } = await supabase
+        .from(TABLE_NAME)
+        .select(
+          variationId
+            ? PRODUCT_LINK_CONFIRMATION_WITH_VARIATION_COLUMNS
+            : PRODUCT_LINK_CONFIRMATION_COLUMNS
+        )
+        .eq('id', id)
+        .maybeSingle();
+
+      if (!error && data) return toProductLinkConfirmation(mapFromDB(data), variationId);
+    }
+  } catch (error) {
+    console.error('[ProductService] Erro ao conferir produto para vínculo do fornecedor:', error);
+  }
+
+  // Preserve the existing offline fallback without refreshing the shared cache
+  // with a partial product or making an unrelated composition-stock read.
+  const cachedProduct = getLocalProducts().find((product) => String(product.id) === String(id));
+  return cachedProduct ? toProductLinkConfirmation(cachedProduct, variationId) : null;
 };
 
 export const getFullProductsByIds = async (ids: string[]): Promise<Map<string, Product>> => {

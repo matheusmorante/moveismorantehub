@@ -99,6 +99,7 @@ export const useInboundMappingSearches = ({
     }
 
     let active = true;
+    const requestController = new AbortController();
     setSuppliers([]);
     setSupplierSearchError('');
     setSupplierSearchLoading(true);
@@ -112,25 +113,28 @@ export const useInboundMappingSearches = ({
             return;
           }
 
-          const rows = await stockService.searchInboundInvoiceSuppliers(values.query);
-          if (active) {
+          const rows = await stockService.searchInboundInvoiceSuppliers(
+            values.query,
+            requestController.signal
+          );
+          if (active && !requestController.signal.aborted) {
             setSuppliers((rows as Supplier[]).slice(0, INBOUND_INVOICE_SEARCH_RESULT_LIMIT));
             setSupplierSearchError('');
           }
         } catch (error) {
+          if (!active || requestController.signal.aborted) return;
           console.warn('[InboundInvoiceMappings] supplier search failed', error);
-          if (active) {
-            setSuppliers([]);
-            setSupplierSearchError('Não foi possível buscar fornecedores. Tente novamente.');
-          }
+          setSuppliers([]);
+          setSupplierSearchError('Não foi possível buscar fornecedores. Tente novamente.');
         } finally {
-          if (active) setSupplierSearchLoading(false);
+          if (active && !requestController.signal.aborted) setSupplierSearchLoading(false);
         }
       })();
     }, INBOUND_INVOICE_SEARCH_DEBOUNCE_MS);
     return () => {
       active = false;
       clearTimeout(timer);
+      requestController.abort();
     };
   }, [visible, supplierSearch, supplierId, supplierRetryVersion, supplierSearchForm.validateValues]);
 

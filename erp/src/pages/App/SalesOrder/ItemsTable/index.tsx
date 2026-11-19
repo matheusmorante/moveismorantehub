@@ -15,6 +15,7 @@ interface Props {
   errors: ValidationErrors;
   onSelectProduct: (idx: number, product: any, variation?: any) => void;
   isBudget?: boolean;
+  isSale?: boolean;
   isReturn?: boolean;
   hideHandling?: boolean;
   /** Se true, destaca visualmente os itens sem produto real vinculado */
@@ -42,19 +43,18 @@ const ItemsTable = ({
   errors,
   onSelectProduct,
   isBudget,
+  isSale,
   isReturn,
   hideHandling: propHideHandling,
   highlightTemporaryItems,
 }: Props) => {
   const onlyServiceItems = items.length > 0 && items.every((item) => item.itemType === 'service');
   const hideHandling = Boolean(propHideHandling || isBudget || isReturn || onlyServiceItems);
+  const useItemEditorModal = Boolean(isBudget || isSale);
 
   // Uma única linha expandida nos layouts compactos.
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
   const [descriptionFocusIndex, setDescriptionFocusIndex] = useState<number | null>(null);
-  const [compositionDraftOpen, setCompositionDraftOpen] = useState(false);
-  const itemsRef = useRef(items);
-  itemsRef.current = items;
 
   const compositionGroups = new Set(
     items.map((item) => item.compositionGroup?.groupId).filter((groupId): groupId is string => Boolean(groupId))
@@ -67,27 +67,13 @@ const ItemsTable = ({
     .filter((item) => item.itemType !== 'service')
     .reduce((total, item) => total + (Number(item.quantity) || 0), 0);
 
-  const handleAddItem = (itemType: 'product' | 'composition' | 'service') => {
+  const handleAddItem = (itemType: 'product' | 'service') => {
     setExpandedIndex(null);
     setDescriptionFocusIndex(null);
-
-    if (itemType === 'composition') {
-      setCompositionDraftOpen(true);
-      return;
-    }
-
-    setCompositionDraftOpen(false);
     const newItemIndex = items.length;
     setExpandedIndex(newItemIndex);
     setItems((prev: Item[]) => [...prev, createEmptyOrderItem(itemType)]);
     setDescriptionFocusIndex(newItemIndex);
-  };
-
-  const handleCompositionSelect = (product: any, variation?: any) => {
-    const newItemIndex = itemsRef.current.length;
-    onSelectProduct(newItemIndex, product, variation);
-    setExpandedIndex(newItemIndex);
-    setCompositionDraftOpen(false);
   };
 
   const { width } = useWindowSize();
@@ -148,6 +134,7 @@ const ItemsTable = ({
               isMobile={true}
               onSelectProduct={onSelectProduct}
               isBudget={isBudget}
+              useItemEditorModal={useItemEditorModal}
               isReturn={isReturn}
               hideHandling={hideHandling}
               highlightTemporaryItems={highlightTemporaryItems}
@@ -159,9 +146,6 @@ const ItemsTable = ({
               onDescriptionBlur={(idx) =>
                 setDescriptionFocusIndex((current) => (current === idx ? null : current))
               }
-              compositionDraftOpen={compositionDraftOpen}
-              onSelectComposition={handleCompositionSelect}
-              onCancelCompositionDraft={() => setCompositionDraftOpen(false)}
             />
           </div>
 
@@ -172,7 +156,11 @@ const ItemsTable = ({
       ) : (
         <div className="min-w-0 rounded-2xl border border-slate-200/70 dark:border-slate-800">
           <table className="w-full border-collapse table-fixed">
-            <ItemsTableDesktopHeader hideHandling={hideHandling || isCompactDesktop} />
+            <ItemsTableDesktopHeader
+              hideHandling={hideHandling || isCompactDesktop}
+              isBudget={isBudget}
+              useItemEditorModal={useItemEditorModal}
+            />
             <Body
               items={items}
               setItems={setItems}
@@ -181,20 +169,18 @@ const ItemsTable = ({
               isMobile={false}
               onSelectProduct={onSelectProduct}
               isBudget={isBudget}
+              useItemEditorModal={useItemEditorModal}
               isReturn={isReturn}
               hideHandling={hideHandling}
               highlightTemporaryItems={highlightTemporaryItems}
               expandedIndex={expandedIndex}
               setExpandedIndex={setExpandedIndex}
               compactDesktop={isCompactDesktop}
-              alwaysExpanded={isWideDesktop}
+              alwaysExpanded={isWideDesktop && !useItemEditorModal}
               autoFocusDescriptionIndex={descriptionFocusIndex}
               onDescriptionBlur={(idx) =>
                 setDescriptionFocusIndex((current) => (current === idx ? null : current))
               }
-              compositionDraftOpen={compositionDraftOpen}
-              onSelectComposition={handleCompositionSelect}
-              onCancelCompositionDraft={() => setCompositionDraftOpen(false)}
             />
             <Footer
               summary={summary}

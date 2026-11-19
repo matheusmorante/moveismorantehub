@@ -22,6 +22,7 @@ export const BodyRowDesktop: React.FC<BodyRowViewProps> = ({
   deliveryMethod,
   settings: propSettings,
   isBudget,
+  useItemEditorModal,
   isReturn,
   hideHandling,
   shouldHideHandling,
@@ -48,7 +49,6 @@ export const BodyRowDesktop: React.FC<BodyRowViewProps> = ({
   assemblyResponsibleRequired,
   assemblyResponsibleError,
   stockOriginError,
-  serviceProductLink,
 }) => {
   const {
     tempUnitPrice,
@@ -119,13 +119,13 @@ export const BodyRowDesktop: React.FC<BodyRowViewProps> = ({
       )}
     </div>
   ) : null;
-  const collapseButton = onToggleExpand ? (
+  const collapseButton = onToggleExpand && !(isBudget && !isCompositionComponent) ? (
     <button
       type="button"
       onClick={onToggleExpand}
-      aria-label={`Recolher item ${displayNumber}`}
+      aria-label={isBudget && !isCompositionComponent ? `Fechar edição do item ${displayNumber}` : `Recolher item ${displayNumber}`}
       aria-expanded={true}
-      title="Recolher item"
+      title={isBudget && !isCompositionComponent ? 'Fechar edição' : 'Recolher item'}
       className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-200"
     >
       <i className="bi bi-chevron-up text-[10px]" aria-hidden="true" />
@@ -137,6 +137,8 @@ export const BodyRowDesktop: React.FC<BodyRowViewProps> = ({
       <BodyRowDesktopCollapsed
         item={item}
         displayNumber={displayNumber}
+        isBudget={isBudget}
+        useItemEditorModal={useItemEditorModal}
         isService={isService}
         isLinkedProduct={isLinkedProduct}
         showTemporaryProductLabel={showTemporaryProductLabel}
@@ -224,7 +226,6 @@ export const BodyRowDesktop: React.FC<BodyRowViewProps> = ({
                   />
                 </div>
               )}
-              {serviceProductLink}
             </div>
           </div>
         ) : isCompositionComponent ? (
@@ -316,8 +317,7 @@ export const BodyRowDesktop: React.FC<BodyRowViewProps> = ({
               onBlur={onDescriptionBlur}
               maxSuggestions={5}
               productsOnly
-              excludeCombos
-              filterCombosOnServer
+              includeCompositions={!isReturn}
               includeTrashEligibility={false}
               compactSalesOrderProjection
               allowedProductKinds={STOCK_ORIGIN_PRODUCT_KINDS[item.condition ?? '']}
@@ -454,7 +454,7 @@ export const BodyRowDesktop: React.FC<BodyRowViewProps> = ({
         </div>
       </td>
       <td rowSpan={compactDesktop && !item.isComboItem ? 2 : undefined} className="px-2 py-1.5 w-[50px] text-center align-middle">
-        {!item.isComboItem && !isCompositionComponent && (
+        {!isBudget && !item.isComboItem && !isCompositionComponent && (
           <button
             type="button"
             onClick={onDelete}

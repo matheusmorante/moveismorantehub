@@ -12,7 +12,11 @@ export const inboundInvoiceCatalogSearchFormSchema = z.object({
     'Digite pelo menos três caracteres para buscar.'
   ),
 });
-const catalogSupplierId = z.string().trim().uuid('Selecione um fornecedor válido para buscar.');
+export const inboundInvoiceSupplierIdSchema = z
+  .string()
+  .trim()
+  .uuid('Selecione um fornecedor válido para buscar.');
+const catalogSupplierId = inboundInvoiceSupplierIdSchema;
 const inboundProductLinkRefSchema = z.object({
   productId: z.string().trim().min(1),
   variationId: z.string().trim().min(1).optional(),

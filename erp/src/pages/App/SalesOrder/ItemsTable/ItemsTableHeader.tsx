@@ -3,7 +3,7 @@ import React, { useEffect, useRef, useState } from 'react';
 interface ItemsTableHeaderProps {
   readonly productsCount: number;
   readonly servicesCount: number;
-  readonly onAddItem: (itemType: 'product' | 'composition' | 'service') => void;
+  readonly onAddItem: (itemType: 'product' | 'service') => void;
   readonly error?: string;
 }
 
@@ -52,7 +52,6 @@ export const ItemsTableHeader: React.FC<ItemsTableHeaderProps> = ({
           <i className="bi bi-box-seam text-blue-600 dark:text-blue-400" aria-hidden="true" />
           {productsCount} {productsCount === 1 ? 'produto' : 'produtos'}
         </span>
-        <span aria-hidden="true" className="text-slate-300 dark:text-slate-600">·</span>
         <span className="inline-flex items-center gap-1.5">
           <i className="bi bi-tools text-amber-600 dark:text-amber-400" aria-hidden="true" />
           {servicesCount} {servicesCount === 1 ? 'serviço' : 'serviços'}
@@ -94,22 +93,7 @@ export const ItemsTableHeader: React.FC<ItemsTableHeaderProps> = ({
               <i className="bi bi-box-seam mt-1 text-sm text-blue-600 dark:text-blue-400" aria-hidden="true" />
               <span className="flex flex-col gap-0.5">
                 <span className="text-sm font-medium text-slate-800 dark:text-slate-100">Produto</span>
-                <span className="text-xs font-normal text-slate-500 dark:text-slate-400">Produto individual</span>
-              </span>
-            </button>
-            <button
-              type="button"
-              aria-label="Produto composto"
-              onClick={() => {
-                onAddItem('composition');
-                setIsAddMenuOpen(false);
-              }}
-              className="flex w-full items-start gap-3 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-blue-50/70 dark:hover:bg-blue-950/30"
-            >
-              <i className="bi bi-boxes mt-1 text-sm text-blue-600 dark:text-blue-400" aria-hidden="true" />
-              <span className="flex flex-col gap-0.5">
-                <span className="text-sm font-medium text-slate-800 dark:text-slate-100">Produto composto</span>
-                <span className="text-xs font-normal text-slate-500 dark:text-slate-400">Kit com vários produtos</span>
+                <span className="text-xs font-normal text-slate-500 dark:text-slate-400">Produtos e kits</span>
               </span>
             </button>
             <button

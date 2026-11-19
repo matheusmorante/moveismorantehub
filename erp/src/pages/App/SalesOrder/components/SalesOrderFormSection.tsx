@@ -33,12 +33,14 @@ const SalesOrderFormSection = ({
   const isPickup = state.shipping.deliveryMethod === 'pickup';
   const { currentStep } = state;
   const isBudget = state.currentOrder.orderType === 'budget';
+  const isSale = state.currentOrder.orderType === 'sale';
   const isReturn = state.currentOrder.orderType === 'return';
 
   return (
     <form
       className="flex flex-col w-full h-full bg-white dark:bg-slate-900 relative transition-colors duration-300 overflow-hidden"
       onKeyDown={(e) => {
+        if (e.target instanceof HTMLButtonElement && e.target.type === 'button') return;
         if (e.key === 'Enter') e.preventDefault();
       }}
     >
@@ -58,7 +60,7 @@ const SalesOrderFormSection = ({
               <SectionCard
                 icon="bi bi-box-seam"
                 iconBg="bg-blue-600 shadow-blue-100 dark:shadow-blue-900/20"
-                title="ITENS DO PEDIDO"
+                title={isBudget ? 'ITENS' : 'ITENS DO PEDIDO'}
                 compactHeader
               >
                 <ItemsTable
@@ -69,6 +71,7 @@ const SalesOrderFormSection = ({
                   errors={state.errors}
                   onSelectProduct={actions.handleSelectProduct}
                   isBudget={isBudget}
+                  isSale={isSale}
                   isReturn={isReturn}
                   hideHandling={state.currentOrder.orderType === 'sale'}
                   highlightTemporaryItems={highlightTemporaryItems}

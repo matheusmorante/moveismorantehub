@@ -29,6 +29,7 @@ export interface InboundMappingItemCardProps {
   onSearchChange: (query: string) => void;
   onRetrySearch: () => void;
   onLinkProduct: (product: InboundScorerProduct) => void;
+  onLinkSuggestedProduct: (product: InboundScorerProduct) => void;
 }
 
 export const InboundMappingItemCard: React.FC<InboundMappingItemCardProps> = ({
@@ -52,6 +53,7 @@ export const InboundMappingItemCard: React.FC<InboundMappingItemCardProps> = ({
   onSearchChange,
   onRetrySearch,
   onLinkProduct,
+  onLinkSuggestedProduct,
 }) => {
   const composition: CompositionLink[] = item.compositionLinks || [];
   const isComposition = !lockToNotApplicable && item.linkMode === 'composition';
@@ -306,7 +308,7 @@ export const InboundMappingItemCard: React.FC<InboundMappingItemCardProps> = ({
                   isDismissedSuggestion={isDismissedSuggestion}
                   isDarkMode={isDarkMode}
                   saving={saving}
-                  onLinkProduct={onLinkProduct}
+                  onLinkProduct={onLinkSuggestedProduct}
                   onDismissSuggestions={onDismissSuggestions}
                 />
 

@@ -16,6 +16,8 @@ import {
   resolveOrderItems,
   ORDER_ROW_COLUMNS,
   findOrderRowByIdOrNumber,
+  findOrderRowForUpdateByIdOrNumber,
+  findLinkedOrderReferenceByIdOrNumber,
   normalizeAgentOrderIdentifier,
 } from './agentOrderHelpers';
 import {
@@ -105,7 +107,7 @@ export async function createOrderOperationForAgent(
   const linkedParam = input.pedidoOrigemId?.trim() || input.pedidoVinculadoIdOuNumero?.trim();
   let linkedOrderId: string | null = null;
   if (linkedParam) {
-    const linked = await findOrderRowByIdOrNumber(supabase, linkedParam);
+    const linked = await findLinkedOrderReferenceByIdOrNumber(supabase, linkedParam);
     linkedOrderId = linked?.id || linkedParam;
   }
 
@@ -277,7 +279,7 @@ export async function updateOrderOperationForAgent(
     throw new Error('É obrigatório informar o ID ou número do pedido/operação para editar.');
   }
 
-  const currentRow = await findOrderRowByIdOrNumber(supabase, target);
+  const currentRow = await findOrderRowForUpdateByIdOrNumber(supabase, target);
   if (!currentRow) {
     throw new Error(`Nenhum pedido ou operação encontrado para "${target}".`);
   }

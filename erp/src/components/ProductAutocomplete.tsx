@@ -40,6 +40,8 @@ interface ProductAutocompleteProps {
   parentsOnly?: boolean;
   /** Exibe somente itens individuais do tipo produto, ocultando serviços e composições. */
   productsOnly?: boolean;
+  /** Inclui composições na busca de produtos, mantendo serviços ocultos. */
+  includeCompositions?: boolean;
   /** Inclui produtos e variações desativados; variações fundidas continuam ocultas. */
   includeDeactivated?: boolean;
   /** Mantém a verificação de lixeira por padrão; seletores sem ação de exclusão podem dispensá-la. */
@@ -88,6 +90,7 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
   excludeCombos = false,
   parentsOnly = false,
   productsOnly = false,
+  includeCompositions = false,
   includeDeactivated = false,
   includeTrashEligibility = true,
   filterCombosOnServer = false,
@@ -119,6 +122,7 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
     supplierId,
     parentsOnly,
     productsOnly,
+    includeCompositions,
     variationsOnly,
     compositionsOnly,
     includeDeactivated,
@@ -175,7 +179,7 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
 
   return (
     <div ref={wrapperRef} className={`relative ${className}`}>
-      {searchError && suggestions.length === 0 && <p role="alert" className="text-xs text-red-600">{searchError} <button type="button" disabled={disabled || isLoading} onClick={retrySearch}>Tentar buscar novamente</button></p>}
+      {searchError && <p role="alert" className="text-xs text-red-600">{searchError} <button type="button" disabled={disabled || isLoading} onClick={retrySearch}>Tentar buscar novamente</button></p>}
       <div className="flex gap-1.5">
         <div className="relative flex-1">
           {multiline ? (
@@ -359,6 +363,9 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
           ) : (
             suggestions.slice(0, Math.min(maxSuggestions, 5)).map((item, index) => {
               const { product: p, variation: v } = item;
+              const isComposition =
+                p.itemType === 'composition' ||
+                Boolean((p as any).isComposition || p.isCombo || (p as any).is_combo);
               const fullName = getVariationDisplayName(p, v);
               const displayName = fullName;
 
@@ -387,7 +394,11 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
                     }
                     setShowSuggestions(false);
                   }}
-                  className="w-full px-4 py-2.5 text-left hover:bg-emerald-50/70 dark:hover:bg-slate-800/60 transition-all flex items-center justify-between gap-3 group"
+                  className={`w-full px-4 py-2.5 text-left transition-all flex items-center justify-between gap-3 group ${
+                    isComposition
+                      ? 'bg-blue-50 text-blue-950 hover:bg-blue-100 dark:bg-blue-950/40 dark:text-blue-100 dark:hover:bg-blue-900/60'
+                      : 'hover:bg-emerald-50/70 dark:hover:bg-slate-800/60'
+                  }`}
                 >
                   <div className="flex flex-col min-w-0 flex-1">
                     <TruncatedProductTitle
@@ -410,7 +421,11 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
                           currency: 'BRL',
                         }).format(displayPrice)}
                       </span>
-                      {onEditClick ? (
+                      {isComposition ? (
+                        <span className="rounded-md bg-blue-100 px-2 py-0.5 text-[10px] font-bold text-blue-700 dark:bg-blue-900/60 dark:text-blue-200">
+                          Composto
+                        </span>
+                      ) : onEditClick ? (
                         <button
                           type="button"
                           onClick={(e) => {

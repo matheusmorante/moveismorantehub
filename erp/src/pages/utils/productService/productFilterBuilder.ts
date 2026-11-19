@@ -8,9 +8,9 @@ import {
 } from '../../../../../shared-utils/productListSearch';
 import {
   PRODUCT_LIST_PRODUCT_AND_LEGACY_ITEM_TYPE_FILTER,
+  PRODUCT_LIST_PRODUCT_ITEM_TYPE_FILTER,
   PRODUCT_LIST_NON_COMBO_FLAG_FILTER,
   PRODUCT_LIST_NON_COMBO_ITEM_TYPE_FILTER,
-  PRODUCT_LIST_PRODUCT_ITEM_TYPE_FILTER,
 } from '../../../../../shared-utils/productListTypeFilters';
 import { PRODUCT_LIST_DRAFT_FILTER } from '../../../../../shared-utils/productListDraftFilters';
 import { fetchProductListCategoryFilter } from '../../../../../shared-utils/productListCategoryFilters';
@@ -29,6 +29,7 @@ export interface ProductQueryFilterOptions {
   supplierId?: string;
   itemType?: string;
   productsOnly?: boolean;
+  productsAndCompositionsOnly?: boolean;
   excludeItemType?: string;
   excludeCombos?: boolean;
   sortBy?: string;
@@ -66,7 +67,9 @@ export const applyProductFiltersAndSort = async (
     q = q.eq('item_type', options.itemType);
   }
 
-  if (options?.productsOnly) {
+  if (options?.productsAndCompositionsOnly) {
+    q = q.or(PRODUCT_LIST_PRODUCT_ITEM_TYPE_FILTER);
+  } else if (options?.productsOnly) {
     q = q.or(PRODUCT_LIST_PRODUCT_AND_LEGACY_ITEM_TYPE_FILTER);
   }
 

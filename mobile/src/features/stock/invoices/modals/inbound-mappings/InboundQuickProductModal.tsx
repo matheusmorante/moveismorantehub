@@ -24,6 +24,8 @@ interface InboundQuickProductModalProps {
   parentSearch: string;
   parentSearchLoading: boolean;
   parentSearchError: string;
+  parentSelectionError: string;
+  preparingVariationParentId: string;
   parentResults: any[];
   onRetryParentSearch: () => void;
   isDarkMode: boolean;
@@ -47,6 +49,8 @@ export const InboundQuickProductModal: React.FC<InboundQuickProductModalProps> =
   parentSearch,
   parentSearchLoading,
   parentSearchError,
+  parentSelectionError,
+  preparingVariationParentId,
   parentResults,
   onRetryParentSearch,
   isDarkMode,
@@ -92,6 +96,7 @@ export const InboundQuickProductModal: React.FC<InboundQuickProductModalProps> =
             </Text>
             <TouchableOpacity
               style={styles.registrationChoice}
+              disabled={Boolean(preparingVariationParentId)}
               onPress={onStartNewProduct}
             >
               <Plus size={18} color="#2563eb" />
@@ -112,6 +117,7 @@ export const InboundQuickProductModal: React.FC<InboundQuickProductModalProps> =
               <FormTextInput
                 value={parentSearch}
                 onChangeText={onParentSearchChange}
+                editable={!preparingVariationParentId}
                 accessibilityLabel="Buscar produto existente para adicionar uma variação"
                 accessibilityHint="Digite pelo menos três caracteres. São exibidos até cinco produtos."
                 placeholder="Buscar produto por nome ou SKU"
@@ -145,7 +151,11 @@ export const InboundQuickProductModal: React.FC<InboundQuickProductModalProps> =
               <TouchableOpacity
                 key={parent.id}
                 style={styles.resultRow}
+                disabled={Boolean(preparingVariationParentId)}
                 onPress={() => onStartVariation(parent)}
+                accessibilityRole="button"
+                accessibilityState={{ disabled: Boolean(preparingVariationParentId) }}
+                accessibilityHint="Carrega o cadastro completo atual antes de abrir o formulário."
               >
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.itemName, isDarkMode && styles.textDark]}>
@@ -155,9 +165,23 @@ export const InboundQuickProductModal: React.FC<InboundQuickProductModalProps> =
                     SKU: {parent.code || '—'} · {(parent.product_variations || []).length} variações
                   </Text>
                 </View>
-                <Plus size={18} color="#2563eb" />
+                {preparingVariationParentId === String(parent.id) ? (
+                  <ActivityIndicator size="small" color="#2563eb" />
+                ) : (
+                  <Plus size={18} color="#2563eb" />
+                )}
               </TouchableOpacity>
             ))}
+            {parentSelectionError ? (
+              <Text style={[styles.errorText, { marginTop: 8 }]} accessibilityRole="alert">
+                {parentSelectionError}
+              </Text>
+            ) : null}
+            {preparingVariationParentId ? (
+              <Text style={[styles.muted, { marginTop: 8 }]} accessibilityLiveRegion="polite">
+                Carregando o cadastro completo do produto...
+              </Text>
+            ) : null}
           </ScrollView>
         </View>
       </Modal>

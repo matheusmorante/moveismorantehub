@@ -59,7 +59,7 @@ export async function upsertCustomerForAgent(
       .from('people')
       .update(payload)
       .eq('id', input.clienteId.trim())
-      .select('id, full_name, phone, email, cpf_cnpj, full_address, active')
+      .select('id, full_name, phone, email, cpf_cnpj, cidade:full_address->>city, active')
       .single();
     if (error) throw error;
     return {
@@ -68,7 +68,7 @@ export async function upsertCustomerForAgent(
       telefone: data?.phone || input.telefone || null,
       email: data?.email || input.email || null,
       cpfCnpj: data?.cpf_cnpj || input.cpfCnpj || null,
-      cidade: data?.full_address?.city || input.cidade || null,
+      cidade: data?.cidade || data?.full_address?.city || input.cidade || null,
       ativo: data?.active ?? true,
       acao: 'atualizado',
     };
@@ -77,7 +77,7 @@ export async function upsertCustomerForAgent(
   const { data, error } = await supabase
     .from('people')
     .insert([{ ...payload, created_at: nowIso }])
-    .select('id, full_name, phone, email, cpf_cnpj, full_address, active')
+    .select('id, full_name, phone, email, cpf_cnpj, cidade:full_address->>city, active')
     .single();
   if (error) throw error;
 
@@ -87,7 +87,7 @@ export async function upsertCustomerForAgent(
     telefone: data?.phone || input.telefone || null,
     email: data?.email || input.email || null,
     cpfCnpj: data?.cpf_cnpj || input.cpfCnpj || null,
-    cidade: data?.full_address?.city || input.cidade || null,
+    cidade: data?.cidade || data?.full_address?.city || input.cidade || null,
     ativo: data?.active ?? true,
     acao: 'criado',
   };

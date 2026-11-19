@@ -4,8 +4,6 @@ import { Item } from '../../../types/items.type';
 import { sanitizeItem } from '../../../utils/sanitization';
 import { ValidationErrors } from '../../../utils/validations';
 import CompositionGroupRow, { IndexedCompositionItem } from './CompositionGroupRow';
-import CompositionAutocomplete from './CompositionAutocomplete';
-import Product, { Variation } from '../../../types/product.type';
 
 interface Props {
   items: Item[];
@@ -19,6 +17,7 @@ interface Props {
   alwaysExpanded?: boolean;
   onSelectProduct: (idx: number, product: any, variation?: any) => void;
   isBudget?: boolean;
+  useItemEditorModal?: boolean;
   isReturn?: boolean;
   hideHandling?: boolean;
   highlightTemporaryItems?: boolean;
@@ -26,9 +25,6 @@ interface Props {
   setExpandedIndex?: (idx: number | null) => void;
   autoFocusDescriptionIndex?: number | null;
   onDescriptionBlur?: (idx: number) => void;
-  compositionDraftOpen?: boolean;
-  onSelectComposition?: (product: Product, variation?: Variation) => void;
-  onCancelCompositionDraft?: () => void;
 }
 
 const Body = ({
@@ -43,6 +39,7 @@ const Body = ({
   alwaysExpanded = false,
   onSelectProduct,
   isBudget,
+  useItemEditorModal,
   isReturn,
   hideHandling,
   highlightTemporaryItems,
@@ -50,9 +47,6 @@ const Body = ({
   setExpandedIndex,
   autoFocusDescriptionIndex,
   onDescriptionBlur,
-  compositionDraftOpen,
-  onSelectComposition,
-  onCancelCompositionDraft,
 }: Props) => {
   const toggleDiscountType = (idx: number) => {
     setItems((prev: Item[]) => {
@@ -188,7 +182,7 @@ const Body = ({
 
   // Preserva a ordem original entre produtos simples, compostos e serviços.
   const indexedItems = items.map((item, originalIndex) => ({ item, originalIndex }));
-  if (indexedItems.length === 0 && !compositionDraftOpen) {
+  if (indexedItems.length === 0) {
     const emptyState = (
       <div className="bg-slate-50/50 px-4 py-8 text-center dark:bg-slate-850/40">
         <div className="w-10 h-10 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-400 flex items-center justify-center mx-auto mb-2 text-base">
@@ -198,7 +192,7 @@ const Body = ({
           Nenhum item adicionado neste pedido.
         </p>
         <p className="text-[11px] text-slate-400 mt-0.5">
-          Use “Adicionar item” para incluir um produto, produto composto ou serviço.
+          Use “Adicionar item” para incluir um produto ou serviço.
         </p>
       </div>
     );
@@ -273,7 +267,6 @@ const Body = ({
                 <BodyRow
                   key={componentId}
                   item={item}
-                  productItems={items.filter((candidate) => candidate.itemType !== 'service')}
                   idx={originalIndex}
                   displayNumber={`${row.lineNumber}.${item.compositionGroup!.componentIndex + 1}`}
                   onChange={changeItems}
@@ -288,6 +281,7 @@ const Body = ({
                   compactDesktop={compactDesktop}
                   onSelectProduct={onSelectProduct}
                   isBudget={isBudget}
+                  useItemEditorModal={false}
                   isReturn={isReturn}
                   hideHandling={hideHandling}
                   isExpanded={expandedComponentId === componentId}
@@ -306,7 +300,6 @@ const Body = ({
       <BodyRow
         key={item.orderItemId || `${originalIndex}-${item.productId || item.itemType || 'empty'}`}
         item={item}
-        productItems={items.filter((candidate) => candidate.itemType !== 'service')}
         idx={originalIndex}
         displayNumber={String(row.lineNumber)}
         onChange={changeItems}
@@ -321,6 +314,7 @@ const Body = ({
         compactDesktop={compactDesktop}
         onSelectProduct={onSelectProduct}
         isBudget={isBudget}
+        useItemEditorModal={useItemEditorModal}
         isReturn={isReturn}
         hideHandling={hideHandling}
         highlightAsTemporary={
@@ -339,63 +333,11 @@ const Body = ({
     );
   });
 
-  const compositionDraft = compositionDraftOpen ? (
-    isMobile ? (
-      <div className="flex items-center gap-2.5 border-b border-slate-200/80 bg-white px-3.5 py-2.5 dark:border-slate-800 dark:bg-slate-900">
-        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-400">
-          <i className="bi bi-boxes text-sm" aria-hidden="true" />
-        </span>
-        <div className="min-w-0 flex-1">
-          <span className="mb-1 ml-1 block text-[10px] font-bold text-slate-500 dark:text-slate-400">
-            Produto composto existente
-          </span>
-          <CompositionAutocomplete
-            autoFocus
-            onSelect={(product, variation) => onSelectComposition?.(product, variation)}
-          />
-        </div>
-        <button
-          type="button"
-          aria-label="Cancelar busca de produto composto"
-          title="Cancelar busca"
-          onClick={onCancelCompositionDraft}
-          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
-        >
-          <i className="bi bi-x-lg text-xs" aria-hidden="true" />
-        </button>
-      </div>
-    ) : (
-      <tr>
-        <td colSpan={compactDesktop || hideHandling ? 8 : 9} className="border-b border-slate-200/80 bg-white px-3 py-2.5 dark:border-slate-800 dark:bg-slate-900">
-          <div className="flex items-center gap-3">
-            <i className="bi bi-boxes text-blue-600 dark:text-blue-400" aria-hidden="true" />
-            <span className="shrink-0 text-xs font-semibold text-slate-600 dark:text-slate-300">
-              Produto composto existente
-            </span>
-            <CompositionAutocomplete
-              autoFocus
-              onSelect={(product, variation) => onSelectComposition?.(product, variation)}
-            />
-            <button
-              type="button"
-              aria-label="Cancelar busca de produto composto"
-              title="Cancelar busca"
-              onClick={onCancelCompositionDraft}
-              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
-            >
-              <i className="bi bi-x-lg text-xs" aria-hidden="true" />
-            </button>
-          </div>
-        </td>
-      </tr>
-    )
-  ) : null;
-
   if (isMobile) {
-    return <>{content}{compositionDraft}</>;
+    return <>{content}</>;
   }
 
-  return <tbody>{content}{compositionDraft}</tbody>;
+  return <tbody>{content}</tbody>;
 };
 
 export default Body;

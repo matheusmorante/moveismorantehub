@@ -55,7 +55,6 @@ describe('Manuseio nos Itens do Pedido (Desktop e Mobile)', () => {
         <tbody>
           <BodyRow
             item={baseItem}
-            productItems={[baseItem]}
             idx={0}
             onChange={vi.fn()}
             onBatchChange={vi.fn()}
@@ -92,7 +91,6 @@ describe('Manuseio nos Itens do Pedido (Desktop e Mobile)', () => {
         <tbody>
           <BodyRow
             item={baseItem}
-            productItems={[baseItem]}
             idx={0}
             onChange={vi.fn()}
             onBatchChange={vi.fn()}
@@ -124,7 +122,6 @@ describe('Manuseio nos Itens do Pedido (Desktop e Mobile)', () => {
     render(
       <BodyRow
         item={baseItem}
-        productItems={[baseItem]}
         idx={0}
         onChange={vi.fn()}
         onBatchChange={vi.fn()}
@@ -155,7 +152,6 @@ describe('Manuseio nos Itens do Pedido (Desktop e Mobile)', () => {
     render(
       <BodyRow
         item={baseItem}
-        productItems={[baseItem]}
         idx={0}
         onChange={vi.fn()}
         onBatchChange={vi.fn()}
@@ -226,7 +222,6 @@ describe('Manuseio nos Itens do Pedido (Desktop e Mobile)', () => {
             isLinkedProduct={false}
             isTemporaryProduct={false}
             itemHasError={false}
-            serviceProductLink={null}
           />
         </tbody>
       </table>
@@ -258,7 +253,6 @@ describe('Manuseio nos Itens do Pedido (Desktop e Mobile)', () => {
         isLinkedProduct={false}
         isTemporaryProduct={false}
         itemHasError={false}
-        serviceProductLink={null}
       />
     );
 
@@ -278,7 +272,6 @@ describe('Manuseio nos Itens do Pedido (Desktop e Mobile)', () => {
         <tbody>
           <BodyRow
             item={itemWithFallback}
-            productItems={[itemWithFallback]}
             idx={0}
             onChange={vi.fn()}
             onBatchChange={vi.fn()}
@@ -309,7 +302,6 @@ describe('Manuseio nos Itens do Pedido (Desktop e Mobile)', () => {
         <tbody>
           <BodyRow
             item={baseItem}
-            productItems={[baseItem]}
             idx={0}
             onChange={onChangeMock}
             onBatchChange={onBatchChangeMock}

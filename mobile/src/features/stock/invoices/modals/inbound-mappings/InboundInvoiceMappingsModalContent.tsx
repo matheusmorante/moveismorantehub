@@ -64,6 +64,7 @@ export const InboundInvoiceMappingsModalContent: React.FC<Props> = ({
     loadError,
     retryLoad,
     saving,
+    checkingSuggestionPrice,
     hasUncertainWrite,
     errorMessage,
     supplierFormVisible,
@@ -85,10 +86,13 @@ export const InboundInvoiceMappingsModalContent: React.FC<Props> = ({
     parentResults,
     parentSearchError,
     parentSearchLoading,
+    parentSelectionError,
+    preparingVariationParentId,
     chooseSupplier,
     clearSupplier,
     createSupplier,
     linkProduct,
+    linkSuggestedProduct,
     openQuickRegister,
     startNewProductRegistration,
     startVariationRegistration,
@@ -111,10 +115,10 @@ export const InboundInvoiceMappingsModalContent: React.FC<Props> = ({
   ).length;
   const hasMatches = linkedCount > 0;
   const currentSupplier = suppliers.find((supplier) => supplier.id === supplierId);
-  const interactionsLocked = saving || hasUncertainWrite;
+  const interactionsLocked = saving || checkingSuggestionPrice || hasUncertainWrite;
   const receiptDisabledReason = !onGenerateReceipt
     ? null
-    : saving || loading
+    : saving || checkingSuggestionPrice || loading
       ? 'Aguarde a consulta ou a gravação dos vínculos terminar.'
       : hasUncertainWrite
         ? 'Há uma alteração sem confirmação. Consulte novamente os vínculos antes de gerar o recebimento.'
@@ -134,7 +138,7 @@ export const InboundInvoiceMappingsModalContent: React.FC<Props> = ({
             )
           : 'Carregue os dados da NF-e antes de gerar o recebimento.';
   const close = () => {
-    if (!saving) onClose();
+    if (!interactionsLocked) onClose();
   };
 
   return (
@@ -159,10 +163,10 @@ export const InboundInvoiceMappingsModalContent: React.FC<Props> = ({
             </Text>
           </View>
           <TouchableOpacity
-            disabled={saving}
+            disabled={interactionsLocked}
             onPress={close}
             accessibilityLabel="Fechar vínculos"
-            accessibilityState={{ disabled: saving }}
+            accessibilityState={{ disabled: interactionsLocked }}
             style={styles.closeButton}
           >
             <X size={22} color={isDarkMode ? '#cbd5e1' : '#475569'} />
@@ -252,6 +256,7 @@ export const InboundInvoiceMappingsModalContent: React.FC<Props> = ({
                   setQueries(item.itemNumber, value)
                 }
                 onLinkProduct={(product) => void linkProduct(item, product)}
+                onLinkSuggestedProduct={(product) => void linkSuggestedProduct(item, product)}
               />
             ))}
 
@@ -267,11 +272,13 @@ export const InboundInvoiceMappingsModalContent: React.FC<Props> = ({
           </ScrollView>
           <View style={[styles.footer, isDarkMode && styles.footerDark]}>
             {errorMessage ? <Text style={styles.footerError}>{errorMessage}</Text> : null}
-            {saving ? (
+            {checkingSuggestionPrice || saving ? (
               <View style={styles.footerSaving}>
                 <ActivityIndicator color="#2563eb" />
                 <Text style={[styles.footerSavingText, isDarkMode && styles.textDark]}>
-                  Salvando e confirmando vínculos...
+                  {checkingSuggestionPrice
+                    ? 'Conferindo o preço atual do produto...'
+                    : 'Salvando e confirmando vínculos...'}
                 </Text>
               </View>
             ) : null}
@@ -317,11 +324,11 @@ export const InboundInvoiceMappingsModalContent: React.FC<Props> = ({
                 </TouchableOpacity>
               ) : null}
               <TouchableOpacity
-                style={[styles.doneButton, saving && styles.doneButtonDisabled]}
-                disabled={saving || hasUncertainWrite}
+                style={[styles.doneButton, interactionsLocked && styles.doneButtonDisabled]}
+                disabled={interactionsLocked}
                 onPress={close}
                 accessibilityRole="button"
-                accessibilityState={{ disabled: saving || hasUncertainWrite }}
+                accessibilityState={{ disabled: interactionsLocked }}
               >
                 <Check size={18} color="#fff" />
                 <Text style={styles.doneText}>Concluir</Text>
@@ -347,6 +354,8 @@ export const InboundInvoiceMappingsModalContent: React.FC<Props> = ({
           parentSearch={parentSearch}
           parentSearchLoading={parentSearchLoading}
           parentSearchError={parentSearchError}
+          parentSelectionError={parentSelectionError}
+          preparingVariationParentId={preparingVariationParentId}
           parentResults={parentResults}
           onRetryParentSearch={retryParentSearch}
           isDarkMode={isDarkMode}

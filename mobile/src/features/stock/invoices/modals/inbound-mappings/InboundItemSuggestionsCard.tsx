@@ -33,6 +33,9 @@ export const InboundItemSuggestionsCard: React.FC<Props> = ({
       <Text style={styles.suggestionEyebrow}>
         Sugestão automática · confirme antes de vincular
       </Text>
+      <Text style={styles.muted}>
+        Preço de referência do catálogo; será conferido antes de vincular.
+      </Text>
       {itemSuggestions.map((candidate, index) => (
         <View
           key={`${candidate.productId}:${candidate.variationId || ''}`}

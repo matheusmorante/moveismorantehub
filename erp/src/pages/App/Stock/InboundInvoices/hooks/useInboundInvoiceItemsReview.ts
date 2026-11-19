@@ -8,7 +8,7 @@ import {
   saveProductSupplierCode,
   deleteProductSupplierCode,
 } from '@/pages/utils/productSupplierCodesService';
-import { getFullProduct, saveVariation } from '@/pages/utils/productService';
+import { getProductLinkConfirmation, saveVariation } from '@/pages/utils/productService';
 import { fetchGroupsAndCategories } from '@/pages/utils/categoryService';
 import { resolveAutoCategory } from '@/pages/utils/categoryResolutionService';
 import { aiService } from '@/pages/utils/aiService';
@@ -288,7 +288,12 @@ export function useInboundInvoiceItemsReview({
         assertCurrent();
         let linkedProductCode: string | undefined, productErpName: string | undefined;
         if (operation === 'select') {
-          const product = await withTimeout(getFullProduct(data.productId), 15000, null, 'entrada:consultar-produto-vinculo');
+          const product = await withTimeout(
+            getProductLinkConfirmation(data.productId, data.variationId),
+            15000,
+            null,
+            'entrada:consultar-produto-vinculo'
+          );
           assertCurrent();
           const variation = data.variationId ? product?.variations?.find((candidate) => candidate.id === data.variationId) : undefined;
           if (!product || product.id !== data.productId || product.deleted || (data.variationId && !variation)) throw new Error('Produto ou variação indisponível. Pesquise novamente.');

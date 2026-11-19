@@ -22,6 +22,7 @@ export interface BodyRowViewProps {
   deliveryMethod: 'delivery' | 'pickup';
   settings?: AppSettings;
   isBudget?: boolean;
+  useItemEditorModal?: boolean;
   isReturn?: boolean;
   isTablet?: boolean;
   isNarrowMobile?: boolean;
@@ -29,6 +30,7 @@ export interface BodyRowViewProps {
   hideHandling?: boolean;
   highlightAsTemporary?: boolean;
   isExpanded?: boolean;
+  inItemDialog?: boolean;
   onToggleExpand?: () => void;
   autoFocusDescription?: boolean;
   onAutoExpand?: () => void;
@@ -52,7 +54,6 @@ export interface BodyRowViewProps {
   assemblyResponsibleRequired: boolean;
   assemblyResponsibleError?: string;
   stockOriginError?: string | boolean;
-  serviceProductLink: React.ReactNode;
 }
 
 export const BodyRowMobile: React.FC<BodyRowViewProps> = ({
@@ -63,12 +64,14 @@ export const BodyRowMobile: React.FC<BodyRowViewProps> = ({
   deliveryMethod,
   settings: propSettings,
   isBudget,
+  useItemEditorModal,
   isReturn,
   isTablet = false,
   isNarrowMobile = false,
   shouldHideHandling,
   highlightAsTemporary,
   isExpanded = true,
+  inItemDialog = false,
   onToggleExpand,
   autoFocusDescription = false,
   onAutoExpand,
@@ -90,9 +93,9 @@ export const BodyRowMobile: React.FC<BodyRowViewProps> = ({
   assemblyResponsibleRequired,
   assemblyResponsibleError,
   stockOriginError,
-  serviceProductLink,
 }) => {
   const settings = propSettings || getSettings();
+  const useBudgetDialogSurface = Boolean(isBudget || inItemDialog);
   const autoExpandPending = React.useRef(
     !isCompositionComponent && !item.compositionGroup && !item.description?.trim()
   );
@@ -109,6 +112,8 @@ export const BodyRowMobile: React.FC<BodyRowViewProps> = ({
     onSelectProduct(idx, product, variation);
     if (shouldAutoExpand) onAutoExpand?.();
   };
+
+  const showQuantityBesideProduct = inItemDialog && !isService && !item.isComboItem;
 
   const {
     tempUnitPrice,
@@ -134,6 +139,8 @@ export const BodyRowMobile: React.FC<BodyRowViewProps> = ({
       <BodyRowMobileCompact
         item={item}
         displayNumber={displayNumber}
+        isBudget={isBudget}
+        useItemEditorModal={useItemEditorModal}
         isCompositionComponent={isCompositionComponent}
         isService={isService}
         isLinkedProduct={isLinkedProduct}
@@ -142,79 +149,110 @@ export const BodyRowMobile: React.FC<BodyRowViewProps> = ({
         isTablet={isTablet}
         highlightAsTemporary={highlightAsTemporary}
         onToggleExpand={onToggleExpand}
+        onDelete={onDelete}
       />
     );
   }
+
+  const priceGridClassName = inItemDialog
+    ? `budget-item-editor-prices ${showQuantityBesideProduct ? 'budget-item-editor-prices-product' : ''} gap-3`
+    : `gap-2.5 min-[460px]:gap-x-1.5 ${isNarrowMobile ? '!grid-cols-1' : 'grid-cols-2 min-[460px]:grid-cols-3 min-[600px]:grid-cols-4 min-[700px]:grid-cols-5'}`;
+  const totalClassName = inItemDialog
+    ? 'budget-item-editor-total'
+    : isNarrowMobile
+      ? 'col-start-1 w-fit justify-self-end'
+      : 'w-full col-start-2 min-[460px]:col-start-3 min-[600px]:col-start-4 min-[700px]:col-start-auto';
+
+  const renderQuantityField = (besideProduct = false) => (
+    <div className={besideProduct ? 'budget-item-editor-product-quantity w-full min-w-0' : 'w-full min-w-0'}>
+      <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1 block ml-1">
+        {inItemDialog ? 'Quantidade' : 'Quant'} <span className="text-red-500">*</span>
+      </label>
+      <UnitInput
+        value={item.quantity}
+        onChange={(value: number) => onChange(idx, 'quantity', value)}
+        disabled={item.isComboItem || isCompositionComponent}
+        compactOnNarrow
+      />
+    </div>
+  );
+  const quantityField = renderQuantityField();
+
   // MODO EXPANDIDO
   return (
     <div
-      className={`relative flex flex-col gap-3 border-b-2 p-3.5 transition-colors last:border-b-0 group ${
+      className={useBudgetDialogSurface ? 'flex min-w-0 flex-col gap-5 bg-white dark:bg-slate-900' : `relative flex flex-col gap-3 border-b-2 p-3.5 transition-colors last:border-b-0 group ${
         highlightAsTemporary
           ? 'border-b-amber-400 bg-amber-50/30 dark:border-b-amber-500 dark:bg-amber-950/10'
           : itemHasError
             ? 'border-b-red-400 bg-red-50/30 dark:border-b-red-500 dark:bg-red-950/10'
             : 'border-b-blue-200 bg-blue-50/50 dark:border-b-blue-900/60 dark:bg-blue-950/20'}`}
     >
-      <span aria-hidden="true" className="absolute inset-y-2 left-0 w-1 rounded-r-full bg-blue-500" />
-      {/* Linha 1: Cabeçalho do Card */}
-      <div className="flex items-start justify-between gap-2.5">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="flex h-5 min-w-5 items-center justify-center rounded-lg bg-slate-100 px-1 text-[9px] font-bold text-slate-500 dark:bg-slate-800 dark:text-slate-400">
-            #{displayNumber}
-          </span>
-          <span
-            className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md ${
-              isService
-                ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 border border-amber-100 dark:border-amber-900/40'
-                : 'bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 border border-blue-100 dark:border-blue-900/40'
-            }`}
-          >
-            <i className={`bi ${isService ? 'bi-tools' : 'bi-box-seam'} mr-1`} aria-hidden="true" />
-            {isService ? 'Serviço' : isCompositionComponent ? `Componente ${Number(item.compositionGroup?.componentIndex ?? 0) + 1}/${item.compositionGroup?.componentCount}` : 'Produto'}
-          </span>
-          {showTemporaryProductLabel && (
-            <span className="inline-flex max-w-full flex-wrap items-center gap-1 text-[9px] leading-tight font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 rounded-md border border-amber-100 dark:border-amber-900/40">
-              <i className="bi bi-exclamation-triangle-fill" aria-hidden="true" /> Temporário — Pendente de conciliação
-            </span>
-          )}
-        </div>
+      {!useBudgetDialogSurface && (
+        <>
+          <span aria-hidden="true" className="absolute inset-y-2 left-0 w-1 rounded-r-full bg-blue-500" />
+          {/* Linha 1: Cabeçalho do Card */}
+          <div className="flex items-start justify-between gap-2.5">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="flex h-5 min-w-5 items-center justify-center rounded-lg bg-slate-100 px-1 text-[9px] font-bold text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+                #{displayNumber}
+              </span>
+              <span
+                className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md ${
+                  isService
+                    ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 border border-amber-100 dark:border-amber-900/40'
+                    : 'bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 border border-blue-100 dark:border-blue-900/40'
+                }`}
+              >
+                <i className={`bi ${isService ? 'bi-tools' : 'bi-box-seam'} mr-1`} aria-hidden="true" />
+                {isService ? 'Serviço' : isCompositionComponent ? `Componente ${Number(item.compositionGroup?.componentIndex ?? 0) + 1}/${item.compositionGroup?.componentCount}` : 'Produto'}
+              </span>
+              {showTemporaryProductLabel && (
+                <span className="inline-flex max-w-full flex-wrap items-center gap-1 text-[9px] leading-tight font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 rounded-md border border-amber-100 dark:border-amber-900/40">
+                  <i className="bi bi-exclamation-triangle-fill" aria-hidden="true" /> Temporário — Pendente de conciliação
+                </span>
+              )}
+            </div>
 
-        <div className="flex items-center gap-1">
-          {onToggleExpand && (
-            <button
-              type="button"
-              onClick={onToggleExpand}
-              className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all"
-              title="Recolher item"
-            >
-              <i className="bi bi-chevron-up text-xs" />
-            </button>
-          )}
-          {!isCompositionComponent && (
-            <button
-              type="button"
-              onClick={onDelete}
-              className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-all"
-              title="Remover item"
-            >
-              <i className="bi bi-trash3 text-xs" />
-            </button>
-          )}
-        </div>
-      </div>
+            <div className="flex items-center gap-1">
+              {onToggleExpand && !(isBudget && !isCompositionComponent) && (
+                <button
+                  type="button"
+                  onClick={onToggleExpand}
+                  className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all"
+                  title="Recolher item"
+                >
+                  <i className="bi bi-chevron-up text-xs" />
+                </button>
+              )}
+              {!isBudget && !isCompositionComponent && (
+                <button
+                  type="button"
+                  onClick={onDelete}
+                  className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-all"
+                  title="Remover item"
+                >
+                  <i className="bi bi-trash3 text-xs" />
+                </button>
+              )}
+            </div>
+          </div>
+        </>
+      )}
 
-      {/* Linha 2: Busca e Descrição */}
-      <div className="flex flex-col gap-1.5">
-        <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 ml-1">
-          {isService
-            ? 'Descrição do Serviço'
-            : item.productId?.trim()
-              ? 'Produto selecionado'
-              : 'Busque ou descreva o produto'}{' '}
-          <span className="text-red-500">*</span>
-        </label>
-        {isService ? (
-          <>
+      <div className={showQuantityBesideProduct
+        ? 'budget-item-editor-product-row grid min-w-0 items-start gap-4 sm:gap-5'
+        : 'contents'}>
+        <div className="flex min-w-0 flex-col gap-1.5">
+          <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 ml-1">
+            {isService
+              ? 'Descrição do Serviço'
+              : item.productId?.trim()
+                ? 'Produto selecionado'
+                : 'Busque ou descreva o produto'}{' '}
+            <span className="text-red-500">*</span>
+          </label>
+          {isService ? (
             <input
               type="text"
               aria-label="Descrição do serviço"
@@ -225,53 +263,57 @@ export const BodyRowMobile: React.FC<BodyRowViewProps> = ({
               placeholder="Digite a descrição do serviço..."
               className={`w-full border-x-0 border-t-0 border-b-2 rounded-none bg-slate-50/70 px-3 py-2 text-sm text-slate-700 outline-none transition-all focus:border-b-blue-500 dark:bg-slate-800/40 dark:text-slate-200 ${error ? 'border-b-red-500 dark:border-b-red-500 focus:border-b-red-500 dark:focus:border-b-red-500' : 'border-b-slate-200 dark:border-b-slate-700'}`}
             />
-            {serviceProductLink}
-          </>
-        ) : isCompositionComponent ? (
-          <div className="rounded-xl border border-slate-200/70 bg-slate-50/50 px-3 py-2 text-sm font-semibold text-slate-700 dark:border-slate-800 dark:bg-slate-800/30 dark:text-slate-200">
-            <span>{item.description}</span>
-            <span className="mt-0.5 block text-[10px] font-medium text-slate-400">
-              Produto fixo na composição
+          ) : isCompositionComponent ? (
+            <div className="rounded-xl border border-slate-200/70 bg-slate-50/50 px-3 py-2 text-sm font-semibold text-slate-700 dark:border-slate-800 dark:bg-slate-800/30 dark:text-slate-200">
+              <span>{item.description}</span>
+              <span className="mt-0.5 block text-[10px] font-medium text-slate-400">
+                Produto fixo na composição
+              </span>
+            </div>
+          ) : !item.isComboItem ? (
+            <ProductAutocomplete
+              value={item.description}
+              title={item.description}
+              autoFocus={inItemDialog && autoFocusDescription}
+              onChange={(val) => onChange(idx, 'description', val)}
+              onSelect={handleProductSelect}
+              onBlur={(event) => handleDescriptionBlur(event.currentTarget.value)}
+              allowedProductKinds={STOCK_ORIGIN_PRODUCT_KINDS[item.condition ?? '']}
+              includeDeactivated
+              placeholder="Busque ou descreva o produto... (mínimo de 3 caracteres para buscar)"
+              maxSuggestions={5}
+              productsOnly
+              includeCompositions={!isReturn}
+              includeTrashEligibility={false}
+              compactSalesOrderProjection
+              isTemporary={showTemporaryProductLabel}
+              inputEndAdornment={showTemporaryProductLabel ? <TemporaryProductWarning /> : undefined}
+              isSelected={isLinkedProduct}
+              className={`text-ellipsis ${error ? 'border-red-500 focus:border-red-500 dark:border-red-500 dark:focus:border-red-500' : ''}`}
+            />
+          ) : (
+            <div className="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/20 text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center justify-between">
+              <span>{item.description}</span>
+              <span className="text-[9px] font-bold text-blue-600 bg-blue-50 dark:bg-blue-950/40 px-2 py-0.5 rounded border border-blue-100 dark:border-blue-900/30">
+                Combo
+              </span>
+            </div>
+          )}
+          {error && (
+            <span className="text-[10px] text-red-600 dark:text-red-400 font-medium ml-1">
+              {error}
             </span>
+          )}
+        </div>
+        {showQuantityBesideProduct && (
+          <div className="budget-item-editor-quantity-top">
+            {renderQuantityField(true)}
           </div>
-        ) : !item.isComboItem ? (
-          <ProductAutocomplete
-            value={item.description}
-            title={item.description}
-            onChange={(val) => onChange(idx, 'description', val)}
-            onSelect={handleProductSelect}
-            onBlur={(event) => handleDescriptionBlur(event.currentTarget.value)}
-            allowedProductKinds={STOCK_ORIGIN_PRODUCT_KINDS[item.condition ?? '']}
-            includeDeactivated
-            placeholder="Busque ou descreva o produto... (mínimo de 3 caracteres para buscar)"
-            maxSuggestions={5}
-            productsOnly
-            excludeCombos
-            filterCombosOnServer
-            includeTrashEligibility={false}
-            compactSalesOrderProjection
-            isTemporary={showTemporaryProductLabel}
-            inputEndAdornment={showTemporaryProductLabel ? <TemporaryProductWarning /> : undefined}
-            isSelected={isLinkedProduct}
-            className={`text-ellipsis ${error ? 'border-red-500 focus:border-red-500 dark:border-red-500 dark:focus:border-red-500' : ''}`}
-          />
-        ) : (
-          <div className="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/20 text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center justify-between">
-            <span>{item.description}</span>
-            <span className="text-[9px] font-bold text-blue-600 bg-blue-50 dark:bg-blue-950/40 px-2 py-0.5 rounded border border-blue-100 dark:border-blue-900/30">
-              Combo
-            </span>
-          </div>
-        )}
-        {error && (
-          <span className="text-[10px] text-red-600 dark:text-red-400 font-medium ml-1">
-            {error}
-          </span>
         )}
       </div>
 
       {/* Linha 2.5: Manuseio, Origem do Estoque e Observações */}
-      {!item.isComboItem && (
+      {!inItemDialog && !item.isComboItem && (
         <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-slate-100 dark:border-slate-800/60">
           {!shouldHideHandling && (
             <div className="min-w-0 flex-[2] max-[480px]:w-full max-[480px]:basis-full max-[480px]:flex-none">
@@ -375,19 +417,14 @@ export const BodyRowMobile: React.FC<BodyRowViewProps> = ({
 
       {/* Linha 3: Grid de Valores */}
       {!item.isComboItem && (
-        <div className="space-y-2 pt-1">
-          <div className={`grid ${isNarrowMobile ? '!grid-cols-1' : 'grid-cols-2 min-[460px]:grid-cols-3 min-[600px]:grid-cols-4 min-[700px]:grid-cols-5'} items-end gap-2.5 min-[460px]:gap-x-1.5`}>
-          <div className="w-full">
-            <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1 block ml-1">
-              Quant <span className="text-red-500">*</span>
-            </label>
-            <UnitInput
-              value={item.quantity}
-              onChange={(value: number) => onChange(idx, 'quantity', value)}
-              disabled={item.isComboItem || isCompositionComponent}
-              compactOnNarrow
-            />
-          </div>
+        <div className={inItemDialog ? 'space-y-4 border-t border-slate-200 pt-4 dark:border-slate-800' : 'space-y-2 pt-1'}>
+          <div className={`grid items-end ${priceGridClassName}`}>
+          {showQuantityBesideProduct && (
+            <div className="budget-item-editor-quantity-prices">
+              {quantityField}
+            </div>
+          )}
+          {!showQuantityBesideProduct && quantityField}
 
           <div className="w-full">
             <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1 block ml-1">
@@ -419,7 +456,7 @@ export const BodyRowMobile: React.FC<BodyRowViewProps> = ({
             />
           </div>
 
-          <div className={`w-full ${isNarrowMobile ? '' : 'min-[460px]:col-start-2 min-[600px]:col-start-auto'}`}>
+          <div className={`w-full min-w-0 ${!inItemDialog && !isNarrowMobile ? 'min-[460px]:col-start-2 min-[600px]:col-start-auto' : ''}`}>
             <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1 block ml-1">
               Preço final un
             </label>
@@ -433,7 +470,7 @@ export const BodyRowMobile: React.FC<BodyRowViewProps> = ({
           </div>
 
           {/* Total do Item */}
-          <div className={`min-w-0 flex flex-col items-end justify-center px-1 min-[700px]:px-3 py-1.5 bg-blue-50/70 dark:bg-blue-950/30 border border-blue-100/80 dark:border-blue-900/40 rounded-xl min-h-[44px] ${isNarrowMobile ? 'col-start-1 w-fit justify-self-end' : 'w-full col-start-2 min-[460px]:col-start-3 min-[600px]:col-start-4 min-[700px]:col-start-auto'}`}>
+          <div className={`min-w-0 flex flex-col items-end justify-center px-1 min-[700px]:px-3 py-1.5 bg-blue-50/70 dark:bg-blue-950/30 border border-blue-100/80 dark:border-blue-900/40 rounded-xl min-h-[44px] ${totalClassName}`}>
             <span className="text-[8px] font-black uppercase text-blue-600/70 dark:text-blue-400/70 tracking-widest">
               Total
             </span>
@@ -442,12 +479,12 @@ export const BodyRowMobile: React.FC<BodyRowViewProps> = ({
             </div>
           </div>
           </div>
-          <div className="w-full">
+          <div className="w-full min-w-0">
             <label className="mb-1 ml-1 block text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">
               Observação
             </label>
             <textarea
-              rows={1}
+              rows={inItemDialog ? 2 : 1}
               value={tempObservation}
               onChange={(event) => setTempObservation(event.target.value)}
               onBlur={commitObservation}

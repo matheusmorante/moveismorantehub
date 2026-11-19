@@ -10,6 +10,7 @@ import {
 import { withTimeout } from '../../../../shared-utils/withTimeout';
 import {
   fetchAllProductSearchResults,
+  fetchCompositionAutocompleteResults,
   getVariationDisplayName,
   normalizeProductSearch,
   normalizeProductSearchSeparators,
@@ -22,6 +23,7 @@ interface UseProductAutocompleteProps {
   supplierId?: string;
   parentsOnly?: boolean;
   productsOnly?: boolean;
+  includeCompositions?: boolean;
   variationsOnly?: boolean;
   compositionsOnly?: boolean;
   includeDeactivated?: boolean;
@@ -43,6 +45,7 @@ export function useProductAutocomplete({
   supplierId,
   parentsOnly = false,
   productsOnly = false,
+  includeCompositions = false,
   variationsOnly = false,
   compositionsOnly = false,
   includeDeactivated = false,
@@ -69,6 +72,7 @@ export function useProductAutocomplete({
     supplierId,
     parentsOnly,
     productsOnly,
+    includeCompositions,
     variationsOnly,
     compositionsOnly,
     includeDeactivated,
@@ -133,9 +137,9 @@ export function useProductAutocomplete({
         if (!active) return;
         const { query: trimmed, supplierId: parsedSupplierId, parentsOnly, variationsOnly, includeDeactivated, excludeCombos, compositionsOnly, allowedProductKinds } = values;
         const words = trimmed.split(/\s+/).filter((w) => w.length > 0);
-        const productsData = localProducts !== undefined
-          ? localProducts
-          : await withTimeout(fetchAllProductSearchResults(
+        const productSearch = localProducts !== undefined
+          ? Promise.resolve(localProducts)
+          : withTimeout(fetchAllProductSearchResults(
               trimmed,
               parsedSupplierId,
               includeDeactivated,
@@ -145,9 +149,46 @@ export function useProductAutocomplete({
               filterCombosOnServer,
               compactComponentProjection,
               compactSalesOrderProjection,
+              includeCompositions,
             ), 10000, null, 'autocomplete:produtos');
+        const compositionSearch = includeCompositions
+          ? withTimeout(
+              fetchCompositionAutocompleteResults(trimmed),
+              10000,
+              null,
+              'autocomplete:produtos-compostos'
+            )
+              .then((data) => data === null
+                ? { data: [] as Product[], error: new Error('A busca de produtos compostos excedeu o tempo limite.') }
+                : { data, error: null })
+              .catch((error) => ({ data: [] as Product[], error }))
+          : Promise.resolve({ data: [] as Product[], error: null });
+        const [productsData, compositionResult] = await Promise.all([
+          productSearch,
+          compositionSearch,
+        ]);
         if (!active) return;
         if (!Array.isArray(productsData)) throw new Error('A busca de produtos não foi confirmada. Consulte novamente.');
+        const existingCompositionKeys = new Set<string>();
+        productsData.forEach((product) => {
+          if (product.itemType !== 'composition') return;
+          if (product.variations?.length) {
+            product.variations.forEach((variation) => {
+              existingCompositionKeys.add(`${product.id}:${variation.id}`);
+            });
+          } else {
+            existingCompositionKeys.add(`${product.id}:base`);
+          }
+        });
+        const compositions = compositionResult.data.filter(
+          (product) => !existingCompositionKeys.has(String((product as any).autocompleteSearchKey))
+        );
+        const combinedProducts: Product[] = [];
+        const combinedLength = Math.max(productsData.length, compositions.length);
+        for (let index = 0; index < combinedLength; index += 1) {
+          if (compositions[index]) combinedProducts.push(compositions[index]);
+          if (productsData[index]) combinedProducts.push(productsData[index]);
+        }
         const items: SuggestionItem[] = [];
         const isAlreadyLinked = (productId: string, variationId?: string) =>
           excludedProductLinks?.some(
@@ -156,16 +197,13 @@ export function useProductAutocomplete({
         const searchNormWords = words.map(normalizeProductSearch);
         const searchNormNameWords = words.map(normalizeProductSearchSeparators);
 
-        (productsData || []).forEach((p: Product) => {
+        combinedProducts.forEach((p: Product) => {
           const itemType = p.itemType || (p as any).item_type || 'product';
           if (compositionsOnly && itemType !== 'composition') return;
-          if (
-            productsOnly &&
-            (itemType !== 'product' ||
-              (p as any).isComposition ||
-              p.isCombo ||
-              (p as any).is_combo)
-          ) return;
+          const isComposition =
+            itemType === 'composition' ||
+            Boolean((p as any).isComposition || p.isCombo || (p as any).is_combo);
+          if (productsOnly && (isComposition ? !includeCompositions : itemType !== 'product')) return;
 
           const productKind = getProductKind(p);
           const isSalvado = productKind === 'salvado';
@@ -249,7 +287,11 @@ export function useProductAutocomplete({
         });
 
         if (active) {
-          setSearchError('');
+          setSearchError(
+            compositionResult.error
+              ? 'Não foi possível buscar produtos compostos agora. Os demais produtos continuam disponíveis.'
+              : ''
+          );
           setSuggestions(items.slice(0, PRODUCT_AUTOCOMPLETE_MAX_SUGGESTIONS));
         }
         }, (errors) => { if (active) setSearchError(Object.values(flattenFormErrors(errors))[0] || 'Confira os dados da busca.'); });
@@ -274,6 +316,7 @@ export function useProductAutocomplete({
     compositionsOnly,
     parentsOnly,
     productsOnly,
+    includeCompositions,
     includeDeactivated,
     includeTrashEligibility,
     filterCombosOnServer,

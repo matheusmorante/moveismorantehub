@@ -23,6 +23,32 @@ export type DeliveryNoticeField = (typeof DELIVERY_NOTICE_OPTIONS)[number]['fiel
 
 export const normalizeNotice = (notice: string) => notice.trim().toLocaleLowerCase('pt-BR');
 
+const SERVICE_TOOLS_NOTICE_PREFIX = 'Verificar se as ferramentas para este serviço estão carregadas:';
+
+export const syncServiceToolNotices = (
+  rawInstructions: string | undefined,
+  serviceNames: readonly string[]
+): { nextInstructions: string; changed: boolean } => {
+  const managedPrefix = normalizeNotice(SERVICE_TOOLS_NOTICE_PREFIX);
+  const customInstructions = splitNoticeTags(rawInstructions)
+    .filter((instruction) => !normalizeNotice(instruction).startsWith(managedPrefix));
+  const uniqueServiceNames = [...new Map(
+    serviceNames
+      .map((name) => name.trim())
+      .filter(Boolean)
+      .map((name) => [normalizeNotice(name), name] as const)
+  ).values()];
+  const generatedNotices = uniqueServiceNames.map(
+    (name) => `${SERVICE_TOOLS_NOTICE_PREFIX} ${name}`
+  );
+  const nextInstructions = joinNoticeTags([...customInstructions, ...generatedNotices]);
+
+  return {
+    nextInstructions,
+    changed: nextInstructions !== (rawInstructions || ''),
+  };
+};
+
 export const ASSEMBLY_RESPONSIBLE_NOTICES = {
   'Nossa equipe': 'Montagem na entrega - pela nossa equipe',
   'Montador terceirizado': 'Montagem na entrega - por montador terceirizado',

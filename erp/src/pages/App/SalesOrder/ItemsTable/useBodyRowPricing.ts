@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Item from '../../../types/items.type';
 
 export interface UseBodyRowPricingProps {
@@ -14,6 +14,8 @@ export function useBodyRowPricing({
   onChange,
   onBatchChange,
 }: UseBodyRowPricingProps) {
+  type PendingField = 'unitPrice' | 'discountValue' | 'discountPercent' | 'subtotal' | 'observation';
+  const pendingFieldRef = useRef<PendingField | null>(null);
   // Valores calculados com arredondamento preciso para evitar dízimas de ponto flutuante
   const discountInValue =
     item.discountType === 'fixed'
@@ -30,28 +32,51 @@ export function useBodyRowPricing({
   const initialSubtotal = Math.round((item.unitPrice - discountInValue) * 100) / 100;
 
   // Estados locais temporários para digitação livre sem disparar recálculos prematuros
-  const [tempUnitPrice, setTempUnitPrice] = useState(item.unitPrice || 0);
-  const [tempDiscountValue, setTempDiscountValue] = useState(discountInValue);
-  const [tempDiscountPercent, setTempDiscountPercent] = useState(discountInPercent);
-  const [tempSubtotal, setTempSubtotal] = useState(initialSubtotal);
-  const [tempObservation, setTempObservation] = useState(item.observation || '');
+  const [tempUnitPrice, setTempUnitPriceState] = useState(item.unitPrice || 0);
+  const [tempDiscountValue, setTempDiscountValueState] = useState(discountInValue);
+  const [tempDiscountPercent, setTempDiscountPercentState] = useState(discountInPercent);
+  const [tempSubtotal, setTempSubtotalState] = useState(initialSubtotal);
+  const [tempObservation, setTempObservationState] = useState(item.observation || '');
+
+  const setTempUnitPrice = (value: number) => {
+    pendingFieldRef.current = 'unitPrice';
+    setTempUnitPriceState(value);
+  };
+  const setTempDiscountValue = (value: number) => {
+    pendingFieldRef.current = 'discountValue';
+    setTempDiscountValueState(value);
+  };
+  const setTempDiscountPercent = (value: number) => {
+    pendingFieldRef.current = 'discountPercent';
+    setTempDiscountPercentState(value);
+  };
+  const setTempSubtotal = (value: number) => {
+    pendingFieldRef.current = 'subtotal';
+    setTempSubtotalState(value);
+  };
+  const setTempObservation = (value: string) => {
+    pendingFieldRef.current = 'observation';
+    setTempObservationState(value);
+  };
 
   // Sincronizar estados locais apenas quando os valores persistidos mudam externamente
   useEffect(() => {
-    setTempUnitPrice(item.unitPrice || 0);
-    setTempDiscountValue(discountInValue);
-    setTempDiscountPercent(discountInPercent);
-    setTempSubtotal(initialSubtotal);
-    setTempObservation(item.observation || '');
+    setTempUnitPriceState(item.unitPrice || 0);
+    setTempDiscountValueState(discountInValue);
+    setTempDiscountPercentState(discountInPercent);
+    setTempSubtotalState(initialSubtotal);
+    setTempObservationState(item.observation || '');
   }, [item.unitPrice, discountInValue, discountInPercent, initialSubtotal, item.observation]);
 
   const commitObservation = () => {
+    pendingFieldRef.current = null;
     if ((item.observation || '') !== tempObservation) {
       onChange(idx, 'observation', tempObservation);
     }
   };
 
   const commitUnitPrice = () => {
+    pendingFieldRef.current = null;
     const newUnitPrice = Math.max(0, Math.round(tempUnitPrice * 100) / 100);
     if (item.discountType === 'percentage') {
       const percentVal = Math.min(100, Math.max(0, item.unitDiscount || 0));
@@ -60,9 +85,9 @@ export function useBodyRowPricing({
         0,
         Math.round((newUnitPrice - calculatedDiscountVal) * 100) / 100
       );
-      setTempUnitPrice(newUnitPrice);
-      setTempDiscountValue(calculatedDiscountVal);
-      setTempSubtotal(calculatedSubtotal);
+      setTempUnitPriceState(newUnitPrice);
+      setTempDiscountValueState(calculatedDiscountVal);
+      setTempSubtotalState(calculatedSubtotal);
       onBatchChange(idx, { unitPrice: newUnitPrice });
     } else {
       const discountVal = item.unitDiscount || 0;
@@ -75,14 +100,15 @@ export function useBodyRowPricing({
         0,
         Math.round((newUnitPrice - effectiveDiscount) * 100) / 100
       );
-      setTempUnitPrice(newUnitPrice);
-      setTempDiscountPercent(calculatedPercent);
-      setTempSubtotal(calculatedSubtotal);
+      setTempUnitPriceState(newUnitPrice);
+      setTempDiscountPercentState(calculatedPercent);
+      setTempSubtotalState(calculatedSubtotal);
       onBatchChange(idx, { unitPrice: newUnitPrice });
     }
   };
 
   const commitDiscountPercent = () => {
+    pendingFieldRef.current = null;
     const percentVal = Math.min(100, Math.max(0, Math.round(tempDiscountPercent * 100) / 100));
     const currentUnitPrice = item.unitPrice || 0;
     const calculatedDiscountVal = Math.min(
@@ -94,9 +120,9 @@ export function useBodyRowPricing({
       Math.round((currentUnitPrice - calculatedDiscountVal) * 100) / 100
     );
 
-    setTempDiscountPercent(percentVal);
-    setTempDiscountValue(calculatedDiscountVal);
-    setTempSubtotal(calculatedSubtotal);
+    setTempDiscountPercentState(percentVal);
+    setTempDiscountValueState(calculatedDiscountVal);
+    setTempSubtotalState(calculatedSubtotal);
 
     onBatchChange(idx, {
       discountType: 'percentage',
@@ -105,6 +131,7 @@ export function useBodyRowPricing({
   };
 
   const commitDiscountValue = () => {
+    pendingFieldRef.current = null;
     const currentUnitPrice = item.unitPrice || 0;
     const val = Math.max(0, Math.round(tempDiscountValue * 100) / 100);
     const effectiveDiscount = Math.min(val, currentUnitPrice);
@@ -117,9 +144,9 @@ export function useBodyRowPricing({
       Math.round((currentUnitPrice - effectiveDiscount) * 100) / 100
     );
 
-    setTempDiscountValue(effectiveDiscount);
-    setTempDiscountPercent(calculatedPercent);
-    setTempSubtotal(calculatedSubtotal);
+    setTempDiscountValueState(effectiveDiscount);
+    setTempDiscountPercentState(calculatedPercent);
+    setTempSubtotalState(calculatedSubtotal);
 
     onBatchChange(idx, {
       discountType: 'fixed',
@@ -128,12 +155,13 @@ export function useBodyRowPricing({
   };
 
   const commitSubtotal = () => {
+    pendingFieldRef.current = null;
     const currentUnitPrice = item.unitPrice || 0;
     const val = Math.min(currentUnitPrice, Math.max(0, Math.round(tempSubtotal * 100) / 100));
     if (val >= currentUnitPrice) {
-      setTempSubtotal(currentUnitPrice);
-      setTempDiscountValue(0);
-      setTempDiscountPercent(0);
+      setTempSubtotalState(currentUnitPrice);
+      setTempDiscountValueState(0);
+      setTempDiscountPercentState(0);
       onBatchChange(idx, {
         discountType: 'fixed',
         unitDiscount: 0,
@@ -144,13 +172,33 @@ export function useBodyRowPricing({
         currentUnitPrice > 0
           ? Math.min(100, Math.round((newDiscount / currentUnitPrice) * 100 * 100) / 100)
           : 0;
-      setTempSubtotal(val);
-      setTempDiscountValue(newDiscount);
-      setTempDiscountPercent(newPercent);
+      setTempSubtotalState(val);
+      setTempDiscountValueState(newDiscount);
+      setTempDiscountPercentState(newPercent);
       onBatchChange(idx, {
         discountType: 'fixed',
         unitDiscount: newDiscount,
       });
+    }
+  };
+
+  const commitPendingField = () => {
+    switch (pendingFieldRef.current) {
+      case 'unitPrice':
+        commitUnitPrice();
+        break;
+      case 'discountValue':
+        commitDiscountValue();
+        break;
+      case 'discountPercent':
+        commitDiscountPercent();
+        break;
+      case 'subtotal':
+        commitSubtotal();
+        break;
+      case 'observation':
+        commitObservation();
+        break;
     }
   };
 
@@ -173,6 +221,7 @@ export function useBodyRowPricing({
     tempObservation,
     setTempObservation,
     commitObservation,
+    commitPendingField,
   };
 }
 

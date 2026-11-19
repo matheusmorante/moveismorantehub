@@ -197,12 +197,117 @@ export async function resolveNextOrderCode(supabase: any): Promise<string> {
   return String(Math.floor(100000 + Math.random() * 900000));
 }
 
+const ORDER_ITEM_PRODUCT_COLUMNS =
+  'id, code, sku, name, unit_price, price, cost_price, product_variations(id,sku)';
+const ORDER_ITEM_PRODUCT_BATCH_SIZE = 25;
+const ORDER_ITEM_PRODUCT_BATCH_RESULT_LIMIT = 100;
+
+const canBatchOrderItemCode = (value: string) =>
+  /^[a-z\d_-]+$/i.test(value) && !/^(null|true|false)$/i.test(value);
+
+async function findProductForOrderItem(supabase: any, code: string) {
+  try {
+    const { data } = await supabase
+      .from('products')
+      .select(ORDER_ITEM_PRODUCT_COLUMNS)
+      .eq('deleted', false)
+      .or(`code.eq.${code},sku.eq.${code}`)
+      .maybeSingle();
+    return data || null;
+  } catch {
+    return null;
+  }
+}
+
+async function findProductsForOrderItemsInBatches(
+  supabase: any,
+  codes: string[]
+): Promise<Map<string, any | null>> {
+  const productsByCode = new Map<string, any | null>();
+
+  for (let offset = 0; offset < codes.length; offset += ORDER_ITEM_PRODUCT_BATCH_SIZE) {
+    const batchCodes = codes.slice(offset, offset + ORDER_ITEM_PRODUCT_BATCH_SIZE);
+    const fallbackToIndividualLookups = async () => {
+      for (const code of batchCodes) {
+        productsByCode.set(code, await findProductForOrderItem(supabase, code));
+      }
+    };
+
+    let rows: any[];
+    try {
+      const filterValues = batchCodes.join(',');
+      const { data, error } = await supabase
+        .from('products')
+        .select(ORDER_ITEM_PRODUCT_COLUMNS)
+        .eq('deleted', false)
+        .or(`code.in.(${filterValues}),sku.in.(${filterValues})`)
+        .limit(ORDER_ITEM_PRODUCT_BATCH_RESULT_LIMIT);
+
+      if (error || !Array.isArray(data)) {
+        await fallbackToIndividualLookups();
+        continue;
+      }
+
+      // A full page might hide additional matches and make an ambiguous code look unique.
+      if (data.length >= ORDER_ITEM_PRODUCT_BATCH_RESULT_LIMIT) {
+        await fallbackToIndividualLookups();
+        continue;
+      }
+
+      rows = data;
+    } catch {
+      await fallbackToIndividualLookups();
+      continue;
+    }
+
+    const matchesByCode = new Map<string, Map<unknown, any>>(
+      batchCodes.map((code) => [code, new Map<unknown, any>()])
+    );
+
+    for (const product of rows) {
+      const matchingCodes = new Set([product?.code, product?.sku]);
+      for (const value of matchingCodes) {
+        const matches = typeof value === 'string' ? matchesByCode.get(value) : undefined;
+        if (matches) matches.set(product?.id ?? product, product);
+      }
+    }
+
+    for (const code of batchCodes) {
+      const matches = Array.from(matchesByCode.get(code)?.values() || []);
+      if (matches.length !== 1) {
+        productsByCode.set(code, null);
+        continue;
+      }
+
+      const product = matches[0];
+      if (Array.isArray(product.product_variations) && product.product_variations.length > 1) {
+        // The legacy path uses the first variation, but its relation has no explicit order.
+        productsByCode.set(code, await findProductForOrderItem(supabase, code));
+      } else {
+        productsByCode.set(code, product);
+      }
+    }
+  }
+
+  return productsByCode;
+}
+
 export async function resolveOrderItems(
   supabase: any,
   rawItems: AgentOrderItemInput[] = [],
   defaultHandling?: string
 ) {
   const resolvedItems: any[] = [];
+  const identifiedCodes = rawItems
+    .map((item) => item.codigoOuSku?.trim() || '')
+    .filter(Boolean);
+  const batchedCodes = identifiedCodes.length >= 3 && typeof supabase?.from === 'function'
+    ? Array.from(new Set(identifiedCodes.filter(canBatchOrderItemCode)))
+    : [];
+  const batchedProducts = batchedCodes.length > 0
+    ? await findProductsForOrderItemsInBatches(supabase, batchedCodes)
+    : new Map<string, any | null>();
+
   for (const item of rawItems) {
     const quantity = Math.max(1, Number(item.quantidade ?? 1) || 1);
     let unitPrice = Number(item.precoUnitario ?? 0) || 0;
@@ -215,31 +320,24 @@ export async function resolveOrderItems(
     let costPrice = 0;
 
     if (code && typeof supabase?.from === 'function') {
-      try {
-        const { data: prod } = await supabase
-          .from('products')
-          .select('id, code, sku, name, unit_price, price, cost_price, product_variations(id,sku)')
-          .eq('deleted', false)
-          .or(`code.eq.${code},sku.eq.${code}`)
-          .maybeSingle();
+      const prod = batchedProducts.has(code)
+        ? batchedProducts.get(code)
+        : await findProductForOrderItem(supabase, code);
 
-        if (prod) {
-          productId = prod.id;
-          code = prod.code || code;
-          sku = prod.sku || code;
-          description = item.nome?.trim() || item.descricao?.trim() || prod.name || description;
-          if (!item.precoUnitario) {
-            unitPrice = Number(prod.unit_price ?? prod.price ?? 0) || 0;
-          }
-          costPrice = Number(prod.cost_price ?? 0) || 0;
-          if (Array.isArray(prod.product_variations) && prod.product_variations.length > 0) {
-            const firstVar = prod.product_variations[0];
-            variationId = firstVar.id;
-            sku = firstVar.sku || sku;
-          }
+      if (prod) {
+        productId = prod.id;
+        code = prod.code || code;
+        sku = prod.sku || code;
+        description = item.nome?.trim() || item.descricao?.trim() || prod.name || description;
+        if (!item.precoUnitario) {
+          unitPrice = Number(prod.unit_price ?? prod.price ?? 0) || 0;
         }
-      } catch {
-        // Ignora falha de lookup complementar
+        costPrice = Number(prod.cost_price ?? 0) || 0;
+        if (Array.isArray(prod.product_variations) && prod.product_variations.length > 0) {
+          const firstVar = prod.product_variations[0];
+          variationId = firstVar.id;
+          sku = firstVar.sku || sku;
+        }
       }
     }
 
@@ -270,13 +368,20 @@ export async function resolveOrderItems(
 
 export const ORDER_ROW_COLUMNS =
   'id, order_number, order_index, order_type, status, customer_name, customer_id, seller_name, total_amount, scheduled_date, scheduled_start_time, scheduled_end_time, delivery_method, order_data, items, linked_order_id, return_order_id, deleted';
+const ORDER_LINK_REFERENCE_COLUMNS = 'id, order_data';
+const ORDER_EDIT_ROW_COLUMNS =
+  'id, order_data, order_type, status, customer_name, total_amount, scheduled_date, scheduled_start_time, scheduled_end_time, delivery_method, order_number, order_index, customer_id, seller_name, items';
 
 export const normalizeAgentOrderIdentifier = (value: string): string | null => {
   const clean = value.trim().replace(/^#/, '');
   return /^[a-z\d_-]{1,64}$/i.test(clean) ? clean : null;
 };
 
-export async function findOrderRowByIdOrNumber(supabase: any, idOrNumber: string) {
+async function findOrderRowByIdOrNumberWithProjection(
+  supabase: any,
+  idOrNumber: string,
+  columns: string,
+) {
   const clean = normalizeAgentOrderIdentifier(idOrNumber);
   if (!clean) return null;
 
@@ -284,7 +389,7 @@ export async function findOrderRowByIdOrNumber(supabase: any, idOrNumber: string
   if (isUuid) {
     const { data, error } = await supabase
       .from('orders')
-      .select(ORDER_ROW_COLUMNS)
+      .select(columns)
       .eq('id', clean)
       .or('deleted.is.null,deleted.eq.false')
       .maybeSingle();
@@ -300,11 +405,28 @@ export async function findOrderRowByIdOrNumber(supabase: any, idOrNumber: string
 
   const { data, error } = await supabase
     .from('orders')
-    .select(ORDER_ROW_COLUMNS)
+    .select(columns)
     .or('deleted.is.null,deleted.eq.false')
     .or(filterExpr)
     .maybeSingle();
   if (error) throw error;
   if (!data || isIdentifiedTestArtifact(data)) return null;
   return data;
+}
+
+export async function findOrderRowByIdOrNumber(supabase: any, idOrNumber: string) {
+  return findOrderRowByIdOrNumberWithProjection(supabase, idOrNumber, ORDER_ROW_COLUMNS);
+}
+
+export async function findOrderRowForUpdateByIdOrNumber(supabase: any, idOrNumber: string) {
+  return findOrderRowByIdOrNumberWithProjection(supabase, idOrNumber, ORDER_EDIT_ROW_COLUMNS);
+}
+
+export async function findLinkedOrderReferenceByIdOrNumber(supabase: any, idOrNumber: string) {
+  const row = await findOrderRowByIdOrNumberWithProjection(
+    supabase,
+    idOrNumber,
+    ORDER_LINK_REFERENCE_COLUMNS,
+  );
+  return row ? { id: row.id } : null;
 }

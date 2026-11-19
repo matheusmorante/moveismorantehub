@@ -100,7 +100,6 @@ describe('ItemsTable - Lista unificada de produtos e serviços', () => {
     const row = (
       <BodyRow
         item={initialItems[0]}
-        productItems={initialItems}
         idx={0}
         onChange={vi.fn()}
         onBatchChange={vi.fn()}
@@ -161,24 +160,16 @@ describe('ItemsTable - Lista unificada de produtos e serviços', () => {
     ]);
   });
 
-  it('aceita descrição avulsa e permite vincular o serviço a vários produtos', () => {
-    const service = initialItems[2];
-    const describedProduct = { ...initialItems[0], orderItemId: 'product-described' };
-    const secondProduct = { ...initialItems[1], orderItemId: 'product-second' };
-    const blankDescriptionProduct = {
-      ...initialItems[1],
-      description: '   ',
-      orderItemId: 'product-blank-description',
-    };
+  it('mantém a descrição do serviço sem exibir vínculo manual com produtos', () => {
+    const service = { ...initialItems[2], linkedProductOrderItemIds: ['legacy-product'] };
     const onChange = vi.fn();
     const onBatchChange = vi.fn();
 
-    const { rerender } = render(
+    render(
       <table>
         <tbody>
           <BodyRow
             item={service}
-            productItems={[describedProduct, secondProduct, blankDescriptionProduct]}
             idx={2}
             onChange={onChange}
             onBatchChange={onBatchChange}
@@ -195,41 +186,10 @@ describe('ItemsTable - Lista unificada de produtos e serviços', () => {
     const description = screen.getByRole('textbox', { name: 'Descrição do serviço' });
     fireEvent.change(description, { target: { value: 'Instalação avulsa' } });
     expect(onChange).toHaveBeenCalledWith(2, 'description', 'Instalação avulsa');
-    expect(screen.queryByRole('combobox', { name: 'Vincular produto' })).toBeNull();
-
-    const firstLink = screen.getByRole('checkbox', { name: /Mesa de Jantar Madeira/ });
-    const secondLink = screen.getByRole('checkbox', { name: /Cadeira Estofada/ });
-    expect(screen.queryByRole('checkbox', { name: /produto-blank-description/i })).toBeNull();
-
-    fireEvent.click(firstLink);
-    expect(onBatchChange).toHaveBeenLastCalledWith(2, {
-      linkedProductOrderItemIds: ['product-described'],
-      linkedProductOrderItemId: undefined,
-    });
-
-    rerender(
-      <table>
-        <tbody>
-          <BodyRow
-            item={{ ...service, linkedProductOrderItemIds: ['product-described'] }}
-            productItems={[describedProduct, secondProduct, blankDescriptionProduct]}
-            idx={2}
-            onChange={onChange}
-            onBatchChange={onBatchChange}
-            onToggleDiscountType={vi.fn()}
-            onDelete={vi.fn()}
-            deliveryMethod="delivery"
-            errors={{}}
-            onSelectProduct={vi.fn()}
-          />
-        </tbody>
-      </table>
-    );
-    fireEvent.click(screen.getByRole('checkbox', { name: /Cadeira Estofada/ }));
-    expect(onBatchChange).toHaveBeenLastCalledWith(2, {
-      linkedProductOrderItemIds: ['product-described', 'product-second'],
-      linkedProductOrderItemId: undefined,
-    });
+    expect(screen.queryByText('Vincular aos produtos')).toBeNull();
+    expect(screen.queryByRole('checkbox')).toBeNull();
+    expect(onBatchChange).not.toHaveBeenCalled();
+    expect(service.linkedProductOrderItemIds).toEqual(['legacy-product']);
   });
 
   it('permite adicionar produto ou serviço pelo botão Adicionar item', () => {

@@ -20,7 +20,10 @@ import { summarizeOptionText } from './agendamento/AlternativesAccordion';
 import { getOperationsFreightTotal, getPrimaryOperationDistance, normalizeOperationFreight } from './operationFreight';
 import { validateShippingScheduling } from '../../../../../../shared-utils/commercialShippingRules';
 import { getSaoPauloDayInfo } from '../../../../../../shared-utils/commercialOrderRules';
-import { DELIVERY_NOTICE_OPTIONS } from '../components/steps/logisticsNoticeRules';
+import {
+  DELIVERY_NOTICE_OPTIONS,
+  syncServiceToolNotices,
+} from '../components/steps/logisticsNoticeRules';
 import { normalizeSingleOperationMethod } from './normalizeSingleOperationMethod';
 
 type Schedule = Shipping['scheduling'];
@@ -103,6 +106,26 @@ const getAppointments = (shipping: Shipping, items: Item[], isNewSale = false): 
   }));
 };
 
+const syncServiceToolNoticesForAppointments = (appointments: Appointment[], items: Item[]) => {
+  let changed = false;
+  const nextAppointments = appointments.map((appointment) => {
+    const operationItemIds = new Set(appointment.itemIds || []);
+    const serviceNames = items
+      .filter((item) => item.itemType === 'service' && item.orderItemId && operationItemIds.has(item.orderItemId))
+      .map((item) => item.description.trim());
+    const synced = syncServiceToolNotices(appointment.notices?.instructions, serviceNames);
+    if (!synced.changed) return appointment;
+
+    changed = true;
+    const notices = { ...appointment.notices };
+    if (synced.nextInstructions) notices.instructions = synced.nextInstructions;
+    else delete notices.instructions;
+    return { ...appointment, notices };
+  });
+
+  return { appointments: nextAppointments, changed };
+};
+
 export const OrderAppointments: React.FC<Props> = ({
   shipping, setShipping, items, customerData, errors, routeUrl, isCalculatingDistance, onAutoCalculateDistance,
   sessionMemoryRef, isNewSale = false, isSale = false, cardMachineRequired = false,
@@ -137,16 +160,31 @@ export const OrderAppointments: React.FC<Props> = ({
   React.useEffect(() => {
     if (!isSale) return;
     const currentItems = items.filter((item) => item.orderItemId && item.description.trim());
-    if (currentItems.length === 0) return;
+    if (currentItems.length === 0) {
+      if (!shipping.scheduling.appointments?.length) return;
+      setShipping((previous) => {
+        const serviceNotices = syncServiceToolNoticesForAppointments(
+          previous.scheduling.appointments || [],
+          currentItems,
+        );
+        if (!serviceNotices.changed) return previous;
+        return {
+          ...previous,
+          scheduling: { ...previous.scheduling, appointments: serviceNotices.appointments } as Schedule,
+        };
+      });
+      return;
+    }
     setShipping((previous) => {
       const hasStoredAppointments = Boolean(previous.scheduling.appointments?.length);
       const hasSingleMethodMismatch = !isNewSaleFlow && previous.scheduling.appointments?.length === 1 &&
         previous.scheduling.appointments[0].deliveryMethod !== previous.deliveryMethod;
       const hasLegacyNotices = previous.callBeforeDelivery !== undefined ||
         previous.bringCardMachine !== undefined || previous.callOnArrival !== undefined;
-      let changed = !hasStoredAppointments || hasSingleMethodMismatch || hasLegacyNotices;
       const current = getAppointments(previous, currentItems, isNewSaleFlow);
-      const next = current.map((appointment, index) => {
+      const serviceNotices = syncServiceToolNoticesForAppointments(current, currentItems);
+      let changed = !hasStoredAppointments || hasSingleMethodMismatch || hasLegacyNotices || serviceNotices.changed;
+      const next = serviceNotices.appointments.map((appointment, index) => {
         const method = appointment.deliveryMethod || (!isNewSaleFlow ? previous.deliveryMethod : undefined);
         const notices = { ...appointment.notices };
         let noticesChanged = false;
@@ -236,12 +274,15 @@ export const OrderAppointments: React.FC<Props> = ({
   ) => {
     setShipping((previous) => {
       const current = getAppointments(previous, selectableItems, isNewSaleFlow);
-      const next = normalizeOperationFreight(
+      const normalizedAppointments = normalizeOperationFreight(
         update(current),
         previous.deliveryMethod,
         previous.value,
         previous.distance,
       );
+      const next = isSale
+        ? syncServiceToolNoticesForAppointments(normalizedAppointments, selectableItems).appointments
+        : normalizedAppointments;
       const first = next[0];
       const selectedMethods = next.map((entry) => entry.deliveryMethod).filter(Boolean);
       const deliveryMethod = selectedMethods.includes('delivery')

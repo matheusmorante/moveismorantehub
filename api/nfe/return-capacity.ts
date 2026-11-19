@@ -112,7 +112,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const parsedLines = parseAuthorizedInvoiceLines(doc.xml_nfe);
       const { data: snapshotsData, error: snapshotError } = await supabase
         .from('nfe_document_items')
-        .select('item_number,billed_quantity,product_code,description')
+        .select('item_number,billed_quantity')
         .eq('document_id', doc.id);
       if (snapshotError) throw snapshotError;
       const snapshots = (snapshotsData || []) as FiscalSnapshotRow[];

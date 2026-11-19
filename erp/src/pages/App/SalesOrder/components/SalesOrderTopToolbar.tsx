@@ -123,15 +123,13 @@ export const SalesOrderTopToolbar: React.FC<SalesOrderTopToolbarProps> = ({
                     ? 'Devoluções'
                     : 'Pedidos de Venda'}
             </h1>
-            <p className="text-slate-500 dark:text-slate-400 font-medium text-[10px] mt-0.5 hidden lg:block">
-              {isBudgetRoute
-                ? 'Gestão de Propostas e Orçamentos'
-                : isAssistanceRoute
-                  ? 'Atendimento Técnico e Manutenção'
-                  : isReturnRoute
-                    ? 'Controle de Devoluções e Estornos'
-                    : 'Gestão de Vendas e Fluxo de Pedidos'}
-            </p>
+            {!isBudgetRoute && <p className="text-slate-500 dark:text-slate-400 font-medium text-[10px] mt-0.5 hidden lg:block">
+              {isAssistanceRoute
+                ? 'Atendimento Técnico e Manutenção'
+                : isReturnRoute
+                  ? 'Controle de Devoluções e Estornos'
+                  : 'Gestão de Vendas e Fluxo de Pedidos'}
+            </p>}
           </div>
         )}
 
@@ -144,7 +142,7 @@ export const SalesOrderTopToolbar: React.FC<SalesOrderTopToolbarProps> = ({
           )}
 
           {/* Visualização Dropdown */}
-          {!isReturnRoute && !isSalesOrderRoute && (
+          {!isBudgetRoute && !isReturnRoute && !isSalesOrderRoute && (
             <div className="relative hidden lg:block">
               <button
                 onClick={onToggleShowSettings}
@@ -207,7 +205,7 @@ export const SalesOrderTopToolbar: React.FC<SalesOrderTopToolbarProps> = ({
           )}
 
           {/* Filtros: exibidos antes da criação e alinhados à direita em telas menores */}
-          {showOrderFilters && (
+          {showOrderFilters && !isBudgetRoute && (
             <button
               onClick={onToggleSidebar}
               className={`min-[1701px]:hidden flex items-center gap-1.5 px-3 py-2 rounded-xl transition-all shadow-sm font-bold text-[10px] uppercase tracking-widest border ${

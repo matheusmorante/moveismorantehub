@@ -74,7 +74,9 @@ const SalesOrder = () => {
             ? 'px-2 pt-3 pb-2 sm:px-4 sm:pt-3 sm:pb-4 lg:px-6 lg:pt-3 lg:pb-6'
             : isSalesOrderRoute
               ? 'px-2 pt-3 pb-2 sm:px-4 sm:pb-4 lg:px-6 lg:pb-6'
-              : 'p-2 sm:p-4 lg:p-6'
+              : isBudgetRoute
+                ? 'px-2 pt-0 pb-2 sm:px-4 sm:pb-4 lg:px-6 lg:pb-6'
+                : 'p-2 sm:p-4 lg:p-6'
         }`}
       >
         <SalesOrderTopToolbar

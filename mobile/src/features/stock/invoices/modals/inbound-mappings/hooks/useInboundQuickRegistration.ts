@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useZodForm } from '../../../../../../hooks/useZodForm';
 import {
   inboundInvoiceProductParentSearchFormSchema,
@@ -38,6 +38,9 @@ export const useInboundQuickRegistration = ({
   const [parentSearchError, setParentSearchError] = useState('');
   const [parentSearchLoading, setParentSearchLoading] = useState(false);
   const [parentSearchRetryVersion, setParentSearchRetryVersion] = useState(0);
+  const [parentSelectionError, setParentSelectionError] = useState('');
+  const [preparingVariationParentId, setPreparingVariationParentId] = useState('');
+  const parentSelectionRequestId = useRef(0);
   const parentSearchForm = useZodForm(inboundInvoiceProductParentSearchFormSchema, {
     query: '',
     supplierId: '',
@@ -46,7 +49,14 @@ export const useInboundQuickRegistration = ({
     setParentSearch(query);
     setParentResults([]);
     setParentSearchError('');
+    setParentSelectionError('');
   };
+
+  useEffect(() => {
+    parentSelectionRequestId.current += 1;
+    setPreparingVariationParentId('');
+    setParentSelectionError('');
+  }, [registrationOptionsVisible, supplierId]);
 
   useEffect(() => {
     if (!registrationOptionsVisible || parentSearch.trim().length < INBOUND_INVOICE_SEARCH_MIN_CHARACTERS) {
@@ -113,16 +123,56 @@ export const useInboundQuickRegistration = ({
   };
 
   const startNewProductRegistration = () => {
+    parentSelectionRequestId.current += 1;
+    setPreparingVariationParentId('');
     setRegistrationParent(null);
     setRegistrationOptionsVisible(false);
     setRegistrationFormVisible(true);
   };
 
-  const startVariationRegistration = (parent: any) => {
-    setRegistrationParent({ ...parent, allVariations: parent.product_variations || [] });
-    setRegistrationDefaults(undefined);
-    setRegistrationOptionsVisible(false);
-    setRegistrationFormVisible(true);
+  const startVariationRegistration = async (parent: any) => {
+    const productId = String(parent?.id || '').trim();
+    if (!productId || !supplierId) {
+      setParentSelectionError('Selecione um produto e confirme o fornecedor antes de continuar.');
+      return;
+    }
+
+    const requestId = ++parentSelectionRequestId.current;
+    setPreparingVariationParentId(productId);
+    setParentSelectionError('');
+    try {
+      const fullProduct = await withTimeout(
+        stockService.fetchInboundInvoiceProductForEdit(productId, supplierId),
+        15_000,
+        null,
+        'entrada:carregar-produto-pai-para-variacao'
+      );
+      if (requestId !== parentSelectionRequestId.current) return;
+      if (!fullProduct) {
+        throw new Error(
+          'Não foi possível confirmar o cadastro completo. Verifique a conexão, o fornecedor e a disponibilidade do produto e tente novamente.'
+        );
+      }
+      if (String(fullProduct.id) !== productId) {
+        throw new Error('O cadastro retornado não corresponde ao produto escolhido. Atualize a busca.');
+      }
+
+      const variations = Array.isArray(fullProduct.product_variations)
+        ? fullProduct.product_variations
+        : [];
+      setRegistrationParent({ ...fullProduct, allVariations: variations, variations });
+      setRegistrationDefaults(undefined);
+      setRegistrationOptionsVisible(false);
+      setRegistrationFormVisible(true);
+    } catch (error: any) {
+      if (requestId === parentSelectionRequestId.current) {
+        setParentSelectionError(
+          error?.message || 'Não foi possível carregar o cadastro completo. Selecione o produto novamente para tentar.'
+        );
+      }
+    } finally {
+      if (requestId === parentSelectionRequestId.current) setPreparingVariationParentId('');
+    }
   };
 
   const openExistingProductForEdit = async (product: Product, itemNumber: number) => {
@@ -172,6 +222,9 @@ export const useInboundQuickRegistration = ({
   };
 
   const closeProductForm = () => {
+    parentSelectionRequestId.current += 1;
+    setPreparingVariationParentId('');
+    setParentSelectionError('');
     if (editingProductSaved && editingProductItemNumber !== null) {
       retryProductSearch(editingProductItemNumber);
     }
@@ -233,6 +286,8 @@ export const useInboundQuickRegistration = ({
     parentResults,
     parentSearchError,
     parentSearchLoading,
+    parentSelectionError,
+    preparingVariationParentId,
     retryParentSearch,
     openQuickRegister,
     startNewProductRegistration,

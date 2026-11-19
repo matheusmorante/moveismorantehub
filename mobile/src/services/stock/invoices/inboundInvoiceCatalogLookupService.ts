@@ -5,11 +5,12 @@ import {
   inboundInvoiceCatalogSearchFormSchema,
   inboundInvoiceProductParentSearchFormSchema,
   inboundInvoiceProductSearchFormSchema,
+  inboundInvoiceSupplierIdSchema,
   INBOUND_INVOICE_SEARCH_RESULT_LIMIT,
 } from '../../../../../shared-utils/inboundProductLinkFormSchemas';
 import { fetchMobileProductsPage } from '../../../features/products/services/mobileProductFetchService';
 
-export const searchInboundInvoiceSuppliers = async (searchTerm: string) => {
+export const searchInboundInvoiceSuppliers = async (searchTerm: string, signal: AbortSignal) => {
   const { query: term } = inboundInvoiceCatalogSearchFormSchema.parse({ query: searchTerm });
   const { data, error } = await supabase
     .from('people')
@@ -18,7 +19,8 @@ export const searchInboundInvoiceSuppliers = async (searchTerm: string) => {
     .or('person_type.ilike.suppliers,person_type.ilike.supplier')
     .filter('search_people_inbound_text', 'imatch', buildNormalizedWordsRegex(term))
     .order('full_name', { ascending: true })
-    .limit(INBOUND_INVOICE_SEARCH_RESULT_LIMIT);
+    .limit(INBOUND_INVOICE_SEARCH_RESULT_LIMIT)
+    .abortSignal(signal);
   if (error) throw error;
   return (data || []).slice(0, INBOUND_INVOICE_SEARCH_RESULT_LIMIT);
 };
@@ -140,8 +142,12 @@ export const getInboundInvoiceProductById = async (
 };
 
 export const fetchInboundInvoiceProductDetails = async (
-  links: Array<{ productId?: string; variationId?: string }>
+  links: Array<{ productId?: string; variationId?: string }>,
+  supplierId?: string
 ) => {
+  const ownerId = supplierId === undefined
+    ? undefined
+    : inboundInvoiceSupplierIdSchema.parse(supplierId);
   const normalizedLinks = links.filter((link) => link.productId || link.variationId);
   const storedVariationIds = [
     ...new Set(
@@ -162,11 +168,21 @@ export const fetchInboundInvoiceProductDetails = async (
   );
   const canonicalByStoredId = new Map(canonicalEntries);
   const canonicalVariationIds = [...new Set(canonicalEntries.map(([, id]) => id))];
+  let variationQuery = supabase
+    .from('product_variations')
+    .select(
+      ownerId
+        ? 'id, product_id, name, sku, price, use_parent_price, active, merged_to_variation_id'
+        : 'id, product_id, name, sku, price, use_parent_price'
+    )
+    .in('id', canonicalVariationIds);
+  if (ownerId) {
+    variationQuery = variationQuery
+      .or('active.eq.true,active.is.null')
+      .is('merged_to_variation_id', null);
+  }
   const { data: variations, error: variationsError } = canonicalVariationIds.length
-    ? await supabase
-        .from('product_variations')
-      .select('id, product_id, name, sku, price, use_parent_price')
-        .in('id', canonicalVariationIds)
+    ? await variationQuery
     : { data: [], error: null };
   if (variationsError) throw variationsError;
   const variationById = new Map<string, any>(
@@ -181,8 +197,24 @@ export const fetchInboundInvoiceProductDetails = async (
       ...(variations || []).map((variation: any) => String(variation.product_id)),
     ]),
   ];
+  let parentQuery = supabase
+    .from('products')
+    .select(
+      ownerId
+        ? 'id, name, code, unit_price, supplier_id, main_supplier_id, supplier_ids, active, deleted, is_draft, status'
+        : 'id, name, code, unit_price'
+    )
+    .in('id', parentIds);
+  if (ownerId) {
+    parentQuery = parentQuery
+      .eq('deleted', false)
+      .eq('active', true)
+      .not('is_draft', 'is', true)
+      .filter('status', 'isdistinct', 'draft')
+      .or(`supplier_id.eq.${ownerId},main_supplier_id.eq.${ownerId},supplier_ids.cs.{"${ownerId}"}`);
+  }
   const { data: parents, error: parentsError } = parentIds.length
-    ? await supabase.from('products').select('id, name, code, unit_price').in('id', parentIds)
+    ? await parentQuery
     : { data: [], error: null };
   if (parentsError) throw parentsError;
   const parentById = new Map<string, any>(
@@ -194,9 +226,18 @@ export const fetchInboundInvoiceProductDetails = async (
       ? canonicalByStoredId.get(String(link.variationId)) || String(link.variationId)
       : undefined;
     const variation = variationById.get(variationId || '');
+    if (ownerId && link.variationId && !variation) return;
+    if (
+      ownerId &&
+      variation &&
+      (String(link.productId || '') !== String(variation.product_id || '') ||
+        variation.active === false ||
+        variation.merged_to_variation_id)
+    ) return;
     const productId = String(variation?.product_id || link.productId || '');
     const parent = parentById.get(productId);
     if (!productId || !parent) return;
+    if (ownerId && (parent.active !== true || parent.deleted !== false || parent.is_draft === true)) return;
     const details = {
       productId,
       variationId: variation?.id ? String(variation.id) : undefined,
@@ -220,9 +261,7 @@ export const searchInboundInvoiceProductParents = async (searchTerm: string, sup
   });
   const { data, error } = await supabase
     .from('products')
-    .select(
-      'id, name, code, unit_price, cost_price, category, category_id, description, main_supplier_id, supplier_id, supplier_ids, has_variations, active, deleted, is_draft, product_variations(id, name, sku, price, cost_price, stock, status, active, attributes, images, combo_items, item_type)'
-    )
+    .select('id, name, code, product_variations(id)')
     .eq('deleted', false)
     .eq('active', true)
     .not('is_draft', 'is', true)
@@ -235,14 +274,25 @@ export const searchInboundInvoiceProductParents = async (searchTerm: string, sup
   return data || [];
 };
 
-export const fetchInboundInvoiceProductForEdit = async (productId: string) => {
+export const fetchInboundInvoiceProductForEdit = async (productId: string, supplierId?: string) => {
   const normalizedId = String(productId || '').trim();
   if (!normalizedId) throw new Error('Selecione um produto válido para editar.');
-  const { data, error } = await supabase
+  const ownerId = supplierId === undefined
+    ? undefined
+    : inboundInvoiceSupplierIdSchema.parse(supplierId);
+  let query = supabase
     .from('products')
     .select('*, product_variations(*), product_categories(*, categories(*)), product_images(*)')
-    .eq('id', normalizedId)
-    .maybeSingle();
+    .eq('id', normalizedId);
+  if (ownerId) {
+    query = query
+      .eq('deleted', false)
+      .eq('active', true)
+      .not('is_draft', 'is', true)
+      .filter('status', 'isdistinct', 'draft')
+      .or(`supplier_id.eq.${ownerId},main_supplier_id.eq.${ownerId},supplier_ids.cs.{"${ownerId}"}`);
+  }
+  const { data, error } = await query.maybeSingle();
   if (error) throw error;
   if (!data) return null;
 

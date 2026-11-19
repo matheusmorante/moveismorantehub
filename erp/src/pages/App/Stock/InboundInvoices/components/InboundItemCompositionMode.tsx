@@ -102,6 +102,7 @@ export const InboundItemCompositionMode: React.FC<InboundItemCompositionModeProp
             supplierId={supplierId}
             variationsOnly
             compositionsOnly
+            includeTrashEligibility={false}
             excludedProductLinks={excludedProductLinks}
             isSelected={false}
             clearOnSelect={true}

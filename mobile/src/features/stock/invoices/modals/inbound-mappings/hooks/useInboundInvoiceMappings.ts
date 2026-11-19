@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { Alert } from 'react-native';
 import { flattenFormErrors, useZodForm } from '../../../../../../hooks/useZodForm';
 import {
   createInboundCreatedProductLinkSchema,
@@ -23,6 +24,7 @@ import { useInboundMappingSearches } from './useInboundMappingSearches';
 import { useInboundMappingSuggestions } from './useInboundMappingSuggestions';
 import { useInboundQuickRegistration } from './useInboundQuickRegistration';
 import type { CompositionLink, MappingItem, Product, Supplier } from '../types';
+import { formatMoney } from '../inboundCostUtils';
 import { isSalvadosOnlySupplier } from '../../../../../../../../shared-utils/productSupplierStockOrigin';
 import { markInboundInvoiceItemsNotApplicable } from '../../../../../../../../shared-utils/inboundInvoiceSupplierRules';
 
@@ -45,6 +47,7 @@ export const useInboundInvoiceMappings = ({
   const [loadError, setLoadError] = useState('');
   const [loadRevision, setLoadRevision] = useState(0);
   const [saving, setSaving] = useState(false);
+  const [checkingSuggestionPrice, setCheckingSuggestionPrice] = useState(false);
   const [hasUncertainWrite, setHasUncertainWrite] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [supplierFormVisible, setSupplierFormVisible] = useState(false);
@@ -389,6 +392,91 @@ export const useInboundInvoiceMappings = ({
     }
   };
 
+  const linkSuggestedProduct = async (item: MappingItem, suggestion: Product) => {
+    if (isSalvadosSupplier || savingInFlight.current) return false;
+    const uncertainMessage = uncertainSupplierCodeOperation.current || uncertainMappingOperation.current;
+    if (uncertainMessage) {
+      setErrorMessage(uncertainMessage);
+      return false;
+    }
+    if (!supplierId) {
+      setErrorMessage('Confirme o fornecedor da nota antes de vincular a sugestão.');
+      return false;
+    }
+
+    savingInFlight.current = true;
+    setCheckingSuggestionPrice(true);
+    setErrorMessage('');
+    let waitingForPriceConfirmation = false;
+    const releasePriceCheck = () => {
+      savingInFlight.current = false;
+      setCheckingSuggestionPrice(false);
+    };
+
+    try {
+      const currentDetails = await withTimeout(
+        stockService.fetchInboundInvoiceProductDetails(
+          [{ productId: suggestion.productId, variationId: suggestion.variationId }],
+          supplierId
+        ),
+        15_000,
+        null,
+        'entrada:confirmar-preco-da-sugestao'
+      );
+      if (!currentDetails) {
+        throw new Error('Não foi possível confirmar o preço atual. Verifique a conexão e tente novamente.');
+      }
+      const current = currentDetails?.get(
+        `${suggestion.productId}:${suggestion.variationId || ''}`
+      );
+      if (!current) {
+        throw new Error(
+          'O produto não está mais ativo ou vinculado a este fornecedor. Atualize a busca antes de vincular.'
+        );
+      }
+
+      const refreshedProduct: Product = {
+        ...suggestion,
+        ...current,
+        id: String(current.variationId || current.productId),
+      };
+      const referencePriceCents = Math.round(Number(suggestion.sellingPrice || 0) * 100);
+      const currentPriceCents = Math.round(Number(refreshedProduct.sellingPrice || 0) * 100);
+      if (referencePriceCents !== currentPriceCents) {
+        Alert.alert(
+          'Preço de venda atualizado',
+          `${refreshedProduct.name}: o preço de referência era ${formatMoney(referencePriceCents / 100)} e agora é ${formatMoney(currentPriceCents / 100)}. Confirme para vincular com o valor atual.`,
+          [
+            { text: 'Cancelar', style: 'cancel', onPress: releasePriceCheck },
+            {
+              text: `Vincular por ${formatMoney(currentPriceCents / 100)}`,
+              onPress: () => {
+                releasePriceCheck();
+                void linkProduct(item, refreshedProduct).catch((error: any) => {
+                  setErrorMessage(error?.message || 'Não foi possível salvar o vínculo. Tente novamente.');
+                });
+              },
+            },
+          ],
+          { cancelable: false }
+        );
+        waitingForPriceConfirmation = true;
+        return false;
+      }
+
+      releasePriceCheck();
+      return await linkProduct(item, refreshedProduct);
+    } catch (error: any) {
+      setErrorMessage(
+        error?.message || 'Não foi possível confirmar o preço atual. Tente novamente antes de vincular.'
+      );
+      console.warn('[InboundInvoiceMappings] current suggestion price could not be confirmed', error);
+      return false;
+    } finally {
+      if (!waitingForPriceConfirmation) releasePriceCheck();
+    }
+  };
+
   const registrationState = useInboundQuickRegistration({
     supplierId,
     linkProduct: (item, product) => linkProduct(item, product, true),
@@ -481,6 +569,7 @@ export const useInboundInvoiceMappings = ({
     loadError,
     retryLoad,
     saving,
+    checkingSuggestionPrice,
     hasUncertainWrite: hasUncertainWrite || Boolean(uncertainSupplierCodeOperation.current || uncertainMappingOperation.current),
     errorMessage,
     setErrorMessage,
@@ -491,6 +580,7 @@ export const useInboundInvoiceMappings = ({
     clearSupplier,
     createSupplier,
     linkProduct,
+    linkSuggestedProduct,
     toggleLinkMode,
     removeCompositionLink,
     saveCompositionMultiplier,
