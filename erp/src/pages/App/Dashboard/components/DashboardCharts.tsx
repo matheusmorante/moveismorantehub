@@ -35,7 +35,7 @@ export const ChartContainer = ({
         <i className="bi bi-graph-up text-lg"></i>
       </div>
     </div>
-    <div className="h-[250px] w-full relative">{children}</div>
+    <div className="min-h-[250px] w-full relative">{children}</div>
   </div>
 );
 
