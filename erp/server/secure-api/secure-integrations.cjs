@@ -867,9 +867,9 @@ var require_dist = __commonJS({
   }
 });
 
-// api/secure-integrations.ts
-var secure_integrations_exports = {};
-__export(secure_integrations_exports, {
+// api/_lib/secureIntegrations/handler.ts
+var handler_exports = {};
+__export(handler_exports, {
   checkAiQuotaOrReject: () => checkAiQuotaOrReject,
   default: () => handler,
   getOperation: () => getOperation,
@@ -880,7 +880,7 @@ __export(secure_integrations_exports, {
   recordAiUsageTokensSafe: () => recordAiUsageTokensSafe,
   releaseAiReservationSafe: () => releaseAiReservationSafe
 });
-module.exports = __toCommonJS(secure_integrations_exports);
+module.exports = __toCommonJS(handler_exports);
 
 // api/_lib/secureIntegrations/types.ts
 var MAX_META_REQUEST_BYTES = 1e6;
@@ -1336,7 +1336,7 @@ function validateCatalogBatch(payloadValue) {
   if (payload.item_type !== "PRODUCT_ITEM" || !Array.isArray(requests) || requests.length < 1 || requests.length > 50) {
     throw new Error("Lote do cat\xE1logo inv\xE1lido.");
   }
-  for (const requestValue of requests) {
+  const requestsForMeta = requests.map((requestValue) => {
     const request = record(requestValue);
     if (!["CREATE", "UPDATE", "DELETE"].includes(String(request.method))) {
       throw new Error("Opera\xE7\xE3o de cat\xE1logo inv\xE1lida.");
@@ -1344,9 +1344,13 @@ function validateCatalogBatch(payloadValue) {
     if (typeof request.retailer_id !== "string" || !request.retailer_id.trim() || request.retailer_id.length > 100) {
       throw new Error("Identificador do produto inv\xE1lido.");
     }
-    if (request.method !== "DELETE") record(request.data);
-  }
-  return payload;
+    if (request.method === "DELETE") {
+      return { method: "DELETE", data: { id: request.retailer_id } };
+    }
+    record(request.data);
+    return request;
+  });
+  return { ...payload, requests: requestsForMeta };
 }
 function planMetaGraphRequest(input, settings) {
   switch (input.operation) {
@@ -1444,6 +1448,25 @@ function getMetaGraphSettings(value) {
     wabaId: config.wabaId,
     catalogId: config.catalogId
   };
+}
+async function fetchMetaCatalogRequest(url, init, signal) {
+  let lastError;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      const response = await fetch(url, { ...init, signal });
+      if (response.status < 500 || attempt === 1) return response;
+      try {
+        await response.body?.cancel();
+      } catch {
+      }
+      lastError = new Error(`Meta Graph retornou HTTP ${response.status}.`);
+    } catch (error) {
+      if (signal.aborted || attempt === 1) throw error;
+      lastError = error;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 300));
+  }
+  throw lastError instanceof Error ? lastError : new Error("Falha tempor\xE1ria na solicita\xE7\xE3o Meta Graph.");
 }
 async function handleMetaGraph(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "M\xE9todo n\xE3o permitido." });
@@ -1590,16 +1613,18 @@ async function handleMetaGraph(req, res) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 2e4);
   try {
+    const retryCatalogRequest = body.operation === "sync_catalog_batch" || body.operation === "check_catalog_batch";
     const outcomes = await Promise.allSettled(planEntries.map(async ({ plan: requestPlan, target }) => {
-      const response = await fetch(`https://graph.facebook.com/${GRAPH_VERSION}/${requestPlan.path}`, {
+      const url = `https://graph.facebook.com/${GRAPH_VERSION}/${requestPlan.path}`;
+      const requestInit = {
         method: requestPlan.method,
         headers: {
           Authorization: `Bearer ${metaToken}`,
           ...requestPlan.body ? { "Content-Type": "application/json; charset=utf-8" } : {}
         },
-        ...requestPlan.body ? { body: JSON.stringify(requestPlan.body) } : {},
-        signal: controller.signal
-      });
+        ...requestPlan.body ? { body: JSON.stringify(requestPlan.body) } : {}
+      };
+      const response = retryCatalogRequest ? await fetchMetaCatalogRequest(url, requestInit, controller.signal) : await fetch(url, { ...requestInit, signal: controller.signal });
       const data = await response.json().catch(() => ({}));
       return { target, response, data };
     }));
@@ -1636,13 +1661,20 @@ async function handleMetaGraph(req, res) {
       });
     }
     if (isCatalogWrite) {
-      const whatsappHandles = Array.isArray(graphResults.find((result) => result.target === "whatsapp")?.data?.handles) ? graphResults.find((result) => result.target === "whatsapp")?.data.handles : [];
-      const adsHandles = Array.isArray(graphResults.find((result) => result.target === "ads")?.data?.handles) ? graphResults.find((result) => result.target === "ads")?.data.handles : [];
-      const validHandles = (values) => values.filter(
-        (handle) => typeof handle === "string" && /^[A-Za-z0-9_=-]{1,512}$/.test(handle)
-      );
-      const wh = validHandles(whatsappHandles);
-      const ads = validHandles(adsHandles);
+      const handlesByTarget = graphResults.map(({ target, data }) => ({
+        target,
+        handles: Array.isArray(data?.handles) ? data.handles.filter((handle) => typeof handle === "string" && /^[A-Za-z0-9_=-]{1,512}$/.test(handle)) : []
+      }));
+      const withoutHandle = handlesByTarget.find(({ handles }) => handles.length === 0);
+      if (withoutHandle) {
+        return res.status(502).json({
+          error: { message: "A Meta n\xE3o retornou um identificador para confirmar o lote." },
+          failed_catalog: withoutHandle.target,
+          partial_success: handlesByTarget.some(({ handles }) => handles.length > 0)
+        });
+      }
+      const wh = handlesByTarget.find(({ target }) => target === "whatsapp")?.handles ?? [];
+      const ads = handlesByTarget.find(({ target }) => target === "ads")?.handles ?? [];
       const combinedHandles = Array.from({ length: Math.max(wh.length, ads.length) }, (_, index) => {
         const whatsappHandle = wh[index];
         const adsHandle = ads[index];
@@ -2101,7 +2133,7 @@ async function handleGoogleRoutes(req, res) {
   }
 }
 
-// api/secure-integrations.ts
+// api/_lib/secureIntegrations/handler.ts
 var operations = {
   "meta-graph": handleMetaGraph,
   "gemini-proxy": handleGemini,
@@ -2119,7 +2151,15 @@ async function handler(req, res) {
     return res.status(404).json({ error: "Opera\xE7\xE3o segura n\xE3o encontrada." });
   }
   const operationHandler = operations[operation];
-  return operationHandler(req, res);
+  try {
+    return await operationHandler(req, res);
+  } catch (error) {
+    const errorName = error instanceof Error ? error.name : "UnknownError";
+    console.error(`[SecureIntegrations] Unhandled ${operation} error (${errorName}).`);
+    if (res.headersSent) return;
+    const message = operation === "meta-graph" ? "Falha interna ao processar a integra\xE7\xE3o Meta. Tente novamente." : "Falha interna ao processar a integra\xE7\xE3o segura. Tente novamente.";
+    return res.status(500).json({ error: message });
+  }
 }
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {

@@ -10,7 +10,7 @@ const quotaMocks = vi.hoisted(() => ({ rpc: vi.fn() }));
 vi.mock('../../../../../api/_lib/authenticatedErpRequest.js', () => authMocks);
 vi.mock('@supabase/supabase-js', () => ({ createClient: vi.fn(() => ({ rpc: quotaMocks.rpc })) }));
 
-import handler from '../../../../../api/secure-integrations';
+import handler from '../../../../../api/_lib/secureIntegrations/handler';
 
 const appId = '1364259738556530';
 const appSecret = 'app-secret-unit';
@@ -69,6 +69,16 @@ afterEach(() => {
   vi.unstubAllEnvs();
   vi.unstubAllGlobals();
   vi.clearAllMocks();
+});
+
+it('loads the built public route and reaches the Meta handler', async () => {
+  const { default: publicRoute } = await import('../../../../../api/secure-integrations');
+  const res = responseMock();
+
+  await publicRoute({ method: 'GET', query: { operation: 'meta-graph' } } as never, res as never);
+
+  expect(res.statusCode).toBe(405);
+  expect(res.body).toEqual({ error: 'Método não permitido.' });
 });
 
 describe('POST /api/meta-graph sync_catalog_batch', () => {

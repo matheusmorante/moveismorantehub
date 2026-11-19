@@ -1,6 +1,7 @@
 const { build } = require('esbuild');
 const { resolve } = require('node:path');
 const { mkdir, writeFile } = require('node:fs/promises');
+const { pathToFileURL } = require('node:url');
 
 async function buildCustomerSupportApi() {
   const root = resolve(__dirname, '../..');
@@ -25,10 +26,15 @@ async function buildCustomerSupportApi() {
   });
   const secureApiOutput = resolve(root, 'erp/server/secure-api');
   await mkdir(secureApiOutput, { recursive: true });
+  const secureIntegrationsBundle = resolve(secureApiOutput, 'secure-integrations.cjs');
   await build({ ...options, external: ['zod'],
-    entryPoints: [resolve(root, 'erp/api/secure-integrations.ts')],
-    outfile: resolve(secureApiOutput, 'secure-integrations.cjs'),
+    entryPoints: [resolve(root, 'erp/api/_lib/secureIntegrations/handler.ts')],
+    outfile: secureIntegrationsBundle,
   });
+  const { default: secureIntegrations } = await import(pathToFileURL(secureIntegrationsBundle).href);
+  if (typeof secureIntegrations.default !== 'function') {
+    throw new Error('Secure integrations could not load in native Node.');
+  }
 }
 
 module.exports = { buildCustomerSupportApi };
