@@ -48,5 +48,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const operationHandler = operations[operation];
-  return operationHandler(req, res);
+  try {
+    return await operationHandler(req, res);
+  } catch (error) {
+    const errorName = error instanceof Error ? error.name : 'UnknownError';
+    console.error(`[SecureIntegrations] Unhandled ${operation} error (${errorName}).`);
+    if (res.headersSent) return;
+    const message = operation === 'meta-graph'
+      ? 'Falha interna ao processar a integração Meta. Tente novamente.'
+      : 'Falha interna ao processar a integração segura. Tente novamente.';
+    return res.status(500).json({ error: message });
+  }
 }

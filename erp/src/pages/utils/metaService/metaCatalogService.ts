@@ -16,6 +16,71 @@ import { metaHttpClient } from './metaHttpClient';
 import { metaErrorHandler } from './metaErrorHandler';
 import type { WhatsAppProduct, MetaProductSet, MetaBatchSyncResult } from './types';
 
+type MetaCatalogResponse = Record<string, any>;
+type MetaCatalogHttpError = Error & { status?: number };
+
+const META_CATALOG_REQUEST_ATTEMPTS = 2;
+const META_CATALOG_RETRY_DELAY_MS = 400;
+
+function withHttpStatus(error: Error, status: number): MetaCatalogHttpError {
+  return Object.assign(error, { status });
+}
+
+async function readMetaCatalogResponse(response: Response): Promise<MetaCatalogResponse> {
+  const body = await response.text();
+  try {
+    const parsed: unknown = JSON.parse(body);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? parsed as MetaCatalogResponse
+      : {};
+  } catch {
+    throw withHttpStatus(
+      new Error(`O proxy Meta Graph respondeu HTTP ${response.status} em formato não JSON.`),
+      response.status
+    );
+  }
+}
+
+async function requestMetaCatalogJson(
+  operation: 'sync_catalog_batch' | 'check_catalog_batch',
+  payload: Record<string, unknown>
+): Promise<{ response: Response; data: MetaCatalogResponse }> {
+  for (let attempt = 0; attempt < META_CATALOG_REQUEST_ATTEMPTS; attempt += 1) {
+    let response: Response;
+    try {
+      response = await metaHttpClient.request(operation, payload);
+    } catch (error) {
+      if (attempt + 1 >= META_CATALOG_REQUEST_ATTEMPTS || !(error instanceof TypeError)) {
+        throw error;
+      }
+      await new Promise((resolve) => setTimeout(resolve, META_CATALOG_RETRY_DELAY_MS));
+      continue;
+    }
+
+    let data: MetaCatalogResponse;
+    try {
+      data = await readMetaCatalogResponse(response);
+    } catch (error) {
+      const status = Number((error as MetaCatalogHttpError)?.status);
+      if (attempt + 1 >= META_CATALOG_REQUEST_ATTEMPTS || status < 500) throw error;
+      await new Promise((resolve) => setTimeout(resolve, META_CATALOG_RETRY_DELAY_MS));
+      continue;
+    }
+
+    const retryableServerFailure = response.status >= 500 && !(
+      operation === 'sync_catalog_batch' && data.partial_success === true
+    );
+    if (attempt + 1 < META_CATALOG_REQUEST_ATTEMPTS && retryableServerFailure) {
+      await new Promise((resolve) => setTimeout(resolve, META_CATALOG_RETRY_DELAY_MS));
+      continue;
+    }
+
+    return { response, data };
+  }
+
+  throw new Error('Não foi possível concluir a solicitação ao Meta Catalog.');
+}
+
 /**
  * Serviço especializado na gestão de catálogo de produtos e coleções na Meta Catalog API.
  * Responsável por consultas de catálogo, sincronização individual e em lotes (items_batch).
@@ -24,10 +89,12 @@ async function checkMetaCatalogBatchStatus(handle: string) {
   const { whatsappConfig } = getSettings();
   if (!whatsappConfig?.catalogId) throw new Error('Catalog ID não configurado.');
 
-  const response = await metaHttpClient.request('check_catalog_batch', { handle });
-  const data = await response.json();
+  const { response, data } = await requestMetaCatalogJson('check_catalog_batch', { handle });
   if (!response.ok || data.error) {
-    throw new Error(data.error?.message || 'Erro ao consultar status do lote.');
+    throw withHttpStatus(
+      new Error(data.error?.message || 'Erro ao consultar status do lote.'),
+      response.status
+    );
   }
   return data;
 }
@@ -196,16 +263,17 @@ export const metaCatalogService = {
     };
 
     try {
-      const response = await metaHttpClient.request('sync_catalog_batch', { payload: batchRequest });
-
-      const data = await response.json();
+      const { response, data } = await requestMetaCatalogJson('sync_catalog_batch', { payload: batchRequest });
 
       if (!response.ok || data.error) {
         console.error('[MetaCatalogService] Erro no Batch Sync:', data.error || data);
         if (data.error) {
-          throw new Error(metaErrorHandler.parseMetaErrorMessage(data.error, { apiArea: 'catalog' }));
+          throw withHttpStatus(
+            new Error(metaErrorHandler.parseMetaErrorMessage(data.error, { apiArea: 'catalog' })),
+            response.status
+          );
         }
-        throw new Error('Erro desconhecido ao sincronizar com a Meta.');
+        throw withHttpStatus(new Error('Erro desconhecido ao sincronizar com a Meta.'), response.status);
       }
 
       const handles = Array.isArray(data.handles)
@@ -253,8 +321,7 @@ export const metaCatalogService = {
         chunk,
         settings.channelBaseDescriptions?.whatsapp
       );
-      const response = await metaHttpClient.request('sync_catalog_batch', { payload });
-      const data = await response.json();
+      const { response, data } = await requestMetaCatalogJson('sync_catalog_batch', { payload });
       if (!response.ok || data.error) {
         console.error('[MetaCatalogService] Erro no Lote Meta API:', data.error || data);
         if (data.error) {
@@ -268,11 +335,12 @@ export const metaCatalogService = {
               ? `Este lote foi aceito por outro catálogo, mas falhou no catálogo ${catalogLabel}. `
               : `Falha no catálogo ${catalogLabel}. `
             : '';
-          throw new Error(
-            `${failurePrefix}${metaErrorHandler.parseMetaErrorMessage(data.error, { apiArea: 'catalog' })}`
+          throw withHttpStatus(
+            new Error(`${failurePrefix}${metaErrorHandler.parseMetaErrorMessage(data.error, { apiArea: 'catalog' })}`),
+            response.status
           );
         }
-        throw new Error('Erro no envio em lote da Meta API.');
+        throw withHttpStatus(new Error('Erro no envio em lote da Meta API.'), response.status);
       }
 
       const batchHandles = Array.isArray(data.handles)

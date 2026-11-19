@@ -23,6 +23,33 @@ function getMetaGraphSettings(value: unknown): MetaGraphSettings {
   };
 }
 
+async function fetchMetaCatalogRequest(
+  url: string,
+  init: RequestInit,
+  signal: AbortSignal
+): Promise<Response> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      const response = await fetch(url, { ...init, signal });
+      if (response.status < 500 || attempt === 1) return response;
+      try {
+        await response.body?.cancel();
+      } catch {
+        // The response body is discarded before retrying this catalog target.
+      }
+      lastError = new Error(`Meta Graph retornou HTTP ${response.status}.`);
+    } catch (error) {
+      if (signal.aborted || attempt === 1) throw error;
+      lastError = error;
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 300));
+  }
+
+  throw lastError instanceof Error ? lastError : new Error('Falha temporária na solicitação Meta Graph.');
+}
+
 export async function handleMetaGraph(req: VercelRequest, res: VercelResponse): Promise<unknown> {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Método não permitido.' });
   const metaToken = process.env.WHATSAPP_ACCESS_TOKEN?.trim();
@@ -186,16 +213,21 @@ export async function handleMetaGraph(req: VercelRequest, res: VercelResponse): 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 20_000);
   try {
+    const retryCatalogRequest = body.operation === 'sync_catalog_batch'
+      || body.operation === 'check_catalog_batch';
     const outcomes = await Promise.allSettled(planEntries.map(async ({ plan: requestPlan, target }) => {
-      const response = await fetch(`https://graph.facebook.com/${GRAPH_VERSION}/${requestPlan.path}`, {
+      const url = `https://graph.facebook.com/${GRAPH_VERSION}/${requestPlan.path}`;
+      const requestInit: RequestInit = {
         method: requestPlan.method,
         headers: {
           Authorization: `Bearer ${metaToken}`,
           ...(requestPlan.body ? { 'Content-Type': 'application/json; charset=utf-8' } : {}),
         },
         ...(requestPlan.body ? { body: JSON.stringify(requestPlan.body) } : {}),
-        signal: controller.signal,
-      });
+      };
+      const response = retryCatalogRequest
+        ? await fetchMetaCatalogRequest(url, requestInit, controller.signal)
+        : await fetch(url, { ...requestInit, signal: controller.signal });
       const data = await response.json().catch(() => ({}));
       return { target, response, data };
     }));
