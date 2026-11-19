@@ -14,6 +14,7 @@ interface Props {
 
 const Footer = ({
   summary,
+  items,
   isMobile,
   isBudget,
   hideHandling,
