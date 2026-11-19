@@ -6,6 +6,7 @@ import SalesOrderFormSection from '../../../components/SalesOrderFormSection';
 import ProductReconciliationItems from '../../../components/ProductReconciliationItems';
 import OrderStatusTimeline from '../../../components/OrderStatusTimeline';
 import type { useSalesOrderForm } from '../../../hooks/useSalesOrderForm';
+import { canCustomerAccessLogistics } from '../../../components/customer/customerSelectionRules';
 
 interface OrderEditModalContentProps {
   readonly effectiveOrder: Order;
@@ -84,7 +85,7 @@ export const OrderEditModalContent: React.FC<OrderEditModalContentProps> = ({
       <OrderEditModalHeader
         reconciliationMode={reconciliationMode}
         currentStep={form.state.currentStep}
-        isLogisticsDisabled={!form.state.customerData.id}
+        isLogisticsDisabled={!canCustomerAccessLogistics(form.state.customerData)}
         jumpToStep={form.actions.jumpToStep}
         errors={form.state.errors}
         onClose={onClose}

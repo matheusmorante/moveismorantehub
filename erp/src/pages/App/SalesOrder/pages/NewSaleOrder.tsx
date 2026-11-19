@@ -12,6 +12,7 @@ import OrderFormLoadingOverlay from '../components/OrderFormLoadingOverlay';
 import { recordSalesOrderCompletionTiming } from '@/services/monitoring/salesOrderCompletionTelemetry';
 import SellerSearchModal from '../modals/SellerSearchModal';
 import { NewSaleOrderHeader } from './NewSaleOrderHeader';
+import { canCustomerAccessLogistics } from '../components/customer/customerSelectionRules';
 import {
   applyImportedOrderDataToForm,
   buildPendingCustomerFromImportedJson,
@@ -251,7 +252,7 @@ const NewSaleOrder = ({
           orderIndex={form.state.orderIndex}
           isGeneratingCode={form.state.isGeneratingCode}
           currentStep={form.state.currentStep}
-          isLogisticsDisabled={!form.state.customerData.id}
+          isLogisticsDisabled={!canCustomerAccessLogistics(form.state.customerData)}
           jumpToStep={form.actions.jumpToStep}
           errors={form.state.errors}
           onClose={() => { void handleUserClose(); }}

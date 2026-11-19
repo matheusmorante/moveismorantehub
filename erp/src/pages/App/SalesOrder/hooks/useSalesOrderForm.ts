@@ -22,6 +22,7 @@ import { useOrderItemHandlingByDeliveryMethod } from './useOrderItemHandlingByDe
 import { useOrderAutoSave } from './useOrderAutoSave';
 import { useOrderCustomerSelection } from './useOrderCustomerSelection';
 import { useOrderFormStepNavigation } from './useOrderFormStepNavigation';
+import { canCustomerAccessLogistics } from '../components/customer/customerSelectionRules';
 import {
   buildCurrentOrder,
   buildSalesOrderSnapshot,
@@ -44,6 +45,7 @@ export const useSalesOrderForm = (
   const { shipping, setShipping } = useShipping(initialDeliveryMethod);
   const { payments, setPayments } = usePaymentsData();
   const { customerData, setCustomerData } = useCustomerData();
+  const canAccessLogistics = canCustomerAccessLogistics(customerData);
 
   const [observation, setObservation] = useState('');
   const [seller, setSeller] = useState('');
@@ -63,7 +65,7 @@ export const useSalesOrderForm = (
   const [linkedOrderId, setLinkedOrderId] = useState('');
   const [isButtonsClicked, setIsButtonsClicked] = useState<Order['isButtonsClicked']>(undefined);
   const { currentStep, setCurrentStep, goToNextStep, goToPrevStep } =
-    useOrderFormStepNavigation(orderType, Boolean(customerData.id));
+    useOrderFormStepNavigation(orderType, canAccessLogistics);
   const [testModeFields, setTestModeFields] = useState<Pick<Order, 'is_test' | 'testArtifact'>>({});
   const [fiscalContext, setFiscalContext] = useState<Order['fiscalContext']>();
   const isTestMode = testModeFields.is_test === true;
@@ -419,9 +421,9 @@ export const useSalesOrderForm = (
   }, []);
 
   const jumpToStep = useCallback((step: number) => {
-    if (step === 4 && !customerData.id) return;
+    if (step === 4 && !canAccessLogistics) return;
     setCurrentStep(step);
-  }, [customerData.id, setCurrentStep]);
+  }, [canAccessLogistics, setCurrentStep]);
 
   const actions = useMemo(
     () => ({

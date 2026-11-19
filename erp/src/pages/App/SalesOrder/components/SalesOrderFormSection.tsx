@@ -4,6 +4,7 @@ import PersonalInfos from './CustomerData';
 import FormFooter from './FormFooter';
 import SectionCard from '@/components/SectionCard';
 import { useSalesOrderForm } from '../hooks/useSalesOrderForm';
+import { canCustomerAccessLogistics } from './customer/customerSelectionRules';
 import {
   BasicInfoStepSection,
   LogisticsStepSection,
@@ -121,7 +122,7 @@ const SalesOrderFormSection = ({
         }
         onPrev={actions.goToPrevStep}
         onNext={actions.goToNextStep}
-        nextDisabled={state.currentStep === 3 && !state.customerData.id}
+        nextDisabled={state.currentStep === 3 && !canCustomerAccessLogistics(state.customerData)}
         currentStep={currentStep}
         buttonLabel={
           isBudget

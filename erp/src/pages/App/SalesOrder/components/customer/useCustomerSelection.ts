@@ -4,6 +4,7 @@ import Person from '@/pages/types/person.type';
 import { fetchPersonById, getRecentPeople, searchPeople } from '@/pages/utils/personService';
 import { toTitleCase } from '@/pages/utils/formatters';
 import { getTestArtifactContext } from '../../../../../../../shared-utils/testArtifactContext';
+import { FINAL_CONSUMER_NAME, isFinalConsumerSelection } from './customerSelectionRules';
 import {
   canSearchCustomerAutocomplete,
   getCustomerSearchQuery,
@@ -20,7 +21,7 @@ export const EMPTY_ADDRESS = {
   observation: '',
 };
 
-export const FINAL_CONSUMER_NAME = 'Consumidor Final';
+export { FINAL_CONSUMER_NAME } from './customerSelectionRules';
 
 interface UseCustomerSelectionParams {
   customerData: CustomerData;
@@ -58,9 +59,7 @@ export function useCustomerSelection({
     searchTerm: string;
   } | null>(null);
 
-  const isFinalConsumer =
-    !customerData.id &&
-    customerData.fullName.trim().toLowerCase() === FINAL_CONSUMER_NAME.toLowerCase();
+  const isFinalConsumer = isFinalConsumerSelection(customerData);
 
   // A busca de sugestões não carrega mais uma página de recentes ao montar.
   // Carrega somente o cadastro selecionado para preservar a ação de edição;
