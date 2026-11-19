@@ -95,6 +95,8 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
+    // Limit the extra heap used while minifying legacy chunks.
+    terserOptions: { maxWorkers: 1 },
     rollupOptions: {
       input: {
         app: path.resolve(__dirname, 'index.html'),

@@ -27,18 +27,16 @@ function withHttpStatus(error: Error, status: number): MetaCatalogHttpError {
 }
 
 async function readMetaCatalogResponse(response: Response): Promise<MetaCatalogResponse> {
-  const body = await response.text();
-  try {
-    const parsed: unknown = JSON.parse(body);
-    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
-      ? parsed as MetaCatalogResponse
-      : {};
-  } catch {
+  const parsed: unknown = await response.json().catch((error: unknown) => {
+    if (!(error instanceof SyntaxError)) throw error;
     throw withHttpStatus(
       new Error(`O proxy Meta Graph respondeu HTTP ${response.status} em formato não JSON.`),
       response.status
     );
-  }
+  });
+  return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+    ? parsed as MetaCatalogResponse
+    : {};
 }
 
 async function requestMetaCatalogJson(

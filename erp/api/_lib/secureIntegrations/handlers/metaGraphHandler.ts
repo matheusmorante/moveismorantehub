@@ -275,17 +275,24 @@ export async function handleMetaGraph(req: VercelRequest, res: VercelResponse): 
     }
 
     if (isCatalogWrite) {
-      const whatsappHandles = Array.isArray(graphResults.find((result) => result.target === 'whatsapp')?.data?.handles)
-        ? graphResults.find((result) => result.target === 'whatsapp')?.data.handles as unknown[]
-        : [];
-      const adsHandles = Array.isArray(graphResults.find((result) => result.target === 'ads')?.data?.handles)
-        ? graphResults.find((result) => result.target === 'ads')?.data.handles as unknown[]
-        : [];
-      const validHandles = (values: unknown[]) => values.filter(
-        (handle): handle is string => typeof handle === 'string' && /^[A-Za-z0-9_=-]{1,512}$/.test(handle)
-      );
-      const wh = validHandles(whatsappHandles);
-      const ads = validHandles(adsHandles);
+      const handlesByTarget = graphResults.map(({ target, data }) => ({
+        target,
+        handles: Array.isArray(data?.handles)
+          ? data.handles.filter((handle: unknown): handle is string =>
+            typeof handle === 'string' && /^[A-Za-z0-9_=-]{1,512}$/.test(handle))
+          : [],
+      }));
+      const withoutHandle = handlesByTarget.find(({ handles }) => handles.length === 0);
+      if (withoutHandle) {
+        return res.status(502).json({
+          error: { message: 'A Meta não retornou um identificador para confirmar o lote.' },
+          failed_catalog: withoutHandle.target,
+          partial_success: handlesByTarget.some(({ handles }) => handles.length > 0),
+        });
+      }
+
+      const wh = handlesByTarget.find(({ target }) => target === 'whatsapp')?.handles ?? [];
+      const ads = handlesByTarget.find(({ target }) => target === 'ads')?.handles ?? [];
       const combinedHandles = Array.from({ length: Math.max(wh.length, ads.length) }, (_, index) => {
         const whatsappHandle = wh[index];
         const adsHandle = ads[index];

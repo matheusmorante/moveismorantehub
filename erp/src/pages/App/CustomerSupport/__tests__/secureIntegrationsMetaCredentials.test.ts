@@ -38,16 +38,20 @@ function responseMock() {
   return response;
 }
 
-async function callVerificationRoute(operation = 'verify_app_credentials') {
+async function callMetaGraphRoute(body: Record<string, unknown>) {
   const req = {
     method: 'POST',
     query: { operation: 'meta-graph' },
     headers: { authorization: 'Bearer authenticated-session' },
-    body: { operation },
+    body,
   };
   const res = responseMock();
   await handler(req as never, res as never);
   return res;
+}
+
+function callVerificationRoute(operation = 'verify_app_credentials') {
+  return callMetaGraphRoute({ operation });
 }
 
 beforeEach(() => {
@@ -65,6 +69,28 @@ afterEach(() => {
   vi.unstubAllEnvs();
   vi.unstubAllGlobals();
   vi.clearAllMocks();
+});
+
+describe('POST /api/meta-graph sync_catalog_batch', () => {
+  it('informa qual catálogo ficou sem confirmação quando só um retorna um identificador', async () => {
+    authMocks.authenticateErpRequest.mockResolvedValueOnce({
+      userId: 'operator-unit', roles: ['manager'], rolePermissions: {}, userDb: {},
+      whatsappConfig: { catalogId: '3456789012' },
+    });
+    const graph = vi.fn()
+      .mockResolvedValueOnce(Response.json({ handles: ['wa_batch'] }))
+      .mockResolvedValueOnce(Response.json({ handles: [] }));
+    vi.stubGlobal('fetch', graph);
+
+    const res = await callMetaGraphRoute({
+      operation: 'sync_catalog_batch',
+      payload: { item_type: 'PRODUCT_ITEM', requests: [{ method: 'DELETE', retailer_id: 'SKU-1' }] },
+    });
+
+    expect(graph).toHaveBeenCalledTimes(2);
+    expect(res.statusCode).toBe(502);
+    expect(res.body).toMatchObject({ failed_catalog: 'ads', partial_success: true });
+  });
 });
 
 describe('POST /api/meta-graph verify_app_credentials', () => {

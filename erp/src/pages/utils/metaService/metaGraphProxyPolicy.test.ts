@@ -56,7 +56,12 @@ describe('planMetaGraphRequest', () => {
         requests: [{ method: 'DELETE', retailer_id: 'SKU-1' }],
       },
     }, settings);
-    expect(plan).toMatchObject({ permission: 'productConfig', method: 'POST', path: '3456789012/items_batch' });
+    expect(plan).toEqual({
+      permission: 'productConfig',
+      method: 'POST',
+      path: '3456789012/items_batch',
+      body: { item_type: 'PRODUCT_ITEM', requests: [{ method: 'DELETE', data: { id: 'SKU-1' } }] },
+    });
     expect(() => planMetaGraphRequest({
       operation: 'sync_catalog_batch',
       payload: { item_type: 'PRODUCT_ITEM', requests: Array(51).fill({ method: 'DELETE', retailer_id: 'sku' }) },

@@ -1,4 +1,4 @@
-import { META_ADS_CREATIVE_CATALOG_ID } from '../../../../../shared-utils/metaCatalogIds';
+import { META_ADS_CREATIVE_CATALOG_ID } from '../../../../../shared-utils/metaCatalogIds.js';
 
 export type MetaGraphOperation =
   | 'sender_status'
@@ -164,7 +164,7 @@ function validateCatalogBatch(payloadValue: unknown): Record<string, unknown> {
   ) {
     throw new Error('Lote do catálogo inválido.');
   }
-  for (const requestValue of requests) {
+  const requestsForMeta = requests.map((requestValue) => {
     const request = record(requestValue);
     if (!['CREATE', 'UPDATE', 'DELETE'].includes(String(request.method))) {
       throw new Error('Operação de catálogo inválida.');
@@ -172,9 +172,13 @@ function validateCatalogBatch(payloadValue: unknown): Record<string, unknown> {
     if (typeof request.retailer_id !== 'string' || !request.retailer_id.trim() || request.retailer_id.length > 100) {
       throw new Error('Identificador do produto inválido.');
     }
-    if (request.method !== 'DELETE') record(request.data);
-  }
-  return payload;
+    if (request.method === 'DELETE') {
+      return { method: 'DELETE', data: { id: request.retailer_id } };
+    }
+    record(request.data);
+    return request;
+  });
+  return { ...payload, requests: requestsForMeta };
 }
 
 export function planMetaGraphRequest(

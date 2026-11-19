@@ -114,6 +114,21 @@ describe('metaCatalogService', () => {
   });
 
   describe('deleteProductFromCatalog', () => {
+    it('repete o envio quando o proxy retorna um erro temporário em texto e confirma o lote', async () => {
+      vi.mocked(metaHttpClient.request)
+        .mockResolvedValueOnce(new Response('A server error has occurred', { status: 500 }))
+        .mockResolvedValueOnce(response({ handles: ['h_del'] }))
+        .mockResolvedValueOnce(response({ status: 'finished', errors_total_count: 0 }));
+
+      await metaCatalogService.deleteProductFromCatalog('SKU-001');
+
+      expect(vi.mocked(metaHttpClient.request).mock.calls.map(([operation]) => operation)).toEqual([
+        'sync_catalog_batch',
+        'sync_catalog_batch',
+        'check_catalog_batch',
+      ]);
+    });
+
     it('executa syncProductToCatalog com a ação DELETE', async () => {
       vi.mocked(metaHttpClient.request).mockImplementation(async (operation) =>
         operation === 'check_catalog_batch'
