@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import React from 'react';
-import { render, screen, fireEvent, cleanup } from '@testing-library/react';
+import { act, render, screen, fireEvent, cleanup } from '@testing-library/react';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { ChannelStatusBadges } from './ChannelStatusBadges';
 import { validateErpActivationRequirements } from '../../hooks/activation/useProductsActivationValidation';
@@ -342,6 +342,44 @@ describe('ChannelStatusBadges - Regra de Origem de Estoque Salvados', () => {
 
       fireEvent.click(catalogButton);
       expect(handleToggleCatalog).toHaveBeenCalledTimes(1);
+    });
+
+    it('mostra a faixa de carregamento e bloqueia cliques repetidos até a ação terminar', async () => {
+      let resolveCatalogAction!: () => void;
+      const pendingAction = new Promise<void>((resolve) => {
+        resolveCatalogAction = resolve;
+      });
+      const handleToggleCatalog = vi.fn(() => pendingAction);
+      const { container } = render(
+        <ChannelStatusBadges
+          catalogStatus="hidden"
+          isParent={false}
+          canManageCatalog={true}
+          onToggleCatalog={handleToggleCatalog}
+        />
+      );
+
+      const catalogButton = screen.getByRole('button', {
+        name: /Status Catálogo: Oculto/i,
+      }) as HTMLButtonElement;
+
+      fireEvent.click(catalogButton);
+
+      expect(catalogButton.disabled).toBe(true);
+      expect(catalogButton.getAttribute('aria-busy')).toBe('true');
+      expect(container.querySelector('.catalog-status-loading-band')).not.toBeNull();
+
+      fireEvent.click(catalogButton);
+      expect(handleToggleCatalog).toHaveBeenCalledTimes(1);
+
+      await act(async () => {
+        resolveCatalogAction();
+        await pendingAction;
+      });
+
+      expect(catalogButton.disabled).toBe(false);
+      expect(catalogButton.getAttribute('aria-busy')).toBe('false');
+      expect(container.querySelector('.catalog-status-loading-band')).toBeNull();
     });
   });
 });

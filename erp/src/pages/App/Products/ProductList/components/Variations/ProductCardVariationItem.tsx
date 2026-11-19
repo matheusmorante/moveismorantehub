@@ -38,7 +38,7 @@ interface ProductCardVariationItemProps {
   readonly onSetActiveVarMenuId: (id: string | null) => void;
   readonly onEdit: (product: Product) => void;
   readonly onToggleActive: (id: string, currentStatus: boolean) => void;
-  readonly onDeactivateCatalog: (id: string) => void;
+  readonly onDeactivateCatalog: (id: string) => void | Promise<void>;
   readonly onShowHistory?: (product: Product) => void;
   readonly onLaunchStock?: (product: Product) => void;
   readonly onMoveToAnotherFamily?: (variation: CardVariationItem) => void;
@@ -131,9 +131,9 @@ export const ProductCardVariationItem: React.FC<ProductCardVariationItemProps> =
                 e.stopPropagation();
                 onToggleActive(v.id || v.variationId || '', v.active !== false);
               }}
-              onToggleCatalog={(e) => {
+              onToggleCatalog={async (e) => {
                 e.stopPropagation();
-                onDeactivateCatalog(targetVarCatalogId);
+                await onDeactivateCatalog(targetVarCatalogId);
               }}
               size="xs"
               disabled={!!v.mergedToVariationId}

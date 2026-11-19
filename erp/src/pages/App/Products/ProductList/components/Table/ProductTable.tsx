@@ -32,7 +32,7 @@ interface ProductTableProps {
   readonly onMoveToTrash?: (product: Product) => void;
   readonly onPermanentDelete: (id: string) => void;
   readonly onToggleActive: (id: string, currentStatus: boolean) => void;
-  readonly onDeactivateCatalog: (id: string) => void;
+  readonly onDeactivateCatalog: (id: string) => void | Promise<void>;
   readonly visibilitySettings: ProductVisibilitySettings;
   readonly onToggleColumn: (column: keyof ProductVisibilitySettings) => void;
   readonly showTrash?: boolean;

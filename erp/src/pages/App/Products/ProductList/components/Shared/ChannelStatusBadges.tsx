@@ -6,7 +6,7 @@ export interface ChannelStatusBadgesProps {
   readonly active?: boolean;
   readonly catalogStatus?: 'published' | 'hidden' | 'draft' | string;
   readonly onToggleActive?: (e: React.MouseEvent) => void;
-  readonly onToggleCatalog?: (e: React.MouseEvent) => void;
+  readonly onToggleCatalog?: (e: React.MouseEvent) => void | Promise<void>;
   readonly canToggleActive?: boolean;
   readonly canManageCatalog?: boolean;
   readonly isParent?: boolean;
@@ -45,6 +45,8 @@ export const ChannelStatusBadges: React.FC<ChannelStatusBadgesProps> = ({
   const [showPopover, setShowPopover] = useState(false);
   const [showDisabledPopover, setShowDisabledPopover] = useState(false);
   const [showNonConventionalPopover, setShowNonConventionalPopover] = useState(false);
+  const [isCatalogActionPending, setIsCatalogActionPending] = useState(false);
+  const isCatalogActionPendingRef = useRef(false);
   const erpBadgeAnchorRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -80,10 +82,28 @@ export const ChannelStatusBadges: React.FC<ChannelStatusBadgesProps> = ({
     onToggleActive?.(e);
   };
 
-  const handleCatalogClick = (e: React.MouseEvent) => {
+  const handleCatalogClick = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (disabled || isDraft || !canManageCatalog) return;
-    onToggleCatalog?.(e);
+    if (
+      disabled ||
+      isDraft ||
+      !canManageCatalog ||
+      !onToggleCatalog ||
+      isCatalogActionPendingRef.current
+    ) {
+      return;
+    }
+
+    isCatalogActionPendingRef.current = true;
+    setIsCatalogActionPending(true);
+    try {
+      await onToggleCatalog(e);
+    } catch {
+      toast.error('Não foi possível atualizar o status do catálogo.');
+    } finally {
+      isCatalogActionPendingRef.current = false;
+      setIsCatalogActionPending(false);
+    }
   };
 
   return (
@@ -288,12 +308,15 @@ export const ChannelStatusBadges: React.FC<ChannelStatusBadgesProps> = ({
         <button
           type="button"
           onClick={handleCatalogClick}
-          disabled={isCatalogDisabled}
+          disabled={isCatalogDisabled || isCatalogActionPending}
+          aria-busy={isCatalogActionPending}
           onMouseEnter={() => disabled && setShowDisabledPopover(true)}
           onMouseLeave={() => disabled && setShowDisabledPopover(false)}
           aria-label={`Status Catálogo: ${isCatalogPublished ? 'Publicado' : 'Oculto'}`}
           title={
-            disabled
+            isCatalogActionPending
+              ? 'Atualizando status no Catálogo Digital…'
+              : disabled
               ? undefined
               : isDraft
                 ? 'Produtos em rascunho ficam ocultos e não podem ser publicados no Catálogo Digital.'
@@ -303,12 +326,12 @@ export const ChannelStatusBadges: React.FC<ChannelStatusBadgesProps> = ({
                     ? 'Clique para ocultar do Catálogo Digital'
                     : 'Clique para publicar no Catálogo Digital'
           }
-          className={`inline-flex items-stretch rounded-lg shadow-2xs border transition-all select-none overflow-hidden active:scale-95 ${
+          className={`relative inline-flex items-stretch rounded-lg shadow-2xs border transition-all select-none overflow-hidden active:scale-95 ${
             isCatalogDisabled
               ? 'border-slate-300 dark:border-slate-700 opacity-60 cursor-not-allowed bg-slate-200 dark:bg-slate-800 grayscale'
               : isCatalogPublished
-                ? 'border-emerald-200/80 dark:border-emerald-800/50 hover:border-emerald-300 cursor-pointer'
-                : 'border-slate-200/80 dark:border-slate-700/60 hover:border-slate-300 cursor-pointer'
+                ? `border-emerald-200/80 dark:border-emerald-800/50 hover:border-emerald-300 ${isCatalogActionPending ? 'cursor-wait' : 'cursor-pointer'}`
+                : `border-slate-200/80 dark:border-slate-700/60 hover:border-slate-300 ${isCatalogActionPending ? 'cursor-wait' : 'cursor-pointer'}`
           }`}
         >
           {/* Tag Fixa Catálogo */}
@@ -333,6 +356,10 @@ export const ChannelStatusBadges: React.FC<ChannelStatusBadgesProps> = ({
             />
             <span>{isCatalogPublished ? 'Publicado' : 'Oculto'}</span>
           </span>
+
+          {isCatalogActionPending && (
+            <span className="catalog-status-loading-band z-10" aria-hidden="true" />
+          )}
         </button>
       )}
 

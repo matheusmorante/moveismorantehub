@@ -25,7 +25,7 @@ interface ProductCardProps {
   readonly onMoveToTrash?: (product: Product) => void;
   readonly onPermanentDelete?: (id: string) => void;
   readonly onToggleActive: (id: string, currentStatus: boolean) => void;
-  readonly onDeactivateCatalog: (id: string) => void;
+  readonly onDeactivateCatalog: (id: string) => void | Promise<void>;
   readonly onShowHistory?: (product: Product) => void;
   readonly showTrash?: boolean;
   readonly isSelected?: boolean;
@@ -172,7 +172,8 @@ const ProductCard: React.FC<ProductCardProps> = ({
         )}
         <div className="flex-1 min-w-0">
           <h3
-            className={`leading-tight break-words ${
+            title={displayTitle}
+            className={`line-clamp-3 leading-tight break-words ${
               isParent
                 ? 'text-sm font-bold text-slate-900 dark:text-slate-100 tracking-tight'
                 : isVariation
@@ -216,7 +217,9 @@ const ProductCard: React.FC<ProductCardProps> = ({
               </span>
               {supplierNames.map((supName, sIdx) => (
                 <React.Fragment key={sIdx}>
-                  <span className="text-slate-300 dark:text-slate-700 text-[10px]">•</span>
+                  {sIdx > 0 && (
+                    <span className="text-slate-300 dark:text-slate-700 text-[10px]">•</span>
+                  )}
                   <span className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-600 dark:text-slate-300 tracking-wide bg-slate-100 dark:bg-slate-800/80 px-1.5 py-0.5 rounded border border-slate-200/60 dark:border-slate-700/60">
                     <i className="bi bi-truck text-[9px] text-slate-400 dark:text-slate-500" />
                     {supName}

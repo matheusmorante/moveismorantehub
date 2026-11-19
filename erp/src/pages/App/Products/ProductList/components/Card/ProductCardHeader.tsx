@@ -29,7 +29,7 @@ interface ProductCardHeaderProps {
   onMoveToTrash?: (product: Product) => void;
   onPermanentDelete?: (id: string) => void;
   onToggleActive: (id: string, currentStatus: boolean) => void;
-  onDeactivateCatalog: (id: string) => void;
+  onDeactivateCatalog: (id: string) => void | Promise<void>;
   onShowHistory?: (product: Product) => void;
   onDuplicate?: (product: Product) => void;
   onMoveToAnotherFamily?: (variation: CardVariationItem) => void;

@@ -18,7 +18,7 @@ interface ProductCardBadgesProps {
   readonly singleVariation?: CardVariationItem;
   readonly oppName: string | undefined;
   readonly onToggleActive: (id: string, currentStatus: boolean) => void;
-  readonly onDeactivateCatalog: (id: string) => void;
+  readonly onDeactivateCatalog: (id: string) => void | Promise<void>;
   readonly className?: string;
 }
 
@@ -69,9 +69,9 @@ export const ProductCardBadges: React.FC<ProductCardBadgesProps> = ({
             singleVariation ? singleVariation.active !== false : product.active !== false
           );
         }}
-        onToggleCatalog={(event) => {
+        onToggleCatalog={async (event) => {
           event.stopPropagation();
-          onDeactivateCatalog(singleVariationId);
+          await onDeactivateCatalog(singleVariationId);
         }}
         disabled={isMerged}
         disabledReason={isMerged

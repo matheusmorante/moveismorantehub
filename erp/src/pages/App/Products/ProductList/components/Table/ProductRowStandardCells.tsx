@@ -31,7 +31,7 @@ export interface CellContext {
   readonly canDeleteProducts: boolean;
   readonly isDraft: boolean;
   readonly onToggleActive: (id: string, currentStatus: boolean) => void;
-  readonly onDeactivateCatalog: (id: string) => void;
+  readonly onDeactivateCatalog: (id: string) => void | Promise<void>;
 }
 
 export function renderProductRowStandardCell(key: string, ctx: CellContext): React.ReactNode {
@@ -288,9 +288,9 @@ export function renderProductRowStandardCell(key: string, ctx: CellContext): Rea
                 e.stopPropagation();
                 if (targetCatalogId) onToggleActive(targetCatalogId, active);
               }}
-              onToggleCatalog={(e) => {
+              onToggleCatalog={async (e) => {
                 e.stopPropagation();
-                onDeactivateCatalog(targetCatalogId);
+                await onDeactivateCatalog(targetCatalogId);
               }}
               size="sm"
             />

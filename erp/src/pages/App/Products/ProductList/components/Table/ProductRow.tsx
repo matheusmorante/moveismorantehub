@@ -22,7 +22,7 @@ export interface ProductRowProps {
   readonly onMoveToTrash?: (product: Product) => void;
   readonly onPermanentDelete?: (id: string) => void;
   readonly onToggleActive: (id: string, currentStatus: boolean) => void;
-  readonly onDeactivateCatalog: (id: string) => void;
+  readonly onDeactivateCatalog: (id: string) => void | Promise<void>;
   readonly onShowHistory?: (product: Product) => void;
   readonly onLaunchStock?: (product: Product) => void;
   readonly visibilitySettings: ProductVisibilitySettings;

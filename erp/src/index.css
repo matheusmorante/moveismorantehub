@@ -348,6 +348,36 @@
   }
 }
 
+@keyframes catalog-status-shimmer {
+  from { transform: translateX(-140%); }
+  to { transform: translateX(390%); }
+}
+
+.catalog-status-loading-band {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 38%;
+  pointer-events: none;
+  background: linear-gradient(
+    105deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.12) 22%,
+    rgba(255, 255, 255, 0.82) 50%,
+    rgba(255, 255, 255, 0.12) 78%,
+    transparent 100%
+  );
+  animation: catalog-status-shimmer 1.15s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .catalog-status-loading-band {
+    animation: none;
+    transform: translateX(82%);
+    opacity: 0.55;
+  }
+}
+
 @media (min-width: 900px) {
   .characteristic-form-modal-overlay {
     padding: 1.5rem;
