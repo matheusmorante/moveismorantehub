@@ -92,6 +92,7 @@ export const buildOrderMetaTemplateParams = (order: Order, config?: any): string
   const cleanParam = (val: unknown): string => {
     return (
       String(val ?? '')
+        .replace(/\uFFFD/g, '')
         .replace(/[\r\n\t]+/g, ' • ')
         .replace(/\s{2,}/g, ' ')
         .trim() || '-'

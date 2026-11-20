@@ -503,8 +503,10 @@ const repairCustomerMessageEmojis = (message: string) => {
     return emojiByLabel[normalized] || '';
   };
 
+  // Consome um marcador para a saudação; marcadores seguintes ainda podem
+  // pertencer ao título da primeira etapa (por exemplo, Entrega).
   const withRestoredGreetingEmoji = message.replace(
-    /^(\s*\*Olá\b[^\r\n]*?\*)[ \t]*(?:\uFFFD[ \t]*)+/i,
+    /^(\s*\*Olá\b[^\r\n]*?\*)[ \t]*\uFFFD/i,
     '$1 📦'
   );
   const withRestoredLabelEmojis = withRestoredGreetingEmoji.replace(
@@ -515,10 +517,10 @@ const repairCustomerMessageEmojis = (message: string) => {
     }
   );
 
-  // Replacement characters that were standalone emoji glyphs in legacy templates
-  // should not leak into the WhatsApp message when their original glyph is unknown.
+  // Remove any remaining replacement characters from legacy templates or
+  // malformed source text so they are never sent to the customer.
   return withRestoredLabelEmojis
-    .replace(/(^|[ \t])(?:\uFFFD[ \t]*)+(?=$|\n)/gm, '$1')
+    .replace(/\uFFFD/g, '')
     .replace(/[ \t]+\n/g, '\n');
 };
 
