@@ -3,6 +3,7 @@ import React from 'react';
 import Person from '@/pages/types/person.type';
 import { AddressAutocompleteInput } from '@/components/shared/AddressAutocompleteInput';
 import AddressVerificationMap from '@/pages/App/SalesOrder/components/AddressVerificationMap';
+import { BRAZILIAN_UF_CODES } from '@/pages/utils/brazilianUfCodes';
 
 interface PersonAddressSectionProps {
   formData: Partial<Person>;
@@ -159,16 +160,26 @@ export const PersonAddressSection: React.FC<PersonAddressSectionProps> = ({
           </div>
           <div className="flex flex-col gap-2">
             <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
-              Estado (UF)
+              {collectionName === 'customers' ? 'UF' : 'Estado (UF)'}
             </label>
-            <input
-              type="text"
-              maxLength={2}
-              value={formData.fullAddress?.state || 'PR'}
-              onChange={(e) => handleAddressChange('state', e.target.value.toUpperCase())}
-              className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100"
-              placeholder="PR"
-            />
+            {collectionName === 'customers' ? (
+              <select
+                value={(formData.fullAddress?.state || 'PR').toUpperCase()}
+                onChange={(e) => handleAddressChange('state', e.target.value)}
+                className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100"
+              >
+                {BRAZILIAN_UF_CODES.map((uf) => <option key={uf} value={uf}>{uf}</option>)}
+              </select>
+            ) : (
+              <input
+                type="text"
+                maxLength={2}
+                value={formData.fullAddress?.state || 'PR'}
+                onChange={(e) => handleAddressChange('state', e.target.value.toUpperCase())}
+                className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100"
+                placeholder="PR"
+              />
+            )}
           </div>
           {collectionName === 'customers' && (
             <>

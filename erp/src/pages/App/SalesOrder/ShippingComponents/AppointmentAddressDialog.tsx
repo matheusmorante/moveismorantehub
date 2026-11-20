@@ -7,6 +7,7 @@ import { PatternFormat } from 'react-number-format';
 import { z } from 'zod';
 import { AddressAutocompleteInput } from '@/components/shared/AddressAutocompleteInput';
 import type FullAddress from '@/pages/types/fullAddress.type';
+import { BRAZILIAN_UF_CODES } from '@/pages/utils/brazilianUfCodes';
 import { operationDeliveryAddressFormSchema as addressSchema } from '../../../../../../shared-utils/routeFormSchemas';
 
 type AddressFormValues = z.input<typeof addressSchema>;
@@ -149,13 +150,9 @@ const AddressEditor: React.FC<AddressEditorProps> = ({ title, initialAddress, on
               </div>
               <div className="sm:col-span-1">
                 <label className={labelClass(false)}>UF</label>
-                <input
-                  {...register('state')}
-                  onChange={(event) => setValue('state', event.target.value.toUpperCase().slice(0, 2), { shouldDirty: true, shouldValidate: isSubmitted })}
-                  maxLength={2}
-                  className={`${fieldClass(false)} text-center`}
-                  placeholder="PR"
-                />
+                <select {...register('state')} aria-label="UF" className={`${fieldClass(false)} text-center`}>
+                  {BRAZILIAN_UF_CODES.map((uf) => <option key={uf} value={uf}>{uf}</option>)}
+                </select>
               </div>
               <div className="sm:col-span-4">
                 <label className={labelClass(false)}>Tipo de moradia</label>
