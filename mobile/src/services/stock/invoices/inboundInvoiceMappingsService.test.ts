@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ from: vi.fn() }));
+const mocks = vi.hoisted(() => ({ from: vi.fn(), rpc: vi.fn() }));
 
-vi.mock("../../supabaseClient", () => ({ supabase: { from: mocks.from } }));
+vi.mock("../../supabaseClient", () => ({ supabase: { from: mocks.from, rpc: mocks.rpc } }));
 
 import { updateInboundInvoiceMappings } from "./inboundInvoiceMappingsService";
 
@@ -124,7 +124,10 @@ const setupSupabase = (items: unknown[], options: SetupOptions = {}) => {
 };
 
 describe("updateInboundInvoiceMappings", () => {
-	beforeEach(() => vi.clearAllMocks());
+	beforeEach(() => {
+		vi.clearAllMocks();
+		mocks.rpc.mockResolvedValue({ data: null, error: null });
+	});
 
 	it.each([
 		["vínculo", makeInvoiceItem(true)],
@@ -135,6 +138,10 @@ describe("updateInboundInvoiceMappings", () => {
 			setupSupabase([item]);
 
 			const savedItems = await updateInboundInvoiceMappings(INVOICE_ID, SUPPLIER_ID, [item]);
+			expect(mocks.rpc).toHaveBeenCalledWith("reuse_pending_inbound_invoice_links", {
+				p_invoice_id: INVOICE_ID,
+				p_include_related: true,
+			});
 			expect(savedItems).toHaveLength(1);
 			expect(savedItems[0]).toMatchObject({
 				matchedProductId: item.matchedProductId,
@@ -161,5 +168,6 @@ describe("updateInboundInvoiceMappings", () => {
 		).rejects.toThrow(
 			"A gravação dos itens normalizados não foi confirmada pelo servidor.",
 		);
+		expect(mocks.rpc).not.toHaveBeenCalled();
 	});
 });

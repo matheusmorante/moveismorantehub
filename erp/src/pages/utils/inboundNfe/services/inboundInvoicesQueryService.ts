@@ -239,6 +239,7 @@ export const fetchInboundInvoicesPage = async (
               sellingPrice: mappingItem?.sellingPrice,
               linkMode: mappingItem?.linkMode,
               link_mode: mappingItem?.linkMode,
+              inheritedSupplierLink: mappingItem?.inheritedSupplierLink,
               compositionLinks: mappingItem?.compositionLinks || [],
               composition_links: mappingItem?.compositionLinks || [],
             });

@@ -67,6 +67,12 @@ const BodyRow = ({
 
   const selectPaymentMethod = (method: string) => {
     onChange(idx, 'method', method);
+    const selectedInstallments = Number(method.match(/(\d+)x$/i)?.[1]);
+    onChange(
+      idx,
+      'installments',
+      Number.isInteger(selectedInstallments) && selectedInstallments > 0 ? selectedInstallments : 1
+    );
     if (isPromissoryPaymentMethod(method)) {
       onChange(idx, 'status', 'N/A');
     } else if (payment.status === 'N/A') {

@@ -4,6 +4,7 @@ import { normalizeSearchTerm } from '../../../../../../shared-utils/productText'
 import { buildPostgrestAccentInsensitivePattern } from '../../../../../../shared-utils/searchText';
 import { isSalvadosOnlySupplier } from '../../../../../../shared-utils/productSupplierStockOrigin';
 import { withTimeout } from '../../../../../../shared-utils/withTimeout';
+import { findInboundInvoiceHistorySupplier } from '../../../../../../shared-utils/inboundInvoiceLinkReuse';
 
 interface SupplierLookupRow {
   id: string;
@@ -11,11 +12,6 @@ interface SupplierLookupRow {
   cpf_cnpj?: string | null;
   stock_origins?: string[] | null;
   active?: boolean | null;
-}
-
-interface PriorInvoiceSupplierRow {
-  supplier_id?: string | null;
-  supplier?: { stock_origins?: string[] | null; active?: boolean | null } | Array<{ stock_origins?: string[] | null; active?: boolean | null }> | null;
 }
 
 export interface InboundInvoiceSupplierMatch {
@@ -60,7 +56,8 @@ const queryRows = async <TRow>(
 export const findInboundInvoiceSupplier = async (
   emitterName?: string,
   emitterTaxId?: string,
-  issuedAt?: string
+  environment?: number,
+  accessKey?: string
 ): Promise<InboundInvoiceSupplierMatch | null> => {
   const taxId = normalizeFiscalIdentifier(emitterTaxId);
   if (taxId.length === 11 || taxId.length === 14) {
@@ -78,31 +75,13 @@ export const findInboundInvoiceSupplier = async (
     const match = chooseSupplier(matches);
     if (match) return match;
 
-    const issuedAtTimestamp = issuedAt ? Date.parse(issuedAt) : Number.NaN;
-    let historyQuery = supabase
-      .from('inbound_invoices')
-      .select('supplier_id,supplier:people(stock_origins,active)')
-      .in('emitente_cnpj', candidates)
-      .not('supplier_id', 'is', null);
-    if (Number.isFinite(issuedAtTimestamp)) {
-      historyQuery = historyQuery.lte('data_emissao', new Date(issuedAtTimestamp).toISOString());
-    }
     try {
-      const previousInvoices = await queryRows<PriorInvoiceSupplierRow>(
-        historyQuery
-          .order('data_emissao', { ascending: false })
-          .order('updated_at', { ascending: false })
-          .limit(1)
-      );
-      const previousInvoice = previousInvoices[0];
-      if (previousInvoice?.supplier_id) {
-        const supplier = Array.isArray(previousInvoice.supplier)
-          ? previousInvoice.supplier[0]
-          : previousInvoice.supplier;
+      const supplier = await findInboundInvoiceHistorySupplier(supabase, taxId, environment, accessKey);
+      if (supplier) {
         return {
-          id: previousInvoice.supplier_id,
-          active: supplier?.active === true,
-          stockOrigins: Array.isArray(supplier?.stock_origins) ? supplier.stock_origins : undefined,
+          id: supplier.id,
+          active: true,
+          stockOrigins: supplier.stock_origins ?? undefined,
         };
       }
     } catch (error) {

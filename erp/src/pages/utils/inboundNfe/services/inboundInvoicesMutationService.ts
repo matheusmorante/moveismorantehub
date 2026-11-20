@@ -17,6 +17,20 @@ import { getSettings } from '../../settingsService';
 import { findInboundInvoiceSupplier } from './inboundInvoiceSupplierLookupService';
 import { isSalvadosOnlySupplier } from '../../../../../../shared-utils/productSupplierStockOrigin';
 import { markInboundInvoiceItemsNotApplicable } from '../../../../../../shared-utils/inboundInvoiceSupplierRules';
+import { applyReusedInboundInvoiceLinks, reusePendingInboundInvoiceLinks } from '../../../../../../shared-utils/inboundInvoiceLinkReuse';
+import { mergeInboundInvoiceXml } from '../../../../../../shared-utils/inboundInvoiceXmlMerge';
+import { checkInboundInvoiceKeyExists } from './inboundInvoicesQueryService';
+
+export const reuseSavedInboundInvoiceLinks = async (invoice: InboundInvoice, includeRelated = false): Promise<InboundInvoice> => {
+  if (!isValidUuid(invoice.id) || invoice.status === 'received') return invoice;
+  const reuse = await reusePendingInboundInvoiceLinks(supabase, invoice.id, includeRelated);
+  if (!reuse) return invoice;
+  return {
+    ...invoice,
+    supplierId: reuse.supplierId,
+    items: applyReusedInboundInvoiceLinks(invoice.items, reuse),
+  };
+};
 
 export const deleteInboundInvoice = async (_invoiceIdOrKey: string): Promise<void> => {
   throw new Error('Notas fiscais de entrada não podem ser excluídas.');
@@ -56,7 +70,12 @@ const reconcileInvoiceItemVariationReferences = async (
   );
 };
 
-export const saveInboundInvoice = async (invoice: InboundInvoice, options: { requireConfirmation?: boolean; mappingOnly?: boolean; assertCurrent?: () => void } = {}): Promise<InboundInvoice> => {
+export const saveInboundInvoice = async (invoice: InboundInvoice, options: {
+  requireConfirmation?: boolean;
+  mappingOnly?: boolean;
+  reuseLinks?: boolean;
+  assertCurrent?: () => void;
+} = {}): Promise<InboundInvoice> => {
   if (isSampleInvoice(invoice)) {
     if (options.requireConfirmation) throw new Error('Não é possível gravar alterações na nota demonstrativa.');
     return invoice;
@@ -219,6 +238,14 @@ export const saveInboundInvoice = async (invoice: InboundInvoice, options: { req
           itemRows.some((expected) => !itemResult.data?.some((row) => row.invoice_id === validId && row.item_number === expected.item_number)))) {
           throw itemResult.error || new Error('A gravação dos itens da nota não foi confirmada pelo servidor.');
         }
+        if (!itemResult.error && (options.reuseLinks || (options.mappingOnly && invoiceToSave.supplierId))) {
+          invoiceToSave = await reuseSavedInboundInvoiceLinks(invoiceToSave, options.mappingOnly)
+            .catch((reuseError: unknown) => {
+              console.warn('[NF de entrada] Não foi possível reaproveitar vínculos anteriores.', reuseError);
+              return invoiceToSave;
+            });
+          local[existingIndex >= 0 ? existingIndex : 0] = invoiceToSave;
+        }
       } catch (itemErr) {
         if (options.requireConfirmation) throw itemErr;
         console.warn('Alerta ao persistir itens normalizados em inbound_invoice_items:', itemErr);
@@ -247,10 +274,22 @@ export const saveInboundInvoice = async (invoice: InboundInvoice, options: { req
 
 export const importInboundInvoiceXml = async (xmlString: string): Promise<InboundInvoice> => {
   const parsed = parseInboundNfeXml(xmlString);
+  assertInboundInvoiceRecipientMatchesCompany(parsed.recipientCnpj, getSettings().companyCnpj);
+  const existing = await checkInboundInvoiceKeyExists(parsed.nfeKey);
   let invoice = parsed;
+  if (existing) {
+    const merge = mergeInboundInvoiceXml(existing, parsed);
+    if (merge.outcome === 'conflict') {
+      throw new Error('Esta NF-e tem dados fiscais divergentes do XML enviado.');
+    }
+    if (merge.outcome === 'unchanged') return reuseSavedInboundInvoiceLinks(existing);
+    invoice = merge.invoice;
+  }
   if (!invoice.supplierId) {
     try {
-      const supplier = await findInboundInvoiceSupplier(invoice.emitterName, invoice.emitterCnpj, invoice.issuedAt);
+      const supplier = await findInboundInvoiceSupplier(
+        invoice.emitterName, invoice.emitterCnpj, invoice.environment, invoice.nfeKey
+      );
       if (supplier) {
         const supplierStockOrigins = supplier.stockOrigins || invoice.supplierStockOrigins;
         invoice = {
@@ -266,7 +305,7 @@ export const importInboundInvoiceXml = async (xmlString: string): Promise<Inboun
       console.warn('[importInboundInvoiceXml] Não foi possível localizar o fornecedor; a NF será salva sem associação.', error);
     }
   }
-  return await saveInboundInvoice(invoice);
+  return saveInboundInvoice(invoice, { requireConfirmation: Boolean(existing), reuseLinks: true });
 };
 
 export const markInvoiceAsReceived = async (nfeKey: string, receiptId: string): Promise<void> => {

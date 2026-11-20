@@ -118,7 +118,8 @@ export const ProductRowDescriptionCell: React.FC<ProductRowDescriptionCellProps>
           <div className="flex flex-col">
             {/* Linha 1: Título do produto */}
             <span
-              className={`text-sm ${
+              title={displayName}
+              className={`line-clamp-3 break-words text-sm ${
                 isChildVariation
                   ? 'font-semibold text-slate-800 dark:text-slate-200'
                   : product.isParent

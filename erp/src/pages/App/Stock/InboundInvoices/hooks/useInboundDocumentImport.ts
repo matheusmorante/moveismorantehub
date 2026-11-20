@@ -12,13 +12,12 @@ import type { z } from 'zod';
 import {
   saveInboundInvoice,
   checkInboundInvoiceKeyExists,
+  reuseSavedInboundInvoiceLinks,
 } from '@/pages/utils/inboundNfe/inboundInvoicesService';
 import { parseInboundNfeXml } from '@/pages/utils/inboundNfe/inboundXmlParser';
 import { InboundInvoice } from '@/pages/utils/inboundNfe/inboundNfeTypes';
 import { mergeInboundInvoiceXml } from '../../../../../../../shared-utils/inboundInvoiceXmlMerge';
 import { INBOUND_XML_WITHOUT_COMMERCIAL_DATA_ERROR } from '../../../../../../../shared-utils/inboundSummaryHelp';
-import { findProductSupplierCodes } from '@/pages/utils/productSupplierCodesService';
-import { resolveLinkedProductDetails } from '@/pages/utils/inboundNfe/inboundItemProductResolver';
 import { findInboundInvoiceSupplier } from '@/pages/utils/inboundNfe/services/inboundInvoiceSupplierLookupService';
 import { isSalvadosOnlySupplier } from '../../../../../../../shared-utils/productSupplierStockOrigin';
 import { markInboundInvoiceItemsNotApplicable } from '../../../../../../../shared-utils/inboundInvoiceSupplierRules';
@@ -92,8 +91,9 @@ export function useInboundDocumentImport({
           return;
         }
         if (merge.outcome === 'unchanged') {
-          toast.info('Esta NF-e já está cadastrada e não há dados novos no XML. Nenhuma alteração foi feita.');
-          onImportSuccess(existing);
+          const reconciled = await reuseSavedInboundInvoiceLinks(existing);
+          toast.info('Esta NF-e já está cadastrada. Os vínculos disponíveis foram conferidos.');
+          onImportSuccess(reconciled);
           onClose();
           return;
         }
@@ -107,7 +107,8 @@ export function useInboundDocumentImport({
       const supplier = await findInboundInvoiceSupplier(
         validated.emitterName,
         validated.emitterCnpj,
-        validated.issuedAt
+        validated.environment,
+        validated.nfeKey
       ).catch((error) => {
         console.warn('[useInboundDocumentImport] Aviso ao localizar fornecedor:', error);
         return null;
@@ -119,56 +120,21 @@ export function useInboundDocumentImport({
         || validated.supplierStockOrigins;
       const isSalvadosSupplier = isSalvadosOnlySupplier(supplierStockOrigins);
 
-      // Auto-match com vínculos anteriores do fornecedor
-      let itemsWithMatches = isSalvadosSupplier
-        ? markInboundInvoiceItemsNotApplicable(validated.items)
-        : validated.items;
-      if (!isSalvadosSupplier && supplierId && itemsWithMatches.length > 0) {
-        setStatusMessage('Consultando vínculos de produtos...');
-        try {
-          const mappings = await findProductSupplierCodes(
-            supplierId,
-            itemsWithMatches.map((i) => i.productCode)
-          );
-          if (mappings.size > 0) {
-            itemsWithMatches = await Promise.all(
-              itemsWithMatches.map(async (item) => {
-                if (item.linkMode === 'not_applicable' || item.matchedProductId || item.matchedVariationId) return item;
-                const map = mappings.get((item.productCode || '').trim().toLocaleUpperCase('pt-BR'));
-                if (!map) return item;
-                const details = await resolveLinkedProductDetails(
-                  map.productId,
-                  map.productVariationId
-                );
-                return {
-                  ...item,
-                  matchedProductId: map.productId,
-                  matchedVariationId: map.productVariationId,
-                  linkedProductCode: details?.linkedProductCode,
-                  productErpName: details?.productErpName || 'Produto vinculado',
-                };
-              })
-            );
-          }
-        } catch (mErr) {
-          console.warn('[useInboundDocumentImport] Erro ao recuperar histórico de vínculos:', mErr);
-        }
-      }
-
       const invoiceToSave: InboundInvoice = {
         ...validated,
         nfeKey: cleanKey,
         supplierId: supplierId || validated.supplierId,
         supplierStockOrigins,
-        items: itemsWithMatches,
+        items: isSalvadosSupplier ? markInboundInvoiceItemsNotApplicable(validated.items) : validated.items,
       };
 
       setStatusMessage(
         isUpdatingExisting ? 'Salvando os dados novos da nota fiscal...' : 'Salvando nota fiscal no sistema...'
       );
-      const saved = isUpdatingExisting
-        ? await saveInboundInvoice(invoiceToSave, { requireConfirmation: true })
-        : await saveInboundInvoice(invoiceToSave);
+      const saved = await saveInboundInvoice(invoiceToSave, {
+        requireConfirmation: isUpdatingExisting,
+        reuseLinks: true,
+      });
       toast.success(
         isUpdatingExisting
           ? hasPreservedConflictingData

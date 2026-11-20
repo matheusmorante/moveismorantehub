@@ -4,12 +4,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useInboundDocumentImport } from './useInboundDocumentImport';
 import type { InboundInvoice } from '@/pages/utils/inboundNfe/inboundNfeTypes';
 
-const mocks = vi.hoisted(() => ({ save: vi.fn(), exists: vi.fn(), parse: vi.fn(), persons: vi.fn(), mappings: vi.fn(), details: vi.fn(), error: vi.fn() }));
-vi.mock('@/pages/utils/inboundNfe/inboundInvoicesService', () => ({ saveInboundInvoice: mocks.save, checkInboundInvoiceKeyExists: mocks.exists }));
+const mocks = vi.hoisted(() => ({ save: vi.fn(), exists: vi.fn(), reuse: vi.fn(), parse: vi.fn(), supplier: vi.fn(), error: vi.fn() }));
+vi.mock('@/pages/utils/inboundNfe/inboundInvoicesService', () => ({
+  saveInboundInvoice: mocks.save, checkInboundInvoiceKeyExists: mocks.exists, reuseSavedInboundInvoiceLinks: mocks.reuse,
+}));
 vi.mock('@/pages/utils/inboundNfe/inboundXmlParser', () => ({ parseInboundNfeXml: mocks.parse }));
-vi.mock('@/pages/utils/personService', () => ({ fetchPersons: mocks.persons }));
-vi.mock('@/pages/utils/productSupplierCodesService', () => ({ findProductSupplierCodes: mocks.mappings }));
-vi.mock('@/pages/utils/inboundNfe/inboundItemProductResolver', () => ({ resolveLinkedProductDetails: mocks.details }));
+vi.mock('@/pages/utils/inboundNfe/services/inboundInvoiceSupplierLookupService', () => ({ findInboundInvoiceSupplier: mocks.supplier }));
+vi.mock('@/pages/utils/settingsService', () => ({ getSettings: () => ({ companyCnpj: '44.512.248/0001-07' }) }));
 vi.mock('react-toastify', () => ({ toast: { error: mocks.error, success: vi.fn(), info: vi.fn() } }));
 
 const key = '41261012ABC34501DE35550010000001061705367136';
@@ -33,7 +34,8 @@ afterEach(cleanup);
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.parse.mockImplementation(() => invoice()); mocks.exists.mockResolvedValue(null);
-  mocks.persons.mockResolvedValue([]); mocks.mappings.mockResolvedValue(new Map());
+  mocks.supplier.mockResolvedValue(null);
+  mocks.reuse.mockImplementation(async (value) => value);
   mocks.save.mockImplementation(async (value) => value);
 });
 
@@ -57,18 +59,19 @@ describe('proprietário da importação de notas de entrada', () => {
     mocks.parse.mockReturnValue({ ...invoice(), ...invalid });
     const { result, onClose } = mount();
     await act(async () => { await result.current.handleXmlString('<nfe/>'); });
-    expect(mocks.exists).not.toHaveBeenCalled(); expect(mocks.persons).not.toHaveBeenCalled();
+    expect(mocks.exists).not.toHaveBeenCalled(); expect(mocks.supplier).not.toHaveBeenCalled();
     expect(mocks.save).not.toHaveBeenCalled(); expect(onClose).not.toHaveBeenCalled(); expect(mocks.error).toHaveBeenCalled();
   });
   it('normaliza a chave e preserva os itens fiscais ao vincular fornecedor/produto', async () => {
-    mocks.persons.mockResolvedValue([{ id: 'supplier', fullName: 'Fornecedor', cpfCnpj: '12ABC34501DE35' }]);
-    mocks.mappings.mockResolvedValue(new Map([['SKU', { productId: 'product', productVariationId: 'variation' }]]));
-    mocks.details.mockResolvedValue({ linkedProductCode: 'ERP-1', productErpName: 'Mesa vinculada' });
+    mocks.supplier.mockResolvedValue({ id: 'supplier', stockOrigins: ['normal'] });
     const { result, onImportSuccess, onClose } = mount(); const selected = file();
     await act(async () => { await result.current.handleFile(selected); });
     expect(mocks.parse).toHaveBeenCalledWith('<nfe/>'); expect(mocks.exists).toHaveBeenCalledWith(key);
-    expect(mocks.mappings).toHaveBeenCalledWith('supplier', ['sku']);
-    expect(mocks.save).toHaveBeenCalledWith(expect.objectContaining({ nfeKey: key, environment: 2, supplierId: 'supplier', items: [expect.objectContaining({ productCode: 'sku', quantity: 1, unitCost: 20, matchedProductId: 'product', matchedVariationId: 'variation' })] }));
+    expect(mocks.supplier).toHaveBeenCalledWith('Fornecedor', '12.abc.345/01de-35', 2, key);
+    expect(mocks.save).toHaveBeenCalledWith(expect.objectContaining({
+      nfeKey: key, environment: 2, supplierId: 'supplier',
+      items: [expect.objectContaining({ productCode: 'sku', quantity: 1, unitCost: 20 })],
+    }), { requireConfirmation: false, reuseLinks: true });
     expect(onImportSuccess).toHaveBeenCalledTimes(1); expect(onClose).toHaveBeenCalledTimes(1);
   });
   it('protege arquivo e texto durante a leitura e a gravação pendentes', async () => {
@@ -85,13 +88,18 @@ describe('proprietário da importação de notas de entrada', () => {
     await act(async () => { finishSave(invoice()); await first; });
     expect(onImportSuccess).toHaveBeenCalledTimes(1); expect(result.current.isLoading).toBe(false);
   });
-  it('informa que a nota já está cadastrada sem alterações e libera nova tentativa', async () => {
-    mocks.exists.mockResolvedValueOnce(invoice());
+  it('reaproveita vínculos na nota já cadastrada sem regravar o XML', async () => {
+    const existing = invoice();
+    const reconciled = { ...existing, supplierId: 'supplier' };
+    mocks.exists.mockResolvedValueOnce(existing);
+    mocks.reuse.mockResolvedValueOnce(reconciled);
     const { result, onImportSuccess, onClose } = mount();
     await act(async () => { await result.current.handleXmlString('<nfe/>'); });
     expect(result.current.duplicateAlertOpen).toBe(false);
     expect(mocks.save).not.toHaveBeenCalled();
+    expect(mocks.reuse).toHaveBeenCalledWith(existing);
     expect(onImportSuccess).toHaveBeenCalledTimes(1);
+    expect(onImportSuccess).toHaveBeenCalledWith(reconciled);
     expect(onClose).toHaveBeenCalledTimes(1);
     await act(async () => { await result.current.handleXmlString('<next/>'); });
     expect(mocks.save).toHaveBeenCalledTimes(1);

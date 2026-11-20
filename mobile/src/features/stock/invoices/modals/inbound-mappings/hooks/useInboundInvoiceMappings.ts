@@ -109,22 +109,8 @@ export const useInboundInvoiceMappings = ({
         const resolvedOrigins = result.supplierStockOrigins ?? invoice.supplierStockOrigins;
         const salvadosOnly = isSalvadosOnlySupplier(resolvedOrigins);
         if (salvadosOnly) result.items = markInboundInvoiceItemsNotApplicable(result.items);
-        let mappings = new Map<string, any>();
-        if (!salvadosOnly && result.supplier_id && result.items.length) {
-          const resolvedMappings = await withTimeout(
-            stockService.findInboundSupplierProductCodes(
-              result.supplier_id,
-              result.items.map((item: MappingItem) => item.productCode)
-            ),
-            15_000,
-            null,
-            'entrada:consultar-memoria-de-vinculos'
-          );
-          if (!resolvedMappings) throw new Error('Não foi possível confirmar os vínculos existentes.');
-          mappings = resolvedMappings;
-        }
         if (!salvadosOnly) {
-          const linkedRefs = extractLinkedProductRefs(result.items, mappings);
+          const linkedRefs = extractLinkedProductRefs(result.items);
           const productDetails = await withTimeout(
             stockService.fetchInboundInvoiceProductDetails(linkedRefs),
             15_000,
@@ -132,7 +118,7 @@ export const useInboundInvoiceMappings = ({
             'entrada:consultar-produtos-vinculados'
           );
           if (!productDetails) throw new Error('Não foi possível confirmar os produtos vinculados.');
-          result.items = hydrateMappingItemsWithDetails(result.items, mappings, productDetails);
+          result.items = hydrateMappingItemsWithDetails(result.items, productDetails);
         }
         if (!active) return;
         setDetails(result);

@@ -1,5 +1,9 @@
 # Fonte do guia prático do estoque
 
+## Atualização de 20/11/2026 — reaproveitamento de vínculos da NF-e
+
+A página 8 orienta a conferir o fornecedor, o produto e a variação preenchidos pelo histórico. No ERP e no app, use Gerenciar vínculos para revisar os itens que ficaram pendentes. O código completo do fornecedor diferencia as variações, inclusive quando o começo do código é igual.
+
 ## Atualização de 09/11/2026 — categoria sugerida pelo nome
 
 A página 9 agora orienta a conferir a Categoria sugerida pelo nome no cadastro rápido da NF-e e ajustá-la quando necessário. Para cadeiras, a sugestão só é feita quando o nome indica “Escritório” ou “Sala de Jantar”; sem esse contexto, o operador escolhe a categoria manualmente. O operador continua responsável por confirmar a categoria antes de cadastrar e vincular.

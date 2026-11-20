@@ -45,6 +45,7 @@ export const getCurrentInboundInvoiceMappingItems = (invoiceRow: unknown) => {
       matched_variation_id: matchedVariationId,
       linkMode,
       link_mode: linkMode,
+      inheritedSupplierLink: item.inheritedSupplierLink ?? rawItem.inheritedSupplierLink,
       compositionLinks,
       composition_links: compositionLinks,
       productErpName: item.productErpName ?? item.product_erp_name ?? rawItem.productErpName,

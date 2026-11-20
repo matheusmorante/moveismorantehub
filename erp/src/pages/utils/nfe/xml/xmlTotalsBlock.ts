@@ -41,8 +41,12 @@ export function buildTotalsAndPaymentXml(
   const paymentMethods = (order as any).payments || [];
   let tPag = '99'; // Outros
   if (paymentMethods.length > 0) {
-    const method = (paymentMethods[0]?.method || '').toLowerCase();
+    const method = (paymentMethods[0]?.method || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase();
     if (method.includes('dinheiro') || method.includes('cash')) tPag = '01';
+    else if (method.includes('crediario')) tPag = '05';
     else if (method.includes('credito') || method.includes('credit')) tPag = '03';
     else if (method.includes('debito') || method.includes('debit')) tPag = '04';
     else if (method.includes('pix')) tPag = '17';

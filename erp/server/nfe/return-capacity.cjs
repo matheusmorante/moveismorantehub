@@ -251,7 +251,7 @@ async function handler(req, res) {
           `XML da NF-e autorizada ${doc.id} indispon\xEDvel; n\xE3o \xE9 poss\xEDvel calcular saldo fiscal.`
         );
       const parsedLines = parseAuthorizedInvoiceLines(doc.xml_nfe);
-      const { data: snapshotsData, error: snapshotError } = await supabase.from("nfe_document_items").select("item_number,billed_quantity,product_code,description").eq("document_id", doc.id);
+      const { data: snapshotsData, error: snapshotError } = await supabase.from("nfe_document_items").select("item_number,billed_quantity").eq("document_id", doc.id);
       if (snapshotError) throw snapshotError;
       const snapshots = snapshotsData || [];
       if (!snapshots.length || snapshots.length !== parsedLines.length || parsedLines.some(

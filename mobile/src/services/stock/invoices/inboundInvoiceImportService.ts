@@ -7,7 +7,7 @@ import {
   formatTaxId,
   normalizeTaxId,
 } from './inboundInvoiceMappers';
-import { findInboundSupplierProductCodes } from './inboundInvoiceMappingsService';
+import { applyReusedInboundInvoiceLinks, findInboundInvoiceHistorySupplier, reusePendingInboundInvoiceLinks } from '../../../../../shared-utils/inboundInvoiceLinkReuse';
 import { mergeInboundInvoiceXml } from '../../../../../shared-utils/inboundInvoiceXmlMerge';
 import { hasInboundItemCommercialData } from '../../../../../shared-utils/inboundInvoiceCompleteness';
 import { INBOUND_XML_WITHOUT_COMMERCIAL_DATA_ERROR } from '../../../../../shared-utils/inboundSummaryHelp';
@@ -25,11 +25,6 @@ import {
 } from '../../../../../shared-utils/productSupplierStockOrigin';
 import { markInboundInvoiceItemsNotApplicable } from '../../../../../shared-utils/inboundInvoiceSupplierRules';
 import { withTimeout } from '../../../../../shared-utils/withTimeout';
-
-interface PriorInvoiceSupplierRow {
-  supplier_id?: string | null;
-  supplier?: { stock_origins?: string[] | null; active?: boolean | null } | Array<{ stock_origins?: string[] | null; active?: boolean | null }> | null;
-}
 
 const querySupplierRows = async <TRow>(query: PromiseLike<{ data: unknown[] | null; error: unknown }>) => {
   const result = await withTimeout(query, 10_000, null, 'entrada:localizar-fornecedor-nfe-mobile');
@@ -53,7 +48,13 @@ const buildUnchangedImportResult = (row: Record<string, any>, itemCount: number,
   hasConflicts: false,
 });
 
-export const findInboundInvoiceSupplier = async (taxId: string, name: string, issuedAt?: string) => {
+const reuseImportLinks = (invoiceId: string) =>
+  reusePendingInboundInvoiceLinks(supabase, invoiceId).catch((error: unknown) => {
+    console.warn('[NF de entrada] Não foi possível reaproveitar vínculos anteriores.', error);
+    return null;
+  });
+
+export const findInboundInvoiceSupplier = async (taxId: string, name: string, environment?: number, accessKey?: string) => {
   const digits = normalizeTaxId(taxId);
 
   if (digits.length === 11 || digits.length === 14) {
@@ -77,33 +78,15 @@ export const findInboundInvoiceSupplier = async (taxId: string, name: string, is
     if (activeMatch) return activeMatch;
     if (matches[0]) return matches[0];
 
-    let historyQuery = supabase
-      .from('inbound_invoices')
-      .select('supplier_id,supplier:people(stock_origins,active)')
-      .in('emitente_cnpj', candidates)
-      .not('supplier_id', 'is', null);
-    const issuedAtTimestamp = issuedAt ? Date.parse(issuedAt) : Number.NaN;
-    if (Number.isFinite(issuedAtTimestamp)) {
-      historyQuery = historyQuery.lte('data_emissao', new Date(issuedAtTimestamp).toISOString());
-    }
     try {
-      const previousInvoices = await querySupplierRows<PriorInvoiceSupplierRow>(
-        historyQuery
-          .order('data_emissao', { ascending: false })
-          .order('updated_at', { ascending: false })
-          .limit(1)
-      );
-      const previousInvoice = previousInvoices[0];
-      if (previousInvoice?.supplier_id) {
-        const supplier = Array.isArray(previousInvoice.supplier)
-          ? previousInvoice.supplier[0]
-          : previousInvoice.supplier;
+      const supplier = await findInboundInvoiceHistorySupplier(supabase, digits, environment, accessKey);
+      if (supplier) {
         return {
-          id: previousInvoice.supplier_id,
+          id: supplier.id,
           full_name: '',
           cpf_cnpj: digits,
-          stock_origins: supplier?.stock_origins,
-          active: supplier?.active === true,
+          stock_origins: supplier.stock_origins,
+          active: true,
         };
       }
     } catch (error) {
@@ -239,7 +222,13 @@ export const importInboundInvoiceXml = async (
     }
     if (merge.outcome === 'unchanged') {
       unchangedResult = buildUnchangedImportResult(existingRow, existingItems.length, accessKey);
-      if (existingRow.supplier_id) return unchangedResult;
+      const reuse = await reuseImportLinks(existingRow.id);
+      if (existingRow.supplier_id || reuse?.supplierId) {
+        return {
+          ...unchangedResult,
+          hasPendingBindings: hasUnlinkedInvoiceItems(applyReusedInboundInvoiceLinks(existingItems, reuse)),
+        };
+      }
       invoiceToSave = merge.invoice;
       outcome = 'unchanged';
     } else {
@@ -255,7 +244,8 @@ export const importInboundInvoiceXml = async (
     supplier = await findInboundInvoiceSupplier(
       invoice.emitterCnpj || '',
       invoice.emitterName || '',
-      invoice.issuedAt || ''
+      invoice.environment,
+      accessKey
     );
   } catch (supplierError) {
     console.warn(
@@ -288,36 +278,6 @@ export const importInboundInvoiceXml = async (
   let items = Array.isArray(invoiceToSave.items) ? invoiceToSave.items : [];
   if (isSalvadosSupplier) {
     items = markInboundInvoiceItemsNotApplicable(items);
-  } else if (outcome !== 'unchanged' && supplierId && items.length) {
-    try {
-      const mappings = await findInboundSupplierProductCodes(
-        supplierId,
-        items.map((item: any) => String(item.productCode || ''))
-      );
-      if (mappings.size) {
-        items = items.map((item: any) => {
-          if (item.linkMode === 'not_applicable' || item.matchedProductId || item.matchedVariationId) return item;
-          const code = String(item.productCode || '')
-            .trim()
-            .toLocaleUpperCase('pt-BR');
-          const mapping = mappings.get(code);
-          return mapping
-            ? {
-                ...item,
-                matchedProductId: mapping.productId,
-                matchedVariationId: mapping.variationId,
-                productErpName: mapping.name,
-                linkedProductCode: mapping.sku,
-              }
-            : item;
-        });
-      }
-    } catch (mappingError) {
-      console.warn(
-        '[importInboundInvoiceXml] Não foi possível reaproveitar vínculos anteriores; a NF será salva sem esses vínculos.',
-        mappingError
-      );
-    }
   }
 
   const xmlToStore = String(invoiceToSave.rawXml || xml);
@@ -353,6 +313,7 @@ export const importInboundInvoiceXml = async (
       .upsert(itemRows, { onConflict: 'invoice_id,item_number' });
     if (itemsError) throw itemsError;
   }
+  items = applyReusedInboundInvoiceLinks(items, await reuseImportLinks(data.id));
 
   return {
     id: data.id,

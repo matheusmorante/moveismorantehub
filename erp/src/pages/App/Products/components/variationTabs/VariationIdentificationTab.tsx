@@ -1,7 +1,6 @@
 import React from 'react';
 import Product, { Variation } from '../../../../types/product.type';
 import {
-  buildProductVariationName,
   getVariationAttributeValuesInNameOrder,
   isVariationNamePlaceholderSuffix,
 } from '@/pages/utils/productVariationDefaults';
@@ -72,7 +71,9 @@ export const VariationIdentificationTab: React.FC<VariationIdentificationTabProp
 
             const handleSuffixChange = (newSuffix: string) => {
               const trimmedSuffix = newSuffix.trimStart();
-              const newFullName = buildProductVariationName(parentPrefix, trimmedSuffix);
+              const newFullName = parentPrefix
+                ? `${parentPrefix}${trimmedSuffix ? ' ' : ''}${trimmedSuffix}`
+                : trimmedSuffix;
               setFormData((prev) => {
                 if (!prev) return null;
                 return {

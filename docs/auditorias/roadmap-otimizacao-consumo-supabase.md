@@ -1,3 +1,12 @@
+## 20/11/2026 — SCE-VINCULO-NFE-20261120 — reaproveitamento de vínculos da NF de entrada
+
+**Decisão executada.** O pedido de correção da Gazin confirmou a necessidade de usar o histórico de itens das notas junto à memória por código. Manter apenas a memória exigia repetir vínculos já gravados. A resolução única no PostgreSQL foi escolhida para preservar os critérios no ERP, app e distribuição.
+
+- **Chamadas REST.** A importação de documento no ERP e a importação mobile trocam a consulta de memória e as leituras por variação por uma RPC depois da gravação. A importação XML principal do ERP ganha a conferência de duplicidade e a RPC. Confirmar um vínculo no ERP ou no app acrescenta uma chamada para aplicar vínculos elegíveis nas demais notas do fornecedor.
+- **Linhas e campos.** O servidor filtra por fornecedor, ambiente e códigos completos. A resposta da reconciliação contém o fornecedor e somente os itens recém-associados. A lista de notas não executa reconciliação por registro.
+- **Banco, latência e bytes.** A busca reaproveita os índices de fornecedor, código do fornecedor e chave/ID da nota. A gravação examina as notas pendentes relacionadas somente após confirmação de vínculo e grava as lacunas elegíveis. Não houve medição comparável de tempo, consumo de banco, tráfego Realtime ou egress faturado.
+- **Estado.** Migration `20261120151919` aplicada e regras verificadas por consultas no projeto operacional. Os clientes estão implementados localmente. As evidências e as alterações estão no [histórico fiscal](../fiscal/historico-correcoes-2026-11-20.md#reaproveitamento-de-fornecedor-e-produtos-nas-nfs-de-entrada).
+
 ## Ciclo — 18/11/2026, 21:42 BRT (00:42Z) — projeção das linhas fiscais da devolução (SCE-343)
 
 **Reconciliação e cursor:** a SCE-342 sobre a resposta do cadastro assistido continua pendente; não a reapresento. O cursor anterior indicava `api/products/classify.ts#search_ncms`, mas a busca no próprio roteiro encontrou a SCE-165 sobre essa mesma rota, negada em 11/11/2026. Sem evidência nova, não repito a proposta nem altero a classificação fiscal. Avancei para `api/nfe/return-capacity.ts`, uma leitura independente que não apareceu nas buscas de caminhos exatos feitas nos oito relatórios históricos nem no roteiro antes deste ciclo.
@@ -21538,3 +21547,15 @@ A leitura somente de metadados autorizada para conferir as permissões da SCE-24
 **Paridade e validação:** os campos preservados cobrem o contrato usado pelo formulário web responsivo nas larguras desktop e mobile. A busca nativa de criação de venda não existe no aplicativo; os caminhos mobile encontrados são de pedidos/logística e estoque, não de criação de venda. Revisão estática e `git diff --check`; nenhum teste foi executado. Sem consulta ou escrita no Supabase remoto, fixture, migration, deploy ou publicação OTA.
 
 **Arquivos alterados:** `erp/src/components/ProductAutocomplete.tsx`, `erp/src/components/hooks/useProductAutocomplete.ts`, `erp/src/components/productAutocompleteUtils.tsx`, `erp/src/pages/App/SalesOrder/ItemsTable/BodyRowDesktop.tsx`, `erp/src/pages/App/SalesOrder/ItemsTable/BodyRowMobile.tsx`, `erp/src/pages/utils/productService/productFilterBuilder.ts` e `erp/src/pages/utils/productService/productQueryService.ts`.
+
+### Ciclo — 20/11/2026, 10:22 BRT (13:22Z) — reduzir trabalho do banco ao salvar e finalizar vendas
+
+**Sintoma e evidência:** no projeto operacional, a RPC `create_order_with_inventory_transaction` teve 12 respostas HTTP 500 no recorte de logs consultado. Entre 12:13:15 e 12:15:31 UTC houve 19 cancelamentos PostgreSQL por `statement_timeout`; os contextos incluíam `refresh_dashboard_metric_day(date)` e `save_order_transaction`. A telemetria agregada de finalização continha uma falha de 26.212 ms e nove sucessos com média de 2.271 ms; os dados são agregados e não identificam uma pessoa. O `EXPLAIN` da consulta usada pelo recálculo mostrava varredura sequencial de `orders`; a tabela tinha cerca de 1.277 linhas estimadas e 5.688 kB. A expressão de data era imutável e não tinha índice.
+
+**Alteração no banco:** a função do trigger legado agora retorna sem recálculo para rascunhos e outros estados que não entram nos agregados, e mantém o recálculo para transições que alteram os indicadores. Um índice funcional permite localizar somente a data pedida. O trigger e a tabela legada foram preservados. As migrations `20261120131539` e `20261120132230` foram aplicadas no schema `public` do projeto operacional existente.
+
+**Chamadas, bytes e plano:** não foram adicionadas chamadas de API nem campos transferidos ao cliente. Para o recálculo por dia, o plano passou de `Seq Scan on orders` (custo estimado 1.171,01) a `Index Scan using idx_orders_dashboard_metric_date` (custo estimado 11,40; agregado 19,02). O plano não mede latência, CPU real, bytes, egress ou economia faturável. O comportamento dos estados que contribuem aos indicadores foi mantido.
+
+**Validação e limites:** revisão estática, comparação do hash da função ativa antes da primeira migration, verificação remota da função e trigger depois das migrations, confirmação do índice e novo `EXPLAIN`. Nenhum teste foi executado e nenhuma venda/fixture foi gravada. A mudança no trigger vale para todos os pedidos armazenados, independentemente de o salvamento vir do ERP ou de outro cliente; o fluxo nativo de criação/finalização de venda não existe no aplicativo. Uma venda real pós-correção ainda não foi observada, então o ganho de tempo permanece sem medição operacional.
+
+**Arquivos:** `supabase/migrations/20261120131539_skip_legacy_dashboard_refresh_for_drafts.sql`, `supabase/migrations/20261120132230_index_orders_dashboard_metric_date.sql`, `docs/fiscal/historico-correcoes-2026-11-20.md` e `docs/fiscal/README.md`.

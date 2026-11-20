@@ -17,6 +17,7 @@ const inboundProductLinkFields = new Set([
   'linked_product_code',
   'compositionLinks',
   'composition_links',
+  'inheritedSupplierLink',
 ]);
 
 export const markInboundInvoiceItemsNotApplicable = <T extends object>(

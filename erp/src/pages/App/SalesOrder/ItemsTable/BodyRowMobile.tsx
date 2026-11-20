@@ -14,6 +14,9 @@ import { STOCK_ORIGIN_PRODUCT_KINDS } from './stockOriginProductKinds';
 import { BodyRowMobileCompact } from './BodyRowMobileCompact';
 import { HandlingSelect } from './HandlingSelect';
 
+const stockOriginLockedTitle =
+  'Bloqueado porque há um produto cadastrado vinculado ao item. Remova o produto selecionado no campo Produto para liberar e alterar a origem do estoque.';
+
 export interface BodyRowViewProps {
   item: Item;
   idx: number;
@@ -96,6 +99,8 @@ export const BodyRowMobile: React.FC<BodyRowViewProps> = ({
 }) => {
   const settings = propSettings || getSettings();
   const useBudgetDialogSurface = Boolean(isBudget || inItemDialog);
+  const stockOriginId = React.useId();
+  const stockOriginErrorId = `${stockOriginId}-error`;
   const autoExpandPending = React.useRef(
     !isCompositionComponent && !item.compositionGroup && !item.description?.trim()
   );
@@ -312,10 +317,14 @@ export const BodyRowMobile: React.FC<BodyRowViewProps> = ({
         )}
       </div>
 
-      {/* Linha 2.5: Manuseio, Origem do Estoque e Observações */}
-      {!inItemDialog && !item.isComboItem && (
-        <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-slate-100 dark:border-slate-800/60">
-          {!shouldHideHandling && (
+      {/* Manuseio em linha e origem do estoque */}
+      {!item.isComboItem && (!inItemDialog || shouldShowStockOrigin) && (
+        <div
+          className={inItemDialog
+            ? 'w-full max-w-xs'
+            : 'flex flex-wrap items-center gap-2 border-t border-slate-100 pt-1 dark:border-slate-800/60'}
+        >
+          {!inItemDialog && !shouldHideHandling && (
             <div className="min-w-0 flex-[2] max-[480px]:w-full max-[480px]:basis-full max-[480px]:flex-none">
               <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1 block ml-1">
                 Manuseio <span className="text-red-500">*</span>
@@ -343,7 +352,7 @@ export const BodyRowMobile: React.FC<BodyRowViewProps> = ({
             </div>
           )}
 
-          {assemblyResponsibleRequired && (
+          {!inItemDialog && assemblyResponsibleRequired && (
             <div className="min-w-[180px] flex-1 sm:flex-initial">
               <label className="mb-1 ml-1 block text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">
                 Responsável pela montagem <span className="text-red-500">*</span>
@@ -375,43 +384,47 @@ export const BodyRowMobile: React.FC<BodyRowViewProps> = ({
 
           {shouldShowStockOrigin && (
             <div className="min-w-[120px] flex-1">
-              <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1 block ml-1">
-                Estoque <span className="text-red-500">*</span>
+              <label
+                htmlFor={stockOriginId}
+                className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1 block ml-1"
+              >
+                Origem do estoque <span className="text-red-500" aria-hidden="true">*</span>
               </label>
-              <div
-                className="relative"
-                title={isLinkedProduct
-                  ? 'Bloqueado porque há um produto cadastrado vinculado ao item. Remova o produto selecionado no campo Produto para liberar e alterar a origem do estoque.'
-                  : undefined}
-              >
-              {isLinkedProduct && <i className="bi bi-lock-fill pointer-events-none absolute right-8 top-1/2 z-10 -translate-y-1/2 text-[9px] text-amber-500" aria-hidden="true" />}
-              <select
-                className={`w-full bg-slate-50/70 dark:bg-slate-800/40 border-x-0 border-t-0 border-b-2 px-3 py-1.5 rounded-none text-xs font-bold text-slate-700 dark:text-slate-200 outline-none transition-all ${
-                  stockOriginError
-                    ? 'border-b-red-500 focus:border-b-red-500'
-                    : 'border-b-slate-200 dark:border-b-slate-700 focus:border-b-blue-500'
-                } ${isLinkedProduct ? 'cursor-not-allowed opacity-60 !bg-slate-100 !pr-10 dark:!bg-slate-800' : ''}`}
-                value={item.condition ?? ''}
-                disabled={isLinkedProduct}
-                onChange={(e) => handleStockOriginChange(e.target.value)}
-                title={isLinkedProduct
-                  ? 'Bloqueado porque há um produto cadastrado vinculado ao item. Remova o produto selecionado no campo Produto para liberar e alterar a origem do estoque.'
-                  : 'Origem do estoque'}
-              >
-                <option value="">Selecione</option>
-                <option value="novo">Convencional</option>
-                <option value="salvado">Salvados</option>
-                <option value="usado">Usados</option>
-              </select>
+              <div className="relative" title={isLinkedProduct ? stockOriginLockedTitle : undefined}>
+                {isLinkedProduct && (
+                  <i
+                    className="bi bi-lock-fill pointer-events-none absolute right-8 top-1/2 z-10 -translate-y-1/2 text-[9px] text-amber-500"
+                    aria-hidden="true"
+                  />
+                )}
+                <select
+                  id={stockOriginId}
+                  className={`w-full bg-slate-50/70 dark:bg-slate-800/40 border-x-0 border-t-0 border-b-2 px-3 py-1.5 rounded-none text-xs font-bold text-slate-700 dark:text-slate-200 outline-none transition-all ${
+                    stockOriginError
+                      ? 'border-b-red-500 focus:border-b-red-500'
+                      : 'border-b-slate-200 dark:border-b-slate-700 focus:border-b-blue-500'
+                  } ${isLinkedProduct ? 'cursor-not-allowed opacity-60 !bg-slate-100 !pr-10 dark:!bg-slate-800' : ''}`}
+                  value={item.condition ?? ''}
+                  disabled={isLinkedProduct}
+                  onChange={(event) => handleStockOriginChange(event.target.value)}
+                  title={isLinkedProduct ? stockOriginLockedTitle : 'Origem do estoque'}
+                  aria-required="true"
+                  aria-invalid={Boolean(stockOriginError)}
+                  aria-describedby={stockOriginError ? stockOriginErrorId : undefined}
+                >
+                  <option value="">Selecione</option>
+                  <option value="novo">Convencional</option>
+                  <option value="salvado">Salvados</option>
+                  <option value="usado">Usados</option>
+                </select>
               </div>
               {stockOriginError && (
-                <span className="mt-1 block text-[10px] text-red-600 dark:text-red-400">
+                <span id={stockOriginErrorId} className="mt-1 block text-[10px] text-red-600 dark:text-red-400">
                   {stockOriginError}
                 </span>
               )}
             </div>
           )}
-
         </div>
       )}
 

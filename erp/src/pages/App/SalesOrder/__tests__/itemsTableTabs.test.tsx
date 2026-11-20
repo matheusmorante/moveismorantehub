@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import React from 'react';
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen, fireEvent, cleanup } from '@testing-library/react';
+import { render, screen, fireEvent, cleanup, within } from '@testing-library/react';
 
 vi.mock('@/pages/utils/supabaseConfig', () => ({
   supabase: {
@@ -82,7 +82,7 @@ describe('ItemsTable - Lista unificada de produtos e serviços', () => {
     },
   ];
 
-  const StatefulEmptyItemsTable: React.FC = () => {
+  const StatefulEmptyItemsTable: React.FC<{ isSale?: boolean }> = ({ isSale }) => {
     const [items, setItems] = React.useState<Item[]>([]);
     return (
       <ItemsTable
@@ -92,6 +92,8 @@ describe('ItemsTable - Lista unificada de produtos e serviços', () => {
         deliveryMethod="delivery"
         errors={{}}
         onSelectProduct={vi.fn()}
+        isSale={isSale}
+        hideHandling={isSale}
       />
     );
   };
@@ -215,6 +217,41 @@ describe('ItemsTable - Lista unificada de produtos e serviços', () => {
       return nextItems[nextItems.length - 1]?.itemType;
     });
     expect(additions).toEqual(['service', 'product']);
+  });
+
+  it('permite selecionar a origem do estoque ao adicionar um produto à venda', () => {
+    render(<StatefulEmptyItemsTable isSale />);
+
+    fireEvent.click(screen.getByRole('button', { name: /Adicionar item/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'Produto' }));
+
+    const dialog = within(screen.getByRole('dialog', { name: 'Editar item 1' }));
+    const stockOrigin = dialog.getByRole('combobox', { name: 'Origem do estoque' });
+    expect(stockOrigin).toHaveProperty('disabled', false);
+
+    fireEvent.change(stockOrigin, { target: { value: 'salvado' } });
+    expect(dialog.getByRole('combobox', { name: 'Origem do estoque' })).toHaveProperty('value', 'salvado');
+  });
+
+  it('exibe a origem do estoque bloqueada ao editar um produto vinculado à venda', () => {
+    render(
+      <ItemsTable
+        items={[{ ...initialItems[0], productId: 'produto-cadastrado', condition: 'novo' }]}
+        setItems={vi.fn()}
+        summary={mockSummary}
+        deliveryMethod="delivery"
+        errors={{}}
+        onSelectProduct={vi.fn()}
+        isSale
+        hideHandling
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Editar item 1' }));
+    const dialog = within(screen.getByRole('dialog', { name: 'Editar item 1' }));
+    const stockOrigin = dialog.getByRole('combobox', { name: 'Origem do estoque' });
+    expect(stockOrigin).toHaveProperty('value', 'novo');
+    expect(stockOrigin).toHaveProperty('disabled', true);
   });
 
   it('expande um serviço ao sair da descrição preenchida e não reabre após recolher', () => {

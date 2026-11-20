@@ -2,12 +2,10 @@ import { amount } from '../inboundCostUtils';
 import type { CompositionLink, MappingItem, Product } from '../types';
 
 export const extractLinkedProductRefs = (
-  items: MappingItem[],
-  mappings: Map<string, any>
+  items: MappingItem[]
 ): Array<{ productId?: string; variationId?: string }> =>
   items.flatMap((item: MappingItem) => {
     if (item.linkMode === 'not_applicable') return [];
-    const normalizedCode = item.productCode.trim().toLocaleUpperCase('pt-BR');
     return [
       ...(item.matchedProductId
         ? [{ productId: item.matchedProductId, variationId: item.matchedVariationId }]
@@ -16,13 +14,11 @@ export const extractLinkedProductRefs = (
         productId: link.productId,
         variationId: link.variationId,
       })),
-      ...(mappings.has(normalizedCode) ? [mappings.get(normalizedCode)] : []),
     ];
   });
 
 export const hydrateMappingItemsWithDetails = (
   items: MappingItem[],
-  mappings: Map<string, any>,
   productDetails: Map<string, any>
 ): MappingItem[] =>
   items.map((item: MappingItem) => {
@@ -37,24 +33,16 @@ export const hydrateMappingItemsWithDetails = (
         compositionLinks: [],
       };
     }
-    const knownMapping = mappings.get(item.productCode.trim().toLocaleUpperCase('pt-BR'));
-    const itemReference = item.matchedProductId
+    const detail = item.matchedProductId
       ? productDetails.get(`${item.matchedProductId}:${item.matchedVariationId || ''}`)
       : undefined;
-    const savedMapping =
-      knownMapping &&
-      productDetails.get(`${knownMapping.productId}:${knownMapping.variationId || ''}`);
     const compositionLinks = (item.compositionLinks || []).map((link: CompositionLink) => ({
       ...link,
       ...(productDetails.get(`${link.productId}:${link.variationId || ''}`) || {}),
     }));
-    if (itemReference || savedMapping || (!item.matchedProductId && knownMapping)) {
-      const detail = itemReference || savedMapping || knownMapping;
+    if (detail) {
       return {
         ...item,
-        ...(item.matchedProductId
-          ? {}
-          : { matchedProductId: detail.productId, matchedVariationId: detail.variationId }),
         productErpName: detail.name || item.productErpName,
         linkedProductCode: detail.sku || item.linkedProductCode,
         sellingPrice: detail.sellingPrice ?? item.sellingPrice,
@@ -115,6 +103,7 @@ export const applyProductLinkToMappingItems = (
       compositionLinks: [],
       matchedProductId: product.productId,
       matchedVariationId: product.variationId,
+      inheritedSupplierLink: false,
       productErpName: product.name,
       linkedProductCode: product.sku || '',
       sellingPrice: Number(product.sellingPrice || 0),
@@ -215,6 +204,7 @@ export const clearSingleItemLinkFromItems = (
           linkedProductCode: undefined,
           sellingPrice: undefined,
           compositionLinks: [],
+          linkMode: 'single' as const,
         }
       : current
   );

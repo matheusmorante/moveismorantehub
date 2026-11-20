@@ -1,4 +1,5 @@
 import { supabase } from '../../supabaseClient';
+import { applyReusedInboundInvoiceLinks, reusePendingInboundInvoiceLinks } from '../../../../../shared-utils/inboundInvoiceLinkReuse';
 import { parseInboundNfeXml } from '../../../features/stock/invoices/utils/inboundXmlParser';
 import { buildInboundInvoiceItemRows } from './inboundInvoiceMappers';
 import {
@@ -13,6 +14,7 @@ import {
 } from '../../../../../shared-utils/inboundInvoiceVariationReferences';
 
 export const fetchInboundInvoiceForMappings = async (invoiceId: string) => {
+  await reusePendingInboundInvoiceLinks(supabase, invoiceId);
   const { data, error } = await supabase
     .from('inbound_invoices')
     .select(
@@ -321,7 +323,13 @@ export const updateInboundInvoiceMappings = async (
       }
     }
   }
-  return persistedItems;
+  if (!effectiveSupplierId) return persistedItems;
+  const reuse = await reusePendingInboundInvoiceLinks(supabase, invoiceId, true)
+    .catch((error: unknown) => {
+      console.warn('[NF de entrada] Não foi possível reaproveitar vínculos anteriores.', error);
+      return null;
+    });
+  return applyReusedInboundInvoiceLinks(persistedItems, reuse);
 };
 
 export const saveInboundSupplierProductCode = async (

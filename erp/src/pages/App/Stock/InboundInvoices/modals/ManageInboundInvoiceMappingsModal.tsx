@@ -4,14 +4,13 @@ import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { inboundInvoiceMappingFormSchema } from '../../../../../../../shared-utils/inboundProductLinkFormSchemas';
 import PersonFormModal from '@/pages/App/Registrations/shared/modals/PersonFormModal';
-import { saveInboundInvoice } from '@/pages/utils/inboundNfe/inboundInvoicesService';
+import { saveInboundInvoice, reuseSavedInboundInvoiceLinks } from '@/pages/utils/inboundNfe/inboundInvoicesService';
 import { parseInboundNfeXml } from '@/pages/utils/inboundNfe/inboundXmlParser';
 import { InboundInvoice, InboundInvoiceItem } from '@/pages/utils/inboundNfe/inboundNfeTypes';
 import {
   fetchPersons,
   INBOUND_INVOICE_MAPPING_SUPPLIER_QUERY_COLUMNS,
 } from '@/pages/utils/personService';
-import { findProductSupplierCodes } from '@/pages/utils/productSupplierCodesService';
 import SupplierAutocomplete from '@/components/SupplierAutocomplete';
 import Person from '@/pages/types/person.type';
 import { InboundInvoiceItemsReview } from '../components/InboundInvoiceItemsReview';
@@ -145,30 +144,20 @@ export function ManageInboundInvoiceMappingsModal({
           return;
         }
 
-        if (!invoice?.supplierId || !invoice?.items?.length) {
-          return;
-        }
-
-        const mappings = await withTimeout(findProductSupplierCodes(
-          invoice.supplierId,
-          invoice.items.map((item) => item.productCode)
-        ), 15000, null, 'entrada:consultar-vinculos');
-        if (!mappings) throw new Error('A consulta de vínculos demorou demais.');
-        if (!active || !mappings.size) return;
+        const reconciled = await reuseSavedInboundInvoiceLinks(invoice);
+        if (!active) return;
         setInvoice((current) => {
           if (!current || inFlight.current || current.id !== invoice.id || current.supplierId !== invoice.supplierId || JSON.stringify(current.items) !== sourceSnapshot) return current;
-          const nextItems = current.items.map((item) => {
-              if (item.linkMode === 'not_applicable') return item;
-              const mapping = mappings.get(item.productCode.trim().toLocaleUpperCase('pt-BR'));
-              return mapping
-                ? {
-                    ...item,
-                    matchedProductId: item.matchedProductId || mapping.productId,
-                    matchedVariationId: item.matchedVariationId || mapping.productVariationId,
-                  }
-                : item;
-            });
-          return JSON.stringify(nextItems) === sourceSnapshot ? current : { ...current, items: nextItems };
+          if (reconciled.supplierId === current.supplierId && reconciled.items === current.items) return current;
+          const origins = list.find((supplier) => supplier.id === reconciled.supplierId)?.stockOrigins
+            ?? reconciled.supplierStockOrigins;
+          return {
+            ...reconciled,
+            supplierStockOrigins: origins,
+            items: isSalvadosOnlySupplier(origins)
+              ? markInboundInvoiceItemsNotApplicable(reconciled.items)
+              : reconciled.items,
+          };
         });
       } catch (error) {
         failed = true;

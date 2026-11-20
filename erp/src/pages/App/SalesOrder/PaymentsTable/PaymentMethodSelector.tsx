@@ -31,6 +31,7 @@ const PaymentMethodSelector = ({
     if (paymentMethod === 'Dinheiro') return 'bi-cash-coin text-emerald-500';
     if (paymentMethod === 'Cartão de Débito') return 'bi-credit-card text-blue-500';
     if (paymentMethod.includes('Crédito')) return 'bi-credit-card-2-front text-indigo-500';
+    if (paymentMethod.includes('Crediário')) return 'bi-wallet2 text-amber-500';
     if (paymentMethod.includes('Promissória')) return 'bi-journal-text text-amber-500';
     return 'bi-question-circle text-slate-400';
   };
@@ -43,7 +44,10 @@ const PaymentMethodSelector = ({
     const icon = getPaymentIcon(paymentMethod);
     let detail = '';
 
-    if ((paymentMethod.includes('Crédito') || paymentMethod.includes('Promissória')) && amount > 0) {
+    const hasInstallmentCount = ['Crédito', 'Crediário', 'Promissória'].some((term) =>
+      paymentMethod.includes(term)
+    );
+    if (hasInstallmentCount && amount > 0) {
       const match = paymentMethod.match(/(\d+)x/);
       if (match) {
         const n = parseInt(match[1]);

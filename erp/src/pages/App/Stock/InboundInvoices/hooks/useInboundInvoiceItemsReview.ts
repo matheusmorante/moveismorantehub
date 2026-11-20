@@ -315,8 +315,8 @@ export function useInboundInvoiceItemsReview({
           throw new Error('O resultado do vínculo não foi confirmado.');
         }
         const applied = await withTimeout(Promise.resolve(onChange(data.itemNumber, operation === 'remove' ? {
-          matchedProductId: undefined, matchedVariationId: undefined, linkedProductCode: undefined, productErpName: undefined,
-        } : { matchedProductId: data.productId, matchedVariationId: data.variationId, linkedProductCode, productErpName })).then((result) => result !== false), 20000, false, 'entrada:aplicar-mapeamento-item');
+          matchedProductId: undefined, matchedVariationId: undefined, linkedProductCode: undefined, productErpName: undefined, linkMode: 'single',
+        } : { matchedProductId: data.productId, matchedVariationId: data.variationId, linkedProductCode, productErpName, inheritedSupplierLink: false })).then((result) => result !== false), 20000, false, 'entrada:aplicar-mapeamento-item');
         if (!applied) throw new Error('A alteração do item da nota não foi confirmada.');
         if (!individualActive.current) return false;
         if (operation === 'remove' && item) rejectSuggestion(item);
