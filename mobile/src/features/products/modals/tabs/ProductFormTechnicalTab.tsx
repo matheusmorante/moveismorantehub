@@ -486,7 +486,7 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
   };
 
   const characteristicSearchControl =
-    !requiredFieldsOnly ? (
+    !parentData && !requiredFieldsOnly ? (
       <ProductTechnicalFieldSearchControl
         dark={dark}
         characteristicSearchTerm={characteristicSearchTerm}

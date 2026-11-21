@@ -9,13 +9,10 @@ interface FieldGroup {
 
 interface Props {
   readonly fieldGroups: FieldGroup[];
-  readonly requiredGroupCount: number;
-  readonly searchControl: React.ReactNode;
   readonly parentNormalizedValues: Record<string, any>;
   readonly variationAttributeValues: Record<string, any>;
   readonly dependencyValues: Record<string, any>;
   readonly formDataTechnicalValues?: Record<string, any>;
-  readonly manualFieldNames: string[];
   readonly isSingleVariation: boolean;
   readonly onSetOverride: (fieldName: string, value: any) => void;
   readonly onRemoveManualField: (fieldName: string) => void;
@@ -24,22 +21,18 @@ interface Props {
 
 export const VariationTechnicalFieldGroups: React.FC<Props> = ({
   fieldGroups,
-  requiredGroupCount,
-  searchControl,
   parentNormalizedValues,
   variationAttributeValues,
   dependencyValues,
   formDataTechnicalValues,
-  manualFieldNames,
   isSingleVariation,
   onSetOverride,
   onRemoveManualField,
   onOpenAttributeModal,
 }) => (
   <div className="flex flex-col gap-6 pt-1">
-    {fieldGroups.map((group, index) => (
+    {fieldGroups.map((group) => (
       <React.Fragment key={group.title}>
-        {index === requiredGroupCount && searchControl}
         <section
           aria-labelledby={`variation-technical-group-${group.title}`}
           className="flex flex-col gap-3"
@@ -59,7 +52,7 @@ export const VariationTechnicalFieldGroups: React.FC<Props> = ({
                 variationAttributeValues={variationAttributeValues}
                 dependencyValues={dependencyValues}
                 formDataTechnicalValues={formDataTechnicalValues}
-                isManual={manualFieldNames.includes(field.name)}
+                isManual={false}
                 isVariable
                 isSingleVariation={isSingleVariation}
                 onSetOverride={onSetOverride}
@@ -71,6 +64,5 @@ export const VariationTechnicalFieldGroups: React.FC<Props> = ({
         </section>
       </React.Fragment>
     ))}
-    {fieldGroups.length === requiredGroupCount && searchControl}
   </div>
 );
