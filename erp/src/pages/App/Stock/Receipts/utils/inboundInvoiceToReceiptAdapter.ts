@@ -5,7 +5,7 @@ import {
   normalizeInvoiceItem,
   ensureInboundInvoiceAttachment,
 } from '@/pages/utils/inboundNfe/inboundInvoicesService';
-import { findProductSupplierCodes } from '@/pages/utils/productSupplierCodesService';
+import { findInboundSupplierItemMappings } from '@/pages/utils/inboundNfe/services/inboundSupplierItemMappingsService';
 import { getProductsByIds } from '@/pages/utils/productService';
 import {
   calculateAdditionalCosts,
@@ -98,19 +98,110 @@ export async function adaptInboundInvoiceToReceiptState(
   }
 
   // Normalizar e enriquecer os itens com vínculos automáticos
-  const rawNormalizedItems = (invoice.items || []).map((item, idx) =>
+  let rawNormalizedItems = (invoice.items || []).map((item, idx) =>
     normalizeInvoiceItem(item, idx)
   );
+  // Saved per-invoice snapshots are historical. Current receiveable links come only from
+  // the supplier+full-code mapping, so a removed global link cannot reappear from old JSON.
+  rawNormalizedItems = rawNormalizedItems.map((item) => ({
+    ...item,
+    matchedProductId: undefined,
+    matchedVariationId: undefined,
+    productErpName: undefined,
+    linkedProductCode: undefined,
+    sellingPrice: undefined,
+    linkMode: undefined,
+    compositionLinks: [],
+    composition: [],
+    inheritedSupplierLink: undefined,
+  }));
+  const globalMappings = resolvedSupplierId
+    ? await findInboundSupplierItemMappings(
+        resolvedSupplierId,
+        rawNormalizedItems.map((item) => item.productCode)
+      )
+    : new Map();
+  rawNormalizedItems = rawNormalizedItems.map((item) => {
+    const mapping = globalMappings.get(item.productCode.trim().toLocaleUpperCase('pt-BR'));
+    if (!mapping) return item;
+    if (mapping.link_mode === 'single') {
+      return {
+        ...item,
+        matchedProductId: mapping.product_id || undefined,
+        matchedVariationId: mapping.variation_id || undefined,
+        productErpName: mapping.product_name || undefined,
+        linkedProductCode: mapping.product_sku || undefined,
+        sellingPrice: Number(mapping.selling_price || 0),
+        linkMode: 'single' as const,
+        compositionLinks: [],
+        composition: [],
+        inheritedSupplierLink: true,
+      };
+    }
+    if (mapping.link_mode === 'composition') {
+      const composition = (mapping.components || []).map((component: any, index: number) => ({
+        id: String(component.id ?? `${item.productCode}:${index + 1}`),
+        productId: String(component.productId ?? component.product_id ?? ''),
+        variationId: component.variationId ?? component.variation_id ?? undefined,
+        productName: String(component.productErpName ?? component.product_erp_name ?? 'Produto'),
+        quantity: Number(component.quantityMultiplier ?? component.quantity_multiplier ?? 1),
+        referenceSalePrice: Number(component.sellingPrice ?? component.selling_price ?? 0),
+      }));
+      const compositionLinks = composition.map((component) => ({
+        id: component.id,
+        productId: component.productId,
+        variationId: component.variationId,
+        productErpName: component.productName,
+        linkedProductCode: '',
+        sellingPrice: component.referenceSalePrice,
+        quantityMultiplier: component.quantity,
+        apportionedCost: undefined,
+      }));
+      return {
+        ...item,
+        matchedProductId: undefined,
+        matchedVariationId: undefined,
+        productErpName: undefined,
+        linkedProductCode: undefined,
+        sellingPrice: undefined,
+        linkMode: 'composition' as const,
+        compositionLinks,
+        composition,
+        inheritedSupplierLink: true,
+      };
+    }
+    return {
+      ...item,
+      matchedProductId: undefined,
+      matchedVariationId: undefined,
+      productErpName: undefined,
+      linkedProductCode: undefined,
+      sellingPrice: undefined,
+      linkMode: mapping.link_mode === 'not_applicable'
+        ? 'not_applicable' as const
+        : mapping.link_mode === 'unlinked'
+          ? 'unlinked' as const
+          : undefined,
+      compositionLinks: [],
+      composition: [],
+      inheritedSupplierLink: true,
+    };
+  });
   const applicableItems = rawNormalizedItems.filter((item) => item.linkMode !== 'not_applicable');
 
   let references = new Map<string, { productId: string; productVariationId?: string }>();
   try {
-    references = resolvedSupplierId
-      ? await findProductSupplierCodes(
-          resolvedSupplierId,
-          applicableItems.map((i) => i.productCode)
-        )
-      : new Map();
+    references = new Map(
+      applicableItems.flatMap((item) => {
+        const mapping = globalMappings.get(item.productCode.trim().toLocaleUpperCase('pt-BR'));
+        return mapping?.link_mode === 'single' && mapping.product_id
+          ? [[item.productCode.trim().toLocaleUpperCase('pt-BR'), {
+              productId: mapping.product_id,
+              productVariationId: mapping.variation_id || undefined,
+            }] as const]
+          : [];
+      })
+    );
   } catch (error: unknown) {
     console.warn('Não foi possível consultar referências de produtos do fornecedor.', error);
   }

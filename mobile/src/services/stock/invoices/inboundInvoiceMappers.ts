@@ -8,7 +8,11 @@ import {
 } from '../../../../../shared-utils/productSupplierStockOrigin';
 import { markInboundInvoiceItemsNotApplicable } from '../../../../../shared-utils/inboundInvoiceSupplierRules';
 import { hasInboundItemCommercialData } from '../../../../../shared-utils/inboundInvoiceCompleteness';
-import { getCurrentInboundInvoiceMappingItems } from '../../../../../shared-utils/inboundInvoiceMappingState';
+import {
+  getCurrentInboundInvoiceMappingItems,
+  normalizeInboundSupplierProductCode,
+  type GlobalInboundSupplierItemMapping,
+} from '../../../../../shared-utils/inboundInvoiceMappingState';
 
 export const normalizeTaxId = (value: unknown) => String(value || '').replace(/\D/g, '');
 
@@ -19,14 +23,20 @@ export const formatTaxId = (digits: string) =>
       ? digits.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, '$1.$2.$3-$4')
       : digits;
 
-export const mapInboundInvoiceListRow = (row: any) => {
+export const mapInboundInvoiceListRow = (
+  row: any,
+  globalMappings: ReadonlyMap<string, GlobalInboundSupplierItemMapping> = new Map()
+) => {
   const linkedItems = Array.isArray(row.inbound_invoice_items)
     ? row.inbound_invoice_items.map((item: any) => ({ ...item.raw_item, ...item }))
     : [];
   const legacyItems = Array.isArray(row.itens) ? row.itens : [];
   const sourceItems = linkedItems.length ? linkedItems : legacyItems;
-  const mappingItems = getCurrentInboundInvoiceMappingItems(row);
   const supplierStockOrigins = getSupplierStockOriginsFromRelation(row.supplier);
+  const mappingItems = getCurrentInboundInvoiceMappingItems(
+    { ...row, itens: sourceItems, inbound_invoice_items: [] },
+    isSalvadosOnlySupplier(supplierStockOrigins) ? new Map() : globalMappings
+  );
   const items = isSalvadosOnlySupplier(supplierStockOrigins)
     ? markInboundInvoiceItemsNotApplicable(sourceItems)
     : sourceItems;
@@ -78,18 +88,43 @@ export const mapInboundInvoiceDetailItem = (item: any) => ({
   icmsStValue: Number(item.icms_st_value ?? item.icmsStValue ?? item.valor_icms_st ?? 0),
 });
 
-export const mapInboundInvoiceDetailRow = (data: any) => {
+export const mapInboundInvoiceDetailRow = (
+  data: any,
+  globalMappings: ReadonlyMap<string, GlobalInboundSupplierItemMapping> = new Map()
+) => {
   const rows = Array.isArray(data.inbound_invoice_items) ? data.inbound_invoice_items : [];
   const legacyItems = Array.isArray(data.itens) ? data.itens : [];
   const sourceItems = rows.length
     ? rows.map((item: any) => ({ ...(item.raw_item || {}), ...item }))
     : legacyItems;
-  const mappingItems = getCurrentInboundInvoiceMappingItems(data);
   const supplierStockOrigins = getSupplierStockOriginsFromRelation(data.supplier);
   const normalizedItems = isSalvadosOnlySupplier(supplierStockOrigins)
     ? markInboundInvoiceItemsNotApplicable(sourceItems)
     : sourceItems;
-  const items = normalizedItems.map(mapInboundInvoiceDetailItem);
+  const mappingItems = getCurrentInboundInvoiceMappingItems(
+    { ...data, itens: normalizedItems, inbound_invoice_items: [] },
+    isSalvadosOnlySupplier(supplierStockOrigins) ? new Map() : globalMappings
+  );
+  const items = normalizedItems.map((item: any, index: number) => {
+    const detailItem = mapInboundInvoiceDetailItem(item);
+    const itemNumber = Number(item.itemNumber ?? item.item_number ?? item.raw_item?.itemNumber ?? index + 1);
+    const productCode = normalizeInboundSupplierProductCode(detailItem.productCode);
+    const mapping = mappingItems.find((candidate: any) =>
+      candidate.itemNumber === itemNumber && normalizeInboundSupplierProductCode(candidate.productCode) === productCode
+    );
+    return {
+      ...detailItem,
+      itemNumber,
+      matchedProductId: mapping?.matchedProductId,
+      matchedVariationId: mapping?.matchedVariationId,
+      productErpName: mapping?.productErpName,
+      linkedProductCode: mapping?.linkedProductCode,
+      sellingPrice: mapping?.sellingPrice,
+      linkMode: mapping?.linkMode,
+      inheritedSupplierLink: mapping?.inheritedSupplierLink,
+      compositionLinks: mapping?.compositionLinks || [],
+    };
+  });
 
   return {
     id: data.id,

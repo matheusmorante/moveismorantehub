@@ -9,6 +9,8 @@ import {
   mapInboundInvoiceDetailRow,
   mapInboundInvoiceListRow,
 } from './inboundInvoiceMappers';
+import { fetchGlobalInboundSupplierItemMappings } from './inboundInvoiceMappingsService';
+import { getCurrentInboundInvoiceMappingItems } from '../../../../../shared-utils/inboundInvoiceMappingState';
 
 export const fetchInboundInvoices = async (page: number) => {
   const from = page * ITEMS_PER_PAGE;
@@ -24,7 +26,11 @@ export const fetchInboundInvoices = async (page: number) => {
     console.warn('Erro ao buscar NFs:', error);
     return [];
   }
-  return data;
+  const globalMappings = await fetchGlobalInboundSupplierItemMappings(data || []);
+  return (data || []).map((row: any) => ({
+    ...row,
+    current_mapping_items: getCurrentInboundInvoiceMappingItems(row, globalMappings),
+  }));
 };
 
 export const fetchInboundInvoicesPage = async ({
@@ -46,7 +52,7 @@ export const fetchInboundInvoicesPage = async ({
   let query = supabase
     .from('inbound_invoices')
     .select(
-      'id,numero_nfe,serie,chave_acesso,emitente_nome,emitente_cnpj,data_emissao,valor_total,status_recebimento,itens,supplier:people(stock_origins),inbound_invoice_items(*)',
+      'id,numero_nfe,serie,chave_acesso,emitente_nome,emitente_cnpj,data_emissao,valor_total,status_recebimento,supplier_id,itens,supplier:people(stock_origins),inbound_invoice_items(item_number,product_code,product_description,quantity,unit_cost,total_cost)',
       { count: 'exact' }
     );
 
@@ -69,7 +75,8 @@ export const fetchInboundInvoicesPage = async ({
 
   if (error) throw error;
 
-  const invoices = (data || []).map(mapInboundInvoiceListRow);
+  const globalMappings = await fetchGlobalInboundSupplierItemMappings(data || []);
+  const invoices = (data || []).map((row: any) => mapInboundInvoiceListRow(row, globalMappings));
 
   return {
     invoices,
@@ -82,7 +89,7 @@ export const fetchInboundInvoiceDetails = async (invoiceId: string) => {
   const { data, error } = await supabase
     .from('inbound_invoices')
     .select(
-      'id,numero_nfe,serie,chave_acesso,emitente_nome,emitente_cnpj,emitente_ie,destinatario_nome,destinatario_cnpj,data_emissao,data_saida_entrada,natureza_operacao,modelo,protocolo,informacoes_adicionais,valor_produtos,valor_frete,valor_ipi,valor_desconto,valor_seguro,outras_despesas,valor_icms,valor_icms_st,valor_total,status_recebimento,xml_conteudo,updated_at,itens,supplier:people(stock_origins),inbound_invoice_items(*)'
+      'id,numero_nfe,serie,chave_acesso,emitente_nome,emitente_cnpj,emitente_ie,destinatario_nome,destinatario_cnpj,data_emissao,data_saida_entrada,natureza_operacao,modelo,protocolo,informacoes_adicionais,valor_produtos,valor_frete,valor_ipi,valor_desconto,valor_seguro,outras_despesas,valor_icms,valor_icms_st,valor_total,status_recebimento,supplier_id,receipt_id,xml_conteudo,updated_at,itens,supplier:people(stock_origins),inbound_invoice_items(*)'
     )
     .eq('id', invoiceId)
     .maybeSingle();
@@ -90,7 +97,8 @@ export const fetchInboundInvoiceDetails = async (invoiceId: string) => {
   if (error) throw error;
   if (!data) throw new Error('Nota fiscal de entrada não encontrada.');
 
-  return mapInboundInvoiceDetailRow(data);
+  const globalMappings = await fetchGlobalInboundSupplierItemMappings([data]);
+  return mapInboundInvoiceDetailRow(data, globalMappings);
 };
 
 export const deleteInboundInvoice = async (_invoiceId: string) => {

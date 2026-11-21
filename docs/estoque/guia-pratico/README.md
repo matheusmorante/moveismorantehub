@@ -4,9 +4,9 @@
 
 Na página 8, a identificação **Vinculação Completa** pode ser tocada no app ou clicada no ERP para abrir **Gerenciar vínculos** da nota e revisar as associações existentes. Isso apenas abre a conferência; não gera recebimento nem movimenta o estoque.
 
-## Atualização de 21/11/2026 — reconhecimento de vínculos pelo código do fornecedor
+## Atualização de 21/11/2026 — vínculo global por fornecedor e código completo
 
-A página 8 esclarece que o ERP e o app reconhecem, pela combinação de fornecedor e código completo, um produto e uma variação vinculados em nota anterior. Confira os dados preenchidos. Se não houver uma única correspondência segura, o item fica pendente para revisão ou vínculo manual.
+A página 8 explica que Único, Composto e Não se aplica são decisões globais para a combinação de fornecedor e código completo. Alterá-las atualiza todas as NFs correspondentes, inclusive antigas e recebidas. Nas recebidas, o histórico mostra em separado os produtos efetivamente recebidos. XML, estoque, custos e rateios de cada nota permanecem próprios e não são alterados pelo vínculo.
 
 ## Atualização de 20/11/2026 — reaproveitamento de vínculos da NF-e
 

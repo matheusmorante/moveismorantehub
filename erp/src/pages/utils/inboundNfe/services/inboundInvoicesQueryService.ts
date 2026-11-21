@@ -14,7 +14,13 @@ import {
   isSalvadosOnlySupplier,
 } from '../../../../../../shared-utils/productSupplierStockOrigin';
 import { markInboundInvoiceItemsNotApplicable } from '../../../../../../shared-utils/inboundInvoiceSupplierRules';
-import { getCurrentInboundInvoiceMappingItems } from '../../../../../../shared-utils/inboundInvoiceMappingState';
+import {
+  getCurrentInboundInvoiceMappingItems,
+  getInboundInvoiceSupplierCodes,
+  getInboundSupplierMappingKey,
+  normalizeInboundSupplierProductCode,
+  type GlobalInboundSupplierItemMapping,
+} from '../../../../../../shared-utils/inboundInvoiceMappingState';
 import {
   getMonthDateBounds,
   getCurrentYearMonthStr,
@@ -147,6 +153,27 @@ export const fetchInboundInvoicesPage = async (
     const { data, error, count } = await query;
 
     if (!error && data) {
+      const mappingKeys = new Map<string, { supplier_id: string; supplier_product_code: string }>();
+      for (const row of data as any[]) {
+        for (const key of getInboundInvoiceSupplierCodes(row)) {
+          mappingKeys.set(getInboundSupplierMappingKey(key.supplier_id, key.supplier_product_code), key);
+        }
+      }
+      let globalMappings = new Map<string, GlobalInboundSupplierItemMapping>();
+      if (mappingKeys.size) {
+        const { data: mappingRows, error: mappingError } = await (supabase as any).rpc(
+          'find_inbound_supplier_item_mappings',
+          { p_keys: [...mappingKeys.values()] }
+        );
+        if (mappingError) throw mappingError;
+        globalMappings = new Map(
+          ((mappingRows || []) as GlobalInboundSupplierItemMapping[]).map((mapping) => [
+            getInboundSupplierMappingKey(mapping.supplier_id, mapping.supplier_product_code),
+            mapping,
+          ])
+        );
+      }
+
       const mapped: InboundInvoice[] = data
         .filter(
           (row: any) =>
@@ -159,77 +186,39 @@ export const fetchInboundInvoicesPage = async (
         )
         .map((row: any) => {
           const supplierStockOrigins = getSupplierStockOriginsFromRelation(row.supplier);
-          const mappingItems = getCurrentInboundInvoiceMappingItems(row);
-          const sources: any[][] = [];
-          if (Array.isArray(row.inbound_invoice_items) && row.inbound_invoice_items.length > 0)
-            sources.push(row.inbound_invoice_items);
-          if (Array.isArray(row.itens) && row.itens.length > 0) sources.push(row.itens);
-          if (row.raw_extraction?.items && Array.isArray(row.raw_extraction.items))
-            sources.push(row.raw_extraction.items);
-          if (row.raw_extraction?.itens && Array.isArray(row.raw_extraction.itens))
-            sources.push(row.raw_extraction.itens);
-          if (row.xml_conteudo) {
+          let factItems: any[] = [];
+          if (Array.isArray(row.inbound_invoice_items) && row.inbound_invoice_items.length > 0) {
+            factItems = row.inbound_invoice_items.map((item: any) => ({
+              ...(item.raw_item && typeof item.raw_item === 'object' ? item.raw_item : {}),
+              ...item,
+            }));
+          } else if (Array.isArray(row.itens) && row.itens.length > 0) {
+            factItems = row.itens;
+          } else if (Array.isArray(row.raw_extraction?.items) && row.raw_extraction.items.length > 0) {
+            factItems = row.raw_extraction.items;
+          } else if (Array.isArray(row.raw_extraction?.itens) && row.raw_extraction.itens.length > 0) {
+            factItems = row.raw_extraction.itens;
+          } else if (row.xml_conteudo) {
             try {
-              const parsedFromXml = parseInboundNfeXml(row.xml_conteudo);
-              if (parsedFromXml.items && parsedFromXml.items.length > 0)
-                sources.push(parsedFromXml.items);
+              factItems = parseInboundNfeXml(row.xml_conteudo).items || [];
             } catch {
-              /* no-op: intencionalmente silencioso */
+              factItems = [];
             }
           }
 
-          const maxLen = Math.max(0, ...sources.map((s) => s.length));
+          const mappingItems = getCurrentInboundInvoiceMappingItems(
+            { ...row, itens: factItems, inbound_invoice_items: [] },
+            isSalvadosOnlySupplier(supplierStockOrigins) ? new Map() : globalMappings
+          );
           const childItems: InboundInvoiceItem[] = [];
-
-          for (let idx = 0; idx < maxLen; idx++) {
-            const candidates = sources.map((s) => s[idx]).filter(Boolean);
-            const normalized = candidates.map((c) => normalizeInvoiceItem(c, idx));
-
-            const desc =
-              normalized
-                .map((c) => c.productDescription)
-                .find((d) => d && d !== 'Item sem descrição') ||
-              normalized[0]?.productDescription ||
-              'Item sem descrição';
-            const code =
-              normalized.map((c) => c.productCode).find((c) => c && c.trim() !== '') ||
-              normalized[0]?.productCode ||
-              '';
-            const qty =
-              normalized.map((c) => c.quantity).find((q) => q > 0) || normalized[0]?.quantity || 0;
-            const uCost =
-              normalized.map((c) => c.unitCost).find((u) => u > 0) || normalized[0]?.unitCost || 0;
-            const tCost =
-              normalized.map((c) => c.totalCost).find((t) => t > 0) ||
-              normalized[0]?.totalCost ||
-              qty * uCost;
-            const ncm =
-              normalized.map((c) => c.ncm).find((n) => n && n.trim() !== '') ||
-              normalized[0]?.ncm ||
-              '';
-            const cfop =
-              normalized.map((c) => c.cfop).find((c) => c && c.trim() !== '') ||
-              normalized[0]?.cfop ||
-              '';
-            const unit =
-              normalized.map((c) => c.unit).find((u) => u && u.trim() !== '') ||
-              normalized[0]?.unit ||
-              'UN';
-
-          const mappingItem =
-            mappingItems.find((item) => item.itemNumber === idx + 1) || mappingItems[idx];
-
+          for (const [index, source] of factItems.entries()) {
+            const normalized = normalizeInvoiceItem(source, index);
+            const mappingItem = mappingItems.find(
+              (item) => item.itemNumber === normalized.itemNumber
+                && normalizeInboundSupplierProductCode(item.productCode) === normalizeInboundSupplierProductCode(normalized.productCode)
+            );
             childItems.push({
-              ...normalized[0],
-              itemNumber: idx + 1,
-              productDescription: desc,
-              productCode: code,
-              quantity: qty,
-              unitCost: uCost,
-              totalCost: tCost,
-              ncm,
-              cfop,
-              unit,
+              ...normalized,
               matchedProductId: mappingItem?.matchedProductId,
               matched_product_id: mappingItem?.matchedProductId,
               matchedVariationId: mappingItem?.matchedVariationId,
@@ -392,6 +381,24 @@ export const fetchInboundInvoicesPage = async (
 export const fetchInboundInvoices = async (): Promise<InboundInvoice[]> => {
   const res = await fetchInboundInvoicesPage({ page: 1, pageSize: 1000 });
   return res.invoices;
+};
+
+export const fetchInboundReceiptHistoryItems = async (receiptId: string) => {
+  if (!isValidUuid(receiptId)) return [];
+  const { data, error } = await supabase
+    .from('goods_receipt_items')
+    .select('item_index, product_id, variation_id, description, quantity, item_snapshot')
+    .eq('receipt_id', receiptId)
+    .order('item_index', { ascending: true });
+  if (error) throw error;
+  return (data || []).map((row: any) => ({
+    itemIndex: Number(row.item_index),
+    productId: row.product_id || undefined,
+    variationId: row.variation_id || undefined,
+    description: String(row.description || 'Item sem descrição'),
+    quantity: Number(row.quantity || 0),
+    snapshot: row.item_snapshot && typeof row.item_snapshot === 'object' ? row.item_snapshot : {},
+  }));
 };
 
 export const checkInboundInvoiceKeyExists = async (

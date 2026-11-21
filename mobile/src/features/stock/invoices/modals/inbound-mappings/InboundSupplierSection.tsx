@@ -12,6 +12,7 @@ interface InboundSupplierSectionProps {
   hasMatches: boolean;
   saving: boolean;
   supplierLocked?: boolean;
+  supplierLockMessage?: string;
   isDarkMode: boolean;
   supplierSearch: string;
   supplierSearchLoading: boolean;
@@ -31,6 +32,7 @@ export const InboundSupplierSection: React.FC<InboundSupplierSectionProps> = ({
   hasMatches,
   saving,
   supplierLocked = false,
+  supplierLockMessage,
   isDarkMode,
   supplierSearch,
   supplierSearchLoading,
@@ -62,8 +64,8 @@ export const InboundSupplierSection: React.FC<InboundSupplierSectionProps> = ({
   const showSupplierLockReason = () => {
     if (supplierLocked) {
       Alert.alert(
-        'Fornecedor de Salvados',
-        'Os itens desta nota permanecem em “Não se aplica” e não geram movimentação de estoque.',
+        'Fornecedor bloqueado',
+        supplierLockMessage || 'Os itens desta nota permanecem em “Não se aplica” e não geram movimentação de estoque.',
       );
       return;
     }

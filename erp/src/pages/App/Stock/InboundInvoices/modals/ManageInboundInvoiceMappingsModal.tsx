@@ -4,7 +4,11 @@ import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { inboundInvoiceMappingFormSchema } from '../../../../../../../shared-utils/inboundProductLinkFormSchemas';
 import PersonFormModal from '@/pages/App/Registrations/shared/modals/PersonFormModal';
-import { saveInboundInvoice, reuseSavedInboundInvoiceLinks } from '@/pages/utils/inboundNfe/inboundInvoicesService';
+import {
+  fetchInboundReceiptHistoryItems,
+  saveInboundInvoice,
+  reuseSavedInboundInvoiceLinks,
+} from '@/pages/utils/inboundNfe/inboundInvoicesService';
 import { parseInboundNfeXml } from '@/pages/utils/inboundNfe/inboundXmlParser';
 import { InboundInvoice, InboundInvoiceItem } from '@/pages/utils/inboundNfe/inboundNfeTypes';
 import {
@@ -18,6 +22,10 @@ import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
 import { isSalvadosOnlySupplier } from '../../../../../../../shared-utils/productSupplierStockOrigin';
 import { markInboundInvoiceItemsNotApplicable } from '../../../../../../../shared-utils/inboundInvoiceSupplierRules';
 import { getInboundReceiptBlockedReason } from '../inboundReceiptEligibility';
+import {
+  findInboundSupplierItemMappings,
+  saveInboundSupplierItemMapping,
+} from '@/pages/utils/inboundNfe/services/inboundSupplierItemMappingsService';
 
 type Props = {
   isOpen: boolean;
@@ -44,6 +52,14 @@ export function ManageInboundInvoiceMappingsModal({
   const [reviewBusy, setReviewBusy] = useState(false);
   const [saving, setSaving] = useState(false), [loading, setLoading] = useState(false), [errorMessage, setErrorMessage] = useState('');
   const [initialDataReady, setInitialDataReady] = useState(false);
+  const [receiptHistoryItems, setReceiptHistoryItems] = useState<Array<{
+    itemIndex: number;
+    productId?: string;
+    variationId?: string;
+    description: string;
+    quantity: number;
+    snapshot: Record<string, unknown>;
+  }>>([]);
   const [loadRevision, setLoadRevision] = useState(0);
   const inFlight = useRef(false), activeRef = useRef(true), uncertain = useRef(new Set<string>());
   const preparedMappingsKey = useRef<string | null>(null);
@@ -57,6 +73,7 @@ export function ManageInboundInvoiceMappingsModal({
       setLoading(true);
       setInitialDataReady(false);
       setErrorMessage('');
+      setReceiptHistoryItems([]);
     } else {
       preparedMappingsKey.current = null;
       setInitialDataReady(false);
@@ -130,6 +147,17 @@ export function ManageInboundInvoiceMappingsModal({
         );
         if (!list) throw new Error('A consulta de fornecedores demorou demais.');
         if (active) setSuppliers(list);
+
+        if (invoice.status === 'received' && invoice.receiptId) {
+          const history = await withTimeout(
+            fetchInboundReceiptHistoryItems(invoice.receiptId),
+            15000,
+            null,
+            'entrada:consultar-historico-recebimento'
+          );
+          if (!history) throw new Error('A consulta dos itens efetivamente recebidos demorou demais.');
+          if (active) setReceiptHistoryItems(history);
+        }
 
         const resolvedOrigins = invoice?.supplierStockOrigins
           ?? list.find((supplier) => supplier.id === invoice?.supplierId)?.stockOrigins;
@@ -289,7 +317,131 @@ export function ManageInboundInvoiceMappingsModal({
     } finally { expired = true; inFlight.current = false; if (activeRef.current) setSaving(false); }
   };
 
+  const persistGlobalItemMapping = async (nextInvoice: InboundInvoice, itemNumber: number) => {
+    const item = nextInvoice.items.find((candidate) => candidate.itemNumber === itemNumber);
+    if (!item || !nextInvoice.supplierId || !item.productCode.trim()) {
+      setErrorMessage('Selecione um fornecedor e confirme o código completo do item antes de salvar o vínculo.');
+      return false;
+    }
+    if (isSalvadosSupplier) return false;
+    if (inFlight.current || reviewBusy) return false;
+    if (uncertain.current.has(nextInvoice.id)) {
+      setErrorMessage('Há uma alteração sem confirmação. Recarregue e confira o vínculo antes de repetir.');
+      return false;
+    }
+
+    const hasComposition = item.linkMode === 'composition';
+    const linkMode = hasComposition
+      ? 'composition'
+      : item.linkMode === 'not_applicable'
+        ? 'not_applicable'
+        : item.linkMode === 'unlinked' || (!item.matchedProductId && !item.compositionLinks?.length)
+          ? 'unlinked'
+          : 'single';
+    if (linkMode === 'composition' && !item.compositionLinks?.length) {
+      setErrorMessage('Adicione ao menos um componente antes de salvar o modo Composto.');
+      return false;
+    }
+
+    inFlight.current = true;
+    setSaving(true);
+    setErrorMessage('');
+    const submittedContext = context.current;
+    let expired = false;
+    let writing = false;
+    const assertCurrent = () => {
+      if (expired || !activeRef.current || context.current !== submittedContext) {
+        throw new Error('A nota mudou. Confira o vínculo antes de repetir.');
+      }
+    };
+    try {
+      const validated = await mappingForm.validateAndRun(
+        { ...nextInvoice, items: nextInvoice.items.map((candidate) => ({ ...candidate })) },
+        async (values) => {
+          assertCurrent();
+          const parsed = values as unknown as InboundInvoice;
+          writing = true;
+          await withTimeout(
+            saveInboundSupplierItemMapping({
+              supplierId: parsed.supplierId!,
+              supplierProductCode: item.productCode,
+              supplierDescription: item.productDescription,
+              linkMode,
+              productId: linkMode === 'single' ? item.matchedProductId : undefined,
+              variationId: linkMode === 'single' ? item.matchedVariationId : undefined,
+              components: linkMode === 'composition'
+                ? (item.compositionLinks || []).map((component) => ({
+                    productId: component.productId,
+                    variationId: component.variationId,
+                    quantityMultiplier: component.quantityMultiplier,
+                  }))
+                : [],
+            }),
+            20_000,
+            null,
+            'entrada:salvar-vinculo-global'
+          );
+          assertCurrent();
+          const confirmed = await withTimeout(
+            findInboundSupplierItemMappings(parsed.supplierId!, [item.productCode]),
+            15_000,
+            null,
+            'entrada:confirmar-vinculo-global'
+          );
+          const saved = confirmed?.get(item.productCode.trim().toLocaleUpperCase('pt-BR'));
+          if (!saved || saved.link_mode !== linkMode) {
+            throw new Error('O vínculo global não corresponde ao modo escolhido.');
+          }
+          if (linkMode === 'single' && (saved.product_id !== item.matchedProductId || (saved.variation_id || undefined) !== (item.matchedVariationId || undefined))) {
+            throw new Error('O vínculo global não corresponde ao produto escolhido.');
+          }
+          if (linkMode === 'composition') {
+            const components = saved.components || [];
+            if (components.length !== (item.compositionLinks || []).length || components.some((component: any, index: number) => {
+              const expected = item.compositionLinks![index];
+              return component.productId !== expected.productId
+                || (component.variationId || undefined) !== (expected.variationId || undefined)
+                || Number(component.quantityMultiplier ?? component.quantity_multiplier) !== Number(expected.quantityMultiplier);
+            })) throw new Error('A composição global não corresponde aos componentes escolhidos.');
+          }
+          assertCurrent();
+          setInvoice(nextInvoice);
+          try {
+            const refreshed = await withTimeout(Promise.resolve(onSaveSuccess()).then(() => true), 15_000, false, 'entrada:atualizar-lista');
+            if (!refreshed && activeRef.current && context.current === submittedContext) setErrorMessage('Vínculo global salvo. A atualização da lista demorou demais; recarregue a lista.');
+          } catch {
+            if (activeRef.current && context.current === submittedContext) setErrorMessage('Vínculo global salvo. Não foi possível atualizar a lista; recarregue a lista.');
+          }
+          return true;
+        },
+        (errors) => setErrorMessage(Object.values(flattenFormErrors(errors))[0] || 'Confira os vínculos.')
+      );
+      return Boolean(validated);
+    } catch (error) {
+      if (writing) {
+        uncertain.current.add(nextInvoice.id);
+        try {
+          await withTimeout(Promise.resolve((onSaveUncertain || onSaveSuccess)()).then(() => true), 15_000, false, 'entrada:atualizar-lista-incerta');
+        } catch { /* A consulta manual segue disponível. */ }
+      }
+      const message = error instanceof Error ? error.message : 'Não foi possível salvar o vínculo global.';
+      if (activeRef.current && context.current === submittedContext) {
+        setErrorMessage(`${message} ${writing ? 'Confira a nota antes de repetir.' : ''}`);
+        toast.error(message);
+      }
+      return false;
+    } finally {
+      expired = true;
+      inFlight.current = false;
+      if (activeRef.current) setSaving(false);
+    }
+  };
+
   const setSupplier = (id: string, suppliedOrigins?: string[]) => {
+    if (invoice.status === 'received') {
+      setErrorMessage('O fornecedor não pode ser alterado depois que a nota foi recebida.');
+      return false;
+    }
     if (isSalvadosSupplier) return false;
     const nextSupplier = suppliers.find((supplier) => supplier.id === id);
     const nextOrigins = suppliedOrigins ?? nextSupplier?.stockOrigins;
@@ -304,6 +456,8 @@ export function ManageInboundInvoiceMappingsModal({
             ...item,
             matchedProductId: undefined,
             matchedVariationId: undefined,
+            linkMode: 'unlinked',
+            compositionLinks: [],
           })),
     };
     return persistInvoice(nextInvoice);
@@ -317,7 +471,15 @@ export function ManageInboundInvoiceMappingsModal({
         item.itemNumber === itemNumber ? { ...item, ...update } : item
       ),
     };
-    return persistInvoice(nextInvoice);
+    const mappingFields = [
+      'matchedProductId', 'matchedVariationId', 'linkMode', 'compositionLinks',
+      'inheritedSupplierLink',
+    ] as const;
+    if (!mappingFields.some((field) => Object.prototype.hasOwnProperty.call(update, field))) {
+      setInvoice(nextInvoice);
+      return true;
+    }
+    return persistGlobalItemMapping(nextInvoice, itemNumber);
   };
 
   return (

@@ -115,6 +115,9 @@ export const InboundInvoiceMappingsModalContent: React.FC<Props> = ({
   ).length;
   const hasMatches = linkedCount > 0;
   const currentSupplier = suppliers.find((supplier) => supplier.id === supplierId);
+  const isReceived = ['recebida', 'received'].includes(
+    String(details?.status_recebimento || '').toLocaleLowerCase('pt-BR')
+  );
   const interactionsLocked = saving || checkingSuggestionPrice || hasUncertainWrite;
   const receiptDisabledReason = !onGenerateReceipt
     ? null
@@ -198,7 +201,10 @@ export const InboundInvoiceMappingsModalContent: React.FC<Props> = ({
               details={details}
               hasMatches={hasMatches}
               saving={interactionsLocked}
-              supplierLocked={isSalvadosSupplier}
+              supplierLocked={isSalvadosSupplier || isReceived}
+              supplierLockMessage={isReceived
+                ? 'Esta nota já foi recebida. O fornecedor original não pode ser alterado.'
+                : undefined}
               isDarkMode={isDarkMode}
               supplierSearch={supplierSearch}
               supplierSearchLoading={supplierSearchLoading}
@@ -210,6 +216,29 @@ export const InboundInvoiceMappingsModalContent: React.FC<Props> = ({
               onSelectSupplier={(supplier) => void chooseSupplier(supplier)}
               onOpenNewSupplier={() => setSupplierFormVisible(true)}
             />
+
+            {isReceived ? (
+              <View style={[styles.section, { borderColor: '#fcd34d', backgroundColor: '#fffbeb' }]}>
+                <Text style={[styles.sectionTitle, { color: '#92400e' }]}>Itens efetivamente recebidos</Text>
+                <Text style={{ color: '#92400e', fontSize: 12, marginTop: 4 }}>
+                  A associação mostrada nos cartões é o vínculo global atual. Este histórico identifica os itens registrados no recebimento e não muda quando o vínculo global é atualizado.
+                </Text>
+                {details?.receiptHistoryItems?.length ? details.receiptHistoryItems.map((historyItem: any) => (
+                  <View key={`${historyItem.itemIndex}:${historyItem.productId || ''}:${historyItem.variationId || ''}`} style={{ paddingVertical: 8, borderTopWidth: 1, borderTopColor: '#fde68a', marginTop: 8 }}>
+                    <Text style={{ color: '#1f2937', fontWeight: '700' }}>
+                      Item {Number(historyItem.itemIndex) + 1}: {historyItem.description}
+                    </Text>
+                    <Text style={{ color: '#475569', fontSize: 12, marginTop: 2 }}>
+                      Quantidade: {historyItem.quantity}{historyItem.productId ? ` · Produto recebido: ${historyItem.productId}` : ''}{historyItem.variationId ? ` · Variação: ${historyItem.variationId}` : ''}
+                    </Text>
+                  </View>
+                )) : (
+                  <Text style={{ color: '#92400e', fontSize: 12, marginTop: 8 }}>
+                    Não há linhas detalhadas do recebimento disponíveis para esta nota.
+                  </Text>
+                )}
+              </View>
+            ) : null}
 
             <View style={[styles.section, isDarkMode && styles.sectionDark]}>
               <Text style={[styles.sectionTitle, isDarkMode && styles.textDark]}>

@@ -22,7 +22,7 @@ import { mergeInboundInvoiceXml } from '../../../../../../shared-utils/inboundIn
 import { checkInboundInvoiceKeyExists } from './inboundInvoicesQueryService';
 
 export const reuseSavedInboundInvoiceLinks = async (invoice: InboundInvoice, includeRelated = false): Promise<InboundInvoice> => {
-  if (!isValidUuid(invoice.id) || invoice.status === 'received') return invoice;
+  if (!isValidUuid(invoice.id)) return invoice;
   const reuse = await reusePendingInboundInvoiceLinks(supabase, invoice.id, includeRelated);
   if (!reuse) return invoice;
   return {
@@ -101,7 +101,7 @@ export const saveInboundInvoice = async (invoice: InboundInvoice, options: {
     local.unshift(invoiceToSave);
   }
   try {
-    if (options.requireConfirmation) {
+    if (options.requireConfirmation && !options.mappingOnly) {
       invoiceToSave = {
         ...invoiceToSave,
         items: await reconcileInvoiceItemVariationReferences(validId, invoiceToSave.items || []),
@@ -165,17 +165,29 @@ export const saveInboundInvoice = async (invoice: InboundInvoice, options: {
     };
 
     const onConflict = accessKey.length === 44 ? 'chave_acesso' : 'id';
+    if (options.mappingOnly) {
+      const { data: existingHeader, error: existingHeaderError } = await supabase
+        .from('inbound_invoices')
+        .select('id, supplier_id, status_recebimento')
+        .eq('id', validId)
+        .maybeSingle();
+      if (existingHeaderError) throw existingHeaderError;
+      if (!existingHeader) throw new Error('A nota fiscal não está mais disponível para editar o fornecedor.');
+      const isReceived = ['recebida', 'received'].includes(String(existingHeader.status_recebimento || '').toLocaleLowerCase('pt-BR'));
+      if (isReceived && (existingHeader.supplier_id || undefined) !== (invoice.supplierId || undefined)) {
+        throw new Error('O fornecedor não pode ser alterado depois que a nota foi recebida.');
+      }
+    }
+
     const headerWrite = options.mappingOnly
       ? supabase
           .from('inbound_invoices')
-          .update({
-            supplier_id: payload.supplier_id,
-            itens: payload.itens,
-            updated_at: payload.updated_at,
-          })
+          .update({ supplier_id: payload.supplier_id, updated_at: payload.updated_at })
           .eq('id', validId)
       : supabase.from('inbound_invoices').upsert(payload, { onConflict });
-    const header = options.requireConfirmation ? await headerWrite.select('id,supplier_id,itens').single() : await headerWrite;
+    const header = options.requireConfirmation
+      ? await headerWrite.select(options.mappingOnly ? 'id,supplier_id' : 'id,supplier_id,itens').single()
+      : await headerWrite;
     options.assertCurrent?.();
     const { error } = header;
     if (error) {
@@ -187,13 +199,15 @@ export const saveInboundInvoice = async (invoice: InboundInvoice, options: {
         const row = header.data;
         const canonical = (value: unknown) => JSON.stringify(value, (_key, entry) => entry && typeof entry === 'object' && !Array.isArray(entry)
           ? Object.fromEntries(Object.keys(entry).sort().map((key) => [key, entry[key]])) : entry);
-        if (!row || row.id !== validId || (row.supplier_id || undefined) !== (invoice.supplierId || undefined) || canonical(row.itens) !== canonical(invoiceToSave.items)) {
-          throw new Error('A gravação dos vínculos da nota não foi confirmada pelo servidor.');
+        if (!row || row.id !== validId || (row.supplier_id || undefined) !== (invoice.supplierId || undefined) || (!options.mappingOnly && canonical(row.itens) !== canonical(invoiceToSave.items))) {
+          throw new Error(options.mappingOnly
+            ? 'A alteração do fornecedor não foi confirmada pelo servidor.'
+            : 'A gravação dos itens da nota não foi confirmada pelo servidor.');
         }
     }
     if (error) {
       console.warn('Alerta upsert Supabase:', error);
-    } else if (Array.isArray(invoiceToSave.items) && invoiceToSave.items.length > 0) {
+    } else if (!options.mappingOnly && Array.isArray(invoiceToSave.items) && invoiceToSave.items.length > 0) {
       // Sincronizar itens na tabela normalizada inbound_invoice_items
       try {
         const itemRows = invoiceToSave.items.map((item, idx) => {
@@ -238,18 +252,18 @@ export const saveInboundInvoice = async (invoice: InboundInvoice, options: {
           itemRows.some((expected) => !itemResult.data?.some((row) => row.invoice_id === validId && row.item_number === expected.item_number)))) {
           throw itemResult.error || new Error('A gravação dos itens da nota não foi confirmada pelo servidor.');
         }
-        if (!itemResult.error && (options.reuseLinks || (options.mappingOnly && invoiceToSave.supplierId))) {
-          invoiceToSave = await reuseSavedInboundInvoiceLinks(invoiceToSave, options.mappingOnly)
-            .catch((reuseError: unknown) => {
-              console.warn('[NF de entrada] Não foi possível reaproveitar vínculos anteriores.', reuseError);
-              return invoiceToSave;
-            });
-          local[existingIndex >= 0 ? existingIndex : 0] = invoiceToSave;
-        }
       } catch (itemErr) {
         if (options.requireConfirmation) throw itemErr;
         console.warn('Alerta ao persistir itens normalizados em inbound_invoice_items:', itemErr);
       }
+    }
+    if (!error && (options.reuseLinks || (options.mappingOnly && invoiceToSave.supplierId))) {
+      invoiceToSave = await reuseSavedInboundInvoiceLinks(invoiceToSave, options.mappingOnly)
+        .catch((reuseError: unknown) => {
+          console.warn('[NF de entrada] Não foi possível consultar vínculos globais.', reuseError);
+          return invoiceToSave;
+        });
+      local[existingIndex >= 0 ? existingIndex : 0] = invoiceToSave;
     }
   } catch (err) {
     const recipientError = getInboundInvoiceRecipientGuardError(

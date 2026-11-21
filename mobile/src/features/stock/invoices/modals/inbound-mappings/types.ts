@@ -7,7 +7,7 @@ export type MappingItem = {
   productDescription: string;
   matchedProductId?: string;
   matchedVariationId?: string;
-  linkMode?: 'single' | 'composition' | 'not_applicable';
+  linkMode?: 'single' | 'composition' | 'not_applicable' | 'unlinked';
   productErpName?: string;
   linkedProductCode?: string;
   [key: string]: any;
