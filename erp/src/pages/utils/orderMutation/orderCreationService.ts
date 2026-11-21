@@ -12,6 +12,7 @@ import { isIdentifiedTestArtifact } from '../../../../../shared-utils/testArtifa
 import { queryClient } from '@/lib/queryClient';
 import { ensureOrderItemsHaveFiscalSnapshots } from '../orderFiscalSnapshotService';
 import { assertOrderHasNoCompositionLines } from './orderCompositionRules';
+import { retryRolledBackOrderWrite } from './orderStatementTimeout';
 import {
   UUID_PATTERN,
   applyTestArtifactCreateRules,
@@ -83,7 +84,10 @@ export const executeSaveOrder = async (
     const insertPayload = buildOrderPersistencePayload(orderToSave);
     const { rpcName, rpcArgs } = buildCreateOrderRpcCall(orderToSave, insertPayload, options);
 
-    const { data: rpcData, error: rpcError } = await supabase.rpc(rpcName, rpcArgs);
+    const write = () => supabase.rpc(rpcName, rpcArgs);
+    const { data: rpcData, error: rpcError } = orderToSave.orderType === 'sale' && orderToSave.status !== 'draft'
+      ? await retryRolledBackOrderWrite(write)
+      : await write();
     if (rpcError) throw rpcError;
 
     const rowId = (rpcData as any)?.id;

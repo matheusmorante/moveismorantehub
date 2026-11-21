@@ -7,7 +7,11 @@ import {
   ensureAtLeastOneOperationalVariation,
   resolveProductVariationName,
 } from '../domain/productVariationName';
-import { generateVariationSku } from '../domain/productSku';
+import {
+  findNextAvailableVariationSku,
+  generateVariationSku,
+  normalizeVariationSku,
+} from '../domain/productSku';
 import { getNextSequentialProductCode } from './mobileProductCodeService';
 import { resolveMobileVariationImages } from '../domain/mobileVariationImages';
 import {
@@ -31,11 +35,6 @@ export {
   moveMobileProductToTrash,
   restoreMobileProductFromTrash,
 } from './mobileProductTrashService';
-
-const normalizeVariationSku = (sku?: string) =>
-  String(sku || '')
-    .trim()
-    .replace(/^(.*-\d{2})-[a-z0-9_-]+$/i, '$1');
 
 const normalizeComboItems = (items: unknown) =>
   (Array.isArray(items) ? items : []).map((item: any) => ({
@@ -316,21 +315,53 @@ export async function saveMobileProduct(
       ...new Set(
         variationsToSave.map(
           (variation: any, index: number) =>
-            normalizeVariationSku(variation.sku) || generateVariationSku(parentCode, index)
+            normalizeVariationSku(variation.sku, parentCode) ||
+            generateVariationSku(parentCode, index)
         )
       ),
     ];
-    const { data: existingVariations, error: existingVariationsError } = await supabase
-      .from('product_variations')
-      .select('sku')
-      .neq('product_id', savedProductId)
-      .in('sku', requestedSkus);
-    if (existingVariationsError) throw existingVariationsError;
-    const usedSkus = new Set(
-      (existingVariations || [])
-        .map((variation: any) => String(variation.sku || '').trim())
-        .filter(Boolean)
+    const existingVariationsResult = await withMobileMutationTimeout(
+      supabase.from('product_variations').select('id, sku').in('sku', requestedSkus),
+      'mobile:produto:consultar-skus-solicitados'
     );
+    const requestedVariationIds = new Set(
+      variationsToSave.map((variation: any) => String(variation.id || '')).filter(Boolean)
+    );
+    const existingSkuOwners = new Map<string, string>();
+    const usedSkus = new Set<string>();
+    for (const existingVariation of existingVariationsResult.data || []) {
+      const sku = String(existingVariation.sku || '').trim();
+      const id = String(existingVariation.id || '');
+      if (!sku) continue;
+      existingSkuOwners.set(sku, id);
+      if (!requestedVariationIds.has(id)) usedSkus.add(sku);
+    }
+    const findAvailableSequentialSku = (variationId: string): Promise<string> =>
+      findNextAvailableVariationSku(
+        parentCode,
+        async (candidates) => {
+          const result = await withMobileMutationTimeout(
+            supabase
+              .from('product_variations')
+              .select('id, sku')
+              .in('sku', [...candidates]),
+            'mobile:produto:consultar-sku-sequencial-livre'
+          );
+          const persistedCollisions = new Set<string>();
+          for (const existingVariation of result.data || []) {
+            const sku = String(existingVariation.sku || '').trim();
+            const id = String(existingVariation.id || '');
+            if (!sku) continue;
+            existingSkuOwners.set(sku, id);
+            if (id !== variationId) {
+              persistedCollisions.add(sku);
+              usedSkus.add(sku);
+            }
+          }
+          return persistedCollisions;
+        },
+        usedSkus
+      );
     const persistedVariationIds = isEditing
       ? variationsToSave
           .map((variation: any) => variation.id)
@@ -373,21 +404,23 @@ export async function saveMobileProduct(
               (value === null || typeof value !== 'string' || value.trim() !== '')
             )
             .map(([name, value]) => ({ name, value, showName: true }));
-      const rawSku = normalizeVariationSku(v.sku);
+      const sourceSku = String(v.sku || '').trim();
+      const rawSku = normalizeVariationSku(sourceSku, parentCode);
+      const wasLegacySkuNormalized = Boolean(sourceSku && rawSku !== sourceSku);
       const defaultSku = generateVariationSku(parentCode, vIdx);
       let resolvedSku = rawSku || defaultSku;
-      if (usedSkus.has(resolvedSku)) {
-        if (rawSku && rawSku !== defaultSku && !productData.isDraft) {
-          throw new Error(`O SKU da variação "${resolvedSku}" já está em uso por outro produto.`);
+      const existingOwnerId = existingSkuOwners.get(resolvedSku);
+      const collidesWithAnotherVariation =
+        usedSkus.has(resolvedSku) ||
+        (existingOwnerId !== undefined && existingOwnerId !== String(v.id));
+      if (collidesWithAnotherVariation) {
+        if (rawSku && rawSku !== defaultSku && !productData.isDraft && !wasLegacySkuNormalized) {
+          throw new Error(`O SKU da variação "${resolvedSku}" já está em uso.`);
         }
-        let attempt = 0;
-        do {
-          const suffix = String(vIdx + 1).padStart(2, '0');
-          resolvedSku = `${parentCode}_${Date.now().toString().slice(-4)}${attempt ? `_${attempt}` : ''}-${suffix}`;
-          attempt += 1;
-        } while (usedSkus.has(resolvedSku) && attempt < 10);
+        resolvedSku = await findAvailableSequentialSku(String(v.id || ''));
       }
       usedSkus.add(resolvedSku);
+      existingSkuOwners.set(resolvedSku, String(v.id || ''));
       const variationName = String(v.name || '').trim();
       const parentName = String(payload.name || '').trim();
       const shouldDeriveVariationName =

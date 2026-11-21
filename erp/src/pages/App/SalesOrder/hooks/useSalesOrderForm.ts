@@ -152,7 +152,7 @@ export const useSalesOrderForm = (
 
   const {
     isSavingDraft, draftAutoSaveStatus, waitForActiveSave, cancelAutoSave,
-    flushDraftAutoSave, markLoadedDraftBaseline, resumeAutoSave, getDraftCreationKey,
+    flushDraftAutoSave, markLoadedDraftBaseline, resumeAutoSave, getOrderCreationKey,
     getSavedDraftIdForOrder,
   } =
     useOrderAutoSave(
@@ -193,7 +193,7 @@ export const useSalesOrderForm = (
     cancelAutoSave,
     waitForActiveSave,
     resumeAutoSave,
-    getDraftCreationKey,
+    getOrderCreationKey,
     getSavedDraftIdForOrder,
     setIsSaving,
     setCurrentOrderId,

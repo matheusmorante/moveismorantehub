@@ -14,6 +14,7 @@ import { isIdentifiedTestArtifact } from '../../../../../shared-utils/testArtifa
 import { queryClient } from '@/lib/queryClient';
 import { ensureOrderItemsHaveFiscalSnapshots } from '../orderFiscalSnapshotService';
 import { assertOrderHasNoCompositionLines } from './orderCompositionRules';
+import { retryRolledBackOrderWrite } from './orderStatementTimeout';
 import {
   getPersistedOrderDataSnapshot,
   setPersistedOrderDataSnapshot,
@@ -145,6 +146,7 @@ export const executeUpdateOrder = async (
       && Array.isArray(cleanUpdates.items)
       && (cleanUpdates.orderType === 'sale' || cleanUpdates.orderType === 'budget');
     let merged: any;
+    let currentUpdatedAt = currentOrder?.updatedAt;
     let previousOrderData: any = currentOrder || null;
     let currentCirculationState: OrderCirculationState | undefined = currentOrder;
     let persistedOrderDataSnapshot = currentOrder
@@ -160,7 +162,7 @@ export const executeUpdateOrder = async (
     } else {
       const [{ data: current, error: fetchError }] = await Promise.all([
         supabase.from(TABLE_NAME)
-          .select('order_data,status,order_type,delivery_method,delivery_status,delivery_started_at,delivery_arrived_at,delivery_finished_at')
+          .select('order_data,status,order_type,updated_at,delivery_method,delivery_status,delivery_started_at,delivery_arrived_at,delivery_finished_at')
           .eq('id', id)
           .single(),
         compositionValidatedWithLookup
@@ -179,6 +181,7 @@ export const executeUpdateOrder = async (
       }
 
       previousOrderData = current.order_data || {};
+      currentUpdatedAt = current.updated_at ?? undefined;
       persistedOrderDataSnapshot = current.order_data || undefined;
       currentCirculationState = current as OrderCirculationState;
       const { id: _id, ...rest } = { ...(current.order_data || {}), ...cleanUpdates } as any;
@@ -342,13 +345,24 @@ export const executeUpdateOrder = async (
       try { response = await withTimeout(supabase.rpc(rpcName, rpcArguments), 30000, null, cancellation ? 'devolucao:confirmar-cancelamento-comercial' : 'devolucao:confirmar-recebimento-comercial'); }
       catch { throw unconfirmed(); }
       if (!response || response.status === 0) throw unconfirmed();
-    } else response = await supabase.rpc(rpcName, rpcArguments);
+    } else {
+      const write = () => supabase.rpc(rpcName, rpcArguments);
+      if (rpcName === 'create_order_with_inventory_transaction' && merged.orderType === 'sale'
+          && resultingStatus !== 'draft' && currentUpdatedAt) {
+        const retryCall = buildUpdateOrderRpcCall(id, merged, updatePayload, currentUpdatedAt);
+        response = await retryRolledBackOrderWrite(write, () => supabase.rpc(retryCall.rpcName, retryCall.rpcArguments));
+      } else {
+        response = await write();
+      }
+    }
     const { data: transaction, error: rpcError } = response;
     if (confirmation && rpcError && (!rpcError.code || rpcError.code.startsWith('08') || ['40003', 'PGRST116'].includes(rpcError.code))) throw unconfirmed();
     if (rpcError?.message?.includes('ORDER_VERSION_CONFLICT')) {
       throw new Error(
         confirmation ? 'A devolução comercial mudou. Atualize o histórico antes de confirmar a operação.'
-          : 'O pedido mudou durante a conferência fiscal. Reabra a edição para revisar os dados atuais.'
+          : expectedUpdatedAt
+            ? 'O pedido mudou durante a conferência fiscal. Reabra a edição para revisar os dados atuais.'
+            : 'O pedido mudou durante o salvamento. Reabra a edição para revisar os dados atuais.'
       );
     }
     if (rpcError) throw rpcError;

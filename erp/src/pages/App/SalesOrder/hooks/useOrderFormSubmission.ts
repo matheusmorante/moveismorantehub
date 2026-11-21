@@ -6,6 +6,7 @@ import Order from '@/pages/types/order.type';
 import { ValidationErrors } from '@/pages/utils/validations';
 import { getFulfillmentLabels } from '@/pages/utils/orderStatusPresentation';
 import { saveOrder, updateOrder, resolveCompletedOrderStatus } from '@/pages/utils/orderHistoryService';
+import { isOrderStatementTimeout } from '@/pages/utils/orderMutation/orderStatementTimeout';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { getSettings } from '@/pages/utils/settingsService';
 import { recordSalesOrderCompletionTiming } from '@/services/monitoring/salesOrderCompletionTelemetry';
@@ -28,7 +29,7 @@ export interface UseOrderFormSubmissionParams {
   cancelAutoSave: () => void;
   waitForActiveSave: () => Promise<boolean>;
   resumeAutoSave: () => void;
-  getDraftCreationKey: () => string | undefined;
+  getOrderCreationKey: () => string;
   getSavedDraftIdForOrder: (order: Order) => string | undefined;
   setIsSaving: React.Dispatch<React.SetStateAction<boolean>>;
   setCurrentOrderId: React.Dispatch<React.SetStateAction<string | undefined>>;
@@ -51,7 +52,7 @@ export const useOrderFormSubmission = ({
   cancelAutoSave,
   waitForActiveSave,
   resumeAutoSave,
-  getDraftCreationKey,
+  getOrderCreationKey,
   getSavedDraftIdForOrder,
   setIsSaving,
   setCurrentOrderId,
@@ -127,7 +128,7 @@ export const useOrderFormSubmission = ({
       let succeeded = false;
       try {
         if (!(await waitForActiveSave())) {
-          toast.error('Não foi possível confirmar o salvamento do rascunho. Tente novamente.');
+          toast.error('A confirmação do rascunho ainda está pendente. Os dados permanecem no formulário.');
           return false;
         }
         cancelAutoSave();
@@ -148,10 +149,12 @@ export const useOrderFormSubmission = ({
             orderData.orderNumber = currentIdx;
           }
           try {
-            const creationKey = getDraftCreationKey();
-            const savedId = !orderData.id && creationKey
-              ? await saveOrder(orderData, { idempotencyKey: creationKey })
-              : await saveOrder(orderData);
+            if (!orderData.id && latestState.current.currentOrderId) {
+              orderData.id = latestState.current.currentOrderId;
+            }
+            const savedId = orderData.id
+              ? await saveOrder(orderData)
+              : await saveOrder(orderData, { idempotencyKey: getOrderCreationKey() });
             if (savedId) {
               setCurrentOrderId(savedId);
               latestState.current.currentOrderId = savedId;
@@ -204,7 +207,7 @@ export const useOrderFormSubmission = ({
       cancelAutoSave,
       waitForActiveSave,
       resumeAutoSave,
-      getDraftCreationKey,
+      getOrderCreationKey,
       validateOrderForm,
       validateOrderDraft,
       showOrderValidationErrors,
@@ -236,12 +239,12 @@ export const useOrderFormSubmission = ({
         ) => {
           const orderData = data as unknown as Order;
           setErrors({});
-          const [currentIdx, activeSaveConfirmed] = await Promise.all([
+          const [currentIdx, canContinueAfterAutoSave] = await Promise.all([
             orderData.is_test === true ? Promise.resolve(null) : ensureOrderCode(),
             activeDraftSave,
           ]);
-          if (!activeSaveConfirmed) {
-            toast.error('Não foi possível confirmar o salvamento do rascunho. Tente novamente.');
+          if (!canContinueAfterAutoSave) {
+            toast.error('A confirmação do rascunho ainda está pendente. Os dados permanecem no formulário.');
             return false;
           }
           if (orderData.is_test !== true) {
@@ -253,7 +256,6 @@ export const useOrderFormSubmission = ({
             orderData.id = latestState.current.currentOrderId;
           }
           try {
-            const creationKey = getDraftCreationKey();
             const savedDraftId = getSavedDraftIdForOrder(orderData);
             const canFinalizeSavedDraft = Boolean(
               typeof updateOrder === 'function' &&
@@ -281,9 +283,9 @@ export const useOrderFormSubmission = ({
                 await updateOrder(savedDraftId, { status: savedStatus });
                 savedId = savedDraftId;
               } else {
-                savedId = !orderData.id && creationKey
-                  ? await saveOrder(orderData, { idempotencyKey: creationKey })
-                  : await saveOrder(orderData);
+                savedId = orderData.id
+                  ? await saveOrder(orderData)
+                  : await saveOrder(orderData, { idempotencyKey: getOrderCreationKey() });
               }
               recordPersistenceResult('success');
             } catch (error) {
@@ -307,6 +309,10 @@ export const useOrderFormSubmission = ({
             }
             return { ...orderData, id: savedId, status: savedStatus };
           } catch (error: unknown) {
+            if (isOrderStatementTimeout(error)) {
+              toast.error('O banco demorou para confirmar a venda. Seus dados foram preservados. Tente finalizar novamente.');
+              return false;
+            }
             const message = (error as { message?: unknown } | null)?.message;
             toast.error(
               typeof message === 'string' && message
@@ -344,7 +350,7 @@ export const useOrderFormSubmission = ({
       cancelAutoSave,
       waitForActiveSave,
       resumeAutoSave,
-      getDraftCreationKey,
+      getOrderCreationKey,
       getSavedDraftIdForOrder,
       validateOrderForm,
       validateOrderDraft,

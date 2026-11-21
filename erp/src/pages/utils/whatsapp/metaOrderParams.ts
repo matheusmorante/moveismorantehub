@@ -6,6 +6,7 @@ import {
 } from '../formatters';
 import { calcItemTotalValue, calcPaymentTotalValue } from '../calculations';
 import { getEffectiveOrderDeliveryAddress } from '../orderDeliveryAddress';
+import { cleanOrderConfirmationText } from './orderConfirmationText';
 
 /**
  * Monta e sanitiza os parâmetros para modelos de mensagem (Templates) da Meta Cloud API.
@@ -91,8 +92,7 @@ export const buildOrderMetaTemplateParams = (order: Order, config?: any): string
 
   const cleanParam = (val: unknown): string => {
     return (
-      String(val ?? '')
-        .replace(/\uFFFD/g, '')
+      cleanOrderConfirmationText(String(val ?? ''))
         .replace(/[\r\n\t]+/g, ' • ')
         .replace(/\s{2,}/g, ' ')
         .trim() || '-'

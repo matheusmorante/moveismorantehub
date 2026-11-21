@@ -4,6 +4,7 @@ import { toTitleCase } from '../textUtils';
 import { getVariationDetails } from './productDraftSnapshot';
 import { resolveProductUnitPrice } from '../../../../../shared-utils/productUnitPrice';
 import { parseProductVariationAttributes } from '../../../../../shared-utils/productVariationAttributes';
+import { normalizeProductVariationSku } from '../../../../../shared-utils/productVariationSku';
 
 /**
  * Converte um atributo cru de variação em lista estruturada
@@ -32,13 +33,14 @@ export const mapDbVariations = (
     const varImages = parseVariationImages(v.image_url, v.images);
     const suffix = String(vIdx + 1).padStart(2, '0');
     const expectedPrefix = parentCode ? `${parentCode}-` : '';
+    const normalizedSku = normalizeProductVariationSku(v.sku, parentCode);
     const isAlreadyFormatted =
-      expectedPrefix && v.sku && typeof v.sku === 'string' && v.sku.startsWith(expectedPrefix);
+      expectedPrefix && normalizedSku && normalizedSku.startsWith(expectedPrefix);
     const resolvedSku = isAlreadyFormatted
-      ? v.sku
+      ? normalizedSku
       : parentCode
         ? `${parentCode}-${suffix}`
-        : v.sku || '';
+        : normalizedSku || v.sku || '';
 
     // Registros antigos podem ter sido gravados em maiúsculas. A interface
     // usa a mesma regra de formatação para todas as variações do produto.

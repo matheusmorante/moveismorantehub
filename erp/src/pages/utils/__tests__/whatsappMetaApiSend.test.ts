@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import {
   sendDirectCustomerOrderViaMetaApi,
+  customerOrderWhatsappUrl,
   isSamePhoneNumber,
   buildOrderMetaTemplateParams,
 } from '../whatsapp';
@@ -111,17 +112,42 @@ describe('sendDirectCustomerOrderViaMetaApi', () => {
 
     const result = await sendDirectCustomerOrderViaMetaApi(baseOrder as Order);
     expect(result).toBe(true);
-    expect(whatsappGraphService.sendTextMessage).toHaveBeenCalledWith(
-      '41999998888',
-      expect.stringContaining('Consumidor Teste')
-    );
-    expect(whatsappGraphService.sendTextMessage).toHaveBeenCalledWith(
-      '41999998888',
-      expect.stringContaining('Mesa de Jantar')
-    );
+    const message = new URL(customerOrderWhatsappUrl(baseOrder)).searchParams.get('text');
+    expect(whatsappGraphService.sendTextMessage).toHaveBeenCalledWith('41999998888', message);
+    expect(message).toContain('*Olá Consumidor Teste, seu pedido foi confirmado!*');
+    expect(message).toContain('\n*Entrega:*\n*Agendamento:* domingo, 25/10/2026 | 10:00');
+    expect(message).toContain('\n*Itens:*\nMesa de Jantar | 1 UN | R$');
+    expect(message).not.toMatch(/[\p{Emoji_Presentation}\uFE0F\uFFFD]/u);
     expect(toast.success).toHaveBeenCalledWith(
       expect.stringContaining('enviado diretamente ao cliente via Cloud WhatsApp')
     );
+  });
+
+  it('remove emojis de modelo personalizado e dos dados sem perder o texto da venda', () => {
+    vi.mocked(getSettings).mockReturnValue({
+      whatsappTemplates: {
+        orderConfirmation:
+          '*Olá {{customerName}}!* 📦\n\n\uFFFD 🛒 *Itens:*\n{{items}}\n\n*💳 Pagamento:*\n{{payments}}\n\nObrigado! 🇧🇷 1️⃣',
+      },
+    } as any);
+    const pickupOrder = {
+      ...baseOrder,
+      shipping: { ...baseOrder.shipping, deliveryMethod: 'pickup' },
+      items: [
+        {
+          ...baseOrder.items[0],
+          description: 'Mesa® de Jantar 👍🏽',
+          observation: 'Ref. #2 • Azul 👨‍👩‍👧',
+        },
+      ],
+    } as Order;
+
+    const message = new URL(customerOrderWhatsappUrl(pickupOrder)).searchParams.get('text');
+    expect(message).toContain('*Olá Consumidor Teste!*\n\n');
+    expect(message).toContain('\n*Retirada:*\n*Agendamento:* domingo, 25/10/2026 | 10:00');
+    expect(message).toContain('\n*Itens:*\nMesa® de Jantar - Ref. #2 • Azul | 1 UN | R$');
+    expect(message).toContain('\n*Pagamento:*\n\nObrigado!');
+    expect(message).not.toMatch(/\p{Emoji_Presentation}|\uFE0F|\u20E3|\u200D|\uFFFD/u);
   });
 
   it('realiza fallback para modelo aprovado quando a janela de 24h expira e há template cadastrado', async () => {
@@ -140,7 +166,11 @@ describe('sendDirectCustomerOrderViaMetaApi', () => {
     );
     vi.mocked(whatsappGraphService.sendTemplateMessage).mockResolvedValue({ success: true } as any);
 
-    const result = await sendDirectCustomerOrderViaMetaApi(baseOrder as Order);
+    const order = {
+      ...baseOrder,
+      customerData: { ...baseOrder.customerData, fullName: 'Consumidor Teste 👋' },
+    };
+    const result = await sendDirectCustomerOrderViaMetaApi(order);
     expect(result).toBe(true);
     expect(whatsappGraphService.sendTemplateMessage).toHaveBeenCalledWith(
       '41999998888',

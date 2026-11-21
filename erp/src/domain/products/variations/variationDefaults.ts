@@ -5,8 +5,8 @@ import { isSingleProductVariationFormMode } from '../../../../../shared-utils/pr
 import { normalizeProductVariationSku } from '../../../../../shared-utils/productVariationSku';
 
 /**
- * Remove somente o identificador interno que versões antigas ou colisões temporárias anexavam ao SKU.
- * Exemplo: 000123-01-a1b2c3 -> 000123-01
+ * Remove identificadores internos legados antes ou depois da sequência comercial do SKU.
+ * Exemplos: 000123_8303-01 -> 000123-01 e 000123-01-a1b2c3 -> 000123-01.
  */
 export const normalizeVariationSku = normalizeProductVariationSku;
 

@@ -8,6 +8,10 @@ import { mapToDB } from './productMapper';
 import { generateUniqueCode, TABLE_NAME } from './productSkuService';
 import { withTimeout } from '../../../../../shared-utils/withTimeout';
 import {
+  findNextAvailableVariationSku,
+  generateVariationSku,
+} from '../../../../../shared-utils/productVariationSku';
+import {
   fetchRequiredProductCategoryAttributes,
   projectRequiredCategoryAttributesToVariations,
   type RequiredProductCategoryAttribute,
@@ -193,19 +197,24 @@ export const syncProductToSupabase = async (
           );
         }
 
-        const candidateSkus = variationsWithUuid
-          .map(({ variation: v, originalIndex: index }) => {
-            const parentCode =
-              product.code && product.code !== '000000'
-                ? product.code
-                : generateUniqueCode(product.id, product.itemType);
-            const suffix = String(index + 1).padStart(2, '0');
-            const defaultSku = `${parentCode}-${suffix}`;
-            const rawSku =
-              v.sku && typeof v.sku === 'string' ? normalizeVariationSku(v.sku.trim()) : '';
-            return rawSku || defaultSku;
-          })
-          .filter(Boolean);
+        const variationParentCode =
+          product.code && product.code !== '000000'
+            ? product.code
+            : generateUniqueCode(product.id, product.itemType);
+        const candidateSkus = [
+          ...new Set(
+            variationsWithUuid
+              .map(({ variation: v, originalIndex: index }) => {
+                const defaultSku = generateVariationSku(variationParentCode, index);
+                const rawSku =
+                  v.sku && typeof v.sku === 'string'
+                    ? normalizeVariationSku(v.sku.trim(), variationParentCode)
+                    : '';
+                return rawSku || defaultSku;
+              })
+              .filter(Boolean)
+          ),
+        ];
 
         const [currentParentVariationsResult, existingVariationsResult] = await Promise.all([
           !isNonConventionalProduct(product)
@@ -217,9 +226,8 @@ export const syncProductToSupabase = async (
           candidateSkus.length > 0
             ? supabase
                 .from('product_variations')
-                .select('sku')
+                .select('id, sku')
                 .in('sku', candidateSkus)
-                .neq('product_id', product.id)
             : Promise.resolve({ data: [], error: null }),
         ]);
 
@@ -236,13 +244,55 @@ export const syncProductToSupabase = async (
           generatedDefaultId = generatedDefault?.id;
         }
 
-        let usedSkus = new Set(
-          (existingVariationsResult.data || [])
-            .map((variation: any) => String(variation.sku || ''))
-            .filter(Boolean)
+        const requestedVariationIds = new Set(
+          variationsWithUuid.map(({ variation }) => String(variation.id))
         );
+        const existingSkuOwners = new Map<string, string>();
+        const usedSkus = new Set<string>();
+        for (const existingVariation of existingVariationsResult.data || []) {
+          const sku = String(existingVariation.sku || '').trim();
+          const id = String(existingVariation.id || '');
+          if (!sku) continue;
+          existingSkuOwners.set(sku, id);
+          if (!requestedVariationIds.has(id)) usedSkus.add(sku);
+        }
 
-        const recordsToSave = variationsWithUuid.map(({ variation: v, originalIndex: index }) => {
+        const findAvailableSequentialSku = (variationId: string): Promise<string> =>
+          findNextAvailableVariationSku(
+            variationParentCode,
+            async (candidates) => {
+              const result = await withTimeout(
+                supabase
+                  .from('product_variations')
+                  .select('id, sku')
+                  .in('sku', [...candidates]),
+                10000,
+                null,
+                'produto:consultar-sku-sequencial-livre'
+              );
+              if (!result) {
+                throw new Error('A consulta de disponibilidade do SKU expirou. O produto não foi salvo.');
+              }
+              if (result.error) throw result.error;
+
+              const persistedCollisions = new Set<string>();
+              for (const existingVariation of result.data || []) {
+                const sku = String(existingVariation.sku || '').trim();
+                const id = String(existingVariation.id || '');
+                if (!sku) continue;
+                existingSkuOwners.set(sku, id);
+                if (id !== variationId) {
+                  persistedCollisions.add(sku);
+                  usedSkus.add(sku);
+                }
+              }
+              return persistedCollisions;
+            },
+            usedSkus
+          );
+
+        const recordsToSave: any[] = [];
+        for (const { variation: v, originalIndex: index } of variationsWithUuid) {
           const attributesToSave = (v.attributes || [])
             .filter((attr: any) => attr.name && (attr.value === null || typeof attr.value === 'boolean' || (typeof attr.value === 'string' && attr.value.trim())))
             .map((attr: any) => ({
@@ -251,36 +301,31 @@ export const syncProductToSupabase = async (
               showName: attr.showName ?? true,
             }));
 
-          const parentCode =
-            product.code && product.code !== '000000'
-              ? product.code
-              : generateUniqueCode(product.id, product.itemType);
-          const suffix = String(index + 1).padStart(2, '0');
-          const defaultSku = `${parentCode}-${suffix}`;
+          const defaultSku = generateVariationSku(variationParentCode, index);
+          const sourceSku = v.sku && typeof v.sku === 'string' ? v.sku.trim() : '';
           const rawSku =
-            v.sku && typeof v.sku === 'string' ? normalizeVariationSku(v.sku.trim()) : '';
+            sourceSku ? normalizeVariationSku(sourceSku, variationParentCode) : '';
+          const wasLegacySkuNormalized = Boolean(sourceSku && rawSku !== sourceSku);
           let resolvedSku = rawSku || defaultSku;
-          if (usedSkus.has(resolvedSku)) {
-            // Se o SKU foi gerado automaticamente ou é um rascunho, evita travar o salvamento gerando um SKU livre
-            if (!rawSku || rawSku === defaultSku || product.isDraft) {
-              let attempts = 1;
-              let candidateSku = `${parentCode}_${Date.now().toString().slice(-4)}-${suffix}`;
-              while (usedSkus.has(candidateSku) && attempts < 10) {
-                candidateSku = `${parentCode}_${Date.now().toString().slice(-4)}_${attempts}-${suffix}`;
-                attempts++;
-              }
-              resolvedSku = candidateSku;
+          const existingOwnerId = existingSkuOwners.get(resolvedSku);
+          const collidesWithAnotherVariation =
+            usedSkus.has(resolvedSku) ||
+            (existingOwnerId !== undefined && existingOwnerId !== String(v.id));
+          if (collidesWithAnotherVariation) {
+            if (!rawSku || rawSku === defaultSku || product.isDraft || wasLegacySkuNormalized) {
+              resolvedSku = await findAvailableSequentialSku(String(v.id));
             } else {
               throw new Error(
-                `O SKU da variação "${resolvedSku}" já está em uso por outro produto.`
+                `O SKU da variação "${resolvedSku}" já está em uso.`
               );
             }
           }
           usedSkus.add(resolvedSku);
+          existingSkuOwners.set(resolvedSku, String(v.id));
           v.sku = resolvedSku;
 
           const effectiveImages = v.images || [];
-          return {
+          recordsToSave.push({
             ...(v.id ? { id: v.id } : {}),
             product_id: product.id,
             name: v.name,
@@ -321,8 +366,8 @@ export const syncProductToSupabase = async (
               : v.active !== undefined
                 ? Boolean(v.active)
                 : product.active !== false,
-          };
-        });
+          });
+        }
 
         if (recordsToSave.length > 0) {
           const { error: varErr } = options.insertOnly

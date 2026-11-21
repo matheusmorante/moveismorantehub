@@ -1,7 +1,8 @@
 import {
+  findNextAvailableVariationSku,
   generateVariationSku,
   normalizeProductVariationSku,
 } from '../../../../../shared-utils/productVariationSku';
 
-export { generateVariationSku };
+export { findNextAvailableVariationSku, generateVariationSku };
 export const normalizeVariationSku = normalizeProductVariationSku;

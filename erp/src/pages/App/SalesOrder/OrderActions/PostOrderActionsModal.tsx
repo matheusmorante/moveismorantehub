@@ -131,7 +131,7 @@ const PostOrderActionsModal: React.FC<PostOrderActionsModalProps> = ({
           isButtonsStale: nextStaleButtons,
           ...(key === 'sendCustomerReviews' ? { reviewRequested: true } : {}),
         },
-        order,
+        order.updatedAt ? order : undefined,
         undefined,
         { metadataOnly: true }
       );

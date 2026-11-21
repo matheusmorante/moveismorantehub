@@ -31,6 +31,7 @@ const { mockSaveOrder } = vi.hoisted(() => ({ mockSaveOrder: vi.fn() }));
 
 vi.mock('@/pages/utils/orderHistoryService', () => ({
   saveOrder: mockSaveOrder,
+  updateOrder: vi.fn(),
   resolveCompletedOrderStatus: vi.fn((order: { orderType?: string }) =>
     order.orderType === 'budget' ? 'quoted' : 'scheduled'
   ),
@@ -116,7 +117,8 @@ describe('Persistência de Manuseios em Pedidos de Venda', () => {
     });
 
     expect(mockSaveOrder).toHaveBeenCalledWith(
-      expect.objectContaining({ orderType: 'budget', status: 'quoted' })
+      expect.objectContaining({ orderType: 'budget', status: 'quoted' }),
+      { idempotencyKey: expect.any(String) }
     );
     expect(completedOrder).toMatchObject({
       id: 'orcamento-123',

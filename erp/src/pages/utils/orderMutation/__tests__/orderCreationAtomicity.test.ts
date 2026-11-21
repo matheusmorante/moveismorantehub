@@ -91,6 +91,8 @@ const splitPayments = [
   },
 ];
 
+const statementTimeout = { code: '57014', message: 'canceling statement due to statement timeout' };
+
 describe('cadastro de pedido com estoque atômico', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -115,6 +117,79 @@ describe('cadastro de pedido com estoque atômico', () => {
       },
     });
     mocks.invalidateQueries.mockResolvedValue(undefined);
+  });
+
+  it('repete uma criação cancelada pelo PostgreSQL com os mesmos argumentos e notifica uma vez', async () => {
+    mocks.rpc
+      .mockResolvedValueOnce({ data: null, error: statementTimeout })
+      .mockResolvedValueOnce({
+        data: { id: 'saved-order', order_index: 123, order_data: scheduledSale },
+        error: null,
+      });
+
+    await expect(executeSaveOrder({ ...scheduledSale, orderIndex: 123 } as any, vi.fn(), {
+      idempotencyKey: 'sale-request-id',
+    })).resolves.toBe('saved-order');
+    expect(mocks.rpc).toHaveBeenCalledTimes(2);
+    expect(mocks.rpc.mock.calls[1]).toEqual(mocks.rpc.mock.calls[0]);
+    expect(mocks.dispatchNotifications).toHaveBeenCalledOnce();
+  });
+
+  it('propaga a falha de transporte sem repetir uma gravação de resultado incerto', async () => {
+    const transportError = { code: '', message: 'Failed to fetch' };
+    mocks.rpc.mockResolvedValueOnce({ data: null, error: transportError });
+
+    await expect(executeSaveOrder({ ...scheduledSale, orderIndex: 123 } as any, vi.fn()))
+      .rejects.toEqual(transportError);
+    expect(mocks.rpc).toHaveBeenCalledOnce();
+    expect(mocks.dispatchNotifications).not.toHaveBeenCalled();
+  });
+
+  it('protege a repetição de uma atualização contra edição concorrente', async () => {
+    const current = { ...scheduledSale, id: 'saved-order', orderIndex: 123, updatedAt: '2026-11-21T13:00:00.000Z' } as any;
+    setPersistedOrderDataSnapshot(current, current);
+    mocks.rpc
+      .mockResolvedValueOnce({ data: null, error: statementTimeout })
+      .mockResolvedValueOnce({ data: null, error: { code: 'P0001', message: 'ORDER_VERSION_CONFLICT' } });
+
+    await expect(executeUpdateOrder(current.id, { status: 'fulfilled' }, current))
+      .rejects.toThrow('O pedido mudou durante o salvamento.');
+    expect(mocks.rpc).toHaveBeenCalledTimes(2);
+    const [, initial] = mocks.rpc.mock.calls[0];
+    expect(mocks.rpc).toHaveBeenNthCalledWith(2, 'update_order_with_inventory_transaction_if_version', {
+      p_order_id: initial.p_order_id,
+      p_expected_updated_at: current.updatedAt,
+      p_order_payload: initial.p_order_payload,
+      p_items: initial.p_items,
+      p_payments: initial.p_payments,
+    });
+    expect(mocks.dispatchUpdateNotifications).not.toHaveBeenCalled();
+  });
+
+  it('recupera a versão persistida para repetir o registro de uma ação pós-venda recém-criada', async () => {
+    const updatedAt = '2026-11-21T13:00:00.000Z';
+    const orderData = { ...scheduledSale, orderIndex: 123 };
+    const select = vi.fn().mockReturnValue({
+      eq: () => ({
+        single: async () => ({
+          data: { order_data: orderData, updated_at: updatedAt },
+          error: null,
+        }),
+      }),
+    });
+    mocks.from.mockReturnValue({ select });
+    mocks.rpc
+      .mockResolvedValueOnce({ data: null, error: statementTimeout })
+      .mockResolvedValueOnce({ data: { order_data: orderData }, error: null });
+
+    await executeUpdateOrder('saved-order', { isButtonsClicked: { sendCustomerReviews: true } },
+      undefined, undefined, { metadataOnly: true });
+
+    expect(mocks.from).toHaveBeenCalledWith('orders');
+    expect(select).toHaveBeenCalledWith(expect.stringContaining('updated_at'));
+    expect(mocks.rpc).toHaveBeenNthCalledWith(2, 'update_order_with_inventory_transaction_if_version',
+      expect.objectContaining({ p_order_id: 'saved-order', p_expected_updated_at: updatedAt }));
+    expect(mocks.dispatchUpdateNotifications).not.toHaveBeenCalled();
   });
 
   it('prepara o snapshot do cliente e os snapshots fiscais dos itens em paralelo na criação', async () => {

@@ -6,12 +6,15 @@ import type { Payment } from '@/pages/types/payments.type';
 import CustomerData from '@/pages/types/customerData.type';
 import type { ValidationErrors } from '@/pages/utils/validations';
 import { saveOrder } from '@/pages/utils/orderHistoryService';
+import { isOrderStatementTimeout } from '@/pages/utils/orderMutation/orderStatementTimeout';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { orderDraftFormSchema } from '../../../../../../shared-utils/orderDomainValidation';
 import { withTimeout } from '../../../../../../shared-utils/withTimeout';
 import type { z } from 'zod';
 
 export type DraftAutoSaveStatus = 'idle' | 'pending' | 'saving' | 'saved' | 'error';
+type DraftSaveResult = 'saved' | 'not-saved' | 'unconfirmed';
+const DRAFT_SAVE_CONFIRMATION_TIMEOUT_MS = 30_000;
 
 const serializeOrderContent = (order: Partial<Order>): string => {
   const { id: _id, status: _status, ...content } = order;
@@ -53,7 +56,7 @@ export function useOrderAutoSave(
   const [resumeRevision, setResumeRevision] = useState(0);
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const saveWarningTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const activeSavePromiseRef = useRef<Promise<boolean> | null>(null);
+  const activeSavePromiseRef = useRef<Promise<DraftSaveResult> | null>(null);
   const activeSignatureRef = useRef<string | null>(null);
   const creationKeyRef = useRef<string | undefined>(undefined);
   const savedDraftContentSignatureRef = useRef<string | null>(null);
@@ -93,7 +96,10 @@ export function useOrderAutoSave(
     resetBaselineRef.current = true;
   }, [cancelAutoSave]);
 
-  const getDraftCreationKey = useCallback(() => creationKeyRef.current, []);
+  const getOrderCreationKey = useCallback(() => {
+    creationKeyRef.current ??= crypto.randomUUID();
+    return creationKeyRef.current;
+  }, []);
 
   const getSavedDraftIdForOrder = useCallback((order: Order): string | undefined => {
     const orderId = latestStateRef.current.currentOrderId as string | undefined;
@@ -115,30 +121,30 @@ export function useOrderAutoSave(
   const waitForActiveSave = useCallback(async (): Promise<boolean> => {
     cancelAutoSave();
     if (!activeSavePromiseRef.current) return true;
-    const result = await withTimeout<boolean | null>(
-      activeSavePromiseRef.current, 15000, null, 'pedido:confirmar-rascunho'
+    const result = await withTimeout<DraftSaveResult | null>(
+      activeSavePromiseRef.current, DRAFT_SAVE_CONFIRMATION_TIMEOUT_MS, null, 'pedido:confirmar-rascunho'
     );
     if (result === null) setDraftAutoSaveStatus('error');
-    return result === true;
+    return result === 'saved' || result === 'not-saved';
   }, [cancelAutoSave]);
 
-  const saveLatestDraft = useCallback(async (): Promise<boolean> => {
+  const saveLatestDraft = useCallback(async (): Promise<DraftSaveResult> => {
     while (activeSavePromiseRef.current) await activeSavePromiseRef.current;
 
-    if (!enabledRef.current || latestStateRef.current.status !== 'draft') return true;
+    if (!enabledRef.current || latestStateRef.current.status !== 'draft') return 'saved';
     if (latestStateRef.current.isSaving || latestStateRef.current.submissionInFlight) {
       setDraftAutoSaveStatus('idle');
-      return false;
+      return 'not-saved';
     }
 
     const saveSignature = latestSignatureRef.current;
     if (saveSignature === savedSignatureRef.current) {
       setDraftAutoSaveStatus((current) => current === 'pending' ? 'idle' : current);
-      return true;
+      return 'saved';
     }
     if (!latestStateRef.current.orderIndex && !latestStateRef.current.currentOrderId && !latestStateRef.current.isTestMode) {
       setDraftAutoSaveStatus('error');
-      return false;
+      return 'not-saved';
     }
 
     const generation = generationRef.current;
@@ -148,19 +154,19 @@ export function useOrderAutoSave(
     } catch (error) {
       console.error('Erro ao preparar o rascunho:', error);
       setDraftAutoSaveStatus('error');
-      return false;
+      return 'not-saved';
     }
-    if (!draft.id && !creationKeyRef.current) creationKeyRef.current = crypto.randomUUID();
-    const creationKey = creationKeyRef.current;
+    const creationKey = draft.id ? undefined : getOrderCreationKey();
     activeSignatureRef.current = saveSignature;
     setDraftAutoSaveStatus('saving');
     const warningTimer = setTimeout(() => {
       if (generation === generationRef.current && activeSignatureRef.current === saveSignature) {
         setDraftAutoSaveStatus('error');
       }
-    }, 15000);
+    }, DRAFT_SAVE_CONFIRMATION_TIMEOUT_MS);
     saveWarningTimerRef.current = warningTimer;
-    const pending = (async () => {
+    const pending = (async (): Promise<DraftSaveResult> => {
+      let persistenceStarted = false;
       try {
         let validatedDraftContentSignature: string | null = null;
         const savedId = await validateOrderDraft(
@@ -168,6 +174,7 @@ export function useOrderAutoSave(
           (data) => {
             const orderToSave = data as unknown as Order;
             validatedDraftContentSignature = serializeOrderContent(orderToSave);
+            persistenceStarted = true;
             return data.id || !creationKey
               ? saveOrder(orderToSave)
               : saveOrder(orderToSave, { idempotencyKey: creationKey });
@@ -194,7 +201,7 @@ export function useOrderAutoSave(
             saveSignature === latestSignatureRef.current ? 'saved' : 'pending'
           );
         }
-        return true;
+        return 'saved';
       } catch (error) {
         console.error('Erro no salvamento automático:', error);
         if (generation === generationRef.current) {
@@ -202,7 +209,7 @@ export function useOrderAutoSave(
             saveSignature === latestSignatureRef.current ? 'error' : 'pending'
           );
         }
-        return false;
+        return !persistenceStarted || isOrderStatementTimeout(error) ? 'not-saved' : 'unconfirmed';
       } finally {
         clearTimeout(warningTimer);
         if (saveWarningTimerRef.current === warningTimer) saveWarningTimerRef.current = null;
@@ -212,14 +219,14 @@ export function useOrderAutoSave(
     })();
     activeSavePromiseRef.current = pending;
     return pending;
-  }, [getOrderData, latestStateRef, setCurrentOrderId, setErrors, validateOrderDraft]);
+  }, [getOrderCreationKey, getOrderData, latestStateRef, setCurrentOrderId, setErrors, validateOrderDraft]);
 
   const flushDraftAutoSave = useCallback(async (): Promise<boolean> => {
     cancelAutoSave();
     const flush = (async () => {
       while (enabledRef.current && latestStateRef.current.status === 'draft') {
         while (activeSavePromiseRef.current) {
-          if (!(await activeSavePromiseRef.current)) return false;
+          if ((await activeSavePromiseRef.current) !== 'saved') return false;
         }
         if (latestSignatureRef.current === savedSignatureRef.current) return true;
         if (!latestStateRef.current.orderIndex && !latestStateRef.current.currentOrderId && !latestStateRef.current.isTestMode) {
@@ -229,7 +236,7 @@ export function useOrderAutoSave(
             return false;
           }
         }
-        if (!(await saveLatestDraft())) return false;
+        if ((await saveLatestDraft()) !== 'saved') return false;
       }
       return true;
     })();
@@ -304,6 +311,6 @@ export function useOrderAutoSave(
     markLoadedDraftBaseline,
     getSavedDraftIdForOrder,
     resumeAutoSave,
-    getDraftCreationKey,
+    getOrderCreationKey,
   };
 }

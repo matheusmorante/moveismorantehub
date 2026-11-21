@@ -15,6 +15,10 @@ import {
 } from './orderDeliveryAddress';
 import { splitNoticeTags } from './noticeTags';
 import {
+  cleanOrderConfirmationText,
+  DEFAULT_ORDER_CONFIRMATION_TEMPLATE,
+} from './whatsapp/orderConfirmationText';
+import {
   DELIVERY_NOTICE_OPTIONS,
   normalizeNotice,
 } from '@/pages/App/SalesOrder/components/steps/logisticsNoticeRules';
@@ -199,7 +203,6 @@ const buildCustomerOrderStagesBlock = (order: Order) => {
       : operationPositions.delivery;
     const operationCount = method === 'pickup' ? operationCounts.pickup : operationCounts.delivery;
     const methodLabel = method === 'pickup' ? 'Retirada' : 'Entrega';
-    const icon = method === 'pickup' ? '🏬' : '🚚';
     const ordinal = operationCount > 1 ? ` ${operationPosition}` : '';
     const schedule =
       operation.scheduling.immediatePickup && method === 'pickup'
@@ -209,7 +212,7 @@ const buildCustomerOrderStagesBlock = (order: Order) => {
           : operation.scheduling.notInformed
             ? 'Agendamento não informado'
             : formatOperationScheduleOption(operation.scheduling);
-    const lines = [`${icon} *${methodLabel}${ordinal}:*`, `🗓️ *Agendamento:* ${schedule}`];
+    const lines = [`*${methodLabel}${ordinal}:*`, `*Agendamento:* ${schedule}`];
 
     if (method === 'delivery') {
       const address = operation.useCustomerAddress
@@ -218,7 +221,7 @@ const buildCustomerOrderStagesBlock = (order: Order) => {
       const addressText = !shipping?.noAddress
         ? stringifyFullAddressWithObservation(address)
         : '';
-      lines.push(`🏠 *Endereço:* ${addressText || 'Endereço não informado'}`);
+      lines.push(`*Endereço:* ${addressText || 'Endereço não informado'}`);
     }
 
     return lines.join('\n');
@@ -226,7 +229,7 @@ const buildCustomerOrderStagesBlock = (order: Order) => {
 
   const operationsText = operationBlocks.join('\n\n');
   return operations.length > 1
-    ? `📋 *Etapas do pedido:*\n${operationsText}`
+    ? `*Etapas do pedido:*\n${operationsText}`
     : operationsText;
 };
 
@@ -234,14 +237,14 @@ const prepareCustomerOrderTemplate = (template: string) => {
   const normalizedLines = removeLegacyOperationSections(template)
     .split(/\r?\n/)
     .map((line) => {
-      if (/^\s*(?:📋\s*)?\*{0,2}etapas do pedido:?\*{0,2}\s*$/i.test(line)) return '';
-      if (/^\s*\*{0,2}vendedor:?\*{0,2}\s*$/i.test(line)) return '👤 *Vendedor:*';
-      if (/^\s*(?:🛒\s*)?\*{0,2}itens:?\*{0,2}\s*$/i.test(line)) return '🛒 *Itens:*';
+      if (/^\s*\*{0,2}etapas do pedido:?\*{0,2}\s*$/i.test(line)) return '';
+      if (/^\s*\*{0,2}vendedor:?\*{0,2}\s*$/i.test(line)) return '*Vendedor:*';
+      if (/^\s*\*{0,2}itens:?\*{0,2}\s*$/i.test(line)) return '*Itens:*';
       const totalValueLine = line.match(
-        /^(\s*)(?:💰\s*)?\*{0,2}valor total(?: da compra| do pedido)?:?\*{0,2}(.*)$/i
+        /^(\s*)\*{0,2}valor total(?: da compra| do pedido)?:?\*{0,2}(.*)$/i
       );
-      if (totalValueLine) return `${totalValueLine[1]}💰 *Valor total da compra:*${totalValueLine[2]}`;
-      if (/^\s*(?:💳\s*)?\*{0,2}pagamento:?\*{0,2}\s*$/i.test(line)) return '💳 *Pagamento:*';
+      if (totalValueLine) return `${totalValueLine[1]}*Valor total da compra:*${totalValueLine[2]}`;
+      if (/^\s*\*{0,2}pagamento:?\*{0,2}\s*$/i.test(line)) return '*Pagamento:*';
       return line;
     });
 
@@ -479,58 +482,15 @@ export const buildDeliveryMessage = (order: Order) => {
   return finalMessage;
 };
 
-const repairCustomerMessageEmojis = (message: string) => {
-  const emojiForLabel = (label: string) => {
-    const normalized = label.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-    if (normalized.startsWith('etapas')) return '📋';
-    if (normalized.startsWith('valor total')) return '💰';
-
-    const emojiByLabel: Record<string, string> = {
-      entrega: '🚚',
-      retirada: '🏬',
-      agendamento: '🗓️',
-      agendamentos: '🗓️',
-      programacao: '🗓️',
-      endereco: '🏠',
-      itens: '🛒',
-      pagamento: '💳',
-      contato: '📞',
-      vendedor: '👤',
-      frete: '🚚',
-      distancia: '📍',
-      'avisos importantes': '⚠️',
-    };
-    return emojiByLabel[normalized] || '';
-  };
-
-  // Consome um marcador para a saudação; marcadores seguintes ainda podem
-  // pertencer ao título da primeira etapa (por exemplo, Entrega).
-  const withRestoredGreetingEmoji = message.replace(
-    /^(\s*\*Olá\b[^\r\n]*?\*)[ \t]*\uFFFD/i,
-    '$1 📦'
-  );
-  const withRestoredLabelEmojis = withRestoredGreetingEmoji.replace(
-    /(?:\uFFFD[ \t]*)+(?=\*{0,2}[ \t]*(Etapas do pedido|Entrega|Retirada|Agendamento|Agendamentos|Programação|Endereço|Itens(?: desta operação)?|Valor total(?: da compra| do pedido)?|Pagamento|Contato|Vendedor|Frete|Distância|Avisos importantes)[ \t]*:)/giu,
-    (_replacement, label: string) => {
-      const emoji = emojiForLabel(label);
-      return emoji ? `${emoji} ` : '';
-    }
-  );
-
-  // Remove any remaining replacement characters from legacy templates or
-  // malformed source text so they are never sent to the customer.
-  return withRestoredLabelEmojis
-    .replace(/\uFFFD/g, '')
-    .replace(/[ \t]+\n/g, '\n');
-};
-
 export const buildCustomerOrderMessage = (order: Order) => {
   const settings = getSettings();
   const customer = order.customerData;
-  const defaultTemplate =
-    '*Olá {{customerName}}, seu pedido foi confirmado!* 📦\n\n👤 *Vendedor:* {{seller}}\n\n{{operations}}\n\n🛒 *Itens:*\n{{items}}\n\n💰 *Valor total da compra:* {{totalValue}}\n\n💳 *Pagamento:*\n{{payments}}';
-  const template = settings.whatsappTemplates?.orderConfirmation || defaultTemplate;
-  const message = prepareCustomerOrderTemplate(template);
+  const configuredTemplate = cleanOrderConfirmationText(
+    settings.whatsappTemplates?.orderConfirmation || ''
+  ).trim();
+  const message = prepareCustomerOrderTemplate(
+    configuredTemplate || DEFAULT_ORDER_CONFIRMATION_TEMPLATE
+  );
   const operationsBlock = buildCustomerOrderStagesBlock(order);
 
   let itemsBlock = stringifyItemsWithValues(order.items || []);
@@ -538,7 +498,7 @@ export const buildCustomerOrderMessage = (order: Order) => {
     itemsBlock += `\n*Frete:* ${formatCurrency(order.shipping.value)}`;
   }
 
-  let finalMessage = message
+  const finalMessage = message
     .replace(/{{customerName}}/g, () => customer.fullName || 'Cliente')
     .replace(/{{operations}}/g, () => operationsBlock)
     .replace(/{{deliveryDate}}|{{deliveryTime}}|{{address}}/g, '')
@@ -547,13 +507,11 @@ export const buildCustomerOrderMessage = (order: Order) => {
     .replace(/{{seller}}/g, () => order.seller || 'Não informado')
     .replace(/{{payments}}/g, () => stringifyPayments(order.payments || []));
 
-  return repairCustomerMessageEmojis(
-    finalMessage
-      .replace(/R\$\s*R\$/g, 'R$')
-      .replace(/[ \t]+\n/g, '\n')
-      .replace(/\n{3,}/g, '\n\n')
-      .trim()
-  );
+  return cleanOrderConfirmationText(finalMessage)
+    .replace(/R\$\s*R\$/g, 'R$')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
 };
 
 export const buildAssistanceMessage = (order: Order) => {

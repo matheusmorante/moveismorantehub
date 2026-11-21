@@ -1,5 +1,9 @@
 # Fonte do guia prático do estoque
 
+## Atualização de 21/11/2026 — reconhecimento de vínculos pelo código do fornecedor
+
+A página 8 esclarece que o ERP e o app reconhecem, pela combinação de fornecedor e código completo, um produto e uma variação vinculados em nota anterior. Confira os dados preenchidos. Se não houver uma única correspondência segura, o item fica pendente para revisão ou vínculo manual.
+
 ## Atualização de 20/11/2026 — reaproveitamento de vínculos da NF-e
 
 A página 8 orienta a conferir o fornecedor, o produto e a variação preenchidos pelo histórico. No ERP e no app, use Gerenciar vínculos para revisar os itens que ficaram pendentes. O código completo do fornecedor diferencia as variações, inclusive quando o começo do código é igual.

@@ -152,7 +152,7 @@ describe('useOrderAutoSave', () => {
     await act(async () => { await vi.advanceTimersByTimeAsync(3000); });
     expect(result.current.draftAutoSaveStatus).toBe('saving');
 
-    await act(async () => { await vi.advanceTimersByTimeAsync(15000); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(30_000); });
     expect(result.current.draftAutoSaveStatus).toBe('error');
     expect(saveOrder).toHaveBeenCalledOnce();
 

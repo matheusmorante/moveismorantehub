@@ -13,6 +13,7 @@ import {
   MORANTE_PICKUP_HANDLING_OPTIONS,
 } from '../handlingMigration';
 import { PERMISSION_ACTIONS } from '../permissionConfig';
+import { DEFAULT_ORDER_CONFIRMATION_TEMPLATE } from '../whatsapp/orderConfirmationText';
 
 export const SETTINGS_KEY = 'pdv_app_settings';
 export const SUPABASE_SETTINGS_TABLE = 'settings';
@@ -308,8 +309,7 @@ RESPOSTA NO FORMATO JSON:
   whatsappTemplates: {
     reviewRequest:
       '*Olá {{customerName}}!* 👋\n\nFicamos muito felizes com sua compra na Móveis Morante! \n\nPoderia nos ajudar avaliando nosso atendimento no Google? Leva menos de 1 minuto e nos ajuda muito: \n\n{{reviewUrl}}\n\nMuito obrigado!',
-    orderConfirmation:
-      '*Olá {{customerName}}, seu pedido foi confirmado!* 📦\n\n👤 *Vendedor:* {{seller}}\n\n{{operations}}\n\n🛒 *Itens:*\n{{items}}\n\n💰 *Valor total da compra:* {{totalValue}}\n\n💳 *Pagamento:*\n{{payments}}',
+    orderConfirmation: DEFAULT_ORDER_CONFIRMATION_TEMPLATE,
     deliveryInfo:
       '____________________\n\n*Nova venda para {{customerName}}* 📦\n\n*Vendedor:* {{seller}}\n\n{{operations}}\n\n📞 *Contato:*\n{{phone}}\n\n💰 *Total:* R$ {{totalValue}}\n\n💳 *Pagamento:*\n{{payments}}\n\n📍🗺️ *Google Maps Rota:*\n{{routeUrl}}',
     assistanceConfirmation:
