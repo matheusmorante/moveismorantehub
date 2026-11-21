@@ -45,3 +45,19 @@
 **Validação:** antes da aplicação, o hash da função ativa era dd016ffcc36d1b0a2c7027847268d2e9, exatamente a versão-base esperada; a tabela tinha índice por invoice_id e índice único por nota/item. Após a migration, o hash remoto d632bf0dbb36782fae55c660187deafc confirmou que a função aplicada corresponde ao arquivo local. A função remota segue SECURITY INVOKER e search_path vazio, não permite execução por anon e permite authenticated e service_role. A versão remota 20261121133635 consta no histórico. Não executei testes ou build, não invoquei a RPC com notas reais e não criei fixtures. Assim, a definição e as permissões remotas foram verificadas, mas não houve prova funcional de ponta a ponta com uma nova NF.
 
 **Consumo e limite:** o cliente mantém a mesma chamada RPC e o mesmo formato de resposta; não são adicionados campos nem bytes de resposta. A função faz leitura adicional no banco usando os índices já existentes de invoice_id e (invoice_id, item_number); CPU e latência antes/depois não foram medidas. A aplicação do código do ERP/app em ambiente publicado não ocorreu neste trabalho.
+
+## Rótulo acessível do cadastro rápido por item da NF
+
+**Problema e sintomas:** uma nota pode ter vários botões com o nome acessível idêntico “Cadastro rápido”. A automação semântica não consegue distinguir com segurança qual item deve ser cadastrado.
+
+**Causa raiz técnica comprovada:** o botão do cabeçalho da linha da NF expunha um nome acessível genérico, sem o número nem o código do item. Na NF apresentada, os itens 4 e 5 têm o mesmo rótulo.
+
+**Solução técnica:** o nome acessível inclui o número do item e o código completo do fornecedor, preservando o texto visual existente.
+
+**Arquivos e linhas modificados:**
+
+- `erp/src/pages/App/Stock/InboundInvoices/components/InboundItemLinkHeader.tsx:202`
+- `docs/fiscal/README.md:10`
+- `docs/fiscal/historico-correcoes-2026-11-21.md:49–63`
+
+**Validação e limite:** revisão estática do componente e dos rótulos. Não executei testes ou build. A alteração local não está publicada; por isso, ela ainda não muda os nomes expostos pela página de produção nem conclui os cadastros da NF.

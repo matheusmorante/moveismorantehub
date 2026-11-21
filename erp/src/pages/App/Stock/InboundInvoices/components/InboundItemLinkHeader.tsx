@@ -199,7 +199,7 @@ export const InboundItemLinkHeader: React.FC<InboundItemLinkHeaderProps> = ({
       {isSingle && (
         <button
           type="button"
-          aria-label="Cadastro rápido"
+          aria-label={`Cadastro rápido: item ${item.itemNumber}, código do fornecedor ${item.productCode || 'sem código'}`}
           title={
             quickRegisterDisabled
               ? !supplierId?.trim()
