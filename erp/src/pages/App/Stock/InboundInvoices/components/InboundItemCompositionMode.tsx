@@ -59,7 +59,7 @@ export const InboundItemCompositionMode: React.FC<InboundItemCompositionModeProp
                 <div className="flex items-start gap-2 min-w-0">
                   <i className="bi bi-check-circle-fill text-emerald-600 dark:text-emerald-400 mt-0.5 shrink-0" />
                   <div className="min-w-0">
-                    <p className="text-xs font-black text-emerald-800 dark:text-emerald-200 truncate">
+                    <p className="whitespace-normal break-words text-xs font-black text-emerald-800 dark:text-emerald-200">
                       {c.productErpName}
                     </p>
                     <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-0.5">

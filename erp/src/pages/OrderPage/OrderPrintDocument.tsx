@@ -133,7 +133,12 @@ export const OrderPrintDocument: React.FC<OrderPrintDocumentProps> = ({
         <div className="text-[11px] font-black uppercase tracking-widest text-slate-400 mb-2 ml-2 flex items-center gap-2">
           {isOperationInfo ? 'ITENS' : 'ESPECIFICAÇÕES DOS ITENS'}
         </div>
-        <ItemsTable items={documentOrder.items} summary={itemsSummary} compact={isOperationInfo} />
+        <ItemsTable
+          items={documentOrder.items}
+          summary={itemsSummary}
+          compact={isOperationInfo}
+          deliveryMethod={isOperationInfo ? documentOrder.shipping?.deliveryMethod : undefined}
+        />
       </div>
 
       <div

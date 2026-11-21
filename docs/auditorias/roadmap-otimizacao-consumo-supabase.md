@@ -1,3 +1,17 @@
+## 21/11/2026 — SCE-347 — limite de execução das RPCs de pedidos
+
+**Sintoma e causa comprovada.** Após as otimizações da SCE-346, o operador relatou novas falhas ao finalizar vendas. Nos logs do Supabase, `create_order_with_inventory_transaction` e as RPCs de listagem retornaram HTTP 500 com `SQLSTATE 57014` (`canceling statement due to statement timeout`). A configuração remota ainda limitava `authenticated` e `authenticator` a 8 segundos, enquanto o cliente de lista e agenda cancelava aos 15 segundos. As chamadas de criação e listagem registravam máximos amostrais próximos de 8 segundos; essa amostra é censurada pelo limite e não representa a duração real das chamadas canceladas.
+
+**Solução aplicada.** A migration `20261121155207` eleva para 20 segundos somente `create_order_with_inventory_transaction`, `list_order_page_ids` e `list_order_schedule_ids`. O timeout global das roles permanece em 8 segundos e o limite de transação ociosa permanece em 60 segundos. As esperas no cliente compartilhado do ERP e do app para a listagem paginada e a agenda passam para 25 segundos; o autosave do ERP já aguardava até 30 segundos. Permissões, filtros, paginação de 15 itens e lógica de estoque não foram alterados.
+
+- **Chamadas, banco e bytes:** nenhuma chamada ou linha retornada foi acrescentada; filtros e limites existentes permanecem no banco antes da resposta. O novo limite pode permitir que uma chamada já lenta use mais tempo de CPU em situação de contenção. Não há medição de redução de chamadas, CPU, bytes, egress oficial ou latência após a alteração.
+- **Estado e validação:** a configuração foi aplicada somente às três funções após conferir hashes de origem, `statement_timeout` das roles e histórico remoto até `20261121135527`; a migration foi registrada remotamente como `20261121155207` e a verificação posterior confirma `20s` em `pg_proc.proconfig`. Nenhuma gravação de pedido, fixture ou teste foi executada; a validação de salvamento ponta a ponta e a publicação do ERP permanecem pendentes.
+- **Limites conhecidos:** a falha de alertas de produtos e os erros `405`/CORS de push são caminhos separados e não foram alterados. A consulta completa do Meta Catalog também permanece pendente: o proxy ERP atual lista uma página por chamada, e a identidade/permissão da sessão disponível não pôde ser confirmada sem a skill obrigatória de automação `agent-desktop`; por isso a sincronização em massa dos dois catálogos não foi iniciada.
+
+**Arquivos:** `supabase/migrations/20261121155207_extend_order_rpc_statement_timeouts.sql`, `shared-utils/orderListServerQuery.ts`, `shared-utils/orderScheduleServerQuery.ts` e este roadmap.
+
+---
+
 ## 21/11/2026 — SCE-346 — reduzir trabalho na confirmação e na listagem de vendas
 
 **Decisão executada.** O operador pediu a correção da finalização intermitente. Os logs registraram 13 respostas HTTP 500 da transação do pedido com `57014`. A listagem e o painel serializavam pedidos inteiros e o decodificador de artefatos tentava interpretar observações comuns como JSON. Foi escolhida a projeção mínima com a mesma classificação de teste, junto de uma única repetição de gravação quando o banco confirma o cancelamento por timeout. Aumentar o timeout do banco manteria o custo das consultas e a disputa por recursos.

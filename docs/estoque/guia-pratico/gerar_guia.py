@@ -411,7 +411,7 @@ y = step(3, 'Confira e associe os produtos', 'Verifique se os itens aparecem e, 
 y = note('Ciência sem confirmação', 'Se aparecer “Comunicação sem confirmação”, consulte o Histórico Fiscal antes de tentar registrar a Ciência novamente. O envio pode ter sido processado mesmo sem uma resposta na tela. A SEFAZ também pode exigir uma Ciência aceita para liberar o XML no Portal.', y, fill=AMBER)
 
 # 07 - Vínculos
-y = base('03 / Vínculos', 'Associe a nota aos cadastros corretos', 'Abra Gerenciar vínculos em Vinculações Pendentes ou nos três pontinhos. Aguarde o carregamento da nota e dos vínculos antes de editar.')
+y = base('03 / Vínculos', 'Associe a nota aos cadastros corretos', 'Abra Gerenciar vínculos em Vinculações Pendentes, em Vinculação Completa ou nos três pontinhos. Aguarde o carregamento da nota e dos vínculos antes de editar.')
 y = shot('04-gerenciar-vinculos', y, max_height=290, caption='1 Fornecedor  •  2 seletor de modo; Cadastro rápido apenas em Único  •  3 Gerar recebimento abre a NF no app. “Não se aplica” ignora o item no estoque.')
 y = shot('04b-fornecedor', y, max_height=65, caption='Ampliação do campo de fornecedor. Quando estiver bloqueado, clique ou toque para consultar o motivo.')
 y = step(1, 'Confira o fornecedor', 'O ERP e o app reaproveitam o fornecedor conhecido pelo CNPJ do Emitente. Confira o nome ou escolha o fornecedor se o campo estiver vazio. Se estiver bloqueado, toque para ver o motivo. Para trocar, desvincule os produtos antes. Fornecedor exclusivo de Salvados fica em “Não se aplica” e não gera recebimento.', y)

@@ -116,14 +116,21 @@ export const InvoiceCardContent: React.FC<Props> = ({
                 </TouchableOpacity>
               )}
               {!isSalvados && hasCompleteBindings && (
-                <View
+                <TouchableOpacity
                   style={[styles.badge, { backgroundColor: isDarkMode ? '#064e3b' : '#d1fae5' }]}
+                  onPress={(event) => {
+                    event.stopPropagation();
+                    onManageMappings(item);
+                  }}
+                  activeOpacity={0.85}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Gerenciar vínculos da NF-e ${item.number}`}
                 >
                   <CheckCircle2 size={12} color={isDarkMode ? '#6ee7b7' : '#047857'} />
                   <Text style={[styles.badgeText, { color: isDarkMode ? '#6ee7b7' : '#047857' }]}>
                     VINCULAÇÃO COMPLETA
                   </Text>
-                </View>
+                </TouchableOpacity>
               )}
             </>
           )}

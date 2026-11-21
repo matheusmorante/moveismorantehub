@@ -25,7 +25,7 @@ export async function fetchServerOrderPage(
     p_page: page,
     p_page_size: pageSize,
     p_mode: options.mode,
-  }), 'pedidos:filtros-servidor', 15_000, options.signal);
+  }), 'pedidos:filtros-servidor', 25_000, options.signal);
   if (result.error) throw result.error;
 
   const data = result.data as Partial<ServerOrderPage> | null;

@@ -1,15 +1,17 @@
 import Item from '../../types/items.type';
 import Footer from './Footer';
 import { ItemsSummary } from '../../types/items.type';
+import type Shipping from '../../types/Shipping.type';
 import Body from './Body';
 
 interface Props {
   items: Item[];
   summary: ItemsSummary;
   compact?: boolean;
+  deliveryMethod?: Shipping['deliveryMethod'];
 }
 
-const ItemsTable = ({ items, summary, compact = false }: Props) => {
+const ItemsTable = ({ items, summary, compact = false, deliveryMethod }: Props) => {
   const borderClasses = compact
     ? 'border-b border-slate-200 [&_td]:border-b [&_th]:border-b [&_td]:border-slate-100 [&_th]:border-slate-200'
     : '[&_td]:border-2 [&_th]:border-2 [&_td]:border-slate-300 [&_th]:border-slate-300 dark:[&_td]:border-slate-800 dark:[&_th]:border-slate-800';
@@ -33,7 +35,7 @@ const ItemsTable = ({ items, summary, compact = false }: Props) => {
         </tr>
       </thead>
 
-      <Body items={items} compact={compact} />
+      <Body items={items} compact={compact} deliveryMethod={deliveryMethod} />
       <Footer summary={summary} compact={compact} />
     </table>
   );

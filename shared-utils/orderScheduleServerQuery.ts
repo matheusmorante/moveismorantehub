@@ -10,7 +10,7 @@ export async function fetchOrderScheduleIds(
 ): Promise<{ ids: string[]; total: number; counts: Record<string, number> }> {
   const { data, error } = await withAbortTimeout(client.rpc('list_order_schedule_ids', {
     p_scope: scope, p_filters: filters, p_page: page, p_page_size: pageSize,
-  }), 'pedidos:escopo-da-agenda', 15_000, signal);
+  }), 'pedidos:escopo-da-agenda', 25_000, signal);
   if (error) throw error;
   if (!data || !Array.isArray(data.ids) || data.ids.length > pageSize ||
       data.ids.some((id: unknown) => typeof id !== 'string' || !id) ||

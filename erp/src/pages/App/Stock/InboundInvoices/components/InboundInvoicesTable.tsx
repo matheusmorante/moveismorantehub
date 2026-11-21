@@ -260,10 +260,19 @@ export const InboundInvoicesTable: React.FC<InboundInvoicesTableProps> = ({
                       {isSalvadosOnlySupplier(inv.supplierStockOrigins) ? (
                         <SalvadosBindingStatus />
                       ) : isIncomplete ? null : hasCompleteInboundInvoiceMappings(inv) ? (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-[10px] font-black uppercase text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">
+                            <button
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                onManageMappings(inv);
+                              }}
+                              title="Clique para gerenciar os vínculos dos produtos desta NF-e"
+                              aria-label={`Gerenciar vínculos da NF-e ${inv.nfeNumber}`}
+                              className="inline-flex cursor-pointer items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-[10px] font-black uppercase text-emerald-700 transition-colors hover:bg-emerald-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 dark:bg-emerald-950/60 dark:text-emerald-300 dark:hover:bg-emerald-900/70"
+                            >
                               <i className="bi bi-check2-all text-xs" aria-hidden="true" />{' '}
                               Vinculação Completa
-                            </span>
+                            </button>
                           ) : (
                             <button
                               type="button"
@@ -356,9 +365,18 @@ export const InboundInvoicesTable: React.FC<InboundInvoicesTableProps> = ({
                   {isSalvadosOnlySupplier(inv.supplierStockOrigins) ? (
                     <SalvadosBindingStatus />
                   ) : isIncomplete ? null : hasCompleteInboundInvoiceMappings(inv) ? (
-                        <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[9px] font-black uppercase text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            onManageMappings(inv);
+                          }}
+                          title="Clique para gerenciar os vínculos dos produtos desta NF-e"
+                          aria-label={`Gerenciar vínculos da NF-e ${inv.nfeNumber}`}
+                          className="cursor-pointer rounded-full bg-emerald-100 px-2 py-0.5 text-[9px] font-black uppercase text-emerald-700 transition-colors hover:bg-emerald-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 dark:bg-emerald-950/60 dark:text-emerald-300 dark:hover:bg-emerald-900/70"
+                        >
                           Vinculação Completa
-                        </span>
+                        </button>
                       ) : (
                         <button
                           type="button"

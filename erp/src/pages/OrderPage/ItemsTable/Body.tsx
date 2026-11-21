@@ -1,4 +1,5 @@
 import Item from '../../types/items.type';
+import type Shipping from '../../types/Shipping.type';
 import CurrencyDisplay from '../../../components/CurrencyDisplay';
 import UnitDisplay from '../../../components/UnitDisplay';
 import { getSettings } from '@/pages/utils/settingsService';
@@ -7,14 +8,20 @@ import { getFixedDiscount } from '@/pages/utils/calculations';
 interface Props {
   items: Item[];
   compact?: boolean;
+  deliveryMethod?: Shipping['deliveryMethod'];
 }
 
-const Body = ({ items, compact = false }: Props) => {
+const Body = ({ items, compact = false, deliveryMethod }: Props) => {
   const settings = getSettings();
   const allOptions = [
     ...(settings.deliveryHandlingOptions || []),
     ...(settings.pickupHandlingOptions || []),
   ];
+  const modalityOptions = deliveryMethod === 'pickup'
+    ? settings.pickupHandlingOptions || []
+    : deliveryMethod === 'delivery'
+      ? settings.deliveryHandlingOptions || []
+      : allOptions;
 
   return (
     <tbody className={`divide-y divide-slate-100 ${compact ? '' : 'italic'}`}>
@@ -22,7 +29,7 @@ const Body = ({ items, compact = false }: Props) => {
         const fixedDiscount = getFixedDiscount(item);
         const total = (item.unitPrice - (fixedDiscount || 0)) * item.quantity;
         const handlingLabel = (item.handlingType || item.condition || '').trim();
-        const handlingOpt = allOptions.find((o) => o.label === handlingLabel);
+        const handlingOpt = modalityOptions.find((o) => o.label === handlingLabel);
         const bgColor = handlingOpt?.color || '#3b82f6';
 
         return (
@@ -34,7 +41,10 @@ const Body = ({ items, compact = false }: Props) => {
                 {item.description}
                 {item.observation?.trim() ? ` - ${item.observation.trim()}` : ''}
                 {compact && handlingLabel && handlingLabel !== '-' && (
-                  <div className="mt-0.5 font-medium not-italic normal-case text-rose-600">
+                  <div
+                    className="mt-0.5 font-medium not-italic normal-case"
+                    style={{ color: bgColor !== 'transparent' ? bgColor : '#475569' }}
+                  >
                     → {handlingLabel}
                   </div>
                 )}
