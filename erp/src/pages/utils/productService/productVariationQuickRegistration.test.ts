@@ -2,17 +2,34 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type Product from '@/pages/types/product.type';
 import { saveVariation } from './productVariationActionsService';
 import { mapDbVariations } from './productVariationMapper';
-const mocks = vi.hoisted(() => ({ from: vi.fn(), upsert: vi.fn(), update: vi.fn(), eq: vi.fn(), local: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  from: vi.fn(),
+  upsert: vi.fn(),
+  update: vi.fn(),
+  eq: vi.fn(),
+  local: vi.fn(),
+  resolveVariationSkuForPersistence: vi.fn(),
+  isVariationSkuUniqueConstraintError: vi.fn(),
+}));
 vi.mock('@/pages/utils/supabaseConfig', () => ({ supabase: { from: mocks.from } }));
 vi.mock('./productLocalCache', () => ({ LOCAL_STORAGE_KEY: 'products', getLocalProducts: mocks.local, saveLocalProducts: vi.fn(), notifySubscribers: vi.fn() }));
 vi.mock('./productMutationService', () => ({ updateProduct: vi.fn(), invalidateProductQueries: vi.fn() }));
 vi.mock('./productMetaCatalogSync', () => ({ triggerProductMetaCatalogSync: vi.fn() }));
+vi.mock('./productVariationSkuAvailabilityService', () => ({
+  resolveVariationSkuForPersistence: mocks.resolveVariationSkuForPersistence,
+  isVariationSkuUniqueConstraintError: mocks.isVariationSkuUniqueConstraintError,
+}));
 const parentId = '00000000-0000-4000-8000-000000000001';
 const oldId = '00000000-0000-4000-8000-000000000002';
 const newId = '00000000-0000-4000-8000-000000000003';
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.local.mockReturnValue([{ id: parentId, name: 'Mesa', code: '101', unitPrice: 200, stock: 8, costPrice: 7, technicalSpecs: { preservar: 'valor' }, variations: [{ id: oldId, sku: '101-01', stock: 8 }] } as Product]);
+  mocks.resolveVariationSkuForPersistence.mockImplementation(async (input: { parentCode: string; requestedSku?: string | null }) => ({
+    sku: input.requestedSku || `${input.parentCode}-01`,
+    generated: !input.requestedSku,
+  }));
+  mocks.isVariationSkuUniqueConstraintError.mockReturnValue(false);
   mocks.upsert.mockResolvedValue({ error: null }); mocks.eq.mockResolvedValue({ error: null }); mocks.update.mockReturnValue({ eq: mocks.eq });
   mocks.from.mockReturnValue({ upsert: mocks.upsert, update: mocks.update });
 });

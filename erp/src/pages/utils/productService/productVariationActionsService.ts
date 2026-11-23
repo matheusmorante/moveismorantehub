@@ -14,6 +14,10 @@ import {
   fetchRequiredProductCategoryAttributes,
   projectRequiredCategoryAttributesToVariations,
 } from '../../../../../shared-utils/productCategoryRequiredAttributes';
+import {
+  isVariationSkuUniqueConstraintError,
+  resolveVariationSkuForPersistence,
+} from './productVariationSkuAvailabilityService';
 
 export const saveVariation = async (productId: string, variation: any): Promise<void> => {
   try {
@@ -114,6 +118,17 @@ export const saveVariation = async (productId: string, variation: any): Promise<
       variationToSave.attributes = projectedVariation.attributes as typeof cleanAttrs;
     }
 
+    const siblingVariations = variations.filter(
+      (item: any) => String(item.id) !== String(variationToSave.id)
+    );
+    const skuResolution = await resolveVariationSkuForPersistence({
+      parentCode: String(parent.code || '000000'),
+      variationId: String(variationToSave.id),
+      requestedSku: variationToSave.sku,
+      siblingVariations,
+    });
+    variationToSave.sku = skuResolution.sku;
+
     const newVariations = [...variations];
     if (varIndex === -1) {
       newVariations.push(variationToSave);
@@ -144,11 +159,13 @@ export const saveVariation = async (productId: string, variation: any): Promise<
       throw new Error(`Cada variação pode vincular no máximo ${MAX_VARIATION_IMAGES} fotos.`);
     }
 
-    parent.variations = deduplicatedVariations;
-    parent.updatedAt = new Date().toISOString();
-    products[index] = parent;
-    saveLocalProducts(products);
-    notifySubscribers();
+    const persistLocalVariations = () => {
+      parent.variations = deduplicatedVariations;
+      parent.updatedAt = new Date().toISOString();
+      products[index] = parent;
+      saveLocalProducts(products);
+      notifySubscribers();
+    };
 
     if (isUuidPattern(productId) && isUuidPattern(variationToSave.id)) {
       const effectiveImages = variationToSave.images || [];
@@ -194,10 +211,48 @@ export const saveVariation = async (productId: string, variation: any): Promise<
         active: variationToSave.active !== undefined ? Boolean(variationToSave.active) : parent.active !== false,
       };
 
-      const { error: upsertErr } = await supabase
-        .from('product_variations')
-        .upsert(varRecord);
+      let currentSku = skuResolution.sku;
+      let upsertErr: unknown = null;
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        varRecord.sku = currentSku;
+        const result = await supabase.from('product_variations').upsert(varRecord);
+        upsertErr = result.error;
+        if (!upsertErr) break;
+
+        if (
+          !skuResolution.generated ||
+          !isVariationSkuUniqueConstraintError(upsertErr) ||
+          attempt === 2
+        ) {
+          if (isVariationSkuUniqueConstraintError(upsertErr)) {
+            throw new Error(
+              `O SKU automático "${currentSku}" continua em conflito. Informe outro SKU e tente salvar novamente.`
+            );
+          }
+          throw upsertErr;
+        }
+
+        const nextSku = await resolveVariationSkuForPersistence({
+          parentCode: String(parent.code || '000000'),
+          variationId: String(variationToSave.id),
+          requestedSku: '',
+          siblingVariations: [...siblingVariations, { sku: currentSku }],
+        });
+        currentSku = nextSku.sku;
+        variationToSave.sku = currentSku;
+        const variationIndex = deduplicatedVariations.findIndex(
+          (item: any) => String(item.id) === String(variationToSave.id)
+        );
+        if (variationIndex !== -1) {
+          deduplicatedVariations[variationIndex] = {
+            ...deduplicatedVariations[variationIndex],
+            sku: currentSku,
+          };
+        }
+      }
+
       if (upsertErr) throw upsertErr;
+      persistLocalVariations();
 
       const { error: metadataError } = await supabase
         .from('products')
