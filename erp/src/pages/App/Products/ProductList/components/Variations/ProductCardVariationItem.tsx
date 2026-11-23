@@ -99,8 +99,8 @@ export const ProductCardVariationItem: React.FC<ProductCardVariationItemProps> =
   const isSalvado = isSalvadoStockOrigin(product, v, opportunityName);
 
   return (
-    <div className="flex items-center justify-between py-2 px-1 border-b border-slate-100 dark:border-slate-800/60 last:border-b-0 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 rounded-lg transition-colors group/var">
-      <div className="flex items-center gap-2.5 min-w-0">
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-2 py-2 px-1 border-b border-slate-100 dark:border-slate-800/60 last:border-b-0 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 rounded-lg transition-colors group/var">
+      <div className="flex min-w-0 grow basis-full items-center gap-2.5 sm:basis-48">
         <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 overflow-hidden flex-shrink-0 flex items-center justify-center border border-slate-200/40">
           {primaryImage ? (
             <ProductImage
@@ -113,38 +113,10 @@ export const ProductCardVariationItem: React.FC<ProductCardVariationItemProps> =
             <i className="bi bi-image text-slate-400 text-xs" />
           )}
         </div>
-        <div className="flex flex-col min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="min-w-0 flex-1 whitespace-normal break-words text-xs font-bold leading-tight text-slate-700 dark:text-slate-200">
-              {varName}
-            </span>
-            <ChannelStatusBadges
-              active={v.active !== false && product.active !== false}
-              catalogStatus={v.status}
-              isParent={false}
-              isNonConventional={isNonConventionalProduct(product) || isNonConventionalProduct(v as any)}
-              isSalvado={isSalvado}
-              canManageCatalog={canManageCatalog && !readOnly}
-              canToggleActive={canDeleteProducts}
-              showCatalogControl={showCatalogControl}
-              isDraft={isDraft}
-              onToggleActive={(e) => {
-                e.stopPropagation();
-                onToggleActive(v.id || v.variationId || '', v.active !== false);
-              }}
-              onToggleCatalog={async (e) => {
-                e.stopPropagation();
-                await onDeactivateCatalog(targetVarCatalogId);
-              }}
-              size="xs"
-              disabled={!!v.mergedToVariationId}
-              disabledReason={
-                v.mergedToVariationId
-                  ? 'Esta variação foi mesclada e seu status não pode ser alterado diretamente.'
-                  : undefined
-              }
-            />
-          </div>
+        <div className="min-w-0 flex-1">
+          <span className="block whitespace-normal break-words text-xs font-bold leading-tight text-slate-700 dark:text-slate-200">
+            {varName}
+          </span>
           <div className="flex items-center gap-2 mt-0.5">
             <span className="text-[9px] font-mono text-slate-400">
               {normalizeVariationSku(v.sku || undefined)}
@@ -156,7 +128,34 @@ export const ProductCardVariationItem: React.FC<ProductCardVariationItemProps> =
         </div>
       </div>
 
-      <div className="flex items-center gap-3 shrink-0">
+      <ChannelStatusBadges
+        active={v.active !== false && product.active !== false}
+        catalogStatus={v.status}
+        isParent={false}
+        isNonConventional={isNonConventionalProduct(product) || isNonConventionalProduct(v as any)}
+        isSalvado={isSalvado}
+        canManageCatalog={canManageCatalog && !readOnly}
+        canToggleActive={canDeleteProducts}
+        showCatalogControl={showCatalogControl}
+        isDraft={isDraft}
+        onToggleActive={(e) => {
+          e.stopPropagation();
+          onToggleActive(v.id || v.variationId || '', v.active !== false);
+        }}
+        onToggleCatalog={async (e) => {
+          e.stopPropagation();
+          await onDeactivateCatalog(targetVarCatalogId);
+        }}
+        size="xs"
+        disabled={!!v.mergedToVariationId}
+        disabledReason={
+          v.mergedToVariationId
+            ? 'Esta variação foi mesclada e seu status não pode ser alterado diretamente.'
+            : undefined
+        }
+      />
+
+      <div className="ml-auto flex shrink-0 items-center gap-3">
         <div className="flex flex-col items-end">
           {hasPromo && (
             <span className="text-[9px] font-bold text-red-500 line-through decoration-red-500/50 -mb-0.5">
