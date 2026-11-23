@@ -3,7 +3,6 @@ import React, { useState } from 'react';
 import { fireEvent, render, screen, cleanup } from '@testing-library/react';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import Product, { Variation } from '../../../../types/product.type';
-import { computeVariationName } from '@/pages/utils/productVariationDefaults';
 import { VariationIdentificationTab } from './VariationIdentificationTab';
 
 vi.mock('react-toastify', () => ({
@@ -33,8 +32,6 @@ const initialVariation = {
 
 const Harness = () => {
   const [formData, setFormData] = useState<Variation>(initialVariation);
-  const buildName = (attributes: Variation['attributes'] = []) =>
-    computeVariationName(parentProduct.name, attributes);
 
   return (
     <>
@@ -43,14 +40,6 @@ const Harness = () => {
         formData={formData}
         setFormData={setFormData}
         parentProduct={parentProduct}
-        dbAttributes={[
-          { id: 'attr-cor', name: 'Cor' },
-          { id: 'attr-portas', name: 'Quantidade de portas' },
-        ]}
-        dbAttributeValues={[]}
-        setIsManageAttributesOpen={vi.fn()}
-        getDefaultVariationName={buildName}
-        getDefaultVariationTitle={buildName}
       />
     </>
   );

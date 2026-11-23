@@ -6,13 +6,6 @@ import {
 } from '@/pages/utils/productVariationDefaults';
 import { toTitleCase } from '@/pages/utils/textUtils';
 
-export interface DbAttributeItem {
-  readonly id: string;
-  readonly name: string;
-  readonly data_type?: 'list' | 'integer' | 'decimal' | 'text' | 'boolean' | 'measure';
-  readonly unit?: string;
-}
-
 export interface DbAttributeValueItem {
   readonly id: string;
   readonly attribute_id: string;
@@ -23,12 +16,6 @@ interface VariationIdentificationTabProps {
   readonly formData: Variation;
   readonly setFormData: React.Dispatch<React.SetStateAction<Variation | null>>;
   readonly parentProduct: Product;
-  readonly dbAttributes?: readonly DbAttributeItem[];
-  readonly dbAttributeValues?: readonly DbAttributeValueItem[];
-  readonly setIsManageAttributesOpen?: (open: boolean) => void;
-  readonly getDefaultVariationName?: (attributes?: Variation['attributes']) => string;
-  readonly getDefaultVariationTitle?: (attributes?: Variation['attributes']) => string;
-  readonly fetchDbAttributes?: () => Promise<void>;
   readonly isSingleVariation?: boolean;
   readonly validationErrors?: Record<string, string>;
   readonly onClearValidationError?: (fieldKey: string) => void;

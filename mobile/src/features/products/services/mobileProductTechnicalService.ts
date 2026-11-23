@@ -1,4 +1,5 @@
 import { supabase } from '../../../services/supabaseClient';
+import { readProductTechnicalCategoryRows } from '../../../../../shared-utils/productTechnicalCategoryRows';
 import {
   isExcludedProductTechnicalField,
   isRequiredCharacteristicName,
@@ -108,8 +109,15 @@ const getMissingOptionalColumn = (error: { message?: string | null }, columns: r
 };
 
 export const fetchMobileProductTechnicalFields = async (
-  fetchOptions: { requireCategoryLinks?: boolean } = {}
+  fetchOptions: {
+    categoryIds?: readonly string[];
+    requireCategoryLinks?: boolean;
+    includeOptionValues?: boolean;
+  } = {}
 ): Promise<MobileProductTechnicalField[]> => {
+  const categoryIds = fetchOptions.categoryIds === undefined
+    ? undefined
+    : [...new Set(fetchOptions.categoryIds.map((id) => id.trim()).filter(Boolean))].sort();
   let optionalColumns: string[] = [...OPTIONAL_ATTRIBUTE_COLUMNS];
   let attributes: TechnicalAttributeRow[] | null = null;
   for (;;) {
@@ -137,22 +145,42 @@ export const fetchMobileProductTechnicalFields = async (
   const attributesWithDependencies = (attributes ?? []).filter(
     (attribute) => attribute.dependency_attribute_id && attribute.dependency_operator && attribute.dependency_value != null,
   );
+  const selectCategoryLinks = () => supabase
+    .from('category_attributes')
+    .select('attribute_id, category_id, is_required');
+  const selectCategoryApplications = () => supabase
+    .from('attribute_category_applications')
+    .select('attribute_id, category_id, application');
+
   const relatedQueries = await withTimeout(
     Promise.all([
-      supabase
-        .from('attribute_values')
-        .select('id, attribute_id, value, sort_order, active')
-        // Match the local rule (only false is inactive) before the 10,000-row cap.
-        .or('active.is.null,active.eq.true')
-        .limit(10000),
-      supabase
-        .from('category_attributes')
-        .select('attribute_id, category_id, is_required')
-        .limit(10000),
-      supabase
-        .from('attribute_category_applications')
-        .select('attribute_id, category_id, application')
-        .limit(10000),
+      fetchOptions.includeOptionValues !== false
+        ? supabase
+            .from('attribute_values')
+            .select('id, attribute_id, value, sort_order, active')
+            // Match the local rule (only false is inactive) before the 10,000-row cap.
+            .or('active.is.null,active.eq.true')
+            .limit(10000)
+        : Promise.resolve({ data: [], error: null }),
+      categoryIds === undefined
+        ? selectCategoryLinks().limit(10000)
+        : readProductTechnicalCategoryRows(categoryIds, (ids, from, to) =>
+            selectCategoryLinks()
+              .in('category_id', ids)
+              .eq('is_required', true)
+              .order('attribute_id')
+              .order('category_id')
+              .range(from, to)
+          ),
+      categoryIds === undefined
+        ? selectCategoryApplications().limit(10000)
+        : readProductTechnicalCategoryRows(categoryIds, (ids, from, to) =>
+            selectCategoryApplications()
+              .in('category_id', ids)
+              .order('attribute_id')
+              .order('category_id')
+              .range(from, to)
+          ),
       attributesWithDependencies.length
         ? supabase
             .from('attribute_dependency_alternatives')

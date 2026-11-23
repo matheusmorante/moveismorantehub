@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createEmptyApplicationLinksQuery } from './technicalFieldServiceTestQueries';
+import { createApplicationLinksQuery, createEmptyApplicationLinksQuery } from './technicalFieldServiceTestQueries';
 
 const { supabaseMock } = vi.hoisted(() => ({
   supabaseMock: {
@@ -105,14 +105,9 @@ describe('technicalFieldService no fluxo de publicação', () => {
           }),
       }),
     };
-    const categoryLinksQuery = {
-      select: vi.fn().mockReturnValue({
-        limit: vi.fn().mockResolvedValue({
-          data: [{ attribute_id: 'attr-color', category_id: 'category-1', is_required: true }],
-          error: null,
-        }),
-      }),
-    };
+    const categoryLinksQuery = createApplicationLinksQuery([
+      { data: [{ attribute_id: 'attr-color', category_id: 'category-1' }], error: null },
+    ]);
     supabaseMock.from.mockImplementation((table: string) => {
       if (table === 'attribute_dependency_alternatives') return createEmptyApplicationLinksQuery();
       if (table === 'attributes') return attributesQuery;
@@ -123,7 +118,7 @@ describe('technicalFieldService no fluxo de publicação', () => {
     });
 
     const fields = await fetchTechnicalFieldDefinitions('product-form', {
-      categoryIds: [],
+      categoryIds: ['category-1'],
       forceRefresh: true,
       requireCategoryLinks: true,
     });

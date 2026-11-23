@@ -1,3 +1,31 @@
+## 23/11/2026 — SCE-351 — cargas de características na tela de Produtos
+
+**Estado e decisão.** Opção A aceita pelo operador e executada no checkout local em 23/11. Este registro retoma o AUD-06 e os trechos de EGR-016 usados na identificação da variação. SCE-008 reaproveita a carga do editor do app ao trocar categoria. SCE-312 filtra opções inativas no app.
+
+| Hora (BRT) | Recurso REST do ERP em `/products` | Chamadas SELECT | Linhas somadas | Dados medidos pelo navegador |
+| --- | --- | ---: | ---: | --- |
+| 10:54:17 | `category_attributes` | 10 | 5.312 | 0,5 MiB em 9 respostas |
+| 10:54:19 | `attribute_values` | 9 | 5.040 | 0,6 MiB em 8 respostas |
+| 17:26:04 | `category_attributes` | 8 | 5.308 | 0,5 MiB em 7 respostas |
+
+**Evidência antes da alteração.** O monitor acumula linhas de respostas em uma janela móvel de cinco minutos por contexto e emite o aviso ao passar de 5.000. O alerta agrega a tela e a tabela, sem identificar o chamador de cada requisição. Uma leitura agregada do Supabase operacional encontrou 1.296 vínculos em 46 categorias (14 a 47 por categoria, 234 obrigatórios no total) e 560 opções, das quais 558 têm estado ativo ou legado. As 5.040 linhas equivalem a nove cargas do conjunto atual de opções. Isso é compatível com leituras completas repetidas, sem atribuir as requisições do aviso a um único formulário ou assumir que a cardinalidade histórica dos vínculos era a mesma.
+
+- `erp/src/pages/App/Products/services/technicalFieldService.ts:98–180` separa o cache por formulário e conjunto de categorias, mas as leituras de `category_attributes` e `attribute_values` pedem até 10.000 linhas sem filtro de categoria/atributo. `attribute_category_applications` já tem escopo por categoria. A aba técnica de produto, a de variação e a publicação usam o serviço. Publicar ou salvar um produto publicado pode refazer a consulta porque exige regras atuais. `shared-utils/catalogPublication/categoryCharacteristics.ts` valida requisitos a partir de nomes, dependências, vínculos e valores já preenchidos.
+- `erp/src/pages/App/Products/hooks/variation/useVariationFormReferences.ts:34–61` consulta `attributes` e `attribute_values` na inicialização do formulário de variação. Os dados são repassados à `VariationIdentificationTab.tsx`, que não os usa. `VariationTechnicalTab.tsx` tem carregamento próprio de características e tratamento de erro. A leitura de fotos e a nova tentativa correspondente têm outra finalidade.
+- `mobile/src/features/products/services/mobileProductTechnicalService.ts:110–154` também lê vínculos globais e o conjunto de opções. A edição no app usa as definições globais para recalcular a troca de categoria sem recarga, conforme SCE-008. As verificações de publicação/salvamento chamam o serviço separadamente e podem usar um recorte por categorias efetivas.
+
+**Opção A executada.** No ERP, `technicalFieldService.ts` filtra os vínculos por categoria e `is_required` antes de paginar. O cache diferencia a carga do editor da leitura sem opções. O formulário de variação deixou de carregar as referências de atributos na identificação, com a consulta e a nova tentativa de fotos em `useVariationFormReferences.ts`. A aba técnica continua trazendo as opções na ordem usada pelo editor.
+
+O ERP usa a leitura de requisitos sem opções no comando de publicação, na conferência antes de salvar um produto publicado e na tela de resultado do cadastro. O app usa a mesma separação em `useMobileProducts.ts` e `mobilePublishedCatalogConfirmation.ts`, com escopo opcional no `mobileProductTechnicalService.ts` para preservar a troca de categoria durante a edição. Ambos usam `getProductCategoryIds` do validador, inclusive para o campo legado, e `shared-utils/productTechnicalCategoryRows.ts` para ler todas as páginas do conjunto filtrado. As verificações usam dados atuais e continuam bloqueando a operação quando a consulta obrigatória falha.
+
+**Opção B.** Compartilhar as respostas globais entre aberturas do editor com invalidação após edição de característica. Pode reduzir repetição nas reaberturas, mas cada carga ainda transfere o conjunto completo e a validação atualizada de publicação continua fazendo suas leituras. Também exige resolver escopo e expiração do cache.
+
+**Impacto por ação.** A inicialização da variação no ERP poupa um SELECT de `attributes` e um de `attribute_values`. Cada conferência de publicação no ERP ou app poupa um SELECT de `attribute_values`. Para um produto de uma categoria, a leitura de vínculos parte de até 47 registros daquela categoria na amostra de 23/11 e ainda filtra os obrigatórios. O filtro reduz linhas transferidas por leitura. A quantidade de páginas depende do conjunto filtrado. Os bytes dos avisos são amostrais e o efeito sobre egress, latência e trabalho do banco depende de observar as mesmas ações antes e depois da implantação.
+
+**Validação local.** Os testes de consulta, paginação, cache do editor, confirmação de publicação, opções na aba técnica e recuperação da leitura de fotos passaram. A bateria ERP/app teve 158 testes aprovados. As oito falhas de teste e o erro de carregamento de uma suíte também reproduziram no commit `9880a623`, em cópia isolada. O ESLint passou nos 15 arquivos alterados do ERP. As verificações globais de lint e tipos do ERP registraram diagnósticos fora dos arquivos alterados. No app, os diagnósticos de tipos dos arquivos alterados coincidem com os da cópia de referência. A comparação com a telemetria de produção fica pendente.
+
+---
+
 ## 23/11/2026 — SCE-350 — vínculo global de itens de NF por fornecedor e código
 
 **Decisão e comportamento.** O vínculo de um item era guardado por ocorrência/código de produto, sem persistir o modo de associação e a composição de componentes como regra global. A migration `20261121192000` introduz a chave fornecedor + código completo e armazena Único, Composto e Não se aplica. O ERP e o app consultam o vínculo para os itens das notas e reutilizam os componentes e multiplicadores escolhidos.

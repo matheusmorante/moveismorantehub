@@ -9,6 +9,7 @@ import { savedProductFormSchema } from '../../../../../../../../shared-utils/pro
 import { withTimeout } from '../../../../../../../../shared-utils/withTimeout';
 import {
   checkEcomLegibility,
+  getProductCategoryIds,
   type EcomLegibilityResult,
 } from '../../../../../../../../shared-utils/catalogPublicationValidation';
 import { fetchTechnicalFieldDefinitions } from '../../../services/technicalFieldService';
@@ -94,9 +95,10 @@ export const ProductSaveResultModal: React.FC<ProductSaveResultModalProps> = ({
         const [requirements, groupData] = await Promise.all([
           withTimeout(
             fetchTechnicalFieldDefinitions('product-form', {
-              categoryIds: product.categoryIds ?? [],
+              categoryIds: getProductCategoryIds(product),
               forceRefresh: true,
               requireCategoryLinks: true,
+              includeOptionValues: false,
             }),
             15000,
             null,

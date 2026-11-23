@@ -3,17 +3,17 @@ import React from 'react';
 interface VariationModalFeedbackBannersProps {
   readonly loading: boolean;
   readonly error: string;
-  readonly referenceLoading: { attributes: boolean; images: boolean };
-  readonly referenceErrors: { attributes: string; images: string };
-  readonly onRetryReferences: () => void;
+  readonly loadingParentImages: boolean;
+  readonly parentImagesError: string;
+  readonly onRetryParentImages: () => void;
 }
 
 export const VariationModalFeedbackBanners: React.FC<VariationModalFeedbackBannersProps> = ({
   loading,
   error,
-  referenceLoading,
-  referenceErrors,
-  onRetryReferences,
+  loadingParentImages,
+  parentImagesError,
+  onRetryParentImages,
 }) => {
   return (
     <>
@@ -33,19 +33,19 @@ export const VariationModalFeedbackBanners: React.FC<VariationModalFeedbackBanne
         </p>
       )}
 
-      {(referenceLoading.attributes || referenceLoading.images) && (
+      {loadingParentImages && (
         <p role="status" className="text-sm text-slate-600">
-          Carregando características e fotos do produto pai...
+          Carregando fotos do produto pai...
         </p>
       )}
 
-      {(referenceErrors.attributes || referenceErrors.images) && (
+      {parentImagesError && (
         <div role="alert" className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">
-          {[referenceErrors.attributes, referenceErrors.images].filter(Boolean).join(' ')}{' '}
+          {parentImagesError}{' '}
           <button
             type="button"
-            onClick={onRetryReferences}
-            disabled={loading || referenceLoading.attributes || referenceLoading.images}
+            onClick={onRetryParentImages}
+            disabled={loading || loadingParentImages}
             className="underline font-bold ml-1 cursor-pointer"
           >
             Consultar novamente

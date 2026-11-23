@@ -166,16 +166,23 @@ describe('composição real do formulário de variações', () => {
     expect((await screen.findByRole('alert')).textContent).toContain('Variação salva, mas a tela');
     expect(screen.getByRole('button', { name: 'Salvar Alterações' })).toHaveProperty('disabled', true); expect(view.onSave).toHaveBeenCalledTimes(1);
   });
-  it('erro de fotos/atributos fica visível e a consulta pode ser repetida', async () => {
-    mocks.response.mockResolvedValue({ data: null, error: { message: 'Offline' } }); mount();
+  it('erro de fotos fica visível e a consulta pode ser repetida', async () => {
+    mocks.response.mockResolvedValue({ data: null, error: { message: 'Offline' } });
+    mount(variation, { ...parent, images: undefined });
     const retry = await screen.findByRole('button', { name: 'Consultar novamente' });
-    expect(screen.getByRole('alert').textContent).toContain('Não foi possível carregar');
+    expect(screen.getByRole('alert').textContent).toContain('Não foi possível carregar as fotos');
     mocks.response.mockResolvedValue({ data: [], error: null }); fireEvent.click(retry);
     await waitFor(() => expect(screen.queryByRole('button', { name: 'Consultar novamente' })).toBeNull());
+    expect(mocks.response.mock.calls.map(([table]) => table)).toEqual(['product_images', 'product_images']);
   });
   it('campos técnicos reais alterados chegam ao resolver e ao payload', async () => {
-    const view = mount(); tab('Características específicas');
+    const view = mount();
+    await act(async () => {});
+    expect(mocks.response).not.toHaveBeenCalledWith('attributes');
+    expect(mocks.response).not.toHaveBeenCalledWith('attribute_values');
+    tab('Características específicas');
     const label = await screen.findByTitle('Marca'); const field = label.parentElement!.parentElement!;
+    expect(mocks.response).toHaveBeenCalledWith('attribute_values');
     fireEvent.change(within(field).getByRole('textbox'), { target: { value: 'Moderno' } }); submit();
     await waitFor(() => expect(view.onSave).toHaveBeenCalledWith(expect.objectContaining({ technicalValues: expect.objectContaining({ Marca: 'Moderno' }) })));
   });
@@ -210,7 +217,7 @@ describe('composição real do formulário de variações', () => {
     expect(addedItem).toMatchObject({ productId: 'componente-simples-legado', description: 'Banqueta Legada', quantity: 1, unitPrice: 50, stock: 8 });
     expect(addedItem.variationId).toBeUndefined();
   });
-  it('atributos/fotos sem resposta deixam de carregar em 10s e ignoram fotos tardias', async () => {
+  it('fotos sem resposta deixam de carregar em 10s e ignoram fotos tardias', async () => {
     vi.useFakeTimers(); let finish!: (value: unknown) => void;
     mocks.response.mockImplementation((table: string) => new Promise((resolve) => { if (table === 'product_images') finish = resolve; }));
     mount(variation, { ...parent, images: undefined });
@@ -218,7 +225,7 @@ describe('composição real do formulário de variações', () => {
     expect(mocks.response.mock.calls.map(([table]) => table)).toContain('product_images');
     expect(finish).toBeTypeOf('function');
     await act(async () => { await vi.advanceTimersByTimeAsync(10000); });
-    expect(screen.queryByText('Carregando características e fotos do produto pai...')).toBeNull(); expect(screen.getByRole('button', { name: 'Consultar novamente' })).toHaveProperty('disabled', false);
+    expect(screen.queryByText('Carregando fotos do produto pai...')).toBeNull(); expect(screen.getByRole('button', { name: 'Consultar novamente' })).toHaveProperty('disabled', false);
     await act(async () => { finish({ data: [{ image_url: 'https://img.test/tardia.jpg' }], error: null }); });
     expect(screen.getByRole('alert').textContent).toContain('Não foi possível carregar as fotos');
   });

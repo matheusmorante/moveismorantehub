@@ -54,6 +54,7 @@ describe('technicalFieldService no fluxo de publicação', () => {
 
     const beforeSave = await fetchTechnicalFieldDefinitions('product-form', { categoryIds: [] });
     expect(beforeSave[0].options).toEqual([]);
+    expect(supabaseMock.from).not.toHaveBeenCalledWith('category_attributes');
 
     storedOptions = [{ id: 'color-red', attribute_id: 'color', value: 'Cedar/Cinza Soft', active: true }];
     invalidateTechnicalFieldDefinitionsCache();
@@ -171,7 +172,8 @@ describe('technicalFieldService no fluxo de publicação', () => {
     supabaseMock.from.mockImplementation((table: string) => {
       if (table === 'attribute_dependency_alternatives') return createEmptyApplicationLinksQuery();
       if (table === 'attributes') return attributesQuery;
-      if (table === 'attribute_values' || table === 'category_attributes' || table === 'attribute_dependency_alternatives') return emptyQuery();
+      if (table === 'attribute_values') return emptyQuery();
+      if (table === 'category_attributes') return createEmptyApplicationLinksQuery();
       if (table === 'attribute_category_applications') return applicationLinksQuery;
       throw new Error(`Unexpected table ${table}`);
     });
@@ -224,7 +226,8 @@ describe('technicalFieldService no fluxo de publicação', () => {
     supabaseMock.from.mockImplementation((table: string) => {
       if (table === 'attribute_dependency_alternatives') return createEmptyApplicationLinksQuery();
       if (table === 'attributes') return attributesQuery;
-      if (table === 'attribute_values' || table === 'category_attributes' || table === 'attribute_dependency_alternatives') return emptyQuery();
+      if (table === 'attribute_values') return emptyQuery();
+      if (table === 'category_attributes') return createEmptyApplicationLinksQuery();
       if (table === 'attribute_category_applications') return applications;
       throw new Error(`Unexpected table ${table}`);
     });
@@ -281,7 +284,6 @@ describe('technicalFieldService no fluxo de publicação', () => {
   });
 
   it('does not reuse an unverified category-link cache for catalog publication', async () => {
-    let categoryQueryCount = 0;
     const attributesQuery = {
       select: vi.fn().mockReturnThis(),
       order: vi.fn().mockResolvedValue({
@@ -294,19 +296,10 @@ describe('technicalFieldService no fluxo de publicação', () => {
         limit: vi.fn().mockResolvedValue({ data: [], error: null }),
       }),
     };
-    const categoryLinksQuery = {
-      select: vi.fn().mockReturnValue({
-        limit: vi.fn().mockImplementation(async () => {
-          categoryQueryCount += 1;
-          return categoryQueryCount === 1
-            ? { data: null, error: { message: 'offline' } }
-            : {
-                data: [{ attribute_id: 'finish', category_id: 'cat-1', is_required: true }],
-                error: null,
-              };
-        }),
-      }),
-    };
+    const categoryLinksQuery = createApplicationLinksQuery();
+    categoryLinksQuery.builder.range
+      .mockResolvedValueOnce({ data: null, error: { message: 'offline' } })
+      .mockResolvedValueOnce({ data: [{ attribute_id: 'finish', category_id: 'cat-1' }], error: null });
     supabaseMock.from.mockImplementation((table: string) => {
       if (table === 'attribute_dependency_alternatives') return createEmptyApplicationLinksQuery();
       if (table === 'attributes') return attributesQuery;
@@ -322,8 +315,42 @@ describe('technicalFieldService no fluxo de publicação', () => {
       requireCategoryLinks: true,
     });
 
-    expect(categoryQueryCount).toBe(2);
+    expect(categoryLinksQuery.builder.range).toHaveBeenCalledTimes(2);
     expect(verified[0].requiredCategoryIds).toEqual(['cat-1']);
   });
 
+  it('confirms scoped requirements without loading option values or replacing the editor cache', async () => {
+    const options = [{ id: 'finish-white', attribute_id: 'finish', value: 'Branco', active: true }];
+    const requiredLinks = createApplicationLinksQuery([
+      { data: [{ attribute_id: 'finish', category_id: 'cat-1' }], error: null },
+    ]);
+    supabaseMock.from.mockImplementation((table: string) => {
+      if (table === 'attributes') return {
+        select: () => ({ order: async () => ({
+          data: [{ id: 'finish', name: 'Acabamento', active: true, data_type: 'list' }], error: null,
+        }) }),
+      };
+      if (table === 'attribute_values') return {
+        select: () => ({ limit: async () => ({ data: options, error: null }) }),
+      };
+      if (table === 'category_attributes') return requiredLinks;
+      if (table === 'attribute_category_applications') return createEmptyApplicationLinksQuery();
+      throw new Error(`Unexpected table ${table}`);
+    });
+
+    const categories = { categoryIds: ['cat-1'] };
+    const editor = await fetchTechnicalFieldDefinitions('product-form', categories);
+    expect(editor[0].options).toMatchObject([{ value: 'Branco' }]);
+    supabaseMock.from.mockClear();
+
+    const requirements = await fetchTechnicalFieldDefinitions('product-form', {
+      ...categories, forceRefresh: true, requireCategoryLinks: true, includeOptionValues: false,
+    });
+
+    expect(supabaseMock.from).not.toHaveBeenCalledWith('attribute_values');
+    expect(requiredLinks.builder.in).toHaveBeenLastCalledWith('category_id', ['cat-1']);
+    expect(requiredLinks.builder.eq).toHaveBeenLastCalledWith('is_required', true);
+    expect(requirements[0]).toMatchObject({ requiredCategoryIds: ['cat-1'], options: [] });
+    await expect(fetchTechnicalFieldDefinitions('product-form', categories)).resolves.toBe(editor);
+  });
 });

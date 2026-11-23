@@ -4,6 +4,7 @@ import type {
   EcomLegibilityResult,
 } from './types';
 import {
+  getProductCategoryIds,
   isPositiveNumber,
   normalizeCharacteristicName,
 } from './characteristicValues';
@@ -74,11 +75,7 @@ export function checkEcomLegibility(
     hasValidPrice = variations.length > 0;
   }
 
-  const categoryIds = Array.isArray(data.categoryIds)
-    ? data.categoryIds
-    : data.categoryId || data.category_id
-      ? [data.categoryId || data.category_id]
-      : [];
+  const categoryIds = getProductCategoryIds(data);
   const hasValidCategories = Boolean(categoryIds.length > 0);
   if (!hasValidCategories) {
     errors.push('Pelo menos uma categoria deve ser selecionada.');
@@ -172,7 +169,7 @@ export function checkEcomLegibility(
       ? [{ enabled: true, hasPositiveValue: true }]
       : []),
   ];
-  const selectedCategoryIds = new Set(categoryIds.map(String));
+  const selectedCategoryIds = new Set(categoryIds);
   const hasCategoryDimensionRules = categoryRequirements.some((field) =>
     /^(altura|largura|profundidade|comprimento|espessura)(?:\s|$)/.test(
       normalizeCharacteristicName(field.name)

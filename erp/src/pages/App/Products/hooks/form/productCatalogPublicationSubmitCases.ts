@@ -70,6 +70,7 @@ export function registerProductCatalogPublicationSubmitCases({
       categoryIds: ['categoria'],
       forceRefresh: true,
       requireCategoryLinks: true,
+      includeOptionValues: false,
     });
     expect(saveProductMock).not.toHaveBeenCalled();
     expect(vi.mocked(toast.error)).toHaveBeenCalledWith(

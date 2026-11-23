@@ -17,6 +17,7 @@ import { createProductFormSchema } from './productFormValidation';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import type { useProductFormDraft } from './useProductFormDraft';
 import { PRODUCT_SUPPLIER_REQUIRED_MESSAGE } from '../../../../../../../shared-utils/productSupplierRequirement';
+import { getProductCategoryIds } from '../../../../../../../shared-utils/catalogPublicationValidation';
 import { PRODUCT_COMPOSITION_PRODUCT_COMPONENTS_REQUIRED_MESSAGE } from '../../../../../../../shared-utils/productCompositionRequirements';
 import { fetchTechnicalFieldDefinitions } from '../../services/technicalFieldService';
 import { fetchCharacteristicGroups } from '@/pages/utils/characteristicGroupService';
@@ -190,9 +191,10 @@ export const useProductFormSubmit = ({
               const [categoryRequirements, groupData] = await Promise.all([
                 withTimeout(
                   fetchTechnicalFieldDefinitions('product-form', {
-                    categoryIds: validatedData.categoryIds ?? formData.categoryIds ?? [],
+                    categoryIds: getProductCategoryIds(validatedData),
                     forceRefresh: true,
                     requireCategoryLinks: true,
+                    includeOptionValues: false,
                   }),
                   15000,
                   null,

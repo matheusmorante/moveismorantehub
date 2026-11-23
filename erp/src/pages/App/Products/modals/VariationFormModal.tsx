@@ -3,7 +3,6 @@ import { createPortal } from 'react-dom';
 import { useAuth } from '@/context/AuthContext';
 import type Product from '../../../types/product.type';
 import type { Variation } from '../../../types/product.type';
-import ManageAttributesModal from '../components/modals/attributes/ManageAttributesModal';
 import VariationPhotosTab from '../components/tabs/images/VariationPhotosTab';
 import { MAX_VARIATION_IMAGES } from '@/pages/utils/productImageLimits';
 import { useVariationForm } from '../hooks/variation/useVariationForm';
@@ -90,25 +89,18 @@ const VariationFormSession: React.FC<
     validationErrors,
     clearValidationError,
     blocked,
-    referenceErrors,
-    referenceLoading,
-    retryReferences,
+    parentImagesError,
+    loadingParentImages,
+    retryParentImages,
     activeTab,
     setActiveTab,
     formData,
     setFormData,
     allParentImages,
-    dbAttributes,
-    dbAttributeValues,
-    isManageAttributesOpen,
-    setIsManageAttributesOpen,
-    fetchDbAttributes,
     varDiscountPercent,
     varDiscountFixed,
     getEffectiveDiscountPercent,
     getEffectiveDiscountFixed,
-    getDefaultVariationName,
-    getDefaultVariationTitle,
     handlePriceChange,
     handleDiscountPercentChange,
     handleDiscountFixedChange,
@@ -196,9 +188,9 @@ const VariationFormSession: React.FC<
           <VariationModalFeedbackBanners
             loading={loading}
             error={error}
-            referenceLoading={referenceLoading}
-            referenceErrors={referenceErrors}
-            onRetryReferences={retryReferences}
+            loadingParentImages={loadingParentImages}
+            parentImagesError={parentImagesError}
+            onRetryParentImages={retryParentImages}
           />
 
           <div
@@ -218,12 +210,6 @@ const VariationFormSession: React.FC<
                   formData={formData}
                   setFormData={setFormData}
                   parentProduct={parentProduct}
-                  dbAttributes={dbAttributes}
-                  dbAttributeValues={dbAttributeValues}
-                  setIsManageAttributesOpen={setIsManageAttributesOpen}
-                  getDefaultVariationName={getDefaultVariationName}
-                  getDefaultVariationTitle={getDefaultVariationTitle}
-                  fetchDbAttributes={fetchDbAttributes}
                   isSingleVariation={isSingleVariation}
                   validationErrors={validationErrors}
                   onClearValidationError={clearValidationError}
@@ -315,14 +301,6 @@ const VariationFormSession: React.FC<
           blocked={blocked}
           onClose={handleClose}
           onSubmit={handleSubmit}
-        />
-
-        <ManageAttributesModal
-          isOpen={isManageAttributesOpen}
-          onClose={() => {
-            setIsManageAttributesOpen(false);
-            void fetchDbAttributes();
-          }}
         />
       </div>
     </div>,

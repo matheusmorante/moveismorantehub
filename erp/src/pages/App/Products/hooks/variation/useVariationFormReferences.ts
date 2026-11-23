@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback } from 'react';
 import type Product from '@/pages/types/product.type';
 import { ecommerceSupabase as supabase } from '@/pages/utils/supabaseConfig';
 import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
-import { sortAttributeValuesNaturally } from '@/pages/utils/attributeValueSorting';
 
 interface UseVariationFormReferencesOptions {
   isOpen: boolean;
@@ -17,76 +16,28 @@ export function useVariationFormReferences({
   parentProduct,
   session,
 }: UseVariationFormReferencesOptions) {
-  const [referenceErrors, setReferenceErrors] = useState({ attributes: '', images: '' });
-  const [referenceLoading, setReferenceLoading] = useState({ attributes: false, images: false });
+  const [parentImagesError, setParentImagesError] = useState('');
+  const [loadingParentImages, setLoadingParentImages] = useState(false);
   const [imageQueryRevision, setImageQueryRevision] = useState(0);
-
-  const [dbAttributes, setDbAttributes] = useState<{ id: string; name: string }[]>([
-    { id: 'b9d3bcb2-18fb-4c87-8bcc-a59fc4300870', name: 'Cor' },
-    { id: 'a50a7b4d-aad6-4dfe-aae0-a909e4b9bc06', name: 'Tamanho' },
-  ]);
-  const [dbAttributeValues, setDbAttributeValues] = useState<
-    { id: string; attribute_id: string; value: string }[]
-  >([]);
-  const [isManageAttributesOpen, setIsManageAttributesOpen] = useState(false);
   const [allParentImages, setAllParentImages] = useState<string[]>([]);
-
-  const fetchDbAttributes = useCallback(async () => {
-    if (!session.active || session.lock) return;
-    setReferenceLoading((previous) => ({ ...previous, attributes: true }));
-    setReferenceErrors((previous) => ({ ...previous, attributes: '' }));
-    try {
-      const result = await withTimeout(
-        Promise.all([
-          supabase.from('attributes').select('id, name').order('name'),
-          supabase.from('attribute_values').select('id, attribute_id, value').order('value'),
-        ]),
-        10000,
-        null,
-        'variacao:atributos'
-      );
-      if (!session.active) return;
-      if (!result || result.some((response) => response.error || !Array.isArray(response.data))) {
-        throw new Error('Não foi possível carregar as características. Consulte novamente.');
-      }
-      const [attrRes, valRes] = result;
-      setDbAttributes(attrRes.data as { id: string; name: string }[]);
-      setDbAttributeValues(
-        sortAttributeValuesNaturally(
-          (valRes.data || []) as { id: string; attribute_id: string; value: string }[]
-        )
-      );
-    } catch {
-      if (session.active) {
-        setReferenceErrors((previous) => ({
-          ...previous,
-          attributes: 'Não foi possível carregar as características. Consulte novamente.',
-        }));
-      }
-    } finally {
-      if (session.active) {
-        setReferenceLoading((previous) => ({ ...previous, attributes: false }));
-      }
-    }
-  }, [session]);
 
   useEffect(() => {
     let accepting = true;
     if (isOpen) {
       setAllParentImages([]);
-      setReferenceErrors((previous) => ({ ...previous, images: '' }));
+      setParentImagesError('');
 
       // During product editing, the form state is authoritative. Fetching the
       // persisted gallery here can bring back photos removed in the unsaved form.
       if (Array.isArray(parentProduct?.images)) {
         setAllParentImages(parentProduct.images.filter(Boolean));
-        setReferenceLoading((previous) => ({ ...previous, images: false }));
+        setLoadingParentImages(false);
         return () => {
           accepting = false;
         };
       }
 
-      setReferenceLoading((previous) => ({ ...previous, images: true }));
+      setLoadingParentImages(true);
       const realParentId = parentProduct?.parentId || parentId || parentProduct?.id;
       if (realParentId) {
         void withTimeout(
@@ -109,20 +60,17 @@ export function useVariationFormReferences({
           })
           .catch(() => {
             if (session.active && accepting) {
-              setReferenceErrors((previous) => ({
-                ...previous,
-                images: 'Não foi possível carregar as fotos do produto pai. Consulte novamente.',
-              }));
+              setParentImagesError('Não foi possível carregar as fotos do produto pai. Consulte novamente.');
             }
           })
           .finally(() => {
             if (session.active && accepting) {
-              setReferenceLoading((previous) => ({ ...previous, images: false }));
+              setLoadingParentImages(false);
             }
           });
       } else {
         setAllParentImages(parentProduct.images || []);
-        setReferenceLoading((previous) => ({ ...previous, images: false }));
+        setLoadingParentImages(false);
       }
     }
     return () => {
@@ -138,23 +86,17 @@ export function useVariationFormReferences({
     imageQueryRevision,
   ]);
 
-  const retryReferences = useCallback(() => {
+  const retryParentImages = useCallback(() => {
     if (session.active && !session.lock) {
-      void fetchDbAttributes();
       setImageQueryRevision((value) => value + 1);
     }
-  }, [session, fetchDbAttributes]);
+  }, [session]);
 
   return {
-    dbAttributes,
-    dbAttributeValues,
-    isManageAttributesOpen,
-    setIsManageAttributesOpen,
-    fetchDbAttributes,
     allParentImages,
     setAllParentImages,
-    referenceErrors,
-    referenceLoading,
-    retryReferences,
+    parentImagesError,
+    loadingParentImages,
+    retryParentImages,
   };
 }

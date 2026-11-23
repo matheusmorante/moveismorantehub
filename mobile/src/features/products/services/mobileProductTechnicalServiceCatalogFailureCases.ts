@@ -1,5 +1,6 @@
 import { expect, it, vi } from 'vitest';
 import type { fetchMobileProductTechnicalFields } from './mobileProductTechnicalService';
+import { scopedCategoryQueryWith } from './mobileProductTechnicalService.testUtils';
 import type { missingCategoryApplicationsQuery } from './mobileProductTechnicalService.testUtils';
 
 type CatalogFailureCaseDependencies = {
@@ -18,29 +19,16 @@ export function registerMobileProductTechnicalCatalogFailureCases({
       select: vi.fn().mockReturnThis(),
       order: vi.fn().mockResolvedValue({ data: [], error: null }),
     };
-    const valuesQuery = {
-      select: vi.fn().mockReturnValue({
-        or: vi.fn().mockReturnThis(),
-        limit: vi.fn().mockResolvedValue({ data: [], error: null }),
-      }),
-    };
-    const categoryLinksQuery = {
-      select: vi.fn().mockReturnValue({
-        or: vi.fn().mockReturnThis(),
-        limit: vi.fn().mockResolvedValue({ data: null, error: { message: 'offline' } }),
-      }),
-    };
     supabaseMock.from.mockImplementation((table: string) => {
       if (table === 'attributes') return attributesQuery;
-      if (table === 'attribute_values') return valuesQuery;
-      if (table === 'category_attributes') return categoryLinksQuery;
-      if (table === 'attribute_category_applications') return missingCategoryApplicationsQuery();
+      if (table === 'category_attributes') return scopedCategoryQueryWith(null, { message: 'offline' });
+      if (table === 'attribute_category_applications') return scopedCategoryQueryWith([]);
       throw new Error(`Unexpected table ${table}`);
     });
 
-    await expect(fetchMobileProductTechnicalFields({ requireCategoryLinks: true })).rejects.toMatchObject({
-      message: 'offline',
-    });
+    await expect(fetchMobileProductTechnicalFields({
+      categoryIds: ['cat-1'], requireCategoryLinks: true, includeOptionValues: false,
+    })).rejects.toMatchObject({ message: 'offline' });
   });
 
   it('propaga falha ao carregar o cadastro global de atributos usado nos requisitos', async () => {

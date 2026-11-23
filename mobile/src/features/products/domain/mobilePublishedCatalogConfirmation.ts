@@ -1,5 +1,6 @@
 import { Alert } from 'react-native';
 import { withTimeout } from '../../../../../shared-utils/withTimeout';
+import { getProductCategoryIds } from '../../../../../shared-utils/catalogPublicationValidation';
 import { fetchMobileProductTechnicalFields } from '../services/mobileProductTechnicalService';
 import { shouldValidatePublishedCatalogEdit } from './productSaveState';
 import {
@@ -37,7 +38,11 @@ export async function verifyAndConfirmMobilePublishedCatalogEdit(
 
   try {
     categoryRequirements = await withTimeout(
-      fetchMobileProductTechnicalFields({ requireCategoryLinks: true }),
+      fetchMobileProductTechnicalFields({
+        categoryIds: getProductCategoryIds(validatedData),
+        requireCategoryLinks: true,
+        includeOptionValues: false,
+      }),
       15000,
       null,
       'produto:verificar-requisitos-do-catalogo'

@@ -6,7 +6,7 @@ import {
   productListFormSchema,
   type ProductListPageSize,
 } from '../../../../../shared-utils/listingFormSchemas';
-import { validateCatalogPublication } from '../../../../../shared-utils/catalogPublicationValidation';
+import { getProductCategoryIds, validateCatalogPublication } from '../../../../../shared-utils/catalogPublicationValidation';
 import { getProductCatalogMutationFailureNotice } from '../../../../../shared-utils/productCatalogPermission';
 import { withTimeout } from '../../../../../shared-utils/withTimeout';
 import {
@@ -307,7 +307,11 @@ export function useMobileProducts(
       let categoryRequirements: MobileProductTechnicalField[] | null;
       try {
         categoryRequirements = await withTimeout(
-          fetchMobileProductTechnicalFields({ requireCategoryLinks: true }),
+          fetchMobileProductTechnicalFields({
+            categoryIds: getProductCategoryIds(targetProd),
+            requireCategoryLinks: true,
+            includeOptionValues: false,
+          }),
           15000,
           null,
           'produto:verificar-requisitos-do-catalogo'

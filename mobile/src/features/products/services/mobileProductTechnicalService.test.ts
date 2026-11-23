@@ -12,12 +12,46 @@ import { fetchMobileProductTechnicalFields } from './mobileProductTechnicalServi
 import {
   missingCategoryApplicationsQuery,
   queryWith,
+  scopedCategoryQueryWith,
 } from './mobileProductTechnicalService.testUtils';
 import { registerMobileProductTechnicalCatalogFailureCases } from './mobileProductTechnicalServiceCatalogFailureCases';
 
 describe('mobileProductTechnicalService', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  it('limita os dois conjuntos de vínculos na publicação e não carrega opções', async () => {
+    const requiredLinks = scopedCategoryQueryWith([
+      { attribute_id: 'finish', category_id: 'cat-1', is_required: true },
+    ]);
+    const applications = scopedCategoryQueryWith([
+      { attribute_id: 'finish', category_id: 'cat-1', application: 'optional' },
+    ]);
+    supabaseMock.from.mockImplementation((table: string) => {
+      if (table === 'attributes') return {
+        select: () => ({ order: async () => ({
+          data: [{ id: 'finish', name: 'Acabamento', active: true, data_type: 'list' }], error: null,
+        }) }),
+      };
+      if (table === 'category_attributes') return requiredLinks;
+      if (table === 'attribute_category_applications') return applications;
+      throw new Error(`Unexpected table ${table}`);
+    });
+
+    const [field] = await fetchMobileProductTechnicalFields({
+      categoryIds: ['cat-1', ' cat-1 '], requireCategoryLinks: true, includeOptionValues: false,
+    });
+
+    expect(supabaseMock.from).not.toHaveBeenCalledWith('attribute_values');
+    expect(requiredLinks.builder.in).toHaveBeenCalledWith('category_id', ['cat-1']);
+    expect(requiredLinks.builder.eq).toHaveBeenCalledWith('is_required', true);
+    expect(applications.builder.in).toHaveBeenCalledWith('category_id', ['cat-1']);
+    expect(field).toMatchObject({
+      requiredCategoryIds: ['cat-1'],
+      categoryApplications: [{ categoryId: 'cat-1', application: 'optional' }],
+      options: [],
+    });
   });
 
   it('exclui Linha e Modelo isolados, preservando o atributo combinado e nomes mais longos', async () => {

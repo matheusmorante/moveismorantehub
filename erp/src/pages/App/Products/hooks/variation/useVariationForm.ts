@@ -17,8 +17,6 @@ import { useVariationFormReferences } from './useVariationFormReferences';
 import {
   buildInitialVariationFormData,
   calculateEffectivePurchaseCost,
-  computeDefaultVariationName,
-  computeDefaultVariationTitle,
 } from './variationFormDefaults';
 import { prepareFinalVariation } from './variationFormSubmitRules';
 import { isSingleProductVariationFormMode } from '../../../../../../../shared-utils/productVariationMode';
@@ -94,16 +92,11 @@ export function useVariationForm({
   });
 
   const {
-    dbAttributes,
-    dbAttributeValues,
-    isManageAttributesOpen,
-    setIsManageAttributesOpen,
-    fetchDbAttributes,
     allParentImages,
     setAllParentImages,
-    referenceErrors,
-    referenceLoading,
-    retryReferences,
+    parentImagesError,
+    loadingParentImages,
+    retryParentImages,
   } = useVariationFormReferences({
     isOpen,
     parentId,
@@ -230,7 +223,6 @@ export function useVariationForm({
   // 4. Inicializa o formulário ao abrir ou trocar de variação
   useEffect(() => {
     if (isOpen) {
-      void fetchDbAttributes();
       const varImgs = Array.isArray(variation?.images)
         ? variation.images.filter(Boolean)
         : typeof (variation as any)?.image_url === 'string' && (variation as any).image_url.trim()
@@ -292,16 +284,6 @@ export function useVariationForm({
       return next;
     });
   };
-
-  const getDefaultVariationName = useCallback(
-    (attributes: Variation['attributes'] = []) => computeDefaultVariationName(parentProduct, attributes),
-    [parentProduct]
-  );
-
-  const getDefaultVariationTitle = useCallback(
-    (attributes: Variation['attributes'] = []) => computeDefaultVariationTitle(parentProduct, attributes),
-    [parentProduct]
-  );
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -435,25 +417,18 @@ export function useVariationForm({
     validationErrors,
     clearValidationError,
     blocked,
-    referenceErrors,
-    referenceLoading,
-    retryReferences,
+    parentImagesError,
+    loadingParentImages,
+    retryParentImages,
     activeTab,
     setActiveTab,
     formData,
     setFormData: updateFormData,
     allParentImages,
-    dbAttributes,
-    dbAttributeValues,
-    isManageAttributesOpen,
-    setIsManageAttributesOpen,
-    fetchDbAttributes,
     varDiscountPercent,
     varDiscountFixed,
     getEffectiveDiscountPercent,
     getEffectiveDiscountFixed,
-    getDefaultVariationName,
-    getDefaultVariationTitle,
     handlePriceChange,
     handleDiscountPercentChange,
     handleDiscountFixedChange,

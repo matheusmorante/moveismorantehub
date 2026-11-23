@@ -5,6 +5,7 @@ export const createApplicationLinksQuery = (pages: Array<{ data: any[] | null; e
 ]) => {
   const builder = {
     in: vi.fn().mockReturnThis(),
+    eq: vi.fn().mockReturnThis(),
     order: vi.fn().mockReturnThis(),
     range: vi.fn().mockImplementation(async (start: number) =>
       pages[Math.floor(start / 1000)] ?? { data: [], error: null }

@@ -19,6 +19,7 @@ import { getProfileRoles } from '@/pages/utils/accessRoles';
 import { fetchTechnicalFieldDefinitions } from '@/pages/App/Products/services/technicalFieldService';
 import { fetchCharacteristicGroups } from '@/pages/utils/characteristicGroupService';
 import { withTimeout } from '../../../../../../../../shared-utils/withTimeout';
+import { getProductCategoryIds } from '../../../../../../../../shared-utils/catalogPublicationValidation';
 import { getProductCatalogMutationFailureNotice } from '../../../../../../../../shared-utils/productCatalogPermission';
 import {
   productListQueryFiltersFormSchema,
@@ -371,9 +372,10 @@ export const useProducts = (filters?: ProductListFilters) => {
           const [requirementsResult, groupsResult] = await Promise.all([
             withTimeout(
               fetchTechnicalFieldDefinitions('product-form', {
-                categoryIds: parentProduct?.categoryIds ?? [],
+                categoryIds: getProductCategoryIds(parentProduct ?? {}),
                 forceRefresh: true,
                 requireCategoryLinks: true,
+                includeOptionValues: false,
               }),
               15000,
               null,

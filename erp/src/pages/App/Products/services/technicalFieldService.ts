@@ -8,6 +8,7 @@ import {
 } from '@/pages/utils/technicalValuesService';
 import { isProductMeasureCharacteristic } from '../../../../../../shared-utils/productAiAttributeTypes';
 import { deduplicateProductTechnicalValueAliasFields } from '../../../../../../shared-utils/productTechnicalValueAliases';
+import { readProductTechnicalCategoryRows } from '../../../../../../shared-utils/productTechnicalCategoryRows';
 
 export type TechnicalFieldUnitPolicy = 'product-form' | 'variation-form';
 
@@ -37,29 +38,28 @@ const inFlightDefinitions = new Map<string, Promise<TechnicalFieldDefinition[]>>
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutos de cache em memória
 const APPLICATION_PAGE_SIZE = 1000;
 
-const fetchCategoryApplications = async (categoryIds: readonly string[]) => {
-  if (categoryIds.length === 0) return { data: [], error: null };
-
-  const rows: Array<{
-    attribute_id: string;
-    category_id: string;
-    application: string;
-  }> = [];
-
-  for (let start = 0; ; start += APPLICATION_PAGE_SIZE) {
-    const { data, error } = await supabase
+const fetchCategoryApplications = (categoryIds: string[]) =>
+  readProductTechnicalCategoryRows(categoryIds, (ids, from, to) =>
+    supabase
       .from('attribute_category_applications')
       .select('attribute_id, category_id, application')
-      .in('category_id', [...categoryIds])
+      .in('category_id', ids)
       .order('attribute_id', { ascending: true })
       .order('category_id', { ascending: true })
-      .range(start, start + APPLICATION_PAGE_SIZE - 1);
-    if (error) return { data: null, error };
-    const page = data ?? [];
-    rows.push(...page);
-    if (page.length < APPLICATION_PAGE_SIZE) return { data: rows, error: null };
-  }
-};
+      .range(from, to)
+  );
+
+const fetchRequiredCategoryLinks = (categoryIds: string[]) =>
+  readProductTechnicalCategoryRows(categoryIds, (ids, from, to) =>
+    supabase
+      .from('category_attributes')
+      .select('attribute_id, category_id')
+      .in('category_id', ids)
+      .eq('is_required', true)
+      .order('attribute_id', { ascending: true })
+      .order('category_id', { ascending: true })
+      .range(from, to)
+  );
 
 const fetchAllDependencyAlternatives = async () => {
   const rows: Array<{
@@ -97,10 +97,16 @@ export const invalidateTechnicalFieldDefinitionsCache = () => {
 /** Loads and maps the technical fields shared by product and variation forms. */
 export const fetchTechnicalFieldDefinitions = async (
   unitPolicy: TechnicalFieldUnitPolicy,
-  options: { categoryIds: readonly string[]; forceRefresh?: boolean; requireCategoryLinks?: boolean }
+  options: {
+    categoryIds: readonly string[];
+    forceRefresh?: boolean;
+    requireCategoryLinks?: boolean;
+    includeOptionValues?: boolean;
+  }
 ): Promise<TechnicalFieldDefinition[]> => {
   const categoryIds = [...new Set(options.categoryIds.map((id) => id.trim()).filter(Boolean))].sort();
-  const cacheKey = `${unitPolicy}:${JSON.stringify(categoryIds)}`;
+  const includeOptionValues = options.includeOptionValues !== false;
+  const cacheKey = JSON.stringify([unitPolicy, includeOptionValues, categoryIds]);
   const now = Date.now();
   if (!options.forceRefresh) {
     const cached = cachedDefinitions.get(cacheKey);
@@ -159,14 +165,13 @@ export const fetchTechnicalFieldDefinitions = async (
         { data: applicationLinks, error: applicationLinksError },
         dependencyAlternativesResult,
       ] = await Promise.all([
-        supabase
-          .from('attribute_values')
-          .select('id, attribute_id, value, sort_order, active')
-          .limit(10000),
-        supabase
-          .from('category_attributes')
-          .select('attribute_id, category_id, is_required')
-          .limit(10000),
+        includeOptionValues
+          ? supabase
+              .from('attribute_values')
+              .select('id, attribute_id, value, sort_order, active')
+              .limit(10000)
+          : Promise.resolve({ data: [], error: null }),
+        fetchRequiredCategoryLinks(categoryIds),
         fetchCategoryApplications(categoryIds),
         hasPrimaryDependencies
           ? fetchAllDependencyAlternatives()
@@ -262,7 +267,6 @@ export const fetchTechnicalFieldDefinitions = async (
                 .filter(
                   (link) =>
                     link.attribute_id === attribute.id &&
-                    link.is_required &&
                     !isWeightCharacteristicName(attribute.name) &&
                     !isWeightCapacityCharacteristic(attribute.name)
                 )
