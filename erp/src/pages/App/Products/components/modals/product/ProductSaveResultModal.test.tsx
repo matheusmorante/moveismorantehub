@@ -4,6 +4,7 @@ import { act, render, screen, fireEvent, cleanup, waitFor } from '@testing-libra
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import { ProductSaveResultModal } from './ProductSaveResultModal';
 import type Product from '@/pages/types/product.type';
+import { normalizeProductForSave } from '@/pages/utils/productKindRules';
 import * as productService from '@/pages/utils/productService';
 import * as characteristicGroupService from '@/pages/utils/characteristicGroupService';
 import * as technicalFieldService from '@/pages/App/Products/services/technicalFieldService';
@@ -34,6 +35,12 @@ const defaultChecks = {
   checksEcom: { marketplaceTitle: true, description: true, dimensions: true, categories: true, images: true },
   erpLegible: true,
   ecomLegible: true,
+};
+
+const catalogTechnicalValues = {
+  Marca: 'Morante',
+  'Modelo/Linha': 'Linha Madeira',
+  'Profundidade total': '50',
 };
 
 describe('ProductSaveResultModal - Regra de Origem de Estoque Salvados e Usados', () => {
@@ -197,7 +204,7 @@ describe('ProductSaveResultModal - Regra de Origem de Estoque Salvados e Usados'
           id: 'product-1', name: 'Mesa', description: 'Mesa de madeira', active: true,
           status: 'hidden', unitPrice: 500, categoryIds: ['cat-1'],
           images: ['https://example.test/mesa.jpg'], width: 80, height: 90, depth: 50,
-          weight: 20,
+          weight: 20, technicalValues: catalogTechnicalValues,
           variations: [],
         } as unknown as Product
       : { id: 'product-1', name: 'Mesa', active: true, status: 'hidden', unitPrice: 0, variations: [] } as unknown as Product;
@@ -209,6 +216,54 @@ describe('ProductSaveResultModal - Regra de Origem de Estoque Salvados e Usados'
     fireEvent.click(screen.getByText('Concluir')); fireEvent.keyDown(window, { key: 'Escape' }); expect(finish).not.toHaveBeenCalled(); expect(close).not.toHaveBeenCalled();
     expect(productService.saveProduct).toHaveBeenCalledWith(expect.objectContaining(channel === 'erp' ? { active: false, unitPrice: 0 } : { status: 'published', unitPrice: 500 }));
     await act(async () => { saved('product-1'); }); await waitFor(() => expect(setFormData).toHaveBeenCalledOnce());
+  });
+
+  it('publica o produto Salvados recém-salvo com estoque nulo no produto e na variação', async () => {
+    const product = normalizeProductForSave({
+      id: 'saved-salvado',
+      name: 'Mesa',
+      description: 'Mesa de madeira',
+      productKind: 'salvado',
+      opportunityId: 'opportunity-1',
+      mainSupplierId: 'supplier-1',
+      unitPrice: 500,
+      stock: 0,
+      categoryIds: ['cat-1'],
+      images: ['https://example.test/mesa.jpg'],
+      width: 80,
+      height: 90,
+      depth: 50,
+      weight: 20,
+      technicalValues: catalogTechnicalValues,
+      variations: [{
+        id: 'var-1', sku: 'MESA-01', name: 'Mesa', stock: 0, unitPrice: 500, active: true, attributes: [],
+      }],
+    }, {
+      isDraft: false,
+      isCompletingDraft: true,
+      catalogStatus: 'hidden',
+      name: 'Mesa',
+    });
+
+    render(
+      <ProductSaveResultModal
+        saveResult={{ ...defaultChecks, product }}
+        onCloseModal={vi.fn()}
+        onCloseForm={vi.fn()}
+        setFormData={vi.fn()}
+      />
+    );
+
+    const publishButton = screen.getByRole<HTMLButtonElement>('button', { name: 'Publicar no Catálogo' });
+    await waitFor(() => expect(publishButton.disabled).toBe(false));
+    await act(async () => { fireEvent.click(publishButton); });
+
+    expect(screen.queryByRole('alert')?.textContent).toBeUndefined();
+    expect(productService.saveProduct).toHaveBeenCalledWith(expect.objectContaining({
+      id: 'saved-salvado', status: 'published', active: false, stock: null,
+      variations: [expect.objectContaining({ id: 'var-1', status: 'published', active: false, stock: null })],
+    }));
+    expect(screen.getByRole('button', { name: 'Despublicar do Catálogo' })).toBeDefined();
   });
 
   it('bloqueia publicação sem característica obrigatória da categoria, mas permite concluir o cadastro', async () => {
@@ -223,7 +278,7 @@ describe('ProductSaveResultModal - Regra de Origem de Estoque Salvados e Usados'
       status: 'hidden', unitPrice: 500, categoryIds: ['cat-1'],
       images: ['https://example.test/mesa.jpg'], width: 80, height: 90, depth: 50,
       weight: 20,
-      technicalValues: {}, variations: [],
+      technicalValues: catalogTechnicalValues, variations: [],
     } as unknown as Product;
     const onSuccess = vi.fn().mockResolvedValue(true);
     const onClose = vi.fn();

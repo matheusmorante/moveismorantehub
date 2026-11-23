@@ -39,7 +39,7 @@ const inboundCostPriceInput = z.union([z.number(), z.string()]).refine(
 );
 const productNumbers = {
   unitPrice: numericInput.optional(), price: numericInput.optional(), promoPrice: numericInput.nullish(), costPrice: numericInput.optional(),
-  stock: numericInput.optional(), minStock: numericInput.optional(), width: numericInput.optional(), height: numericInput.optional(), depth: numericInput.optional(), weight: numericInput.optional(),
+  stock: numericInput.nullish(), minStock: numericInput.optional(), width: numericInput.optional(), height: numericInput.optional(), depth: numericInput.optional(), weight: numericInput.optional(),
   ipiPercent: numericInput.optional(), freightCost: numericInput.optional(), finalPurchasePrice: numericInput.optional(),
 };
 const discountInput = z.union([z.number(), z.string()]).optional();

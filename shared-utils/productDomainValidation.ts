@@ -21,12 +21,15 @@ import { getDresserOrWardrobeCharacteristicRequirementIssues } from './productDr
 
 const productNumericFields = productVariationDraftSchema.pick({
   unitPrice: true, promoPrice: true, costPrice: true, freightCost: true, ipiPercent: true,
-  finalPurchasePrice: true, stock: true, minStock: true, leadTime: true, avgMonthlySales: true,
+  finalPurchasePrice: true, minStock: true, leadTime: true, avgMonthlySales: true,
   width: true, height: true, depth: true, weight: true, pkgWidth: true, pkgHeight: true, pkgDepth: true,
 }).partial().shape;
 
+// O cadastro de Salvados guarda estoque nulo no produto e nas variações.
+const productStockSchema = z.number().finite('Informe um valor finito.').nullish();
+
 const productFormVariationSchema = productVariationDraftSchema.partial().extend({
-  stock: z.number().finite('Informe um valor finito.').optional(),
+  stock: productStockSchema,
 });
 
 export interface ProductFormValidationOptions {
@@ -43,7 +46,7 @@ export const createProductFormSchema = (options: ProductFormValidationOptions) =
   return z
     .object({
       ...productNumericFields,
-      stock: z.number().finite('Informe um valor finito.').optional(),
+      stock: productStockSchema,
       initialStock: productVariationDraftSchema.shape.stock.optional(),
       name: z.string().optional().nullable(),
       title: z.string().optional().nullable(),

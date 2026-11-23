@@ -1,5 +1,11 @@
 # Migração de todos os formulários — 14/10/2026
 
+## Complemento de 23/11 — Estoque nulo na publicação de Salvados
+
+O cadastro de Salvados usa `stock: null` no produto e nas variações. O resolver do modal pós-cadastro do ERP rejeitava esse valor ao acionar **Publicar no Catálogo**. O schema de produto do ERP e o do app agora aceitam e preservam o estoque nulo do cadastro. Os saldos numéricos seguem a validação de cada formulário. O modal do ERP verifica a prontidão do Catálogo Digital e executa o resolver antes do serviço. No app, o formulário recebe as variações carregadas e a lista publica pelo identificador do produto ou da variação.
+
+A prova local do ERP reproduziu a mensagem original no botão e, após o ajuste, verificou o status publicado e o estoque nulo no produto e na variação enviados ao serviço simulado. Passaram 74 testes do ERP e 73 do app. Três falhas da rodada ampliada também foram reproduzidas com o schema original, nas provas de características do catálogo, confirmação de edição e limite de fotos da variação única. A verificação de publicação com persistência remota e a prova em Android físico permanecem pendentes.
+
 ## Complemento de 06/11 — Modelos de imagem (Marketing)
 
 A rota `/marketing/image-templates` usa React Hook Form com `zodResolver` na criação, renomeação, cópia, exclusão e no editor de camadas. O serviço recebe os valores parseados. O editor valida o desenho, as regras, as proporções e os limites de imagens. A exclusão valida a identidade e a versão da linha antes da operação. A seleção de catálogo, conjunto e produto atualiza a prévia e não grava um modelo. [Operação e validação](../marketing/modelos-de-imagem-catalogo-2026-11-06.md).

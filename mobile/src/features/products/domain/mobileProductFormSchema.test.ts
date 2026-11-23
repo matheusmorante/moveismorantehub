@@ -14,6 +14,25 @@ describe('mobileProductFormSchema - single variation error routing', () => {
     expect(parsed.success).toBe(true);
   });
 
+  it('preserva o estoque nulo do produto Salvados e da variação carregada', () => {
+    const schema = createMobileProductFormSchema({
+      draft: false,
+      isStockistOnly: false,
+      published: false,
+    });
+
+    const parsed = schema.parse({
+      ...baseValidProduct,
+      productKind: 'salvado',
+      opportunityId: 'opportunity-1',
+      stock: null,
+      variations: [{ ...baseValidProduct.variations[0], stock: null }],
+    });
+
+    expect(parsed.stock).toBeNull();
+    expect(parsed.variations?.[0].stock).toBeNull();
+  });
+
   it('aceita o valor serializado de opções múltiplas nos atributos de uma variação', () => {
     const schema = createMobileProductFormSchema({
       draft: false,
