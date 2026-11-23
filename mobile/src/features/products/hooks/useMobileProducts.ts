@@ -89,6 +89,7 @@ export function useMobileProducts(
   const loadRequestGuardRef = useRef(createMobileProductListRequestGuard());
   const successfulSnapshotKeyRef = useRef<string | null>(null);
   const reloadCurrentProductPageRef = useRef<() => Promise<void>>(async () => undefined);
+  const catalogMutationIdsRef = useRef(new Set<string>());
   const requestFiltersKey = JSON.stringify({
     search: appliedSearchTerm,
     statusFilter,
@@ -336,8 +337,16 @@ export function useMobileProducts(
         return;
       }
     }
+
+    if (catalogMutationIdsRef.current.has(productId)) return;
+    catalogMutationIdsRef.current.add(productId);
+
     try {
-      const next = await toggleMobileProductCatalog(productId, currentStatus, isVar, varId);
+      const expectedNextStatus = currentStatus === 'published' ? 'hidden' : 'published';
+      setProducts((previous) =>
+        applyMobileProductCatalogStatusToList(previous, productId, expectedNextStatus, isVar, varId)
+      );
+      const next = await toggleMobileProductCatalog(productId, currentStatus, isVar, varId, true);
       // O ERP invalida a consulta ativa após persistir. Recarregue a chave/página
       // atuais para remover famílias que deixaram de satisfazer o filtro publicado
       // e para recalcular contagem e paginação antes de aplicar o fallback otimista.
@@ -347,8 +356,16 @@ export function useMobileProducts(
       );
     } catch (err) {
       console.warn('Erro ao alterar catálogo:', err);
+      try {
+        // O status do ERP pode ter sido salvo antes de falhar a confirmação da Meta.
+        await reloadCurrentProductPageRef.current();
+      } catch (reloadError) {
+        console.warn('Falha ao atualizar a lista após a alteração do catálogo:', reloadError);
+      }
       const failureNotice = getProductCatalogMutationFailureNotice(err);
       Alert.alert(failureNotice.title, failureNotice.message);
+    } finally {
+      catalogMutationIdsRef.current.delete(productId);
     }
   };
 

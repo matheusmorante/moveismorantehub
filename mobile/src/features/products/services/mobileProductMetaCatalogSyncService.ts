@@ -2,7 +2,14 @@ import type { MetaCatalogReconciliationResult } from '../../../../../shared-util
 import { withTimeout } from '../../../../../shared-utils/withTimeout';
 import { supabase } from '../../../services/supabaseClient';
 
-const pendingSyncs = new Map<string, ReturnType<typeof setTimeout>>();
+type PendingMobileProductMetaCatalogSync = {
+  timer: ReturnType<typeof setTimeout> | null;
+  promise: Promise<MobileMetaCatalogSyncResult>;
+  resolve: (result: MobileMetaCatalogSyncResult) => void;
+};
+
+const pendingSyncs = new Map<string, PendingMobileProductMetaCatalogSync>();
+const inFlightSyncs = new Map<string, Promise<MobileMetaCatalogSyncResult>>();
 
 export type MobileMetaCatalogSyncResult = MetaCatalogReconciliationResult;
 
@@ -51,15 +58,63 @@ export async function syncMobileProductToMetaCatalog(productId: string): Promise
   }
 }
 
-export function triggerMobileProductMetaCatalogSync(productId: string): void {
-  if (!productId) return;
-  const existing = pendingSyncs.get(productId);
-  if (existing) clearTimeout(existing);
+function runMobileProductMetaCatalogSync(productId: string): Promise<MobileMetaCatalogSyncResult> {
+  const existing = inFlightSyncs.get(productId);
+  if (existing) return existing;
 
-  pendingSyncs.set(productId, setTimeout(() => {
-    pendingSyncs.delete(productId);
-    void syncMobileProductToMetaCatalog(productId).then((result) => {
-      if (!result.success) console.warn('[MetaCatalog] Falha na sincronização do produto.', productId, result.error);
+  let inFlight: Promise<MobileMetaCatalogSyncResult>;
+  inFlight = syncMobileProductToMetaCatalog(productId).finally(() => {
+    if (inFlightSyncs.get(productId) === inFlight) inFlightSyncs.delete(productId);
+  });
+  inFlightSyncs.set(productId, inFlight);
+  return inFlight;
+}
+
+/** Debounces sequential saves and lets catalog hiding await Meta confirmation. */
+export function triggerMobileProductMetaCatalogSync(
+  productId: string
+): Promise<MobileMetaCatalogSyncResult> {
+  if (!productId) {
+    return Promise.resolve({ success: false, count: 0, error: 'ID do produto ausente.' });
+  }
+
+  let pending = pendingSyncs.get(productId);
+  if (pending?.timer) clearTimeout(pending.timer);
+
+  if (!pending) {
+    let resolvePending!: (result: MobileMetaCatalogSyncResult) => void;
+    const promise = new Promise<MobileMetaCatalogSyncResult>((resolve) => {
+      resolvePending = resolve;
     });
-  }, 400));
+    pending = { timer: null, promise, resolve: resolvePending };
+  }
+
+  const scheduled = pending;
+  scheduled.timer = setTimeout(() => {
+    if (pendingSyncs.get(productId) !== scheduled) return;
+    pendingSyncs.delete(productId);
+    scheduled.timer = null;
+
+    void (async () => {
+      const inFlight = inFlightSyncs.get(productId);
+      if (inFlight) await inFlight;
+      return runMobileProductMetaCatalogSync(productId);
+    })().then((result) => {
+      if (!result.success) {
+        console.warn('[MetaCatalog] Falha na sincronização do produto.', productId, result.error);
+      }
+      scheduled.resolve(result);
+    }).catch((error) => {
+      const result = {
+        success: false,
+        count: 0,
+        error: error instanceof Error ? error.message : 'Erro ao sincronizar o produto com a Meta.',
+      };
+      console.warn('[MetaCatalog] Falha na sincronização do produto.', productId, result.error);
+      scheduled.resolve(result);
+    });
+  }, 400);
+
+  pendingSyncs.set(productId, scheduled);
+  return scheduled.promise;
 }

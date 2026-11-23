@@ -14,7 +14,7 @@ import { buildProductMetaCatalogSyncItems } from '../../../../shared-utils/produ
 export const UUID = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
 const PAGE_SIZE = 200;
 const PRODUCT_FIELDS =
-  'id,name,description,status,active,deleted,deleted_at,opportunity_id,unit_price,price,promo_price,stock,images,brand,code,is_draft,slug,is_salvado,product_kind,material,condition,observations,testArtifact:technical_specs->testArtifact,product_categories(categories(name,type)),opportunities(id,name,observations)';
+  'id,name,description,status,active,deleted,deleted_at,opportunity_id,unit_price,price,promo_price,stock,images,brand,code,sku,is_draft,slug,is_salvado,product_kind,material,condition,observations,testArtifact:technical_specs->testArtifact,product_categories(categories(name,type)),opportunities(id,name,observations)';
 const VARIATION_FIELDS =
   'id,product_id,status,active,name,sku,image_url,price,promo_price,stock,attributes,use_parent_price,use_parent_promo_price';
 
@@ -105,7 +105,7 @@ export async function resolveErpProductIds(db: SupabaseClient, retailerIds: stri
 
 export async function loadCandidateRetailers(db: SupabaseClient, productId: string): Promise<string[]> {
   const [products, variations] = await Promise.all([
-    readPage<MetaCatalogProductSource>(db.from('products').select('id,code').eq('id', productId), 'código do produto'),
+    readPage<MetaCatalogProductSource>(db.from('products').select('id,code,sku').eq('id', productId), 'código do produto'),
     readPages<MetaCatalogVariationSource>((from, to) => db.from('product_variations')
       .select('id,product_id,sku').eq('product_id', productId).order('id').range(from, to), 'SKUs das variações'),
   ]);

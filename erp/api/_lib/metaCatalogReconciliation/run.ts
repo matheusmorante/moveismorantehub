@@ -63,7 +63,10 @@ async function catalogConfig(db: ReturnType<typeof serviceDb>) {
 
 async function verifyDeletions(graph: Graph, catalog: Catalog, retailerIds: string[]): Promise<Set<string>> {
   let remaining = retailerIds;
-  for (const delay of [0, 700, 1_400]) {
+  // A finished batch can take a few more seconds to disappear from Meta's
+  // retailer_id lookup. Keep checking the actual catalog before reporting a
+  // failed removal, with small bounded reads to limit extra Graph API traffic.
+  for (const delay of [0, 700, 1_400, 2_800]) {
     if (!remaining.length) break;
     if (delay) await graph.sleep(delay);
     const products = await graph.readRetailers(catalog.id, remaining, 'id,retailer_id');
@@ -131,17 +134,67 @@ export async function runMetaCatalogReconciliation(scope: RunScope): Promise<Met
         signal.throwIfAborted();
         failures = await graph.submit(catalog.id, batch);
       } catch (error) {
-        retainLease ||= error instanceof GraphBatchUnconfirmed;
-        for (const change of batch) recordIssue(safeReason(error), catalog.target, change.retailer_id);
+        const unconfirmed = error instanceof GraphBatchUnconfirmed;
+        const deletes = unconfirmed ? batch.filter((item) => item.method === 'DELETE') : [];
+        const confirmedDeletes = new Set<string>();
+        let confirmationFailure: unknown;
+
+        if (deletes.length) {
+          try {
+            const remaining = await verifyDeletions(
+              graph,
+              catalog,
+              deletes.map((item) => item.retailer_id)
+            );
+            for (const item of deletes) {
+              if (!remaining.has(item.retailer_id)) {
+                confirmedDeletes.add(item.retailer_id);
+                counters.deleted++;
+              }
+            }
+          } catch (verifyError) {
+            confirmationFailure = verifyError;
+          }
+        }
+
+        retainLease ||= unconfirmed && (
+          batch.some((item) => item.method !== 'DELETE') ||
+          deletes.some((item) => !confirmedDeletes.has(item.retailer_id))
+        );
+        for (const change of batch) {
+          if (confirmedDeletes.has(change.retailer_id)) continue;
+          const reason = change.method === 'DELETE'
+            ? confirmationFailure
+              ? `${safeReason(error)} A consulta de confirmação falhou: ${safeReason(confirmationFailure)}`
+              : `A exclusão ainda não foi confirmada na Meta. ${safeReason(error)}`
+            : safeReason(error);
+          recordIssue(reason, catalog.target, change.retailer_id);
+        }
         continue;
       }
-      const deletes = batch.filter((item) => item.method === 'DELETE' && !failures.has(item.retailer_id));
+      const deletes = batch.filter((item) => item.method === 'DELETE');
       if (deletes.length) {
         try {
           const remaining = await verifyDeletions(graph, catalog, deletes.map((item) => item.retailer_id));
-          for (const retailerId of remaining) failures.set(retailerId, 'A exclusão ainda não foi confirmada na Meta para este SKU.');
+          for (const item of deletes) {
+            if (!remaining.has(item.retailer_id)) {
+              // The batch may report an item error after Meta has already removed the SKU.
+              // The catalog read is authoritative for whether the hide has completed.
+              failures.delete(item.retailer_id);
+            } else if (!failures.has(item.retailer_id)) {
+              failures.set(item.retailer_id, 'A exclusão ainda não foi confirmada na Meta para este SKU.');
+            }
+          }
         } catch (error) {
-          for (const item of deletes) failures.set(item.retailer_id, `Exclusão não confirmada. ${safeReason(error)}`);
+          for (const item of deletes) {
+            const batchFailure = failures.get(item.retailer_id);
+            failures.set(
+              item.retailer_id,
+              batchFailure
+                ? `${batchFailure} A consulta de confirmação também falhou: ${safeReason(error)}`
+                : `Exclusão não confirmada. ${safeReason(error)}`
+            );
+          }
         }
       }
       for (const change of batch) {

@@ -8,11 +8,22 @@ import { supabase } from '../../../services/supabaseClient';
 import { getMobileProductVariationRecords } from '../domain/mobileProductVariationVisibility';
 import { triggerMobileProductMetaCatalogSync } from './mobileProductMetaCatalogSyncService';
 import { withMobileMutationTimeout } from './mobileProductMutationTimeout';
+
+async function confirmMobileCatalogRemoval(productId: string): Promise<void> {
+  const result = await triggerMobileProductMetaCatalogSync(productId);
+  if (!result.success) {
+    throw new Error(
+      `O status foi salvo no ERP, mas a Meta não confirmou a exclusão: ${result.error || 'atualize a lista e tente novamente.'}`
+    );
+  }
+}
+
 export const toggleMobileProductCatalog = async (
   productId: string,
   currentStatus: string,
   isVariation = false,
-  variationId?: string
+  variationId?: string,
+  awaitMetaRemovalConfirmation = false
 ) => {
   const nextStatus = currentStatus === 'published' ? 'hidden' : 'published';
   if (nextStatus === 'published') {
@@ -74,7 +85,11 @@ export const toggleMobileProductCatalog = async (
         if (parentResult.error) throw parentResult.error;
       }
     }
-    triggerMobileProductMetaCatalogSync(productId);
+    if (nextStatus === 'hidden' && awaitMetaRemovalConfirmation) {
+      await confirmMobileCatalogRemoval(productId);
+    } else {
+      void triggerMobileProductMetaCatalogSync(productId);
+    }
     return nextStatus;
   }
 
@@ -96,7 +111,11 @@ export const toggleMobileProductCatalog = async (
     'mobile:atualizar-status-variacoes'
   );
   if (variationsResult.error) throw variationsResult.error;
-  triggerMobileProductMetaCatalogSync(productId);
+  if (nextStatus === 'hidden' && awaitMetaRemovalConfirmation) {
+    await confirmMobileCatalogRemoval(productId);
+  } else {
+    void triggerMobileProductMetaCatalogSync(productId);
+  }
   return nextStatus;
 };
 

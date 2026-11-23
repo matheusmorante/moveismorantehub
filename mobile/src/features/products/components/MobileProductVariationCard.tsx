@@ -24,7 +24,7 @@ interface MobileProductVariationCardProps {
   dark: boolean;
   isParentDraft?: boolean;
   onToggleActive?: (varId: string, currentActive: boolean) => void;
-  onToggleCatalog: (varId: string, currentStatus: string) => void;
+  onToggleCatalog: (varId: string, currentStatus: string) => void | Promise<void>;
   parentProduct?: any;
   onEdit?: (product: any) => void;
   canViewDetails?: boolean;
@@ -112,9 +112,7 @@ export const MobileProductVariationCard: React.FC<MobileProductVariationCardProp
     }
   };
 
-  const handleToggleCatalog = () => {
-    onToggleCatalog(v.id, v.status || 'published');
-  };
+  const handleToggleCatalog = () => onToggleCatalog(v.id, v.status || 'published');
 
   const handlePrintLabel = () => {
     const parentId = parentProduct?.id || v.productId || v.id;

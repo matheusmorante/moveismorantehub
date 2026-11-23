@@ -15,14 +15,20 @@ export const getProductCatalogPermissionDenialMessage = (error: unknown): string
 
 const DEFAULT_CATALOG_MUTATION_FAILURE_MESSAGE =
   'Não foi possível confirmar o resultado da alteração no Catálogo Digital. Atualize a lista antes de tentar novamente.';
+const META_CATALOG_REMOVAL_PENDING_PREFIX =
+  'O status foi salvo no ERP, mas a Meta não confirmou a exclusão:';
 
-/** Uses a neutral message because a multi-step persistence can partially succeed. */
+/** Preserves known failures and uses a neutral fallback for partial multi-step writes. */
 export const getProductCatalogMutationFailureNotice = (
   error: unknown
 ): { title: string; message: string } => {
   const permissionMessage = getProductCatalogPermissionDenialMessage(error);
   if (permissionMessage) {
     return { title: 'Permissão insuficiente', message: permissionMessage };
+  }
+
+  if (error instanceof Error && error.message.startsWith(META_CATALOG_REMOVAL_PENDING_PREFIX)) {
+    return { title: 'Remoção pendente na Meta', message: error.message };
   }
 
   return {

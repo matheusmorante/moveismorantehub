@@ -26,7 +26,7 @@ interface Props {
   isMerged: boolean;
   cardStatus: string;
   onToggleActive: () => void;
-  onToggleCatalog: () => void;
+  onToggleCatalog: () => void | Promise<void>;
 }
 
 export const MobileProductCardSummary: React.FC<Props> = ({

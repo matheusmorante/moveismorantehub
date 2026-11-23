@@ -60,7 +60,7 @@ describe('execução da reconciliação do Catálogo Meta', () => {
     vi.stubGlobal('fetch', fetchMock);
 
     const operation = runMetaCatalogReconciliation({ trigger: 'hourly' });
-    await vi.advanceTimersByTimeAsync(2_101);
+    await vi.advanceTimersByTimeAsync(4_901);
     await expect(operation).resolves.toMatchObject({ success: false, count: 1, deleted: 1, errors: 1 });
     const sent = JSON.parse(fetchMock.mock.calls[1][1].body);
     expect(sent.requests.map((request: { data: { id: string } }) => request.data.id)).toEqual(['OCULTO-1', 'OCULTO-2']);

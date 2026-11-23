@@ -48,7 +48,7 @@ interface Props {
     currentStatus: string,
     isVariation?: boolean,
     varId?: string
-  ) => void;
+  ) => void | Promise<void>;
   onToggleActive: (productId: string, currentActive: boolean) => void;
   onDelete: (productId: string, isDraft?: boolean) => void;
   onMoveToTrash?: (productId: string) => void;

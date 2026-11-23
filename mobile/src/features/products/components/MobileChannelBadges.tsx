@@ -1,5 +1,6 @@
 import type React from 'react';
-import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useState } from 'react';
+import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import {
   getMobileCatalogStatusBadgeAccessibilityHint,
   getMobileCatalogStatusBadgeInteraction,
@@ -22,7 +23,7 @@ interface MobileChannelBadgesProps {
   canToggleActive?: boolean;
   canToggleCatalog?: boolean;
   onToggleActive: () => void;
-  onToggleCatalog?: () => void;
+  onToggleCatalog?: () => void | Promise<void>;
 }
 
 export const MobileChannelBadges: React.FC<MobileChannelBadgesProps> = ({
@@ -41,6 +42,7 @@ export const MobileChannelBadges: React.FC<MobileChannelBadgesProps> = ({
   onToggleActive,
   onToggleCatalog,
 }) => {
+  const [catalogActionPending, setCatalogActionPending] = useState(false);
   const erpActive = isActive && !isDraft && !isNonConventional && !isSalvado;
   const erpStatusInteraction = getMobileErpStatusBadgeInteraction({
     canToggleActive,
@@ -78,7 +80,7 @@ export const MobileChannelBadges: React.FC<MobileChannelBadgesProps> = ({
     onToggleActive();
   };
 
-  const handleToggleCat = () => {
+  const handleToggleCat = async () => {
     if (isDraft) return;
     if (disabled) {
       Alert.alert(
@@ -87,8 +89,12 @@ export const MobileChannelBadges: React.FC<MobileChannelBadgesProps> = ({
       );
       return;
     }
-    if (onToggleCatalog) {
-      onToggleCatalog();
+    if (!onToggleCatalog || catalogActionPending) return;
+    setCatalogActionPending(true);
+    try {
+      await onToggleCatalog();
+    } finally {
+      setCatalogActionPending(false);
     }
   };
 
@@ -152,9 +158,17 @@ export const MobileChannelBadges: React.FC<MobileChannelBadgesProps> = ({
         <TouchableOpacity
           activeOpacity={0.8}
           onPress={catalogStatusInteraction.canPress ? handleToggleCat : undefined}
-          disabled={catalogStatusInteraction.disabled}
+          disabled={catalogStatusInteraction.disabled || catalogActionPending}
           accessibilityRole="button"
-          accessibilityLabel={`Status Catálogo: ${isPublished && !isDraft ? 'Publicado' : 'Oculto'}`}
+          accessibilityLabel={
+            catalogActionPending
+              ? 'Status Catálogo: atualizando'
+              : `Status Catálogo: ${isPublished && !isDraft ? 'Publicado' : 'Oculto'}`
+          }
+          accessibilityState={{
+            disabled: catalogStatusInteraction.disabled || catalogActionPending,
+            busy: catalogActionPending,
+          }}
           accessibilityHint={getMobileCatalogStatusBadgeAccessibilityHint({
             canToggleCatalog,
             isDraft,
@@ -165,7 +179,8 @@ export const MobileChannelBadges: React.FC<MobileChannelBadgesProps> = ({
             styles.bipartiteBtn,
             isPublished && !isDraft ? styles.bipartiteActiveBorder : styles.bipartiteInactiveBorder,
             dark && styles.darkBipartiteBorder,
-            (catalogStatusInteraction.disabled || disabled) && styles.disabledBtn,
+            (catalogStatusInteraction.disabled || catalogActionPending || disabled) &&
+              styles.disabledBtn,
           ]}
         >
           <View style={[styles.bipartiteTag, styles.catTag, dark && styles.darkCatTag]}>
@@ -197,6 +212,13 @@ export const MobileChannelBadges: React.FC<MobileChannelBadgesProps> = ({
             >
               {isPublished && !isDraft ? 'Publicado' : 'Oculto'}
             </Text>
+            {catalogActionPending && (
+              <ActivityIndicator
+                size="small"
+                color={isPublished && !isDraft ? '#047857' : '#64748b'}
+                accessibilityLabel="Aguardando confirmação do catálogo"
+              />
+            )}
           </View>
         </TouchableOpacity>
       )}

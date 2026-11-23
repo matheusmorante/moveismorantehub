@@ -7,7 +7,7 @@ interface Props {
   opportunityName?: string;
   dark: boolean;
   isParentDraft?: boolean;
-  onToggleCatalog: (varId: string, currentStatus: string) => void;
+  onToggleCatalog: (varId: string, currentStatus: string) => void | Promise<void>;
   onToggleActive?: (varId: string, currentActive: boolean) => void;
   canViewDetails?: boolean;
   onViewDetails?: (product: any) => void;
