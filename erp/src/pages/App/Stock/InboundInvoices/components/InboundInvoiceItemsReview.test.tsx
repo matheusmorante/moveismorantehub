@@ -15,7 +15,7 @@ vi.mock('@/pages/utils/productSupplierCodesService', () => ({
   saveProductSupplierCode: vi.fn().mockResolvedValue(undefined),
   deleteProductSupplierCode: vi.fn().mockResolvedValue(undefined),
 }));
-import { getFullProduct } from '@/pages/utils/productService';
+import { getProductLinkConfirmation } from '@/pages/utils/productService';
 import { findProductSupplierCodes, saveProductSupplierCode, deleteProductSupplierCode } from '@/pages/utils/productSupplierCodesService';
 
 vi.mock('react-toastify', () => ({
@@ -27,7 +27,7 @@ vi.mock('react-toastify', () => ({
   },
 }));
 vi.mock('@/pages/utils/productService', () => ({
-  getFullProduct: vi.fn(),
+  getProductLinkConfirmation: vi.fn(),
   saveProduct: vi.fn(),
   saveVariation: vi.fn(),
 }));
@@ -75,11 +75,12 @@ beforeEach(() => {
   vi.mocked(saveProductSupplierCode).mockResolvedValue(undefined);
   vi.mocked(deleteProductSupplierCode).mockResolvedValue(undefined);
   vi.mocked(findProductSupplierCodes).mockResolvedValue(new Map([['FORN_01', { supplierId: 'forn_123', supplierProductCode: 'FORN_01', productId: 'prod_1', productVariationId: 'var_1' }]]));
-  vi.mocked(getFullProduct).mockResolvedValue({
+  vi.mocked(getProductLinkConfirmation).mockResolvedValue({
     id: 'prod_1',
+    code: '100',
     name: 'Beliche Rubim',
-    variations: [{ id: 'var_1', name: 'Rubim Branco' }],
-  } as any);
+    variations: [{ id: 'var_1', sku: '100-01', name: 'Rubim Branco' }],
+  });
 });
 
 afterEach(() => {
@@ -96,6 +97,7 @@ it('seleção aguarda salvar, confirmar e aplicar antes de liberar a linha', asy
   const onChange = vi.fn(() => new Promise<boolean>((resolve) => { applied = resolve; }));
   const view = render(<InboundInvoiceItemsReview items={[sampleItem]} supplierId="forn_123" suppliers={[]} onChange={onChange} />);
   fireEvent.click(view.getByTitle('Vincular produto sugerido')); await waitFor(() => expect(saveProductSupplierCode).toHaveBeenCalledOnce());
+  expect(getProductLinkConfirmation).toHaveBeenCalledWith('prod_1', 'var_1');
   expect(onChange).not.toHaveBeenCalled(); expect(view.getByRole('status').textContent).toContain('Confirmando');
   fireEvent.click(view.getByTitle('Vincular produto sugerido')); expect(saveProductSupplierCode).toHaveBeenCalledOnce();
   await act(async () => { saved(); }); await waitFor(() => expect(onChange).toHaveBeenCalledOnce()); expect(view.getByRole('status')).toBeTruthy();
@@ -110,14 +112,14 @@ it.each(['invalid', 'saveError', 'missingAck', 'applyError'] as const)('seleçã
   const view = render(<InboundInvoiceItemsReview items={[sampleItem]} supplierId="forn_123" suppliers={[]} onChange={onChange} />);
   fireEvent.click(view.getByTitle('Vincular produto sugerido')); await waitFor(() => expect(view.getByRole('alert')).toBeTruthy());
   if (kind !== 'applyError') expect(onChange).not.toHaveBeenCalled();
-  if (kind === 'invalid') expect(getFullProduct).not.toHaveBeenCalled();
+  if (kind === 'invalid') expect(getProductLinkConfirmation).not.toHaveBeenCalled();
   else { fireEvent.click(view.getByTitle('Vincular produto sugerido')); expect(saveProductSupplierCode).toHaveBeenCalledOnce(); }
 });
 
 it('remoção tem resolver e aguarda ausência confirmada e aplicação', async () => {
   vi.mocked(findProductSupplierCodes).mockResolvedValueOnce(new Map()); const onChange = vi.fn().mockResolvedValue(true);
   const view = render(<InboundInvoiceItemsReview items={[{ ...sampleItem, matchedProductId: 'prod_1', matchedVariationId: 'var_1', linkedProductCode: '100-01', productErpName: 'Beliche', sellingPrice: 10 }]} supplierId="forn_123" suppliers={[]} onChange={onChange} />);
-  fireEvent.click(view.getByTitle('Remover vínculo')); await waitFor(() => expect(onChange).toHaveBeenCalledWith(1, { matchedProductId: undefined, matchedVariationId: undefined, linkedProductCode: undefined, productErpName: undefined }));
+  fireEvent.click(view.getByTitle('Remover vínculo')); await waitFor(() => expect(onChange).toHaveBeenCalledWith(1, { matchedProductId: undefined, matchedVariationId: undefined, linkedProductCode: undefined, productErpName: undefined, linkMode: 'single' }));
   expect(deleteProductSupplierCode).toHaveBeenCalledWith('forn_123', 'FORN_01'); expect(findProductSupplierCodes).toHaveBeenCalledWith('forn_123', ['FORN_01']);
 });
 

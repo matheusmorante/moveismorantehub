@@ -29,7 +29,7 @@ export const LIGHT_COLUMNS_WITH_CATS =
 export const SALES_ORDER_AUTOCOMPLETE_COLUMNS =
   'id,name,marketplace_title,code,description,unit,unit_price,price,promo_price,cost_price,stock,active,is_draft,status,deleted,supplier_id,main_supplier_id,supplier_ids,product_kind,condition,is_salvado,item_type,is_combo,fiscal,variation_details:technical_specs->variationDetails,product_variations(id,product_id,sku,name,stock,price,promo_price,cost_price,active,status,merged_to_variation_id,attributes,use_parent_name,use_parent_price,use_parent_promo_price,use_parent_dimensions,use_parent_description)';
 const PRODUCT_LINK_CONFIRMATION_COLUMNS =
-  'id,deleted,sku,code,name,title,marketplace_title,description,is_draft,status,item_type';
+  'id,deleted,code,name,marketplace_title,description,is_draft,status,item_type';
 const PRODUCT_LINK_CONFIRMATION_WITH_VARIATION_COLUMNS = [
   PRODUCT_LINK_CONFIRMATION_COLUMNS,
   'product_variations(id,product_id,sku,name,use_parent_name)',
@@ -479,7 +479,8 @@ export const getProductLinkConfirmation = async (
         .eq('id', id)
         .maybeSingle();
 
-      if (!error && data) return toProductLinkConfirmation(mapFromDB(data), variationId);
+      if (error) throw error;
+      if (data) return toProductLinkConfirmation(mapFromDB(data), variationId);
     }
   } catch (error) {
     console.error('[ProductService] Erro ao conferir produto para vínculo do fornecedor:', error);
