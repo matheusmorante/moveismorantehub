@@ -22,9 +22,13 @@
       "regions": ["gru1"]
     }
   },
-  "crons": [
-    { "path": "/api/meta-catalog/reconcile", "schedule": "0 * * * *" }
-  ],
+  "schedules": {
+    "meta-catalog-hourly": {
+      "schedule": "0 * * * *",
+      "path": "/api/meta-catalog/reconcile",
+      "requestMethod": "GET"
+    }
+  },
   "rewrites": [
     { "source": "/api/nfe/emit", "destination": "/api/nfe/operations?operation=emit" },
     { "source": "/api/nfe/consult", "destination": "/api/nfe/operations?operation=consult" },

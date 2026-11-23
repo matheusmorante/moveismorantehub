@@ -15,7 +15,7 @@ O ERP é a origem dos dados de publicação. A alteração de produto ou variaç
 
 O painel **Catálogo Meta** no ERP e no app mostra a data e o resumo da última execução completa. As contagens são de itens por catálogo. Um SKU alterado com sucesso em dois catálogos conta duas vezes. O Supabase guarda `last_run` e a última falha pontual em `meta_catalog_sync_state`. A trava é compartilhada pelos disparos pontual, manual e horário. O PostgreSQL libera a transação antes das chamadas externas. Uma execução interrompida libera a vaga após vencer a concessão.
 
-Para a ativação, a produção do ERP precisa do `CRON_SECRET` como variável sensível e de um plano da Vercel que suporte execuções horárias. O servidor usa o token, a configuração do WhatsApp e o catálogo Meta Ads já adotados pelo ERP. O arquivo de configuração agenda a execução no minuto zero de cada hora. A validação de publicação inclui conferir a invocação autenticada e o registro da execução. [Cron Jobs da Vercel](https://vercel.com/docs/schedules/cron-jobs/manage-cron-jobs)
+Para a ativação, a produção do ERP precisa do `CRON_SECRET` como variável sensível. `erp/vercel.json` declara um Vercel Schedule horário para a rota protegida do Catálogo Meta. No Hobby, Schedules permite até 5.000 execuções mensais e acrescenta até 15 minutos de jitter; uma execução horária consome cerca de 672–744 execuções por mês. O servidor usa o token, a configuração do WhatsApp e o catálogo Meta Ads já adotados pelo ERP. A validação de publicação inclui conferir a invocação autenticada e o registro da execução. [Schedules da Vercel](https://vercel.com/docs/schedules)
 
 Em 23/11/2026, a migration `20261123130005` foi aplicada no Supabase operacional. A conferência remota verificou as tabelas, a RLS e os grants das RPCs. Os testes Vitest cobrem a autenticação do cron, a trava, a comparação de itens, o isolamento de falhas e a confirmação de exclusão por SKU em respostas simuladas. A consulta real de saúde do catálogo respondeu. A comprovação da origem dos legados, uma execução com escritas na Meta e a ativação do agendamento em produção ficaram pendentes.
 
@@ -28,3 +28,7 @@ O teste de ciclo usa o cliente PostgREST e as rotas do ERP com respostas simulad
 A auditoria também incluiu o disparo logo após o ERP confirmar a exclusão definitiva de um produto ou de uma variação. No app, a exclusão de um produto concluído passa pela operação protegida da Lixeira, que já agenda a reconciliação após o sucesso.
 
 Passaram 130 testes das suítes de catálogo, serviços e API e 12 testes dos fluxos de formulário do app. A verificação dos ambientes operacionais foi somente leitura.
+
+## Correção da falha de build em 23/11/2026
+
+A configuração anterior usava Vercel Cron com `0 * * * *`, frequência que o plano Hobby rejeita por exceder uma execução diária. O cron legado foi substituído pelo Vercel Schedules em `erp/vercel.json`, com o mesmo horário nominal, rota `GET` e autenticação por `CRON_SECRET`. Foi criado um novo `CRON_SECRET` como variável sensível somente no ambiente de produção da Vercel. A execução em produção depende do próximo deploy bem-sucedido; ainda é necessário confirmar no painel de Schedules a próxima execução e o registro de uma execução concluída. No Hobby, o horário pode atrasar até 15 minutos.
