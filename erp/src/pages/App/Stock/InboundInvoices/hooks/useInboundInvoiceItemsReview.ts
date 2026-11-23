@@ -333,7 +333,13 @@ export function useInboundInvoiceItemsReview({
       if (individualActive.current) { setAcceptingSuggestion(null); setRemovingLink(null); setLinkBusy(false); }
     }
   };
-  const selectProduct = (itemNumber: number, product: Product, variation?: Variation) => executeLinkOperation('select', itemNumber, product.id || '', variation?.id);
+  const selectProduct = (itemNumber: number, product: Product, variation?: Variation) =>
+    executeLinkOperation(
+      'select',
+      itemNumber,
+      product.id || '',
+      variation?.isVirtual ? undefined : variation?.id
+    );
   const acceptSuggestion = (item: InboundInvoiceItem, suggestion: InboundSuggestion) => executeLinkOperation('select', item.itemNumber, suggestion.productId, suggestion.variationId);
 
   return {

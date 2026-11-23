@@ -71,18 +71,21 @@ export const searchInboundInvoiceProducts = async (
         : [];
     return variations.flatMap((variation: any) => {
       const productId = String(parent.id || '');
-      const variationId = String(variation.id || '');
+      const rawVariationId = String(variation.id || '');
+      const isVirtualVariation =
+        variation.isVirtual === true || rawVariationId.startsWith('virtual-');
+      const variationId = isVirtualVariation ? undefined : rawVariationId;
       if (
         !productId ||
-        !variationId ||
+        (!isVirtualVariation && !variationId) ||
         variation.active === false ||
         variation.isMerged ||
         variation.mergedToVariationId ||
-        excluded.has(`${productId}:${variationId}`)
+        excluded.has(`${productId}:${variationId || ''}`)
       ) return [];
 
       const name = String(variation.name || parent.name || '');
-      const sku = String(variation.sku || parent.code || '');
+      const sku = String(isVirtualVariation ? parent.code || '' : variation.sku || parent.code || '');
       const normalizedName = normalize(name);
       const normalizedSku = normalize(sku);
       const matches = searchWords.every(({ value, alternative }) => {
@@ -94,7 +97,7 @@ export const searchInboundInvoiceProducts = async (
       if (!matches) return [];
 
       return [{
-        id: variationId,
+        id: variationId || productId,
         productId,
         variationId,
         name,

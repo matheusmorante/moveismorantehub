@@ -53,8 +53,9 @@ export const InboundInvoiceItemRow: React.FC<InboundInvoiceItemRowProps> = ({
   const compositionLinks = item.compositionLinks || [];
 
   const handleAddComposition = (prod: Product, variation?: Variation) => {
+    const selectedVariation = variation?.isVirtual ? undefined : variation;
     const exists = compositionLinks.some(
-      (c) => c.productId === prod.id && c.variationId === (variation?.id || undefined)
+      (c) => c.productId === prod.id && c.variationId === (selectedVariation?.id || undefined)
     );
     if (exists) {
       toast.error('Este produto já está na composição.');
@@ -63,11 +64,11 @@ export const InboundInvoiceItemRow: React.FC<InboundInvoiceItemRowProps> = ({
     const newLink = {
       id: crypto.randomUUID(),
       productId: prod.id!,
-      variationId: variation?.id,
-      productErpName: variation?.name || prod.name || prod.title || 'Produto',
-      linkedProductCode: variation?.sku || prod.code || '',
+      variationId: selectedVariation?.id,
+      productErpName: selectedVariation?.name || prod.name || prod.title || 'Produto',
+      linkedProductCode: selectedVariation?.sku || prod.code || '',
       sellingPrice: Number(
-        variation?.unitPrice || prod.unitPrice || prod.variations?.[0]?.unitPrice || 0
+        selectedVariation?.unitPrice || prod.unitPrice || prod.variations?.[0]?.unitPrice || 0
       ),
       apportionedCost: 0,
       quantityMultiplier: 1,

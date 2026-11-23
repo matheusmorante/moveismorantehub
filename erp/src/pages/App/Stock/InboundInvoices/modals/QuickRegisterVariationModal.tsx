@@ -304,7 +304,8 @@ export function QuickRegisterVariationModal({
   const handleAddComponent = (product: Product, variation?: Variation) => {
     const productId = String(product.id || '');
     if (!productId) return;
-    const variationId = variation?.id;
+    const selectedVariation = variation?.isVirtual ? undefined : variation;
+    const variationId = selectedVariation?.id;
     if (components.some((component) => component.productId === productId && component.variationId === variationId)) {
       setError('Este componente já foi adicionado. Ajuste a quantidade na linha existente.');
       return;
@@ -313,9 +314,9 @@ export function QuickRegisterVariationModal({
       key: crypto.randomUUID(),
       productId,
       variationId,
-      description: variation?.name || product.name || product.title || 'Produto',
-      unitPrice: Number(variation?.unitPrice ?? product.unitPrice ?? 0),
-      stock: Number(variation?.stock ?? product.stock ?? 0),
+      description: selectedVariation?.name || product.name || product.title || 'Produto',
+      unitPrice: Number(selectedVariation?.unitPrice ?? product.unitPrice ?? 0),
+      stock: Number(selectedVariation?.stock ?? product.stock ?? 0),
       quantity: 1,
     };
     setComponents((current) => [...current, component]);
