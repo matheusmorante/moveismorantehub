@@ -1,3 +1,13 @@
+## 23/11/2026 — SCE-350 — vínculo global de itens de NF por fornecedor e código
+
+**Decisão e comportamento.** O vínculo de um item era guardado por ocorrência/código de produto, sem persistir o modo de associação e a composição de componentes como regra global. A migration `20261121192000` introduz a chave fornecedor + código completo e armazena Único, Composto e Não se aplica. O ERP e o app consultam o vínculo para os itens das notas e reutilizam os componentes e multiplicadores escolhidos.
+
+**Acessos e consumo.** O ERP coleta os códigos únicos da página de notas e chama uma RPC em lote; o app também agrupa códigos para leitura da tabela global, evitando lookup individual por ocorrência. A busca de candidatos usa RPC com fornecedor e conjunto de códigos. Não foram medidos volume de chamadas, linhas/campos, bytes, egress faturado, CPU do banco nem latência; portanto não há economia quantitativa atribuída. Recebimento, XML, estoque e custos por nota continuam fora do compartilhamento.
+
+**Arquivos e validação.** `shared-utils/inboundInvoiceMappingState.ts`, serviços de notas e recebimento do ERP e do app, telas de vínculo das duas plataformas e `supabase/migrations/20261121192000_global_inbound_supplier_item_mappings.sql`. Migration aplicada no projeto operacional e verificados histórico, RLS e privilégios das RPCs. Histórico fiscal e arquivos: [vínculo global de itens de NF por fornecedor e código](../fiscal/historico-correcoes-2026-11-23.md).
+
+---
+
 ## 21/11/2026 — SCE-348 — índices para consultas críticas de pedidos e atendimento
 
 **Sintoma e evidência.** No projeto operacional, a chamada PostgREST de `get_dashboard_orders_by_effective_date` acumulou 263 execuções e 184.927 ms (média de 703,1 ms) desde o reset de `pg_stat_statements` em 18/10/2026. O `EXPLAIN` da consulta interna, com os filtros de exclusão de artefatos de teste e período, mostrava `Seq Scan on orders` seguido de `Sort`, custo estimado 1.521,71. A filtragem e a ordenação aplicam a mesma função imutável `dashboard_order_effective_at(order_data, created_at)`; não existia índice nessa expressão. A tabela tinha cerca de 1.298 linhas e 5,8 MB no momento da inspeção.
