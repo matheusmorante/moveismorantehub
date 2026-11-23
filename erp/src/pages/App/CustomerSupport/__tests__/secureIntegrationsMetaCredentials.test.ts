@@ -6,9 +6,15 @@ const authMocks = vi.hoisted(() => ({
   hasErpPermission: vi.fn(),
 }));
 const quotaMocks = vi.hoisted(() => ({ rpc: vi.fn() }));
+const reconcile = vi.hoisted(() => vi.fn());
 
 vi.mock('../../../../../api/_lib/authenticatedErpRequest.js', () => authMocks);
 vi.mock('@supabase/supabase-js', () => ({ createClient: vi.fn(() => ({ rpc: quotaMocks.rpc })) }));
+vi.mock('../../../../../api/_lib/metaCatalogReconciliation/run.js', () => ({
+  runMetaCatalogReconciliation: reconcile,
+  getLastMetaCatalogRun: vi.fn(),
+  MetaCatalogSyncBusy: class extends Error {},
+}));
 
 import handler from '../../../../../api/_lib/secureIntegrations/handler';
 
@@ -82,24 +88,49 @@ it('loads the built public route and reaches the Meta handler', async () => {
 });
 
 describe('POST /api/meta-graph sync_catalog_batch', () => {
-  it('informa qual catálogo ficou sem confirmação quando só um retorna um identificador', async () => {
-    authMocks.authenticateErpRequest.mockResolvedValueOnce({
-      userId: 'operator-unit', roles: ['manager'], rolePermissions: {}, userDb: {},
-      whatsappConfig: { catalogId: '3456789012' },
-    });
-    const graph = vi.fn()
-      .mockResolvedValueOnce(Response.json({ handles: ['wa_batch'] }))
-      .mockResolvedValueOnce(Response.json({ handles: [] }));
-    vi.stubGlobal('fetch', graph);
+  it('encaminha apenas o método e o SKU à reconciliação e preserva o erro parcial para clientes antigos', async () => {
+    reconcile.mockResolvedValueOnce({ success: false, count: 1, error: 'Exclusão sem confirmação em Meta Ads.' });
 
     const res = await callMetaGraphRoute({
       operation: 'sync_catalog_batch',
       payload: { item_type: 'PRODUCT_ITEM', requests: [{ method: 'DELETE', retailer_id: 'SKU-1' }] },
     });
 
-    expect(graph).toHaveBeenCalledTimes(2);
+    expect(reconcile).toHaveBeenCalledWith({
+      trigger: 'legacy', requests: [{ retailer_id: 'SKU-1', method: 'DELETE' }],
+    });
     expect(res.statusCode).toBe(502);
-    expect(res.body).toMatchObject({ failed_catalog: 'ads', partial_success: true });
+    expect(res.body).toMatchObject({ partial_success: true, error: { message: 'Exclusão sem confirmação em Meta Ads.' } });
+  });
+});
+
+describe('reconciliação programada do Catálogo Meta', () => {
+  it('exige o segredo do cron e o ambiente de produção', async () => {
+    vi.stubEnv('CRON_SECRET', 'cron-unit');
+    vi.stubEnv('VERCEL_ENV', 'production');
+    const req = { method: 'GET', query: { operation: 'meta-catalog-cron' }, headers: { authorization: 'Bearer invalid' } };
+    const res = responseMock();
+    await handler(req as never, res as never);
+    expect(res.statusCode).toBe(401);
+    expect(reconcile).not.toHaveBeenCalled();
+
+    vi.stubEnv('VERCEL_ENV', 'preview');
+    req.headers.authorization = 'Bearer cron-unit';
+    await handler(req as never, res as never);
+    expect(res.statusCode).toBe(503);
+    expect(reconcile).not.toHaveBeenCalled();
+  });
+
+  it('executa a rotina horária e devolve contagens confirmadas', async () => {
+    vi.stubEnv('CRON_SECRET', 'cron-unit');
+    vi.stubEnv('VERCEL_ENV', 'production');
+    reconcile.mockResolvedValueOnce({ success: true, count: 2, created: 1, deleted: 1, errors: 0 });
+    const req = { method: 'GET', query: { operation: 'meta-catalog-cron' }, headers: { authorization: 'Bearer cron-unit' } };
+    const res = responseMock();
+    await handler(req as never, res as never);
+    expect(reconcile).toHaveBeenCalledWith({ trigger: 'hourly' });
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toMatchObject({ count: 2, created: 1, deleted: 1 });
   });
 });
 

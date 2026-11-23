@@ -1,6 +1,6 @@
 import type { VercelRequest } from '@vercel/node';
 
-export type SecureOperation = 'meta-graph' | 'gemini-proxy' | 'google-routes' | 'openai-proxy';
+export type SecureOperation = 'meta-graph' | 'meta-catalog-cron' | 'gemini-proxy' | 'google-routes' | 'openai-proxy';
 
 export const MAX_META_REQUEST_BYTES = 1_000_000;
 export const MAX_GEMINI_REQUEST_BYTES = 1_000_000;

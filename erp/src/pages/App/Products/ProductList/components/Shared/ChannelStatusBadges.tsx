@@ -112,8 +112,9 @@ export const ChannelStatusBadges: React.FC<ChannelStatusBadgesProps> = ({
       className="inline-flex items-center gap-2 flex-wrap"
       onClick={(e) => e.stopPropagation()}
     >
-      {/* Tag/Badge ERP — oculto para produtos de origem Salvados */}
+      {/* Status ERP aparece nas variações e nos produtos simples, não no produto pai. */}
       {!isSalvado &&
+        !isParent &&
         (isParent ? (
           /* No pai: Somente visualização com popover explicativo no hover */
           <div

@@ -8,6 +8,16 @@
 
 ---
 
+## 23/11/2026 — SCE-349 — leituras da reconciliação do Catálogo Meta
+
+**Decisão e estado.** Implementação solicitada para combinar os envios pontuais com uma conferência a cada hora. O fluxo de reconciliação foi implementado no servidor. As tabelas e RPCs da migration `20261123130005` foram aplicadas no Supabase operacional. A ativação do cron em produção ficou pendente.
+
+**Evidência e consumo.** As ações completas do ERP e do app carregavam páginas de produtos e variações para montar lotes no cliente. Agora os clientes enviam uma solicitação de reconciliação e recebem o resumo. Na execução completa, o servidor filtra os produtos publicados antes de paginar por ID. As variações e campanhas são lidas em lotes dos produtos elegíveis, com projeções explícitas. O caminho pontual limita a leitura ao produto solicitado. A escolha reduz a resposta transferida a cada cliente e adiciona uma execução horária no servidor. O saldo de requisições, trabalho do banco e bytes oficiais depende da atividade e ainda não foi medido. A inspeção remota encontrou 140 produtos candidatos e 202 variações elegíveis com SKU canônico.
+
+**Arquivos e validação.** `erp/api/_lib/metaCatalogReconciliation/`, serviços do Catálogo Meta no ERP e no app e `supabase/migrations/20261123130005_meta_catalog_reconciliation.sql`. Foram verificadas a estrutura remota, a RLS e as permissões das RPCs da migration. [Fluxo e condições de ativação](../integracoes/catalogo-meta-reconciliacao.md).
+
+---
+
 ## 21/11/2026 — SCE-348 — índices para consultas críticas de pedidos e atendimento
 
 **Sintoma e evidência.** No projeto operacional, a chamada PostgREST de `get_dashboard_orders_by_effective_date` acumulou 263 execuções e 184.927 ms (média de 703,1 ms) desde o reset de `pg_stat_statements` em 18/10/2026. O `EXPLAIN` da consulta interna, com os filtros de exclusão de artefatos de teste e período, mostrava `Seq Scan on orders` seguido de `Sort`, custo estimado 1.521,71. A filtragem e a ordenação aplicam a mesma função imutável `dashboard_order_effective_at(order_data, created_at)`; não existia índice nessa expressão. A tabela tinha cerca de 1.298 linhas e 5,8 MB no momento da inspeção.

@@ -13,7 +13,7 @@ type WithTimeout = <T>(promise: PromiseLike<T>, timeoutMs: number) => Promise<T>
 
 const LINK_PRODUCT_COLUMNS = 'id,name,marketplace_title,unit_price,price,promo_price,technical_specs';
 const NATIVE_PRODUCT_COLUMNS = 'id,name,marketplace_title,description,slug,unit_price,price,promo_price,brand,active,is_draft,status,deleted,deleted_at,item_type,technical_specs,opportunity_id,stock,images,code,is_salvado,product_kind,material,condition,product_categories(categories(name,type))';
-const LINK_VARIATION_COLUMNS = 'id,product_id,status,active,name,price,promo_price,use_parent_price,use_parent_promo_price';
+const LINK_VARIATION_COLUMNS = 'id,product_id,status,name,price,promo_price,use_parent_price,use_parent_promo_price';
 const NATIVE_VARIATION_COLUMNS = 'id,product_id,status,active,name,sku,image_url,price,promo_price,stock,attributes,description,use_parent_price,use_parent_promo_price,use_parent_name,use_parent_description';
 
 const formatCatalogPrice = (value: number) =>
@@ -75,10 +75,10 @@ export async function resolveWhatsAppSupportCatalogMessage(
   const productIds = Array.from(new Set(selection.items.map((item) => item.productId)));
   let products: Record<string, any>[] = [];
   if (productIds.length) {
+    // A published catalog item remains visible even when it is inactive in ERP operations.
     const productResult = await withTimeout<any>(userDb.from('products')
       .select(nativeDelivery ? NATIVE_PRODUCT_COLUMNS : LINK_PRODUCT_COLUMNS)
       .in('id', productIds)
-      .eq('active', true)
       .eq('status', 'published')
       .is('deleted_at', null)
       .or('is_draft.is.null,is_draft.eq.false')
@@ -100,7 +100,7 @@ export async function resolveWhatsAppSupportCatalogMessage(
       .in(nativeDelivery ? 'product_id' : 'id', nativeDelivery ? productIds : variationIds), 12_000);
     if (variationResult.error) throw new RequestBodyError('Não foi possível validar as variações selecionadas.', 503);
     variations = (variationResult.data || []).filter((variation: Record<string, any>) =>
-      nativeDelivery || (variation.active === true && (!variation.status || variation.status === 'published'))
+      nativeDelivery || (!variation.status || variation.status === 'published')
     );
   }
   const variationById = new Map(variations.map((variation) => [String(variation.id), variation]));

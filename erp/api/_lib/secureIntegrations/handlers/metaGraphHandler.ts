@@ -4,7 +4,6 @@ import { verifyMetaAppCredentials } from '../../../../server/secure-api/verifyMe
 import { verifyWhatsAppWebhookSubscription } from '../../../../server/secure-api/verifyWhatsAppWebhookSubscription.js';
 import { ensureWhatsAppEchoWebhookSubscription } from '../../../../server/secure-api/ensureWhatsAppEchoWebhookSubscription.js';
 import {
-  createMetaCatalogBatchHandle,
   parseMetaCatalogBatchHandle,
   planMetaGraphRequest,
   type MetaCatalogTarget,
@@ -12,6 +11,7 @@ import {
   type MetaGraphSettings,
 } from '../../../../src/pages/utils/metaService/metaGraphProxyPolicy.js';
 import { GRAPH_VERSION, MAX_META_REQUEST_BYTES, bodySize } from '../types.js';
+import { CONFIRMED_LEGACY_HANDLE, handleCatalogOperation } from '../../metaCatalogReconciliation/handler.js';
 
 function getMetaGraphSettings(value: unknown): MetaGraphSettings {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
@@ -53,19 +53,27 @@ async function fetchMetaCatalogRequest(
 export async function handleMetaGraph(req: VercelRequest, res: VercelResponse): Promise<unknown> {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Método não permitido.' });
   const metaToken = process.env.WHATSAPP_ACCESS_TOKEN?.trim();
-  if (!metaToken) return res.status(503).json({ error: 'Integração Meta não configurada no servidor.' });
   if (bodySize(req.body) > MAX_META_REQUEST_BYTES) {
     return res.status(413).json({ error: 'Solicitação excede o tamanho permitido.' });
   }
 
+  const catalogOperation = ['reconcile_catalog', 'reconcile_catalog_status', 'sync_catalog_batch'].includes(req.body?.operation);
+  if (!catalogOperation && !metaToken) return res.status(503).json({ error: 'Integração Meta não configurada no servidor.' });
   const context = await authenticateErpRequest(req, res, {
-    includeWhatsAppConfig: req.body?.operation !== 'verify_app_credentials'
+    includeWhatsAppConfig: !catalogOperation && req.body?.operation !== 'verify_app_credentials'
       && req.body?.operation !== 'ensure_smb_message_echoes_subscription',
   });
   if (!context) return;
   const body = req.body;
   if (!body || typeof body !== 'object' || Array.isArray(body)) {
     return res.status(400).json({ error: 'Solicitação inválida.' });
+  }
+
+  if (catalogOperation) return handleCatalogOperation(body, context, res);
+  if (!metaToken) return res.status(503).json({ error: 'Integração Meta não configurada no servidor.' });
+  if (body.operation === 'check_catalog_batch' && body.handle === CONFIRMED_LEGACY_HANDLE) {
+    if (!hasErpPermission(context, 'productConfig')) return res.status(403).end();
+    return res.status(200).json({ data: [{ handle: body.handle, status: 'finished', errors_total_count: 0, errors: [] }] });
   }
 
   if (body.operation === 'verify_app_credentials') {
@@ -177,12 +185,7 @@ export async function handleMetaGraph(req: VercelRequest, res: VercelResponse): 
   let planEntries: Array<{ target: MetaCatalogTarget; plan: MetaGraphProxyPlan }>;
   try {
     const metaSettings = getMetaGraphSettings(context.whatsappConfig);
-    if (body.operation === 'sync_catalog_batch') {
-      planEntries = (['whatsapp', 'ads'] as const).map((target) => ({
-        target,
-        plan: planMetaGraphRequest({ ...body, catalogTarget: target }, metaSettings),
-      }));
-    } else if (body.operation === 'check_catalog_batch') {
+    if (body.operation === 'check_catalog_batch') {
       const batch = parseMetaCatalogBatchHandle(body.handle);
       planEntries = batch.catalogTargets.map((target, index) => ({
         target,
@@ -213,8 +216,7 @@ export async function handleMetaGraph(req: VercelRequest, res: VercelResponse): 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 20_000);
   try {
-    const retryCatalogRequest = body.operation === 'sync_catalog_batch'
-      || body.operation === 'check_catalog_batch';
+    const retryCatalogRequest = body.operation === 'check_catalog_batch';
     const outcomes = await Promise.allSettled(planEntries.map(async ({ plan: requestPlan, target }) => {
       const url = `https://graph.facebook.com/${GRAPH_VERSION}/${requestPlan.path}`;
       const requestInit: RequestInit = {
@@ -232,9 +234,8 @@ export async function handleMetaGraph(req: VercelRequest, res: VercelResponse): 
       return { target, response, data };
     }));
 
-    const isCatalogWrite = body.operation === 'sync_catalog_batch';
     const isCatalogStatusCheck = body.operation === 'check_catalog_batch';
-    const includePartialResult = isCatalogWrite || (isCatalogStatusCheck && planEntries.length > 1);
+    const includePartialResult = isCatalogStatusCheck && planEntries.length > 1;
     const rejectedIndex = outcomes.findIndex((outcome) => outcome.status === 'rejected');
     if (rejectedIndex >= 0) {
       const partialSuccess = outcomes.some((outcome) =>
@@ -272,36 +273,6 @@ export async function handleMetaGraph(req: VercelRequest, res: VercelResponse): 
             }
           : {}),
       });
-    }
-
-    if (isCatalogWrite) {
-      const handlesByTarget = graphResults.map(({ target, data }) => ({
-        target,
-        handles: Array.isArray(data?.handles)
-          ? data.handles.filter((handle: unknown): handle is string =>
-            typeof handle === 'string' && /^[A-Za-z0-9_=-]{1,512}$/.test(handle))
-          : [],
-      }));
-      const withoutHandle = handlesByTarget.find(({ handles }) => handles.length === 0);
-      if (withoutHandle) {
-        return res.status(502).json({
-          error: { message: 'A Meta não retornou um identificador para confirmar o lote.' },
-          failed_catalog: withoutHandle.target,
-          partial_success: handlesByTarget.some(({ handles }) => handles.length > 0),
-        });
-      }
-
-      const wh = handlesByTarget.find(({ target }) => target === 'whatsapp')?.handles ?? [];
-      const ads = handlesByTarget.find(({ target }) => target === 'ads')?.handles ?? [];
-      const combinedHandles = Array.from({ length: Math.max(wh.length, ads.length) }, (_, index) => {
-        const whatsappHandle = wh[index];
-        const adsHandle = ads[index];
-        if (whatsappHandle && adsHandle) return createMetaCatalogBatchHandle(whatsappHandle, adsHandle);
-        if (whatsappHandle) return `wa:${whatsappHandle}`;
-        if (adsHandle) return `ads:${adsHandle}`;
-        return null;
-      }).filter((handle): handle is string => typeof handle === 'string');
-      return res.status(200).json({ handles: combinedHandles });
     }
 
     if (isCatalogStatusCheck) {

@@ -169,7 +169,9 @@ export const MobileProductVariationCard: React.FC<MobileProductVariationCardProp
             </Text>
 
             <View style={styles.stockWrapper}>
-              <Text style={[styles.stock, dark && styles.darkStock]}>Estoque: {stock}</Text>
+              <Text style={[styles.stock, dark && styles.darkStock]}>
+                Estoque: {isSalvado ? '-' : stock}
+              </Text>
             </View>
           </View>
         </View>

@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import { toast } from 'react-toastify';
 import { useAuth } from '@/context/AuthContext';
-import { buildMetaCatalogSyncItems } from '../../../../../../shared-utils/productMetaCatalogSyncItems';
-import { fetchMetaCatalogStats, fetchMetaCatalogSyncSources } from './services/metaCatalogDataService';
+import { formatMetaCatalogRunSummary, type MetaCatalogReconciliationResult } from '../../../../../../shared-utils/metaCatalogReconciliationResult';
+import { fetchLastMetaCatalogRun, syncAllProductsToMetaCatalog } from '@/pages/utils/productService/productMetaCatalogSync';
+import { fetchMetaCatalogStats } from './services/metaCatalogDataService';
 
 export default function MetaCatalog() {
   const { isAdmin } = useAuth();
   const [isSyncing, setIsSyncing] = useState(false);
-  const [syncProgress, setSyncProgress] = useState({ processed: 0, total: 0 });
+  const [lastRun, setLastRun] = useState<MetaCatalogReconciliationResult | null>(null);
 
   const [stats, setStats] = useState({
     publishedSimple: 0,
@@ -34,6 +35,14 @@ export default function MetaCatalog() {
     };
   }, []);
 
+  React.useEffect(() => {
+    let active = true;
+    fetchLastMetaCatalogRun().then((run) => {
+      if (active) setLastRun((current) => current ?? run);
+    }).catch(() => undefined);
+    return () => { active = false; };
+  }, []);
+
   const handleGraphApiSync = async () => {
     if (!isAdmin) {
       toast.error('Apenas administradores podem iniciar a sincronização via Graph API.');
@@ -41,27 +50,10 @@ export default function MetaCatalog() {
     }
     try {
       setIsSyncing(true);
-      setSyncProgress({ processed: 0, total: 0 });
-      toast.info('Iniciando a sincronização dos produtos com os catálogos Meta... 🔄');
-
-      const { whatsappGraphService } = await import('@/pages/utils/whatsappGraphService');
-
-      const { products, variations, opportunities } = await fetchMetaCatalogSyncSources();
-
-      // 3. Montar a lista completa de itens para o Meta Catalog (Pai + Variações como itens individuais)
-      const allItems = buildMetaCatalogSyncItems(products, variations, opportunities);
-
-      // 4. Executar sync em lote via Graph API com callback de progresso
-      const res = await whatsappGraphService.syncBatchProductsToCatalog(
-        allItems,
-        (processed, total) => {
-          setSyncProgress({ processed, total });
-        }
-      );
-
-      toast.success(
-        `Sincronização concluída! ${res.count} itens enviados aos catálogos do WhatsApp e do Meta Ads via Graph API. 🎉`
-      );
+      const result = await syncAllProductsToMetaCatalog();
+      setLastRun(result);
+      if (result.success) toast.success(formatMetaCatalogRunSummary(result));
+      else toast.error(result.error || 'A reconciliação terminou com pendências.');
     } catch (err: any) {
       console.error('Erro no sync Meta Graph API:', err);
       toast.error(err.message || 'Erro ao sincronizar com a Meta Graph API.');
@@ -72,7 +64,6 @@ export default function MetaCatalog() {
 
   return (
     <div className="flex flex-col gap-6 max-w-5xl mx-auto p-4 md:p-8 animate-fade-in relative">
-      {/* Card Flutuante de Progresso da Sincronização (Canto Inferior Direito) */}
       {isSyncing && (
         <div className="fixed bottom-6 right-6 z-[999999] animate-slide-up pointer-events-auto">
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-2xl w-80 sm:w-96 shadow-2xl flex flex-col gap-4">
@@ -85,33 +76,11 @@ export default function MetaCatalog() {
                   Sincronizando com Meta API
                 </h4>
                 <p className="text-[11px] text-slate-400 dark:text-slate-500 font-medium truncate">
-                  Enviando produtos e variações...
+                  Comparando produtos e variações com o catálogo da Meta...
                 </p>
               </div>
             </div>
 
-            {/* Barra de Progresso */}
-            <div className="w-full flex flex-col gap-1.5">
-              <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-2 overflow-hidden p-0.5 border border-slate-200/60 dark:border-slate-700/60">
-                <div
-                  className="bg-gradient-to-r from-blue-600 to-emerald-500 h-full rounded-full transition-all duration-300"
-                  style={{
-                    width: `${syncProgress.total > 0 ? Math.round((syncProgress.processed / syncProgress.total) * 100) : 0}%`,
-                  }}
-                />
-              </div>
-              <div className="flex justify-between text-[10px] font-bold text-slate-500">
-                <span>
-                  {syncProgress.processed} de {syncProgress.total} itens
-                </span>
-                <span>
-                  {syncProgress.total > 0
-                    ? Math.round((syncProgress.processed / syncProgress.total) * 100)
-                    : 0}
-                  %
-                </span>
-              </div>
-            </div>
           </div>
         </div>
       )}
@@ -150,11 +119,18 @@ export default function MetaCatalog() {
             }`}
           >
             <i className={`bi bi-arrow-repeat text-sm ${isSyncing ? 'animate-spin' : ''}`} />
-            <span>Sincronizar via Graph API (BETA)</span>
+            <span>Sincronizar via Graph API</span>
           </button>
 
         </div>
       </div>
+
+      {lastRun?.finishedAt && (
+        <p className="text-sm text-slate-600 dark:text-slate-300" aria-live="polite">
+          Última sincronização em {new Date(lastRun.finishedAt).toLocaleString('pt-BR')}.{' '}
+          {formatMetaCatalogRunSummary(lastRun)}
+        </p>
+      )}
 
       {/* Grid de Estatísticas do Catálogo */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

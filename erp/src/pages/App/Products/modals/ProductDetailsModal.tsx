@@ -2,6 +2,7 @@ import React from 'react';
 import Product, { Variation } from '@/pages/types/product.type';
 import { formatCurrency } from '@/pages/utils/formatters';
 import { normalizeProductVariationName } from '@/pages/utils/productVariationDefaults';
+import { isSalvadoStockOrigin } from '../../../../../../shared-utils/productStockOrigin';
 
 type ProductDetailsData = Product & {
   allVariations?: Variation[];
@@ -34,6 +35,7 @@ const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({ product, onCl
     Number(product.promoPrice) > 0 && Number(product.promoPrice) < Number(product.unitPrice);
   const price = Number(hasPromo ? product.promoPrice : product.unitPrice || 0);
   const attributes = product.attributes || [];
+  const isSalvado = isSalvadoStockOrigin(product);
 
   return (
     <div
@@ -94,7 +96,7 @@ const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({ product, onCl
               </div>
               <div className="flex flex-wrap gap-2 text-xs font-bold">
                 <span className="px-3 py-1.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
-                  Estoque: {product.stock ?? 0}
+                  Estoque: {isSalvado ? '-' : product.stock ?? 0}
                 </span>
                 <span
                   className={`px-3 py-1.5 rounded-full ${product.active === false ? 'bg-slate-100 dark:bg-slate-800 text-slate-500' : 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300'}`}
@@ -170,7 +172,7 @@ const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({ product, onCl
                           {formatCurrency(Number(variation.promoPrice || variation.unitPrice || product.unitPrice || 0))}
                         </td>
                         <td className="px-3 py-2 text-right text-slate-600 dark:text-slate-300">
-                          {variation.stock ?? 0}
+                          {isSalvadoStockOrigin(product, variation) ? '-' : variation.stock ?? 0}
                         </td>
                       </tr>
                     ))}

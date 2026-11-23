@@ -68,10 +68,10 @@ export const MobileProductCardSummary: React.FC<Props> = ({
             <Text
               style={[
                 styles.stockVal,
-                isLowStock && (dark ? styles.stockValLowDark : styles.stockValLow),
+                !isSalvado && isLowStock && (dark ? styles.stockValLowDark : styles.stockValLow),
               ]}
             >
-              {cardStock} {cardUnit}
+              {isSalvado ? '-' : `${cardStock} ${cardUnit}`}
             </Text>
           </Text>
         )}

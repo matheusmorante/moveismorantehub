@@ -1,240 +1,58 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { metaHttpClient } from '../metaService/metaHttpClient';
 import {
-  clearMetaCatalogOpportunitiesCache,
+  ensureProductMetaCatalogSync,
+  fetchLastMetaCatalogRun,
   syncAllProductsToMetaCatalog,
   syncProductToMetaCatalog,
   triggerProductMetaCatalogSync,
 } from './productMetaCatalogSync';
-import { getSettings } from '@/pages/utils/settingsService';
-import { whatsappGraphService } from '@/pages/utils/whatsappGraphService';
-import { supabase } from '@/pages/utils/supabaseConfig';
-import {
-  buildMetaCatalogSyncItems,
-  buildProductMetaCatalogSyncItems,
-} from '../../../../../shared-utils/productMetaCatalogSyncItems';
-import {
-  fetchMetaCatalogSyncSources,
-  fetchActiveCampaignLabelIndex,
-} from '@/pages/App/Products/MetaCatalog/services/metaCatalogDataService';
 
-vi.mock('@/pages/utils/settingsService', () => ({
-  getSettings: vi.fn(),
-}));
+vi.mock('../metaService/metaHttpClient', () => ({ metaHttpClient: { request: vi.fn() } }));
 
-vi.mock('@/pages/utils/whatsappGraphService', () => ({
-  whatsappGraphService: {
-    syncBatchProductsToCatalog: vi.fn(),
-  },
-}));
+const request = vi.mocked(metaHttpClient.request);
+const productId = '123e4567-e89b-42d3-a456-426614174000';
+const report = { success: true, count: 2, created: 0, updated: 0, deleted: 2, errors: 0 };
 
-vi.mock('@/pages/utils/supabaseConfig', () => ({
-  supabase: {
-    from: vi.fn(),
-  },
-}));
-
-vi.mock('@/pages/App/Products/MetaCatalog/services/metaCatalogDataService', () => ({
-  fetchMetaCatalogSyncSources: vi.fn(),
-  fetchActiveCampaignLabelIndex: vi.fn().mockResolvedValue({
-    productNames: new Map(),
-    variationNames: new Map(),
-  }),
-}));
-
-vi.mock('../../../../../shared-utils/productMetaCatalogSyncItems', async () => {
-  const actual = await vi.importActual<typeof import('../../../../../shared-utils/productMetaCatalogSyncItems')>(
-    '../../../../../shared-utils/productMetaCatalogSyncItems'
-  );
-  return {
-    ...actual,
-    buildMetaCatalogSyncItems: vi.fn(),
-    buildProductMetaCatalogSyncItems: vi.fn(actual.buildProductMetaCatalogSyncItems),
-  };
-});
-
-describe('productMetaCatalogSync', () => {
+describe('sincronização de produtos do ERP com a Meta', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
-    clearMetaCatalogOpportunitiesCache();
+    request.mockReset();
+    request.mockImplementation(async () => Response.json(report));
+  });
+
+  afterEach(() => vi.useRealTimers());
+
+  it('reconcilia um produto a partir de seu ID e propaga o resumo confirmado', async () => {
+    await expect(syncProductToMetaCatalog(productId)).resolves.toEqual(report);
+    expect(request).toHaveBeenCalledWith('reconcile_catalog', { productId }, undefined, 55_000);
+  });
+
+  it('concentra alterações sequenciais e compartilha o disparo com o salvamento', async () => {
     vi.useFakeTimers();
-    vi.mocked(fetchActiveCampaignLabelIndex).mockResolvedValue({
-      productNames: new Map(),
-      variationNames: new Map(),
+    const first = triggerProductMetaCatalogSync(productId);
+    const second = triggerProductMetaCatalogSync(productId);
+    expect(first).toBe(second);
+    expect(ensureProductMetaCatalogSync(productId)).toBe(first);
+    expect(request).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(400);
+    await expect(first).resolves.toEqual(report);
+    expect(request).toHaveBeenCalledTimes(1);
+  });
+
+  it('distingue uma execução em andamento de uma remoção confirmada', async () => {
+    request.mockResolvedValueOnce(Response.json({ error: 'Catálogo em sincronização.' }, { status: 409 }));
+    await expect(syncProductToMetaCatalog(productId)).resolves.toEqual({
+      success: false, count: 0, error: 'Catálogo em sincronização.',
     });
   });
 
-  afterEach(() => {
-    vi.useRealTimers();
-  });
-
-  describe('syncAllProductsToMetaCatalog', () => {
-    it('lança erro se as credenciais da Meta não estiverem configuradas', async () => {
-      vi.mocked(getSettings).mockReturnValue({
-        whatsappConfig: { catalogId: '', accessToken: '' },
-      } as any);
-
-      await expect(syncAllProductsToMetaCatalog()).rejects.toThrow(
-        'Credenciais da Meta não configuradas'
-      );
-    });
-
-    it('sincroniza todos os produtos com sucesso quando configurado', async () => {
-      vi.mocked(getSettings).mockReturnValue({
-        whatsappConfig: { catalogId: 'cat_123', accessToken: 'token_123' },
-      } as any);
-
-      vi.mocked(fetchMetaCatalogSyncSources).mockResolvedValue({
-        products: [{ id: 'p1', name: 'Mesa' }] as any,
-        variations: [],
-        opportunities: [],
-      });
-
-      vi.mocked(buildMetaCatalogSyncItems).mockReturnValue([
-        { id: 'p1', code: '001', name: 'Mesa' } as any,
-      ]);
-
-      vi.mocked(whatsappGraphService.syncBatchProductsToCatalog).mockResolvedValue({
-        success: true,
-        count: 1,
-        handles: ['h_1'],
-      });
-
-      const res = await syncAllProductsToMetaCatalog();
-      expect(res.success).toBe(true);
-      expect(res.count).toBe(1);
-      expect(whatsappGraphService.syncBatchProductsToCatalog).toHaveBeenCalledWith(
-        [{ id: 'p1', code: '001', name: 'Mesa' }],
-        undefined
-      );
-    });
-  });
-
-  describe('syncProductToMetaCatalog', () => {
-    it('retorna sucesso 0 silenciosamente se as credenciais não estiverem configuradas', async () => {
-      vi.mocked(getSettings).mockReturnValue({
-        whatsappConfig: { catalogId: '', accessToken: '' },
-      } as any);
-
-      const res = await syncProductToMetaCatalog('p1');
-      expect(res.success).toBe(false);
-      expect(res.count).toBe(0);
-      expect(res.error).toContain('Credenciais');
-    });
-
-    it('envia comando DELETE para o catálogo quando o produto for inativo ou oculto', async () => {
-      vi.mocked(getSettings).mockReturnValue({
-        whatsappConfig: { catalogId: 'cat_123', accessToken: 'token_123' },
-      } as any);
-
-      const mockFrom = vi.fn().mockReturnValue({
-        select: vi.fn().mockReturnValue({
-          eq: vi.fn().mockReturnValue({
-            maybeSingle: vi.fn().mockResolvedValue({
-              data: {
-                id: 'p1',
-                code: '001',
-                status: 'hidden',
-                active: false,
-                is_draft: false,
-                deleted: false,
-                deleted_at: null,
-              },
-              error: null,
-            }),
-          }),
-          in: vi.fn().mockResolvedValue({ data: [], error: null }),
-        }),
-      });
-
-      // product_variations
-      mockFrom.mockReturnValueOnce({
-        select: vi.fn().mockReturnValue({
-          eq: vi.fn().mockReturnValue({
-            maybeSingle: vi.fn().mockResolvedValue({
-              data: {
-                id: 'p1',
-                code: '001',
-                status: 'hidden',
-                active: false,
-                is_draft: false,
-                deleted: false,
-                deleted_at: null,
-              },
-              error: null,
-            }),
-          }),
-        }),
-      }).mockReturnValueOnce({
-        select: vi.fn().mockReturnValue({
-          eq: vi.fn().mockResolvedValue({ data: [], error: null }),
-        }),
-      }).mockReturnValueOnce({
-        select: vi.fn().mockResolvedValue({ data: [], error: null }),
-      });
-
-      vi.mocked(supabase.from).mockImplementation(mockFrom);
-      vi.mocked(whatsappGraphService.syncBatchProductsToCatalog).mockResolvedValue({
-        success: true,
-        count: 1,
-        handles: [],
-      });
-
-      const res = await syncProductToMetaCatalog('p1');
-      expect(res.success).toBe(true);
-      expect(res.count).toBe(2);
-      expect(whatsappGraphService.syncBatchProductsToCatalog).toHaveBeenCalledWith([
-        { id: 'p1', code: '001', deleted: true, status: 'hidden' },
-        { id: 'p1', code: 'p1', deleted: true, status: 'hidden' },
-      ]);
-    });
-  });
-
-  describe('triggerProductMetaCatalogSync', () => {
-    it('executa debounce agregando chamadas consecutivas para o mesmo produto', async () => {
-      vi.mocked(getSettings).mockReturnValue({
-        whatsappConfig: { catalogId: 'cat_123', accessToken: 'token_123' },
-      } as any);
-
-      const mockFrom = vi.fn().mockReturnValue({
-        select: vi.fn().mockReturnValue({
-          eq: vi.fn().mockReturnValue({
-            maybeSingle: vi.fn().mockResolvedValue({
-              data: {
-                id: 'p1',
-                code: '001',
-                status: 'published',
-                active: true,
-                deleted: false,
-                deleted_at: null,
-                is_draft: false,
-              },
-              error: null,
-            }),
-          }),
-        }),
-      });
-      vi.mocked(supabase.from).mockImplementation(mockFrom);
-      vi.mocked(buildProductMetaCatalogSyncItems).mockReturnValue([
-        { id: 'p1', code: '001', name: 'Item' } as any,
-      ]);
-      vi.mocked(whatsappGraphService.syncBatchProductsToCatalog).mockResolvedValue({
-        success: true,
-        count: 1,
-        handles: [],
-      });
-
-      triggerProductMetaCatalogSync('p1');
-      triggerProductMetaCatalogSync('p1');
-      triggerProductMetaCatalogSync('p1');
-
-      // Antes dos 400ms, não chamou
-      expect(whatsappGraphService.syncBatchProductsToCatalog).not.toHaveBeenCalled();
-
-      // Avança 400ms
-      await vi.advanceTimersByTimeAsync(450);
-
-      // Chamou apenas 1 vez para o produto 'p1'
-      expect(whatsappGraphService.syncBatchProductsToCatalog).toHaveBeenCalledTimes(1);
-    });
+  it('usa a reconciliação do servidor para a ação manual e lê o último resultado', async () => {
+    request.mockImplementationOnce(async () => Response.json(report));
+    await expect(syncAllProductsToMetaCatalog()).resolves.toEqual(report);
+    request.mockResolvedValueOnce(Response.json({ lastRun: report }));
+    await expect(fetchLastMetaCatalogRun()).resolves.toEqual(report);
+    expect(request.mock.calls.map(([operation, payload]) => [operation, payload])).toEqual([
+      ['reconcile_catalog', {}], ['reconcile_catalog_status', {}],
+    ]);
   });
 });

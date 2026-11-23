@@ -13,8 +13,9 @@ import {
   type ViewStyle,
 } from 'react-native';
 import type { MetaCatalogStats } from '../../../../../shared-utils/metaCatalogStats';
+import { formatMetaCatalogRunSummary, type MetaCatalogReconciliationResult } from '../../../../../shared-utils/metaCatalogReconciliationResult';
 import { fetchMobileMetaCatalogStats } from '../services/mobileMetaCatalogStatsService';
-import { syncMobileMetaCatalog } from '../services/mobileMetaCatalogSyncService';
+import { fetchLastMobileMetaCatalogRun, syncMobileMetaCatalog } from '../services/mobileMetaCatalogSyncService';
 
 interface NativeMetaCatalogScreenProps {
   dark: boolean;
@@ -34,7 +35,7 @@ export function NativeMetaCatalogScreen({
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
-  const [syncProgress, setSyncProgress] = useState({ processed: 0, total: 0 });
+  const [lastRun, setLastRun] = useState<MetaCatalogReconciliationResult | null>(null);
   const [syncError, setSyncError] = useState<string | null>(null);
   const mountedRef = useRef(false);
 
@@ -42,6 +43,12 @@ export function NativeMetaCatalogScreen({
     if (isRefresh) setRefreshing(true);
     else setLoading(true);
     setError(null);
+    void fetchLastMobileMetaCatalogRun().then((run) => {
+      const finishedAt = run?.finishedAt;
+      if (mountedRef.current && finishedAt) {
+        setLastRun((current) => !current?.finishedAt || finishedAt >= current.finishedAt ? run : current);
+      }
+    }).catch(() => undefined);
 
     try {
       const nextStats = await fetchMobileMetaCatalogStats();
@@ -72,32 +79,28 @@ export function NativeMetaCatalogScreen({
     }
 
     setIsSyncing(true);
-    setSyncProgress({ processed: 0, total: 0 });
     setSyncError(null);
 
-    const result = await syncMobileMetaCatalog(isAdmin, (processed, total) => {
-      if (mountedRef.current) setSyncProgress({ processed, total });
-    });
+    const result = await syncMobileMetaCatalog(isAdmin);
 
     if (!mountedRef.current) return;
     setIsSyncing(false);
+    if (result.finishedAt) setLastRun(result);
 
     if (!result.success) {
       const message = result.error || 'Erro ao sincronizar com a Meta Graph API.';
       setSyncError(message);
       Alert.alert(
         'Falha na sincronização',
-        `${message}\n\nA resposta pode não confirmar se o último lote foi aplicado. Confira o catálogo da Meta antes de repetir.`
+        message
       );
       return;
     }
 
     setSyncError(null);
     Alert.alert(
-      'Solicitações enviadas',
-      result.count > 0
-        ? `${result.count} itens foram enviados para processamento pela Meta. O status final pode levar algum tempo.`
-        : 'Nenhum item elegível foi encontrado para sincronização.'
+      'Sincronização concluída',
+      formatMetaCatalogRunSummary(result)
     );
     void loadStats(true);
   }, [isAdmin, loadStats]);
@@ -150,7 +153,7 @@ export function NativeMetaCatalogScreen({
             <View style={styles.syncCopy}>
               <Text style={[styles.syncTitle, textStyle]}>Sincronização manual via Graph API</Text>
               <Text style={[styles.muted, mutedStyle]}>
-                Envia produtos e variações elegíveis para o catálogo da Meta.
+                Compara produtos e variações do ERP com o catálogo da Meta.
               </Text>
             </View>
             <TouchableOpacity
@@ -175,37 +178,15 @@ export function NativeMetaCatalogScreen({
               Apenas administradores podem iniciar esta ação.
             </Text>
           )}
-          {isSyncing && (
-            <View style={styles.progressBlock} accessibilityRole="progressbar">
-              <Text style={[styles.progressLabel, textStyle]}>
-                {syncProgress.total > 0
-                  ? `${syncProgress.processed} de ${syncProgress.total} itens enviados`
-                  : 'Consultando produtos e variações...'}
-              </Text>
-              <View style={[styles.progressTrack, dark && styles.progressTrackDark]}>
-                <View
-                  style={[
-                    styles.progressFill,
-                    {
-                      width: `${syncProgress.total > 0 ? Math.round((syncProgress.processed / syncProgress.total) * 100) : 0}%`,
-                    },
-                  ]}
-                />
-              </View>
-              {syncProgress.total > 0 && (
-                <Text style={[styles.progressPercent, mutedStyle]}>
-                  {Math.round((syncProgress.processed / syncProgress.total) * 100)}%
-                </Text>
-              )}
-            </View>
+          {lastRun?.finishedAt && (
+            <Text style={[styles.muted, mutedStyle]} accessibilityLiveRegion="polite">
+              Última sincronização em {new Date(lastRun.finishedAt).toLocaleString('pt-BR')}.{' '}
+              {formatMetaCatalogRunSummary(lastRun)}
+            </Text>
           )}
           {syncError && !isSyncing && (
             <Text style={[styles.syncError, dark && styles.errorTextDark]} accessibilityRole="alert">
               {syncError}
-              {!syncError.includes('Confira o catálogo') &&
-                ' Confira o catálogo da Meta antes de tentar novamente.'}
-              {syncProgress.total > 0 &&
-                ` Último progresso informado: ${syncProgress.processed} de ${syncProgress.total} itens enviados.`}
             </Text>
           )}
         </View>
@@ -356,12 +337,6 @@ const styles = StyleSheet.create({
   },
   syncButtonDisabled: { backgroundColor: '#64748b' },
   syncButtonText: { color: '#ffffff', fontSize: 12, fontWeight: '900' },
-  progressBlock: { gap: 7 },
-  progressLabel: { fontSize: 11, fontWeight: '800' },
-  progressTrack: { height: 8, backgroundColor: '#e2e8f0', borderRadius: 20, overflow: 'hidden' },
-  progressTrackDark: { backgroundColor: '#334155' },
-  progressFill: { height: '100%', backgroundColor: '#10b981', borderRadius: 20 },
-  progressPercent: { fontSize: 10, textAlign: 'right' },
   syncError: { color: '#b91c1c', fontSize: 11, lineHeight: 17 },
   surface: { backgroundColor: '#ffffff', borderColor: '#e2e8f0' },
   surfaceDark: { backgroundColor: '#0f172a', borderColor: '#1e293b' },

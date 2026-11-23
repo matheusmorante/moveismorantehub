@@ -94,8 +94,8 @@ export const MobileChannelBadges: React.FC<MobileChannelBadgesProps> = ({
 
   return (
     <View style={styles.channelsGroup}>
-      {/* Botão ERP */}
-      {!isSalvado && (
+      {/* Status ERP aparece nas variações e nos produtos simples, não no produto pai. */}
+      {!isSalvado && !isParent && (
         <TouchableOpacity
           activeOpacity={0.8}
           onPress={erpStatusInteraction.canPress ? handleToggleERP : undefined}

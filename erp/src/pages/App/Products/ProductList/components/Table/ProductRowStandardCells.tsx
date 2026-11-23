@@ -197,6 +197,14 @@ export function renderProductRowStandardCell(key: string, ctx: CellContext): Rea
       );
 
     case 'stock': {
+      const isSalvado = isSalvadoStockOrigin(product, singleVariation, opportunityName);
+      if (isSalvado) {
+        return (
+          <td key="stock" className="px-3 py-3 text-center">
+            <span className="text-sm font-black text-slate-500 dark:text-slate-400">-</span>
+          </td>
+        );
+      }
       if (product.isParent && !singleVariation) return <td key="stock" className="px-3 py-3" />;
       const stock = singleVariation?.stock ?? product.stock ?? 0;
       const minStock = singleVariation?.minStock ?? product.minStock ?? 0;

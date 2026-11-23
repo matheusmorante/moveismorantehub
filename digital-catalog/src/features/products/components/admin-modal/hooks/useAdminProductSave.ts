@@ -330,10 +330,18 @@ export function useAdminProductSave({
           onOpenChange(false);
           onSuccess?.();
           // Meta remains an independent background sync after confirmed publication.
-          void withTimeout(fetch('/api/catalog/sync-batch', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ productId: savedId, action: 'UPDATE' }),
-          }), 20_000, null, 'Sincronização do catálogo Meta').catch(() => undefined);
+          void Promise.resolve()
+            .then(() => withTimeout(supabase.auth.getSession(), 10_000, null, 'Sessão do catálogo Meta'))
+            .then((session) => {
+              const token = session?.data.session?.access_token;
+              if (!token) return;
+              return fetch('/api/catalog/sync-batch', {
+                method: 'POST',
+                headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ productId: savedId }),
+                signal: AbortSignal.timeout(60_000),
+              });
+            }).catch(() => undefined);
           return savedId;
         }, (errors) => { if (isCurrent()) showFormError(errors); });
       } catch (error) {

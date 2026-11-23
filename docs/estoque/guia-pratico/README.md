@@ -1,5 +1,9 @@
 # Fonte do guia prático do estoque
 
+## Atualização de 23/11/2026 — Salvados sem controle de estoque
+
+A página 21 informa que o estoque não se aplica a produtos Salvados: ERP e app mostram “-” no campo Estoque, e esses produtos ficam fora da contagem do inventário.
+
 ## Atualização de 21/11/2026 — reabrir vínculos completos da NF-e
 
 Na página 8, a identificação **Vinculação Completa** pode ser tocada no app ou clicada no ERP para abrir **Gerenciar vínculos** da nota e revisar as associações existentes. Isso apenas abre a conferência; não gera recebimento nem movimenta o estoque.

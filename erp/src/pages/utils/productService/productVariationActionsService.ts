@@ -8,6 +8,7 @@ import { withTimeout } from '../../../../../shared-utils/withTimeout';
 import { variationFamilyCommandSchema, variationFamilyAckSchema, sameFamilyAttributes, toFamilyAttributes, VariationFamilyUnconfirmedError } from '../../../../../shared-utils/variationFamilyFormSchemas';
 import { parseVariationImages } from './productImageHelpers';
 import { mapToDB } from './productToDbMapper';
+import { isSalvadoProduct } from '../productKindRules';
 import { variationMergeCommandSchema, variationMergeAckSchema, variationMergeIdentitySchema, VariationMergeUnconfirmedError } from '../../../../../shared-utils/variationMergeFormSchemas';
 import {
   fetchRequiredProductCategoryAttributes,
@@ -168,7 +169,11 @@ export const saveVariation = async (productId: string, variation: any): Promise<
         price: variationToSave.syncUnitPrice !== false
           ? (parent.unitPrice ? Number(parent.unitPrice) : 0)
           : (variationToSave.unitPrice !== undefined && variationToSave.unitPrice !== null ? Number(variationToSave.unitPrice) : 0),
-        stock: variationToSave.stock ? parseInt(String(variationToSave.stock), 10) : 0,
+        stock: isSalvadoProduct(parent)
+          ? null
+          : variationToSave.stock
+            ? parseInt(String(variationToSave.stock), 10)
+            : 0,
         image_url: effectiveImages.length > 0 ? effectiveImages.join(',') : null,
         attributes: attributesToSave,
         combo_items: Array.isArray(variationToSave.comboItems) ? variationToSave.comboItems : [],

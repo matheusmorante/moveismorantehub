@@ -96,6 +96,7 @@ export const ProductCardVariationItem: React.FC<ProductCardVariationItemProps> =
   const isMenuOpen = activeVarMenuId === (v.id || String(index));
   const isUsageChecking = checkingUsageId === v.id;
   const isUsed = usageCache[v.id || ''] === true;
+  const isSalvado = isSalvadoStockOrigin(product, v, opportunityName);
 
   return (
     <div className="flex items-center justify-between py-2 px-1 border-b border-slate-100 dark:border-slate-800/60 last:border-b-0 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 rounded-lg transition-colors group/var">
@@ -122,7 +123,7 @@ export const ProductCardVariationItem: React.FC<ProductCardVariationItemProps> =
               catalogStatus={v.status}
               isParent={false}
               isNonConventional={isNonConventionalProduct(product) || isNonConventionalProduct(v as any)}
-              isSalvado={isSalvadoStockOrigin(product, v, opportunityName)}
+              isSalvado={isSalvado}
               canManageCatalog={canManageCatalog && !readOnly}
               canToggleActive={canDeleteProducts}
               showCatalogControl={showCatalogControl}
@@ -167,7 +168,7 @@ export const ProductCardVariationItem: React.FC<ProductCardVariationItemProps> =
           </span>
           {v.promotionName ? <span className="max-w-36 truncate text-[9px] font-bold text-blue-600 dark:text-blue-400" title={`Desconto informativo, sujeito às condições da campanha ${v.promotionName}.`}>Campanha: {v.promotionName}{v.promotionDiscountPercent ? ` · ${v.promotionDiscountPercent}%` : ''}</span> : null}
           <span className="text-[9px] font-bold text-slate-400 mt-0.5">
-            Estoque: {v.stock ?? 0}
+            Estoque: {isSalvado ? '-' : v.stock ?? 0}
           </span>
         </div>
 

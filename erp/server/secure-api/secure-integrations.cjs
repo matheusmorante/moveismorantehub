@@ -30,9 +30,9 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 ));
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
-// erp/node_modules/@supabase/supabase-js/dist/tracingRegistry.cjs
+// node_modules/@supabase/supabase-js/dist/tracingRegistry.cjs
 var require_tracingRegistry = __commonJS({
-  "erp/node_modules/@supabase/supabase-js/dist/tracingRegistry.cjs"(exports2) {
+  "node_modules/@supabase/supabase-js/dist/tracingRegistry.cjs"(exports2) {
     var EXTRACTOR_KEY = Symbol.for("@supabase/supabase-js.traceContextExtractor");
     function registerTraceContextExtractor(extractor) {
       globalThis[EXTRACTOR_KEY] = extractor;
@@ -55,9 +55,9 @@ var require_tracingRegistry = __commonJS({
   }
 });
 
-// erp/node_modules/@supabase/supabase-js/dist/index.cjs
+// node_modules/@supabase/supabase-js/dist/index.cjs
 var require_dist = __commonJS({
-  "erp/node_modules/@supabase/supabase-js/dist/index.cjs"(exports2) {
+  "node_modules/@supabase/supabase-js/dist/index.cjs"(exports2) {
     var require_tracingRegistry2 = require_tracingRegistry();
     var _supabase_functions_js = require("@supabase/functions-js");
     var _supabase_postgrest_js = require("@supabase/postgrest-js");
@@ -790,7 +790,7 @@ var require_dist = __commonJS({
         }
       }
     };
-    var createClient3 = (supabaseUrl, supabaseKey, options) => {
+    var createClient4 = (supabaseUrl, supabaseKey, options) => {
       return new SupabaseClient(supabaseUrl, supabaseKey, options);
     };
     function shouldShowDeprecationWarning() {
@@ -847,7 +847,7 @@ var require_dist = __commonJS({
       }
     });
     exports2.SupabaseClient = SupabaseClient;
-    exports2.createClient = createClient3;
+    exports2.createClient = createClient4;
     Object.keys(_supabase_auth_js).forEach(function(k) {
       if (k !== "default" && !Object.prototype.hasOwnProperty.call(exports2, k)) Object.defineProperty(exports2, k, {
         enumerable: true,
@@ -867,7 +867,7 @@ var require_dist = __commonJS({
   }
 });
 
-// erp/api/_lib/secureIntegrations/handler.ts
+// api/_lib/secureIntegrations/handler.ts
 var handler_exports = {};
 __export(handler_exports, {
   checkAiQuotaOrReject: () => checkAiQuotaOrReject,
@@ -882,7 +882,7 @@ __export(handler_exports, {
 });
 module.exports = __toCommonJS(handler_exports);
 
-// erp/api/_lib/secureIntegrations/types.ts
+// api/_lib/secureIntegrations/types.ts
 var MAX_META_REQUEST_BYTES = 1e6;
 var MAX_OPENAI_REQUEST_BYTES = 4e6;
 var MAX_ROUTE_REQUEST_BYTES = 16e3;
@@ -898,7 +898,7 @@ function getOperation(req) {
   return Array.isArray(value) ? String(value[0] || "") : String(value || "");
 }
 
-// erp/api/_lib/authenticatedErpRequest.ts
+// api/_lib/authenticatedErpRequest.ts
 var import_supabase_js = __toESM(require_dist(), 1);
 var DEFAULT_PERMISSION_ROLES = {
   createEditOrders: ["manager"],
@@ -971,7 +971,7 @@ function hasErpPermission(context, permission) {
   return context.roles.some((role) => allowedRoles.includes(role));
 }
 
-// erp/server/secure-api/verifyMetaAppCredentials.ts
+// server/secure-api/verifyMetaAppCredentials.ts
 var import_node_crypto = require("node:crypto");
 function getGraphErrorDetails(body) {
   const graphError = body && typeof body === "object" && !Array.isArray(body) ? body.error : void 0;
@@ -1053,7 +1053,7 @@ async function verifyMetaAppCredentials({
   return { valid: true };
 }
 
-// erp/server/secure-api/verifyWhatsAppWebhookSubscription.ts
+// server/secure-api/verifyWhatsAppWebhookSubscription.ts
 var import_node_crypto2 = require("node:crypto");
 function isRecord(value) {
   return !!value && typeof value === "object" && !Array.isArray(value);
@@ -1123,7 +1123,7 @@ async function verifyWhatsAppWebhookSubscription({
   return { valid: false, reason: "pagination_limit_exceeded" };
 }
 
-// erp/server/secure-api/ensureWhatsAppEchoWebhookSubscription.ts
+// server/secure-api/ensureWhatsAppEchoWebhookSubscription.ts
 var import_node_crypto3 = require("node:crypto");
 function isRecord2(value) {
   return !!value && typeof value === "object" && !Array.isArray(value);
@@ -1238,14 +1238,14 @@ async function ensureWhatsAppEchoWebhookSubscription({
   return { valid: true, changed: true, fields: verifiedFields };
 }
 
-// shared-utils/metaCatalogIds.ts
+// ../shared-utils/metaCatalogIds.ts
 var META_ADS_CREATIVE_CATALOG_ID = "3884846918337684";
 
-// erp/src/pages/utils/metaService/metaGraphProxyPolicy.ts
+// src/pages/utils/metaService/metaGraphProxyPolicy.ts
 var numericId = (value) => {
-  const normalized = typeof value === "string" ? value.trim() : "";
-  if (!/^\d{1,32}$/.test(normalized)) throw new Error("Identificador Meta inv\xE1lido.");
-  return normalized;
+  const normalized2 = typeof value === "string" ? value.trim() : "";
+  if (!/^\d{1,32}$/.test(normalized2)) throw new Error("Identificador Meta inv\xE1lido.");
+  return normalized2;
 };
 var configuredId = (value) => {
   if (typeof value !== "string" || !value.trim()) throw new Error("Integra\xE7\xE3o Meta n\xE3o configurada.");
@@ -1273,9 +1273,6 @@ function getBatchHandle(value) {
     throw new Error("Identificador do lote inv\xE1lido.");
   }
   return handle;
-}
-function createMetaCatalogBatchHandle(whatsappHandle, adsHandle) {
-  return `both:${getBatchHandle(whatsappHandle)}|${getBatchHandle(adsHandle)}`;
 }
 function parseMetaCatalogBatchHandle(value, defaultTarget = "whatsapp") {
   const handle = typeof value === "string" ? value.trim() : "";
@@ -1439,7 +1436,1170 @@ function planMetaGraphRequest(input, settings) {
   }
 }
 
-// erp/api/_lib/secureIntegrations/handlers/metaGraphHandler.ts
+// api/_lib/metaCatalogReconciliation/handler.ts
+var import_node_crypto6 = require("node:crypto");
+
+// api/_lib/metaCatalogReconciliation/run.ts
+var import_node_crypto5 = require("node:crypto");
+var import_supabase_js2 = __toESM(require_dist(), 1);
+
+// ../shared-utils/metaCatalogPayload.ts
+var META_CATALOG_GLOBAL_PREFIX = `\u{1F69A}\u{1F4E6} Entrega r\xE1pida (1 a 5 dias \xFAteis) para Curitiba e Regi\xE3o, consulte conosco a disponibilidade e o valor do frete
+
+\u{1F4B3} Pagamento parcelado nas bandeiras VISA, MASTER, MASTERCARD, MAESTRO, HIPERCARD, ELO, em at\xE9 10x sem juros no cart\xE3o de cr\xE9dito
+
+\u{1F4B3} Parcelamos em at\xE9 12x no credi\xE1rio, sujeito \xE0 an\xE1lise e aprova\xE7\xE3o de cr\xE9dito.
+
+\u{1F6A8}\u26A0\uFE0F Aceitamos Senff com juros.
+
+\u2705 \xC0 vista tem desconto no pix, d\xE9bito ou dinheiro!
+
+
+\u2705 Sem taxa de frete para endere\xE7os pr\xF3ximos.
+
+
+\u2705 Montagem Inclu\xEDda para a retirada ou entrega.
+
+
+\u2705 Atendimento Via WhatsApp
+
+https://wa.me/5541997493547
+
+
+\u{1F6D2} VEJA MAIS DOS NOSSOS PRODUTOS CLICANDO NO LINK ABAIXO:
+
+https://moveismorante.com.br
+
+___________________________________
+
+M\xF3veis Morante
+
+\u25B6 CNPJ: 44.512 248/0001-07
+
+\u{1F552} Aberto: Seg a Sex ( 9h \xE0s 18h ) e Sab ( 9h \xE0s 17h )
+
+\u{1F5FA}\u{1F4CD}Rua Cascavel, 306, Guaraituba, Colombo - PR
+
+____________________________________`;
+var META_CATALOG_WHATSAPP_BASE_DESCRIPTION = `\u{1F3E0} *M\xF3veis Morante*
+\u{1F4CD} R. Cascavel, 306 - Guaraituba, Colombo - PR
+\u231A Seg a Sex: 9h \xE0s 18h | S\xE1b: 9h \xE0s 17h
+\u{1F4DE} (41) 99749-3547
+
+\u2015\u2015\u2015\u2015\u2015\u2015\u2015\u2015\u2015\u2015\u2015\u2015`;
+function buildMetaCatalogDescription(productDescription, whatsappBaseDescription) {
+  const globalPrefix = META_CATALOG_GLOBAL_PREFIX.trim();
+  const productText = String(productDescription ?? "").trim();
+  const itemDescription = productText.startsWith(globalPrefix) ? productText.slice(globalPrefix.length).trim() : productText;
+  const configuredBase = (whatsappBaseDescription ?? META_CATALOG_WHATSAPP_BASE_DESCRIPTION).trim();
+  return [globalPrefix, configuredBase, itemDescription].filter(Boolean).join("\n\n");
+}
+function resolveProductType(product) {
+  const relations = product.product_categories || [];
+  const parentCategories = relations.map((pc) => pc.categories).filter((cat) => Boolean(cat && cat.type === "category")).map((cat) => cat.name).filter(Boolean);
+  const environments = relations.map((pc) => pc.categories).filter((cat) => Boolean(cat && cat.type === "environment")).map((cat) => cat.name).filter(Boolean);
+  if (environments.length > 0 && parentCategories.length > 0) {
+    return `${environments[0]} > ${parentCategories[0]}`;
+  }
+  if (parentCategories.length > 0) {
+    return String(parentCategories[0]);
+  }
+  if (environments.length > 0) {
+    return String(environments[0]);
+  }
+  const group = product.groupName || product.group_name;
+  if (group && group !== "Furniture") {
+    return group;
+  }
+  return "M\xF3veis";
+}
+function isSlugSku(val) {
+  if (!val) return false;
+  const s = String(val).trim();
+  if (s === "01-7bdb15") return true;
+  if (/^[a-z0-9]+(-[a-z0-9]+){2,}$/.test(s) && /[a-z]/.test(s)) {
+    if (!/^(sku|default|cod)-/i.test(s)) {
+      return true;
+    }
+  }
+  return false;
+}
+function extractVariationAttributes(attributes) {
+  let color = "";
+  let size = "";
+  if (Array.isArray(attributes)) {
+    const corAttr = attributes.find(
+      (a) => a && (a.name?.toLowerCase() === "cor" || a.key?.toLowerCase() === "cor" || a.attribute_name?.toLowerCase() === "cor")
+    );
+    if (corAttr) color = String(corAttr.value || corAttr.option || "").trim();
+    const tamAttr = attributes.find(
+      (a) => a && (a.name?.toLowerCase() === "tamanho" || a.key?.toLowerCase() === "tamanho" || a.attribute_name?.toLowerCase() === "tamanho")
+    );
+    if (tamAttr) size = String(tamAttr.value || tamAttr.option || "").trim();
+  } else if (attributes && typeof attributes === "object") {
+    const record3 = attributes;
+    color = String(record3.Cor || record3.cor || "").trim();
+    size = String(record3.Tamanho || record3.tamanho || "").trim();
+  }
+  return { color, size };
+}
+function buildDescription(parentTitle, baseDescription, opportunity) {
+  const parts = [META_CATALOG_GLOBAL_PREFIX];
+  if (opportunity?.observations) {
+    const oppLabel = opportunity.name ? ` (${opportunity.name})` : "";
+    parts.push(`***Aviso Importante${oppLabel}: ${opportunity.observations}***`);
+  }
+  const content = baseDescription || parentTitle;
+  if (content) parts.push(content);
+  return parts.join("\n\n");
+}
+function buildMetaCatalogItems(products, variations, opportunities) {
+  const oppMap = /* @__PURE__ */ new Map();
+  opportunities.forEach((opportunity) => {
+    oppMap.set(opportunity.id, opportunity);
+  });
+  const allItems = [];
+  for (const parent of products) {
+    if (parent.deleted || parent.deleted_at !== null || parent.status !== "published" || parent.is_draft) {
+      continue;
+    }
+    const isSalvado = parent.is_salvado === true || parent.product_kind === "salvado";
+    if (!isSalvado && parent.active === false) {
+      continue;
+    }
+    const isParentPublished = parent.status === "published";
+    const parentVariations = variations.filter(
+      (variation) => variation.product_id === parent.id && variation.status !== "hidden" && variation.status !== "draft" && (isSalvado || variation.active !== false) && (variation.status === "published" || !variation.status && isParentPublished)
+    );
+    const hasPublishedVars = parentVariations.some((v) => v.status === "published");
+    if (!isParentPublished && !hasPublishedVars) {
+      continue;
+    }
+    const parentTitle = parent.name || parent.title || (parent.description ? parent.description.split("\n")[0] : "Produto Morante");
+    const opportunity = parent.opportunity_id ? oppMap.get(parent.opportunity_id) : null;
+    const baseDescription = parent.whatsapp_description || parent.description || parentTitle;
+    const fullDescription = buildDescription(parentTitle, baseDescription, opportunity);
+    const productType = resolveProductType(parent);
+    const parentCondition = parent.condition === "usado" || parent.condition === "used" ? "used" : parent.is_salvado ? "refurbished" : "new";
+    const parentSlug = parent.slug || parent.id;
+    if (parentVariations.length > 0) {
+      for (const variation of parentVariations) {
+        const { color: attrColor, size: attrSize } = extractVariationAttributes(variation.attributes);
+        const color = variation.color || attrColor || "";
+        const size = variation.size || attrSize || "";
+        const fallbackVariationTitle = [color, size].filter(Boolean).join(" / ");
+        const variationTitle = String(variation.name || "").trim() || (fallbackVariationTitle ? `${parentTitle} - ${fallbackVariationTitle}` : parentTitle);
+        let variationImages = [];
+        if (variation.image_url) {
+          variationImages = String(variation.image_url).split(",").map((image) => image.trim()).filter(Boolean);
+        }
+        if (variationImages.length === 0 && Array.isArray(parent.images) && parent.images.length > 0) {
+          variationImages = parent.images;
+        }
+        const hasVarSpecificPrice = Boolean(variation.sales_price || variation.price);
+        const isParentPrice = variation.use_parent_price === true || !hasVarSpecificPrice && variation.use_parent_price !== false;
+        const rawVarPrice = isParentPrice ? parent.sales_price || parent.unit_price || parent.price || 0 : variation.sales_price || variation.price || parent.sales_price || parent.price || 0;
+        const hasVarSpecificPromo = Boolean(variation.promo_price);
+        const isParentPromo = variation.use_parent_promo_price === true || !hasVarSpecificPromo && variation.use_parent_promo_price !== false;
+        const rawVarPromo = isParentPromo ? parent.promo_price : variation.promo_price || parent.promo_price;
+        let varPrice = Number(rawVarPrice || 0);
+        const varPromo = Number(rawVarPromo || 0);
+        if (varPrice <= 0 && varPromo > 0) {
+          varPrice = varPromo;
+        }
+        const varLink = `https://moveismorante.com.br/produto/${parentSlug}?var=${variation.id}`;
+        const rawVarSku = String(variation.sku || variation.code || "").trim();
+        const varSku = (!isSlugSku(rawVarSku) && rawVarSku ? rawVarSku : "") || (parent.code ? `${parent.code}-${String(parentVariations.indexOf(variation) + 1).padStart(2, "0")}` : variation.id);
+        allItems.push({
+          id: variation.id,
+          code: varSku,
+          name: variationTitle,
+          description: fullDescription,
+          sales_price: varPrice,
+          promo_price: varPromo > 0 && varPromo < varPrice ? varPromo : void 0,
+          opportunityName: opportunity?.name || void 0,
+          activeCampaignNames: variation.activeCampaignNames || [],
+          stock: variation.stock !== void 0 ? variation.stock : parent.stock,
+          active: true,
+          status: "published",
+          isPublished: true,
+          images: variationImages,
+          brand: parent.brand || "M\xF3veis Morante",
+          group_name: parent.group_name,
+          productType,
+          condition: parentCondition,
+          is_salvado: Boolean(parent.is_salvado),
+          material: parent.material || void 0,
+          color: color || void 0,
+          size: size || void 0,
+          slug: parentSlug,
+          url: varLink,
+          isVariation: true,
+          productId: parent.id
+        });
+      }
+    } else {
+      let parentPrice = Number(
+        parent.sales_price || parent.unit_price || parent.price || 0
+      );
+      const parentPromo = Number(parent.promo_price || 0);
+      if (parentPrice <= 0 && parentPromo > 0) {
+        parentPrice = parentPromo;
+      }
+      const prodLink = `https://moveismorante.com.br/produto/${parentSlug}`;
+      const rawParentCode = String(parent.code || "").trim();
+      const rawParentSku = String(parent.sku || "").trim();
+      const parentSku = (!isSlugSku(rawParentCode) && rawParentCode ? rawParentCode : "") || (!isSlugSku(rawParentSku) && rawParentSku ? rawParentSku : "") || parent.id;
+      allItems.push({
+        id: parent.id,
+        code: parentSku,
+        name: parentTitle,
+        description: fullDescription,
+        sales_price: parentPrice,
+        promo_price: parentPromo > 0 && parentPromo < parentPrice ? parentPromo : void 0,
+        opportunityName: opportunity?.name || void 0,
+        activeCampaignNames: parent.activeCampaignNames || [],
+        stock: parent.stock,
+        active: true,
+        status: "published",
+        isPublished: true,
+        images: Array.isArray(parent.images) ? parent.images : [],
+        brand: parent.brand || "M\xF3veis Morante",
+        group_name: parent.group_name,
+        productType,
+        condition: parentCondition,
+        is_salvado: Boolean(parent.is_salvado),
+        material: parent.material || void 0,
+        slug: parentSlug,
+        url: prodLink,
+        isVariation: false
+      });
+    }
+  }
+  return allItems;
+}
+
+// ../shared-utils/metaCatalogBatchPayload.ts
+var META_CATALOG_BATCH_LIMIT = 50;
+var isMetaCatalogBatchDeletion = (product) => product.status === "hidden" || product.hidden === true || product.deleted === true || product.deleted_at !== void 0 && product.deleted_at !== null || product.status === "draft";
+var SUPABASE_STORAGE_PATTERN = /https:\/\/.*?\.supabase\.co\/storage\/v1\/object\/public\/products\/(.*)/i;
+var R2_BASE_URL = "https://pub-389127050a434f568c29dc66bdce2567.r2.dev";
+var META_CATALOG_FALLBACK_IMAGE_URL = "https://moveismorante.com.br/logo.png";
+var formatMetaCatalogDecimalPrice = (value) => {
+  if (value === null || value === void 0 || value === "") return "";
+  const number = Number(value);
+  if (Number.isNaN(number)) return "";
+  return number.toFixed(2).replace(".", ",");
+};
+var serializeMetaCatalogInternalLabels = (labels) => {
+  if (!Array.isArray(labels)) return void 0;
+  const normalizedLabels = Array.from(
+    new Set(
+      labels.map((label) => String(label || "").trim()).filter(Boolean).map((label) => label.length > 110 ? label.slice(0, 110) : label)
+    )
+  );
+  const escapedLabels = normalizedLabels.map(
+    (label) => `'${label.replace(/\\/g, "\\\\").replace(/'/g, "\\'")}'`
+  );
+  return `[${escapedLabels.join(",")}]`;
+};
+var sanitizeMetaCatalogImageUrl = (urlValue, fallback = META_CATALOG_FALLBACK_IMAGE_URL) => {
+  if (!urlValue) return fallback;
+  let url = String(urlValue).trim().split("?")[0];
+  if (SUPABASE_STORAGE_PATTERN.test(url)) {
+    const match = url.match(SUPABASE_STORAGE_PATTERN);
+    if (match?.[1]) {
+      const fileName = match[1].split("/").pop();
+      if (fileName) url = `${R2_BASE_URL}/${fileName}`;
+    }
+  }
+  if (!url.startsWith("http://") && !url.startsWith("https://")) url = `https://${url}`;
+  return encodeURI(url);
+};
+var buildMetaCatalogBatchPayload = (products, whatsappBaseDescription) => {
+  if (products.length < 1 || products.length > META_CATALOG_BATCH_LIMIT) {
+    throw new Error(`Cada lote Meta deve conter entre 1 e ${META_CATALOG_BATCH_LIMIT} itens.`);
+  }
+  const requests = products.map((product) => {
+    const retailerId = String(product.code || product.sku || product.id);
+    if (isMetaCatalogBatchDeletion(product)) {
+      return { method: "DELETE", retailer_id: retailerId, data: { id: retailerId } };
+    }
+    const cleanTitle = product.name || product.title || (product.description ? String(product.description).split("\n")[0] : "Produto Morante");
+    const baseDescription = product.whatsappDescription || product.whatsapp_description || product.description || cleanTitle;
+    const cleanDescription = buildMetaCatalogDescription(baseDescription, whatsappBaseDescription);
+    const rawPrice = product.sales_price ?? product.salesPrice ?? product.price ?? product.unitPrice ?? product.unit_price ?? 0;
+    let itemPrice = Number(rawPrice);
+    const promoPrice = product.promo_price ?? product.promoPrice ? Number(product.promo_price ?? product.promoPrice) : 0;
+    if (itemPrice <= 0 && promoPrice > 0) itemPrice = promoPrice;
+    const hasPromo = promoPrice > 0 && promoPrice < itemPrice;
+    const currentPrice = hasPromo ? promoPrice : itemPrice;
+    const oldPriceFormatted = hasPromo ? formatMetaCatalogDecimalPrice(itemPrice) : void 0;
+    const opportunityName = product.opportunityName || product.opportunity_name || product.opportunities?.name || "";
+    const productType = product.productType || (product.groupName && product.groupName !== "Furniture" ? product.groupName : void 0) || (product.group_name && product.group_name !== "Furniture" ? product.group_name : void 0) || resolveProductType(product);
+    const condition = product.condition === "used" || product.condition === "usado" ? "used" : product.is_salvado || product.condition === "refurbished" ? "refurbished" : "new";
+    const productLink = product.url || (product.slug ? `https://moveismorante.com.br/produto/${product.slug}` : `https://moveismorante.com.br/produto/${product.id}`);
+    const quantityToSell = product.stock !== null && product.stock !== void 0 ? Math.max(0, Number(product.stock)) : 1;
+    const imageUrls = [];
+    if (Array.isArray(product.images) && product.images.length > 0) {
+      product.images.forEach((image) => {
+        if (!image) return;
+        String(image).split(",").forEach((value) => {
+          const trimmed = value.trim();
+          if (trimmed && !imageUrls.includes(trimmed)) imageUrls.push(trimmed);
+        });
+      });
+    } else if (product.image_url) {
+      String(product.image_url).split(",").forEach((value) => {
+        const trimmed = value.trim();
+        if (trimmed && !imageUrls.includes(trimmed)) imageUrls.push(trimmed);
+      });
+    }
+    const sanitizedImages = imageUrls.map((url) => sanitizeMetaCatalogImageUrl(url, "")).filter(Boolean);
+    const mainImageUrl = sanitizedImages[0] || "";
+    const additionalImageUrls = sanitizedImages.length > 1 ? sanitizedImages.slice(1, 10) : [];
+    if (itemPrice <= 0 || !mainImageUrl) {
+      return { method: "DELETE", retailer_id: retailerId, data: { id: retailerId } };
+    }
+    return {
+      method: "UPDATE",
+      retailer_id: retailerId,
+      data: {
+        id: retailerId,
+        title: cleanTitle,
+        description: cleanDescription,
+        price: `${itemPrice.toFixed(2)} BRL`,
+        sale_price: hasPromo ? `${promoPrice.toFixed(2)} BRL` : void 0,
+        condition,
+        availability: "in stock",
+        image_link: mainImageUrl,
+        additional_image_link: additionalImageUrls.join(",") || void 0,
+        brand: product.brand || "M\xF3veis Morante",
+        link: productLink,
+        product_type: productType,
+        item_group_id: "",
+        custom_label_0: productType,
+        custom_label_1: formatMetaCatalogDecimalPrice(currentPrice),
+        custom_label_2: oldPriceFormatted,
+        custom_label_3: opportunityName || void 0,
+        internal_label: serializeMetaCatalogInternalLabels(product.activeCampaignNames),
+        color: product.color || void 0,
+        size: product.size || void 0,
+        material: product.material || void 0,
+        gender: "unisex",
+        identifier_exists: "no",
+        quantity_to_sell_on_facebook: quantityToSell
+      }
+    };
+  });
+  return { item_type: "PRODUCT_ITEM", requests };
+};
+
+// api/_lib/metaCatalogReconciliation/graph.ts
+var PRODUCT_FIELDS = [
+  "id",
+  "retailer_id",
+  "name",
+  "description",
+  "price",
+  "currency",
+  "sale_price",
+  "condition",
+  "availability",
+  "image_url",
+  "additional_image_urls",
+  "brand",
+  "url",
+  "product_type",
+  "retailer_product_group_id",
+  "custom_label_0",
+  "custom_label_1",
+  "custom_label_2",
+  "custom_label_3",
+  "custom_label_4",
+  "custom_number_4",
+  "color",
+  "size",
+  "material",
+  "gender",
+  "quantity_to_sell_on_facebook",
+  "visibility"
+].join(",");
+var BATCH_POLL_DELAY_MS = 800;
+var BATCH_POLL_TIMEOUT_MS = 12e3;
+var GraphBatchUnconfirmed = class extends Error {
+};
+var GraphRequestError = class extends Error {
+  constructor(status, code) {
+    super(`Meta Graph HTTP ${status}${code}.`);
+    this.status = status;
+  }
+};
+function sleep(ms, signal) {
+  return new Promise((resolve, reject) => {
+    if (signal.aborted) {
+      reject(signal.reason);
+      return;
+    }
+    const cancel = () => {
+      clearTimeout(timer);
+      reject(signal.reason);
+    };
+    const timer = setTimeout(() => {
+      signal.removeEventListener("abort", cancel);
+      resolve();
+    }, ms);
+    signal.addEventListener("abort", cancel, { once: true });
+  });
+}
+function createCatalogGraph(token, signal) {
+  async function request(path, query, payload) {
+    const url = `https://graph.facebook.com/${GRAPH_VERSION}/${path}${query ? `?${query}` : ""}`;
+    const response = await fetch(url, {
+      method: payload ? "POST" : "GET",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        ...payload ? { "Content-Type": "application/json" } : {}
+      },
+      body: payload ? JSON.stringify(payload) : void 0,
+      redirect: "error",
+      signal: AbortSignal.any([signal, AbortSignal.timeout(1e4)])
+    });
+    const body = await response.json().catch(() => null);
+    if (!response.ok || !body || body.error) {
+      const code = Number.isFinite(body?.error?.code) ? `, c\xF3digo ${body?.error?.code}` : "";
+      throw new GraphRequestError(response.status, code);
+    }
+    return body;
+  }
+  async function readProducts(catalogId, filter, fields = PRODUCT_FIELDS) {
+    const query = new URLSearchParams({ fields, limit: "200", bulk_pagination: "true" });
+    if (filter) query.set("filter", JSON.stringify(filter));
+    const items = [];
+    const cursors = /* @__PURE__ */ new Set();
+    for (; ; ) {
+      const page = await request(`${catalogId}/products`, query);
+      if (!Array.isArray(page.data)) throw new Error("A Meta retornou uma p\xE1gina de produtos inv\xE1lida.");
+      for (const item of page.data) {
+        if (!item || typeof item.retailer_id !== "string" || !item.retailer_id || !/^\d+$/.test(item.id)) {
+          throw new Error("A Meta retornou um item sem identificador v\xE1lido.");
+        }
+        items.push(item);
+      }
+      if (!page.paging?.next) return items;
+      const after = page.paging.cursors?.after || new URL(page.paging.next).searchParams.get("after");
+      if (!after || cursors.has(after)) throw new Error("A pagina\xE7\xE3o da Meta n\xE3o avan\xE7ou.");
+      cursors.add(after);
+      query.set("after", after);
+    }
+  }
+  async function readRetailers(catalogId, ids, fields) {
+    const products = [];
+    for (let index = 0; index < ids.length; index += 20) {
+      const group = ids.slice(index, index + 20);
+      const page = await readProducts(catalogId, { retailer_id: { is_any: group } }, fields);
+      const matching = new Set(group);
+      products.push(...page.filter((item) => matching.has(item.retailer_id)));
+    }
+    return products;
+  }
+  async function submit(catalogId, changes) {
+    let result;
+    try {
+      result = await request(`${catalogId}/items_batch`, void 0, {
+        item_type: "PRODUCT_ITEM",
+        allow_upsert: false,
+        requests: changes.map(({ method, data }) => ({ method, data }))
+      });
+    } catch (error) {
+      if (error instanceof GraphRequestError && error.status >= 400 && error.status < 500) {
+        return new Map(changes.map(({ retailer_id }) => [retailer_id, error.message]));
+      }
+      throw new GraphBatchUnconfirmed(error instanceof Error ? error.message : "Envio do lote sem confirma\xE7\xE3o.");
+    }
+    try {
+      if (!Array.isArray(result.handles) || !result.handles.length || result.handles.some(
+        (handle) => typeof handle !== "string" || !/^[A-Za-z0-9_=-]{1,512}$/.test(handle)
+      )) {
+        throw new Error("A Meta n\xE3o forneceu um identificador para confirmar o lote.");
+      }
+      const batches = await Promise.all(result.handles.map((handle) => poll(catalogId, handle, changes)));
+      return new Map(batches.flatMap((batch) => [...batch]));
+    } catch (error) {
+      throw new GraphBatchUnconfirmed(error instanceof Error ? error.message : "Lote n\xE3o confirmado pela Meta.");
+    }
+  }
+  async function poll(catalogId, handle, changes) {
+    const deadline = Date.now() + BATCH_POLL_TIMEOUT_MS;
+    do {
+      const response = await request(
+        `${catalogId}/check_batch_request_status`,
+        new URLSearchParams({ handle, load_ids_of_invalid_requests: "true" })
+      );
+      const rows = Array.isArray(response.data) ? response.data : [];
+      const row = rows.find((entry) => entry?.handle === handle) ?? (rows.length === 1 && !rows[0]?.handle ? rows[0] : null);
+      if (!row || typeof row.status !== "string") throw new Error("Status inv\xE1lido para o lote Meta.");
+      const status = row.status.toLowerCase();
+      if (status === "finished") return failedItems(row, changes);
+      if (["failed", "error", "cancelled", "canceled", "expired"].includes(status)) {
+        return new Map(changes.map((change) => [change.retailer_id, `Lote Meta encerrou com status ${status}.`]));
+      }
+      await sleep(BATCH_POLL_DELAY_MS, signal);
+    } while (Date.now() < deadline);
+    throw new Error("A Meta ainda n\xE3o confirmou o lote dentro do tempo limite.");
+  }
+  return { readProducts, readRetailers, submit, sleep: (ms) => sleep(ms, signal) };
+}
+function failedItems(row, changes) {
+  const requested = new Set(changes.map((change) => change.retailer_id));
+  const failures = /* @__PURE__ */ new Map();
+  const errors = Array.isArray(row.errors) ? row.errors : [];
+  for (const id of Array.isArray(row.ids_of_invalid_requests) ? row.ids_of_invalid_requests : []) {
+    if (typeof id === "string" && requested.has(id)) failures.set(id, "A Meta recusou o item no lote.");
+  }
+  let unidentifiedError = false;
+  for (const error of errors) {
+    const id = error?.id ?? error?.retailer_id;
+    if (typeof id !== "string" || !requested.has(id)) {
+      unidentifiedError = true;
+      continue;
+    }
+    const code = typeof error.code === "number" ? ` (c\xF3digo ${error.code})` : "";
+    failures.set(id, `A Meta recusou o item no lote${code}.`);
+  }
+  if (unidentifiedError || Number(row.errors_total_count ?? 0) > 0 && !failures.size) {
+    return new Map(changes.map(({ retailer_id }) => [
+      retailer_id,
+      failures.get(retailer_id) ?? "A Meta reportou falhas sem identificar todos os itens."
+    ]));
+  }
+  return failures;
+}
+
+// api/_lib/metaCatalogReconciliation/plan.ts
+var import_node_crypto4 = require("node:crypto");
+
+// ../shared-utils/testArtifactPolicy.ts
+var record2 = (value) => value !== null && typeof value === "object" && !Array.isArray(value) ? value : {};
+function artifactData(value) {
+  const row = record2(value);
+  const data = record2(row.order_data ?? row.orderData ?? value);
+  let metadata = data.testArtifact ?? record2(data.technical_specs ?? data.technicalSpecs).testArtifact ?? record2(data.full_address ?? data.fullAddress).testArtifact ?? record2(data.address).testArtifact ?? record2(data.attributes).testArtifact;
+  if (metadata === void 0) {
+    for (const note of [data.notes, data.observation]) {
+      if (typeof note !== "string") continue;
+      try {
+        metadata = record2(JSON.parse(note)).testArtifact;
+      } catch {
+      }
+      if (metadata !== void 0) break;
+    }
+  }
+  return metadata === void 0 ? data : record2(metadata);
+}
+function isIdentifiedTestArtifact(value) {
+  const data = artifactData(value);
+  const row = record2(value);
+  const root = record2(row.order_data ?? row.orderData ?? value);
+  if (root.is_test === true || root.is_test === "true" || root.isTest === true || root.isTest === "true") return true;
+  return data.is_test === true || data.is_test === "true" || data.isTest === true || data.isTest === "true";
+}
+
+// ../shared-utils/isTestProduct.ts
+var asRecord = (value) => value !== null && typeof value === "object" && !Array.isArray(value) ? value : null;
+var hasExplicitTestIdentifier = (value) => typeof value === "string" && (/^\s*(?:TEST_AUT_|NFEHML26P\d*)/i.test(value) || /\[?\s*HML\s*NF\s*TEST\b/i.test(value));
+var isHmlFiscalTestProduct = (observations) => typeof observations === "string" && ["HMLNFTEST", "NFE_HML_MATRIX_2026_10"].some(
+  (marker) => observations.toUpperCase().includes(marker)
+);
+var isTestProduct = (value) => {
+  const product = asRecord(value);
+  if (!product) return isHmlFiscalTestProduct(value);
+  if (isIdentifiedTestArtifact(product)) return true;
+  if (product.is_test === true || product.is_test === "true" || product.isTest === true || product.isTest === "true") {
+    return true;
+  }
+  if (isHmlFiscalTestProduct(product.observations)) return true;
+  if ([product.id, product.code, product.sku, product.name, product.title].some(
+    hasExplicitTestIdentifier
+  )) {
+    return true;
+  }
+  const variations = [
+    ...Array.isArray(product.variations) ? product.variations : [],
+    ...Array.isArray(product.product_variations) ? product.product_variations : []
+  ];
+  return variations.some(isTestProduct);
+};
+
+// ../shared-utils/productMetaCatalogSyncItems.ts
+var deletedItem = (id, code) => ({
+  id,
+  code,
+  deleted: true,
+  status: "hidden"
+});
+var getVariationCode = (variation, index, parentCode) => {
+  const rawCode = String(variation.sku || variation.code || "").trim();
+  return !isSlugSku(rawCode) && rawCode || (parentCode ? `${parentCode}-${String(index + 1).padStart(2, "0")}` : variation.id);
+};
+var getParentCode = (product) => {
+  const rawCode = String(product.code || "").trim();
+  const rawSku = String(product.sku || "").trim();
+  return !isSlugSku(rawCode) && rawCode || !isSlugSku(rawSku) && rawSku || product.id;
+};
+var getParentDeleteCodes = (product) => uniqueCodes([getParentCode(product), product.code, product.sku, product.id]);
+var uniqueCodes = (values) => Array.from(new Set(values.map((value) => String(value || "").trim()).filter(Boolean)));
+function getVariationDeleteCodes(variation, index, parentCode) {
+  const rawSku = String(variation.sku || "").trim();
+  const rawCode = String(variation.code || "").trim();
+  const rawId = String(variation.id || "").trim();
+  const idPrefix = rawId && rawId.length >= 6 ? rawId.slice(0, 6) : "";
+  const cleanParentCode = String(parentCode || "").trim();
+  const generatedCode = cleanParentCode ? `${cleanParentCode}-${String(index + 1).padStart(2, "0")}` : rawId;
+  return uniqueCodes([
+    getVariationCode(variation, index, cleanParentCode),
+    generatedCode,
+    isSlugSku(rawSku) ? "" : rawSku,
+    isSlugSku(rawCode) ? "" : rawCode,
+    rawId,
+    // Padrões legados com sufixo hash/UUID da variação (ex: 000227-01-641cc6, 000253-b976c2):
+    idPrefix && rawSku ? `${rawSku}-${idPrefix}` : "",
+    idPrefix && cleanParentCode ? `${cleanParentCode}-${idPrefix}` : "",
+    idPrefix && generatedCode ? `${generatedCode}-${idPrefix}` : ""
+  ]);
+}
+function buildProductMetaCatalogSyncItems(product, variations, opportunities) {
+  const items = [];
+  const isSalvado = product.is_salvado === true || product.product_kind === "salvado";
+  const isParentEligible = product.status === "published" && !product.deleted_at && !product.deleted && !product.is_draft && (isSalvado || product.active !== false);
+  if (variations.length > 0) {
+    getParentDeleteCodes(product).forEach((code) => items.push(deletedItem(product.id, code)));
+    const built2 = isParentEligible ? buildMetaCatalogItems(
+      [product],
+      variations,
+      opportunities.filter((opportunity) => opportunity.id === product.opportunity_id)
+    ) : [];
+    const itemsById = /* @__PURE__ */ new Map();
+    built2.forEach((item) => {
+      if (item.isVariation && !itemsById.has(item.id)) itemsById.set(item.id, item);
+    });
+    variations.forEach((variation, index) => {
+      const currentItem = itemsById.get(variation.id);
+      if (currentItem) {
+        items.push(currentItem);
+        getVariationDeleteCodes(variation, index, product.code).filter((code) => code !== currentItem.code).forEach((code) => items.push(deletedItem(variation.id, code)));
+        return;
+      }
+      getVariationDeleteCodes(variation, index, product.code).forEach((code) => {
+        items.push(deletedItem(variation.id, code));
+      });
+    });
+    return items;
+  }
+  if (!isParentEligible) {
+    return getParentDeleteCodes(product).map((code) => deletedItem(product.id, code));
+  }
+  const built = buildMetaCatalogItems(
+    [product],
+    [],
+    opportunities.filter((opportunity) => opportunity.id === product.opportunity_id)
+  );
+  if (built.length === 0) {
+    return getParentDeleteCodes(product).map((code) => deletedItem(product.id, code));
+  }
+  const currentCodes = new Set(built.map((item) => item.code));
+  const legacyDeletes = getParentDeleteCodes(product).filter((code) => !currentCodes.has(code)).map((code) => deletedItem(product.id, code));
+  return [...built, ...legacyDeletes];
+}
+
+// api/_lib/metaCatalogReconciliation/source.ts
+var UUID = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
+var PAGE_SIZE = 200;
+var PRODUCT_FIELDS2 = "id,name,description,status,active,deleted,deleted_at,opportunity_id,unit_price,price,promo_price,stock,images,brand,code,is_draft,slug,is_salvado,product_kind,material,condition,observations,testArtifact:technical_specs->testArtifact,product_categories(categories(name,type)),opportunities(id,name,observations)";
+var VARIATION_FIELDS = "id,product_id,status,active,name,sku,image_url,price,promo_price,stock,attributes,use_parent_price,use_parent_promo_price";
+async function readPage(page, entity) {
+  const { data, error } = await page;
+  if (error || !Array.isArray(data)) {
+    throw new Error(`Supabase: falha ao carregar ${entity}${error?.code ? ` (${error.code})` : ""}.`);
+  }
+  return data;
+}
+async function readPages(load, entity) {
+  const result = [];
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const rows = await readPage(load(from, from + PAGE_SIZE - 1), entity);
+    result.push(...rows);
+    if (rows.length < PAGE_SIZE) return result;
+  }
+}
+function loadVerifiedItems(db, catalogIds, scope) {
+  return readPages((from, to) => {
+    const query = db.from("meta_catalog_verified_items").select("catalog_id,retailer_id,meta_item_id,product_id").in("catalog_id", catalogIds);
+    if (scope.productId) query.eq("product_id", scope.productId);
+    if (scope.retailerIds) query.in("retailer_id", scope.retailerIds);
+    return query.order("catalog_id").order("retailer_id").range(from, to);
+  }, "v\xEDnculos legados da Meta");
+}
+async function resolveErpProductIds(db, retailerIds) {
+  const uuids = retailerIds.filter((id) => UUID.test(id));
+  const [codes, skus, ids, variationIds] = await Promise.all([
+    readPage(db.from("products").select("id").in("code", retailerIds), "c\xF3digos de produto"),
+    readPage(db.from("product_variations").select("product_id").in("sku", retailerIds), "SKUs de varia\xE7\xE3o"),
+    uuids.length ? readPage(db.from("products").select("id").in("id", uuids), "IDs de produto") : [],
+    uuids.length ? readPage(db.from("product_variations").select("product_id").in("id", uuids), "IDs de varia\xE7\xE3o") : []
+  ]);
+  return [.../* @__PURE__ */ new Set([
+    ...codes.map(({ id }) => id),
+    ...ids.map(({ id }) => id),
+    ...skus.map(({ product_id }) => product_id),
+    ...variationIds.map(({ product_id }) => product_id)
+  ])];
+}
+async function loadCandidateRetailers(db, productId) {
+  const [products, variations] = await Promise.all([
+    readPage(db.from("products").select("id,code").eq("id", productId), "c\xF3digo do produto"),
+    readPages((from, to) => db.from("product_variations").select("id,product_id,sku").eq("product_id", productId).order("id").range(from, to), "SKUs das varia\xE7\xF5es")
+  ]);
+  const product = products[0] ?? { id: productId };
+  const legacyItems = buildProductMetaCatalogSyncItems({ ...product, status: "hidden" }, variations, []);
+  return [...new Set(legacyItems.map(({ code }) => code))].filter((code) => code.length <= 100);
+}
+function addDesiredItems(desired, products, variations, campaignRows, description) {
+  const variationsByProduct = /* @__PURE__ */ new Map();
+  const campaignNames = /* @__PURE__ */ new Map();
+  for (const row of campaignRows) {
+    const key = row.variation_id ?? row.product_id;
+    const name = row.promotion_name?.trim();
+    if (!name) continue;
+    const names = campaignNames.get(key) ?? /* @__PURE__ */ new Set();
+    names.add(name);
+    campaignNames.set(key, names);
+  }
+  for (const variation of variations) {
+    const family = variationsByProduct.get(variation.product_id) ?? [];
+    family.push({
+      ...variation,
+      status: isTestProduct(variation) ? "hidden" : variation.status,
+      activeCampaignNames: [...campaignNames.get(variation.id) ?? []].sort()
+    });
+    variationsByProduct.set(variation.product_id, family);
+  }
+  for (const { opportunities, product_categories, ...product } of products) {
+    const categoryLinks = (product_categories ?? []).flatMap(({ categories }) => Array.isArray(categories) ? categories.map((category) => ({ categories: category })) : [{ categories }]);
+    const items = buildProductMetaCatalogSyncItems(
+      { ...product, product_categories: categoryLinks, activeCampaignNames: [...campaignNames.get(product.id) ?? []].sort() },
+      variationsByProduct.get(product.id) ?? [],
+      Array.isArray(opportunities) ? opportunities : opportunities ? [opportunities] : []
+    );
+    for (const item of items) {
+      if ("deleted" in item || desired.blocked.has(item.code)) continue;
+      const request = buildMetaCatalogBatchPayload([item], description).requests[0];
+      const price = Number(item.sales_price);
+      if (request.method === "DELETE" || !Number.isFinite(price) || item.code.length > 100) {
+        desired.blocked.set(item.code, "Produto publicado com pre\xE7o, imagem ou identificador inv\xE1lido.");
+      } else if (desired.items.has(item.code)) {
+        desired.blocked.set(item.code, "Identificador compartilhado por mais de um item do ERP.");
+      } else {
+        desired.items.set(item.code, { productId: product.id, request });
+        continue;
+      }
+      desired.items.delete(item.code);
+    }
+  }
+}
+async function loadDesiredCatalog(db, description, productIds) {
+  const desired = { items: /* @__PURE__ */ new Map(), blocked: /* @__PURE__ */ new Map() };
+  let after;
+  for (; ; ) {
+    const query = db.from("products").select(PRODUCT_FIELDS2).eq("status", "published").is("deleted_at", null).not("deleted", "is", true).not("is_draft", "is", true).or("active.is.null,active.eq.true,is_salvado.eq.true,product_kind.eq.salvado");
+    if (productIds) query.in("id", productIds);
+    if (after) query.gt("id", after);
+    const page = await readPage(query.order("id").limit(PAGE_SIZE), "produtos publicados");
+    const products = page.filter((product) => !isTestProduct(product));
+    if (products.length) {
+      const ids = products.map(({ id }) => id);
+      const [variations, campaigns] = await Promise.all([
+        readPages((from, to) => db.from("product_variations").select(VARIATION_FIELDS).in("product_id", ids).order("id").range(from, to), "varia\xE7\xF5es"),
+        readPages(
+          (from, to) => db.from("active_campaign_prices").select("product_id,variation_id,promotion_name").in("product_id", ids).order("product_id").order("variation_id").order("promotion_id").range(from, to),
+          "campanhas vigentes"
+        )
+      ]);
+      addDesiredItems(desired, products, variations, campaigns, description);
+    }
+    if (page.length < PAGE_SIZE) return desired;
+    after = page[page.length - 1].id;
+  }
+}
+
+// api/_lib/metaCatalogReconciliation/plan.ts
+var OWNER_PREFIX = "morantehub:v1:";
+var ownershipLabel = (productId) => OWNER_PREFIX + productId.toLowerCase();
+function ownerOf(product, verified) {
+  const label = product.custom_label_4;
+  if (typeof label === "string" && label.startsWith(OWNER_PREFIX)) {
+    const parentId = label.slice(OWNER_PREFIX.length);
+    if (UUID.test(parentId)) return parentId.toLowerCase();
+  }
+  const link = verified.get(product.retailer_id);
+  return link?.meta_item_id === product.id ? link.product_id : void 0;
+}
+var normalized = (value) => String(value ?? "").replace(/\r\n/g, "\n").trim();
+function priceInCents(value) {
+  const number = normalized(value).replace(/[A-Z$\s]/gi, "");
+  if (!number) return null;
+  const decimal = /[.,]\d{2}$/.test(number) ? number.slice(0, -3).replace(/[.,]/g, "") + "." + number.slice(-2) : number.replace(/,/g, ".");
+  const amount = Number(decimal);
+  return Number.isFinite(amount) ? Math.round(amount * 100) : null;
+}
+function normalizeImages(value) {
+  return (Array.isArray(value) ? value : normalized(value).split(",")).map((url) => {
+    const text = normalized(url);
+    try {
+      return decodeURI(text);
+    } catch {
+      return text;
+    }
+  }).filter(Boolean);
+}
+var compareFields = {
+  title: "name",
+  description: "description",
+  condition: "condition",
+  availability: "availability",
+  brand: "brand",
+  link: "url",
+  product_type: "product_type",
+  item_group_id: "retailer_product_group_id",
+  custom_label_0: "custom_label_0",
+  custom_label_1: "custom_label_1",
+  custom_label_2: "custom_label_2",
+  custom_label_3: "custom_label_3",
+  custom_label_4: "custom_label_4",
+  custom_number_4: "custom_number_4",
+  color: "color",
+  size: "size",
+  material: "material",
+  gender: "gender",
+  quantity_to_sell_on_facebook: "quantity_to_sell_on_facebook"
+};
+var clearableFields = [
+  "sale_price",
+  "additional_image_link",
+  "custom_label_2",
+  "custom_label_3",
+  "color",
+  "size",
+  "material"
+];
+function matchesMetaProduct(data, remote) {
+  const regular = priceInCents(remote.price);
+  const sale = priceInCents(remote.sale_price);
+  return regular === priceInCents(data.price) && (sale === regular || sale === 0 ? null : sale) === priceInCents(data.sale_price) && (normalized(remote.currency).toUpperCase() || (/BRL|R\$/i.test(normalized(remote.price)) ? "BRL" : "")) === "BRL" && (normalized(remote.visibility).toLowerCase() || "published") === data.visibility && Object.entries(compareFields).every(([field, remoteField]) => normalized(data[field]) === normalized(remote[remoteField])) && normalizeImages(data.image_link)[0] === normalizeImages(remote.image_url)[0] && JSON.stringify(normalizeImages(data.additional_image_link)) === JSON.stringify(normalizeImages(remote.additional_image_urls));
+}
+function withOwnership(data, productId) {
+  const labels = normalized(data.internal_label);
+  const campaignRevision = (0, import_node_crypto4.createHash)("sha256").update(labels).digest().readUInt32BE(0) % 2147483646 + 1;
+  return {
+    ...data,
+    visibility: "published",
+    custom_label_4: ownershipLabel(productId),
+    custom_number_4: campaignRevision
+  };
+}
+function planCatalogChanges(desired, remote, verified, { scope, completeSnapshot = false } = {}) {
+  const result = { changes: [], errors: new Map(desired.blocked), unchanged: 0 };
+  const current = /* @__PURE__ */ new Map();
+  for (const item of remote) {
+    const existing = current.get(item.retailer_id);
+    if (existing && existing.id !== item.id) {
+      result.errors.set(item.retailer_id, "Identificador duplicado no cat\xE1logo da Meta.");
+    }
+    current.set(item.retailer_id, item);
+  }
+  for (const [retailerId, { productId, request }] of desired.items) {
+    if (result.errors.has(retailerId)) continue;
+    const item = current.get(retailerId);
+    const owner = item ? ownerOf(item, verified) : void 0;
+    const data = withOwnership(request.data, productId);
+    if (!item) {
+      result.changes.push({ method: "CREATE", retailer_id: retailerId, data });
+    } else if (!owner || owner !== productId && !completeSnapshot) {
+      result.errors.set(retailerId, "Identificador ocupado por um item cuja origem no ERP n\xE3o foi comprovada.");
+    } else if (matchesMetaProduct(data, item)) {
+      result.unchanged++;
+    } else {
+      const cleared = Object.fromEntries(clearableFields.map((field) => [field, data[field] ?? ""]));
+      result.changes.push({ method: "UPDATE", retailer_id: retailerId, data: { ...data, ...cleared } });
+    }
+  }
+  for (const [retailerId, item] of current) {
+    if (desired.items.has(retailerId) || result.errors.has(retailerId)) continue;
+    const owner = ownerOf(item, verified);
+    if (!owner || scope && !scope.has(owner)) continue;
+    result.changes.push({ method: "DELETE", retailer_id: retailerId, data: { id: retailerId } });
+  }
+  return result;
+}
+
+// api/_lib/metaCatalogReconciliation/run.ts
+var MetaCatalogSyncBusy = class extends Error {
+};
+function serviceDb(signal) {
+  const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_KEY;
+  if (!url || !key) throw new Error("Acesso servidor ao cat\xE1logo do ERP indispon\xEDvel.");
+  return (0, import_supabase_js2.createClient)(url, key, {
+    auth: { persistSession: false, autoRefreshToken: false },
+    global: {
+      fetch: (input, init) => fetch(input, {
+        ...init,
+        signal: AbortSignal.any([AbortSignal.timeout(1e4), ...[signal, init?.signal].filter(
+          (item) => Boolean(item)
+        )])
+      })
+    }
+  });
+}
+async function catalogConfig(db) {
+  const { data, error } = await db.from("settings").select("catalogId:data->whatsappConfig->>catalogId,description:data->channelBaseDescriptions->>whatsapp").eq("id", "app").maybeSingle();
+  if (error || !data) throw new Error("N\xE3o foi poss\xEDvel ler a configura\xE7\xE3o do Cat\xE1logo Meta.");
+  const whatsappId = typeof data.catalogId === "string" ? data.catalogId.trim() : "";
+  if (!whatsappId || !/^\d{1,32}$/.test(whatsappId)) throw new Error("Cat\xE1logo do WhatsApp n\xE3o configurado.");
+  const catalogs = [{ id: whatsappId, target: "whatsapp" }];
+  if (whatsappId !== META_ADS_CREATIVE_CATALOG_ID) {
+    catalogs.push({ id: META_ADS_CREATIVE_CATALOG_ID, target: "ads" });
+  }
+  return { catalogs, description: data.description };
+}
+async function verifyDeletions(graph, catalog, retailerIds) {
+  let remaining = retailerIds;
+  for (const delay of [0, 700, 1400]) {
+    if (!remaining.length) break;
+    if (delay) await graph.sleep(delay);
+    const products = await graph.readRetailers(catalog.id, remaining, "id,retailer_id");
+    remaining = products.map(({ retailer_id }) => retailer_id);
+  }
+  return new Set(remaining);
+}
+async function readScope(graph, catalog, verified, retailerIds, productId) {
+  const label = productId ? ownershipLabel(productId) : null;
+  const [explicitRetailers, tagged] = await Promise.all([
+    graph.readRetailers(catalog.id, [.../* @__PURE__ */ new Set([...retailerIds, ...verified.keys()])]),
+    label ? graph.readProducts(catalog.id, { custom_label_4: { eq: label } }) : []
+  ]);
+  return [...explicitRetailers, ...tagged.filter((item) => item.custom_label_4 === label)];
+}
+async function getLastMetaCatalogRun() {
+  const { data, error } = await serviceDb().from("meta_catalog_sync_state").select("last_run").eq("singleton", true).maybeSingle();
+  if (error) throw new Error("N\xE3o foi poss\xEDvel consultar a \xFAltima sincroniza\xE7\xE3o do cat\xE1logo.");
+  return data?.last_run ?? null;
+}
+async function runMetaCatalogReconciliation(scope) {
+  const accessToken = process.env.WHATSAPP_ACCESS_TOKEN?.trim() || "";
+  const full = scope.trigger === "manual" || scope.trigger === "hourly";
+  const service = serviceDb();
+  const leaseToken = (0, import_node_crypto5.randomUUID)();
+  let claimed = false;
+  for (const delay of full ? [0] : [0, 300, 700, 1200]) {
+    if (delay) await new Promise((resolve) => setTimeout(resolve, delay));
+    const { data, error } = await service.rpc("claim_meta_catalog_sync", { p_token: leaseToken });
+    if (error) throw new Error("N\xE3o foi poss\xEDvel obter a trava de sincroniza\xE7\xE3o do cat\xE1logo.");
+    claimed = data === true;
+    if (claimed) break;
+  }
+  if (claimed !== true) throw new MetaCatalogSyncBusy("O Cat\xE1logo Meta j\xE1 est\xE1 em sincroniza\xE7\xE3o. Altera\xE7\xF5es pendentes ser\xE3o conferidas na pr\xF3xima execu\xE7\xE3o.");
+  const startedAt = (/* @__PURE__ */ new Date()).toISOString();
+  const signal = AbortSignal.timeout(full ? 26e4 : 45e3);
+  const db = serviceDb(signal);
+  const graph = createCatalogGraph(accessToken, signal);
+  const counters = { created: 0, updated: 0, deleted: 0, unchanged: 0, errors: 0 };
+  const issues = [];
+  let retainLease = false;
+  function recordIssue(reason, catalog, retailerId) {
+    counters.errors++;
+    if (issues.length < 100) issues.push({ catalog, retailerId, reason });
+  }
+  async function applyChanges(catalog, changes) {
+    for (let offset = 0; offset < changes.length; offset += META_CATALOG_BATCH_LIMIT) {
+      const batch = changes.slice(offset, offset + META_CATALOG_BATCH_LIMIT);
+      let failures;
+      try {
+        signal.throwIfAborted();
+        failures = await graph.submit(catalog.id, batch);
+      } catch (error) {
+        retainLease ||= error instanceof GraphBatchUnconfirmed;
+        for (const change of batch) recordIssue(safeReason(error), catalog.target, change.retailer_id);
+        continue;
+      }
+      const deletes = batch.filter((item) => item.method === "DELETE" && !failures.has(item.retailer_id));
+      if (deletes.length) {
+        try {
+          const remaining = await verifyDeletions(graph, catalog, deletes.map((item) => item.retailer_id));
+          for (const retailerId of remaining) failures.set(retailerId, "A exclus\xE3o ainda n\xE3o foi confirmada na Meta para este SKU.");
+        } catch (error) {
+          for (const item of deletes) failures.set(item.retailer_id, `Exclus\xE3o n\xE3o confirmada. ${safeReason(error)}`);
+        }
+      }
+      for (const change of batch) {
+        const failure = failures.get(change.retailer_id);
+        if (failure) recordIssue(failure, catalog.target, change.retailer_id);
+        else if (change.method === "CREATE") counters.created++;
+        else if (change.method === "UPDATE") counters.updated++;
+        else counters.deleted++;
+      }
+    }
+  }
+  try {
+    if (!accessToken) throw new Error("Integra\xE7\xE3o Meta n\xE3o configurada no servidor.");
+    const { catalogs, description } = await catalogConfig(db);
+    const requested = scope.trigger === "legacy" ? new Map(scope.requests.map((request) => [request.retailer_id, request.method])) : void 0;
+    const productId = scope.trigger === "product" ? scope.productId : void 0;
+    const productIds = productId ? [productId] : requested ? await resolveErpProductIds(db, [...requested.keys()]) : void 0;
+    const [desired, verified, candidates] = await Promise.all([
+      loadDesiredCatalog(db, description, productIds),
+      // Older clients can send the SKU of an already purged ERP entry.
+      loadVerifiedItems(db, catalogs.map(({ id }) => id), {
+        productId,
+        retailerIds: requested ? [...requested.keys()] : void 0
+      }),
+      productId ? loadCandidateRetailers(db, productId) : []
+    ]);
+    if (requested) {
+      for (const retailerId of desired.items.keys()) {
+        const method = requested.get(retailerId);
+        if (method === "DELETE") {
+          desired.blocked.set(retailerId, "O SKU ainda est\xE1 publicado no ERP e n\xE3o pode ser removido por um lote anterior.");
+        }
+        if (!method || method === "DELETE") desired.items.delete(retailerId);
+      }
+      for (const retailerId of desired.blocked.keys()) {
+        if (!requested.has(retailerId)) desired.blocked.delete(retailerId);
+      }
+      for (const [retailerId, method] of requested) {
+        if (method !== "DELETE" && !desired.items.has(retailerId) && !desired.blocked.has(retailerId)) {
+          desired.blocked.set(retailerId, "O SKU solicitado n\xE3o corresponde a um item publicado no ERP.");
+        }
+      }
+    }
+    const retailerIds = requested ? [...requested.keys()] : [.../* @__PURE__ */ new Set([...desired.items.keys(), ...candidates])];
+    await Promise.all(catalogs.map(async (catalog) => {
+      try {
+        const trusted = new Map(verified.filter((item) => item.catalog_id === catalog.id).map((item) => [item.retailer_id, item]));
+        const remote = full ? await graph.readProducts(catalog.id) : await readScope(graph, catalog, trusted, retailerIds, productId);
+        const plan = planCatalogChanges(desired, remote, trusted, {
+          scope: productId ? /* @__PURE__ */ new Set([productId]) : void 0,
+          completeSnapshot: full
+        });
+        if (productId || requested) {
+          const explicit = new Set(retailerIds);
+          for (const item of remote) {
+            const owner = ownerOf(item, trusted);
+            if (explicit.has(item.retailer_id) && (!owner || productId && owner !== productId) && !plan.errors.has(item.retailer_id)) {
+              plan.errors.set(item.retailer_id, "Item presente na Meta com origem n\xE3o comprovada.");
+            }
+          }
+        }
+        counters.unchanged += plan.unchanged;
+        for (const [retailerId, reason] of plan.errors) recordIssue(reason, catalog.target, retailerId);
+        await applyChanges(catalog, plan.changes);
+      } catch (error) {
+        recordIssue(safeReason(error), catalog.target);
+      }
+    }));
+  } catch (error) {
+    recordIssue(safeReason(error));
+  }
+  const success = counters.errors === 0;
+  const result = {
+    success,
+    ...counters,
+    count: counters.created + counters.updated + counters.deleted,
+    startedAt,
+    finishedAt: (/* @__PURE__ */ new Date()).toISOString(),
+    ...success ? {} : { error: `${counters.errors} falha(s) na sincroniza\xE7\xE3o. A pr\xF3xima reconcilia\xE7\xE3o verificar\xE1 as pend\xEAncias. ${issues[0].reason}` }
+  };
+  const { data: finished, error: finishError } = await service.rpc("finish_meta_catalog_sync", {
+    p_token: leaseToken,
+    p_full: full,
+    p_failed: !success,
+    p_run: { ...result, trigger: scope.trigger, issues },
+    p_retain_lease: retainLease
+  });
+  if (!success) console.warn("[MetaCatalog] Reconcilia\xE7\xE3o com pend\xEAncias.", { ...result, trigger: scope.trigger, issues });
+  if (finishError || finished !== true) throw new Error("N\xE3o foi poss\xEDvel registrar o resultado da sincroniza\xE7\xE3o.");
+  return result;
+}
+function safeReason(error) {
+  if (!(error instanceof Error)) return "Falha ao consultar a Meta ou o cat\xE1logo do ERP.";
+  if (["TimeoutError", "AbortError"].includes(error.name)) return "Tempo limite excedido.";
+  return error.message;
+}
+
+// api/_lib/metaCatalogReconciliation/handler.ts
+var CONFIRMED_LEGACY_HANDLE = "morantehub-reconciled";
+async function handleMetaCatalogCron(req, res) {
+  if (req.method !== "GET") return res.status(405).end();
+  const secret = process.env.CRON_SECRET?.trim();
+  if (!secret || process.env.VERCEL_ENV !== "production") return res.status(503).end();
+  const expected = Buffer.from(`Bearer ${secret}`);
+  const received = Buffer.from(String(req.headers.authorization || ""));
+  if (expected.length !== received.length || !(0, import_node_crypto6.timingSafeEqual)(expected, received)) {
+    return res.status(401).end();
+  }
+  try {
+    const result = await runMetaCatalogReconciliation({ trigger: "hourly" });
+    return res.status(result.success ? 200 : 502).json(result);
+  } catch (error) {
+    if (error instanceof MetaCatalogSyncBusy) return res.status(200).json({ skipped: true });
+    console.error("[MetaCatalog] A reconcilia\xE7\xE3o hor\xE1ria n\xE3o p\xF4de ser iniciada ou registrada.");
+    return res.status(503).json({ error: "Reconcilia\xE7\xE3o do Cat\xE1logo Meta indispon\xEDvel." });
+  }
+}
+async function handleCatalogOperation(body, context, res) {
+  const canConfigure = hasErpPermission(context, "productConfig");
+  if (body.operation === "reconcile_catalog_status") {
+    if (!canConfigure && !hasErpPermission(context, "viewChannelCatalog")) return res.status(403).end();
+    const lastRun = await getLastMetaCatalogRun();
+    if (!lastRun) return res.status(200).json({ lastRun: null });
+    const { startedAt, finishedAt, count, created, updated, deleted, unchanged, errors, success } = lastRun;
+    return res.status(200).json({ lastRun: { startedAt, finishedAt, count, created, updated, deleted, unchanged, errors, success } });
+  }
+  if (!canConfigure) return res.status(403).json({ error: "Sem permiss\xE3o para esta opera\xE7\xE3o Meta." });
+  try {
+    if (body.operation === "sync_catalog_batch") {
+      let requests;
+      try {
+        planMetaGraphRequest({ operation: "sync_catalog_batch", catalogTarget: "ads", payload: body.payload }, {});
+        const input = body.payload.requests;
+        requests = input.map(({ retailer_id, method }) => ({ retailer_id, method }));
+      } catch {
+        return res.status(400).json({ error: "Lote do cat\xE1logo inv\xE1lido." });
+      }
+      const result2 = await runMetaCatalogReconciliation({ trigger: "legacy", requests });
+      if (!result2.success) {
+        return res.status(502).json({ error: { message: result2.error }, partial_success: result2.count > 0 });
+      }
+      return res.status(200).json({ handles: [CONFIRMED_LEGACY_HANDLE] });
+    }
+    const productId = body.productId;
+    if (productId !== void 0 && (typeof productId !== "string" || !UUID.test(productId))) {
+      return res.status(400).json({ error: "Identificador do produto inv\xE1lido." });
+    }
+    if (!productId && !context.roles.includes("administrator")) {
+      return res.status(403).json({ error: "Apenas administradores podem reconciliar todo o Cat\xE1logo Meta." });
+    }
+    const result = await runMetaCatalogReconciliation(productId ? { trigger: "product", productId: productId.toLowerCase() } : { trigger: "manual" });
+    return res.status(200).json(result);
+  } catch (error) {
+    const busy = error instanceof MetaCatalogSyncBusy;
+    return res.status(busy ? 409 : 503).json({
+      error: busy ? error.message : "Reconcilia\xE7\xE3o do Cat\xE1logo Meta indispon\xEDvel."
+    });
+  }
+}
+
+// api/_lib/secureIntegrations/handlers/metaGraphHandler.ts
 function getMetaGraphSettings(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};
   const config = value;
@@ -1471,17 +2631,24 @@ async function fetchMetaCatalogRequest(url, init, signal) {
 async function handleMetaGraph(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "M\xE9todo n\xE3o permitido." });
   const metaToken = process.env.WHATSAPP_ACCESS_TOKEN?.trim();
-  if (!metaToken) return res.status(503).json({ error: "Integra\xE7\xE3o Meta n\xE3o configurada no servidor." });
   if (bodySize(req.body) > MAX_META_REQUEST_BYTES) {
     return res.status(413).json({ error: "Solicita\xE7\xE3o excede o tamanho permitido." });
   }
+  const catalogOperation = ["reconcile_catalog", "reconcile_catalog_status", "sync_catalog_batch"].includes(req.body?.operation);
+  if (!catalogOperation && !metaToken) return res.status(503).json({ error: "Integra\xE7\xE3o Meta n\xE3o configurada no servidor." });
   const context = await authenticateErpRequest(req, res, {
-    includeWhatsAppConfig: req.body?.operation !== "verify_app_credentials" && req.body?.operation !== "ensure_smb_message_echoes_subscription"
+    includeWhatsAppConfig: !catalogOperation && req.body?.operation !== "verify_app_credentials" && req.body?.operation !== "ensure_smb_message_echoes_subscription"
   });
   if (!context) return;
   const body = req.body;
   if (!body || typeof body !== "object" || Array.isArray(body)) {
     return res.status(400).json({ error: "Solicita\xE7\xE3o inv\xE1lida." });
+  }
+  if (catalogOperation) return handleCatalogOperation(body, context, res);
+  if (!metaToken) return res.status(503).json({ error: "Integra\xE7\xE3o Meta n\xE3o configurada no servidor." });
+  if (body.operation === "check_catalog_batch" && body.handle === CONFIRMED_LEGACY_HANDLE) {
+    if (!hasErpPermission(context, "productConfig")) return res.status(403).end();
+    return res.status(200).json({ data: [{ handle: body.handle, status: "finished", errors_total_count: 0, errors: [] }] });
   }
   if (body.operation === "verify_app_credentials") {
     if (!hasErpPermission(context, "manageSettings")) {
@@ -1578,12 +2745,7 @@ async function handleMetaGraph(req, res) {
   let planEntries;
   try {
     const metaSettings = getMetaGraphSettings(context.whatsappConfig);
-    if (body.operation === "sync_catalog_batch") {
-      planEntries = ["whatsapp", "ads"].map((target) => ({
-        target,
-        plan: planMetaGraphRequest({ ...body, catalogTarget: target }, metaSettings)
-      }));
-    } else if (body.operation === "check_catalog_batch") {
+    if (body.operation === "check_catalog_batch") {
       const batch = parseMetaCatalogBatchHandle(body.handle);
       planEntries = batch.catalogTargets.map((target, index) => ({
         target,
@@ -1613,7 +2775,7 @@ async function handleMetaGraph(req, res) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 2e4);
   try {
-    const retryCatalogRequest = body.operation === "sync_catalog_batch" || body.operation === "check_catalog_batch";
+    const retryCatalogRequest = body.operation === "check_catalog_batch";
     const outcomes = await Promise.allSettled(planEntries.map(async ({ plan: requestPlan, target }) => {
       const url = `https://graph.facebook.com/${GRAPH_VERSION}/${requestPlan.path}`;
       const requestInit = {
@@ -1628,9 +2790,8 @@ async function handleMetaGraph(req, res) {
       const data = await response.json().catch(() => ({}));
       return { target, response, data };
     }));
-    const isCatalogWrite = body.operation === "sync_catalog_batch";
     const isCatalogStatusCheck = body.operation === "check_catalog_batch";
-    const includePartialResult = isCatalogWrite || isCatalogStatusCheck && planEntries.length > 1;
+    const includePartialResult = isCatalogStatusCheck && planEntries.length > 1;
     const rejectedIndex = outcomes.findIndex((outcome) => outcome.status === "rejected");
     if (rejectedIndex >= 0) {
       const partialSuccess = outcomes.some(
@@ -1659,31 +2820,6 @@ async function handleMetaGraph(req, res) {
           failed_catalog: failed.target
         } : {}
       });
-    }
-    if (isCatalogWrite) {
-      const handlesByTarget = graphResults.map(({ target, data }) => ({
-        target,
-        handles: Array.isArray(data?.handles) ? data.handles.filter((handle) => typeof handle === "string" && /^[A-Za-z0-9_=-]{1,512}$/.test(handle)) : []
-      }));
-      const withoutHandle = handlesByTarget.find(({ handles }) => handles.length === 0);
-      if (withoutHandle) {
-        return res.status(502).json({
-          error: { message: "A Meta n\xE3o retornou um identificador para confirmar o lote." },
-          failed_catalog: withoutHandle.target,
-          partial_success: handlesByTarget.some(({ handles }) => handles.length > 0)
-        });
-      }
-      const wh = handlesByTarget.find(({ target }) => target === "whatsapp")?.handles ?? [];
-      const ads = handlesByTarget.find(({ target }) => target === "ads")?.handles ?? [];
-      const combinedHandles = Array.from({ length: Math.max(wh.length, ads.length) }, (_, index) => {
-        const whatsappHandle = wh[index];
-        const adsHandle = ads[index];
-        if (whatsappHandle && adsHandle) return createMetaCatalogBatchHandle(whatsappHandle, adsHandle);
-        if (whatsappHandle) return `wa:${whatsappHandle}`;
-        if (adsHandle) return `ads:${adsHandle}`;
-        return null;
-      }).filter((handle) => typeof handle === "string");
-      return res.status(200).json({ handles: combinedHandles });
     }
     if (isCatalogStatusCheck) {
       const requestedHandle = String(body.handle || "").trim();
@@ -1726,15 +2862,15 @@ async function handleMetaGraph(req, res) {
   }
 }
 
-// erp/api/_lib/secureIntegrations/aiQuotaBridge.ts
-var import_supabase_js2 = __toESM(require_dist(), 1);
+// api/_lib/secureIntegrations/aiQuotaBridge.ts
+var import_supabase_js3 = __toESM(require_dist(), 1);
 var quotaServiceDb = null;
 function getQuotaServiceDb() {
   if (quotaServiceDb) return quotaServiceDb;
   const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "";
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY || process.env.SERVICE_ROLE_KEY || "";
   if (!supabaseUrl || !serviceRoleKey) throw new Error("Credenciais internas de banco indispon\xEDveis.");
-  quotaServiceDb = (0, import_supabase_js2.createClient)(supabaseUrl, serviceRoleKey, {
+  quotaServiceDb = (0, import_supabase_js3.createClient)(supabaseUrl, serviceRoleKey, {
     auth: { persistSession: false, autoRefreshToken: false }
   });
   return quotaServiceDb;
@@ -1809,7 +2945,7 @@ async function recordAiUsageTokensSafe(_userDb, params) {
   }
 }
 
-// shared-utils/openAiAgentAdapter.ts
+// ../shared-utils/openAiAgentAdapter.ts
 var schemaTypes = {
   OBJECT: "object",
   STRING: "string",
@@ -1938,7 +3074,7 @@ function parseOpenAiAgentResponse(response) {
   };
 }
 
-// erp/api/_lib/secureIntegrations/handlers/openAiHandler.ts
+// api/_lib/secureIntegrations/handlers/openAiHandler.ts
 async function handleOpenAi(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "M\xE9todo n\xE3o permitido." });
   const openAiApiKey = process.env.OPENAI_API_KEY?.trim();
@@ -2065,7 +3201,7 @@ async function handleOpenAi(req, res) {
   }
 }
 
-// erp/api/_lib/secureIntegrations/handlers/geminiHandler.ts
+// api/_lib/secureIntegrations/handlers/geminiHandler.ts
 async function handleGemini(req, res) {
   if (req.method === "OPTIONS") return res.status(200).end();
   if (req.method !== "POST") return res.status(405).json({ error: "M\xE9todo n\xE3o permitido." });
@@ -2081,7 +3217,7 @@ async function handleGemini(req, res) {
   return handleOpenAi(req, res);
 }
 
-// erp/api/_lib/secureIntegrations/handlers/googleRoutesHandler.ts
+// api/_lib/secureIntegrations/handlers/googleRoutesHandler.ts
 function validPoint(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const point = value;
@@ -2133,9 +3269,10 @@ async function handleGoogleRoutes(req, res) {
   }
 }
 
-// erp/api/_lib/secureIntegrations/handler.ts
+// api/_lib/secureIntegrations/handler.ts
 var operations = {
   "meta-graph": handleMetaGraph,
+  "meta-catalog-cron": handleMetaCatalogCron,
   "gemini-proxy": handleGemini,
   "openai-proxy": handleOpenAi,
   "google-routes": handleGoogleRoutes

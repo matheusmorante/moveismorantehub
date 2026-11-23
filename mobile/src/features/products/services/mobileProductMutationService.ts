@@ -25,6 +25,7 @@ import {
 } from '../../../../../shared-utils/productCategoryRequiredAttributes';
 import { createProductDraftSnapshot } from '../../../../../shared-utils/productDraftSnapshot';
 import { omitAbsentCompositionVariationId } from '../../../../../shared-utils/productCompositionSerialization';
+import { isSalvadoStockOrigin } from '../../../../../shared-utils/productStockOrigin';
 
 export {
   toggleMobileProductCatalog,
@@ -149,10 +150,7 @@ export async function saveMobileProduct(
   if (!productCode && !isEditing) {
     productCode = await getNextSequentialProductCode();
   }
-  const isSalvado =
-    productData.productKind === 'salvado' ||
-    productData.condition === 'salvado' ||
-    productData.product_kind === 'salvado';
+  const isSalvado = isSalvadoStockOrigin(productData);
   const isUsado =
     productData.productKind === 'usado' ||
     productData.condition === 'usado' ||
@@ -205,7 +203,7 @@ export async function saveMobileProduct(
       const detailsSource = { ...variation };
       // No ERP, composições concluídas não persistem o saldo derivado na projeção
       // técnica; o mobile também deve recalculá-lo a partir dos componentes.
-      if (isComposition && !productData.isDraft) delete detailsSource.stock;
+      if (isSalvado || (isComposition && !productData.isDraft)) delete detailsSource.stock;
       const {
         launchInitialStock: _launchInitialStock,
         initialStock: _initialStock,
@@ -228,7 +226,10 @@ export async function saveMobileProduct(
         isDraft: true,
         active: false,
         status: 'draft',
-        variations: variationRows,
+      ...(isSalvado ? { stock: null } : {}),
+      variations: isSalvado
+        ? variationRows.map((variation: any) => ({ ...variation, stock: null }))
+        : variationRows,
       })
     : null;
   const payload: any = {
@@ -271,6 +272,7 @@ export async function saveMobileProduct(
     ipi_percent: parseLocalizedPrice(productData.ipiPercent),
     final_purchase_price: parseLocalizedPrice(productData.finalPurchasePrice),
     min_stock: parseLocalizedPrice(productData.minStock),
+    ...(isSalvado ? { stock: null } : {}),
     unit: productData.unit || 'UN',
     depth_use_length: Boolean(productData.depthUseLength),
     technical_specs: technicalSpecs,
@@ -455,6 +457,7 @@ export async function saveMobileProduct(
           persistedVariationCost === null || persistedVariationCost === undefined
             ? null
             : parseLocalizedPrice(persistedVariationCost),
+        ...(isSalvado ? { stock: null } : {}),
         description:
           v.syncDescription !== false ? payload.description || null : v.description || null,
         width: v.width ? String(v.width) : null,

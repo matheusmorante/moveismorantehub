@@ -11,6 +11,7 @@ import {
   getProductMinimumStockInputDisplayValue,
   parseProductMinimumStockInput,
 } from '../../../../../../../shared-utils/productMinimumStockInput';
+import { isSalvadoProduct } from '@/pages/utils/productKindRules';
 
 interface ProductInventoryTabProps {
   readonly formData: Partial<Product>;
@@ -133,6 +134,7 @@ const ProductInventoryTab: React.FC<ProductInventoryTabProps> = ({
   };
 
   const minStockValue = getProductMinimumStockInputDisplayValue(formData.minStock);
+  const isSalvado = isSalvadoProduct(formData);
 
   return (
     <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
@@ -169,29 +171,40 @@ const ProductInventoryTab: React.FC<ProductInventoryTabProps> = ({
         )}
 
         {!formData.hasVariations && (
-          <div className="flex flex-col gap-2 p-2 rounded-2xl">
-            <label
-              htmlFor="product-min-stock-input"
-              className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5 h-6"
-            >
-              <span>Estoque Mínimo</span>
-            </label>
-            <input
-              id="product-min-stock-input"
-              type="number"
-              min="0"
-              aria-label="Estoque mínimo do produto"
-              value={minStockValue}
-              onChange={(e) => {
-                setFormData((prev) => ({
-                  ...prev,
-                  minStock: parseProductMinimumStockInput(e.target.value),
-                }));
-              }}
-              className="w-full px-4 py-2.5 bg-white dark:bg-slate-955 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-black text-amber-600 dark:text-amber-500 focus:ring-2 focus:ring-amber-500/20"
-              placeholder="0"
-            />
-          </div>
+          isSalvado ? (
+            <div className="flex flex-col gap-2 p-2 rounded-2xl" aria-label="Estoque não se aplica">
+              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 h-6">
+                Estoque
+              </span>
+              <span className="w-full px-4 py-2.5 rounded-xl text-xs font-black text-slate-500 dark:text-slate-400">
+                -
+              </span>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2 p-2 rounded-2xl">
+              <label
+                htmlFor="product-min-stock-input"
+                className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5 h-6"
+              >
+                <span>Estoque Mínimo</span>
+              </label>
+              <input
+                id="product-min-stock-input"
+                type="number"
+                min="0"
+                aria-label="Estoque mínimo do produto"
+                value={minStockValue}
+                onChange={(e) => {
+                  setFormData((prev) => ({
+                    ...prev,
+                    minStock: parseProductMinimumStockInput(e.target.value),
+                  }));
+                }}
+                className="w-full px-4 py-2.5 bg-white dark:bg-slate-955 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-black text-amber-600 dark:text-amber-500 focus:ring-2 focus:ring-amber-500/20"
+                placeholder="0"
+              />
+            </div>
+          )
         )}
       </div>
 

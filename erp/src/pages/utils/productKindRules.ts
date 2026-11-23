@@ -2,7 +2,9 @@ import type Product from '@/pages/types/product.type';
 import type { ProductKind } from '@/pages/types/product.type';
 import {
   getProductKind as getSharedProductKind,
+  isSalvadoStockOrigin,
   type ProductKindCandidate,
+  type ProductStockOriginCandidate,
 } from '../../../../shared-utils/productStockOrigin';
 import { MAX_VARIATION_IMAGES } from './productImageLimits';
 
@@ -20,6 +22,10 @@ export const isNonConventionalProduct = (
   } | null
 ): boolean => getProductKind(value) !== 'normal';
 
+export const isSalvadoProduct = (
+  value?: ProductStockOriginCandidate | null
+): boolean => isSalvadoStockOrigin(value);
+
 export const normalizeProductForSave = (
   formData: Partial<Product>,
   options: {
@@ -30,6 +36,7 @@ export const normalizeProductForSave = (
   }
 ): Product => {
   const isNonConventional = isNonConventionalProduct(formData);
+  const isSalvado = isSalvadoProduct(formData);
   const forceInactive = options.isDraft || isNonConventional;
 
   const parseTech = (names: string[], currentVal: unknown) => {
@@ -47,6 +54,7 @@ export const normalizeProductForSave = (
     const effectiveName = options.name || formData.name || 'Produto';
     return {
       ...formData,
+      ...(isSalvado ? { stock: null as unknown as Product['stock'] } : {}),
       width: parseTech(['Largura'], formData.width),
       height: parseTech(['Altura'], formData.height),
       depth: parseTech(['Profundidade total', 'Profundidade'], formData.depth),
@@ -71,6 +79,7 @@ export const normalizeProductForSave = (
 
         return {
           ...variation,
+          ...(isSalvado ? { stock: null as unknown as typeof variation.stock } : {}),
           images: cappedImages,
           name: varName,
           title: varName,

@@ -69,6 +69,7 @@ describe('toggleMobileProductCatalog', () => {
       neq: vi.fn(() => query),
       update: vi.fn(() => query),
       maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+      limit: vi.fn(),
     };
     mocks.from.mockReturnValue(query);
   });
@@ -123,12 +124,7 @@ describe('toggleMobileProductCatalog', () => {
   });
 
   it('oculta o produto pai quando a última variação publicada é ocultada', async () => {
-    query.eq.mockImplementation((column: string, value: unknown) => {
-      if (column === 'status' && value === 'published') {
-        return Promise.resolve({ data: [], error: null });
-      }
-      return query;
-    });
+    query.limit.mockResolvedValueOnce({ data: [], error: null });
 
     await expect(
       toggleMobileProductCatalog(
@@ -141,6 +137,8 @@ describe('toggleMobileProductCatalog', () => {
 
     expect(query.update).toHaveBeenNthCalledWith(1, expect.objectContaining({ status: 'hidden' }));
     expect(query.update).toHaveBeenNthCalledWith(2, expect.objectContaining({ status: 'hidden' }));
+    expect(query.limit).toHaveBeenCalledWith(1);
+    expect(mocks.triggerMetaCatalogSync).toHaveBeenCalledWith('123e4567-e89b-42d3-a456-426614174000');
   });
 
   it('propaga a negação de permissão e não inicia sincronização Meta', async () => {
@@ -158,12 +156,7 @@ describe('toggleMobileProductCatalog', () => {
   });
 
   it('mantém o produto pai publicado se outra variação ainda estiver publicada', async () => {
-    query.eq.mockImplementation((column: string, value: unknown) => {
-      if (column === 'status' && value === 'published') {
-        return Promise.resolve({ data: [{ id: 'sibling-variation' }], error: null });
-      }
-      return query;
-    });
+    query.limit.mockResolvedValueOnce({ data: [{ id: 'sibling-variation' }], error: null });
 
     await toggleMobileProductCatalog(
       '123e4567-e89b-42d3-a456-426614174000',
@@ -173,6 +166,7 @@ describe('toggleMobileProductCatalog', () => {
     );
 
     expect(query.update).toHaveBeenCalledTimes(1);
+    expect(mocks.triggerMetaCatalogSync).toHaveBeenCalledWith('123e4567-e89b-42d3-a456-426614174000');
   });
 });
 

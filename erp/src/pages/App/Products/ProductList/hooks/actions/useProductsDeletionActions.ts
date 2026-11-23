@@ -1,6 +1,7 @@
 import { toast } from 'react-toastify';
 import { requestConfirmation } from '@/components/shared/confirmationService';
 import type Product from '@/pages/types/product.type';
+import { triggerProductMetaCatalogSync } from '@/pages/utils/productService/productMetaCatalogSync';
 import {
   bulkMoveToTrash,
   bulkRestoreProducts,
@@ -161,6 +162,7 @@ export const deleteProductPermanently = async (id: string, refresh: () => void):
   try {
     const result = await physicalDeleteProduct(id);
     if (result.success) {
+      void triggerProductMetaCatalogSync(String(id).split('_')[0]);
       refresh();
       toast.update(toastId, {
         render: result.message || 'Produto excluído com sucesso.',

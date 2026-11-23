@@ -11,6 +11,7 @@ import {
 import { X } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { normalizeProductVariationName } from '../../../../../shared-utils/productVariationNameValidation';
+import { isSalvadoStockOrigin } from '../../../../../shared-utils/productStockOrigin';
 
 interface Props {
   visible: boolean;
@@ -62,6 +63,7 @@ export const MobileProductDetailsModal: React.FC<Props> = ({
   const promoPrice = Number(product.promoPrice ?? product.promo_price ?? 0);
   const unitPrice = Number(product.unitPrice ?? product.unit_price ?? product.price ?? 0);
   const hasPromo = promoPrice > 0 && promoPrice < unitPrice;
+  const isSalvado = isSalvadoStockOrigin(product);
   const attributes = toAttributes(product.attributes);
   const details = [
     ['Código', product.code || product.sku],
@@ -130,7 +132,7 @@ export const MobileProductDetailsModal: React.FC<Props> = ({
                 )}
                 <View style={styles.badges}>
                   <Text style={[styles.badge, dark && styles.badgeDark]}>
-                    Estoque: {product.stock ?? 0}
+                    Estoque: {isSalvado ? '-' : product.stock ?? 0}
                   </Text>
                   <Text
                     style={[
@@ -213,7 +215,9 @@ export const MobileProductDetailsModal: React.FC<Props> = ({
                         <Text style={[styles.variationPrice, dark && styles.textDark]}>
                           {formatCurrency(variationPrice)}
                         </Text>
-                        <Text style={styles.detailValue}>Estoque: {variation.stock ?? 0}</Text>
+                        <Text style={styles.detailValue}>
+                          Estoque: {isSalvadoStockOrigin(product, variation) ? '-' : variation.stock ?? 0}
+                        </Text>
                       </View>
                     </View>
                   );

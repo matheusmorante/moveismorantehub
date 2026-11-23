@@ -433,6 +433,7 @@ export const physicalDeleteVariation = async (
     }
     invalidateProductQueries();
     notifySubscribers();
+    void triggerProductMetaCatalogSync(realProductId);
     return {
       success: true,
       message: result.parent_deactivated

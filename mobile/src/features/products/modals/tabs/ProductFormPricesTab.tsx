@@ -9,6 +9,7 @@ import {
   getProductMinimumStockInputDisplayValue,
   parseProductMinimumStockInput,
 } from '../../../../../../shared-utils/productMinimumStockInput';
+import { isSalvadoStockOrigin } from '../../../../../../shared-utils/productStockOrigin';
 import { resolveProductSupplierPricingDefaults } from '../../../../../../shared-utils/productSupplierPricingDefaults';
 import { matchesProductSupplierSearch } from '../../../../../../shared-utils/productSupplierDisplayName';
 import { normalizeProductSupplierIds } from '../../../../../../shared-utils/productSupplierIds';
@@ -412,18 +413,25 @@ export const ProductFormPricesTab: React.FC<Props> = ({
       />
 
       {!formData.hasVariations && (
-        <View style={[styles.card, dark && styles.darkCard]}>
-          <Text style={[styles.label, dark && styles.dimText]}>Estoque Mínimo</Text>
-          <FormTextInput
-            value={getProductMinimumStockInputDisplayValue(formData.minStock)}
-            onChangeText={(value) => set('minStock', parseProductMinimumStockInput(value))}
-            accessibilityLabel="Estoque mínimo do produto"
-            keyboardType="numeric"
-            placeholder="0"
-            placeholderTextColor="#94a3b8"
-            style={[styles.input, dark && styles.darkInput, dark && styles.lightText]}
-          />
-        </View>
+        isSalvadoStockOrigin(formData) ? (
+          <View style={[styles.card, dark && styles.darkCard]} accessibilityLabel="Estoque não se aplica">
+            <Text style={[styles.label, dark && styles.dimText]}>Estoque</Text>
+            <Text style={[styles.label, dark && styles.dimText]}>-</Text>
+          </View>
+        ) : (
+          <View style={[styles.card, dark && styles.darkCard]}>
+            <Text style={[styles.label, dark && styles.dimText]}>Estoque Mínimo</Text>
+            <FormTextInput
+              value={getProductMinimumStockInputDisplayValue(formData.minStock)}
+              onChangeText={(value) => set('minStock', parseProductMinimumStockInput(value))}
+              accessibilityLabel="Estoque mínimo do produto"
+              keyboardType="numeric"
+              placeholder="0"
+              placeholderTextColor="#94a3b8"
+              style={[styles.input, dark && styles.darkInput, dark && styles.lightText]}
+            />
+          </View>
+        )
       )}
       <SupplierFormModal
         visible={showSupplierForm}

@@ -32,6 +32,7 @@ import {
 import { checkSkusUniquenessBatch, generateUniqueCode, TABLE_NAME } from './productSkuService';
 import { formatProductTextData } from './productValidation';
 import { triggerProductMetaCatalogSync } from './productMetaCatalogSync';
+import { isSalvadoProduct } from '../productKindRules';
 
 export const invalidateProductQueries = () => {
   try {
@@ -293,11 +294,11 @@ export const updateProduct = async (
 
     if (Array.isArray(persistenceProduct.variations) && persistenceProduct.variations.length > 0) {
       for (const v of persistenceProduct.variations) {
-        if (v.id && v.stock !== undefined) {
+        if (v.id && (isSalvadoProduct(productToUpdate) || v.stock !== undefined)) {
           await supabase
             .from('product_variations')
             .update({
-              stock: parseInt(String(v.stock), 10),
+              stock: isSalvadoProduct(productToUpdate) ? null : parseInt(String(v.stock), 10),
             })
             .eq('id', v.id);
         }

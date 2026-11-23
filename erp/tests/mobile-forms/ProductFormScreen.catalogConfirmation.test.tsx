@@ -332,7 +332,7 @@ const openCatalogConfirmation = async () => {
   );
   expect(mocks.alert).toHaveBeenCalledWith(
     'Ocultar produto do Catálogo Digital?',
-    expect.stringContaining('ajuste a conformidade do campo citado acima antes de salvar'),
+    expect.stringMatching(/ajuste a conformidade d(?:o campo|os campos) citados? acima antes de salvar/),
     expect.any(Array),
     expect.anything()
   );

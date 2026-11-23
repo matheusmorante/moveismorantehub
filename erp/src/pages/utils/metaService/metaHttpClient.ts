@@ -1,5 +1,6 @@
 import { getSettings } from '@/pages/utils/settingsService';
 import { supabase } from '@/pages/utils/supabaseConfig';
+import { withTimeout } from '../../../../../shared-utils/withTimeout';
 
 export const GRAPH_API_VERSION = 'v26.0';
 export const FACEBOOK_GRAPH_URL = 'https://graph.facebook.com';
@@ -17,15 +18,20 @@ const CACHE_TTL_MS = 60000; // 60 segundos
  * O token da Meta permanece no ambiente de execução server-side.
  */
 export const metaHttpClient = {
-  request: async (operation: string, payload: Record<string, unknown> = {}, signal?: AbortSignal): Promise<Response> => {
-    const { data, error } = await supabase.auth.getSession();
-    const accessToken = data.session?.access_token;
-    if (error || !accessToken) throw new Error('Sessão inválida. Entre novamente.');
+  request: async (
+    operation: string,
+    payload: Record<string, unknown> = {},
+    signal?: AbortSignal,
+    timeoutMs = 20_000,
+  ): Promise<Response> => {
+    const session = await withTimeout(supabase.auth.getSession(), 10_000, null, 'erp:meta-proxy-session');
+    const accessToken = session?.data.session?.access_token;
+    if (session?.error || !accessToken) throw new Error('Sessão inválida. Entre novamente.');
     const controller = new AbortController();
     const cancel = () => controller.abort();
     if (signal?.aborted) cancel();
     else signal?.addEventListener('abort', cancel, { once: true });
-    const timer = setTimeout(() => controller.abort(), 20_000);
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
       return await fetch('/api/meta-graph', {
         method: 'POST',

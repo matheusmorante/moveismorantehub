@@ -7,6 +7,7 @@ interface CardPriceStockProps {
   readonly currentPrice: number;
   readonly itemType?: string;
   readonly isLowStock: boolean;
+  readonly isSalvado?: boolean;
   readonly stock?: number;
   readonly unit?: string;
   readonly promotionName?: string;
@@ -19,6 +20,7 @@ export const CardPriceStock: React.FC<CardPriceStockProps> = ({
   currentPrice,
   itemType,
   isLowStock,
+  isSalvado = false,
   stock,
   unit,
   promotionName,
@@ -45,13 +47,15 @@ export const CardPriceStock: React.FC<CardPriceStockProps> = ({
           </span>
           <div className="flex items-baseline gap-1">
             <span
-              className={`text-sm font-black ${isLowStock ? 'text-red-500 dark:text-red-400' : 'text-slate-700 dark:text-slate-200'}`}
+              className={`text-sm font-black ${!isSalvado && isLowStock ? 'text-red-500 dark:text-red-400' : 'text-slate-700 dark:text-slate-200'}`}
             >
-              {stock ?? 0}
+              {isSalvado ? '-' : stock ?? 0}
             </span>
-            <span className="text-[9px] text-slate-400 dark:text-slate-600 font-bold uppercase">
-              {unit}
-            </span>
+            {!isSalvado && (
+              <span className="text-[9px] text-slate-400 dark:text-slate-600 font-bold uppercase">
+                {unit}
+              </span>
+            )}
           </div>
         </div>
       )}

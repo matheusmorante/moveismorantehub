@@ -1,6 +1,6 @@
 import { supabase } from '@/pages/utils/supabaseConfig';
 import type Product from '../../types/product.type';
-import { isNonConventionalProduct } from '../productKindRules';
+import { isNonConventionalProduct, isSalvadoProduct } from '../productKindRules';
 import { normalizeVariationSku } from '../productVariationDefaults';
 import { resolveUniqueSlug } from '../uniqueSlug';
 import { MAX_VARIATION_IMAGES } from './productImageHelpers';
@@ -337,9 +337,11 @@ export const syncProductToSupabase = async (
               : v.unitPrice !== undefined && v.unitPrice !== null
                 ? Number(v.unitPrice)
                 : 0,
-            ...(isCompositionProduct(product)
-              ? {}
-              : { stock: v.stock ? parseInt(String(v.stock), 10) : 0 }),
+            ...(isSalvadoProduct(product)
+              ? { stock: null }
+              : isCompositionProduct(product)
+                ? {}
+                : { stock: v.stock ? parseInt(String(v.stock), 10) : 0 }),
             image_url: effectiveImages.length > 0 ? effectiveImages.join(',') : null,
             attributes: attributesToSave,
             combo_items: Array.isArray((v as any).comboItems) ? (v as any).comboItems : [],

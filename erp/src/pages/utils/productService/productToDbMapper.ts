@@ -1,13 +1,14 @@
 import Product from '../../types/product.type';
 import { removeInitialStockFields } from './productDraftSnapshot';
 import { normalizeSlug } from '../uniqueSlug';
-import { getProductKind, isNonConventionalProduct } from '../productKindRules';
+import { getProductKind, isNonConventionalProduct, isSalvadoProduct } from '../productKindRules';
 import { findProductTechnicalValueEntry } from '../../../../../shared-utils/productTechnicalValueAliases';
 
 /**
  * Converte um objeto Product (domínio) para os campos da tabela 'products' do Supabase
  */
 export const mapToDB = (product: Partial<Product>) => {
+  const isSalvado = isSalvadoProduct(product);
   const data: any = {
     updated_at: new Date().toISOString(),
   };
@@ -51,7 +52,8 @@ export const mapToDB = (product: Partial<Product>) => {
   if (product.finalPurchasePrice !== undefined)
     data.final_purchase_price = product.finalPurchasePrice;
   if (product.initialStock !== undefined) data.initial_stock = product.initialStock;
-  if (product.stock !== undefined) data.stock = product.stock;
+  if (isSalvado) data.stock = null;
+  else if (product.stock !== undefined) data.stock = product.stock;
   if (product.minStock !== undefined) data.min_stock = product.minStock;
   if (product.unit !== undefined) data.unit = product.unit;
   if (product.active !== undefined || isNonConventionalProduct(product)) {
@@ -249,7 +251,15 @@ export const mapToDB = (product: Partial<Product>) => {
       ...(product.variableTechnicalFields !== undefined
         ? { variableTechnicalFields: product.variableTechnicalFields }
         : {}),
-      ...(product.variations ? { variationDetails: product.variations.map(removeInitialStockFields) } : {}),
+      ...(product.variations
+        ? {
+            variationDetails: product.variations.map((variation) => {
+              const details = removeInitialStockFields(variation);
+              if (isSalvado) delete (details as any).stock;
+              return details;
+            }),
+          }
+        : {}),
       ...(data.is_draft === false ? { draftProduct: null } : {}),
     };
   }

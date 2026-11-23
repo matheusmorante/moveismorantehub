@@ -12,6 +12,7 @@ import { ProductCardVariationList } from '../Variations/ProductCardVariationList
 import { ProductCardHeader } from './ProductCardHeader';
 import { ProductCardBadges } from './ProductCardBadges';
 import { isNonConventionalProduct } from '@/pages/utils/productKindRules';
+import { isSalvadoStockOrigin } from '../../../../../../../../shared-utils/productStockOrigin';
 
 interface ProductCardProps {
   readonly product: ProductListRow;
@@ -82,6 +83,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
   const canManageCatalog = !readOnly;
 
   const { oppName, supplierNames } = useProductMetadata(product);
+  const isSalvado = isSalvadoStockOrigin(product, singleVariation, oppName);
   const variationName = isVariation ? getVariationDisplayName(product) : '';
   const hasParentVariations = isParent && (product.allVariations?.length || 0) > 1;
 
@@ -254,6 +256,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
           currentPrice={currentPrice}
           itemType={product.itemType}
           isLowStock={isLowStock}
+          isSalvado={isSalvado}
           stock={cardStock}
           unit={singleVariation?.unit || product.unit}
           promotionName={cardPromotion?.promotionName}

@@ -593,6 +593,7 @@ y = table(['Modo de inventário', 'Como funciona'], [
     ['<b>4 · Fornecedor</b>', 'Abra o cartão para contar somente os itens dele.'],
 ], y, widths=[220, TW - 220], size=10.4)
 y = step(1, 'Escolha o escopo e o responsável', 'Conte produtos individuais ativos; compostos, de teste, Salvados e Usados ficam fora. No app, o responsável pode vir pré-selecionado. Para Produto, escolha o pai e toque Próxima etapa.', y)
+y = note('Produtos Salvados', 'O estoque não se aplica a Salvados: o ERP e o app mostram “-” no campo Estoque, e esses produtos não entram na contagem do inventário.', y, fill=MINT)
 y = step(2, 'Inicie somente o que vai contar', 'No modo Livre, inicie os fornecedores escolhidos. Nos demais, abra o escopo correspondente. Confira a seleção antes de começar.', y)
 y = note('Cancelar ou duplicar', 'Cancelar inventário encerra a contagem; Cancelar etapa apaga somente a etapa atual do modo Livre. Duplicar não copia quantidades.', y, fill=MINT)
 

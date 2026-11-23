@@ -58,6 +58,18 @@ describe('deleteMobileProduct', () => {
     expect(mocks.rpc).toHaveBeenCalledWith('delete_unreferenced_product', {
       p_product_id: productId,
     });
+    expect(mocks.triggerMetaCatalogSync).not.toHaveBeenCalled();
+  });
+
+  it('reconcilia a Meta ao excluir um produto confirmado no app', async () => {
+    const productId = '123e4567-e89b-42d3-a456-426614174000';
+    mocks.rpc.mockResolvedValueOnce({ data: { success: true, code: 'moved_to_trash' }, error: null });
+
+    await deleteMobileProduct(productId);
+
+    expect(mocks.rpc).toHaveBeenCalledWith('move_product_to_trash', { p_product_id: productId });
+    expect(mocks.triggerMetaCatalogSync).toHaveBeenCalledWith(productId);
+    expect(mocks.from).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -315,7 +327,7 @@ describe('saveMobileProduct', () => {
     });
   });
 
-  it('serializa opções múltiplas para compatibilidade e mantém o array técnico no snapshot', async () => {
+  it('preserva opções múltiplas nos atributos da variação e no snapshot técnico', async () => {
     await saveMobileProduct({
       clientProductId: '123e4567-e89b-42d3-a456-426614174000',
       operationId: '123e4567-e89b-42d3-a456-426614174001',
@@ -347,7 +359,7 @@ describe('saveMobileProduct', () => {
     expect(parameters.p_variations[0].attributes).toEqual([
       {
         name: 'Materiais das corrediças',
-        value: 'Metal,Nylon',
+        value: ['Metal', 'Nylon'],
         showName: false,
       },
     ]);

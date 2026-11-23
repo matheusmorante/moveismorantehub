@@ -10,6 +10,7 @@ import {
 } from './productDependencyCheck';
 
 const mockDb = vi.hoisted(() => ({ from: vi.fn(), rpc: vi.fn() }));
+const reconcileMeta = vi.hoisted(() => vi.fn());
 
 vi.mock('@/pages/utils/supabaseConfig', () => ({ supabase: mockDb }));
 vi.mock('./productLocalCache', () => ({
@@ -18,6 +19,7 @@ vi.mock('./productLocalCache', () => ({
   notifySubscribers: vi.fn(),
 }));
 vi.mock('./productMutationService', () => ({ updateProduct: vi.fn() }));
+vi.mock('./productMetaCatalogSync', () => ({ triggerProductMetaCatalogSync: reconcileMeta }));
 
 const queryResult = (result: { data: unknown[] | null; error: unknown | null }) => {
   const query: any = {
@@ -114,6 +116,7 @@ describe('physicalDeleteVariation', () => {
   beforeEach(() => {
     mockDb.from.mockReset();
     mockDb.rpc.mockReset();
+    reconcileMeta.mockClear();
   });
 
   it('bloqueia a exclusão da última variação sem excluir o produto pai', async () => {
@@ -134,6 +137,16 @@ describe('physicalDeleteVariation', () => {
     expect(result).toMatchObject({ success: false });
     expect(result.message).toContain('ao menos uma variação');
     expect(mockDb.from).not.toHaveBeenCalledWith('products');
+    expect(reconcileMeta).not.toHaveBeenCalled();
+  });
+
+  it('reconcilia o produto pai quando o ERP confirma a exclusão da variação', async () => {
+    const productId = '55555555-5555-4555-8555-555555555555';
+    const variationId = '44444444-4444-4444-8444-444444444444';
+    mockDb.rpc.mockResolvedValueOnce({ data: { success: true, code: 'variation_deleted' }, error: null });
+
+    await expect(physicalDeleteVariation(productId, variationId)).resolves.toMatchObject({ success: true });
+    expect(reconcileMeta).toHaveBeenCalledWith(productId);
   });
 
   it('verifica ausência de vínculos e exclui produto sem referências via RPC', async () => {

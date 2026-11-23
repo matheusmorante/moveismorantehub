@@ -5,6 +5,9 @@ const mocks = vi.hoisted(() => ({
   bulkMoveToTrash: vi.fn(),
   bulkRestoreProducts: vi.fn(),
   deleteProduct: vi.fn(),
+  physicalDeleteProduct: vi.fn(),
+  reconcileMeta: vi.fn(),
+  confirm: vi.fn(),
   moveProductToTrash: vi.fn(),
   restoreProductFromTrash: vi.fn(),
   toast: {
@@ -22,12 +25,20 @@ vi.mock('@/pages/utils/productService', () => ({
   bulkMoveToTrash: mocks.bulkMoveToTrash,
   bulkRestoreProducts: mocks.bulkRestoreProducts,
   deleteProduct: mocks.deleteProduct,
+  physicalDeleteProduct: mocks.physicalDeleteProduct,
   moveProductToTrash: mocks.moveProductToTrash,
   restoreProductFromTrash: mocks.restoreProductFromTrash,
+}));
+vi.mock('@/pages/utils/productService/productMetaCatalogSync', () => ({
+  triggerProductMetaCatalogSync: mocks.reconcileMeta,
+}));
+vi.mock('@/components/shared/confirmationService', () => ({
+  requestConfirmation: mocks.confirm,
 }));
 vi.mock('react-toastify', () => ({ toast: mocks.toast }));
 
 import {
+  deleteProductPermanently,
   executeBulkPermanentDelete,
   executeBulkRestore,
   executeBulkTrash,
@@ -41,6 +52,30 @@ afterEach(() => {
 });
 
 describe('useProductsDeletionActions query invalidation', () => {
+  it('reconcilia a Meta após a confirmação da exclusão definitiva', async () => {
+    const productId = '123e4567-e89b-42d3-a456-426614174000';
+    mocks.confirm.mockResolvedValueOnce(true);
+    mocks.physicalDeleteProduct.mockResolvedValueOnce({ success: true });
+    const refresh = vi.fn();
+
+    await deleteProductPermanently(productId, refresh);
+
+    expect(mocks.physicalDeleteProduct).toHaveBeenCalledWith(productId);
+    expect(mocks.reconcileMeta).toHaveBeenCalledWith(productId);
+    expect(mocks.reconcileMeta.mock.invocationCallOrder[0]).toBeGreaterThan(
+      mocks.physicalDeleteProduct.mock.invocationCallOrder[0],
+    );
+    expect(refresh).toHaveBeenCalledOnce();
+  });
+
+  it('preserva o catálogo quando o ERP rejeita a exclusão definitiva', async () => {
+    mocks.confirm.mockResolvedValueOnce(true);
+    mocks.physicalDeleteProduct.mockResolvedValueOnce({ success: false, message: 'Produto em uso' });
+    await deleteProductPermanently('123e4567-e89b-42d3-a456-426614174000', vi.fn());
+    expect(mocks.physicalDeleteProduct).toHaveBeenCalledOnce();
+    expect(mocks.reconcileMeta).not.toHaveBeenCalled();
+  });
+
   it('delega a invalidação da restauração em lote ao serviço', async () => {
     mocks.bulkRestoreProducts.mockResolvedValue(undefined);
     const removeRestoredProductsFromTrash = vi.fn();
@@ -68,7 +103,7 @@ describe('useProductsDeletionActions query invalidation', () => {
       errors: ['Produto vinculado a um pedido'],
       deactivatedIds: ['product-1'],
     });
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    mocks.confirm.mockResolvedValueOnce(true);
     const setSelectedProducts = vi.fn();
     const setLoading = vi.fn();
 

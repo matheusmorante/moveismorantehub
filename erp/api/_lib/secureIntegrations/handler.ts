@@ -4,6 +4,7 @@ import { handleMetaGraph } from './handlers/metaGraphHandler.js';
 import { handleGemini } from './handlers/geminiHandler.js';
 import { handleOpenAi } from './handlers/openAiHandler.js';
 import { handleGoogleRoutes } from './handlers/googleRoutesHandler.js';
+import { handleMetaCatalogCron } from '../metaCatalogReconciliation/handler.js';
 
 export {
   handleMetaGraph,
@@ -25,6 +26,7 @@ export {
 
 const operations: Record<SecureOperation, (req: VercelRequest, res: VercelResponse) => Promise<unknown>> = {
   'meta-graph': handleMetaGraph,
+  'meta-catalog-cron': handleMetaCatalogCron,
   'gemini-proxy': handleGemini,
   'openai-proxy': handleOpenAi,
   'google-routes': handleGoogleRoutes,
