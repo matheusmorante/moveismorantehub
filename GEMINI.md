@@ -42,9 +42,9 @@ Qualquer alteração efetuada nos arquivos fiscais (`api/nfe/`, componentes do m
 
 ---
 
-## 5. Automação do Computador e Testes Desktop (Agent Desktop Semântico)
+## 5. Automação do Navegador e do Computador
 
-* Sempre que for necessário controlar, inspecionar ou verificar o computador/desktop (janelas do navegador, ERP, telas do sistema, formulários ou fluxos interativos), utilize a ferramenta `agent-desktop.cmd` (Vercel Labs) e a skill `agent-desktop`.
-* **Sem Roubar o Cursor:** Toda operação deve ocorrer obrigatoriamente pelo modo semântico headless padrão (inspeção e atuação via Árvore de Acessibilidade UI Automation do Windows). É proibido mover o ponteiro físico do mouse ou roubar o foco ativo da janela do usuário (não utilizar `--headed` sem autorização expressa).
+* **Navegador em modo headless:** Chrome ou Chromium executa sem abrir nenhuma janela visível. Use Playwright (preferencial) ou Puppeteer em modo headless para automações de páginas web, sem criar abas visíveis, trazer o navegador para frente ou tomar o foco do operador. Se uma tarefa depender de sessão autenticada, use o mecanismo de login/autenticação autorizado em contexto headless; nunca exponha nem copie credenciais, cookies ou tokens. Se o fluxo não puder ser concluído com segurança em headless, explique a limitação concreta antes de abrir uma janela.
+* **Agent Desktop semântico:** Para aplicações desktop nativas e estados do sistema operacional, utilize `agent-desktop.cmd` (Vercel Labs) e a skill `agent-desktop`. Opere via Árvore de Acessibilidade UI Automation do Windows, sem mover o ponteiro físico ou roubar o foco ativo. Não use Agent Desktop para abrir ou automatizar páginas em um navegador visível; `--headed` não é permitido para automação de navegador. Em uma operação nativa, só use `--headed` mediante pedido explícito do operador.
 * **Sintaxe PowerShell:** Sempre utilize aspas simples ao passar identificadores de elemento (`agent-desktop.cmd click '@s8f3k2p9:e1'`), impedindo que o PowerShell interprete `@` como splatting.
 
