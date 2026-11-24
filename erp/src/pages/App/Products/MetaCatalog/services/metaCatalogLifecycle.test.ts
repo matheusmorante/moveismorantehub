@@ -24,7 +24,7 @@ function matchesRest(value: string, filter: string | null) {
   return false;
 }
 
-function fixture({ exclusive = false, missingProductPage = false } = {}) {
+function fixture({ exclusive = false, missingProductPage = false, unconfirmedBatch = false } = {}) {
   let exists = true;
   let sequence = 0;
   let lastFullRun: MetaCatalogReconciliationResult | null = null;
@@ -137,7 +137,9 @@ function fixture({ exclusive = false, missingProductPage = false } = {}) {
       return Response.json({ handles: ['lifecycle-batch'] });
     }
     if (edge === 'check_batch_request_status') {
-      return Response.json({ data: [{ handle: 'lifecycle-batch', status: 'finished', errors_total_count: 0 }] });
+      return Response.json({ data: [{
+        handle: 'lifecycle-batch', status: unconfirmedBatch ? 'in_progress' : 'finished', errors_total_count: 0,
+      }] });
     }
     throw new Error('Rota Graph inesperada: ' + url.pathname);
   }
@@ -178,6 +180,7 @@ async function runHourly(statusCode = 200) {
 }
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.unstubAllEnvs();
   vi.unstubAllGlobals();
 });
@@ -232,6 +235,22 @@ it('reconcilia publicação, edição, ocultação e divergências horárias nos
   removeProduct();
   expect(await runHourly()).toMatchObject({ success: true, deleted: 2 });
   expect([...remote.values()].map((items) => [...items.keys()])).toEqual([[manualItem.retailer_id], [manualItem.retailer_id]]);
+});
+
+it('confirma por SKU alterações já aplicadas quando o handle da Meta continua pendente', async () => {
+  stubCatalogEnv();
+  const { product, variations: [blue], remote, history } = fixture({ exclusive: true, unconfirmedBatch: true });
+  Object.assign(product, { status: 'published', is_draft: false });
+  vi.useFakeTimers();
+
+  const pending = runHourly();
+  await vi.advanceTimersByTimeAsync(60_000);
+  const result = await pending as MetaCatalogReconciliationResult;
+
+  expect(result).toMatchObject({ success: true, created: 2, deleted: 2, errors: 0, count: 4 });
+  expect(history).toHaveLength(2);
+  expect(history.every((row) => Boolean(row.confirmed_at))).toBe(true);
+  expect([...remote.values()].every((items) => items.has(blue.sku) && !items.has(manualItem.retailer_id))).toBe(true);
 });
 
 it('remove variações inativas ou mescladas sem rótulo e registra a confirmação em cada catálogo exclusivo', async () => {

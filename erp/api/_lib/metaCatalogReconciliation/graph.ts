@@ -20,7 +20,8 @@ const PRODUCT_FIELDS = [
   'quantity_to_sell_on_facebook', 'visibility',
 ].join(',');
 const BATCH_POLL_DELAY_MS = 800;
-const BATCH_POLL_TIMEOUT_MS = 12_000;
+const BATCH_POLL_MAX_DELAY_MS = 5_000;
+const BATCH_POLL_TIMEOUT_MS = 45_000;
 
 interface GraphResponse {
   data?: unknown;
@@ -174,6 +175,7 @@ export function createCatalogGraph(token: string, signal: AbortSignal) {
 
   async function poll(catalogId: string, handle: string, changes: CatalogChange[]) {
     const deadline = Date.now() + BATCH_POLL_TIMEOUT_MS;
+    let delay = BATCH_POLL_DELAY_MS;
     do {
       const response = await request(`${catalogId}/check_batch_request_status`,
         new URLSearchParams({ handle, load_ids_of_invalid_requests: 'true' }));
@@ -186,7 +188,8 @@ export function createCatalogGraph(token: string, signal: AbortSignal) {
       if (['failed', 'error', 'cancelled', 'canceled', 'expired'].includes(status)) {
         return new Map(changes.map((change) => [change.retailer_id, `Lote Meta encerrou com status ${status}.`]));
       }
-      await sleep(BATCH_POLL_DELAY_MS, signal);
+      await sleep(delay, signal);
+      delay = Math.min(delay * 2, BATCH_POLL_MAX_DELAY_MS);
     } while (Date.now() < deadline);
     throw new Error('A Meta ainda não confirmou o lote dentro do tempo limite.');
   }

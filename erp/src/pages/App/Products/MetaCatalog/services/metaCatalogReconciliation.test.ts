@@ -117,7 +117,10 @@ describe('planejamento da reconciliação do catálogo', () => {
 });
 
 describe('consultas e confirmação na Graph API', () => {
-  afterEach(() => vi.unstubAllGlobals());
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
 
   it('percorre a paginação sem seguir a URL fornecida pela Meta', async () => {
     const fetchMock = vi.fn()
@@ -154,5 +157,29 @@ describe('consultas e confirmação na Graph API', () => {
       item_type: 'PRODUCT_ITEM', allow_upsert: false,
       requests: changes.map(({ method, data }) => ({ method, data })),
     });
+  });
+
+  it('aguarda lotes assíncronos por mais de 12 segundos usando intervalos crescentes', async () => {
+    vi.useFakeTimers();
+    let statusChecks = 0;
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const url = new URL(input instanceof Request ? input.url : input);
+      if (url.pathname.endsWith('/items_batch')) return Promise.resolve(Response.json({ handles: ['batch-slow'] }));
+      if (url.pathname.endsWith('/check_batch_request_status')) {
+        statusChecks++;
+        return Promise.resolve(Response.json({
+          data: [{ handle: 'batch-slow', status: statusChecks <= 8 ? 'in_progress' : 'finished', errors_total_count: 0 }],
+        }));
+      }
+      throw new Error('Rota Graph inesperada: ' + url.pathname);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const graph = createCatalogGraph('unit-token', new AbortController().signal);
+    const pending = graph.submit('1234', [{ method: 'UPDATE', retailer_id: 'SKU-SLOW', data: { id: 'SKU-SLOW' } }]);
+
+    await vi.advanceTimersByTimeAsync(40_000);
+
+    await expect(pending).resolves.toEqual(new Map());
+    expect(statusChecks).toBe(9);
   });
 });

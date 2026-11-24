@@ -4,7 +4,7 @@ import { META_ADS_CREATIVE_CATALOG_ID, META_WHATSAPP_CATALOG_ID } from '../../..
 import { META_CATALOG_BATCH_LIMIT } from '../../../../shared-utils/metaCatalogBatchPayload.js';
 import type { MetaCatalogReconciliationResult } from '../../../../shared-utils/metaCatalogReconciliationResult.js';
 import { createCatalogGraph, GraphBatchUnconfirmed, type CatalogChange, type MetaProduct } from './graph.js';
-import { ownerOf, ownershipLabel, planCatalogChanges } from './plan.js';
+import { matchesMetaProduct, ownerOf, ownershipLabel, planCatalogChanges } from './plan.js';
 import { confirmDeletionHistory, recordDeletionAttempts } from './deletionHistory.js';
 import { loadCandidateRetailers, loadDesiredCatalog, loadRetailerOwners, loadVerifiedItems, type VerifiedItem } from './source.js';
 
@@ -132,6 +132,35 @@ export async function runMetaCatalogReconciliation(scope: RunScope): Promise<Met
     if (issues.length < 100) issues.push({ catalog, retailerId, reason });
   }
 
+  async function confirmUncertainWrites(
+    catalog: Catalog,
+    changes: CatalogChange[],
+    failures: Map<string, string>,
+  ) {
+    const writes = changes.filter(({ method }) => method !== 'DELETE');
+    if (!writes.length) return;
+
+    const remote = await graph.readRetailers(catalog.id, writes.map(({ retailer_id }) => retailer_id));
+    const matches = new Map<string, MetaProduct[]>();
+    for (const item of remote) {
+      const items = matches.get(item.retailer_id) ?? [];
+      items.push(item);
+      matches.set(item.retailer_id, items);
+    }
+    for (const change of writes) {
+      const items = matches.get(change.retailer_id) ?? [];
+      if (items.length === 1 && matchesMetaProduct(change.data, items[0])) {
+        failures.delete(change.retailer_id);
+      } else if (items.length > 1) {
+        failures.set(change.retailer_id, 'A Meta retornou mais de um item para o SKU após o lote sem confirmação.');
+      } else if (change.method === 'CREATE') {
+        failures.set(change.retailer_id, 'A Meta ainda não publicou o item após o lote sem confirmação.');
+      } else {
+        failures.set(change.retailer_id, 'A Meta ainda não refletiu a atualização do SKU após o lote sem confirmação.');
+      }
+    }
+  }
+
   async function applyChanges(catalog: Catalog, changes: CatalogChange[]) {
     for (let offset = 0; offset < changes.length; offset += META_CATALOG_BATCH_LIMIT) {
       let batch = changes.slice(offset, offset + META_CATALOG_BATCH_LIMIT);
@@ -157,6 +186,16 @@ export async function runMetaCatalogReconciliation(scope: RunScope): Promise<Met
       } catch (error) {
         unconfirmed = error instanceof GraphBatchUnconfirmed;
         failures = new Map(batch.map(({ retailer_id }) => [retailer_id, safeReason(error)]));
+        if (unconfirmed) {
+          try {
+            await confirmUncertainWrites(catalog, batch, failures);
+          } catch (verificationError) {
+            const reason = `A leitura de confirmação dos SKUs também falhou: ${safeReason(verificationError)}`;
+            for (const change of batch) {
+              if (change.method !== 'DELETE') failures.set(change.retailer_id, `${failures.get(change.retailer_id)} ${reason}`);
+            }
+          }
+        }
       }
       if (retailerIds.length) {
         let confirmed: string[] = [];

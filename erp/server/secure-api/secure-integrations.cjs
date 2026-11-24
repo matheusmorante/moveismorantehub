@@ -1827,7 +1827,8 @@ var PRODUCT_FIELDS = [
   "visibility"
 ].join(",");
 var BATCH_POLL_DELAY_MS = 800;
-var BATCH_POLL_TIMEOUT_MS = 12e3;
+var BATCH_POLL_MAX_DELAY_MS = 5e3;
+var BATCH_POLL_TIMEOUT_MS = 45e3;
 var GraphBatchUnconfirmed = class extends Error {
 };
 var GraphRequestError = class extends Error {
@@ -1958,6 +1959,7 @@ function createCatalogGraph(token, signal) {
   }
   async function poll(catalogId, handle, changes) {
     const deadline = Date.now() + BATCH_POLL_TIMEOUT_MS;
+    let delay = BATCH_POLL_DELAY_MS;
     do {
       const response = await request(
         `${catalogId}/check_batch_request_status`,
@@ -1971,7 +1973,8 @@ function createCatalogGraph(token, signal) {
       if (["failed", "error", "cancelled", "canceled", "expired"].includes(status)) {
         return new Map(changes.map((change) => [change.retailer_id, `Lote Meta encerrou com status ${status}.`]));
       }
-      await sleep(BATCH_POLL_DELAY_MS, signal);
+      await sleep(delay, signal);
+      delay = Math.min(delay * 2, BATCH_POLL_MAX_DELAY_MS);
     } while (Date.now() < deadline);
     throw new Error("A Meta ainda n\xE3o confirmou o lote dentro do tempo limite.");
   }
@@ -2537,6 +2540,29 @@ async function runMetaCatalogReconciliation(scope) {
     counters.errors++;
     if (issues.length < 100) issues.push({ catalog, retailerId, reason });
   }
+  async function confirmUncertainWrites(catalog, changes, failures) {
+    const writes = changes.filter(({ method }) => method !== "DELETE");
+    if (!writes.length) return;
+    const remote = await graph.readRetailers(catalog.id, writes.map(({ retailer_id }) => retailer_id));
+    const matches = /* @__PURE__ */ new Map();
+    for (const item of remote) {
+      const items = matches.get(item.retailer_id) ?? [];
+      items.push(item);
+      matches.set(item.retailer_id, items);
+    }
+    for (const change of writes) {
+      const items = matches.get(change.retailer_id) ?? [];
+      if (items.length === 1 && matchesMetaProduct(change.data, items[0])) {
+        failures.delete(change.retailer_id);
+      } else if (items.length > 1) {
+        failures.set(change.retailer_id, "A Meta retornou mais de um item para o SKU ap\xF3s o lote sem confirma\xE7\xE3o.");
+      } else if (change.method === "CREATE") {
+        failures.set(change.retailer_id, "A Meta ainda n\xE3o publicou o item ap\xF3s o lote sem confirma\xE7\xE3o.");
+      } else {
+        failures.set(change.retailer_id, "A Meta ainda n\xE3o refletiu a atualiza\xE7\xE3o do SKU ap\xF3s o lote sem confirma\xE7\xE3o.");
+      }
+    }
+  }
   async function applyChanges(catalog, changes) {
     for (let offset = 0; offset < changes.length; offset += META_CATALOG_BATCH_LIMIT) {
       let batch = changes.slice(offset, offset + META_CATALOG_BATCH_LIMIT);
@@ -2564,6 +2590,16 @@ async function runMetaCatalogReconciliation(scope) {
       } catch (error) {
         unconfirmed = error instanceof GraphBatchUnconfirmed;
         failures = new Map(batch.map(({ retailer_id }) => [retailer_id, safeReason(error)]));
+        if (unconfirmed) {
+          try {
+            await confirmUncertainWrites(catalog, batch, failures);
+          } catch (verificationError) {
+            const reason = `A leitura de confirma\xE7\xE3o dos SKUs tamb\xE9m falhou: ${safeReason(verificationError)}`;
+            for (const change of batch) {
+              if (change.method !== "DELETE") failures.set(change.retailer_id, `${failures.get(change.retailer_id)} ${reason}`);
+            }
+          }
+        }
       }
       if (retailerIds.length) {
         let confirmed = [];
