@@ -447,6 +447,14 @@ As colunas de validação abaixo registram símbolos encontrados, não certifica
 
 ## Conferência desta continuação
 
+- 24/11 — Elementos do site no ERP. `SiteElementFormModal` valida o arquivo selecionado com o schema de domínio e recebe a imagem do carrossel somente após a confirmação do recorte de 1920 × 620 px. `FixedAspectImageCropper` valida o arquivo e a geometria com React Hook Form e `zodResolver` antes de usar o canvas. O salvamento passa pelo resolver do modelo. A suíte de 28 testes do módulo e dos recortadores verificou a confirmação, o cancelamento durante a exportação e o bloqueio de arquivo inválido. [Operação e evidências](../../marketing/elementos-do-site-2026-11-06.md#atualização-de-24112026)
+
+- 24/11 — O interruptor de ativação do carrossel em `SiteElementModelActions` usa React Hook Form e `zodResolver` para conferir identificação, estado e versão antes de enviar a alteração. Vitest/RTL verificou a troca nos dois sentidos, o bloqueio durante a gravação e a mensagem de erro. A prova de gravação remota exige fixture autorizada. [Operação e evidências](../../marketing/elementos-do-site-2026-11-06.md#ativação-de-modelos-do-carrossel)
+
+- 24/11 — O formulário do carrossel confere arquivos e medidas de desktop, tablet e mobile no resolver do modelo. Cada tamanho mantém seu recorte no mesmo formulário. Os testes verificaram os três resultados, a exigência do conjunto para novos modelos e o caminho de renomear cadastros legados. A gravação remota continua sujeita ao gate de fixture. [Operação e evidências](../../marketing/elementos-do-site-2026-11-06.md#carrossel-responsivo)
+
+- 24/11 — O campo opcional **Link de destino** do carrossel pertence ao formulário de modelo. O resolver valida e normaliza o endereço antes do serviço. A mesma validação protege o link usado na vitrine. [Operação e evidências](../../marketing/elementos-do-site-2026-11-06.md#link-de-destino-do-carrossel)
+
 - 11/11: o chat de teste do agente da Central valida mensagens e comentários de avaliação com `react-hook-form` e `zodResolver` antes da simulação ou do registro local. Mensagem vazia e comentário vazio exibem erro; cenários rápidos passam pelo mesmo resolver. A ativação manual continua usando o resolver e a RPC de confirmação existentes. Cobertura em `aiAgentTabTestChat.test.tsx`, `customerSupportAiChatNavigation.test.tsx` e `useWhatsAppAiAgentSwitch.test.tsx`; isso não conclui o inventário global de formulários.
 
 - 15/10: `useLabelQueue` valida adicionar produto, etiqueta em branco e impressão; `QueueSection` só remove a etiqueta original depois de uma substituição válida; `useLabelPrintingState` valida arquivo e mantém o resolver durante a leitura. Os 16 testes dos três proprietários passaram, mais teste de quantidade digitada preservada em `fileOwners.test.tsx`. Serviços, impressão e leitura são simulados quando necessário.

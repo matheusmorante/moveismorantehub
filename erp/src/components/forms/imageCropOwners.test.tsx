@@ -41,7 +41,7 @@ describe('crop form owners', () => {
 
   it('blocks invalid image input before creating an object URL', async () => {
     render(<FixedAspectImageCropper file={new File(['text'], 'text.txt', { type: 'text/plain' })} kind="seal" onCancel={vi.fn()} onConfirm={vi.fn()} />);
-    await waitFor(() => expect(mocks.error).toHaveBeenCalledWith('Selecione um arquivo de imagem.'));
+    expect((await screen.findByRole('alert')).textContent).toBe('Selecione um arquivo de imagem.');
     expect(mocks.createUrl).not.toHaveBeenCalled();
     expect(mocks.draw).not.toHaveBeenCalled();
   });
@@ -51,7 +51,7 @@ describe('crop form owners', () => {
     render(<FixedAspectImageCropper file={image()} kind="seal" onCancel={vi.fn()} onConfirm={vi.fn()} />);
     fireEvent.load(await screen.findByAltText('Imagem inteira para recorte'));
     fireEvent.click(screen.getByText('Aplicar recorte'));
-    await waitFor(() => expect(mocks.error).toHaveBeenCalled());
+    expect((await screen.findByRole('alert')).textContent).toBe('A imagem ainda não está pronta para recorte.');
     expect(mocks.draw).not.toHaveBeenCalled();
     expect(mocks.compress).not.toHaveBeenCalled();
   });

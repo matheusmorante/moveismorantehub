@@ -3,10 +3,12 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'react-toastify';
 import { useAuth } from '@/context/AuthContext';
 import { ERPListPagination } from '@/components/shared/ERPListPagination';
-import { SITE_ELEMENT_CONFIG, SITE_ELEMENT_KINDS, type SiteElementKind } from '../../../../../../shared-utils/siteElementSchemas';
+import { SITE_ELEMENT_CONFIG, SITE_ELEMENT_KINDS, type SiteElementActivationFormValues, type SiteElementKind } from '../../../../../../shared-utils/siteElementSchemas';
+import { CAROUSEL_BANNER_IMAGES, CAROUSEL_BANNER_VARIANTS, LEGACY_CAROUSEL_IMAGE } from '../../../../../../shared-utils/siteElementDimensions';
 import SiteElementFormModal from './SiteElementFormModal';
 import SiteElementDeleteDialog from './SiteElementDeleteDialog';
-import { fetchSiteElementModels, SITE_ELEMENT_PAGE_SIZE, siteElementErrorMessage, siteElementImageUrl, type SiteElementModel } from './siteElementService';
+import SiteElementModelActions from './SiteElementModelActions';
+import { fetchSiteElementModels, setSiteElementActivation, SITE_ELEMENT_PAGE_SIZE, siteElementErrorMessage, siteElementImageUrl, type SiteElementModel } from './siteElementService';
 
 export default function SiteElementsPage() {
   const [kind, setKind] = useState<SiteElementKind | null>(null);
@@ -42,8 +44,9 @@ function ElementModelsSection({ kind }: { kind: SiteElementKind }) {
   const [editor, setEditor] = useState<SiteElementModel | 'new' | null>(null);
   const [deleting, setDeleting] = useState<SiteElementModel | null>(null);
   const queryKey = ['site-element-models', user?.id];
+  const listKey = [...queryKey, kind, page];
   const query = useQuery({
-    queryKey: [...queryKey, kind, page],
+    queryKey: listKey,
     queryFn: ({ signal }) => fetchSiteElementModels(kind, page, signal),
     enabled: !!user,
     retry: false,
@@ -55,6 +58,21 @@ function ElementModelsSection({ kind }: { kind: SiteElementKind }) {
     if (cleanupFailed) toast.warning('O cadastro foi atualizado, mas não foi possível remover o arquivo antigo do armazenamento.');
     void queryClient.invalidateQueries({ queryKey });
   };
+  const changeActivation = async (values: SiteElementActivationFormValues) => {
+    const carouselQueries = { queryKey: [...queryKey, 'carousel'] };
+    try {
+      const updated = await setSiteElementActivation(values);
+      await queryClient.cancelQueries({ queryKey: listKey, exact: true });
+      queryClient.setQueriesData<Awaited<ReturnType<typeof fetchSiteElementModels>>>(carouselQueries, (data) => data && {
+        ...data,
+        rows: data.rows.map((model) => model.id === updated.id && model.updated_at === values.updated_at
+          ? { ...model, ...updated } : model),
+      });
+    } catch (error) {
+      void queryClient.invalidateQueries(carouselQueries);
+      throw error;
+    }
+  };
   const rows = query.data?.rows || [];
   return <section aria-labelledby={`site-section-${kind}`} className="space-y-5">
     <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
@@ -64,7 +82,12 @@ function ElementModelsSection({ kind }: { kind: SiteElementKind }) {
       {kind === 'top_bar' ? <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs font-semibold text-pink-600 dark:text-pink-400">
         <span>Desktop: {config.width} × {config.height} px</span>
         <span>PNG, JPG ou WebP · até 5 MB</span>
-      </div> : <p className="mt-2 text-xs font-semibold text-pink-600 dark:text-pink-400">{config.width} × {config.height} px · PNG, JPG ou WebP · até 5 MB</p>}
+      </div> : <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs font-semibold text-pink-600 dark:text-pink-400">
+        {CAROUSEL_BANNER_VARIANTS.map((variant) => {
+          const { label, width, height } = CAROUSEL_BANNER_IMAGES[variant];
+          return <span key={variant}>{label} {width} × {height} px</span>;
+        })}
+      </div>}
       </div>
       <div className="flex gap-2">
         <button type="button" onClick={() => setEditor('new')} className="flex items-center gap-2 rounded-xl bg-pink-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-pink-700"><i className="bi bi-plus-lg" />Novo modelo</button>
@@ -77,7 +100,7 @@ function ElementModelsSection({ kind }: { kind: SiteElementKind }) {
         <h3 className="text-lg font-bold">Nenhum modelo cadastrado</h3>
         <p className="mx-auto mt-2 max-w-md text-sm text-slate-500">{kind === 'top_bar'
           ? `Adicione o primeiro modelo da barra de destaque com uma imagem desktop de ${config.width} × ${config.height} px.`
-          : `Adicione o primeiro modelo de carrossel com uma imagem de ${config.width} × ${config.height} px.`}</p>
+          : 'Adicione um modelo de carrossel com imagens para desktop, tablet e mobile.'}</p>
         <button type="button" onClick={() => setEditor('new')} className="mt-5 text-sm font-bold text-pink-600 hover:underline">Adicionar primeiro modelo</button>
       </div> : <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {rows.map((model) => <article key={model.id} className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
@@ -100,11 +123,12 @@ function ElementModelsSection({ kind }: { kind: SiteElementKind }) {
             {model.kind === 'carousel' && <>
               <p className="truncate text-xs text-slate-500" title={model.file_name}>{model.file_name}</p>
               <p className="text-xs text-slate-400">{model.width} × {model.height} px · {(model.size_bytes / 1024).toLocaleString('pt-BR', { maximumFractionDigits: 0 })} KB</p>
+              {model.height === LEGACY_CAROUSEL_IMAGE.height && <p className="text-xs text-amber-800 dark:text-amber-300">
+                Adicione as três versões para exibir este banner no catálogo.
+              </p>}
             </>}
-            <div className="flex gap-2 border-t border-slate-100 pt-3 dark:border-slate-800">
-              <button type="button" onClick={() => setEditor(model)} aria-label={`Editar ${model.name}`} className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-slate-50 px-3 py-2 text-sm font-semibold hover:bg-slate-100 dark:bg-slate-800"><i className="bi bi-pencil" />Editar</button>
-              <button type="button" onClick={() => setDeleting(model)} aria-label={`Excluir ${model.name}`} className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"><i className="bi bi-trash" />Excluir</button>
-            </div>
+            <SiteElementModelActions model={model} onEdit={() => setEditor(model)} onDelete={() => setDeleting(model)}
+              onActivationChange={changeActivation} />
           </div>
         </article>)}
       </div>}

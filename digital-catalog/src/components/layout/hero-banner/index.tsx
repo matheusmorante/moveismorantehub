@@ -1,6 +1,6 @@
 'use client';
 
-import { useAdminMode } from '@/hooks/use-admin-mode';
+import { useState } from 'react';
 import {
   Carousel,
   CarouselContent,
@@ -9,28 +9,11 @@ import {
   CarouselPrevious,
 } from '@/components/ui/carousel';
 
-import { BANNERS } from './constants';
-import { SalvadosBanner } from './salvados-banner';
-import { DefaultBanner } from './default-banner';
-import type { Banner } from './types';
+import { ResponsiveBanner } from './responsive-banner';
+import type { StorefrontCarouselBanner } from '@/features/carousel-banners';
 
 interface HeroBannerProps {
-  onAction?: (type: string) => void;
-}
-
-function BannerItem({
-  banner,
-  isAdminMode,
-  onAction,
-}: {
-  banner: Banner;
-  isAdminMode: boolean;
-  onAction?: (type: string) => void;
-}) {
-  if (banner.type === 'salvados') {
-    return <SalvadosBanner onAction={onAction} />;
-  }
-  return <DefaultBanner banner={banner} isAdminMode={isAdminMode} />;
+  responsiveBanners?: StorefrontCarouselBanner[];
 }
 
 function CarouselControls() {
@@ -42,20 +25,26 @@ function CarouselControls() {
   );
 }
 
-export function HeroBanner({ onAction }: HeroBannerProps) {
-  const { isAdminMode } = useAdminMode();
+export function HeroBanner({ responsiveBanners = [] }: HeroBannerProps) {
+  const [unavailable, setUnavailable] = useState<string[]>([]);
+  const banners = responsiveBanners
+    .map((banner) => ({ banner, version: Object.values(banner.images).join(' ') }))
+    .filter(({ version }) => !unavailable.includes(version));
+  if (banners.length === 0) return null;
 
   return (
-    <section className="w-full relative group/hero overflow-hidden">
-      <Carousel className="w-full" opts={{ loop: true }}>
+    <section aria-label="Banners do catálogo" className="w-full relative group/hero overflow-hidden">
+      <Carousel className="w-full" opts={{ loop: banners.length > 1 }}>
         <CarouselContent>
-          {BANNERS.map((banner) => (
+          {banners.map(({ banner, version }, index) => (
             <CarouselItem key={banner.id}>
-              <BannerItem banner={banner} isAdminMode={isAdminMode} onAction={onAction} />
+              <ResponsiveBanner banner={banner} first={index === 0} onError={() => {
+                setUnavailable((previous) => previous.includes(version) ? previous : [...previous, version]);
+              }} />
             </CarouselItem>
           ))}
         </CarouselContent>
-        <CarouselControls />
+        {banners.length > 1 && <CarouselControls />}
       </Carousel>
     </section>
   );

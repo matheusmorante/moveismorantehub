@@ -9,8 +9,8 @@ const DEFAULT_SUPABASE_ANON_KEY =
 // longer than 15 seconds, so aborting it made the storefront appear empty.
 const REQUEST_TIMEOUT_MS = 60_000;
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || DEFAULT_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || DEFAULT_SUPABASE_ANON_KEY;
+export const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || DEFAULT_SUPABASE_URL;
+export const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || DEFAULT_SUPABASE_ANON_KEY;
 
 const fetchWithTimeout: typeof fetch = async (input, init) => {
   const controller = new AbortController();
