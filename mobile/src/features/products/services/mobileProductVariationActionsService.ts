@@ -16,6 +16,7 @@ import { parseVariationImages } from '../../../../../shared-utils/productVariati
 import { withTimeout } from '../../../../../shared-utils/withTimeout';
 import { supabase } from '../../../services/supabaseClient';
 import { MAX_VARIATION_IMAGES } from '../domain/productImageLimits';
+import { triggerMobileProductMetaCatalogSync } from './mobileProductMetaCatalogSyncService';
 
 export type MobileVariationAttribute = FamilyAttribute;
 
@@ -583,11 +584,14 @@ export const mergeMobileVariationIntoCanonical = async (
 
   // O ERP aplica esta atualização após a RPC; falha aqui não desfaz o vínculo
   // canônico já confirmado pelo banco.
-  const { error: statusError } = await supabase
+  const { data: source, error: statusError } = await supabase
     .from('product_variations')
     .update({ active: false, status: 'hidden' })
-    .eq('id', nonCanonicalVariationId);
+    .eq('id', nonCanonicalVariationId)
+    .select('product_id')
+    .maybeSingle();
   if (statusError) console.error('Falha ao atualizar o estado da variação mesclada:', statusError);
+  if (source?.product_id) void triggerMobileProductMetaCatalogSync(source.product_id);
 
   const result = data as any;
   return {

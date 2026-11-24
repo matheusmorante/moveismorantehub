@@ -224,7 +224,7 @@ export const buildMetaCatalogBatchPayload = (
         price: `${itemPrice.toFixed(2)} BRL`,
         sale_price: hasPromo ? `${promoPrice.toFixed(2)} BRL` : undefined,
         condition,
-        availability: 'in stock',
+        availability: quantityToSell > 0 ? 'in stock' : 'out of stock',
         image_link: mainImageUrl,
         additional_image_link: additionalImageUrls.join(',') || undefined,
         brand: product.brand || 'Móveis Morante',

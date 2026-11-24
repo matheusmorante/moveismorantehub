@@ -58,7 +58,7 @@ describe('calculateMetaCatalogStats', () => {
     });
   });
 
-  it('considera variações publicadas de produtos salvados mesmo quando active é false', () => {
+  it('conta itens inativos e mesclados como não publicados na Meta', () => {
     const stats = calculateMetaCatalogStats(
       [
         {
@@ -70,6 +70,7 @@ describe('calculateMetaCatalogStats', () => {
           is_salvado: true,
           product_kind: 'salvado',
         },
+        { id: 'parent-active', deleted_at: null, active: true, status: 'published' },
       ],
       [
         {
@@ -84,13 +85,17 @@ describe('calculateMetaCatalogStats', () => {
           active: false,
           status: 'hidden',
         },
+        {
+          id: 'var-merged', product_id: 'parent-active', active: true, status: 'published',
+          merged_to_variation_id: 'target-var',
+        },
       ]
     );
 
     expect(stats).toEqual({
       publishedSimple: 0,
-      publishedVariations: 1,
-      notPublished: 1,
+      publishedVariations: 0,
+      notPublished: 3,
     });
   });
 });

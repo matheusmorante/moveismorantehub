@@ -14,33 +14,66 @@ import { buildProductMetaCatalogSyncItems } from '../../../../shared-utils/produ
 export const UUID = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
 const PAGE_SIZE = 200;
 const PRODUCT_FIELDS =
-  'id,name,description,status,active,deleted,deleted_at,opportunity_id,unit_price,price,promo_price,stock,images,brand,code,sku,is_draft,slug,is_salvado,product_kind,material,condition,observations,testArtifact:technical_specs->testArtifact,product_categories(categories(name,type)),opportunities(id,name,observations)';
+  'id,name,description,status,active,deleted,deleted_at,opportunity_id,unit_price,price,promo_price,stock,images,brand,code,is_draft,slug,is_salvado,product_kind,material,condition,observations,testArtifact:technical_specs->testArtifact,product_categories(categories(name,type)),opportunities(id,name,observations)';
 const VARIATION_FIELDS =
-  'id,product_id,status,active,name,sku,image_url,price,promo_price,stock,attributes,use_parent_price,use_parent_promo_price';
+  'id,product_id,status,active,merged_to_variation_id,name,sku,image_url,price,promo_price,stock,attributes,use_parent_price,use_parent_promo_price';
 
 interface Page<T> {
   data: T[] | null;
   error: { code?: string } | null;
+  count?: number | null;
 }
 
-async function readPage<T>(page: PromiseLike<Page<T>>, entity: string): Promise<T[]> {
-  const { data, error } = await page;
-  if (error || !Array.isArray(data)) {
-    throw new Error(`Supabase: falha ao carregar ${entity}${error?.code ? ` (${error.code})` : ''}.`);
-  }
-  return data;
+interface PageRequest<T> {
+  from: number;
+  to: number;
+  options: { count?: 'exact' };
+  previous?: T;
+}
+
+async function* completePages<T>(
+  load: (request: PageRequest<T>) => PromiseLike<Page<T>>,
+  entity: string,
+  keyOf: (row: T) => string,
+): AsyncGenerator<T[]> {
+  const seen = new Set<string>();
+  let total = 0;
+  let previous: T | undefined;
+  do {
+    const from = seen.size;
+    const { data, error, count } = await load({
+      from, to: from + PAGE_SIZE - 1, options: from ? {} : { count: 'exact' }, previous,
+    });
+    if (error || !Array.isArray(data)) {
+      throw new Error(`Supabase: falha ao carregar ${entity}${error?.code ? ` (${error.code})` : ''}.`);
+    }
+    if (from === 0) {
+      if (count == null || !Number.isSafeInteger(count) || count < 0) {
+        throw new Error(`Supabase: contagem indisponível para ${entity}.`);
+      }
+      total = count;
+    }
+    if (data.length > Math.min(PAGE_SIZE, total - from) || (!data.length && from < total)) {
+      throw new Error(`Supabase: paginação incompleta de ${entity}.`);
+    }
+    for (const row of data) {
+      const key = keyOf(row);
+      if (!key || seen.has(key)) throw new Error(`Supabase: paginação inválida de ${entity}.`);
+      seen.add(key);
+    }
+    previous = data.at(-1);
+    yield data;
+  } while (seen.size < total);
 }
 
 async function readPages<T>(
-  load: (from: number, to: number) => PromiseLike<Page<T>>,
+  load: (request: PageRequest<T>) => PromiseLike<Page<T>>,
   entity: string,
+  keyOf: (row: T) => string,
 ): Promise<T[]> {
   const result: T[] = [];
-  for (let from = 0; ; from += PAGE_SIZE) {
-    const rows = await readPage(load(from, from + PAGE_SIZE - 1), entity);
-    result.push(...rows);
-    if (rows.length < PAGE_SIZE) return result;
-  }
+  for await (const rows of completePages(load, entity, keyOf)) result.push(...rows);
+  return result;
 }
 
 type ProductCategory = NonNullable<NonNullable<MetaCatalogProductSource['product_categories']>[number]['categories']>;
@@ -53,8 +86,11 @@ interface ProductRow extends Omit<MetaCatalogProductSource, 'product_categories'
 interface CampaignRow {
   product_id: string;
   variation_id: string | null;
+  promotion_id: string;
   promotion_name: string | null;
 }
+
+type VariationRow = MetaCatalogVariationSource & { merged_to_variation_id?: string | null };
 
 export interface DesiredItem {
   productId: string;
@@ -78,36 +114,60 @@ export function loadVerifiedItems(
   catalogIds: string[],
   scope: { productId?: string; retailerIds?: string[] },
 ) {
-  return readPages<VerifiedItem>((from, to) => {
+  return readPages<VerifiedItem>(({ from, to, options }) => {
     const query = db.from('meta_catalog_verified_items')
-      .select('catalog_id,retailer_id,meta_item_id,product_id').in('catalog_id', catalogIds);
+      .select('catalog_id,retailer_id,meta_item_id,product_id', options).in('catalog_id', catalogIds);
     if (scope.productId) query.eq('product_id', scope.productId);
     if (scope.retailerIds) query.in('retailer_id', scope.retailerIds);
     return query.order('catalog_id').order('retailer_id').range(from, to);
-  }, 'vínculos legados da Meta');
+  }, 'vínculos legados da Meta', (row) => `${row.catalog_id}:${row.retailer_id}`);
 }
 
-export async function resolveErpProductIds(db: SupabaseClient, retailerIds: string[]): Promise<string[]> {
-  const uuids = retailerIds.filter((id) => UUID.test(id));
-  const [codes, skus, ids, variationIds] = await Promise.all([
-    readPage(db.from('products').select('id').in('code', retailerIds), 'códigos de produto'),
-    readPage(db.from('product_variations').select('product_id').in('sku', retailerIds), 'SKUs de variação'),
-    uuids.length ? readPage(db.from('products').select('id').in('id', uuids), 'IDs de produto') : [],
-    uuids.length ? readPage(db.from('product_variations').select('product_id').in('id', uuids), 'IDs de variação') : [],
-  ]);
-  return [...new Set([
-    ...codes.map(({ id }) => id),
-    ...ids.map(({ id }) => id),
-    ...skus.map(({ product_id }) => product_id),
-    ...variationIds.map(({ product_id }) => product_id),
-  ])];
+export async function loadRetailerOwners(db: SupabaseClient, retailerIds: string[]) {
+  const owners = new Map<string, Set<string>>();
+  function add(key: string | null | undefined, productId: string, requested: Set<string>) {
+    if (!key || !requested.has(key)) return;
+    const matches = owners.get(key) ?? new Set<string>();
+    matches.add(productId);
+    owners.set(key, matches);
+  }
+
+  // Bounded IN filters keep the PostgREST URLs small, including legacy SKUs.
+  for (let offset = 0; offset < retailerIds.length; offset += 50) {
+    const batch = retailerIds.slice(offset, offset + 50);
+    const requested = new Set(batch);
+    const uuids = batch.filter((id) => UUID.test(id));
+    const products = (column: 'code' | 'id', values: string[]) =>
+      readPages<Pick<MetaCatalogProductSource, 'id' | 'code'>>(({ from, to, options }) => db
+        .from('products').select('id,code', options).in(column, values).order('id').range(from, to),
+      'identificadores de produtos', (row) => row.id);
+    const variations = (column: 'sku' | 'id', values: string[]) =>
+      readPages<Pick<VariationRow, 'id' | 'product_id' | 'sku'>>(({ from, to, options }) => db
+        .from('product_variations').select('id,product_id,sku', options).in(column, values).order('id').range(from, to),
+      'identificadores de variações', (row) => row.id);
+    const [codes, skus, productIds, variationIds] = await Promise.all([
+      products('code', batch), variations('sku', batch),
+      uuids.length ? products('id', uuids) : [], uuids.length ? variations('id', uuids) : [],
+    ]);
+    for (const row of [...codes, ...productIds]) {
+      add(row.code, row.id, requested);
+      add(row.id, row.id, requested);
+    }
+    for (const row of [...skus, ...variationIds]) {
+      add(row.sku, row.product_id, requested);
+      add(row.id, row.product_id, requested);
+    }
+  }
+  return owners;
 }
 
 export async function loadCandidateRetailers(db: SupabaseClient, productId: string): Promise<string[]> {
   const [products, variations] = await Promise.all([
-    readPage<MetaCatalogProductSource>(db.from('products').select('id,code,sku').eq('id', productId), 'código do produto'),
-    readPages<MetaCatalogVariationSource>((from, to) => db.from('product_variations')
-      .select('id,product_id,sku').eq('product_id', productId).order('id').range(from, to), 'SKUs das variações'),
+    readPages<MetaCatalogProductSource>(({ options }) => db.from('products').select('id,code', options)
+      .eq('id', productId), 'código do produto', (row) => row.id),
+    readPages<MetaCatalogVariationSource>(({ from, to, options }) => db.from('product_variations')
+      .select('id,product_id,sku', options).eq('product_id', productId).order('id').range(from, to),
+    'SKUs das variações', (row) => row.id),
   ]);
   const product = products[0] ?? { id: productId };
   const legacyItems = buildProductMetaCatalogSyncItems({ ...product, status: 'hidden' }, variations, []);
@@ -117,7 +177,7 @@ export async function loadCandidateRetailers(db: SupabaseClient, productId: stri
 function addDesiredItems(
   desired: DesiredCatalog,
   products: ProductRow[],
-  variations: MetaCatalogVariationSource[],
+  variations: VariationRow[],
   campaignRows: CampaignRow[],
   description: string | null,
 ) {
@@ -135,7 +195,9 @@ function addDesiredItems(
     const family = variationsByProduct.get(variation.product_id) ?? [];
     family.push({
       ...variation,
-      status: isTestProduct(variation) ? 'hidden' : variation.status,
+      status: variation.active === false || variation.merged_to_variation_id || isTestProduct(variation)
+        ? 'hidden'
+        : variation.status,
       activeCampaignNames: [...(campaignNames.get(variation.id) ?? [])].sort(),
     });
     variationsByProduct.set(variation.product_id, family);
@@ -171,29 +233,32 @@ export async function loadDesiredCatalog(
   productIds?: string[],
 ): Promise<DesiredCatalog> {
   const desired: DesiredCatalog = { items: new Map(), blocked: new Map() };
-  let after: string | undefined;
-  for (;;) {
-    const query = db.from('products').select(PRODUCT_FIELDS)
+  if (productIds?.length === 0) return desired;
+  const productPages = completePages<ProductRow>(({ options, previous }) => {
+    const query = db.from('products').select(PRODUCT_FIELDS, options)
       .eq('status', 'published').is('deleted_at', null)
       .not('deleted', 'is', true).not('is_draft', 'is', true)
-      .or('active.is.null,active.eq.true,is_salvado.eq.true,product_kind.eq.salvado');
+      .not('active', 'is', false);
     if (productIds) query.in('id', productIds);
-    if (after) query.gt('id', after);
-    const page = await readPage<ProductRow>(query.order('id').limit(PAGE_SIZE), 'produtos publicados');
+    if (previous) query.gt('id', previous.id);
+    return query.order('id').limit(PAGE_SIZE);
+  }, 'produtos publicados', (row) => row.id);
+
+  for await (const page of productPages) {
     const products = page.filter((product) => !isTestProduct(product));
     if (products.length) {
       const ids = products.map(({ id }) => id);
       const [variations, campaigns] = await Promise.all([
-        readPages<MetaCatalogVariationSource>((from, to) => db.from('product_variations')
-          .select(VARIATION_FIELDS).in('product_id', ids).order('id').range(from, to), 'variações'),
-        readPages<CampaignRow>((from, to) => db.from('active_campaign_prices')
-          .select('product_id,variation_id,promotion_name')
+        readPages<VariationRow>(({ from, to, options }) => db.from('product_variations')
+          .select(VARIATION_FIELDS, options).in('product_id', ids).order('id').range(from, to),
+        'variações', (row) => row.id),
+        readPages<CampaignRow>(({ from, to, options }) => db.from('active_campaign_prices')
+          .select('product_id,variation_id,promotion_id,promotion_name', options)
           .in('product_id', ids).order('product_id').order('variation_id').order('promotion_id').range(from, to),
-        'campanhas vigentes'),
+        'campanhas vigentes', (row) => JSON.stringify([row.product_id, row.variation_id, row.promotion_id])),
       ]);
       addDesiredItems(desired, products, variations, campaigns, description);
     }
-    if (page.length < PAGE_SIZE) return desired;
-    after = page[page.length - 1].id;
   }
+  return desired;
 }

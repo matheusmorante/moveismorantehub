@@ -419,6 +419,7 @@ export const mergeVariationIntoCanonical = async (
       if (!hidden || hidden.error || row?.id !== command.sourceId || row.merged_to_variation_id !== command.targetId
         || row.active !== false || row.status !== 'hidden') throw new VariationMergeUnconfirmedError();
     }
+    if (after.source.product_id) void triggerProductMetaCatalogSync(after.source.product_id);
     check(); phase = 'a atualização da tela';
     localStorage.removeItem(LOCAL_STORAGE_KEY); notifySubscribers();
     return ack;

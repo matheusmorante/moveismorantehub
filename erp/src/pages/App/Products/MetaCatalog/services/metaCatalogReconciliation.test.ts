@@ -84,7 +84,7 @@ describe('planejamento da reconciliação do catálogo', () => {
     ]);
   });
 
-  it('remove o legado somente quando o ID interno continua sendo o que teve a origem verificada', () => {
+  it('exige vínculo pelo ID interno da Meta para legado em catálogo compartilhado', () => {
     const verified = new Map<string, VerifiedItem>([['LEGACY', {
       catalog_id: '1234', retailer_id: 'LEGACY', meta_item_id: '11', product_id: productId,
     }]]);
@@ -96,6 +96,23 @@ describe('planejamento da reconciliação do catálogo', () => {
     expect(plan.changes).toMatchObject([{ method: 'DELETE', retailer_id: 'LEGACY' }]);
 
     expect(planCatalogChanges(empty(), [{ id: '22', retailer_id: 'LEGACY' }], verified, { scope }).changes).toEqual([]);
+  });
+
+  it('remove o SKU oculto sem rótulo somente dentro do escopo do produto certo', () => {
+    const retailerOwners = new Map([
+      ['OCULTO', new Set([productId])],
+      ['OUTRO', new Set([otherProductId])],
+      ['AMBIGUO', new Set([productId, otherProductId])],
+    ]);
+    const remote = [
+      { id: '31', retailer_id: 'OCULTO' },
+      { id: '32', retailer_id: 'OUTRO', custom_label_4: marker },
+      { id: '33', retailer_id: 'AMBIGUO', custom_label_4: marker },
+    ];
+    const plan = planCatalogChanges(empty(), remote, new Map(), {
+      scope: new Set([productId]), exclusive: true, retailerOwners,
+    });
+    expect(plan.changes).toEqual([{ method: 'DELETE', retailer_id: 'OCULTO', data: { id: 'OCULTO' } }]);
   });
 });
 

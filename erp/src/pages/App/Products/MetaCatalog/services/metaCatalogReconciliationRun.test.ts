@@ -7,13 +7,17 @@ const db = vi.hoisted(() => ({
   from: vi.fn(),
 }));
 
+vi.mock('../../../../../../api/_lib/metaCatalogReconciliation/deletionHistory', () => ({
+  recordDeletionAttempts: vi.fn(async () => undefined),
+  confirmDeletionHistory: vi.fn(async () => undefined),
+}));
 vi.mock('@supabase/supabase-js', () => ({ createClient: () => db }));
 vi.mock('../../../../../../api/_lib/metaCatalogReconciliation/source', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../../../../../api/_lib/metaCatalogReconciliation/source')>()),
   loadCandidateRetailers: vi.fn(async () => []),
   loadDesiredCatalog: vi.fn(async () => ({ items: new Map(), blocked: new Map() })),
   loadVerifiedItems: vi.fn(async () => []),
-  resolveErpProductIds: vi.fn(async () => []),
+  loadRetailerOwners: vi.fn(async () => new Map()),
 }));
 
 const catalogId = '3884846918337684';
@@ -23,6 +27,7 @@ const alsoHidden = { id: '7124', retailer_id: 'OCULTO-2', custom_label_4: owners
 
 beforeEach(() => {
   vi.stubEnv('WHATSAPP_ACCESS_TOKEN', 'test-resolver-token');
+  vi.stubEnv('WHATSAPP_APP_ID', '1001');
   vi.stubEnv('SUPABASE_URL', 'https://supabase.example');
   vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', 'test-service-key');
   db.rpc.mockReset();
@@ -53,6 +58,7 @@ describe('execução da reconciliação do Catálogo Meta', () => {
     vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     db.rpc.mockResolvedValue({ data: true, error: null });
     const fetchMock = vi.fn()
+      .mockResolvedValueOnce(Response.json({ data: [{ id: '1111', name: 'App 2002' }] }))
       .mockResolvedValueOnce(Response.json({ data: [hiddenItem, alsoHidden, { id: '9', retailer_id: 'MANUAL' }] }))
       .mockResolvedValueOnce(Response.json({ handles: ['handle-unit'] }))
       .mockResolvedValueOnce(Response.json({ data: [{ handle: 'handle-unit', status: 'finished' }] }))
@@ -62,9 +68,9 @@ describe('execução da reconciliação do Catálogo Meta', () => {
     const operation = runMetaCatalogReconciliation({ trigger: 'hourly' });
     await vi.advanceTimersByTimeAsync(4_901);
     await expect(operation).resolves.toMatchObject({ success: false, count: 1, deleted: 1, errors: 1 });
-    const sent = JSON.parse(fetchMock.mock.calls[1][1].body);
+    const sent = JSON.parse(fetchMock.mock.calls[2][1].body);
     expect(sent.requests.map((request: { data: { id: string } }) => request.data.id)).toEqual(['OCULTO-1', 'OCULTO-2']);
-    expect(new URL(fetchMock.mock.calls[3][0]).searchParams.get('filter')).toBe(
+    expect(new URL(fetchMock.mock.calls[4][0]).searchParams.get('filter')).toBe(
       JSON.stringify({ retailer_id: { is_any: ['OCULTO-1', 'OCULTO-2'] } }),
     );
     expect(db.rpc).toHaveBeenLastCalledWith('finish_meta_catalog_sync', expect.objectContaining({
@@ -74,5 +80,20 @@ describe('execução da reconciliação do Catálogo Meta', () => {
         issues: [expect.objectContaining({ retailerId: 'OCULTO-2' })],
       }),
     }));
+  });
+
+  it('bloqueia o plano de exclusão em massa de um catálogo exclusivo', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    db.rpc.mockResolvedValue({ data: true, error: null });
+    const items = Array.from({ length: 12 }, (_, index) => ({ id: String(index), retailer_id: `STALE-${index}` }));
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(Response.json({ data: [{ id: '1111', name: 'App 1001' }] }))
+      .mockResolvedValueOnce(Response.json({ data: items }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(runMetaCatalogReconciliation({ trigger: 'hourly' })).resolves.toMatchObject({
+      success: false, deleted: 0, error: expect.stringContaining('Exclusão em massa bloqueada'),
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });

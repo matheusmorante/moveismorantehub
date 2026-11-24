@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({
   from: vi.fn(),
   rpc: vi.fn(),
+  sync: vi.fn(),
 }));
 
 vi.mock('../../../services/supabaseClient', () => ({
@@ -12,9 +13,11 @@ vi.mock('../../../services/supabaseClient', () => ({
   },
 }));
 
-vi.mock('../../../../../shared-utils/productText', () => ({
+vi.mock('../../../../../shared-utils/productText', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../../../shared-utils/productText')>()),
   toTitleCase: (value: string) => value,
 }));
+vi.mock('./mobileProductMetaCatalogSyncService', () => ({ triggerMobileProductMetaCatalogSync: mocks.sync }));
 
 import {
   checkMobileVariationAttributeConflict,
@@ -421,6 +424,7 @@ describe('mobileProductVariationActionsService', () => {
   });
 
   it('mescla pelo contrato transacional do ERP e retorna os fornecedores transferidos', async () => {
+    queryResult = { data: { product_id: targetParentId }, error: null };
     mocks.rpc.mockResolvedValueOnce({
       data: { transferredSupplierIds: ['supplier-1'], canonicalSupplierIds: ['supplier-1'] },
       error: null,
@@ -438,5 +442,6 @@ describe('mobileProductVariationActionsService', () => {
     });
     expect(query.update).toHaveBeenCalledWith({ active: false, status: 'hidden' });
     expect(query.eq).toHaveBeenCalledWith('id', sourceVariationId);
+    expect(mocks.sync).toHaveBeenCalledWith(targetParentId);
   });
 });

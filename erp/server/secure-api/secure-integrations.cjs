@@ -1240,6 +1240,7 @@ async function ensureWhatsAppEchoWebhookSubscription({
 
 // ../shared-utils/metaCatalogIds.ts
 var META_ADS_CREATIVE_CATALOG_ID = "3884846918337684";
+var META_WHATSAPP_CATALOG_ID = "949184464866249";
 
 // src/pages/utils/metaService/metaGraphProxyPolicy.ts
 var numericId = (value) => {
@@ -1771,7 +1772,7 @@ var buildMetaCatalogBatchPayload = (products, whatsappBaseDescription) => {
         price: `${itemPrice.toFixed(2)} BRL`,
         sale_price: hasPromo ? `${promoPrice.toFixed(2)} BRL` : void 0,
         condition,
-        availability: "in stock",
+        availability: quantityToSell > 0 ? "in stock" : "out of stock",
         image_link: mainImageUrl,
         additional_image_link: additionalImageUrls.join(",") || void 0,
         brand: product.brand || "M\xF3veis Morante",
@@ -1872,26 +1873,52 @@ function createCatalogGraph(token, signal) {
     }
     return body;
   }
-  async function readProducts(catalogId, filter, fields = PRODUCT_FIELDS) {
-    const query = new URLSearchParams({ fields, limit: "200", bulk_pagination: "true" });
-    if (filter) query.set("filter", JSON.stringify(filter));
-    const items = [];
+  async function* readEdge(path, query) {
     const cursors = /* @__PURE__ */ new Set();
     for (; ; ) {
-      const page = await request(`${catalogId}/products`, query);
-      if (!Array.isArray(page.data)) throw new Error("A Meta retornou uma p\xE1gina de produtos inv\xE1lida.");
-      for (const item of page.data) {
-        if (!item || typeof item.retailer_id !== "string" || !item.retailer_id || !/^\d+$/.test(item.id)) {
-          throw new Error("A Meta retornou um item sem identificador v\xE1lido.");
-        }
-        items.push(item);
-      }
-      if (!page.paging?.next) return items;
+      const page = await request(path, query);
+      if (!Array.isArray(page.data)) throw new Error("A Meta retornou uma p\xE1gina inv\xE1lida.");
+      yield page.data;
+      if (!page.paging?.next) return;
       const after = page.paging.cursors?.after || new URL(page.paging.next).searchParams.get("after");
       if (!after || cursors.has(after)) throw new Error("A pagina\xE7\xE3o da Meta n\xE3o avan\xE7ou.");
       cursors.add(after);
       query.set("after", after);
     }
+  }
+  async function readProducts(catalogId, filter, fields = PRODUCT_FIELDS) {
+    const query = new URLSearchParams({ fields, limit: "200", bulk_pagination: "true" });
+    if (filter) query.set("filter", JSON.stringify(filter));
+    const items = [];
+    const seen = /* @__PURE__ */ new Set();
+    for await (const page of readEdge(`${catalogId}/products`, query)) {
+      for (const entry of page) {
+        const item = entry;
+        if (!item || typeof item.retailer_id !== "string" || !item.retailer_id || typeof item.id !== "string" || !/^\d+$/.test(item.id)) {
+          throw new Error("A Meta retornou um item sem identificador v\xE1lido.");
+        }
+        if (seen.has(item.id)) throw new Error("A Meta repetiu um item na pagina\xE7\xE3o do cat\xE1logo.");
+        seen.add(item.id);
+        items.push(item);
+      }
+    }
+    return items;
+  }
+  async function isExclusiveCatalog(catalogId, appId) {
+    let exclusive = /^\d+$/.test(appId);
+    let sourceCount = 0;
+    const query = new URLSearchParams({ fields: "id,name", limit: "50" });
+    for await (const page of readEdge(`${catalogId}/data_sources`, query)) {
+      for (const entry of page) {
+        const source = entry;
+        if (!source?.id || typeof source.name !== "string") {
+          throw new Error("A Meta retornou uma fonte de dados sem identifica\xE7\xE3o.");
+        }
+        exclusive &&= source.name === `App ${appId}`;
+        sourceCount++;
+      }
+    }
+    return exclusive && sourceCount === 1;
   }
   async function readRetailers(catalogId, ids, fields) {
     const products = [];
@@ -1948,7 +1975,7 @@ function createCatalogGraph(token, signal) {
     } while (Date.now() < deadline);
     throw new Error("A Meta ainda n\xE3o confirmou o lote dentro do tempo limite.");
   }
-  return { readProducts, readRetailers, submit, sleep: (ms) => sleep(ms, signal) };
+  return { readProducts, readRetailers, isExclusiveCatalog, submit, sleep: (ms) => sleep(ms, signal) };
 }
 function failedItems(row, changes) {
   const requested = new Set(changes.map((change) => change.retailer_id));
@@ -2116,49 +2143,100 @@ function buildProductMetaCatalogSyncItems(product, variations, opportunities) {
 var UUID = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
 var PAGE_SIZE = 200;
 var PRODUCT_FIELDS2 = "id,name,description,status,active,deleted,deleted_at,opportunity_id,unit_price,price,promo_price,stock,images,brand,code,is_draft,slug,is_salvado,product_kind,material,condition,observations,testArtifact:technical_specs->testArtifact,product_categories(categories(name,type)),opportunities(id,name,observations)";
-var VARIATION_FIELDS = "id,product_id,status,active,name,sku,image_url,price,promo_price,stock,attributes,use_parent_price,use_parent_promo_price";
-async function readPage(page, entity) {
-  const { data, error } = await page;
-  if (error || !Array.isArray(data)) {
-    throw new Error(`Supabase: falha ao carregar ${entity}${error?.code ? ` (${error.code})` : ""}.`);
-  }
-  return data;
+var VARIATION_FIELDS = "id,product_id,status,active,merged_to_variation_id,name,sku,image_url,price,promo_price,stock,attributes,use_parent_price,use_parent_promo_price";
+async function* completePages(load, entity, keyOf) {
+  const seen = /* @__PURE__ */ new Set();
+  let total = 0;
+  let previous;
+  do {
+    const from = seen.size;
+    const { data, error, count } = await load({
+      from,
+      to: from + PAGE_SIZE - 1,
+      options: from ? {} : { count: "exact" },
+      previous
+    });
+    if (error || !Array.isArray(data)) {
+      throw new Error(`Supabase: falha ao carregar ${entity}${error?.code ? ` (${error.code})` : ""}.`);
+    }
+    if (from === 0) {
+      if (count == null || !Number.isSafeInteger(count) || count < 0) {
+        throw new Error(`Supabase: contagem indispon\xEDvel para ${entity}.`);
+      }
+      total = count;
+    }
+    if (data.length > Math.min(PAGE_SIZE, total - from) || !data.length && from < total) {
+      throw new Error(`Supabase: pagina\xE7\xE3o incompleta de ${entity}.`);
+    }
+    for (const row of data) {
+      const key = keyOf(row);
+      if (!key || seen.has(key)) throw new Error(`Supabase: pagina\xE7\xE3o inv\xE1lida de ${entity}.`);
+      seen.add(key);
+    }
+    previous = data.at(-1);
+    yield data;
+  } while (seen.size < total);
 }
-async function readPages(load, entity) {
+async function readPages(load, entity, keyOf) {
   const result = [];
-  for (let from = 0; ; from += PAGE_SIZE) {
-    const rows = await readPage(load(from, from + PAGE_SIZE - 1), entity);
-    result.push(...rows);
-    if (rows.length < PAGE_SIZE) return result;
-  }
+  for await (const rows of completePages(load, entity, keyOf)) result.push(...rows);
+  return result;
 }
 function loadVerifiedItems(db, catalogIds, scope) {
-  return readPages((from, to) => {
-    const query = db.from("meta_catalog_verified_items").select("catalog_id,retailer_id,meta_item_id,product_id").in("catalog_id", catalogIds);
+  return readPages(({ from, to, options }) => {
+    const query = db.from("meta_catalog_verified_items").select("catalog_id,retailer_id,meta_item_id,product_id", options).in("catalog_id", catalogIds);
     if (scope.productId) query.eq("product_id", scope.productId);
     if (scope.retailerIds) query.in("retailer_id", scope.retailerIds);
     return query.order("catalog_id").order("retailer_id").range(from, to);
-  }, "v\xEDnculos legados da Meta");
+  }, "v\xEDnculos legados da Meta", (row) => `${row.catalog_id}:${row.retailer_id}`);
 }
-async function resolveErpProductIds(db, retailerIds) {
-  const uuids = retailerIds.filter((id) => UUID.test(id));
-  const [codes, skus, ids, variationIds] = await Promise.all([
-    readPage(db.from("products").select("id").in("code", retailerIds), "c\xF3digos de produto"),
-    readPage(db.from("product_variations").select("product_id").in("sku", retailerIds), "SKUs de varia\xE7\xE3o"),
-    uuids.length ? readPage(db.from("products").select("id").in("id", uuids), "IDs de produto") : [],
-    uuids.length ? readPage(db.from("product_variations").select("product_id").in("id", uuids), "IDs de varia\xE7\xE3o") : []
-  ]);
-  return [.../* @__PURE__ */ new Set([
-    ...codes.map(({ id }) => id),
-    ...ids.map(({ id }) => id),
-    ...skus.map(({ product_id }) => product_id),
-    ...variationIds.map(({ product_id }) => product_id)
-  ])];
+async function loadRetailerOwners(db, retailerIds) {
+  const owners = /* @__PURE__ */ new Map();
+  function add(key, productId, requested) {
+    if (!key || !requested.has(key)) return;
+    const matches = owners.get(key) ?? /* @__PURE__ */ new Set();
+    matches.add(productId);
+    owners.set(key, matches);
+  }
+  for (let offset = 0; offset < retailerIds.length; offset += 50) {
+    const batch = retailerIds.slice(offset, offset + 50);
+    const requested = new Set(batch);
+    const uuids = batch.filter((id) => UUID.test(id));
+    const products = (column, values) => readPages(
+      ({ from, to, options }) => db.from("products").select("id,code", options).in(column, values).order("id").range(from, to),
+      "identificadores de produtos",
+      (row) => row.id
+    );
+    const variations = (column, values) => readPages(
+      ({ from, to, options }) => db.from("product_variations").select("id,product_id,sku", options).in(column, values).order("id").range(from, to),
+      "identificadores de varia\xE7\xF5es",
+      (row) => row.id
+    );
+    const [codes, skus, productIds, variationIds] = await Promise.all([
+      products("code", batch),
+      variations("sku", batch),
+      uuids.length ? products("id", uuids) : [],
+      uuids.length ? variations("id", uuids) : []
+    ]);
+    for (const row of [...codes, ...productIds]) {
+      add(row.code, row.id, requested);
+      add(row.id, row.id, requested);
+    }
+    for (const row of [...skus, ...variationIds]) {
+      add(row.sku, row.product_id, requested);
+      add(row.id, row.product_id, requested);
+    }
+  }
+  return owners;
 }
 async function loadCandidateRetailers(db, productId) {
   const [products, variations] = await Promise.all([
-    readPage(db.from("products").select("id,code").eq("id", productId), "c\xF3digo do produto"),
-    readPages((from, to) => db.from("product_variations").select("id,product_id,sku").eq("product_id", productId).order("id").range(from, to), "SKUs das varia\xE7\xF5es")
+    readPages(({ options }) => db.from("products").select("id,code", options).eq("id", productId), "c\xF3digo do produto", (row) => row.id),
+    readPages(
+      ({ from, to, options }) => db.from("product_variations").select("id,product_id,sku", options).eq("product_id", productId).order("id").range(from, to),
+      "SKUs das varia\xE7\xF5es",
+      (row) => row.id
+    )
   ]);
   const product = products[0] ?? { id: productId };
   const legacyItems = buildProductMetaCatalogSyncItems({ ...product, status: "hidden" }, variations, []);
@@ -2179,7 +2257,7 @@ function addDesiredItems(desired, products, variations, campaignRows, descriptio
     const family = variationsByProduct.get(variation.product_id) ?? [];
     family.push({
       ...variation,
-      status: isTestProduct(variation) ? "hidden" : variation.status,
+      status: variation.active === false || variation.merged_to_variation_id || isTestProduct(variation) ? "hidden" : variation.status,
       activeCampaignNames: [...campaignNames.get(variation.id) ?? []].sort()
     });
     variationsByProduct.set(variation.product_id, family);
@@ -2209,27 +2287,33 @@ function addDesiredItems(desired, products, variations, campaignRows, descriptio
 }
 async function loadDesiredCatalog(db, description, productIds) {
   const desired = { items: /* @__PURE__ */ new Map(), blocked: /* @__PURE__ */ new Map() };
-  let after;
-  for (; ; ) {
-    const query = db.from("products").select(PRODUCT_FIELDS2).eq("status", "published").is("deleted_at", null).not("deleted", "is", true).not("is_draft", "is", true).or("active.is.null,active.eq.true,is_salvado.eq.true,product_kind.eq.salvado");
+  if (productIds?.length === 0) return desired;
+  const productPages = completePages(({ options, previous }) => {
+    const query = db.from("products").select(PRODUCT_FIELDS2, options).eq("status", "published").is("deleted_at", null).not("deleted", "is", true).not("is_draft", "is", true).not("active", "is", false);
     if (productIds) query.in("id", productIds);
-    if (after) query.gt("id", after);
-    const page = await readPage(query.order("id").limit(PAGE_SIZE), "produtos publicados");
+    if (previous) query.gt("id", previous.id);
+    return query.order("id").limit(PAGE_SIZE);
+  }, "produtos publicados", (row) => row.id);
+  for await (const page of productPages) {
     const products = page.filter((product) => !isTestProduct(product));
     if (products.length) {
       const ids = products.map(({ id }) => id);
       const [variations, campaigns] = await Promise.all([
-        readPages((from, to) => db.from("product_variations").select(VARIATION_FIELDS).in("product_id", ids).order("id").range(from, to), "varia\xE7\xF5es"),
         readPages(
-          (from, to) => db.from("active_campaign_prices").select("product_id,variation_id,promotion_name").in("product_id", ids).order("product_id").order("variation_id").order("promotion_id").range(from, to),
-          "campanhas vigentes"
+          ({ from, to, options }) => db.from("product_variations").select(VARIATION_FIELDS, options).in("product_id", ids).order("id").range(from, to),
+          "varia\xE7\xF5es",
+          (row) => row.id
+        ),
+        readPages(
+          ({ from, to, options }) => db.from("active_campaign_prices").select("product_id,variation_id,promotion_id,promotion_name", options).in("product_id", ids).order("product_id").order("variation_id").order("promotion_id").range(from, to),
+          "campanhas vigentes",
+          (row) => JSON.stringify([row.product_id, row.variation_id, row.promotion_id])
         )
       ]);
       addDesiredItems(desired, products, variations, campaigns, description);
     }
-    if (page.length < PAGE_SIZE) return desired;
-    after = page[page.length - 1].id;
   }
+  return desired;
 }
 
 // api/_lib/metaCatalogReconciliation/plan.ts
@@ -2307,7 +2391,7 @@ function withOwnership(data, productId) {
     custom_number_4: campaignRevision
   };
 }
-function planCatalogChanges(desired, remote, verified, { scope, completeSnapshot = false } = {}) {
+function planCatalogChanges(desired, remote, verified, { scope, completeSnapshot = false, exclusive = false, retailerOwners, explicitRetailers } = {}) {
   const result = { changes: [], errors: new Map(desired.blocked), unchanged: 0 };
   const current = /* @__PURE__ */ new Map();
   for (const item of remote) {
@@ -2318,13 +2402,18 @@ function planCatalogChanges(desired, remote, verified, { scope, completeSnapshot
     current.set(item.retailer_id, item);
   }
   for (const [retailerId, { productId, request }] of desired.items) {
-    if (result.errors.has(retailerId)) continue;
+    if (result.errors.has(retailerId) || scope && !scope.has(productId)) continue;
     const item = current.get(retailerId);
     const owner = item ? ownerOf(item, verified) : void 0;
+    const matches = retailerOwners?.get(retailerId);
+    const uniqueMatch = matches?.size === 1 && matches.has(productId);
+    const ambiguous = matches && !uniqueMatch;
     const data = withOwnership(request.data, productId);
-    if (!item) {
+    if (ambiguous) {
+      result.errors.set(retailerId, "Identificador compartilhado por mais de um cadastro do ERP.");
+    } else if (!item) {
       result.changes.push({ method: "CREATE", retailer_id: retailerId, data });
-    } else if (!owner || owner !== productId && !completeSnapshot) {
+    } else if (!(exclusive && (completeSnapshot || uniqueMatch || !owner)) && (!owner || owner !== productId && !completeSnapshot)) {
       result.errors.set(retailerId, "Identificador ocupado por um item cuja origem no ERP n\xE3o foi comprovada.");
     } else if (matchesMetaProduct(data, item)) {
       result.unchanged++;
@@ -2336,13 +2425,39 @@ function planCatalogChanges(desired, remote, verified, { scope, completeSnapshot
   for (const [retailerId, item] of current) {
     if (desired.items.has(retailerId) || result.errors.has(retailerId)) continue;
     const owner = ownerOf(item, verified);
-    if (!owner || scope && !scope.has(owner)) continue;
-    result.changes.push({ method: "DELETE", retailer_id: retailerId, data: { id: retailerId } });
+    const matches = retailerOwners?.get(retailerId);
+    const uniqueMatch = matches?.size === 1 && (!scope || [...matches].some((id) => scope.has(id)));
+    const knownOwner = Boolean(owner && (!scope || scope.has(owner)) && (!matches || uniqueMatch));
+    if (exclusive && (completeSnapshot || uniqueMatch) || knownOwner) {
+      result.changes.push({ method: "DELETE", retailer_id: retailerId, data: { id: retailerId } });
+    } else if (explicitRetailers?.has(retailerId)) {
+      result.errors.set(retailerId, exclusive ? "O SKU n\xE3o p\xF4de ser associado ao cadastro nesta sincroniza\xE7\xE3o pontual." : "Item presente na Meta com origem n\xE3o comprovada.");
+    }
   }
   return result;
 }
 
+// api/_lib/metaCatalogReconciliation/deletionHistory.ts
+async function recordDeletionAttempts(db, { runId, catalogId, retailerIds, trigger }) {
+  const { error } = await db.from("meta_catalog_sync_deletions").insert(retailerIds.map((retailerId) => ({
+    run_id: runId,
+    catalog_id: catalogId,
+    retailer_id: retailerId,
+    trigger
+  })));
+  if (error) throw new Error("O hist\xF3rico de exclus\xF5es n\xE3o p\xF4de ser registrado no Supabase.");
+}
+async function confirmDeletionHistory(db, { runId, catalogId, retailerIds }) {
+  const { error, count } = await db.from("meta_catalog_sync_deletions").update({ confirmed_at: (/* @__PURE__ */ new Date()).toISOString() }, { count: "exact" }).eq("run_id", runId).eq("catalog_id", catalogId).in("retailer_id", retailerIds);
+  if (error || count !== retailerIds.length) {
+    throw new Error("A Meta confirmou a exclus\xE3o, mas o hist\xF3rico ainda n\xE3o p\xF4de ser atualizado.");
+  }
+}
+
 // api/_lib/metaCatalogReconciliation/run.ts
+var MAX_CATALOG_DELETIONS = 50;
+var MIN_DELETIONS_FOR_RATIO_GUARD = 10;
+var MAX_CATALOG_DELETION_SHARE = 0.25;
 var MetaCatalogSyncBusy = class extends Error {
 };
 function serviceDb(signal) {
@@ -2365,7 +2480,9 @@ async function catalogConfig(db) {
   const { data, error } = await db.from("settings").select("catalogId:data->whatsappConfig->>catalogId,description:data->channelBaseDescriptions->>whatsapp").eq("id", "app").maybeSingle();
   if (error || !data) throw new Error("N\xE3o foi poss\xEDvel ler a configura\xE7\xE3o do Cat\xE1logo Meta.");
   const whatsappId = typeof data.catalogId === "string" ? data.catalogId.trim() : "";
-  if (!whatsappId || !/^\d{1,32}$/.test(whatsappId)) throw new Error("Cat\xE1logo do WhatsApp n\xE3o configurado.");
+  if (![META_WHATSAPP_CATALOG_ID, META_ADS_CREATIVE_CATALOG_ID].includes(whatsappId)) {
+    throw new Error("O Cat\xE1logo do WhatsApp precisa estar entre os destinos gerenciados pelo ERP.");
+  }
   const catalogs = [{ id: whatsappId, target: "whatsapp" }];
   if (whatsappId !== META_ADS_CREATIVE_CATALOG_ID) {
     catalogs.push({ id: META_ADS_CREATIVE_CATALOG_ID, target: "ads" });
@@ -2374,7 +2491,7 @@ async function catalogConfig(db) {
 }
 async function verifyDeletions(graph, catalog, retailerIds) {
   let remaining = retailerIds;
-  for (const delay of [0, 700, 1400]) {
+  for (const delay of [0, 700, 1400, 2800]) {
     if (!remaining.length) break;
     if (delay) await graph.sleep(delay);
     const products = await graph.readRetailers(catalog.id, remaining, "id,retailer_id");
@@ -2422,25 +2539,56 @@ async function runMetaCatalogReconciliation(scope) {
   }
   async function applyChanges(catalog, changes) {
     for (let offset = 0; offset < changes.length; offset += META_CATALOG_BATCH_LIMIT) {
-      const batch = changes.slice(offset, offset + META_CATALOG_BATCH_LIMIT);
+      let batch = changes.slice(offset, offset + META_CATALOG_BATCH_LIMIT);
+      let retailerIds = batch.filter(({ method }) => method === "DELETE").map(({ retailer_id }) => retailer_id);
+      if (retailerIds.length) {
+        try {
+          await recordDeletionAttempts(db, {
+            runId: leaseToken,
+            catalogId: catalog.id,
+            retailerIds,
+            trigger: scope.trigger
+          });
+        } catch (error) {
+          for (const id of retailerIds) recordIssue(safeReason(error), catalog.target, id);
+          batch = batch.filter(({ method }) => method !== "DELETE");
+          retailerIds = [];
+        }
+      }
+      if (!batch.length) continue;
       let failures;
+      let unconfirmed = false;
       try {
         signal.throwIfAborted();
         failures = await graph.submit(catalog.id, batch);
       } catch (error) {
-        retainLease ||= error instanceof GraphBatchUnconfirmed;
-        for (const change of batch) recordIssue(safeReason(error), catalog.target, change.retailer_id);
-        continue;
+        unconfirmed = error instanceof GraphBatchUnconfirmed;
+        failures = new Map(batch.map(({ retailer_id }) => [retailer_id, safeReason(error)]));
       }
-      const deletes = batch.filter((item) => item.method === "DELETE" && !failures.has(item.retailer_id));
-      if (deletes.length) {
+      if (retailerIds.length) {
+        let confirmed = [];
         try {
-          const remaining = await verifyDeletions(graph, catalog, deletes.map((item) => item.retailer_id));
-          for (const retailerId of remaining) failures.set(retailerId, "A exclus\xE3o ainda n\xE3o foi confirmada na Meta para este SKU.");
+          const remaining = await verifyDeletions(graph, catalog, retailerIds);
+          confirmed = retailerIds.filter((id) => !remaining.has(id));
+          for (const id of confirmed) failures.delete(id);
+          for (const id of remaining) {
+            if (!failures.has(id)) failures.set(id, "A exclus\xE3o ainda n\xE3o foi confirmada na Meta para este SKU.");
+          }
         } catch (error) {
-          for (const item of deletes) failures.set(item.retailer_id, `Exclus\xE3o n\xE3o confirmada. ${safeReason(error)}`);
+          for (const id of retailerIds) {
+            const batchFailure = failures.get(id);
+            failures.set(id, batchFailure ? `${batchFailure} A consulta de confirma\xE7\xE3o tamb\xE9m falhou: ${safeReason(error)}` : `Exclus\xE3o n\xE3o confirmada. ${safeReason(error)}`);
+          }
+        }
+        if (confirmed.length) {
+          try {
+            await confirmDeletionHistory(db, { runId: leaseToken, catalogId: catalog.id, retailerIds: confirmed });
+          } catch (error) {
+            for (const id of confirmed) recordIssue(safeReason(error), catalog.target, id);
+          }
         }
       }
+      retainLease ||= unconfirmed && failures.size > 0;
       for (const change of batch) {
         const failure = failures.get(change.retailer_id);
         if (failure) recordIssue(failure, catalog.target, change.retailer_id);
@@ -2455,16 +2603,40 @@ async function runMetaCatalogReconciliation(scope) {
     const { catalogs, description } = await catalogConfig(db);
     const requested = scope.trigger === "legacy" ? new Map(scope.requests.map((request) => [request.retailer_id, request.method])) : void 0;
     const productId = scope.trigger === "product" ? scope.productId : void 0;
-    const productIds = productId ? [productId] : requested ? await resolveErpProductIds(db, [...requested.keys()]) : void 0;
-    const [desired, verified, candidates] = await Promise.all([
-      loadDesiredCatalog(db, description, productIds),
-      // Older clients can send the SKU of an already purged ERP entry.
-      loadVerifiedItems(db, catalogs.map(({ id }) => id), {
-        productId,
-        retailerIds: requested ? [...requested.keys()] : void 0
-      }),
-      productId ? loadCandidateRetailers(db, productId) : []
+    const appId = process.env.WHATSAPP_APP_ID?.trim() ?? "";
+    const [completeDesired, candidates, destinations] = await Promise.all([
+      full ? loadDesiredCatalog(db, description) : null,
+      productId ? loadCandidateRetailers(db, productId) : [],
+      Promise.all(catalogs.map(async (catalog) => ({
+        catalog,
+        exclusive: await graph.isExclusiveCatalog(catalog.id, appId)
+      })))
     ]);
+    const retailerIds = requested ? [...requested.keys()] : candidates;
+    const verified = !full || destinations.some(({ exclusive }) => !exclusive) ? await loadVerifiedItems(db, catalogs.map(({ id }) => id), {
+      productId,
+      retailerIds: requested ? retailerIds : void 0
+    }) : [];
+    const snapshots = await Promise.all(destinations.map(async ({ catalog, exclusive }) => {
+      const trusted = new Map(verified.filter((item) => item.catalog_id === catalog.id).map((item) => [item.retailer_id, item]));
+      const remote = full ? await graph.readProducts(catalog.id) : await readScope(graph, catalog, trusted, retailerIds, productId);
+      return { catalog, exclusive, trusted, remote };
+    }));
+    const retailerOwners = full ? void 0 : await loadRetailerOwners(db, [.../* @__PURE__ */ new Set([
+      ...retailerIds,
+      ...snapshots.flatMap(({ remote }) => remote.map((item) => item.retailer_id))
+    ])]);
+    const scopedProductIds = new Set(productId ? [productId] : []);
+    if (retailerOwners) for (const owners of retailerOwners.values()) {
+      for (const id of owners) scopedProductIds.add(id);
+    }
+    if (requested) for (const { remote, trusted } of snapshots) {
+      for (const item of remote) {
+        const id = ownerOf(item, trusted);
+        if (id) scopedProductIds.add(id);
+      }
+    }
+    const desired = completeDesired ?? await loadDesiredCatalog(db, description, [...scopedProductIds]);
     if (requested) {
       for (const retailerId of desired.items.keys()) {
         const method = requested.get(retailerId);
@@ -2482,24 +2654,24 @@ async function runMetaCatalogReconciliation(scope) {
         }
       }
     }
-    const retailerIds = requested ? [...requested.keys()] : [.../* @__PURE__ */ new Set([...desired.items.keys(), ...candidates])];
-    await Promise.all(catalogs.map(async (catalog) => {
+    const plans = snapshots.map(({ catalog, exclusive, trusted, remote }) => {
+      const plan = planCatalogChanges(desired, remote, trusted, {
+        scope: productId ? /* @__PURE__ */ new Set([productId]) : void 0,
+        completeSnapshot: full,
+        exclusive,
+        retailerOwners,
+        explicitRetailers: full ? void 0 : new Set(retailerIds)
+      });
+      const deleteCount = plan.changes.filter(({ method }) => method === "DELETE").length;
+      const exceedsShare = full && deleteCount >= MIN_DELETIONS_FOR_RATIO_GUARD && deleteCount > remote.length * MAX_CATALOG_DELETION_SHARE;
+      if (deleteCount > MAX_CATALOG_DELETIONS || exceedsShare) {
+        recordIssue(`Exclus\xE3o em massa bloqueada. A execu\xE7\xE3o planejou remover ${deleteCount} de ${remote.length} itens consultados.`, catalog.target);
+        plan.changes = plan.changes.filter(({ method }) => method !== "DELETE");
+      }
+      return { catalog, plan };
+    });
+    await Promise.all(plans.map(async ({ catalog, plan }) => {
       try {
-        const trusted = new Map(verified.filter((item) => item.catalog_id === catalog.id).map((item) => [item.retailer_id, item]));
-        const remote = full ? await graph.readProducts(catalog.id) : await readScope(graph, catalog, trusted, retailerIds, productId);
-        const plan = planCatalogChanges(desired, remote, trusted, {
-          scope: productId ? /* @__PURE__ */ new Set([productId]) : void 0,
-          completeSnapshot: full
-        });
-        if (productId || requested) {
-          const explicit = new Set(retailerIds);
-          for (const item of remote) {
-            const owner = ownerOf(item, trusted);
-            if (explicit.has(item.retailer_id) && (!owner || productId && owner !== productId) && !plan.errors.has(item.retailer_id)) {
-              plan.errors.set(item.retailer_id, "Item presente na Meta com origem n\xE3o comprovada.");
-            }
-          }
-        }
         counters.unchanged += plan.unchanged;
         for (const [retailerId, reason] of plan.errors) recordIssue(reason, catalog.target, retailerId);
         await applyChanges(catalog, plan.changes);

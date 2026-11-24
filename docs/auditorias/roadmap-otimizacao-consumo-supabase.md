@@ -1,3 +1,17 @@
+## 24/11/2026 — falha 42703 na reconciliação do Catálogo Meta
+
+**Sintoma.** A sincronização pelo ERP retornou HTTP 502 em `/api/meta-graph` e informou falha ao carregar produtos publicados (`42703`).
+
+**Causa raiz comprovada.** Os logs do Postgres no projeto operacional `hkoxhourxwlddgsfdgws`, em 24/11, registraram `column products.sku does not exist`. A consulta selecionava `sku` da tabela `products`, coluna que também não aparece na leitura remota de `information_schema.columns`. O campo foi introduzido nas projeções pelo commit `894f205f`; o SKU permanece disponível em `product_variations`.
+
+**Solução.** Removi `sku` das duas projeções da tabela `products` em `erp/api/_lib/metaCatalogReconciliation/source.ts`. A consulta de variações continua selecionando seu campo `sku`. O identificador do produto pai continua usando `code` e o fallback pelo ID, conforme `shared-utils/productMetaCatalogSyncItems.ts`.
+
+**Arquivos e validação.** Foram alterados `erp/api/_lib/metaCatalogReconciliation/source.ts` (linhas 17 e 108) e este registro. Logs remotos, colunas de `public.products` e histórico de migrations foram consultados. Não foi necessária alteração no banco. A execução manual pela pilha local em 24/11, 09:31:46–09:32:05 BRT, não reproduziu o `42703` e terminou com 404 pendências, 4 itens inalterados e zero criações, atualizações ou exclusões confirmadas. A execução seguinte, 09:38:46–09:39:03 BRT, terminou com 401 pendências, 7 itens inalterados e zero alterações confirmadas. A amostra de motivos persistida indica itens da Meta cuja origem no ERP não foi comprovada, e `meta_catalog_verified_items` continua sem vínculos verificados. A trava permaneceu até 09:44:45 BRT, impedindo novas execuções durante a janela de reconciliação. Não executei suítes de teste, build do ERP nem publicação.
+
+**Complemento executado em 24/11.** A reconciliação completa de catálogos exclusivos deixa de ler a tabela de vínculos legados. A primeira página de cada consulta pede contagem exata junto dos registros para proteger exclusões contra leituras incompletas. A execução pontual resolve os identificadores em lotes com projeções reduzidas. O histórico registra e confirma cada lote de exclusão com até duas escritas sem retornar as linhas. A RPC do painel continua retornando uma linha para o ERP e o app. O trabalho de contagem no banco e os bytes faturáveis não foram medidos. A regra e a confirmação operacional estão em [Reconciliação do Catálogo Meta](../integracoes/catalogo-meta-reconciliacao.md).
+
+---
+
 ## 23/11/2026 — SCE-351 — cargas de características na tela de Produtos
 
 **Estado e decisão.** Opção A aceita pelo operador e executada no checkout local em 23/11. Este registro retoma o AUD-06 e os trechos de EGR-016 usados na identificação da variação. SCE-008 reaproveita a carga do editor do app ao trocar categoria. SCE-312 filtra opções inativas no app.

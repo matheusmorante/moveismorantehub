@@ -4,12 +4,11 @@ O ERP é a origem dos dados de publicação. A alteração de produto ou variaç
 
 ## Operações no catálogo
 
-- A rotina usa o SKU canônico como `retailer_id` e compara os campos do ERP com os retornados pela Graph API, incluindo preços, disponibilidade, estoque, mídia e rótulos. Mantém a elegibilidade já usada pelo catálogo, inclusive para salvados publicados.
-- Um SKU ausente é criado. A divergência em um item gerenciado gera atualização. Um item gerenciado cujo produto ou variação saiu da publicação gera `DELETE` via `items_batch`. Ocultar mantém o cadastro no ERP. Um lote só conta a remoção depois que a consulta à Meta deixa de retornar o SKU.
-- `custom_label_4` identifica os itens gerenciados pelo ERP e `custom_number_4` registra a versão dos rótulos de campanha enviados, pois a Graph API não oferece a leitura de `internal_label` no objeto de produto. Um cadastro existente com SKU coincidente e sem origem comprovada gera pendência. Itens de outras origens são preservados.
-- A conferência completa corrige o vínculo de um SKU gerenciado que passou para outro produto do ERP. O envio pontual do novo produto registra uma pendência quando o catálogo ainda associa o SKU ao produto de origem.
-- Para reconhecer um legado, confirme a origem do item no Commerce Manager ou em um registro de envio da integração, além do catálogo, do `retailer_id`, do ID interno da Meta e do produto do ERP. A tabela de serviço `meta_catalog_verified_items` registra a evidência. Ela começa vazia. Um SKU ou URL de destino coincidente não comprova a origem de um item.
-- Os lotes têm até 50 alterações. As falhas são identificadas por catálogo e SKU quando a resposta permite. A rotina registra a pendência e prossegue com os demais lotes. A próxima execução consulta novamente a Meta antes de decidir o que enviar.
+- A rotina usa o SKU canônico como `retailer_id`. Cria ou atualiza produtos e variações publicados e ativos. Estoque numérico zero gera `out of stock`. Estoque nulo mantém o tratamento existente para itens sem controle numérico, como os salvados. Produto ou variação ocultos, inativos ou mesclados saem da publicação na Meta via `items_batch`.
+- O servidor aceita apenas o Catálogo do site/WhatsApp (`949184464866249`) e o Catálogo de Criativos (`3884846918337684`). Consulta as fontes dos destinos na Graph API em cada execução. Nos catálogos exclusivos do aplicativo do ERP, o estado do ERP basta para atualizar e excluir itens legados. A sincronização pontual limita a exclusão sem vínculo histórico aos SKUs associados ao cadastro consultado. A sincronização completa também exclui SKUs ausentes da publicação no ERP.
+- Se houver outra fonte de dados no catálogo, o servidor aplica a proteção de propriedade por `custom_label_4` ou pelo vínculo com o ID interno na tabela `meta_catalog_verified_items`. A tabela e o rótulo também servem para localizar itens com SKUs antigos. `custom_number_4` registra a versão dos rótulos de campanha enviados.
+- A reconciliação só monta os lotes após concluir as leituras. As consultas Supabase conferem a contagem exata da primeira página e a progressão das páginas restantes. Campos inválidos de um produto publicado geram uma pendência para seu SKU. Por catálogo, o servidor bloqueia um plano com mais de 50 exclusões, ou com pelo menos 10 exclusões que superam 25% de um catálogo lido por inteiro.
+- Os lotes têm até 50 alterações. Antes de enviar exclusões, o servidor registra a tentativa em `meta_catalog_sync_deletions`, com execução, catálogo, SKU e gatilho. Após a consulta por SKU confirmar a ausência, registra `confirmed_at` e conta a remoção. Tentativas sem confirmação continuam no histórico com `confirmed_at` vazio. O painel do ERP e do app usa a mesma regra de atividade para contar os itens publicáveis.
 
 ## Acompanhamento e ativação
 
@@ -32,3 +31,13 @@ Passaram 130 testes das suítes de catálogo, serviços e API e 12 testes dos fl
 ## Correção da falha de build em 23/11/2026
 
 A configuração anterior usava Vercel Cron com `0 * * * *`, frequência que o plano Hobby rejeita por exceder uma execução diária. O cron legado foi substituído pelo Vercel Schedules em `erp/vercel.json`, com o mesmo horário nominal, rota `GET` e autenticação por `CRON_SECRET`. Foi criado um novo `CRON_SECRET` como variável sensível somente no ambiente de produção da Vercel. A execução em produção depende do próximo deploy bem-sucedido; ainda é necessário confirmar no painel de Schedules a próxima execução e o registro de uma execução concluída. No Hobby, o horário pode atrasar até 15 minutos.
+
+## Remoção de legados em 24/11/2026
+
+A Graph API mostrou o Sidney Branco (`000212-04`) publicado nos dois destinos e oculto no ERP. Cada catálogo tinha como única fonte o aplicativo Meta utilizado pelo ERP. A regra anterior exigia um vínculo individual e deixava esse item no catálogo. O servidor passou a decidir pelo estado do ERP nos destinos exclusivos. A mesclagem de variações solicita reconciliação pontual no ERP e no app.
+
+A migration `20261124134554` foi aplicada no Supabase operacional. O histórico tem RLS e escrita restrita ao serviço. A RPC de resumo conserva o contrato e as permissões de leitura e conta a elegibilidade por atividade e mesclagem para os dois clientes.
+
+A reconciliação manual iniciada às 10:46:23 BRT registrou 46 exclusões confirmadas em cada catálogo. O histórico confirmou o Sidney às 10:47:27 no Catálogo de Criativos e às 10:47:30 no Catálogo do site/WhatsApp. Uma consulta posterior por `retailer_id` retornou o SKU ausente nos dois destinos. O mesmo processamento registrou 282 itens sem confirmação do lote no prazo e manteve a trava até a expiração prevista.
+
+Uma leitura posterior da Meta encontrou 166 itens em cada catálogo. Todos tinham o rótulo do ERP e 150 por destino estavam com `out of stock`. Os testes Vitest passaram para o Catálogo Meta, a sincronização de produto e o disparo após mesclagem no ERP e no app. As alterações do backend estão disponíveis na pilha de desenvolvimento. O agendamento de produção depende da publicação do backend atualizado.

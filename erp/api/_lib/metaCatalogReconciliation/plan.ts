@@ -97,11 +97,19 @@ interface ChangePlan {
   unchanged: number;
 }
 
+interface PlanOptions {
+  scope?: ReadonlySet<string>;
+  completeSnapshot?: boolean;
+  exclusive?: boolean;
+  retailerOwners?: ReadonlyMap<string, ReadonlySet<string>>;
+  explicitRetailers?: ReadonlySet<string>;
+}
+
 export function planCatalogChanges(
   desired: DesiredCatalog,
   remote: MetaProduct[],
   verified: ReadonlyMap<string, VerifiedItem>,
-  { scope, completeSnapshot = false }: { scope?: ReadonlySet<string>; completeSnapshot?: boolean } = {},
+  { scope, completeSnapshot = false, exclusive = false, retailerOwners, explicitRetailers }: PlanOptions = {},
 ): ChangePlan {
   const result: ChangePlan = { changes: [], errors: new Map(desired.blocked), unchanged: 0 };
   const current = new Map<string, MetaProduct>();
@@ -114,13 +122,19 @@ export function planCatalogChanges(
   }
 
   for (const [retailerId, { productId, request }] of desired.items) {
-    if (result.errors.has(retailerId)) continue;
+    if (result.errors.has(retailerId) || (scope && !scope.has(productId))) continue;
     const item = current.get(retailerId);
     const owner = item ? ownerOf(item, verified) : undefined;
+    const matches = retailerOwners?.get(retailerId);
+    const uniqueMatch = matches?.size === 1 && matches.has(productId);
+    const ambiguous = matches && !uniqueMatch;
     const data = withOwnership(request.data, productId);
-    if (!item) {
+    if (ambiguous) {
+      result.errors.set(retailerId, 'Identificador compartilhado por mais de um cadastro do ERP.');
+    } else if (!item) {
       result.changes.push({ method: 'CREATE', retailer_id: retailerId, data });
-    } else if (!owner || (owner !== productId && !completeSnapshot)) {
+    } else if (!(exclusive && (completeSnapshot || uniqueMatch || !owner))
+      && (!owner || (owner !== productId && !completeSnapshot))) {
       result.errors.set(retailerId, 'Identificador ocupado por um item cuja origem no ERP não foi comprovada.');
     } else if (matchesMetaProduct(data, item)) {
       result.unchanged++;
@@ -133,8 +147,16 @@ export function planCatalogChanges(
   for (const [retailerId, item] of current) {
     if (desired.items.has(retailerId) || result.errors.has(retailerId)) continue;
     const owner = ownerOf(item, verified);
-    if (!owner || (scope && !scope.has(owner))) continue;
-    result.changes.push({ method: 'DELETE', retailer_id: retailerId, data: { id: retailerId } });
+    const matches = retailerOwners?.get(retailerId);
+    const uniqueMatch = matches?.size === 1 && (!scope || [...matches].some((id) => scope.has(id)));
+    const knownOwner = Boolean(owner && (!scope || scope.has(owner)) && (!matches || uniqueMatch));
+    if ((exclusive && (completeSnapshot || uniqueMatch)) || knownOwner) {
+      result.changes.push({ method: 'DELETE', retailer_id: retailerId, data: { id: retailerId } });
+    } else if (explicitRetailers?.has(retailerId)) {
+      result.errors.set(retailerId, exclusive
+        ? 'O SKU não pôde ser associado ao cadastro nesta sincronização pontual.'
+        : 'Item presente na Meta com origem não comprovada.');
+    }
   }
   return result;
 }

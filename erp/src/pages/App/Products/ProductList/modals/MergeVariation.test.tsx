@@ -10,7 +10,7 @@ import { toast } from 'react-toastify';
 
 type Query = { table: string; columns: string; filters: Record<string, unknown>; payload?: unknown; ors: { value: string; scope?: unknown }[] };
 type Response = { data: unknown; error: unknown; status?: number };
-const transport = vi.hoisted(() => ({ read: vi.fn<(query: Query) => unknown>(), write: vi.fn<(query: Query) => unknown>(), rpc: vi.fn(), merge: vi.fn(), notify: vi.fn() }));
+const transport = vi.hoisted(() => ({ read: vi.fn<(query: Query) => unknown>(), write: vi.fn<(query: Query) => unknown>(), rpc: vi.fn(), merge: vi.fn(), notify: vi.fn(), sync: vi.fn() }));
 vi.mock('@/pages/utils/supabaseConfig', () => ({ supabase: {
   from: (table: string) => {
     const request: Query = { table, columns: '', filters: {}, ors: [] }; let writing = false;
@@ -26,6 +26,7 @@ vi.mock('@/pages/utils/supabaseConfig', () => ({ supabase: {
 } }));
 vi.mock('@/pages/utils/productService', () => ({ mergeVariationIntoCanonical: transport.merge }));
 vi.mock('@/pages/utils/productService/productMutationService', () => ({ updateProduct: vi.fn() }));
+vi.mock('@/pages/utils/productService/productMetaCatalogSync', () => ({ triggerProductMetaCatalogSync: transport.sync }));
 vi.mock('@/pages/utils/productService/productLocalCache', () => ({ LOCAL_STORAGE_KEY: 'local_products', getLocalProducts: () => [], notifySubscribers: transport.notify }));
 vi.mock('react-toastify', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
@@ -70,8 +71,10 @@ describe('mesclagem no modal/hook/resolver/serviços reais', () => {
     expect(transport.rpc).toHaveBeenCalledOnce(); expect(transport.rpc).toHaveBeenCalledWith('merge_product_variation_into_canonical', { p_non_canonical_variation_id: sourceId, p_canonical_variation_id: targetId });
     expect(transport.write).toHaveBeenCalledWith(expect.objectContaining({ payload: { active: false, status: 'hidden' }, filters: { id: sourceId, merged_to_variation_id: targetId } }));
     expect(toast.success).not.toHaveBeenCalled(); expect(transport.notify).not.toHaveBeenCalled();
+    expect(transport.sync).not.toHaveBeenCalled();
     response.resolve({ data: { ...identities()[0], active: false, status: 'hidden' }, error: null }); await advance();
     expect(s.props.onMerged).toHaveBeenCalledOnce(); expect(s.props.onClose).toHaveBeenCalledOnce(); expect(toast.success).toHaveBeenCalledWith(expect.stringContaining('1 fornecedor(es)'));
+    expect(transport.sync).toHaveBeenCalledWith(parentId);
     expect(localStorage.getItem('local_products')).toBeNull();
   });
   it('trava cabeçalho, backdrop, Cancelar, Escape e submissões duplicadas', async () => {

@@ -75,6 +75,20 @@ export function createCatalogGraph(token: string, signal: AbortSignal) {
     return body;
   }
 
+  async function* readEdge(path: string, query: URLSearchParams): AsyncGenerator<unknown[]> {
+    const cursors = new Set<string>();
+    for (;;) {
+      const page = await request(path, query);
+      if (!Array.isArray(page.data)) throw new Error('A Meta retornou uma página inválida.');
+      yield page.data;
+      if (!page.paging?.next) return;
+      const after = page.paging.cursors?.after || new URL(page.paging.next).searchParams.get('after');
+      if (!after || cursors.has(after)) throw new Error('A paginação da Meta não avançou.');
+      cursors.add(after);
+      query.set('after', after);
+    }
+  }
+
   async function readProducts(
     catalogId: string,
     filter?: Record<string, unknown>,
@@ -83,22 +97,37 @@ export function createCatalogGraph(token: string, signal: AbortSignal) {
     const query = new URLSearchParams({ fields, limit: '200', bulk_pagination: 'true' });
     if (filter) query.set('filter', JSON.stringify(filter));
     const items: MetaProduct[] = [];
-    const cursors = new Set<string>();
-    for (;;) {
-      const page = await request(`${catalogId}/products`, query);
-      if (!Array.isArray(page.data)) throw new Error('A Meta retornou uma página de produtos inválida.');
-      for (const item of page.data) {
-        if (!item || typeof item.retailer_id !== 'string' || !item.retailer_id || !/^\d+$/.test(item.id)) {
+    const seen = new Set<string>();
+    for await (const page of readEdge(`${catalogId}/products`, query)) {
+      for (const entry of page) {
+        const item = entry as MetaProduct | null;
+        if (!item || typeof item.retailer_id !== 'string' || !item.retailer_id
+          || typeof item.id !== 'string' || !/^\d+$/.test(item.id)) {
           throw new Error('A Meta retornou um item sem identificador válido.');
         }
+        if (seen.has(item.id)) throw new Error('A Meta repetiu um item na paginação do catálogo.');
+        seen.add(item.id);
         items.push(item);
       }
-      if (!page.paging?.next) return items;
-      const after = page.paging.cursors?.after || new URL(page.paging.next).searchParams.get('after');
-      if (!after || cursors.has(after)) throw new Error('A paginação da Meta não avançou.');
-      cursors.add(after);
-      query.set('after', after);
     }
+    return items;
+  }
+
+  async function isExclusiveCatalog(catalogId: string, appId: string): Promise<boolean> {
+    let exclusive = /^\d+$/.test(appId);
+    let sourceCount = 0;
+    const query = new URLSearchParams({ fields: 'id,name', limit: '50' });
+    for await (const page of readEdge(`${catalogId}/data_sources`, query)) {
+      for (const entry of page) {
+        const source = entry as { id?: string; name?: string } | null;
+        if (!source?.id || typeof source.name !== 'string') {
+          throw new Error('A Meta retornou uma fonte de dados sem identificação.');
+        }
+        exclusive &&= source.name === `App ${appId}`;
+        sourceCount++;
+      }
+    }
+    return exclusive && sourceCount === 1;
   }
 
   async function readRetailers(catalogId: string, ids: string[], fields?: string): Promise<MetaProduct[]> {
@@ -162,7 +191,7 @@ export function createCatalogGraph(token: string, signal: AbortSignal) {
     throw new Error('A Meta ainda não confirmou o lote dentro do tempo limite.');
   }
 
-  return { readProducts, readRetailers, submit, sleep: (ms: number) => sleep(ms, signal) };
+  return { readProducts, readRetailers, isExclusiveCatalog, submit, sleep: (ms: number) => sleep(ms, signal) };
 }
 
 function failedItems(row: Record<string, unknown>, changes: CatalogChange[]): Map<string, string> {

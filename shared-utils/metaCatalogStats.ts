@@ -10,6 +10,7 @@ export interface MetaCatalogStatsProductSource {
   active?: boolean | null;
   deleted?: boolean | null;
   deleted_at?: string | null;
+  is_draft?: boolean | null;
   is_salvado?: boolean | null;
   product_kind?: string | null;
 }
@@ -19,6 +20,7 @@ export interface MetaCatalogStatsVariationSource {
   product_id: string;
   status?: string | null;
   active?: boolean | null;
+  merged_to_variation_id?: string | null;
 }
 
 export function calculateMetaCatalogStats(
@@ -38,8 +40,8 @@ export function calculateMetaCatalogStats(
   let notPublished = 0;
 
   products.forEach((parent) => {
-    const isParentDeleted = parent.deleted || parent.deleted_at !== null;
-    const isParentPublished = parent.status === 'published';
+    const isParentDeleted = parent.deleted || parent.deleted_at != null;
+    const isParentPublished = parent.status === 'published' && parent.active !== false && !parent.is_draft;
     const parentVariations = variationsByParent[parent.id] || [];
 
     if (isParentDeleted) return;
@@ -51,9 +53,8 @@ export function calculateMetaCatalogStats(
 
     if (parentVariations.length > 0) {
       parentVariations.forEach((variation) => {
-        const isVarPublished =
-          variation.status === 'published' ||
-          (!variation.status && variation.status !== 'hidden');
+        const isVarPublished = variation.active !== false && !variation.merged_to_variation_id
+          && (!variation.status || variation.status === 'published');
         if (isVarPublished) {
           publishedVariations += 1;
         } else {

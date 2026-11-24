@@ -1,11 +1,12 @@
 import { randomUUID } from 'node:crypto';
 import { createClient } from '@supabase/supabase-js';
-import { META_ADS_CREATIVE_CATALOG_ID } from '../../../../shared-utils/metaCatalogIds.js';
+import { META_ADS_CREATIVE_CATALOG_ID, META_WHATSAPP_CATALOG_ID } from '../../../../shared-utils/metaCatalogIds.js';
 import { META_CATALOG_BATCH_LIMIT } from '../../../../shared-utils/metaCatalogBatchPayload.js';
 import type { MetaCatalogReconciliationResult } from '../../../../shared-utils/metaCatalogReconciliationResult.js';
 import { createCatalogGraph, GraphBatchUnconfirmed, type CatalogChange, type MetaProduct } from './graph.js';
 import { ownerOf, ownershipLabel, planCatalogChanges } from './plan.js';
-import { loadCandidateRetailers, loadDesiredCatalog, loadVerifiedItems, resolveErpProductIds, type VerifiedItem } from './source.js';
+import { confirmDeletionHistory, recordDeletionAttempts } from './deletionHistory.js';
+import { loadCandidateRetailers, loadDesiredCatalog, loadRetailerOwners, loadVerifiedItems, type VerifiedItem } from './source.js';
 
 type RunScope = { trigger: 'hourly' | 'manual' }
   | { trigger: 'product'; productId: string }
@@ -13,6 +14,9 @@ type RunScope = { trigger: 'hourly' | 'manual' }
 
 type Catalog = { id: string; target: 'whatsapp' | 'ads' };
 type Graph = ReturnType<typeof createCatalogGraph>;
+const MAX_CATALOG_DELETIONS = 50;
+const MIN_DELETIONS_FOR_RATIO_GUARD = 10;
+const MAX_CATALOG_DELETION_SHARE = 0.25;
 
 interface RunIssue {
   catalog?: Catalog['target'];
@@ -53,7 +57,9 @@ async function catalogConfig(db: ReturnType<typeof serviceDb>) {
     .eq('id', 'app').maybeSingle();
   if (error || !data) throw new Error('Não foi possível ler a configuração do Catálogo Meta.');
   const whatsappId = typeof data.catalogId === 'string' ? data.catalogId.trim() : '';
-  if (!whatsappId || !/^\d{1,32}$/.test(whatsappId)) throw new Error('Catálogo do WhatsApp não configurado.');
+  if (![META_WHATSAPP_CATALOG_ID, META_ADS_CREATIVE_CATALOG_ID].includes(whatsappId)) {
+    throw new Error('O Catálogo do WhatsApp precisa estar entre os destinos gerenciados pelo ERP.');
+  }
   const catalogs: Catalog[] = [{ id: whatsappId, target: 'whatsapp' }];
   if (whatsappId !== META_ADS_CREATIVE_CATALOG_ID) {
     catalogs.push({ id: META_ADS_CREATIVE_CATALOG_ID, target: 'ads' });
@@ -128,75 +134,56 @@ export async function runMetaCatalogReconciliation(scope: RunScope): Promise<Met
 
   async function applyChanges(catalog: Catalog, changes: CatalogChange[]) {
     for (let offset = 0; offset < changes.length; offset += META_CATALOG_BATCH_LIMIT) {
-      const batch = changes.slice(offset, offset + META_CATALOG_BATCH_LIMIT);
+      let batch = changes.slice(offset, offset + META_CATALOG_BATCH_LIMIT);
+      let retailerIds = batch.filter(({ method }) => method === 'DELETE').map(({ retailer_id }) => retailer_id);
+      if (retailerIds.length) {
+        try {
+          await recordDeletionAttempts(db, {
+            runId: leaseToken, catalogId: catalog.id, retailerIds, trigger: scope.trigger,
+          });
+        } catch (error) {
+          for (const id of retailerIds) recordIssue(safeReason(error), catalog.target, id);
+          batch = batch.filter(({ method }) => method !== 'DELETE');
+          retailerIds = [];
+        }
+      }
+      if (!batch.length) continue;
+
       let failures: Map<string, string>;
+      let unconfirmed = false;
       try {
         signal.throwIfAborted();
         failures = await graph.submit(catalog.id, batch);
       } catch (error) {
-        const unconfirmed = error instanceof GraphBatchUnconfirmed;
-        const deletes = unconfirmed ? batch.filter((item) => item.method === 'DELETE') : [];
-        const confirmedDeletes = new Set<string>();
-        let confirmationFailure: unknown;
-
-        if (deletes.length) {
-          try {
-            const remaining = await verifyDeletions(
-              graph,
-              catalog,
-              deletes.map((item) => item.retailer_id)
-            );
-            for (const item of deletes) {
-              if (!remaining.has(item.retailer_id)) {
-                confirmedDeletes.add(item.retailer_id);
-                counters.deleted++;
-              }
-            }
-          } catch (verifyError) {
-            confirmationFailure = verifyError;
-          }
-        }
-
-        retainLease ||= unconfirmed && (
-          batch.some((item) => item.method !== 'DELETE') ||
-          deletes.some((item) => !confirmedDeletes.has(item.retailer_id))
-        );
-        for (const change of batch) {
-          if (confirmedDeletes.has(change.retailer_id)) continue;
-          const reason = change.method === 'DELETE'
-            ? confirmationFailure
-              ? `${safeReason(error)} A consulta de confirmação falhou: ${safeReason(confirmationFailure)}`
-              : `A exclusão ainda não foi confirmada na Meta. ${safeReason(error)}`
-            : safeReason(error);
-          recordIssue(reason, catalog.target, change.retailer_id);
-        }
-        continue;
+        unconfirmed = error instanceof GraphBatchUnconfirmed;
+        failures = new Map(batch.map(({ retailer_id }) => [retailer_id, safeReason(error)]));
       }
-      const deletes = batch.filter((item) => item.method === 'DELETE');
-      if (deletes.length) {
+      if (retailerIds.length) {
+        let confirmed: string[] = [];
         try {
-          const remaining = await verifyDeletions(graph, catalog, deletes.map((item) => item.retailer_id));
-          for (const item of deletes) {
-            if (!remaining.has(item.retailer_id)) {
-              // The batch may report an item error after Meta has already removed the SKU.
-              // The catalog read is authoritative for whether the hide has completed.
-              failures.delete(item.retailer_id);
-            } else if (!failures.has(item.retailer_id)) {
-              failures.set(item.retailer_id, 'A exclusão ainda não foi confirmada na Meta para este SKU.');
-            }
+          const remaining = await verifyDeletions(graph, catalog, retailerIds);
+          confirmed = retailerIds.filter((id) => !remaining.has(id));
+          for (const id of confirmed) failures.delete(id);
+          for (const id of remaining) {
+            if (!failures.has(id)) failures.set(id, 'A exclusão ainda não foi confirmada na Meta para este SKU.');
           }
         } catch (error) {
-          for (const item of deletes) {
-            const batchFailure = failures.get(item.retailer_id);
-            failures.set(
-              item.retailer_id,
-              batchFailure
-                ? `${batchFailure} A consulta de confirmação também falhou: ${safeReason(error)}`
-                : `Exclusão não confirmada. ${safeReason(error)}`
-            );
+          for (const id of retailerIds) {
+            const batchFailure = failures.get(id);
+            failures.set(id, batchFailure
+              ? `${batchFailure} A consulta de confirmação também falhou: ${safeReason(error)}`
+              : `Exclusão não confirmada. ${safeReason(error)}`);
+          }
+        }
+        if (confirmed.length) {
+          try {
+            await confirmDeletionHistory(db, { runId: leaseToken, catalogId: catalog.id, retailerIds: confirmed });
+          } catch (error) {
+            for (const id of confirmed) recordIssue(safeReason(error), catalog.target, id);
           }
         }
       }
+      retainLease ||= unconfirmed && failures.size > 0;
       for (const change of batch) {
         const failure = failures.get(change.retailer_id);
         if (failure) recordIssue(failure, catalog.target, change.retailer_id);
@@ -214,15 +201,45 @@ export async function runMetaCatalogReconciliation(scope: RunScope): Promise<Met
       ? new Map(scope.requests.map((request) => [request.retailer_id, request.method]))
       : undefined;
     const productId = scope.trigger === 'product' ? scope.productId : undefined;
-    const productIds = productId ? [productId] : requested ? await resolveErpProductIds(db, [...requested.keys()]) : undefined;
-    const [desired, verified, candidates] = await Promise.all([
-      loadDesiredCatalog(db, description, productIds),
-      // Older clients can send the SKU of an already purged ERP entry.
-      loadVerifiedItems(db, catalogs.map(({ id }) => id), {
-        productId, retailerIds: requested ? [...requested.keys()] : undefined,
-      }),
+    const appId = process.env.WHATSAPP_APP_ID?.trim() ?? '';
+    const [completeDesired, candidates, destinations] = await Promise.all([
+      full ? loadDesiredCatalog(db, description) : null,
       productId ? loadCandidateRetailers(db, productId) : [],
+      Promise.all(catalogs.map(async (catalog) => ({
+        catalog,
+        exclusive: await graph.isExclusiveCatalog(catalog.id, appId),
+      }))),
     ]);
+    const retailerIds = requested ? [...requested.keys()] : candidates;
+    const verified = !full || destinations.some(({ exclusive }) => !exclusive)
+      ? await loadVerifiedItems(db, catalogs.map(({ id }) => id), {
+        productId, retailerIds: requested ? retailerIds : undefined,
+      })
+      : [];
+    const snapshots = await Promise.all(destinations.map(async ({ catalog, exclusive }) => {
+      const trusted = new Map(verified.filter((item) => item.catalog_id === catalog.id)
+        .map((item) => [item.retailer_id, item]));
+      const remote = full
+        ? await graph.readProducts(catalog.id)
+        : await readScope(graph, catalog, trusted, retailerIds, productId);
+      return { catalog, exclusive, trusted, remote };
+    }));
+
+    // Find other local owners before a scoped request can replace or remove a reused SKU.
+    const retailerOwners = full ? undefined : await loadRetailerOwners(db, [...new Set([
+      ...retailerIds, ...snapshots.flatMap(({ remote }) => remote.map((item) => item.retailer_id)),
+    ])]);
+    const scopedProductIds = new Set(productId ? [productId] : []);
+    if (retailerOwners) for (const owners of retailerOwners.values()) {
+      for (const id of owners) scopedProductIds.add(id);
+    }
+    if (requested) for (const { remote, trusted } of snapshots) {
+      for (const item of remote) {
+        const id = ownerOf(item, trusted);
+        if (id) scopedProductIds.add(id);
+      }
+    }
+    const desired = completeDesired ?? await loadDesiredCatalog(db, description, [...scopedProductIds]);
     if (requested) {
       for (const retailerId of desired.items.keys()) {
         const method = requested.get(retailerId);
@@ -240,26 +257,25 @@ export async function runMetaCatalogReconciliation(scope: RunScope): Promise<Met
         }
       }
     }
-    const retailerIds = requested ? [...requested.keys()] : [...new Set([...desired.items.keys(), ...candidates])];
-
-    await Promise.all(catalogs.map(async (catalog) => {
+    const plans = snapshots.map(({ catalog, exclusive, trusted, remote }) => {
+      const plan = planCatalogChanges(desired, remote, trusted, {
+        scope: productId ? new Set([productId]) : undefined,
+        completeSnapshot: full,
+        exclusive,
+        retailerOwners,
+        explicitRetailers: full ? undefined : new Set(retailerIds),
+      });
+      const deleteCount = plan.changes.filter(({ method }) => method === 'DELETE').length;
+      const exceedsShare = full && deleteCount >= MIN_DELETIONS_FOR_RATIO_GUARD
+        && deleteCount > remote.length * MAX_CATALOG_DELETION_SHARE;
+      if (deleteCount > MAX_CATALOG_DELETIONS || exceedsShare) {
+        recordIssue(`Exclusão em massa bloqueada. A execução planejou remover ${deleteCount} de ${remote.length} itens consultados.`, catalog.target);
+        plan.changes = plan.changes.filter(({ method }) => method !== 'DELETE');
+      }
+      return { catalog, plan };
+    });
+    await Promise.all(plans.map(async ({ catalog, plan }) => {
       try {
-        const trusted = new Map(verified.filter((item) => item.catalog_id === catalog.id)
-          .map((item) => [item.retailer_id, item]));
-        const remote = full ? await graph.readProducts(catalog.id) : await readScope(graph, catalog, trusted, retailerIds, productId);
-        const plan = planCatalogChanges(desired, remote, trusted, {
-          scope: productId ? new Set([productId]) : undefined,
-          completeSnapshot: full,
-        });
-        if (productId || requested) {
-          const explicit = new Set(retailerIds);
-          for (const item of remote) {
-            const owner = ownerOf(item, trusted);
-            if (explicit.has(item.retailer_id) && (!owner || (productId && owner !== productId)) && !plan.errors.has(item.retailer_id)) {
-              plan.errors.set(item.retailer_id, 'Item presente na Meta com origem não comprovada.');
-            }
-          }
-        }
         counters.unchanged += plan.unchanged;
         for (const [retailerId, reason] of plan.errors) recordIssue(reason, catalog.target, retailerId);
         await applyChanges(catalog, plan.changes);
