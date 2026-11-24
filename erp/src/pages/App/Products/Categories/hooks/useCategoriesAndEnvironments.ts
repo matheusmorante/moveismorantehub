@@ -37,6 +37,13 @@ import {
   CategoryFilterType,
 } from '../types/categoryEnvironment.types';
 
+const areIdsEqual = (left: readonly string[], right: readonly string[]) => {
+  if (left.length !== right.length) return false;
+  const sortedLeft = [...left].sort();
+  const sortedRight = [...right].sort();
+  return sortedLeft.every((id, index) => id === sortedRight[index]);
+};
+
 export function useCategoriesAndEnvironments() {
   const [environments, setEnvironments] = useState<EnvironmentNode[]>([]);
   const [categories, setCategories] = useState<CategoryNode[]>([]);
@@ -54,6 +61,7 @@ export function useCategoriesAndEnvironments() {
   const [editingNode, setEditingNode] = useState<EditingNode | null>(null);
   const [nameInput, setNameInput] = useState<string>('');
   const [selectedLinks, setSelectedLinks] = useState<string[]>([]);
+  const [initialSelectedLinks, setInitialSelectedLinks] = useState<string[]>([]);
   const [selectedAttributes, setSelectedAttributes] = useState<CategoryAttributeSelection[]>([]);
   const [initialAttributeIds, setInitialAttributeIds] = useState<string[]>([]);
   const [isLoadingAttributes, setIsLoadingAttributes] = useState<boolean>(false);
@@ -164,6 +172,7 @@ export function useCategoriesAndEnvironments() {
     setEditingNode(null);
     setNameInput('');
     setSelectedLinks([]);
+    setInitialSelectedLinks([]);
     setSelectedAttributes([]);
     setInitialAttributeIds([]);
     setIsLoadingAttributes(false);
@@ -223,13 +232,15 @@ export function useCategoriesAndEnvironments() {
       setIsSubmitting(true);
       try {
         if (editingNode?.id) {
+          const linksUnchanged = areIdsEqual(values.linkedIds, initialSelectedLinks);
+          const environmentIds = linksUnchanged ? undefined : values.linkedIds;
           if (isEnv) {
-            await updateEnvironment(editingNode.id, name, values.linkedIds);
+            await updateEnvironment(editingNode.id, name, environmentIds);
           } else {
             await updateCategory(
               editingNode.id,
               name,
-              values.linkedIds,
+              environmentIds,
               values.attributes,
               undefined,
               characteristicApplications
@@ -263,6 +274,7 @@ export function useCategoriesAndEnvironments() {
       categories,
       editingNode,
       selectedLinks,
+      initialSelectedLinks,
       selectedAttributes,
       selectedCharacteristicApplications,
       isLoadingAttributes,
@@ -321,6 +333,7 @@ export function useCategoriesAndEnvironments() {
     setEditingNode({ id: env.id, type: 'ambiente' });
     setNameInput(env.name);
     setSelectedLinks(env.categories || []);
+    setInitialSelectedLinks(env.categories || []);
     setShowModal('ambiente');
   }, []);
 
@@ -328,6 +341,7 @@ export function useCategoriesAndEnvironments() {
     setEditingNode({ id: cat.id, type: 'categoria' });
     setNameInput(cat.name);
     setSelectedLinks(cat.parents || []);
+    setInitialSelectedLinks(cat.parents || []);
     setSelectedAttributes([]); // reseta enquanto carrega
     setInitialAttributeIds([]);
     setAttributeLoadFailed(false);
@@ -352,6 +366,7 @@ export function useCategoriesAndEnvironments() {
     setEditingNode(null);
     setNameInput('');
     setSelectedLinks([]);
+    setInitialSelectedLinks([]);
     setSelectedAttributes([]);
     setSelectedCharacteristicApplications([]);
     setShowModal('ambiente');
@@ -361,6 +376,7 @@ export function useCategoriesAndEnvironments() {
     setEditingNode(null);
     setNameInput('');
     setSelectedLinks(preSelectedEnvId ? [preSelectedEnvId] : []);
+    setInitialSelectedLinks(preSelectedEnvId ? [preSelectedEnvId] : []);
     setSelectedAttributes([]);
     setInitialAttributeIds([]);
     setAttributeLoadFailed(false);

@@ -241,15 +241,17 @@ export async function runMetaCatalogReconciliation(scope: RunScope): Promise<Met
       : undefined;
     const productId = scope.trigger === 'product' ? scope.productId : undefined;
     const appId = process.env.WHATSAPP_APP_ID?.trim() ?? '';
-    const [completeDesired, candidates, destinations] = await Promise.all([
+    const [completeDesired, productDesired, destinations] = await Promise.all([
       full ? loadDesiredCatalog(db, description) : null,
-      productId ? loadCandidateRetailers(db, productId) : [],
+      productId ? loadDesiredCatalog(db, description, [productId], productId) : null,
       Promise.all(catalogs.map(async (catalog) => ({
         catalog,
         exclusive: await graph.isExclusiveCatalog(catalog.id, appId),
       }))),
     ]);
-    const retailerIds = requested ? [...requested.keys()] : candidates;
+    let candidates = productDesired?.candidateRetailers ?? null;
+    if (productId && candidates === null) candidates = await loadCandidateRetailers(db, productId);
+    const retailerIds = requested ? [...requested.keys()] : candidates ?? [];
     const verified = !full || destinations.some(({ exclusive }) => !exclusive)
       ? await loadVerifiedItems(db, catalogs.map(({ id }) => id), {
         productId, retailerIds: requested ? retailerIds : undefined,
@@ -278,7 +280,26 @@ export async function runMetaCatalogReconciliation(scope: RunScope): Promise<Met
         if (id) scopedProductIds.add(id);
       }
     }
-    const desired = completeDesired ?? await loadDesiredCatalog(db, description, [...scopedProductIds]);
+    const additionalProductIds = productDesired
+      ? [...scopedProductIds].filter((id) => id !== productId)
+      : [...scopedProductIds];
+    const desired = completeDesired ?? productDesired ?? await loadDesiredCatalog(db, description, additionalProductIds);
+    if (!completeDesired && productDesired && additionalProductIds.length > 0) {
+      const additionalDesired = await loadDesiredCatalog(db, description, additionalProductIds);
+      for (const [retailerId, reason] of additionalDesired.blocked) {
+        desired.items.delete(retailerId);
+        desired.blocked.set(retailerId, reason);
+      }
+      for (const [retailerId, item] of additionalDesired.items) {
+        if (desired.blocked.has(retailerId)) continue;
+        if (desired.items.has(retailerId)) {
+          desired.items.delete(retailerId);
+          desired.blocked.set(retailerId, 'Identificador compartilhado por mais de um item do ERP.');
+        } else {
+          desired.items.set(retailerId, item);
+        }
+      }
+    }
     if (requested) {
       for (const retailerId of desired.items.keys()) {
         const method = requested.get(retailerId);

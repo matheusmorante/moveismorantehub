@@ -38,3 +38,13 @@ Não foi iniciado Supabase local, PostgreSQL local, Docker, fixtures ou DML de t
 **Arquivos e linhas.** `erp/src/pages/utils/productService/productQueryService.ts:31–36,465–489` (projeção e diagnóstico), `erp/src/pages/utils/productService/productLinkConfirmation.test.ts:1–74` (regressões de produto e variação) e `erp/src/pages/App/Stock/InboundInvoices/components/InboundInvoiceItemsReview.test.tsx:18,30,78–83,100,115,122` (teste do fluxo com o serviço e o modo de vínculo atuais).
 
 **Validação.** A leitura do esquema remoto confirmou as colunas e a chave estrangeira das variações. O Vitest aprovou 19 testes em quatro arquivos, incluindo a leitura de catálogo do app, a confirmação do produto e da variação e o fluxo de gravação simulada da tela do ERP. A validação remota foi somente de leitura. A nota e o vínculo real do item não foram gravados nesta correção.
+
+## Refatoração modular e isolamento da camada de acesso do painel NCM
+
+**Problema identificado.** `NcmManagementPanel.tsx` (817 linhas) acoplava o componente React a 9 chamadas diretas `supabase.rpc` / `supabase.from` / `supabase.functions.invoke`, mantinha o modal de detalhes inline e utilizava tipagens `any` (`events`, `correlations` e tratamentos de erro), também presentes em `NcmCorrelationRecords.tsx`.
+
+**Solução implementada.** As consultas, RPCs e invocações da função Edge foram isoladas em `erp/src/services/fiscal/ncmAdminService.ts`, com contratos tipados (`NcmProduct`, `NcmChangeEvent`, `NcmCorrelationRecord`, `NcmRelationType`) e formatação/erro explícitos. O modal de detalhes do código foi extraído para `erp/src/pages/App/Settings/components/fiscal/NcmDetailsModal.tsx`, preservando validações RHF/Zod, paginação fixa de 15 itens e a interface pública de `NcmManagementPanel`. `NcmCorrelationRecords.tsx` passou a consumir `NcmCorrelationRecord[]`.
+
+**Arquivos modificados.** `erp/src/services/fiscal/ncmAdminService.ts` (novo), `erp/src/pages/App/Settings/components/fiscal/NcmDetailsModal.tsx` (novo), `erp/src/pages/App/Settings/components/fiscal/NcmManagementPanel.tsx` e `erp/src/pages/App/Settings/components/fiscal/NcmCorrelationRecords.tsx`.
+
+**Validação.** `NcmManagementPanel.test.tsx` passou (3 testes). `tsc --noEmit` segmentado nos arquivos alterados e `NcmCatalogPage.tsx` não apontou diagnósticos nesses arquivos (apenas erro pré-existente em `telemetryBuffer.ts`). Nenhuma chamada remota ou alteração de regra fiscal foi realizada.

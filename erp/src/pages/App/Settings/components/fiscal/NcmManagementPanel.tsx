@@ -1,13 +1,28 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { ncmSyncFormSchema, ncmProductReviewFormSchema, ncmCorrelationFormSchema, ncmCatalogQueryFormSchema, ncmStoreActivationFormSchema } from '../../../../../../../shared-utils/ncmManagementFormSchemas';
 import { searchFormSchema } from '../../../../../../../shared-utils/lookupFormSchemas';
-import { supabase } from '@/pages/utils/supabaseConfig';
 import { ncmService, NcmSearchResult } from '@/services/fiscal/ncmService';
+import {
+  applyNcmProductReviews,
+  applyNcmSyncRun,
+  fetchNcmCatalogAdminPage,
+  fetchNcmDetails,
+  fetchNcmProductsPage,
+  fetchNcmSyncChangesPage,
+  formatNcmDate,
+  getNcmAdminErrorMessage,
+  registerNcmCorrelation,
+  requestNcmSyncPreview,
+  setNcmStoreActivation,
+  type NcmChangeEvent,
+  type NcmCorrelationRecord,
+  type NcmProduct,
+  type NcmRelationType,
+} from '@/services/fiscal/ncmAdminService';
 import { useAuth } from '@/context/AuthContext';
 import { ERPListPagination } from '@/components/shared/ERPListPagination';
 import { requestConfirmation } from '@/components/shared/confirmationService';
-import { StatusPill } from './NcmManagementPanelIndicators';
 import {
   NcmCatalogSummary,
   type NcmSummary,
@@ -16,29 +31,15 @@ import {
 import { NcmManagementSyncPreview } from './NcmManagementSyncPreview';
 import type { NcmPreview, NcmPreviewChange } from './NcmManagementSyncPreview';
 import { getNcmStatus, NcmCatalogResults, type NcmRow } from './NcmCatalogResults';
-import { NcmCorrelationRecords } from './NcmCorrelationRecords';
+import { NcmDetailsModal } from './NcmDetailsModal';
 import {
   NcmCatalogFilters,
   type NcmFilter,
   type StoreFilter,
 } from './NcmCatalogFilters';
 
-interface NcmProduct {
-  id: string;
-  code: string | null;
-  name: string;
-  ncm_code: string;
-  ncm_description: string;
-  total_count: number;
-}
 const PAGE_SIZE = 15;
 const NCM_PAGE_SIZES = [15] as const;
-
-function formatDate(value?: string | null) {
-  if (!value) return '—';
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString('pt-BR');
-}
 
 export function NcmManagementPanel() {
   const { profile } = useAuth();
@@ -68,17 +69,15 @@ export function NcmManagementPanel() {
   const [products, setProducts] = useState<NcmProduct[]>([]);
   const [productsTotal, setProductsTotal] = useState(0);
   const [productPage, setProductPage] = useState(0);
-  const [events, setEvents] = useState<any[]>([]);
-  const [correlations, setCorrelations] = useState<any[]>([]);
+  const [events, setEvents] = useState<NcmChangeEvent[]>([]);
+  const [correlations, setCorrelations] = useState<NcmCorrelationRecord[]>([]);
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
   const [destinationQuery, setDestinationQuery] = useState('');
   const [destinationResults, setDestinationResults] = useState<NcmSearchResult[]>([]);
   const [destination, setDestination] = useState<NcmSearchResult | null>(null);
   const [isReviewing, setIsReviewing] = useState(false);
   const [isAddingCorrelation, setIsAddingCorrelation] = useState(false);
-  const [correlationType, setCorrelationType] = useState<
-    'one_to_one' | 'one_to_many' | 'many_to_one'
-  >('one_to_one');
+  const [correlationType, setCorrelationType] = useState<NcmRelationType>('one_to_one');
   const [correlationVersion, setCorrelationVersion] = useState('');
   const [isSavingCorrelation, setIsSavingCorrelation] = useState(false);
   const syncForm = useZodForm(ncmSyncFormSchema, { syncRunId: preview?.sync_run_id || '' });
@@ -106,32 +105,19 @@ export function NcmManagementPanel() {
     try {
       const values = await validateCatalog({ search, page, filter, storeFilter }, (errors) => setErrorMessage(Object.values(flattenFormErrors(errors))[0]));
       if (!values) return;
-      const [
-        { data: summaryData, error: summaryError },
-        { data: catalogData, error: catalogError },
-      ] = await Promise.all([
-        supabase.rpc('get_ncm_catalog_summary'),
-        supabase.rpc('list_ncm_catalog_for_admin', {
-          p_search: values.search,
-          p_store_filter: values.storeFilter,
-          p_filter: values.filter,
-          p_limit: pageSize,
-          p_offset: values.page * pageSize,
-        }),
-      ]);
-      const { data: storeSummaryData, error: storeSummaryError } = await supabase.rpc(
-        'get_ncm_store_activation_summary'
-      );
-      if (summaryError) throw summaryError;
-      if (storeSummaryError) throw storeSummaryError;
-      if (catalogError) throw catalogError;
-      const catalog = catalogData as { items?: NcmRow[]; total?: number };
-      setSummary(summaryData as NcmSummary);
-      setStoreSummary(storeSummaryData as StoreSummary);
-      setRows(catalog.items || []);
-      setTotal(catalog.total || 0);
-    } catch (error: any) {
-      setErrorMessage(error?.message || 'Não foi possível carregar a base local de NCMs.');
+      const result = await fetchNcmCatalogAdminPage({
+        search: values.search,
+        storeFilter: values.storeFilter,
+        filter: values.filter,
+        limit: pageSize,
+        offset: values.page * pageSize,
+      });
+      setSummary(result.summary);
+      setStoreSummary(result.storeSummary);
+      setRows(result.items);
+      setTotal(result.total);
+    } catch (error: unknown) {
+      setErrorMessage(getNcmAdminErrorMessage(error, 'Não foi possível carregar a base local de NCMs.'));
     } finally {
       setIsLoading(false);
     }
@@ -139,17 +125,13 @@ export function NcmManagementPanel() {
 
   const toggleStoreActivation = async (row: NcmRow) => {
     return activationForm.validateAndRun({ code: row.code, active: !row.is_active }, async (values) => {
-    try {
-      setErrorMessage('');
-      const { error } = await supabase.rpc('set_ncm_store_activation', {
-        p_code: values.code,
-        p_is_active: values.active,
-      });
-      if (error) throw error;
-      await loadCatalog();
-    } catch (error: any) {
-      setErrorMessage(error?.message || 'Não foi possível alterar o uso deste NCM na loja.');
-    }
+      try {
+        setErrorMessage('');
+        await setNcmStoreActivation(values.code, values.active);
+        await loadCatalog();
+      } catch (error: unknown) {
+        setErrorMessage(getNcmAdminErrorMessage(error, 'Não foi possível alterar o uso deste NCM na loja.'));
+      }
     }, (errors) => setErrorMessage(Object.values(flattenFormErrors(errors))[0]));
   };
 
@@ -199,47 +181,26 @@ export function NcmManagementPanel() {
     setIsAddingCorrelation(false);
     setCorrelationVersion('');
     setProductPage(0);
-    const [productResult, eventResult, correlationResult] = await Promise.all([
-      supabase.rpc('list_ncm_products', { p_code: row.code, p_limit: productPageSize, p_offset: 0 }),
-      supabase
-        .from('ncm_change_events')
-        .select('id, event_type, old_data, new_data, occurred_at')
-        .eq('code', row.code)
-        .order('occurred_at', { ascending: false })
-        .limit(12),
-      supabase
-        .from('ncm_correlations')
-        .select(
-          'id, source_code, destination_code, relation_type, effective_from, effective_to, version_label, source_name, source_reference, notes'
-        )
-        .or(`source_code.eq.${row.code},destination_code.eq.${row.code}`)
-        .order('created_at', { ascending: false })
-        .limit(30),
-    ]);
-    if (productResult.error) setErrorMessage(productResult.error.message);
+    const details = await fetchNcmDetails(row.code, productPageSize);
+    if (details.productsError) setErrorMessage(details.productsError);
     else {
-      const result = (productResult.data || []) as NcmProduct[];
-      setProducts(result);
-      setProductsTotal(result[0]?.total_count || 0);
+      setProducts(details.products);
+      setProductsTotal(details.productsTotal);
     }
-    if (!eventResult.error) setEvents(eventResult.data || []);
-    if (!correlationResult.error) setCorrelations(correlationResult.data || []);
+    setEvents(details.events);
+    setCorrelations(details.correlations);
   };
 
   const changeProductPage = async (nextPage: number, size = productPageSize) => {
     if (!selectedRow || nextPage < 0 || nextPage * size >= productsTotal) return;
-    const { data, error } = await supabase.rpc('list_ncm_products', {
-      p_code: selectedRow.code,
-      p_limit: size,
-      p_offset: nextPage * size,
-    });
-    if (error) {
-      setErrorMessage(error.message);
-      return;
+    try {
+      const nextProducts = await fetchNcmProductsPage(selectedRow.code, size, nextPage * size);
+      setProducts(nextProducts);
+      setSelectedProducts([]);
+      setProductPage(nextPage);
+    } catch (error: unknown) {
+      setErrorMessage(getNcmAdminErrorMessage(error, 'Não foi possível carregar os produtos vinculados.'));
     }
-    setProducts(data || []);
-    setSelectedProducts([]);
-    setProductPage(nextPage);
   };
 
   const requestSyncPreview = async () => {
@@ -249,15 +210,9 @@ export function NcmManagementPanel() {
     setPreviewChanges([]);
     setErrorMessage('');
     try {
-      const { data, error } = await supabase.functions.invoke('sync-ncms', {
-        body: { mode: 'preview' },
-      });
-      if (error) throw error;
-      if (!data?.success || !data.preview)
-        throw new Error(data?.error || 'A fonte oficial não passou na validação.');
-      setPreview(data.preview as NcmPreview);
-    } catch (error: any) {
-      setErrorMessage(error?.message || 'Falha ao gerar a prévia da tabela oficial.');
+      setPreview(await requestNcmSyncPreview());
+    } catch (error: unknown) {
+      setErrorMessage(getNcmAdminErrorMessage(error, 'Falha ao gerar a prévia da tabela oficial.'));
     } finally {
       setIsSyncing(false);
     }
@@ -267,19 +222,13 @@ export function NcmManagementPanel() {
     setIsLoadingPreviewChanges(true);
     setErrorMessage('');
     try {
-      const { data, error } = await supabase.rpc('list_ncm_sync_changes', {
-        p_sync_run_id: runId,
-        p_limit: size,
-        p_offset: nextPage * size,
-      });
-      if (error) throw error;
-      const result = data as { items?: NcmPreviewChange[]; total?: number };
-      setPreviewChanges(result.items || []);
-      setPreviewChangesTotal(result.total || 0);
+      const result = await fetchNcmSyncChangesPage(runId, size, nextPage * size);
+      setPreviewChanges(result.items);
+      setPreviewChangesTotal(result.total);
       setPreviewChangesPage(nextPage);
       setPreviewChangesOpen(true);
-    } catch (error: any) {
-      setErrorMessage(error?.message || 'Não foi possível carregar as mudanças da prévia.');
+    } catch (error: unknown) {
+      setErrorMessage(getNcmAdminErrorMessage(error, 'Não foi possível carregar as mudanças da prévia.'));
     } finally {
       setIsLoadingPreviewChanges(false);
     }
@@ -293,15 +242,11 @@ export function NcmManagementPanel() {
     setIsSyncing(true);
     setErrorMessage('');
     try {
-      const { data, error } = await supabase.functions.invoke('sync-ncms', {
-        body: { mode: 'apply', sync_run_id: validated.syncRunId },
-      });
-      if (error) throw error;
-      if (!data?.success) throw new Error(data?.error || 'A sincronização não foi aplicada.');
+      await applyNcmSyncRun(validated.syncRunId);
       setPreview(null);
       await loadCatalog();
-    } catch (error: any) {
-      setErrorMessage(error?.message || 'Falha ao aplicar a sincronização.');
+    } catch (error: unknown) {
+      setErrorMessage(getNcmAdminErrorMessage(error, 'Falha ao aplicar a sincronização.'));
     } finally {
       setIsSyncing(false);
     }
@@ -329,18 +274,14 @@ export function NcmManagementPanel() {
           old_code: product.ncm_code,
           new_code: validated.destinationCode,
         }));
-      const { data, error } = await supabase.rpc('apply_ncm_product_reviews', {
-        p_updates: updates,
-      });
-      if (error) throw error;
-      if (!(data as any)?.success) throw new Error('A revisão dos produtos não foi confirmada.');
+      await applyNcmProductReviews(updates);
       setSelectedProducts([]);
       setDestination(null);
       setDestinationQuery('');
       await loadDetails(selectedRow);
       await loadCatalog();
-    } catch (error: any) {
-      setErrorMessage(error?.message || 'Não foi possível aplicar a revisão dos produtos.');
+    } catch (error: unknown) {
+      setErrorMessage(getNcmAdminErrorMessage(error, 'Não foi possível aplicar a revisão dos produtos.'));
     } finally {
       setIsReviewing(false);
     }
@@ -354,26 +295,17 @@ export function NcmManagementPanel() {
     setIsSavingCorrelation(true);
     setErrorMessage('');
     try {
-      const { data: authData, error: authError } = await supabase.auth.getUser();
-      if (authError || !authData.user)
-        throw new Error('Sessão expirada. Entre novamente para registrar a correlação.');
-      const { error } = await supabase.from('ncm_correlations').insert({
-        source_code: validated.sourceCode,
-        destination_code: validated.destinationCode,
-        relation_type: validated.relationType,
-        version_label: validated.version,
-        source_name: 'Rastreador NCM do MDIC',
-        source_reference: 'https://rastreador-ncm.dth.mdic.gov.br/',
-        notes:
-          'Correlação registrada manualmente por administrador após consulta da fonte informada.',
-        created_by: authData.user.id,
+      await registerNcmCorrelation({
+        sourceCode: validated.sourceCode,
+        destinationCode: validated.destinationCode,
+        relationType: validated.relationType,
+        version: validated.version,
       });
-      if (error) throw error;
       setIsAddingCorrelation(false);
       setCorrelationVersion('');
       await loadDetails(selectedRow);
-    } catch (error: any) {
-      setErrorMessage(error?.message || 'Não foi possível registrar a correlação.');
+    } catch (error: unknown) {
+      setErrorMessage(getNcmAdminErrorMessage(error, 'Não foi possível registrar a correlação.'));
     } finally {
       setIsSavingCorrelation(false);
     }
@@ -392,8 +324,8 @@ export function NcmManagementPanel() {
       });
       setDestinationQuery(`${entry.code} · ${entry.official_description}`);
       setSelectedProducts(products.map((product) => product.id));
-    } catch (error: any) {
-      setErrorMessage(error?.message || 'Não foi possível confirmar o NCM sucessor.');
+    } catch (error: unknown) {
+      setErrorMessage(getNcmAdminErrorMessage(error, 'Não foi possível confirmar o NCM sucessor.'));
     }
   };
 
@@ -408,7 +340,7 @@ export function NcmManagementPanel() {
         storeSummary={storeSummary}
         lastSyncLabel={
           summary?.last_sync?.completed_at
-            ? `${formatDate(summary.last_sync.completed_at)} · ${summary.last_sync.source_updated_at}`
+            ? `${formatNcmDate(summary.last_sync.completed_at)} · ${summary.last_sync.source_updated_at}`
             : 'Ainda não sincronizada'
         }
         onRequestSync={requestSyncPreview}
@@ -428,7 +360,7 @@ export function NcmManagementPanel() {
           preview={preview}
           lastSyncLabel={
             summary?.last_sync?.completed_at
-              ? formatDate(summary.last_sync.completed_at)
+              ? formatNcmDate(summary.last_sync.completed_at)
               : 'sem sincronização anterior'
           }
           previewChangesOpen={previewChangesOpen}
@@ -478,339 +410,72 @@ export function NcmManagementPanel() {
           onOpenDetails={(row) => void loadDetails(row)}
           onToggleStoreActivation={(row) => void toggleStoreActivation(row)}
         />
-          <ERPListPagination
-            ariaLabel="Paginação da tabela NCM"
-            page={page + 1}
-            pageSize={pageSize}
-            totalItems={total}
-            onPageChange={(nextPage) => setPage(nextPage - 1)}
-            onPageSizeChange={(size) => {
-              setPage(0);
-              setPageSize(size);
-            }}
-            pageSizeOptions={NCM_PAGE_SIZES}
-            preferenceKey="ncm-catalog"
-            itemLabel="resultados"
-            loading={isLoading}
-            className="mt-3"
-          />
+        <ERPListPagination
+          ariaLabel="Paginação da tabela NCM"
+          page={page + 1}
+          pageSize={pageSize}
+          totalItems={total}
+          onPageChange={(nextPage) => setPage(nextPage - 1)}
+          onPageSizeChange={(size) => {
+            setPage(0);
+            setPageSize(size);
+          }}
+          pageSizeOptions={NCM_PAGE_SIZES}
+          preferenceKey="ncm-catalog"
+          itemLabel="resultados"
+          loading={isLoading}
+          className="mt-3"
+        />
       </div>
 
       {selectedRow && (
-        <div
-          className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/60 p-3 backdrop-blur-sm"
-          onMouseDown={(event) => {
-            if (event.target === event.currentTarget) setSelectedRow(null);
+        <NcmDetailsModal
+          selectedRow={selectedRow}
+          detailStatus={detailStatus}
+          canManage={canManage}
+          products={products}
+          productsTotal={productsTotal}
+          productPage={productPage}
+          productPageSize={productPageSize}
+          pageSizeOptions={NCM_PAGE_SIZES}
+          selectedProducts={selectedProducts}
+          destinationQuery={destinationQuery}
+          destinationResults={destinationResults}
+          destination={destination}
+          isReviewing={isReviewing}
+          isAddingCorrelation={isAddingCorrelation}
+          correlationType={correlationType}
+          correlationVersion={correlationVersion}
+          isSavingCorrelation={isSavingCorrelation}
+          correlations={correlations}
+          events={events}
+          onClose={() => setSelectedRow(null)}
+          onToggleProduct={(productId, checked) =>
+            setSelectedProducts((current) =>
+              checked ? [...current, productId] : current.filter((id) => id !== productId)
+            )
+          }
+          onChangeProductPage={(nextPage, size) => void changeProductPage(nextPage, size)}
+          onChangeProductPageSize={(size) => {
+            setProductPageSize(size);
+            void changeProductPage(0, size);
           }}
-        >
-          <div
-            role="dialog"
-            aria-modal="true"
-            className="flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl dark:bg-slate-900"
-          >
-            <div className="flex items-start justify-between border-b border-slate-200 p-5 dark:border-slate-800 md:p-6">
-              <div>
-                <div className="flex flex-wrap items-center gap-3">
-                  <h4 className="font-mono text-xl font-black text-slate-900 dark:text-white">
-                    {selectedRow.code}
-                  </h4>
-                  <StatusPill status={detailStatus} />
-                </div>
-                <p className="mt-2 max-w-3xl text-sm text-slate-600 dark:text-slate-300">
-                  {selectedRow.official_description}
-                </p>
-                <p className="mt-2 text-[11px] text-slate-500">
-                  Vigência: {formatDate(selectedRow.start_date)} a{' '}
-                  {selectedRow.end_date === '9999-12-31'
-                    ? 'sem encerramento previsto'
-                    : formatDate(selectedRow.end_date)}{' '}
-                  · Ato: {selectedRow.legal_act || '—'}
-                </p>
-              </div>
-              <button
-                type="button"
-                aria-label="Fechar detalhes"
-                onClick={() => setSelectedRow(null)}
-                className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
-              >
-                <i className="bi bi-x-lg" />
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-5 md:p-6">
-              {detailStatus === 'Encerrado' && productsTotal > 0 && (
-                <div className="mb-4 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-200">
-                  Este código está encerrado e há produtos vinculados. Escolha uma correlação
-                  documentada ou classifique os produtos com o responsável fiscal.
-                </div>
-              )}
-              {detailStatus === 'Não verificado' && (
-                <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
-                  Este código aparece em produtos, mas não consta na base oficial vigente local.
-                  Isso não confirma que ele foi encerrado. Consulte o histórico do Classif e
-                  confirme a classificação antes de alterar os produtos.
-                </div>
-              )}
-
-              <div className="grid gap-5 lg:grid-cols-[1.4fr_0.8fr]">
-                <div className="min-w-0">
-                  <div className="mb-2 flex items-center justify-between">
-                    <h5 className="text-sm font-bold text-slate-800 dark:text-slate-100">
-                      Produtos vinculados ({productsTotal})
-                    </h5>
-                    <span className="text-[10px] text-slate-400">
-                      A página mostra até {productPageSize} produtos
-                    </span>
-                  </div>
-                  {products.length === 0 ? (
-                    <p className="rounded-xl bg-slate-50 p-5 text-center text-xs text-slate-400 dark:bg-slate-800">
-                      Nenhum produto vinculado.
-                    </p>
-                  ) : (
-                    <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800">
-                      {products.map((product) => (
-                        <label
-                          key={product.id}
-                          className={`flex items-start gap-3 border-b border-slate-100 p-3 last:border-b-0 dark:border-slate-800 ${canManage ? 'cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/40' : ''}`}
-                        >
-                          {canManage && (
-                            <input
-                              type="checkbox"
-                              checked={selectedProducts.includes(product.id)}
-                              onChange={(event) =>
-                                setSelectedProducts((current) =>
-                                  event.target.checked
-                                    ? [...current, product.id]
-                                    : current.filter((id) => id !== product.id)
-                                )
-                              }
-                              className="mt-0.5 accent-blue-600"
-                            />
-                          )}
-                          <span className="min-w-0">
-                            <span className="block truncate text-xs font-bold text-slate-800 dark:text-slate-100">
-                              {product.name || 'Produto sem nome'}
-                            </span>
-                            <span className="mt-0.5 block font-mono text-[10px] text-slate-500">
-                              Código {product.code || '—'} · NCM {product.ncm_code}
-                            </span>
-                          </span>
-                        </label>
-                      ))}
-                      <div className="flex flex-col gap-2 border-t border-slate-100 px-3 py-2 text-[10px] text-slate-500 dark:border-slate-800">
-                        <ERPListPagination
-                          ariaLabel="Paginação de produtos vinculados ao NCM"
-                          page={productPage + 1}
-                          pageSize={productPageSize}
-                          totalItems={productsTotal}
-                          onPageChange={(nextPage) => void changeProductPage(nextPage - 1)}
-                          onPageSizeChange={(size) => {
-                            setProductPageSize(size);
-                            void changeProductPage(0, size);
-                          }}
-                          pageSizeOptions={NCM_PAGE_SIZES}
-                          preferenceKey="ncm-products"
-                          itemLabel="produtos"
-                        />
-                      </div>
-                    </div>
-                  )}
-
-                  {canManage && detailStatus !== 'Vigente' && productsTotal > 0 && (
-                    <div className="mt-4 rounded-xl border border-blue-200 bg-blue-50/60 p-3 dark:border-blue-900 dark:bg-blue-950/20">
-                      <label className="block text-xs font-bold text-blue-900 dark:text-blue-200">
-                        Novo NCM para os produtos selecionados
-                      </label>
-                      <div className="relative mt-2">
-                        <input
-                          value={destinationQuery}
-                          onChange={(event) => {
-                            setDestinationQuery(event.target.value);
-                            setDestination(null);
-                          }}
-                          placeholder="Pesquise por código ou descrição oficial"
-                          className="w-full rounded-lg border border-blue-200 bg-white px-3 py-2 text-xs outline-none focus:border-blue-500 dark:border-blue-800 dark:bg-slate-950 dark:text-slate-100"
-                        />
-                        {destinationResults.length > 0 && (
-                          <div className="absolute left-0 right-0 top-full z-10 mt-1 max-h-48 overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-900">
-                            {destinationResults.map((result) => (
-                              <button
-                                type="button"
-                                key={result.code}
-                                onClick={() => {
-                                  setDestination(result);
-                                  setDestinationQuery(
-                                    `${result.code} · ${result.official_description}`
-                                  );
-                                  setDestinationResults([]);
-                                }}
-                                className="block w-full border-b border-slate-100 px-3 py-2 text-left last:border-0 hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800"
-                              >
-                                <span className="font-mono font-bold">{result.code}</span>
-                                <span className="ml-2 text-slate-500">
-                                  {result.official_description}
-                                </span>
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                      {selectedProducts.length > 0 && (
-                        <button
-                          type="button"
-                          disabled={!destination || isReviewing}
-                          onClick={applyProductReview}
-                          className="mt-3 rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                          {isReviewing
-                            ? 'Aplicando revisão...'
-                            : `Confirmar NCM em ${selectedProducts.length} produto(s)`}
-                        </button>
-                      )}
-                      <p className="mt-2 text-[10px] leading-relaxed text-blue-800 dark:text-blue-300">
-                        A sugestão por correlação ajuda na análise; valide a classificação fiscal
-                        antes de confirmar. O sistema não escolhe automaticamente entre vários
-                        sucessores.
-                      </p>
-                    </div>
-                  )}
-                </div>
-
-                <div className="space-y-5">
-                  <section>
-                    <div className="mb-2 flex items-center justify-between gap-2">
-                      <h5 className="text-sm font-bold text-slate-800 dark:text-slate-100">
-                        Correlações registradas
-                      </h5>
-                      {canManage && (
-                        <button
-                          type="button"
-                          onClick={() => setIsAddingCorrelation((value) => !value)}
-                          className="text-[10px] font-bold text-blue-600"
-                        >
-                          {isAddingCorrelation ? 'Cancelar' : 'Registrar correlação verificada'}
-                        </button>
-                      )}
-                    </div>
-                    {isAddingCorrelation && canManage && (
-                      <div className="mb-3 space-y-2 rounded-xl border border-blue-200 bg-blue-50/60 p-3 dark:border-blue-900 dark:bg-blue-950/20">
-                        <p className="text-[10px] text-slate-600 dark:text-slate-300">
-                          Informe o código sucessor e a revisão consultada no Rastreador. O sistema
-                          registra a fonte como apoio; a relação não altera produtos
-                          automaticamente.
-                        </p>
-                        <input
-                          value={destinationQuery}
-                          onChange={(event) => {
-                            setDestinationQuery(event.target.value);
-                            setDestination(null);
-                          }}
-                          placeholder="Pesquisar NCM sucessor vigente"
-                          className="w-full rounded-lg border border-blue-200 bg-white px-3 py-2 text-xs outline-none focus:border-blue-500 dark:border-blue-800 dark:bg-slate-950 dark:text-slate-100"
-                        />
-                        {destinationResults.length > 0 && (
-                          <div className="max-h-36 overflow-y-auto rounded-lg border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
-                            {destinationResults.map((result) => (
-                              <button
-                                type="button"
-                                key={result.code}
-                                onClick={() => {
-                                  setDestination(result);
-                                  setDestinationQuery(
-                                    `${result.code} · ${result.official_description}`
-                                  );
-                                  setDestinationResults([]);
-                                }}
-                                className="block w-full border-b border-slate-100 px-3 py-2 text-left text-[10px] last:border-0 hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800"
-                              >
-                                <span className="font-mono font-bold">{result.code}</span>
-                                <span className="ml-2 text-slate-500">
-                                  {result.official_description}
-                                </span>
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                        {destination && (
-                          <p className="text-[10px] font-bold text-blue-800 dark:text-blue-200">
-                            Destino selecionado: {destination.code} ·{' '}
-                            {destination.official_description}
-                          </p>
-                        )}
-                        <select
-                          value={correlationType}
-                          onChange={(event) =>
-                            setCorrelationType(event.target.value as typeof correlationType)
-                          }
-                          className="w-full rounded-lg border border-blue-200 bg-white px-3 py-2 text-xs dark:border-blue-800 dark:bg-slate-950 dark:text-slate-100"
-                        >
-                          <option value="one_to_one">Um para um</option>
-                          <option value="one_to_many">Um para vários</option>
-                          <option value="many_to_one">Vários para um</option>
-                        </select>
-                        <input
-                          value={correlationVersion}
-                          onChange={(event) => setCorrelationVersion(event.target.value)}
-                          placeholder="Versão/período consultado (ex.: SH 2022)"
-                          className="w-full rounded-lg border border-blue-200 bg-white px-3 py-2 text-xs outline-none focus:border-blue-500 dark:border-blue-800 dark:bg-slate-950 dark:text-slate-100"
-                        />
-                        <button
-                          type="button"
-                          onClick={saveCorrelation}
-                          disabled={
-                            !destination || !correlationVersion.trim() || isSavingCorrelation
-                          }
-                          className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-50"
-                        >
-                          {isSavingCorrelation ? 'Salvando...' : 'Registrar relação consultada'}
-                        </button>
-                      </div>
-                    )}
-                    <NcmCorrelationRecords
-                      correlations={correlations}
-                      selectedCode={selectedRow.code}
-                      canManage={canManage}
-                      detailStatus={detailStatus}
-                      hasProducts={products.length > 0}
-                      onSelectSuccessor={selectDocumentedSuccessor}
-                    />
-                  </section>
-                  <section>
-                    <h5 className="mb-2 text-sm font-bold text-slate-800 dark:text-slate-100">
-                      Histórico do código
-                    </h5>
-                    {events.length === 0 ? (
-                      <p className="rounded-xl bg-slate-50 p-3 text-xs text-slate-500 dark:bg-slate-800">
-                        Sem eventos registrados desde a implantação do histórico.
-                      </p>
-                    ) : (
-                      <div className="space-y-2">
-                        {events.map((event) => (
-                          <div
-                            key={event.id}
-                            className="rounded-xl border border-slate-200 p-3 dark:border-slate-800"
-                          >
-                            <p className="text-xs font-bold text-slate-800 dark:text-slate-100">
-                              {event.event_type.replaceAll('_', ' ')}
-                            </p>
-                            <p className="mt-1 text-[10px] text-slate-500">
-                              {new Date(event.occurred_at).toLocaleString('pt-BR')}
-                            </p>
-                            {event.old_data?.description &&
-                              event.old_data.description !== event.new_data?.description && (
-                                <p className="mt-1 text-[10px] text-slate-500">
-                                  Descrição anterior: {event.old_data.description}
-                                </p>
-                              )}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </section>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+          onDestinationQueryChange={(value) => {
+            setDestinationQuery(value);
+            setDestination(null);
+          }}
+          onSelectDestinationResult={(result) => {
+            setDestination(result);
+            setDestinationQuery(`${result.code} · ${result.official_description}`);
+            setDestinationResults([]);
+          }}
+          onApplyProductReview={() => void applyProductReview()}
+          onToggleAddingCorrelation={() => setIsAddingCorrelation((value) => !value)}
+          onCorrelationTypeChange={setCorrelationType}
+          onCorrelationVersionChange={setCorrelationVersion}
+          onSaveCorrelation={() => void saveCorrelation()}
+          onSelectSuccessor={(code) => void selectDocumentedSuccessor(code)}
+        />
       )}
     </section>
   );

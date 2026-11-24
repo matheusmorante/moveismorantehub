@@ -41,7 +41,7 @@ export const NativeLogisticsScreen: React.FC<Props> = ({
   title,
 }) => {
   const { orders, loading, refreshing, handlingOptions, showingOffline, error, onRefresh } = useLogisticsScheduleData();
-  const selectedPeriod = 'today_and_following';
+  const selectedPeriod = 'default';
   const todayStr = getLocalDateString(new Date());
   const [showTodayMap, setShowTodayMap] = useState<boolean>(false);
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({
@@ -84,7 +84,16 @@ export const NativeLogisticsScreen: React.FC<Props> = ({
     const dates: string[] = [];
     const now = new Date();
 
-    if (period === 'today') {
+    if (period === 'default') {
+      const yesterday = new Date(now);
+      yesterday.setDate(now.getDate() - 1);
+      dates.push(getLocalDateString(yesterday));
+      for (let i = 0; i <= 7; i++) {
+        const d = new Date(now);
+        d.setDate(now.getDate() + i);
+        dates.push(getLocalDateString(d));
+      }
+    } else if (period === 'today') {
       dates.push(getLocalDateString(now));
     } else if (period === 'today_and_following') {
       for (let i = 0; i <= 7; i++) {

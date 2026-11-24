@@ -1,0 +1,464 @@
+import * as DocumentPicker from 'expo-document-picker';
+import { ArrowDown, ArrowUp, Camera, Crop, Info, Plus, RefreshCw, Star, Trash2, X } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import type React from 'react';
+import { useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  Image,
+  Modal,
+  Platform,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import {
+  MAX_PARENT_PRODUCT_IMAGES,
+  MAX_VARIATION_IMAGES,
+} from '../../../domain/productImageLimits';
+import { flattenFormErrors, useZodForm } from '../../../../../hooks/useZodForm';
+import {
+  moveMobileProductImageGlobally,
+  replaceMobileProductImageGlobally,
+} from '../../../domain/mobileProductImageOrdering';
+import { uploadMobileProductPhoto } from '../../../services/mobileProductPhotoService';
+import { ProductSquareImageCropModal } from '../../components/ProductSquareImageCropModal';
+import {
+  mobileProductPhotoUploadFormSchema,
+  mobileProductPhotoUrlsFormSchema,
+} from '../../../../../../../shared-utils/productImageFormSchemas';
+import { removeProductImageGlobally } from '../../../../../../../shared-utils/productImageOperations';
+import { limitProductImageSelection } from '../../../../../../../shared-utils/productImageSelection';
+import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
+import { styles } from './productFormPhotosTab.styles';
+
+interface Props {
+  formData: any;
+  setFormData: (fn: (prev: any) => any) => void;
+  dark: boolean;
+}
+
+export const ProductFormPhotosTab: React.FC<Props> = ({ formData, setFormData, dark }) => {
+  const insets = useSafeAreaInsets();
+  const images: string[] = Array.isArray(formData.images) ? formData.images : [];
+  const maxPhotos = MAX_PARENT_PRODUCT_IMAGES;
+  const [selectedPhotoIdx, setSelectedPhotoIdx] = useState<number | null>(null);
+  const [croppingPhotoUrl, setCroppingPhotoUrl] = useState('');
+  const [uploading, setUploading] = useState(false);
+  const photoUploadForm = useZodForm(mobileProductPhotoUploadFormSchema, { photos: [] });
+  const photoUrlsForm = useZodForm(mobileProductPhotoUrlsFormSchema, { urls: [] });
+
+  const uploadPhotos = async (
+    photos: Array<{ file: Blob; name: string; contentType: string; sourceUri?: string }>
+  ) => {
+    const result = await photoUploadForm.validateAndRun(
+      { photos },
+      async ({ photos: validatedPhotos }) => {
+        const urls: string[] = [];
+        for (const photo of validatedPhotos) {
+          urls.push(await uploadMobileProductPhoto(photo.file, photo.name, photo.contentType, photo.sourceUri));
+        }
+        return urls;
+      },
+      (errors) => {
+        const messages = flattenFormErrors(errors);
+        Alert.alert('Foto inválida', Object.values(messages)[0] || 'Selecione uma imagem válida.');
+      }
+    );
+    if (result === false || result.length === 0) return [];
+    const validatedUrls = await photoUrlsForm.validateAndRun(
+      { urls: result },
+      (values) => values.urls,
+      (errors) => {
+        const messages = flattenFormErrors(errors);
+        Alert.alert('Foto não confirmada', Object.values(messages)[0] || 'O serviço não confirmou as fotos enviadas.');
+      }
+    );
+    return validatedUrls === false ? [] : validatedUrls;
+  };
+
+  // Selecionar uma ou múltiplas imagens usando leitor do dispositivo / Web
+  const pickImages = ({
+    multiple = true,
+    imageLimit,
+    onImagesPicked,
+  }: {
+    multiple?: boolean;
+    imageLimit?: { currentCount: number; maxCount: number };
+    onImagesPicked: (urls: string[]) => void;
+  }) => {
+    const limitSelectedFiles = <T,>(files: readonly T[]): T[] => {
+      const candidates = multiple ? [...files] : files.slice(0, 1);
+      if (!imageLimit) return candidates;
+
+      const selection = limitProductImageSelection(
+        candidates,
+        imageLimit.currentCount,
+        imageLimit.maxCount
+      );
+      if (selection.skippedCount > 0) {
+        Alert.alert(
+          'Limite de fotos',
+          `Apenas as primeiras ${selection.filesToUpload.length} foto(s) serão enviadas (limite máximo de ${imageLimit.maxCount} fotos). As demais não serão enviadas.`
+        );
+      }
+      return selection.filesToUpload;
+    };
+
+    if (Platform.OS === 'web' && typeof document !== 'undefined') {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'image/*';
+      if (multiple) {
+        input.multiple = true;
+      }
+      input.onchange = async () => {
+        const files = limitSelectedFiles(Array.from(input.files || []));
+        if (files.length === 0) return;
+        setUploading(true);
+        const photos: Array<{ file: Blob; name: string; contentType: string; sourceUri: string }> = [];
+        try {
+          for (const file of files) {
+            photos.push({
+              file,
+              name: file.name || 'produto.jpg',
+              contentType: file.type || '',
+              sourceUri: URL.createObjectURL(file),
+            });
+          }
+          const uploadedUrls = await uploadPhotos(photos);
+          if (uploadedUrls.length > 0) {
+            onImagesPicked(uploadedUrls);
+          }
+        } catch (error: any) {
+          Alert.alert('Erro ao enviar foto(s)', error?.message || 'Tente novamente.');
+        } finally {
+          photos.forEach(({ sourceUri }) => URL.revokeObjectURL(sourceUri));
+          setUploading(false);
+        }
+      };
+      input.click();
+    } else {
+      DocumentPicker.getDocumentAsync({
+        type: 'image/*',
+        copyToCacheDirectory: true,
+        multiple,
+      })
+        .then(async (result) => {
+          if (result.canceled || !result.assets || result.assets.length === 0) return;
+          const assets = limitSelectedFiles(result.assets);
+          if (assets.length === 0) return;
+          setUploading(true);
+          try {
+            const uploadedUrls: string[] = [];
+            const photos: Array<{
+              file: Blob;
+              name: string;
+              contentType: string;
+              sourceUri?: string;
+            }> = [];
+            for (const asset of assets) {
+              const response = await withTimeout(fetch(asset.uri), 15_000, null, 'Ler foto selecionada');
+              if (!response?.ok) throw new Error('Não foi possível ler uma das fotos selecionadas.');
+              const blob = await withTimeout(response.blob(), 12_000, null, 'Preparar foto selecionada');
+              if (!blob) throw new Error('A leitura da foto demorou demais. Tente novamente.');
+              photos.push({
+                file: blob,
+                name: asset.name || 'produto.jpg',
+                contentType: asset.mimeType || blob.type || '',
+                sourceUri: asset.uri,
+              });
+            }
+            uploadedUrls.push(...(await uploadPhotos(photos)));
+            if (uploadedUrls.length > 0) {
+              onImagesPicked(uploadedUrls);
+            }
+          } catch (error: any) {
+            Alert.alert('Erro ao enviar foto(s)', error?.message || 'Tente novamente.');
+          } finally {
+            setUploading(false);
+          }
+        })
+        .catch((error: any) =>
+          Alert.alert(
+            'Erro ao selecionar foto(s)',
+            error?.message || 'Não foi possível abrir a galeria.'
+          )
+        );
+    }
+  };
+
+  const handleAddPhoto = () => {
+    const currentCount = images.length;
+    if (currentCount >= maxPhotos) {
+      Alert.alert('Limite de fotos', `O ERP permite até ${maxPhotos} fotos neste produto pai.`);
+      return;
+    }
+    pickImages({
+      multiple: true,
+      imageLimit: { currentCount, maxCount: maxPhotos },
+      onImagesPicked: (newUrls) => {
+        setFormData((prev) => ({
+          ...prev,
+          images: [...(prev.images || []), ...newUrls],
+        }));
+      },
+    });
+  };
+
+  const handleReplacePhoto = (idx: number) => {
+    const oldUrl = images[idx];
+    pickImages({
+      multiple: false,
+      onImagesPicked: ([newUrl]) => {
+        if (!newUrl || !oldUrl) return;
+        setFormData((prev) => {
+          return replaceMobileProductImageGlobally(prev, oldUrl, newUrl, idx);
+        });
+        setSelectedPhotoIdx(null);
+      },
+    });
+  };
+
+  const handleMakeCover = (idx: number) => {
+    if (idx === 0) return;
+    setFormData((prev) => moveMobileProductImageGlobally(prev, idx, 0));
+    setSelectedPhotoIdx(null);
+  };
+
+  const handleMovePhoto = (idx: number, direction: -1 | 1) => {
+    setFormData((prev) => moveMobileProductImageGlobally(prev, idx, idx + direction));
+    setSelectedPhotoIdx(null);
+  };
+
+  const handleRemovePhoto = (idx: number) => {
+    const imageUrl = images[idx];
+    if (!imageUrl) return;
+    setFormData((prev) => removeProductImageGlobally(prev, imageUrl));
+    setSelectedPhotoIdx(null);
+  };
+
+  const activePhotoUrl = selectedPhotoIdx !== null ? images[selectedPhotoIdx] : null;
+
+  return (
+    <View style={styles.container}>
+      {/* Informação Resumida */}
+      <View style={[styles.infoBar, dark && styles.darkInfoBar]}>
+        <Camera size={16} color="#2563eb" />
+        <Text style={[styles.infoText, dark && styles.lightText]}>
+          Fotos do Produto ({images.length}/{maxPhotos}) · Armazenamento do catálogo
+        </Text>
+        {uploading && <ActivityIndicator size="small" color="#2563eb" />}
+      </View>
+      <View style={[styles.photoNote, dark && styles.darkPhotoNote]}>
+        <Info size={16} color={dark ? '#60a5fa' : '#2563eb'} />
+        <View style={styles.photoNoteCopy}>
+          <Text style={[styles.photoNoteText, dark && styles.photoNoteTextDark]}>
+            Adicione aqui as fotos principais do produto. As variações poderão vincular fotos desta
+            galeria para mostrar imagens específicas de cada modelo.
+          </Text>
+          <Text
+            style={[styles.photoNoteText, styles.photoNoteStrong, dark && styles.photoNoteTextDark]}
+          >
+            Limite da galeria: {maxPhotos} fotos.
+          </Text>
+          <Text style={[styles.photoNoteText, dark && styles.photoNoteTextDark]}>
+            Se houver uma única variação, ela herda toda esta galeria. Produtos com várias
+            variações permitem vincular até {MAX_VARIATION_IMAGES} fotos a cada uma.
+          </Text>
+          {images.length > maxPhotos && (
+            <Text
+              style={[
+                styles.photoNoteText,
+                styles.photoNoteOverLimit,
+                dark && styles.photoNoteOverLimitDark,
+              ]}
+            >
+              Este cadastro já possui {images.length} fotos, acima do limite de {maxPhotos}. As
+              fotos existentes serão preservadas; remova algumas antes de incluir novas.
+            </Text>
+          )}
+        </View>
+      </View>
+
+      {/* Grade de Fotos (2 fotos por linha, aspecto 1:1) */}
+      <View style={styles.grid}>
+        {/* Card 1: Botão de Adicionar Foto (1:1) */}
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={handleAddPhoto}
+          disabled={uploading || images.length >= maxPhotos}
+          style={[styles.addCard, dark && styles.darkAddCard]}
+        >
+          <View style={styles.addIconCircle}>
+            <Plus size={24} color="#2563eb" />
+          </View>
+          <Text style={styles.addCardText}>Adicionar Fotos</Text>
+          <Text style={styles.addCardSubtext}>Galeria / Múltiplas imagens</Text>
+        </TouchableOpacity>
+
+        {/* Cards de Fotos do Produto (1:1) */}
+        {images.map((url, idx) => (
+          <TouchableOpacity
+            key={url}
+            activeOpacity={0.88}
+            onPress={() => setSelectedPhotoIdx(idx)}
+            style={[styles.photoCard, dark && styles.darkCard]}
+          >
+            {/* Selo CAPA na primeira foto */}
+            {idx === 0 && (
+              <View style={styles.coverBadge}>
+                <Star size={10} color="#ffffff" fill="#ffffff" />
+                <Text style={styles.coverBadgeText}>CAPA</Text>
+              </View>
+            )}
+            {idx === 1 && (
+              <View style={styles.secondaryBadge}>
+                <Text style={styles.coverBadgeText}>SECUNDÁRIA</Text>
+              </View>
+            )}
+
+            <Image source={{ uri: url }} style={styles.photoImg} resizeMode="cover" />
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {/* Modal de Ações Centralizadas com Fundo Escurecido */}
+      <Modal
+        visible={selectedPhotoIdx !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setSelectedPhotoIdx(null)}
+      >
+        <View
+          style={[
+            styles.modalOverlay,
+            { paddingTop: Math.max(insets.top, 24), paddingBottom: Math.max(insets.bottom, 24) },
+          ]}
+        >
+          <TouchableOpacity
+            style={StyleSheet.absoluteFill}
+            activeOpacity={1}
+            onPress={() => setSelectedPhotoIdx(null)}
+          />
+
+          <View style={[styles.modalCard, dark && styles.darkModalCard]}>
+            {/* Imagem de Preview no Modal (1:1) */}
+            {activePhotoUrl && (
+              <View style={styles.modalPreviewWrapper}>
+                <Image
+                  source={{ uri: activePhotoUrl }}
+                  style={styles.modalPreviewImg}
+                  resizeMode="cover"
+                />
+                {selectedPhotoIdx === 0 && (
+                  <View style={styles.coverBadgeModal}>
+                    <Star size={10} color="#ffffff" fill="#ffffff" />
+                    <Text style={styles.coverBadgeText}>FOTO DE CAPA</Text>
+                  </View>
+                )}
+              </View>
+            )}
+
+            <Text style={[styles.modalTitle, dark && styles.lightText]}>
+              Opções da Foto #{selectedPhotoIdx !== null ? selectedPhotoIdx + 1 : ''}
+            </Text>
+
+            {/* Ações da Foto */}
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                accessibilityRole="button"
+                accessibilityLabel="Recortar foto em formato quadrado"
+                style={[styles.modalBtn, styles.modalBtnCrop]}
+                onPress={() => {
+                  if (activePhotoUrl) {
+                    setCroppingPhotoUrl(activePhotoUrl);
+                    setSelectedPhotoIdx(null);
+                  }
+                }}
+              >
+                <Crop size={16} color="#7e22ce" />
+                <Text style={styles.modalBtnCropText}>Recortar foto (1:1)</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.modalBtn, styles.modalBtnReplace]}
+                onPress={() => selectedPhotoIdx !== null && handleReplacePhoto(selectedPhotoIdx)}
+              >
+                <RefreshCw size={16} color="#2563eb" />
+                <Text style={styles.modalBtnReplaceText}>Substituir Foto</Text>
+              </TouchableOpacity>
+
+              {selectedPhotoIdx !== null && (selectedPhotoIdx > 0 || selectedPhotoIdx < images.length - 1) && (
+                <View style={styles.modalReorderRow}>
+                  {selectedPhotoIdx > 0 && (
+                    <TouchableOpacity
+                      accessibilityRole="button"
+                      accessibilityLabel="Mover foto uma posição para cima"
+                      style={[styles.modalReorderButton, dark && styles.darkModalReorderButton]}
+                      onPress={() => handleMovePhoto(selectedPhotoIdx, -1)}
+                    >
+                      <ArrowUp size={16} color={dark ? '#cbd5e1' : '#475569'} />
+                      <Text style={[styles.modalReorderText, dark && styles.dimText]}>Mover para cima</Text>
+                    </TouchableOpacity>
+                  )}
+                  {selectedPhotoIdx < images.length - 1 && (
+                    <TouchableOpacity
+                      accessibilityRole="button"
+                      accessibilityLabel="Mover foto uma posição para baixo"
+                      style={[styles.modalReorderButton, dark && styles.darkModalReorderButton]}
+                      onPress={() => handleMovePhoto(selectedPhotoIdx, 1)}
+                    >
+                      <ArrowDown size={16} color={dark ? '#cbd5e1' : '#475569'} />
+                      <Text style={[styles.modalReorderText, dark && styles.dimText]}>Mover para baixo</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              )}
+
+              {selectedPhotoIdx !== null && selectedPhotoIdx > 0 && (
+                <TouchableOpacity
+                  style={[styles.modalBtn, styles.modalBtnCover]}
+                  onPress={() => handleMakeCover(selectedPhotoIdx)}
+                >
+                  <Star size={16} color="#d97706" />
+                  <Text style={styles.modalBtnCoverText}>Definir como Capa</Text>
+                </TouchableOpacity>
+              )}
+
+              <TouchableOpacity
+                style={[styles.modalBtn, styles.modalBtnDelete]}
+                onPress={() => selectedPhotoIdx !== null && handleRemovePhoto(selectedPhotoIdx)}
+              >
+                <Trash2 size={16} color="#ef4444" />
+                <Text style={styles.modalBtnDeleteText}>Excluir Foto</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.modalBtn, styles.modalBtnCancel, dark && styles.darkBtnCancel]}
+                onPress={() => setSelectedPhotoIdx(null)}
+              >
+                <X size={16} color={dark ? '#94a3b8' : '#64748b'} />
+                <Text style={[styles.modalBtnCancelText, dark && styles.dimText]}>Cancelar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+      <ProductSquareImageCropModal
+        visible={Boolean(croppingPhotoUrl)}
+        imageUrl={croppingPhotoUrl}
+        availableImageUrls={images}
+        dark={dark}
+        onCancel={() => setCroppingPhotoUrl('')}
+        onConfirm={(newUrl) => {
+          const oldUrl = croppingPhotoUrl;
+          const fallbackIndex = images.indexOf(oldUrl);
+          setFormData((prev) => replaceMobileProductImageGlobally(prev, oldUrl, newUrl, fallbackIndex));
+          setCroppingPhotoUrl('');
+        }}
+      />
+    </View>
+  );
+};

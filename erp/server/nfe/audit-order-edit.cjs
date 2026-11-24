@@ -2341,7 +2341,7 @@ function getOrderEditFiscalPolicy(order, document, now) {
   });
 }
 
-// erp/src/pages/utils/orderPersistencePayload.ts
+// erp/src/pages/utils/order/orderPersistencePayload.ts
 var buildOrderPersistencePayload = (order) => {
   const customerId = order.customerData?.id || null;
   const customerName = order.customerData?.fullName || order.customerName || "";

@@ -1,3 +1,1 @@
-import { createContext } from 'react';
-
-export const ERPListPaginationPreferenceContext = createContext<string | undefined>(undefined);
+export * from './pagination/ERPListPaginationPreferenceContext';

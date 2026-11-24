@@ -346,7 +346,13 @@ export const isDateInPeriod = (rawDate: string | undefined, period: string): boo
   const now = new Date();
   const todayStr = getLocalDateString(now);
 
-  if (period === 'today_and_following' || period === 'default') {
+  if (period === 'default') {
+    const yesterday = new Date(now);
+    yesterday.setDate(now.getDate() - 1);
+    return cleanDateStr >= getLocalDateString(yesterday);
+  }
+
+  if (period === 'today_and_following') {
     return cleanDateStr >= todayStr;
   }
 

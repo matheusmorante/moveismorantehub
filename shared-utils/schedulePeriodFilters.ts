@@ -3,7 +3,10 @@ const dateKey = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() 
 export function schedulePeriodFilters(period: string, reference = new Date(), custom?: { start: string; end: string }) {
   const start = new Date(reference); const end = new Date(reference);
   if (period === 'custom') return { startDate: custom?.start || '', endDate: custom?.end || '' };
-  if (period === 'default') { start.setDate(start.getDate() - 1); return { startDate: dateKey(start) }; }
+  if (period === 'default') {
+    start.setDate(start.getDate() - 1);
+    return { startDate: dateKey(start) };
+  }
   if (period === 'today_and_following') return { startDate: dateKey(start) };
   if (period === 'today') return { startDate: dateKey(start), endDate: dateKey(start) };
   if (period === 'week') { start.setDate(start.getDate() - start.getDay()); end.setTime(start.getTime()); end.setDate(start.getDate() + 6); }

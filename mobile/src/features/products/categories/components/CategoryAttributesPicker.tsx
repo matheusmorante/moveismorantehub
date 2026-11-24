@@ -2,17 +2,15 @@ import { FormTextInput } from '../../../../components/shared/FormTextInput';
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, ActivityIndicator, StyleSheet, Switch} from 'react-native';
 import { Sliders, Check, X, Search } from 'lucide-react-native';
-import { fetchMobileAttributes, MobileAttribute } from '../../services/mobileAttributeService';
+import { searchMobileCategoryAttributes } from '../../services/mobileAttributeService';
 import { toggleCategoryAttribute } from '../domain/categoryEnvironmentRules';
 import { normalizeSearchTerm } from '../../../../../../shared-utils/productText';
 import {
   getDefaultCategoryAttributeIsRequired,
-  isCategoryAttributeSelectable,
   isCategoryAttributeRequirementLocked,
   setCategoryAttributeRequirement,
   type CategoryAttributeSelection,
 } from '../../../../../../shared-utils/categoryAttributeSelection';
-import { matchesSearchText } from '../../../../../../shared-utils/searchText';
 
 interface Props {
   dark: boolean;
@@ -31,46 +29,50 @@ export const CategoryAttributesPicker: React.FC<Props> = ({
   attributeLoadFailed,
   isSubmitting,
 }) => {
-  const [allAttributes, setAllAttributes] = useState<MobileAttribute[]>([]);
-  const [loadingAllAttrs, setLoadingAllAttrs] = useState(false);
+  const [matchingAttributes, setMatchingAttributes] = useState<Array<{ id: string; name: string }>>([]);
+  const [searchingAttributes, setSearchingAttributes] = useState(false);
   const [attributeCatalogueLoadFailed, setAttributeCatalogueLoadFailed] = useState(false);
   const [attributeQuery, setAttributeQuery] = useState('');
-  const selectableAttributes = allAttributes.filter((attribute) =>
-    isCategoryAttributeSelectable(attribute.name),
-  );
   const normalizedQuery = normalizeSearchTerm(attributeQuery);
   const hasSearchTerm = normalizedQuery.length >= 2;
-  const matchingAttributes = hasSearchTerm
-    ? selectableAttributes.filter((attribute) =>
-        matchesSearchText(attribute.name, normalizedQuery),
-      )
-    : [];
   const selectionDisabled = isLoadingAttributes || attributeLoadFailed || isSubmitting;
 
   useEffect(() => {
     let isMounted = true;
-    setLoadingAllAttrs(true);
-    fetchMobileAttributes()
-      .then((attrs) => {
-        if (isMounted) {
-          setAllAttributes(attrs);
-          setAttributeCatalogueLoadFailed(false);
-        }
-      })
-      .catch((error) => {
-        console.warn('[CategoryAttributesPicker] Erro ao buscar características:', error);
-        if (isMounted) {
-          setAllAttributes([]);
-          setAttributeCatalogueLoadFailed(true);
-        }
-      })
-      .finally(() => {
-        if (isMounted) setLoadingAllAttrs(false);
-      });
+    if (!hasSearchTerm) {
+      setMatchingAttributes([]);
+      setAttributeCatalogueLoadFailed(false);
+      setSearchingAttributes(false);
+      return () => {
+        isMounted = false;
+      };
+    }
+
+    setMatchingAttributes([]);
+    setSearchingAttributes(true);
+    setAttributeCatalogueLoadFailed(false);
+    const timeoutId = setTimeout(() => {
+      void searchMobileCategoryAttributes(normalizedQuery)
+        .then((attributes) => {
+          if (isMounted) setMatchingAttributes(attributes);
+        })
+        .catch((error) => {
+          console.warn('[CategoryAttributesPicker] Erro ao buscar características:', error);
+          if (isMounted) {
+            setMatchingAttributes([]);
+            setAttributeCatalogueLoadFailed(true);
+          }
+        })
+        .finally(() => {
+          if (isMounted) setSearchingAttributes(false);
+        });
+    }, 300);
+
     return () => {
       isMounted = false;
+      clearTimeout(timeoutId);
     };
-  }, []);
+  }, [hasSearchTerm, normalizedQuery]);
 
   const toggleAttribute = (attr: { id: string; name: string }) => {
     setSelectedAttributes((prev) =>
@@ -100,12 +102,12 @@ export const CategoryAttributesPicker: React.FC<Props> = ({
           placeholderTextColor={dark ? '#64748b' : '#94a3b8'}
           autoCapitalize="none"
           autoCorrect={false}
-          editable={!selectionDisabled && !attributeCatalogueLoadFailed}
+          editable={!selectionDisabled}
           accessibilityLabel="Buscar característica"
           accessibilityHint="Digite pelo menos duas letras para filtrar as características disponíveis."
           style={[styles.searchInput, dark && styles.textLight]}
         />
-        {loadingAllAttrs && <ActivityIndicator size="small" color="#2563eb" />}
+        {searchingAttributes && <ActivityIndicator size="small" color="#2563eb" />}
       </View>
 
       {isLoadingAttributes && (
@@ -117,17 +119,15 @@ export const CategoryAttributesPicker: React.FC<Props> = ({
 
       {attributeCatalogueLoadFailed ? (
         <Text style={styles.attributeCatalogueError} accessibilityRole="alert">
-          Não foi possível carregar a lista de características. Reabra o modal para tentar novamente. As seleções atuais foram preservadas.
+          Não foi possível buscar características. Altere a busca e tente novamente. As seleções atuais foram preservadas.
         </Text>
-      ) : !loadingAllAttrs && allAttributes.length === 0 ? (
-        <Text style={styles.emptyItemsText}>Nenhuma característica cadastrada no sistema.</Text>
-      ) : !loadingAllAttrs && selectableAttributes.length === 0 ? (
-        <Text style={styles.emptyItemsText}>Nenhuma característica disponível para vincular.</Text>
-      ) : hasSearchTerm && !loadingAllAttrs && matchingAttributes.length === 0 ? (
+      ) : !hasSearchTerm && normalizedQuery.length > 0 ? (
+        <Text style={styles.emptyItemsText}>Digite pelo menos duas letras para buscar.</Text>
+      ) : hasSearchTerm && !searchingAttributes && matchingAttributes.length === 0 ? (
         <Text style={styles.emptyItemsText}>
           Nenhuma característica encontrada para “{attributeQuery}”.
         </Text>
-      ) : hasSearchTerm && !loadingAllAttrs ? (
+      ) : hasSearchTerm && !searchingAttributes ? (
         <View style={[styles.linksBox, dark && styles.linksBoxDark]}>
           {matchingAttributes.map((attr) => {
             const isChecked = selectedAttributes.some((a) => a.id === attr.id);

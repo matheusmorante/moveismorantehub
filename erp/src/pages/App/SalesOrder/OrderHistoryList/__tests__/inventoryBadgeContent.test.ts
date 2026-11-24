@@ -1,0 +1,161 @@
+import { describe, expect, it } from 'vitest';
+import Order from '../../../../types/order.type';
+import Item from '../../../../types/items.type';
+import { getInventoryBadgeContent, getOrderItemsMovementList } from '../utils/inventoryBadgeContent';
+
+describe('estoque no pedido cancelado', () => {
+  it.each([false, true])('mostra ausência de movimento ativo sem inventar reversão histórica (%s)', isReturn => {
+    const content = getInventoryBadgeContent({ isReturn, hasMovement: false, isCancelled: true, isPartialMovement: false });
+    expect(content.title).toContain(isReturn ? 'Sem entrada' : 'Sem saída');
+    expect(content.title).toContain('cancelada');
+    expect(content.title).not.toMatch(/ainda|estornada/);
+  });
+  it('preserva a indicação de movimento ativo ou reversão comprovada', () => {
+    const state = { isReturn: false, isCancelled: true, isPartialMovement: false };
+    expect(getInventoryBadgeContent({ ...state, hasMovement: true }).title).toBe('Saída de estoque registrada pela venda');
+    expect(getInventoryBadgeContent({ ...state, hasMovement: false, isReversed: true }).title).toBe('Saída de estoque estornada');
+    expect(getInventoryBadgeContent({ ...state, isCancelled: false, hasMovement: false }).title).toBe('Saída de estoque ainda não registrada');
+  });
+});
+
+describe('getOrderItemsMovementList', () => {
+  const itemCadastrado: Item = {
+    productId: 'prod-123',
+    description: 'Mesa de Jantar 6 Lugares',
+    quantity: 1,
+    unitPrice: 1500,
+    unitDiscount: 0,
+    discountType: 'fixed',
+    handlingType: '',
+  };
+
+  const itemNaoCadastrado: Item = {
+    description: 'Cadeira Avulsa Temporária',
+    quantity: 2,
+    unitPrice: 200,
+    unitDiscount: 0,
+    discountType: 'fixed',
+    handlingType: '',
+    isTemporaryProduct: true,
+  };
+
+  it('identifica corretamente item não cadastrado com aviso explícito', () => {
+    const order: Order = {
+      orderType: 'sale',
+      status: 'scheduled',
+      stockProcessed: true,
+      items: [itemNaoCadastrado],
+    } as Order;
+
+    const result = getOrderItemsMovementList(order, true, false);
+    expect(result).toHaveLength(1);
+    expect(result[0].status).toBe('unregistered');
+    expect(result[0].statusLabel).toBe('Sem Cadastro');
+    expect(result[0].quantity).toBe(2);
+  });
+
+  it('mostra Salvados e Usados em amarelo sem confundir com item sem cadastro', () => {
+    const order = {
+      orderType: 'sale',
+      status: 'fulfilled',
+      stockProcessed: true,
+      movedProductIds: ['prod-123'],
+      items: [
+        itemCadastrado,
+        { ...itemCadastrado, productId: undefined, condition: 'salvado' },
+        { ...itemCadastrado, productId: 'legado-usado', condition: 'usado' },
+      ],
+    } as Order;
+
+    const result = getOrderItemsMovementList(order, true);
+    expect(result.map((item) => item.statusLabel)).toEqual(['Efetivada', 'Salvados', 'Usados']);
+    expect(result[1].status).toBe('non_stock');
+    expect(result[2].status).toBe('non_stock');
+    expect(result[1].statusBadgeClass).toContain('amber');
+    expect(result[2].statusBadgeClass).toContain('amber');
+  });
+
+  it('identifica item cadastrado com movimentação efetivada', () => {
+    const order: Order = {
+      orderType: 'sale',
+      status: 'scheduled',
+      stockProcessed: true,
+      items: [itemCadastrado],
+    } as Order;
+
+    const result = getOrderItemsMovementList(order, true, false);
+    expect(result).toHaveLength(1);
+    expect(result[0].status).toBe('effective');
+    expect(result[0].statusLabel).toBe('Efetivada');
+    expect(result[0].quantity).toBe(1);
+  });
+
+  it('identifica item com movimentação estornada quando o pedido é cancelado', () => {
+    const order: Order = {
+      orderType: 'sale',
+      status: 'cancelled',
+      stockProcessed: false,
+      stockReversed: true,
+      items: [itemCadastrado],
+    } as Order;
+
+    const result = getOrderItemsMovementList(order, false, true);
+    expect(result).toHaveLength(1);
+    expect(result[0].status).toBe('reversed');
+    expect(result[0].statusLabel).toBe('Estornada');
+  });
+
+  it('não chama uma movimentação de estornada apenas pelo status comercial cancelado', () => {
+    const order: Order = {
+      orderType: 'sale',
+      status: 'cancelled',
+      stockProcessed: false,
+      items: [itemCadastrado],
+    } as Order;
+    const result = getOrderItemsMovementList(order, false, false);
+    expect(result[0].statusLabel).toBe('Não efetivada');
+  });
+
+  it('identifica item com movimentação não efetivada quando ainda não foi processado', () => {
+    const order: Order = {
+      orderType: 'sale',
+      status: 'draft',
+      stockProcessed: false,
+      items: [itemCadastrado],
+    } as Order;
+
+    const result = getOrderItemsMovementList(order, false, false);
+    expect(result).toHaveLength(1);
+    expect(result[0].status).toBe('not_effective');
+    expect(result[0].statusLabel).toBe('Não efetivada');
+  });
+
+  it('diferencia itens movimentados e não movimentados quando há movedProductIds', () => {
+    const outroItemCadastrado: Item = {
+      productId: 'prod-456',
+      description: 'Buffet 4 Portas',
+      quantity: 1,
+      unitPrice: 800,
+      unitDiscount: 0,
+      discountType: 'fixed',
+      handlingType: '',
+    };
+
+    const order: Order = {
+      orderType: 'sale',
+      status: 'scheduled',
+      stockProcessed: true,
+      movedProductIds: ['prod-123'],
+      items: [itemCadastrado, outroItemCadastrado, itemNaoCadastrado],
+    } as Order;
+
+    const result = getOrderItemsMovementList(order, true, false);
+    expect(result).toHaveLength(3);
+    expect(result[0].status).toBe('effective');
+    expect(result[0].statusLabel).toBe('Efetivada');
+    expect(result[1].status).toBe('not_effective');
+    expect(result[1].statusLabel).toBe('Não efetivada');
+    expect(result[2].status).toBe('unregistered');
+    expect(result[2].statusLabel).toBe('Sem Cadastro');
+  });
+});

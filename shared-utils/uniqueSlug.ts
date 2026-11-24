@@ -14,7 +14,7 @@ export const resolveUniqueSlug = async (
   excludeId?: string
 ) => {
   const baseSlug = normalizeSlug(requestedSlug);
-  let query = client.from(table).select('id, slug').like('slug', `${baseSlug}%`);
+  let query = client.from(table).select('slug').like('slug', `${baseSlug}%`);
 
   if (excludeId) query = query.neq('id', excludeId);
   const { data, error } = await query;

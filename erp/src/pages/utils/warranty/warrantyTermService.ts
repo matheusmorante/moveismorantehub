@@ -6,6 +6,7 @@ import { generateWarrantyPdf } from './warrantyPdfGenerator';
 import type {
   GeneratedWarrantyPdf,
   WarrantyTermRecord,
+  WarrantyTermSummary,
   WarrantyCompanyInfo,
 } from './warrantyTypes';
 import {
@@ -45,19 +46,20 @@ export async function prepareWarrantyBackendValidation(orderId: string): Promise
   return data;
 }
 
-export async function fetchWarrantyTermsByOrderId(orderId: string): Promise<WarrantyTermRecord[]> {
+export async function fetchWarrantyTermsByOrderId(orderId: string): Promise<WarrantyTermSummary[]> {
   const { data, error } = await supabase
     .from('warranty_terms')
-    .select('*')
+    .select('document_version, file_hash_sha256')
     .eq('order_id', orderId)
-    .order('generated_at', { ascending: false });
+    .order('generated_at', { ascending: false })
+    .limit(1);
 
   if (error) {
     console.error('[fetchWarrantyTermsByOrderId] Erro ao buscar registros:', error);
     return [];
   }
 
-  return (data || []) as WarrantyTermRecord[];
+  return (data || []) as WarrantyTermSummary[];
 }
 
 export async function generateAndSaveWarrantyTerm(

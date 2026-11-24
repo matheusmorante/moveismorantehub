@@ -63,18 +63,18 @@ export const fetchCategories = async (
         ? supabase
             .from('categories')
             .select(CATEGORY_SUMMARY_FIELDS)
-            .eq('type', 'category')
+            .or('type.eq.category,type.is.null')
             .order('name')
         : supabase
             .from('categories')
             .select('*')
-            .eq('type', 'category')
+            .or('type.eq.category,type.is.null')
             .order('name');
     const { data: catsData, error: catsErr } = await categoriesRequest;
 
     if (catsErr) {
       console.error('[CategoryService] Erro ao buscar categories:', catsErr);
-      return [];
+      throw catsErr;
     }
 
     const { data: rels, error: relErr } = sharedRelationships
@@ -86,7 +86,7 @@ export const fetchCategories = async (
         '[CategoryService] Erro ao buscar category_relationships para categories:',
         relErr
       );
-      return catsData || [];
+      throw relErr;
     }
 
     return (catsData || []).map((cat: any) => ({
@@ -95,7 +95,7 @@ export const fetchCategories = async (
     }));
   } catch (err) {
     console.error('[CategoryService] Exceção em fetchCategories:', err);
-    return [];
+    throw err;
   }
 };
 
@@ -192,7 +192,7 @@ export const createCategory = async (
 export const updateCategory = async (
   id: string,
   name: string,
-  environmentIds: string[],
+  environmentIds: string[] | undefined,
   attributes?: CategoryAttributeSelection[],
   seoFields?: Partial<Category>,
   characteristicApplications?: CharacteristicCategoryApplication[]
@@ -211,17 +211,19 @@ export const updateCategory = async (
   const { error } = await supabase.from('categories').update(updateData).eq('id', id);
   if (error) throw error;
 
-  // Atualiza relacionamentos em category_relationships
-  const { error: delError } = await supabase
-    .from('category_relationships')
-    .delete()
-    .eq('child_id', id);
-  if (delError) throw delError;
+  // Undefined means the form confirmed the saved links are unchanged.
+  if (environmentIds !== undefined) {
+    const { error: delError } = await supabase
+      .from('category_relationships')
+      .delete()
+      .eq('child_id', id);
+    if (delError) throw delError;
 
-  if (environmentIds && environmentIds.length > 0) {
-    const links = environmentIds.map((eid) => ({ parent_id: eid, child_id: id }));
-    const { error: insError } = await supabase.from('category_relationships').insert(links);
-    if (insError) throw insError;
+    if (environmentIds.length > 0) {
+      const links = environmentIds.map((eid) => ({ parent_id: eid, child_id: id }));
+      const { error: insError } = await supabase.from('category_relationships').insert(links);
+      if (insError) throw insError;
+    }
   }
 
   // Atualiza relacionamentos em category_attributes (se fornecido explicitamente)
@@ -389,25 +391,8 @@ export const deleteCategory = async (id: string) => {
 
   const totalLinked = (pcCheck.count || 0) + (prodCheck.count || 0);
   if (totalLinked > 0) {
-    const [pcRows, prodRows] = await Promise.all([
-      supabase.from('product_categories').select('product_id').eq('category_id', id),
-      supabase.from('products').select('id').eq('category_id', id),
-    ]);
-    if (pcRows.error) throw pcRows.error;
-    if (prodRows.error) throw prodRows.error;
-    const finalCount =
-      countDistinctProductsByCategory([
-        ...(pcRows.data || []).map((row: { product_id: string }) => ({
-          categoryId: id,
-          productId: row.product_id,
-        })),
-        ...(prodRows.data || []).map((row: { id: string }) => ({
-          categoryId: id,
-          productId: row.id,
-        })),
-      ])[id] || totalLinked;
     throw new Error(
-      `Não é possível excluir esta categoria porque ela está sendo utilizada por ${finalCount} produto${finalCount > 1 ? 's' : ''}. Remova ou altere a categoria desses produtos antes de excluí-la.`
+      'Não é possível excluir esta categoria porque ela está sendo utilizada por produtos. Remova ou altere a categoria desses produtos antes de excluí-la.'
     );
   }
 

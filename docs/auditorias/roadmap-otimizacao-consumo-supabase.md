@@ -1,3 +1,43 @@
+## Ciclo — 24/11/2026, 15:14 BRT — histórico e arquivos de garantia
+
+**Reconciliação e decisão.** O ciclo anterior apontou os arquivos de garantia e pediu para reconciliar a SCE-200. Ela continuava pendente no registro de 12/11 e tratava da leitura da tabela `warranty_terms`, não do Storage. O operador autorizou aplicar as pendências; apliquei a opção A da SCE-200. A SCE-199 também fica aceita pela autorização geral e será o próximo trabalho, sem ser alterada neste ciclo. SCE-369/370 seguem aplicadas, SCE-368 continua bloqueada por falta da confirmação da regra única publicada e SCE-165 permanece negada.
+
+**Leituras e evidências históricas.** Reli AGENTS.md §§24–25, `supabase-consumption`, `rules/supabase/supabase-consumption.yml`, este roteiro e os oito relatórios históricos indicados por ele. Os registros de `warranty_terms` mostram apenas totais agregados em janelas antigas; não identificam esta janela nem esta ação. Não consultei pedidos, documentos, dados pessoais, banco ou Storage remoto.
+
+### SCE-200 — aceita e aplicada localmente
+
+Ao abrir o termo de garantia, a tela continua mostrando a versão e os primeiros caracteres da impressão digital do arquivo. Agora a consulta pede somente a versão mais recente e os dois campos usados na tela. Mantive o registro completo gerado pelo próprio fluxo separado para que imprimir e enviar continuem usando os dados completos.
+
+**Arquivos:** `erp/src/pages/utils/warranty/warrantyTypes.ts`, `erp/src/pages/utils/warranty/warrantyTermService.ts`, `erp/src/pages/App/SalesOrder/OrderActions/warranty-modal/hooks/useWarrantyModalState.ts` e o teste existente `erp/src/pages/utils/warranty/__tests__/warrantyTermService.test.ts` (atualizado, sem execução).
+
+- **Pedidos:** a abertura ainda faz uma consulta à tabela; o filtro pelo pedido e a ordem do mais novo para o mais antigo permanecem. O limite de uma linha reduz o conjunto retornado, não o número de consultas. As atualizações após envio também permanecem.
+- **Bytes/egress:** a resposta passa de todas as linhas e colunas para no máximo uma linha e dois campos. Não medi o tamanho das respostas nem o egress oficial, então não atribuo economia em bytes ou cobrança.
+- **Banco:** a consulta continua filtrando por pedido e ordenando pela data, com limite de uma linha. Não medi plano, CPU ou latência e não criei índice.
+
+A validação do pedido, a criação do PDF, o upload, o registro da versão e os dados completos usados para imprimir/enviar não mudaram. Reverter é restaurar a seleção ampla e a leitura sem limite, além da tipagem anterior do resumo.
+
+### Storage — recorte revisado, sem nova sugestão
+
+`warrantyTermService.ts` envia um arquivo ao bucket `warranty-terms` quando um termo é gerado. A montagem da URL pública pelo SDK é local e não é outra chamada de rede. Abrir a janela só lê a tabela; imprimir usa a cópia local do PDF. Os dois caminhos de WhatsApp usam a URL pública, mas esta auditoria não acessou o arquivo nem mediu eventuais downloads feitos por destinatários ou pela Meta.
+
+**Pedidos, bytes e banco separados:** estruturalmente há um pedido de upload por documento gerado, além das chamadas distintas de validação e gravação de `warranty_terms`. A leitura da janela é a consulta SCE-200, já limitada. Não medi frequência, tamanho do PDF, bytes, egress oficial ou latência; os totais agregados históricos não permitem atribuir uso a este fluxo. Se o upload falha, o fluxo ainda registra a linha sem URL; a impressão pode usar o PDF local e o envio direto da Meta acusa URL ausente. Esse comportamento foi mantido.
+
+**Rapidez, acesso e domínio.** A janela mostra estado de trabalho durante a preparação e o envio direto espera confirmação da Meta; não encontrei linha de base com tempos. Uma medição futura deve separar celular/computador: resposta visual da ação até 200 ms no percentil 75, conteúdo principal até 2,5 s no percentil 75, e tempo até confirmação visível e gravação concluída com mediana e percentil 95, sob a mesma rede. Acima de 10 s sem retorno visível é sinal de problema. As regras de acesso e o bucket público definidos na migration local permanecem iguais. Preço e estoque do pedido não são recalculados; não foi criado modo offline nem nova recuperação após desconexão.
+
+Não houve migration, publicação nem acesso remoto. Fiz revisão estática e atualizei o teste existente, mas não executei testes nem build. Para reverter a SCE-200, restaurar a consulta e os tipos completos; o caminho de upload não requer reversão.
+
+| Recorte/ID | Estado | Evidência e limite |
+| --- | --- | --- |
+| SCE-200 — histórico de termos | **Aceita e aplicada localmente** | Uma leitura continua por abertura; retorna até uma linha e dois campos. Sem bytes, latência ou egress oficial medidos. |
+| Arquivos de garantia no Storage | **Revisado; sem nova SCE** | Um upload por documento gerado; abertura da janela não baixa arquivo. Tráfego do objeto e frequência não medidos. |
+| Rapidez da janela e do envio | **Linha de base ausente** | Medir resposta visual, conclusão, persistência e p50/p95 nas mesmas condições; manter os limites descritos acima. |
+| SCE-199 — mídia da Central de Atendimento | **Aceita pela autorização geral; próxima execução** | O aceite geral foi registrado hoje; ainda não alterada neste ciclo. |
+| SCE-368 / SCE-369 / SCE-370 / SCE-165 | **Estados anteriores mantidos** | Bloqueada / aplicadas / negada, respectivamente, conforme os registros anteriores. |
+
+**Próximo recorte exato:** executar a opção recomendada da SCE-199 já aceita em `erp/src/pages/App/CustomerSupport/hooks/useCustomerSupportMedia.ts` e nos consumidores `MessageBubble.tsx` e `components/infoPanel/media/CustomerMediaItem.tsx`: iniciar a busca automática quando a mensagem se aproximar da área visível, sem exigir toque adicional; manter autorização da sessão, permissão da Central, ligação do identificador à conversa, repetição manual e encerramento ao trocar de usuário. Não consultar conversas ou mídias reais, nem acessar Meta, Storage ou banco remoto. Contar apenas os pedidos estruturais separados de bytes e egress; registrar a linha de base visual e os tempos p50/p95 sob condições equivalentes, sem prometer economia observada.
+
+---
+
 ## 24/11/2026 — falha 42703 na reconciliação do Catálogo Meta
 
 **Sintoma.** A sincronização pelo ERP retornou HTTP 502 em `/api/meta-graph` e informou falha ao carregar produtos publicados (`42703`).
@@ -11,6 +51,418 @@
 **Complemento executado em 24/11.** A reconciliação completa de catálogos exclusivos deixa de ler a tabela de vínculos legados. A primeira página de cada consulta pede contagem exata junto dos registros para proteger exclusões contra leituras incompletas. A execução pontual resolve os identificadores em lotes com projeções reduzidas. O histórico registra e confirma cada lote de exclusão com até duas escritas sem retornar as linhas. A RPC do painel continua retornando uma linha para o ERP e o app. O trabalho de contagem no banco e os bytes faturáveis não foram medidos. A regra e a confirmação operacional estão em [Reconciliação do Catálogo Meta](../integracoes/catalogo-meta-reconciliacao.md).
 
 ---
+
+
+## Ciclo — 23/11/2026, 20:21 BRT — envio de imagens do Catálogo Digital
+
+**Reconciliação e escopo.** Retomei o próximo recorte exato: `digital-catalog/src/app/api/upload/route.ts#POST` e o envio chamado pelo formulário administrativo. Reli AGENTS.md §§24–25, `digital-catalog/AGENTS.md`, a skill `supabase-consumption`, `rules/supabase/supabase-consumption.yml`, este roteiro e os oito relatórios históricos listados nele. A busca dirigida por `/api/upload`, `upload-r2.ts` e `productImageUploadUtils.ts` não encontrou registro histórico desses caminhos; o histórico de anexos revisado usa outro consumidor e já informa o R2 como armazenamento separado. SCE-369 e SCE-370 permanecem aplicadas localmente. SCE-368 permanece aceita, mas bloqueada pela falta de confirmação da regra única de SKU publicada; não consultei banco nem ambientes. SCE-165 continua negada. Nenhuma decisão nova foi presumida.
+
+**O que a pessoa percebe.** Ao escolher, colar ou soltar imagens, o formulário mostra uma mensagem de processamento antes do trabalho. O navegador corta e reduz cada imagem para WebP quadrado de 1080 × 1080 e envia os arquivos um por vez. Quando todos terminam, os endereços aparecem no formulário. Se uma etapa falhar ou a conexão cair, há uma mensagem de erro; não há fila offline nem nova tentativa automática. Em uma seleção de vários arquivos, os que subiram antes de uma falha podem ficar sem referência no produto.
+
+### Destino dos arquivos: Cloudflare R2
+
+`digital-catalog/src/app/api/upload/route.ts` cria uma autorização temporária de envio para o armazenamento Cloudflare R2. `digital-catalog/src/lib/utils/upload-r2.ts` faz um pedido para obter essa autorização e, depois, envia o arquivo diretamente ao R2. `productImageUploadUtils.ts` comprime a imagem antes de chamar esse serviço; `Step1Photos.tsx` chama o envio em lote de forma sequencial.
+
+- **Pedidos:** estruturalmente, cada imagem enviada gera um `POST /api/upload` e um `PUT` ao R2. São dois pedidos HTTP por imagem, sem contar a busca original de uma imagem arrastada de outro site. O envio dos arquivos não chama o Storage do Supabase.
+- **Bytes:** o conteúdo é enviado ao R2 como WebP comprimido. O tamanho real por arquivo não foi medido. O tráfego do R2 não é egress do Supabase e não foi somado a ele.
+- **Supabase e banco:** depois, ao salvar o produto, `useAdminProductSave.ts` substitui as linhas de metadados em `product_images`: uma exclusão e, se houver imagens, uma inclusão com confirmação. Esses pedidos são separados dos envios de arquivo e não levam o conteúdo da imagem. Linhas, bytes, frequência e latência não foram medidos.
+
+**Rapidez, resultado e segurança.** Não há medida inicial de tempo para mostrar a primeira mensagem nem de conclusão do envio. Para qualquer futura mudança nessa tela, registrar antes e depois no mesmo navegador, aparelho, quantidade/tamanho de arquivo e rede: primeiro retorno visual até 200 ms no percentil 75; carregamento do conteúdo principal até 2,5 s no percentil 75, separados entre celular e computador; tempo de compressão e envio; e conclusão da gravação dos endereços, com mediana e percentil 95. Não afirmar ganho sem essa comparação. Durante uma operação acima de 10 segundos, a mensagem de processamento permanece visível, mas não informa o andamento por arquivo. A rota continua respondendo com links temporários válidos por cinco minutos; não alterei origens aceitas, permissões, exposição de imagens, preço ou estoque. Não acessei arquivos, valores secretos, objetos remotos ou imagens de produtos.
+
+**Conclusão e cobertura.** Sem leitura/escrita do Supabase na transferência, não há recomendação nova de consumo do Supabase para este caminho, e nenhuma SCE foi criada. A gravação de metadados no banco continua no salvamento já existente. Não alterei código; não executei testes, build, upload, consulta remota, DML/fixtures, migration, deploy ou OTA. A revisão foi estática. Como não houve mudança funcional, não há código a reverter. O roteiro é o único arquivo atualizado neste ciclo.
+
+| Recorte/ID | Estado atual | Evidência e limite |
+| --- | --- | --- |
+| Catálogo Digital — envio de imagens do produto | **Revisado; sem nova SCE** | Um pedido de autorização e um envio direto ao R2 por arquivo. Nenhuma chamada ao Storage Supabase neste caminho; a substituição de metadados do produto é uma operação separada no banco. Tamanhos, frequência, saída oficial e rapidez sem medida. |
+| Performance do envio de imagens | **Linha de base ausente; sem mudança** | A interface mostra aviso de processamento; não há mediana/p95 ou comparação por aparelho e rede. Futuras propostas precisam comparar tempos equivalentes e preservar retorno visual ≤200 ms e carregamento principal ≤2,5 s no percentil 75, separados por celular/computador; conclusão não pode piorar contra a linha de base. |
+| SCE-369 e SCE-370 | **Aplicadas localmente; mantidas** | Sem alteração neste ciclo. |
+| SCE-368 | **Aceita, ainda bloqueada** | Falta comprovação autorizada da regra única nos ambientes publicados. |
+| SCE-349, SCE-346/347, SCE-323/322/270/232, SCE-154, SCE-150/151/152 | **Bloqueadas pelos pré-requisitos já registrados** | Estados e evidências anteriores preservados. |
+| SCE-165 | **Negada; preservada** | Não reapresentada. |
+
+**Próximo recorte exato:** revisar apenas `erp/src/pages/utils/warranty/warrantyTermService.ts` e seus chamadores `erp/src/pages/App/SalesOrder/OrderActions/warranty-modal/hooks/useWarrantyModalState.ts` e `erp/src/pages/App/SalesOrder/OrderActions/orderActionsConfig.ts`, limitando-se à leitura, ao envio e ao retorno de arquivos de garantia pelo Storage e separando essas transferências das consultas da tabela `warranty_terms`. Não abrir documentos, consultar pedidos reais nem acessar Storage remoto. Reconciliar SCE-200, que trata da leitura da tabela e não deve ser repetida como sugestão sobre arquivos. Registrar a linha de base de retorno visual e conclusão p50/p95 se houver uma mudança candidata, sem alegar desempenho ou economia sem medições equivalentes.
+
+---
+
+## Ciclo — 23/11/2026, 20:11 BRT — aplicação das sugestões aceitas
+
+**Reconciliação e decisão.** O operador autorizou aplicar as sugestões pendentes. Reli AGENTS.md §§24–25, a skill `supabase-consumption`, `rules/supabase/supabase-consumption.yml`, este roteiro e os oito relatórios históricos indicados pelo roteiro. SCE-369 e SCE-370 estavam aguardando decisão e foram aplicadas localmente pelas opções recomendadas. SCE-368 também recebeu o aceite geral, mas continua bloqueada: a própria proposta exige confirmar que a regra de SKU único está ativa nos ambientes em uso; esta execução não consultou o banco nem outro ambiente publicado. Mantive a conferência antecipada de SKU para não depender de uma regra cuja presença atual não foi verificada. As SCE-349, SCE-346/347, SCE-323/322/270/232, SCE-154 e SCE-150/151/152 continuam bloqueadas pelos pré-requisitos específicos já registrados; SCE-165 permanece negada. Não alterei esses estados.
+
+**O que muda na prática.** Depois de uma atualização de produto para a Meta, o servidor reaproveita os códigos que já leu quando o produto está publicado. Produtos fora dessa leitura continuam usando a busca de segurança, então a limpeza de itens antigos permanece. No aplicativo, uma sincronização manual já mostra seu próprio resultado; a tela agora atualiza os totais sem pedir imediatamente o mesmo status outra vez. Abrir ou atualizar a tela continua buscando o último resultado.
+
+### SCE-369 — aplicada localmente, opção A
+
+**Arquivos:** `erp/api/_lib/metaCatalogReconciliation/source.ts` e `erp/api/_lib/metaCatalogReconciliation/run.ts`.
+
+O carregamento do catálogo agora deriva os identificadores de remoção a partir do produto e das variações já recebidos, usando a mesma função de montagem em modo oculto. Isso acontece antes de usar a lista para publicar, e mantém os códigos de variações de teste. Se o produto não veio na consulta de publicados — por estar oculto, removido ou fora dos filtros — o serviço continua chamando `loadCandidateRetailers`, como antes. A comparação remota, a lista publicada, os itens a remover, as permissões, os preços e o estoque enviados à Meta não mudam.
+
+- **Chamadas:** para o produto já presente na carga publicada, deixa de haver uma leitura pontual de produto e pelo menos uma página de leitura de variações. A busca de candidatos continua para produtos ausentes. As chamadas de publicação, vínculo e consulta externa não mudam. Frequência real não medida.
+- **Bytes/egress:** deixam de ser devolvidos os identificadores repetidos nessas leituras evitadas. Tamanhos e egress faturável não foram medidos.
+- **Banco:** elimina as leituras pontuais evitáveis; a leitura principal, páginas de variações/campanhas, validações e gravações de resultado permanecem. Não medi CPU, plano ou latência.
+
+**Falha, desconexão e reversão.** O caminho de segurança continua para produtos fora da lista publicada. Nenhum cache ou fila offline foi criado; a próxima reconciliação continua sendo a recuperação existente. Para reverter, chamar `loadCandidateRetailers` em toda reconciliação por produto e retirar o cálculo dos candidatos da resposta carregada.
+
+### SCE-370 — aplicada localmente, opção A
+
+**Arquivo:** `mobile/src/features/products/screens/NativeMetaCatalogScreen.tsx`.
+
+`loadStats` ganhou uma opção para pular a consulta do último resultado. Após sincronização manual bem-sucedida, o aplicativo conserva o resultado recém-recebido e atualiza somente os totais. Se a resposta excepcionalmente não trouxer `finishedAt`, a consulta de status continua como segurança. Na abertura da tela, na atualização manual e nas demais recargas, o status continua sendo consultado. O acesso de administrador e os textos de erro permanecem.
+
+- **Chamadas:** no sucesso manual com `finishedAt`, elimina uma chamada HTTP de status a `/api/meta-graph` e uma leitura de `last_run` no banco; a sincronização manual e a RPC dos totais permanecem. Não medi quantas sincronizações ocorrem.
+- **Bytes/egress:** evita a resposta curta de status nesse caso; não medi bytes nem cobrança de saída.
+- **Banco:** evita a leitura de status e mantém a leitura dos três totais. Não medi carga ou latência.
+
+Uma execução agendada que termine logo depois da manual poderá aparecer somente na próxima abertura ou atualização da tela. Para reverter, voltar a consultar o status na recarga feita depois da sincronização manual. O fluxo manual sem conexão continua apresentando erro; nenhuma fila offline ou publicação agendada foi criada.
+
+### SCE-368 — aceite registrado, execução bloqueada
+
+**Motivo concreto:** a opção recomendada remove a busca antecipada e passa a depender da restrição única `product_variations_sku_key` em todos os ambientes publicados. A migration local declara a regra e o código reconhece esse tipo de erro, mas a presença da restrição em cada ambiente ativo não está comprovada nos arquivos autorizados. Não consultei a base publicada nem apliquei migration. Por isso, mantive a leitura antecipada e o fluxo atual de gravação; remover a leitura antes dessa confirmação poderia permitir duplicidade num ambiente sem a regra.
+
+**Para liberar este item:** é necessária uma confirmação autorizada, somente de metadados da regra de unicidade, nos ambientes em uso; em seguida, ainda precisa ser ajustada a mensagem amigável para colisão de SKU manual antes de retirar a leitura antecipada. Sem essa evidência, não há alegação de economia: **chamadas:** nenhuma reduzida; **bytes:** nenhum medido; **banco:** nenhuma alteração de leitura ou carga.
+
+### Recorte auditado sem nova sugestão
+
+Conferi `digital-catalog/src/services/meta-catalog/forwardReconciliation.ts`, as rotas `digital-catalog/src/app/api/catalog/sync-batch/route.ts` e `digital-catalog/src/app/api/facebook-catalog/sync/route.ts`, e o chamador `digital-catalog/src/features/products/components/admin-modal/hooks/useAdminProductSave.ts`. O helper não acessa o Supabase: valida o cabeçalho recebido e faz um pedido HTTP ao endpoint autenticado do ERP. As leituras e gravações do banco ocorrem no serviço de destino já revisado. O salvamento individual do produto continua sendo confirmado antes da sincronização em segundo plano. O histórico registra que a projeção da rota individual e a junção de credenciais da sincronização ampla já foram tratadas nas SCE-209 e SCE-210; não repeti essas alterações. A ausência de mensagem de conclusão da chamada em segundo plano é uma limitação de experiência já descrita no histórico, não uma recomendação nova de consumo do Supabase.
+
+| Recorte/ID | Estado atual | Evidência e limite |
+| --- | --- | --- |
+| SCE-369 | **Aceita e aplicada localmente** | Para produto já carregado, evita uma leitura pontual do produto e pelo menos uma página de variações. Frequência, bytes faturáveis e latência sem medição. |
+| SCE-370 | **Aceita e aplicada localmente** | No sucesso manual com horário de conclusão, evita a consulta repetida do status. O total real de chamadas e a saída em bytes não foram medidos. |
+| SCE-368 | **Aceita, mas bloqueada por verificação da regra publicada** | Nenhuma consulta ao banco foi feita; a leitura preventiva permanece no código. |
+| SCE-349, SCE-346/347, SCE-323/322/270/232, SCE-154, SCE-150/151/152 | **Bloqueadas pelos pré-requisitos já registrados** | Mantidos os bloqueios de publicação, sessão autorizada, correlação, regra documental, consumidor/uso natural, medição ou definição de campo. |
+| SCE-165 | **Negada; preservada** | Não reapresentada. |
+| Catálogo Digital — encaminhamento para ERP | **Revisado; sem nova SCE** | Uma solicitação iniciada pelo cliente e um encaminhamento servidor-servidor; o helper não faz leitura de banco. Bytes e latência não medidos. |
+
+**Validação e limites.** Revisão estática dos caminhos alterados e `git diff --check`; não executei testes, build, consulta ou gravação remota, DML/fixtures, migration, deploy ou OTA. Nenhuma informação de produto, usuário, credencial ou preço foi consultada. Não há medição antes/depois; as economias acima são contagens estruturais condicionais, não valores observados nem estimativa de egress faturável. Reverter SCE-369 e SCE-370 é possível pelos passos descritos em cada item; nenhum ajuste exige migration.
+
+**Próximo recorte exato:** revisar somente `digital-catalog/src/app/api/upload/route.ts#POST` e o chamador administrativo de upload de imagem. Confirmar se a transferência usa o armazenamento do próprio servidor ou o Storage do Supabase; seguir apenas metadados, tamanho declarado, número de pedidos e tratamento de falha, sem enviar nem abrir arquivos. Separar pedidos e bytes da gravação de metadados no banco, preservar imagens já vinculadas, permissões e exibição offline. Não repetir SCE-041, cuja gravação de imagem derivada segue bloqueada por política de armazenamento não comprovada.
+
+---
+
+## Ciclo — 23/11/2026, 20:01 BRT — status do Catálogo Meta no aplicativo móvel
+
+**Reconciliação e escopo.** O próximo recorte do ciclo anterior apontava `mobileProductMetaCatalogSyncService.ts` e seus consumidores. O roteiro já registra uma revisão anterior desse cliente em 13/11/2026, 19:05 BRT: a sincronização móvel tinha projeções, filtros, paginação e lotes necessários, sem nova proposta. Revalidei o serviço no checkout atual para não repetir essa recomendação. O pedido atual segue pelo mesmo `/api/meta-graph`; `requestMobileMetaCatalog` lê a sessão autenticada, envia uma solicitação HTTP e não faz uma leitura de dados do produto no Supabase antes dela. Os chamadores de salvamento, status e lixeira disparam a sincronização depois da gravação. Não reabri essa área. SCE-246 já trocou as duas leituras móveis dos totais pela função `get_meta_catalog_stats`; a tela ainda tem uma operação separada para mostrar o último resultado. SCE-368 e SCE-369 permanecem aguardando decisão.
+
+**O que a pessoa percebe.** Ao abrir ou atualizar a tela do Catálogo Meta, o aplicativo carrega os três totais por uma função curta do banco e, em paralelo, pede ao servidor o resultado da última sincronização. Ao concluir uma sincronização manual, já recebe o resultado completo, mostra esse resultado na tela e atualiza os totais. A atualização de totais então chama `loadStats` novamente, que também busca o último resultado, repetindo imediatamente a consulta de status.
+
+### Nova sugestão — SCE-370 (aguardando decisão)
+
+**Opção A — recomendada:** no caminho de sucesso da sincronização manual, manter o resultado já retornado por `syncMobileMetaCatalog` e atualizar somente os totais. Continuar buscando o último resultado ao abrir a tela e ao atualizar manualmente. Assim, a consulta de status continua disponível para encontrar uma execução posterior do agendamento; ela só é pulada na recarga feita imediatamente após a operação manual que já trouxe o resultado.
+
+**Opção B:** manter a consulta de status depois da sincronização manual. Pode mostrar uma execução agendada que termine logo após a sincronização manual, mas repete uma chamada logo depois de já receber o resultado.
+
+| Medida | Opção A — efeito estrutural e limite |
+| --- | --- |
+| Chamadas | Evita uma solicitação a `/api/meta-graph` com `reconcile_catalog_status` após cada sincronização manual bem-sucedida. A chamada que sincroniza o catálogo e a função RPC dos totais continuam. A quantidade de sincronizações manuais não foi medida. |
+| Bytes/saída | Evita uma pequena resposta de status, que contém os totais e horários da execução já recebida. Nenhum byte ou egress faturável foi medido. |
+| Trabalho/latência do banco | Evita uma leitura de `last_run` em `meta_catalog_sync_state` após o sucesso manual. A função dos três totais continua sendo executada. Não medi CPU, espera ou latência. |
+
+**Impacto, segurança e reversão.** O resultado da operação manual já contém `finishedAt` e os campos que a tela exibe, e `syncCatalog` já o coloca em `lastRun`. A recarga continua atualizando os três totais. Uma execução agendada que termine no pequeno intervalo entre a resposta manual e a atualização dos totais pode não aparecer imediatamente; a abertura ou a atualização manual seguinte ainda consulta o último resultado. A sincronização manual sem conexão exibe erro. As chamadas automáticas são de melhor esforço e ficam só em memória/logs; não encontrei uma fila offline durável. A existência de um handler de agendamento no código não prova que esteja publicado: SCE-349 continua bloqueada pela validação de publicação já registrada. Não muda as permissões de administrador, quem pode ver o catálogo, o conteúdo sincronizado, preço ou estoque. Se a defasagem não for aceitável, manter a consulta atual. Para reverter a opção A, voltar a pedir o status no `loadStats` chamado após o sucesso manual.
+
+**Decisão solicitada:** aceitar ou recusar SCE-370. A redução prevista é uma solicitação HTTP e uma leitura de status no banco por sincronização manual bem-sucedida. Não medi frequência, bytes, egress faturável ou latência.
+
+**Caminhos revisados:** `mobile/src/features/products/screens/NativeMetaCatalogScreen.tsx#loadStats`; `NativeMetaCatalogScreen.tsx#syncCatalog`; `mobile/src/features/products/services/mobileMetaCatalogSyncService.ts`; `mobile/src/features/products/services/mobileProductMetaCatalogSyncService.ts#requestMobileMetaCatalog`; `mobile/src/features/products/services/mobileMetaCatalogStatsService.ts#fetchMobileMetaCatalogStats`; `erp/api/_lib/metaCatalogReconciliation/handler.ts`; e `erp/api/_lib/metaCatalogReconciliation/run.ts#getLastMetaCatalogRun`. Também conferi os disparos depois de gravar, ocultar, ativar e mover produto para a lixeira, além do registro histórico de 13/11 e da execução SCE-246. Não consultei dados de produto, sessões, credenciais, banco ou métricas remotas. Não executei chamadas externas, testes, build, DML/fixtures, migration, deploy ou OTA; a revisão foi estática.
+
+### Matriz de cobertura deste recorte
+
+| Área | Estado | Evidência e limite |
+| --- | --- | --- |
+| Mobile — sincronização automática do produto com Catálogo Meta | **Revisada e reconciliada com 13/11; sem nova sugestão para o envio** | Uma chamada autenticada ao endpoint após debounce de 400 ms; cliente usa espera e deduplicação em memória. Não há consulta de produto pelo cliente antes do endpoint. Volume, bytes e latência não medidos. |
+| Mobile — estado após sincronização manual (SCE-370) | **Nova; aguardando decisão** | A tela recebe o resultado e então pede o status novamente ao carregar os totais. Uma leitura pode ser evitada, com possível atraso de um agendamento concorrente até a próxima atualização da tela. |
+| SCE-246 — totais do Catálogo Meta no aplicativo | **Aceita e aplicada; não repetida** | Totais já usam `get_meta_catalog_stats`; uso, bytes faturáveis e latência atuais não medidos. |
+| SCE-368 e SCE-369 | **Aguardando decisão do operador** | Propostas dos ciclos anteriores; nenhuma implementação feita. |
+| SCE-360 a SCE-367; SCE-342/343; SCE-344 | **Aceitas/aplicadas ou presentes; sem mudança** | Estados reconciliados anteriormente. |
+| SCE-349, SCE-346/347, SCE-323/322/270/232, SCE-154, SCE-150/151/152 | **Bloqueadas; sem mudança** | Pré-requisitos concretos continuam no histórico. |
+| SCE-165 | **Negada; preservada** | Sem evidência nova para reabrir. |
+
+**Conferência e limites.** Nenhum teste ou build foi executado. O registro recebeu somente esta anotação; para desfazer apenas este ciclo, remover este bloco. `git diff --check` passou após a edição.
+
+**Próximo recorte exato:** revisar somente `digital-catalog/src/services/meta-catalog/forwardReconciliation.ts` e seus chamadores. Confirmar se o encaminhamento lê ou grava no Supabase no próprio cliente, quais chamadas ao servidor faz e como lida com sucesso, falha e retorno após conexão; não disparar a rota nem ler produtos reais. Separar solicitações, bytes e trabalho do banco, preservar o destino do catálogo, preço/estoque publicados e proteções contra envio de itens sem origem comprovada. Manter SCE-368, SCE-369 e SCE-370 visíveis até a decisão do operador.
+
+---
+
+## Ciclo — 23/11/2026, 19:52 BRT — reconciliação de catálogo Meta após alteração de produto
+
+**Reconciliação e escopo.** Retomei o recorte indicado: `productMetaCatalogSync.ts#runProductMetaCatalogSync` até a rota autenticada e o serviço de reconciliação por produto. Reli AGENTS.md §§24–25, a skill `supabase-consumption`, as regras Supabase, este roteiro e os oito relatórios históricos que ele aponta. A busca dirigida pelos nomes exatos `productMetaCatalogSync`, `runMetaCatalogReconciliation`, `loadCandidateRetailers`, `meta_catalog_sync_state` e `claim_meta_catalog_sync` não encontrou uma recomendação anterior para este caminho. A SCE-368 do ciclo anterior continua aguardando resposta. Os itens aceitos/aplicados e bloqueados já registrados continuam sem alteração; SCE-165 continua negada.
+
+**O que acontece para quem usa.** Depois de salvar, ativar, excluir ou alterar um produto, a integração aguarda 400 ms para juntar alterações próximas do mesmo produto e envia uma solicitação autenticada ao servidor. Isso não é uma consulta direta ao banco pelo navegador. O servidor confere a configuração, monta o catálogo desejado a partir dos dados atuais do produto e compara com o catálogo do WhatsApp e, quando o identificador é diferente, também com o catálogo de anúncios. Quando um produto foi despublicado, também precisa encontrar códigos antigos para removê-los. A chamada é feita em segundo plano; o resultado e eventuais falhas são registrados pelo serviço.
+
+**Caminho e chamadas observados.** `metaHttpClient` consulta a sessão autenticada e envia uma solicitação HTTP para `/api/meta-graph`. A rota verifica a permissão de configuração do catálogo e encaminha a reconciliação. Para cada atualização de produto, o servidor tenta obter uma trava no banco; em caso de concorrência, o caminho de produto pode repetir essa tentativa até quatro vezes com intervalos curtos. Depois lê a configuração, os dados publicados do produto, suas variações e campanhas, os vínculos já conhecidos com o catálogo e os identificadores antigos necessários para encontrar itens remotos. A carga dos produtos publicados já lê `id, code, sku` do produto e `id, product_id, sku` de suas variações, junto de outros campos necessários ao catálogo. Em seguida, `loadCandidateRetailers` faz outra consulta estreita ao produto e outra às páginas de variações para reconstruir os mesmos identificadores. Isso é necessário quando o produto não aparece na consulta de publicados (por exemplo, depois de ser desativado ou removido), mas pode repetir leituras quando o produto já veio na carga publicada. Ao final, `finish_meta_catalog_sync` registra o resultado da execução. A leitura de status por `getLastMetaCatalogRun` é uma operação separada e não integra essa sincronização automática.
+
+A mesma reconciliação consulta cada catálogo externo, compara os campos, envia mudanças em lotes e aguarda a confirmação do serviço externo. Exclusões podem exigir consultas adicionais para confirmar que o item desapareceu. Esses pedidos externos não foram medidos; a quantidade depende do produto, das variações, dos catálogos configurados, das mudanças e do tempo de confirmação. O caminho preserva os campos de preço e quantidade que a integração publica e verifica quem pode solicitar a operação.
+
+### Nova sugestão — SCE-369 (aguardando decisão)
+
+**Opção A — recomendada:** na reconciliação de um único produto, reaproveitar a linha de produto e as variações que `loadDesiredCatalog` já carregou para montar também os identificadores candidatos, sem chamar de novo a leitura estreita de candidatos. Usar o mesmo `buildProductMetaCatalogSyncItems` e o status `hidden` que `loadCandidateRetailers` usa hoje. Fazer isso para todas as linhas recebidas, inclusive itens de teste que hoje passam pela consulta antes do filtro local. Manter `loadCandidateRetailers` como caminho de segurança quando o produto não veio na consulta de publicados. Assim, um produto oculto, desativado, removido ou fora dos filtros ainda fornece seus códigos antigos para a limpeza no catálogo.
+
+**Opção B:** manter as duas leituras. A separação atual continua simples, mas relê os identificadores do produto e das variações que já vieram na carga publicada.
+
+| Medida | Opção A — efeito estrutural e limite |
+| --- | --- |
+| Chamadas | Para um produto que já apareceu na carga de publicados, elimina a consulta estreita adicional do produto e uma ou mais páginas da consulta estreita de variações. A leitura de candidatos continua quando ele não apareceu, necessária para itens fora de publicação. Chamadas à configuração, trava, campanhas, vínculos e Meta externa não mudam. Volume real não medido. |
+| Bytes/saída | Evita respostas repetidas com os identificadores do produto e das variações nos caminhos reutilizados. Não há tamanho de resposta comparável nem medidor oficial atribuído a esta sincronização; não informo economia em bytes faturáveis. |
+| Trabalho/latência do banco | Evita reler e reserializar os identificadores já obtidos na carga publicada. A carga principal e o processamento de integridade permanecem. Sem plano, CPU, frequência ou latência medidos, não quantifico o efeito no banco. |
+
+**Impacto, segurança e rollback.** A limpeza de códigos antigos é a principal garantia a preservar. A leitura atual de candidatos precisa continuar para produtos que não aparecem como publicados; os itens de teste também devem continuar entrando na identificação de candidatos antes do filtro que impede sua publicação. A mudança não altera as permissões, a rota autenticada, a sessão, o catálogo de destino, o preço ou o estoque publicados. A sincronização segue dependendo de conexão e mantém a recuperação pela próxima reconciliação após falha. Para reverter, voltar a chamar `loadCandidateRetailers` em todo salvamento por produto. Não alterei código, serviço externo ou banco.
+
+**Decisão solicitada:** aceitar ou recusar SCE-369. A previsão verificável é eliminar uma leitura do produto e pelo menos uma página de variações para cada reconciliação cujo produto já aparece na carga de publicados. Não medi a proporção desses casos, bytes faturáveis ou rapidez. Se aceitar, a implementação deve montar candidatos da resposta original antes do filtro local de produtos de teste e manter o caminho atual para produtos fora da carga publicada.
+
+**Caminhos revisados:** `erp/src/pages/utils/productService/productMetaCatalogSync.ts`; `erp/src/pages/utils/metaService/metaHttpClient.ts`; `erp/api/_lib/secureIntegrations/handlers/metaGraphHandler.ts`; `erp/api/_lib/metaCatalogReconciliation/handler.ts`; `erp/api/_lib/metaCatalogReconciliation/run.ts`; `erp/api/_lib/metaCatalogReconciliation/source.ts`; `erp/api/_lib/metaCatalogReconciliation/plan.ts`; `erp/api/_lib/metaCatalogReconciliation/graph.ts`; e os chamadores de `triggerProductMetaCatalogSync` no serviço de variações, alterações, ativação, exclusão e mesclagem de produtos. Não consultei o banco, registros de produtos, credenciais ou métricas operacionais. Não executei chamadas externas, testes, build, migration, DML/fixtures, deploy ou OTA; a revisão foi estática.
+
+### Matriz de cobertura deste recorte
+
+| Área | Estado | Evidência e limite |
+| --- | --- | --- |
+| ERP — reconciliação Meta por produto após alteração | **Revisada; SCE-369 nova e aguardando decisão** | Identificada repetição entre a leitura publicada de produto/variações e a leitura estreita para candidatos. A leitura estreita segue necessária quando o produto não aparece como publicado. Frequência, linhas, bytes e latência não medidos. |
+| SCE-368 — leitura antecipada de SKU ao salvar variação | **Aguardando decisão do operador** | Nova sugestão do ciclo de 19:47; nenhuma alteração feita. |
+| SCE-360 a SCE-367; SCE-342/343; SCE-344 | **Aceitas/aplicadas ou presentes; sem mudança** | Estados reconciliados nos ciclos anteriores; não reapresentados. |
+| SCE-349, SCE-346/347, SCE-323/322/270/232, SCE-154, SCE-150/151/152 | **Bloqueadas; sem mudança** | Pré-requisitos concretos continuam descritos no histórico. |
+| SCE-165 | **Negada; preservada** | Sem evidência nova para reabrir. |
+
+**Conferência e limites.** Nenhum teste ou build foi executado. O registro recebeu somente esta anotação. `git diff --check` passou após a edição; para desfazer apenas este ciclo, remover este bloco do roteiro.
+
+**Próximo recorte exato:** revisar somente `mobile/src/features/products/services/mobileProductMetaCatalogSyncService.ts` e seus chamadores de sincronização automática e de status do catálogo. Comparar se o aplicativo usa o mesmo ponto de entrada, se repete consultas próprias ao Supabase antes de chamar `/api/meta-graph`, e como comunica falhas e atualização posterior; não enviar chamadas à Meta nem consultar dados de produtos. Registrar separadamente chamadas ao servidor, bytes e trabalho do banco, preservar permissão, preço/estoque publicado e retorno após falha. Manter SCE-368 e SCE-369 visíveis enquanto aguardam decisão.
+
+---
+
+## Ciclo — 23/11/2026, 19:47 BRT — salvamento direto de variações de produto cadastrado
+
+**Reconciliação e escopo.** Retomei o checkpoint exato do ciclo anterior: o envio direto de variações em produtos já cadastrados, de `useVariationForm.ts#handleSubmit` e `useProductFormVariationSave.ts` até `productVariationActionsService.ts#saveVariation`. Reli AGENTS.md §§24–25, a skill `supabase-consumption`, `rules/supabase/supabase-consumption.yml`, este roteiro e os oito relatórios históricos indicados no roteiro. O histórico mais próximo, SCE-344, já foi aceito e aplicado: padronizou a geração de SKU e manteve a consulta de disponibilidade no caminho sem colisão. Não repeti SCE-344. Os itens SCE-360 a SCE-367 e SCE-342/343 seguem registrados como aceitos/aplicados; SCE-349, SCE-346/347, SCE-323/322/270/232, SCE-154 e SCE-150/151/152 continuam bloqueados pelos pré-requisitos anotados; SCE-165 continua negado. Nenhum desses estados mudou neste ciclo.
+
+**O que a pessoa percebe.** Ao salvar uma variação normal, o sistema primeiro consulta se o código da variação já está em uso e depois tenta gravá-la. Isso permite mostrar um aviso cedo quando há duplicidade. Existe uma possibilidade de dispensar essa consulta antecipada e deixar a gravação fazer a verificação final, desde que a duplicidade manual continue gerando uma mensagem clara e que a regra única no banco esteja ativa.
+
+**Caminho conferido.** O formulário de produto chama `useProductFormVariationSave`; para produto já cadastrado, esse caminho chama `saveVariation`. O modal aberto pela lista de produtos também usa o salvamento direto. Produto rascunho segue pelo salvamento do produto pai e ficou fora deste recorte. Em `productVariationActionsService.ts`, quando o SKU não colide com uma variação conhecida no cache local, `resolveVariationSkuForPersistence` faz uma busca remota somente de `id` pelo SKU, e depois ocorre o `upsert` da variação. Após sucesso, o serviço atualiza metadados do produto e inicia uma sincronização externa em segundo plano. Uma busca completa de variações ocorre só se o cache local não tiver a lista; a consulta de características obrigatórias ocorre só quando há categorias. A rotina de colisão automática consulta candidatos em lote e já trata conflitos de SKU gerado ocorridos na gravação. A migration-base declara SKU único, e o código reconhece o erro de unicidade `product_variations_sku_key`; a confirmação remota dessa regra é histórica, de 21/11, e não foi repetida agora.
+
+### Nova sugestão — SCE-368 (aguardando decisão)
+
+**Opção A — recomendada:** no salvamento direto de variação, retirar a busca antecipada de `id` para a gravação comum sem colisão local. Manter a verificação local, deixar a regra única do banco impedir duplicidade simultânea e converter uma colisão de SKU manual em mensagem explícita de “SKU já cadastrado”. Preservar a busca em lote e a nova tentativa para SKU gerado em conflito, além das atualizações de atributos, metadados, preço e estoque.
+
+**Opção B:** manter a busca antecipada. A mensagem de duplicidade manual continua chegando antes da tentativa de gravação. Não há redução estrutural de chamadas.
+
+| Medida | Opção A — efeito estrutural e limite |
+| --- | --- |
+| Chamadas | Em cada gravação direta, sem colisão local nem remota, evita uma chamada de leitura ao Supabase. Em colisão remota de SKU automático pode haver uma tentativa de gravação recusada antes da busca de novo candidato; nesses casos não prometo redução líquida. Rascunhos e demais leituras/gravações permanecem iguais. |
+| Bytes/saída | Deixa de receber, no caminho comum, a resposta pequena da busca que seleciona só `id`. Nenhum byte de saída faturável foi medido ou pode ser calculado a partir de amostra de resposta. |
+| Trabalho/latência do banco | Remove uma busca por igualdade do caminho comum, mas a restrição única continua trabalhando na gravação. Não há medida de CPU, plano, frequência, espera ou latência; a economia líquida no banco não pode ser quantificada. |
+
+**Impacto, segurança e reversão.** A diferença visível é que uma duplicidade manual é informada depois de uma tentativa de gravação recusada, em vez de antes. A regra única impede dois SKUs iguais quando estiver presente; a migration-base a declara, e SCE-344 registrou uma conferência remota em 21/11, mas não há nova confirmação de cada ambiente publicado neste ciclo. Antes de implementar a opção A, é necessário confirmar que a regra existe nos ambientes em uso e ajustar o tratamento do erro manual. Não muda quem pode editar, não muda o modo sem conexão, não muda a confirmação do salvamento e não muda preço ou estoque. Se a experiência de erro piorar, a reversão é reativar a consulta antecipada e manter a mensagem anterior. Nenhum código, banco ou migration foi alterado.
+
+**Decisão solicitada:** aceitar ou recusar SCE-368. A estimativa confiável é uma chamada de leitura a menos por gravação comum elegível; o volume real, os bytes faturáveis e a mudança de latência não foram medidos. Se aceita, a implementação ainda deve verificar a regra única nos ambientes autorizados e preservar o erro amigável para SKU manual; se essa confirmação não estiver autorizada ou disponível, o item fica bloqueado e não se remove a consulta.
+
+**Caminhos revisados:** `erp/src/pages/App/Products/hooks/variation/useVariationForm.ts#handleSubmit`; `erp/src/pages/App/Products/hooks/form/useProductFormVariationSave.ts`; `erp/src/pages/App/Products/components/form/ProductFormSubModals.tsx`; `erp/src/pages/App/Products/modals/ProductsModalsContainer.tsx`; `erp/src/pages/utils/productService/productVariationActionsService.ts#saveVariation`; `erp/src/pages/utils/productService/productVariationSkuAvailabilityService.ts#resolveVariationSkuForPersistence`; `erp/src/pages/utils/productService/productMetaCatalogSync.ts#triggerProductMetaCatalogSync`; `supabase/migrations/20260805000000_create_product_variations.sql`; e os registros de SCE-344 e dos relatórios históricos. Não consultei linhas de produto/variação, segredos, métricas remotas ou dados operacionais; não rodei testes, compilação, DML, fixture, migration, deploy ou OTA. A validação limitou-se à leitura estática.
+
+### Matriz de cobertura deste recorte
+
+| Área | Estado | Evidência e limite |
+| --- | --- | --- |
+| ERP — salvar variação de produto cadastrado | **Revisado; SCE-368 nova e aguardando decisão** | Caminho direto até `upsert`, atualização do produto e sincronização em segundo plano conferidos. Uma leitura `id` é evitável no sucesso comum; colisões, taxa de uso e métricas de saída/latência não medidas. |
+| Produto rascunho | **Fora do recorte** | Continua no fluxo pai já revisado no ciclo de 19:29. |
+| SCE-344 | **Aceito/aplicado; não repetido** | Geração SKU e busca por candidatos em lote já constam no registro de 21/11. |
+| SCE-360 a SCE-367; SCE-342/343 | **Aceitos/aplicados ou presentes; não repetidos** | Reconciliação preservada do ciclo anterior. |
+| SCE-349, SCE-346/347, SCE-323/322/270/232, SCE-154, SCE-150/151/152 | **Bloqueados; sem mudança** | Pré-requisitos concretos continuam descritos no histórico. |
+| SCE-165 | **Negado; preservado** | Sem evidência nova para reabrir. |
+
+**Conferência e limites.** Nenhum teste ou build foi executado. O registro recebeu somente esta anotação; para desfazer apenas este ciclo, remover este bloco do roteiro. `git diff --check` será conferido após a edição.
+
+**Próximo recorte exato:** independentemente da decisão sobre SCE-368, revisar somente `erp/src/pages/utils/productService/productMetaCatalogSync.ts#runProductMetaCatalogSync` e suas consultas ao catálogo, incluindo como `triggerProductMetaCatalogSync` agrega salvamentos por produto. Separar chamadas externas, chamadas ao Supabase, bytes estimáveis e trabalho do banco; preservar o envio do catálogo, preço/estoque publicados e comportamento após falha. Não enviar chamadas, não consultar dados operacionais e não repetir sugestões negadas.
+
+---
+
+## Ciclo — 23/11/2026, 19:29 BRT — salvamento de variação em produto rascunho
+
+**Reconciliação e escopo.** Retomei o recorte exato do ciclo anterior: `erp/src/pages/App/Products/hooks/variation/useVariationDraftAutoSave.ts` e os consumidores do formulário. Reli AGENTS.md §§24–25, `rules/supabase/supabase-consumption.yml`, a skill `supabase-consumption`, este roteiro e os relatórios históricos do índice. A busca nos oito relatórios não encontrou uso de produção desta função. O único trecho relacionado em `egress-supabase-morantehub.md` (EGR-011) descreve a edição de definições/opções de características, que é outro formulário e não foi usado para atribuir chamadas a este fluxo.
+
+**O que a pessoa percebe.** O hook separado tem uma espera de 500 ms, valida os dados e tenta salvar a última versão, com estados de sucesso e falha. Porém, não encontrei nenhum chamador de produção; a função só está definida nesse arquivo e referenciada pelo teste existente. Portanto, esse temporizador não participa do uso real nem inicia chamadas ao Supabase.
+
+No caminho que está conectado à tela, `useProductFormVariationSave` cancela o temporizador do rascunho do produto antes de salvar uma variação. Se o produto ainda é um rascunho, ele envia o produto completo pelo `autoSaveDraft` já revisado no ciclo anterior. Se não é rascunho, chama o salvamento direto de variação, que fica fora deste recorte. Essa divisão evita duplicar a gravação agendada para a mesma ação de salvar a variação.
+
+| Métrica | Evidência | Limite |
+| --- | --- | --- |
+| Chamadas | O hook sem chamador não produz chamadas reais. No caminho ativo de rascunho, o temporizador pendente é cancelado e há uma chamada ao autosalvamento do produto; a persistência remota segue o contrato estrutural registrado no ciclo anterior. | Não contei sessões nem salvamentos em produção. Não há chamada extra do hook órfão a eliminar. |
+| Bytes/saída | O hook não possui cliente Supabase próprio; seu callback de gravação é injetado. | Não há consumidor de produção nem resposta medida atribuível a ele; bytes e saída oficial não medidos. |
+| Banco/latência | Sem acesso ao Supabase por esse hook não utilizado. O salvamento de produto segue o fluxo já descrito no ciclo anterior. | Sem plano, carga ou latência medida. |
+
+**Conclusão deste recorte.** Revisão estática, sem nova sugestão SCE. Não removi nem alterei o hook sem uso: remover código não reduziria o consumo do Supabase observado, e o objetivo aqui é rastrear chamadas ativas. O caminho conectado já cancela o temporizador antes de salvar a variação; a chamada de produto rascunho é necessária para persistir a variação junto com o rascunho recuperável. Preços e estoque permanecem sob as regras existentes. Não alterei tratamento de falha, permissão, controle de versão ou comportamento sem conexão.
+
+**Caminhos revisados:** `useVariationDraftAutoSave.ts`; `useProductFormVariationSave.ts`; `useProductFormDraft.ts#autoSaveDraft`; `useProductFormModal.ts#scheduleDraftAutoSave`; `useProductFormSubmit.ts#handleSubmit`; `VariationFormModal.tsx`; `productMutationService.ts#saveProduct`; e `productDraftPersistence.ts#persistProductDraft`. A definição do hook e os testes existentes foram apenas lidos; nenhum teste foi executado. Nenhum dado de produto ou variação foi consultado.
+
+**Conferência e limites.** Revisão estática de código e documentação. Não executei testes, compilação, consulta ou gravação remota, DML/fixtures, migration, deploy ou OTA; não acessei segredos. Nenhum código foi alterado. `git diff --check` foi aplicado ao registro. Não há reversão de código; para remover esta anotação, reverter apenas este bloco do roteiro.
+
+### Matriz de cobertura deste recorte
+
+| Área | Estado | Evidência e limite |
+| --- | --- | --- |
+| ERP — hook autônomo de salvamento de rascunho de variação | **Revisado; sem consumidor de produção e sem SCE nova** | Apenas definição e teste encontrados. O formulário ativo usa o salvamento do produto pai, não este hook. Não há consumo Supabase atribuível à função. |
+| ERP — salvar variação dentro de produto rascunho | **Revisado neste recorte** | Cancela a espera agendada e encaminha o produto atualizado ao `autoSaveDraft`; recuperação pelo rascunho pai preservada. Frequência, bytes oficiais e latência não medidos. |
+| SCE-360 a SCE-367 e SCE-342/343 | **Aceitas e aplicadas/presentes** | Estados reconciliados nos ciclos anteriores; não repetidos. |
+| SCE-349, SCE-346/347, SCE-323/322/270/232, SCE-154, SCE-150/151/152 | **Bloqueadas pelos pré-requisitos já registrados** | Sem evidência ou autorização técnica nova para publicação/verificação, artefato isolado, correlação, sessão autorizada, regra documental, consumidor publicado, plano/cota ou campo de marca por variação. |
+| SCE-165 | **Negada; preservada** | Sem evidência nova para reapresentá-la. |
+| ERP — salvar variação de produto já cadastrado; outros módulos | **Fora deste recorte** | Seguem no cursor geral; nenhum status foi alterado. |
+
+**Próximo recorte exato:** seguir somente `erp/src/pages/App/Products/hooks/variation/useVariationForm.ts#handleSubmit` e o ramo de produto já cadastrado de `erp/src/pages/App/Products/hooks/form/useProductFormVariationSave.ts` até `erp/src/pages/utils/productService/productVariationActionsService.ts#saveVariation`. Contar as leituras e gravações estruturais, inclusive cargas condicionais de variações e atributos obrigatórios; confirmar campos efetivamente consumidos e os caminhos de falha. Preservar SKU, preço, estoque, atributos obrigatórios e confirmação de salvamento; não consultar linhas operacionais nem executar a gravação.
+
+---
+
+## Ciclo — 23/11/2026, 19:25 BRT — persistência de rascunhos de produto
+
+**Reconcilição e escopo.** Retomei o checkpoint indicado no ciclo anterior: `erp/src/pages/utils/productService/productDraftPersistence.ts#persistProductDraft` e os chamadores do formulário. Reli AGENTS.md §§24–25, `rules/supabase/supabase-consumption.yml`, a skill `supabase-consumption` e os relatórios históricos do índice. A busca dirigida nesses oito relatórios (`egress-supabase-morantehub.md`, `2026-09-15-supabase-egress.md`, `2026-11-04-egress-erp-app.md`, `egress-cargas-compactas-2026-11-04.md`, `roadmap-apis-ia-google-maps.md`, `produtos-alertas-resumo-estoque-2026-11-04.md`, `auditoria-ferramentas-seu-lizandro-2026-11-09.md` e `pedidos-filtros-servidor-2026-11-04.md`) não encontrou medição nem recomendação anterior específica para esta persistência.
+
+**O que acontece para quem usa.** O rascunho é salvo após 500 ms sem novas alterações. Se uma gravação ainda estiver em andamento, o formulário mantém uma única gravação ativa e guarda somente o dado mais recente para processar em seguida. Ao escolher salvar manualmente, o formulário bloqueia novas gravações automáticas, espera a atual terminar e segue o envio explícito. Isso mantém a recuperação do rascunho e evita gravadores concorrentes. Não alterei preço, estoque, permissões ou funcionamento sem conexão.
+
+**Chamadas, bytes e trabalho do banco — separados.** Cada execução de `persistProductDraft` faz uma leitura de existência/versão/estado e metadados, uma busca de slug e, se tudo estiver válido, uma gravação: atualização de rascunho existente ou inclusão de um novo. O caminho automático usa `saveProduct`; o envio manual também passa por `saveProduct`, mas pode normalizar ou finalizar o produto e representa uma ação explícita. O código serializa os salvamentos, mas não compara o conteúdo da gravação ativa com um pedido automático que chegue enquanto ela está em andamento. Não há evidência de que tais pedidos repetidos com conteúdo idêntico ocorram; também não é seguro presumir que a gravação manual seja redundante, pois a confirmação do servidor mantém a detecção de edição concorrente e o envio pode trazer dados normalizados diferentes.
+
+| Métrica | Evidência deste recorte | Limite |
+| --- | --- | --- |
+| Chamadas | Estruturalmente, três pedidos por persistência elegível: leitura do rascunho, busca de slug e atualização/inclusão. O fluxo mantém debounce e processamento serial, usando o último estado pendente. | Não contei quantas vezes o formulário salva, nem se o mesmo conteúdo chega novamente durante a gravação. Não removi pedidos. |
+| Bytes/saída | A leitura seleciona cinco campos; a busca de slug seleciona somente `slug` e a gravação retorna `id, updated_at`. | Sem captura de respostas comparáveis e sem medidor oficial; nenhuma quantidade de bytes ou economia faturável foi medida. |
+| Banco/latência | Uma leitura de estado, uma busca por slug e uma mutação são submetidas em cada persistência. | Sem plano, contagem agregada por tela, CPU ou latência; não atribuí economia de banco. |
+
+**Conclusão deste recorte.** Revisão estática, sem nova sugestão SCE: os salvamentos automáticos já são agrupados e serializados. O código permitiria uma iteração extra se o mesmo estado fosse enfileirado novamente durante uma gravação, mas não encontrei um chamador ou evidência que comprove essa repetição. Não vou retirar uma confirmação manual nem enfraquecer a verificação de versão com base apenas nessa possibilidade. Para justificar futuramente uma deduplicação, seria necessário observar, de modo agregado e sem conteúdo do produto, a quantidade de chamadas automáticas iniciadas, agrupadas e repetidas enquanto a mesma gravação está ativa, distinguindo o envio manual.
+
+**Caminhos revisados:** `productDraftPersistence.ts#persistProductDraft`; `productMutationService.ts#saveProduct` e `#updateProduct`; `useProductFormDraft.ts#autoSaveDraft` e `#beginManualSave`; `useProductFormModal.ts#scheduleDraftAutoSave`; `useProductFormSubmit.ts#handleSubmit`; `productDraftSnapshot.ts`; `shared-utils/productDraftSnapshot.ts`; `productFormDirtyCheck.ts`; e `useProductFormModalClose.ts`. Preços e estoque não foram objeto de alteração; não consultei dados operacionais.
+
+**Conferência e limites.** Apenas leitura de código, documentação e relatórios locais. Não executei testes, compilação, consulta ou gravação remota, DML/fixtures, migration, deploy ou OTA; não acessei segredos. Nenhum código foi alterado. `git diff --check` foi aplicado ao registro. Como não houve mudança de código, não há reversão funcional; para remover esta anotação, reverter apenas este bloco do roteiro.
+
+### Matriz de cobertura deste recorte
+
+| Área | Estado | Evidência e limite |
+| --- | --- | --- |
+| ERP — persistência e retomada de rascunho de produto | **Revisada; sem SCE nova** | Leitura e gravação percorrem `persistProductDraft`; autosalvamento tem debounce e fila serial com último estado. Chamadas por sessão, repetição de conteúdo, bytes oficiais e latência não medidos. |
+| SCE-360 a SCE-367 | **Aceitas e aplicadas localmente** | Estado registrado no ciclo anterior; sem retrabalho neste recorte. |
+| SCE-342/343 | **Aceitas e já presentes** | Estado reconciliado anteriormente; sem retrabalho neste recorte. |
+| SCE-349, SCE-346/347, SCE-323/322/270/232, SCE-154, SCE-150/151/152 | **Bloqueadas pelos pré-requisitos já registrados** | Sem evidência ou autorização técnica nova para publicação/verificação, artefato isolado, correlação, sessão autorizada, regra documental, consumidor publicado, plano/cota ou campo de marca por variação. |
+| SCE-165 | **Negada; preservada** | Sem evidência nova para reapresentá-la. |
+| Outros módulos, SQL/RPC, Realtime e Storage | **Fora deste recorte** | Continuam no cursor geral da auditoria. |
+
+**Próximo recorte exato:** `erp/src/pages/App/Products/hooks/variation/useVariationDraftAutoSave.ts` e seus chamadores no formulário de variações; seguir somente o salvamento automático da variação até o serviço/mutação de destino e verificar debounce, agrupamento, chamadas Supabase e comportamento após falha. Não repetir a análise de `persistProductDraft`; preservar preço/estoque e a confirmação de versão, sem consultar dados operacionais.
+
+---
+
+## Ciclo — 23/11/2026, 19:12 BRT (22:12Z) — restaurar e reconciliar SCE-360 a SCE-366
+
+**Aceite e reconciliação.** O operador autorizou todas as pendências ativas, mantendo decisões recusadas e bloqueios. O histórico deste chat dizia que SCE-360 a SCE-366 tinham sido aplicadas, mas o código deste checkout ainda continha as implementações anteriores. Restaurei as opções recomendadas e registrei abaixo o que agora está presente. A SCE-367, aplicada no ciclo anterior, foi mantida no mesmo editor. A conferência também corrigiu uma troca de identificação no registro anterior: **SCE-365 é a comparação de vínculos de categorias e ambientes; SCE-366 é a projeção menor para busca de slug.**
+
+### O que mudou para quem usa
+
+- Na edição de categorias do app, a busca por característica só começa depois de duas letras e de 300 ms sem digitação. O app pede ao servidor apenas identificador e nome dos resultados encontrados. A busca continua sem diferenciar acentos e mantém a ordenação que a tela já usava. A abertura do editor deixa de carregar todo o catálogo de características, suas opções e seus vínculos antes de a pessoa iniciar uma busca.
+- Ao salvar uma categoria ou ambiente sem mudar os vínculos, ERP e app deixam de apagar e recriar essas ligações. Se a pessoa remover todos os vínculos de propósito, a lista vazia continua sendo enviada e os vínculos são apagados como antes. No app, uma categoria também não regrava suas características quando nem a seleção nem a obrigatoriedade mudaram.
+- Quando uma leitura de categorias ou de vínculos falha, a tela informa o erro e mantém a lista anterior. Não transforma a falha em “nenhum resultado” nem em categoria sem ambiente. Ao tentar excluir uma categoria que ainda tem produtos, a proteção permanece e a mensagem continua explicando o motivo; ela deixa de informar uma contagem exata.
+- ERP e app passam a tratar categorias antigas sem tipo da mesma forma. Categorias marcadas como `category` e registros legados com `type` nulo aparecem; ambientes e outros tipos continuam fora dessa lista.
+
+### Chamadas, dados e trabalho do banco — separados
+
+| ID | Alteração e efeito estrutural | Limite da medição |
+| --- | --- | --- |
+| SCE-360 | `CategoryAttributesPicker` deixa de disparar a carga completa ao abrir. A cada busca válida pausada, ocorre uma consulta filtrada e paginada de `id,name`; uma busca que atravesse mais de uma página pode gerar mais de uma chamada. O debounce evita uma consulta a cada tecla. | Não medi quantas vezes a tela é aberta, quantas buscas são feitas, quantidade de linhas, bytes de resposta, saída faturável, CPU ou latência. A redução observada nesta inspeção é apenas estrutural. |
+| SCE-361 | Ao editar categoria no app, seleção e obrigatoriedade persistidas são comparadas. Sem mudança, o app pula a exclusão e reinserção de `category_attributes`; com lista vazia intencional, ainda executa a exclusão necessária. | Até duas chamadas de gravação evitadas quando havia vínculos; uma quando a lista salva estava vazia. Frequência real e bytes/tempo não medidos. |
+| SCE-362 | Erros de leitura de `categories` ou `category_relationships` agora chegam às telas de gestão, que exibem aviso e preservam os dados já carregados. O formulário de produto também preserva a lista anterior em falha. | A quantidade de consultas não muda. Não medi o tempo até o aviso, nem desempenho ou bytes. A lista mantida pode estar desatualizada até uma nova carga bem-sucedida. |
+| SCE-363 | Os filtros de lista usam `type = category OR type IS NULL` no ERP e no app. | A quantidade de chamadas e os campos selecionados não mudam. O resultado pode incluir registros legados antes omitidos no ERP; não consultei dados operacionais para contar esses registros. |
+| SCE-364 | Na tentativa bloqueada de excluir categoria, mantém duas contagens exatas em paralelo e remove as duas leituras de listas feitas apenas para calcular o número no aviso. | Duas chamadas a menos nesse caminho bloqueado. No caminho em que a exclusão é permitida, as consultas de bloqueio permanecem. Bytes oficiais e rapidez não medidos. |
+| SCE-365 | Nos formulários de categoria e ambiente, em ERP e app, `undefined` significa “vínculos iguais ao estado inicial” e pula as gravações da tabela de relações. Um array vazio continua significando “remover todos”. | Até duas chamadas de gravação evitadas em edição com vínculos; uma sem vínculos. A gravação do nome continua. Sem medida de frequência real, bytes ou latência. |
+| SCE-366 | `shared-utils/uniqueSlug.ts` continua usando o mesmo filtro e a mesma regra de sufixo, mas seleciona somente `slug`; o identificador segue podendo ser usado no filtro de exclusão. | Número de chamadas inalterado; há uma coluna a menos na resposta. Bytes oficiais, carga do banco e latência não medidos. |
+| SCE-367 | Mantido: o editor auxiliar de ambiente no app mostra “Salvando...” e bloqueia controles durante a gravação. | Não reduz chamadas; tempo percebido e métricas não medidos, conforme registro anterior. |
+
+Tamanho de resposta estimado, quantidade de linhas e amostras de JSON não foram tratados como saída faturável. Nenhum número de economia foi medido no serviço, no navegador nem no painel oficial.
+
+### Arquivos afetados e garantias preservadas
+
+- Busca do seletor de características: `mobile/src/features/products/categories/components/CategoryAttributesPicker.tsx` e `mobile/src/features/products/services/mobileAttributeService.ts`.
+- Edição e vínculos: `erp/src/pages/App/Products/Categories/hooks/useCategoriesAndEnvironments.ts`, `erp/src/pages/utils/categoryService.ts`, `erp/src/pages/utils/environmentService.ts`, `mobile/src/features/products/categories/hooks/useCategoryFormModal.ts`, `mobile/src/features/products/modals/EnvironmentsManagerModal.tsx` e `mobile/src/features/products/services/mobileCategoryService.ts`.
+- Erros nos formulários de produto: `erp/src/pages/App/Products/hooks/form/useProductFormModal.ts`, `mobile/src/features/products/services/mobileCategoryService.ts` e `mobile/src/features/products/modals/tabs/ProductFormBasicTab.tsx`.
+- Busca de slug: `shared-utils/uniqueSlug.ts`.
+
+Filtros de acesso, regras de permissão, gravação de nomes, atributos e relacionamentos que foram alterados continuam iguais; não houve mudança em preços ou estoque. As gravações de características do ERP e as aplicações de características da categoria também continuam iguais. Não foi criado modo offline ou cache. Para desfazer, restaurar a consulta ampla no seletor, voltar os filtros de categoria anteriores, restaurar as leituras que calculavam a contagem da mensagem, retirar as comparações de estado inicial e voltar a selecionar `id, slug`; as tabelas não mudaram.
+
+### Matriz de cobertura deste recorte
+
+| Área | Estado | Caminhos conferidos |
+| --- | --- | --- |
+| ERP — gestão de categorias e ambientes | **Revisada** | Carregamento, falhas de leitura, edição de vínculos, exclusão bloqueada e atualização das relações em `useCategoriesAndEnvironments.ts`, `categoryService.ts` e `environmentService.ts`. |
+| App — gestão de categorias e ambientes | **Revisada** | Busca de características, carregamento e erros, seleção inicial, gravação, limpeza intencional de vínculos, modal auxiliar de ambientes e exclusão bloqueada nos serviços, hooks e componentes listados acima. |
+| Formulários de produto do ERP e do app | **Revisada neste recorte** | Chamadores que mantêm categorias e vínculos anteriores quando a atualização falha. Outros caminhos do formulário não foram auditados aqui. |
+| Utilitário compartilhado de slug | **Revisado** | Projeção e consumidor de `resolveUniqueSlug` em `shared-utils/uniqueSlug.ts`. |
+| SQL/RPC, Realtime, Storage, catálogo digital e demais módulos | **Não cobertos neste recorte** | Permanecem no cursor geral do roteiro; este ciclo não conclui a auditoria integral do consumo. |
+
+### Conferência e próximos limites
+
+Revisei estaticamente os chamadores e os caminhos de gravação, inclusive a distinção entre “sem alteração” e “limpar tudo”. A revisão de formatação com `git diff --check` passou. Não executei testes, compilação, consulta ou gravação remota, migration, fixtures, deploy ou atualização OTA. Não li segredos. A busca agora depende de a pessoa digitar pelo menos duas letras; erros aparecem no app e a lista anterior permanece até uma carga bem-sucedida. Não confirmei um ganho de tempo para quem usa.
+
+| Recorte/ID | Estado em 23/11/2026 | Evidência e limite |
+| --- | --- | --- |
+| SCE-360 — busca sob demanda de características no app | **Aceita e aplicada localmente** | Busca paginada após duas letras e 300 ms; seleção somente de `id,name`. Chamadas reais por sessão, bytes e saída faturável não medidos. |
+| SCE-361 — não regravar características sem mudança | **Aceita e aplicada localmente** | Comparação dos campos persistidos; limpar tudo continua possível. Até duas gravações evitadas por salvamento elegível, sem frequência medida. |
+| SCE-362 — distinguir erro de lista vazia | **Aceita e aplicada localmente** | Serviços propagam falha; telas avisam e mantêm o último estado disponível. Consultas não reduzidas. |
+| SCE-363 — categorias legadas sem tipo | **Aceita e aplicada localmente** | ERP, app e formulário auxiliar usam categoria explícita ou `type` nulo; contagem de registros legados não consultada. |
+| SCE-364 — aviso de exclusão sem contagem | **Aceita e aplicada localmente** | Proteção por duas contagens preservada; duas leituras extras removidas apenas quando a exclusão seria bloqueada. |
+| SCE-365 — não regravar vínculos de ambiente/categoria sem mudança | **Aceita e aplicada localmente** | ERP e app distinguem seleção igual de lista vazia intencional; até duas gravações evitadas quando elegível. |
+| SCE-366 — retorno compacto da busca de slug | **Aceita e aplicada localmente** | Mesma busca/regra, uma coluna selecionada a menos; sem redução no número de chamadas. |
+| SCE-367 — retorno visual ao salvar ambiente | **Aceita e aplicada localmente no ciclo anterior; mantida** | Indicador de progresso e controles temporariamente bloqueados. |
+| SCE-342/343 | **Aceitas e já presentes** | Sem duplicar alterações; registro do ciclo anterior permanece válido. |
+| SCE-349, SCE-346/347, SCE-323/322/270/232, SCE-154, SCE-150/151/152 | **Continuam bloqueadas por pré-requisito concreto** | Publicação e verificação do agendamento, validação/publicação com artefato isolado, correlação confiável, sessão ERP autorizada, regra documental, consumidor publicado, plano/cota e coluna de marca por variação continuam sem evidência suficiente neste ciclo. Nenhuma barreira foi contornada. |
+| SCE-165 | **Negada; preservada** | Sem evidência nova para reapresentar. |
+
+**Próximo recorte exato:** retomar somente `erp/src/pages/utils/productService/productDraftPersistence.ts#persistProductDraft`, seus chamadores no formulário de produto e qualquer persistência local/servidor que a função acione. Primeiro mapear quais dados são gravados, em que etapa o Supabase é chamado e se salvar rascunho e salvar produto repetem a mesma gravação. Preservar a recuperação do rascunho, a retomada após fechar/abrir, as permissões e o comportamento sem conexão. Não alterar antes de demonstrar uma chamada redundante e registrar o efeito em chamadas; separar bytes e latência, que não estão medidos. Manter deployment do agendamento e demais bloqueios acima como pendentes de pré-requisito.
+
+---
+
+## Ciclo — 23/11/2026 — janela padrão da Agenda
+
+**Mudança e consumo.** A janela padrão começa em ontem e inclui todos os dias seguintes, por data local, no ERP e no app. O servidor recebe somente o limite inicial; não há limite superior. O ERP mantém o cabeçalho de hoje visível mesmo com zero pedidos, porque a consulta só retorna datas que têm registros. Também inclui pedidos atendidos (`fulfilled`/`atendido`) de coleta de devolução, assistência, entrega e retirada; cancelados, apagados e artefatos de teste seguem excluídos. O app já aceitava atendidos e inclui os agendamentos de ontem, mantendo os futuros. A projeção e o fluxo da RPC não mudam, mas mais IDs podem exigir páginas adicionais; não medi linhas, bytes, saída faturável, trabalho do banco ou latência. Sem conexão, o app continua filtrando o cache local pelo mesmo início móvel.
+
+**Arquivos:** `shared-utils/schedulePeriodFilters.ts`, `erp/src/pages/App/DeliverySchedule/useDeliverySchedule.ts`, `mobile/src/features/logistics/hooks/useLogisticsScheduleData.ts`, `mobile/src/features/logistics/screens/NativeLogisticsScreen.tsx`, `mobile/src/utils/orderUtils.ts` e `supabase/migrations/20261123221008_agenda_include_attended_orders.sql`. ERP e app recalculam a data local após a meia-noite e recarregam a janela padrão.
+
+**Validação:** migration `20261123221008` aplicada ao projeto operacional (`hkoxhourxwlddgsfdgws`); confirmei no histórico remoto e verifiquei as funções após a alteração. Continuam `SECURITY INVOKER`, com `search_path` vazio e execução para autenticados. Não consultei pedidos reais, não criei fixtures e não executei testes.
+
+## Ciclo — 23/11/2026, 18:55 BRT (21:55Z) — reconciliar decisões SCE ativas do roteiro
+
+**Aceite e reconciliação.** O operador autorizou aplicar todas as sugestões SCE ativas que ainda estivessem pendentes, seguindo a opção recomendada e mantendo itens negados/retirados. No roteiro atual, as únicas propostas com decisão explicitamente pendente eram SCE-342 e SCE-343; ambas ficam aceitas por esse pedido. A inspeção confirmou que suas opções recomendadas já estão no código deste checkout, então não acrescentei alteração duplicada.
+
+**SCE-342 — cidade no retorno do cadastro assistido.** `shared-utils/agentPeopleOperations.ts#upsertCustomerForAgent` já usa `cidade:full_address->>city` nos retornos de atualização e criação. O endereço completo ainda é gravado em `full_address`; o retorno conserva os campos necessários e o mesmo campo público `cidade`. A versão local está limpa e o histórico do arquivo mostra a alteração no commit `d304b1f7f` de 18/11. Não há chamada extra nem removida. A resposta estrutural pede menos partes do endereço, mas não há amostra equivalente de bytes nem medida oficial de saída, carga ou latência.
+
+**SCE-343 — conferir capacidade de devolução fiscal.** `api/nfe/return-capacity.ts` já seleciona somente `item_number,billed_quantity` de `nfe_document_items`. A checagem de snapshot ausente, quantidade de linhas e quantidade faturada continua antes de calcular a capacidade; código e descrição apresentados continuam vindo do XML autorizado. A chamada continua uma leitura por documento, sem redução no número de chamadas. A projeção é menor por linha, mas resposta, saída oficial, trabalho/latência do banco e rapidez percebida não foram medidos. Nenhuma regra ou permissão fiscal foi alterada.
+
+**Bloqueios concretos que o aceite geral não remove.** SCE-349 já tem código e migration, mas a ativação do agendamento ainda depende de um deploy que publique a configuração e a rota; o registro de integração diz que o caminho respondia 404 antes desse deploy e ainda exige confirmar a próxima execução. O segredo de produção é sensível e não foi lido. O checkout também tem outras alterações locais fora deste recorte, portanto não é seguro disparar um deploy amplo para concluir apenas essa pendência. SCE-347 e SCE-346 ainda têm validação/publicação registrada como pendente; sem um artefato limpo e a validação correspondente, não publiquei código. Permanecem bloqueadas, sem mudança: SCE-323 (falta correlação confiável entre aviso e gravação, para não esconder alteração concorrente), SCE-322 (verificação visual exige sessão ERP autorizada), SCE-270 (falta regra escrita para datas antigas/vazias/no limite), SCE-232 (falta consumidor publicado e uso natural), SCE-154 (transformação não disponível no plano registrado) e SCE-150/151/152 (esquema confirmado não fornece marca por variação). SCE-165 continua negada e não foi reaberta. Nenhum desses bloqueios foi contornado.
+
+**Chamadas, bytes, banco e usuário.** Para SCE-342 e SCE-343, as chamadas permanecem iguais; as projeções recomendadas retiram campos não usados. Isso não prova economia faturável, CPU menor ou ganho de tempo. Não executei consulta remota, leitura de logs, gravação, migration ou operação fiscal e não usei exemplos JSON como medida de egress.
+
+**Validação e estado de arquivos.** Confirmei estaticamente os dois caminhos e a escrita/retorno do endereço e a verificação do snapshot fiscal. Não executei testes nem compilação. Nenhum arquivo de produto precisou ser editado; apenas este roteiro foi atualizado para encerrar o estado de decisão de SCE-342/343 e deixar explícitos os bloqueios de produção ainda abertos.
+
+| Recorte/ID | Estado reconciliado | Evidência e limite |
+| --- | --- | --- |
+| SCE-342 — retorno compacto de cliente | **Aceita e já presente no código atual** | Update e insert selecionam cidade diretamente; endereço completo continua gravado. Chamadas iguais; bytes oficiais e latência sem medição. |
+| SCE-343 — snapshot fiscal | **Aceita e já presente no código atual** | A consulta já retorna apenas número e quantidade; validação fiscal permanece. Chamadas iguais; bytes oficiais, banco e rapidez sem medição. |
+| SCE-349 — ativação do agendamento Meta | **Bloqueada por publicação/verificação** | A integração aguarda publicar o cron e confirmar rota e execução. Segredo não lido; checkout com outras mudanças locais, sem deploy amplo seguro neste ciclo. |
+| SCE-346/347 — validação e publicação de venda | **Acompanhamento pendente** | As etapas e limites anteriores permanecem; não publiquei sem artefato isolado e validação. |
+| SCE-323/322/270/232, SCE-154, SCE-150/151/152 | **Aceitas, mas bloqueadas pelos pré-requisitos registrados** | Correlação, sessão autorizada, regra documental, consumidor publicado/uso natural, plano e esquema continuam sem evidência nova. |
+| SCE-165 | **Negada** | Preservada; nenhuma evidência nova justifica reapresentá-la. |
+| SCE-365/366 | **Divergência de histórico a reconciliar** | A conversa anterior os chamou de aplicados, mas esses IDs e as implementações esperadas não aparecem no roteiro/código atual. Nenhuma especificação suficiente para SCE-366 foi localizada nos relatórios locais consultados. |
+
+**Próximo recorte exato:** reconciliar somente as alegadas implementações locais SCE-365 e SCE-366 com o código atual e a especificação aceita disponível: `shared-utils/uniqueSlug.ts`; `erp/src/pages/App/Products/Categories/hooks/useCategoriesAndEnvironments.ts`; `erp/src/pages/utils/categoryService.ts`; `erp/src/pages/utils/environmentService.ts`; `mobile/src/features/products/categories/hooks/useCategoryFormModal.ts`; `mobile/src/features/products/modals/EnvironmentsManagerModal.tsx`; e `mobile/src/features/products/services/mobileCategoryService.ts`. Para SCE-365, conferir seleção de `slug` e seu consumidor antes de aplicar `select('slug')`. Para SCE-366, primeiro recuperar uma descrição aprovada e confirmar como o estado inicial e os vínculos são persistidos; se a especificação não estiver disponível, registrar o bloqueio em vez de inventar comportamento. Preservar SCE-367 no modal. Depois, retomar `productDraftPersistence.ts#persistProductDraft`. Não tocar no agendamento do Catálogo Meta até haver publicação isolada e forma autorizada de confirmar a execução. Separar chamadas, bytes/saída faturável, banco e rapidez percebida.
+
+---
+
+## Ciclo — 23/11/2026, 18:43 BRT (21:43Z) — retorno visível ao salvar ambientes no app (SCE-367)
+
+**Decisão e reconciliação.** O operador autorizou aplicar as pendências e, neste ciclo, a SCE-367 foi aceita e aplicada localmente. Ao mesmo tempo, reconciliei o histórico do chat: SCE-365 e SCE-366 haviam sido anotadas como aplicadas em uma execução anterior, mas não aparecem no roteiro deste checkout e os trechos atuais ainda mostram o código anterior. `shared-utils/uniqueSlug.ts` continua selecionando `id, slug`; os indicadores de vínculo inalterado da edição não aparecem nos arquivos ERP e mobile que a proposta abrangia. Não restaurei essas duas mudanças neste recorte; ficam no próximo checkpoint para comparação e reconciliação explícitas.
+
+**O que muda para quem usa.** Enquanto o ambiente está sendo salvo e as listas são recarregadas, o botão mostra um indicador e “Salvando...”. O nome, as categorias e os controles de editar/excluir ficam temporariamente desativados. Isso evita que uma edição feita durante a gravação pareça aceitar, mas seja apagada pela limpeza do formulário. A pessoa ainda pode fechar a janela. Se o salvamento falhar, o aviso existente continua aparecendo e o estado de espera é liberado.
+
+**Chamadas, dados e rapidez.** Esta mudança não acrescenta nem remove chamadas ao Supabase (serviço de banco usado pelo app). O formulário já recusava uma segunda submissão; o bloqueio local também mantém o estado editável coerente até terminar a gravação e a recarga. Não medi uma redução de chamadas, bytes enviados ou recebidos, saída faturável, trabalho do banco ou latência. A melhoria é de retorno visual: agora há um estado de progresso, mas o tempo real de conclusão continua desconhecido. O tamanho do código ou de uma amostra de resposta não foi tratado como saída faturável.
+
+**Dados, acesso e modo sem conexão.** A seleção, o conteúdo enviado, as permissões e os caminhos de gravação permanecem iguais. Preço e estoque não são usados por esta tela e não mudam. Não foi criado salvamento offline nem fila de sincronização.
+
+**Implementação, conferência e reversão.** Alterado somente `mobile/src/features/products/modals/EnvironmentsManagerModal.tsx`: estado de gravação com trava síncrona, botão e campos desativados, indicador acessível de atividade e limpeza do estado em `finally`. A revisão do diff e `git diff --check` passaram. Não executei testes ou compilação, nem acessei banco, fiz gravação, migration, publicação ou atualização OTA. Para reverter, remover o estado/trava de salvamento, os indicadores e as propriedades de desativação; a operação Supabase original não precisa ser modificada.
+
+| Recorte/ID | Estado neste ciclo | Evidência e limite |
+| --- | --- | --- |
+| App — retorno visual ao salvar ambiente (SCE-367) | **Aceita e aplicada localmente**, 23/11/2026 | Um estado “Salvando...” e controles temporariamente bloqueados; nenhuma chamada foi adicionada/removida. Sem medida de bytes, saída faturável, carga/latência ou tempo percebido. |
+| SCE-365 e SCE-366 | Histórico anterior diz “aplicadas”, mas ausentes neste checkout; **reconciliação pendente** | Projeção de slug permanece `id, slug`; comparação de vínculos inalterados não aparece nos caminhos ERP/mobile indicados. Não reaplicadas neste recorte. |
+| `productDraftPersistence.ts#persistProductDraft` | Próximo após reconciliar SCE-365/366 | Recorte de rascunho ainda não concluído; nenhuma conclusão ou nova sugestão registrada aqui. |
+
+**Próximo recorte exato:** reconciliar somente as implementações previamente aceitas SCE-365 e SCE-366 com o código e seus chamadores: `shared-utils/uniqueSlug.ts`; `erp/src/pages/App/Products/Categories/hooks/useCategoriesAndEnvironments.ts`; `erp/src/pages/utils/categoryService.ts`; `erp/src/pages/utils/environmentService.ts`; `mobile/src/features/products/categories/hooks/useCategoryFormModal.ts`; `mobile/src/features/products/modals/EnvironmentsManagerModal.tsx`; e `mobile/src/features/products/services/mobileCategoryService.ts`. Conferir a seleção de slug e o tratamento de vínculos sem alteração para garantir que os aceites preservem filtros, respostas e gravações; como SCE-367 também toca no modal mobile, manter seus estados de salvamento. Restaurar apenas o que for confirmado ausente, sem criar novas sugestões nem tocar em dados remotos. Depois deste checkpoint, retomar `erp/src/pages/utils/productService/productDraftPersistence.ts#persistProductDraft` como recorte independente. Separar chamadas, bytes/saída faturável, trabalho do banco e rapidez percebida; não alegar economia sem medida comparável.
+
+---
+
 
 ## 23/11/2026 — SCE-351 — cargas de características na tela de Produtos
 

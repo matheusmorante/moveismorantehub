@@ -64,12 +64,8 @@ const processOrders = (
     const isBudget = o.orderType === 'budget';
     if (isBudget) return;
 
-    // A retirada imediata permanece na agenda mesmo após o pedido ser atendido.
-    const isCompletedImmediatePickup =
-      ['fulfilled', 'atendido'].includes(normalizeScheduleStatus(o)) &&
-      o.shipping?.deliveryMethod === 'pickup' &&
-      o.shipping?.scheduling?.immediatePickup === true;
-    if (!['draft', 'scheduled'].includes(normalizeScheduleStatus(o)) && !isCompletedImmediatePickup) return;
+    const isCompleted = ['fulfilled', 'atendido'].includes(normalizeScheduleStatus(o));
+    if (!['draft', 'scheduled'].includes(normalizeScheduleStatus(o)) && !isCompleted) return;
 
     const rawDateStr = getOperationalScheduleDate(o);
 
@@ -185,6 +181,8 @@ const processOrders = (
     grouped[dateStr].push(t);
   });
 
+  if (filter === 'default' && !grouped[todayStr]) grouped[todayStr] = [];
+
   Object.keys(grouped).forEach((date) => {
     grouped[date].sort((a, b) => {
       const effA = resolveEffectiveSchedule(a).effective;
@@ -250,6 +248,7 @@ export const useDeliverySchedule = () => {
   const [ordersError, setOrdersError] = useState('');
   const [viewMode, setViewMode] = useState<'card' | 'table' | 'timeline'>('timeline');
   const [filter, setFilter] = useState<ScheduleFilter>('default');
+  const [todayKey, setTodayKey] = useState(() => getLocalISODate());
   const [typeFilter, setTypeFilter] = useState<OrderTypeFilter[]>([
     'delivery',
     'pickup',
@@ -260,9 +259,27 @@ export const useDeliverySchedule = () => {
   const [scheduleType, setScheduleType] = useState<ScheduleType>('delivery');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [settings, setSettings] = useState(getSettings());
+
+  useEffect(() => {
+    const now = new Date();
+    const nextMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+    const timer = setTimeout(() => {
+      const currentDay = getLocalISODate();
+      setTodayKey((previousDay) => (previousDay === currentDay ? previousDay : currentDay));
+    }, nextMidnight.getTime() - now.getTime() + 25);
+
+    return () => clearTimeout(timer);
+  }, [todayKey]);
+
+  const defaultDateKey = filter === 'default' ? todayKey : '';
   const queryFilters = useMemo(() => ({
-    ...schedulePeriodFilters(filter, new Date(), { start: startDate, end: endDate }), types: typeFilter,
-  }), [filter, startDate, endDate, typeFilter]);
+    ...schedulePeriodFilters(
+      filter,
+      defaultDateKey ? new Date(`${defaultDateKey}T12:00:00`) : new Date(),
+      { start: startDate, end: endDate }
+    ),
+    types: typeFilter,
+  }), [filter, startDate, endDate, typeFilter, defaultDateKey]);
   const lastLoadedQueryKey = useRef<string | null>(null);
   const queryFiltersKey = JSON.stringify(queryFilters);
   const showroomRefreshRef = useRef<(() => Promise<void>) | null>(null);

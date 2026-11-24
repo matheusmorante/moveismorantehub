@@ -10,6 +10,7 @@ import {
 } from '@/pages/utils/warranty/warrantyTermService';
 import type {
   WarrantyTermRecord,
+  WarrantyTermSummary,
   GeneratedWarrantyPdf,
 } from '@/pages/utils/warranty/warrantyTypes';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
@@ -26,7 +27,8 @@ export function useWarrantyModalState({
   onClose,
 }: UseWarrantyModalStateParams) {
   const [actionLoading, setActionLoading] = React.useState<string | null>(null);
-  const [currentRecord, setCurrentRecord] = React.useState<WarrantyTermRecord | null>(null);
+  const [currentRecord, setCurrentRecord] = React.useState<WarrantyTermSummary | null>(null);
+  const [generatedRecord, setGeneratedRecord] = React.useState<WarrantyTermRecord | null>(null);
   const [currentPdf, setCurrentPdf] = React.useState<GeneratedWarrantyPdf | null>(null);
 
   const customer = order.customerData;
@@ -70,14 +72,15 @@ export function useWarrantyModalState({
     record: WarrantyTermRecord;
     pdf?: GeneratedWarrantyPdf;
   }> => {
-    if (currentRecord && currentPdf) {
-      return { record: currentRecord, pdf: currentPdf };
+    if (generatedRecord && currentPdf) {
+      return { record: generatedRecord, pdf: currentPdf };
     }
 
     setActionLoading('Gerando documento oficial...');
     try {
       const result = await generateAndSaveWarrantyTerm(order);
       setCurrentRecord(result.record);
+      setGeneratedRecord(result.record);
       setCurrentPdf(result.generatedPdf);
       return { record: result.record, pdf: result.generatedPdf };
     } finally {

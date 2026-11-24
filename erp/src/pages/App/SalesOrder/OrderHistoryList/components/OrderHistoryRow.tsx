@@ -1,0 +1,424 @@
+import React from 'react';
+import Order, { AssistanceItem, VisibilitySettings } from '../../../../types/order.type';
+import { Item } from '../../../../types/items.type';
+import { getSettings } from '@/pages/utils/settingsService';
+import { getOrderStatusLabel } from '@/pages/utils/orderStatusPresentation';
+import { formatCurrency, formatToBRDate, toTitleCase } from '../../../../utils/formatters';
+import { formatOrderCode } from '../../../../utils/orderCode';
+import { getOrderTypeClasses, resolveOrderColor } from '../../../../utils/orderTypeColorUtils';
+import { getOrderAssemblyFlags, isPaidTrafficOrder } from '../utils/orderItemHandlingUtils';
+import { OrderAssemblyBadges } from './OrderAssemblyBadges';
+import { OrderDeliveryPrompt } from './OrderDeliveryPrompt';
+import { OrderOperationalBadges } from './OrderOperationalBadges';
+import { OrderScheduleSummary } from './OrderScheduleSummary';
+import { OrderOptionsMenu } from './OrderOptionsMenu';
+import { OrderFiscalBadge } from './OrderFiscalBadge';
+import { OrderCancellationFailureNotice } from './OrderCancellationFailureNotice';
+import type {
+  OrderFiscalBadgeStatus,
+  OrderFiscalCancellationState,
+  OrderFiscalOperationBadgeStatus,
+  OutboundFiscalBadgeItem,
+  ReturnFiscalDocumentSummary,
+} from '@/pages/utils/nfe/orderFiscalBadgeRules';
+
+interface OrderHistoryRowProps {
+  order: Order;
+  fiscalBadgeStatus?: OrderFiscalBadgeStatus;
+  fiscalHmlBadgeStatus?: OrderFiscalBadgeStatus;
+  fiscalBadgeLoading?: boolean;
+  fiscalDocumentId?: string;
+  fiscalHmlDocumentId?: string;
+  fiscalCancellationState?: OrderFiscalCancellationState;
+  fiscalEstornoBadgeStatus?: OrderFiscalOperationBadgeStatus;
+  fiscalEstornoDocumentId?: string;
+  fiscalEstornoDraftId?: string;
+  fiscalEstornoEnvironment?: 1 | 2;
+  fiscalDevolucaoBadgeStatus?: OrderFiscalOperationBadgeStatus;
+  fiscalDevolucaoDocumentId?: string;
+  fiscalDevolucaoEnvironment?: 1 | 2;
+  fiscalDevolucaoDocuments?: readonly ReturnFiscalDocumentSummary[];
+  fiscalReadyToReissueHml?: boolean;
+  fiscalReadyToReissueProd?: boolean;
+  fiscalProductionBadges?: readonly OutboundFiscalBadgeItem[];
+  fiscalHomologationBadges?: readonly OutboundFiscalBadgeItem[];
+  onEdit: (
+    order: Order,
+    initialStep?: number,
+    highlightTemporary?: boolean,
+    reconciliationMode?: boolean
+  ) => void;
+  onDelete: (id: string) => void;
+  onRestore: (id: string) => void;
+  onPermanentDelete: (id: string) => void;
+  onAction: (actionKey: string, order: Order) => void;
+  onStatusUpdate: (id: string, newStatus: Order['status']) => void;
+  visibilitySettings: VisibilitySettings;
+  showTrash?: boolean;
+  orderedColumnKeys?: string[];
+  isSelected?: boolean;
+  onToggleSelection?: () => void;
+  onStockCheckUpdate?: (
+    id: string,
+    value: boolean,
+    updatedItems?: readonly Item[],
+    updatedAssistanceItems?: readonly AssistanceItem[]
+  ) => void;
+  onViewDetails?: (order: Order) => void;
+  onViewFiscalDocument?: (documentId: string, environment: 1 | 2) => void;
+  isHighlighted?: boolean;
+  id?: string;
+  onFilterByOrderId?: (id: string) => void;
+  onShowPostSaleActions?: (order: Order) => void;
+  onIssueNfe?: (order: Order, environment: 1 | 2) => void;
+}
+
+const OrderHistoryRow = ({
+  order,
+  fiscalBadgeStatus,
+  fiscalHmlBadgeStatus,
+  fiscalBadgeLoading,
+  fiscalDocumentId,
+  fiscalHmlDocumentId,
+  fiscalCancellationState,
+  fiscalEstornoBadgeStatus,
+  fiscalEstornoDocumentId,
+  fiscalEstornoDraftId,
+  fiscalEstornoEnvironment,
+  fiscalDevolucaoBadgeStatus,
+  fiscalDevolucaoDocumentId,
+  fiscalDevolucaoEnvironment,
+  fiscalDevolucaoDocuments,
+  fiscalReadyToReissueHml,
+  fiscalReadyToReissueProd,
+  fiscalProductionBadges,
+  fiscalHomologationBadges,
+  onEdit,
+  onDelete,
+  onRestore,
+  onPermanentDelete,
+  onAction,
+  onStatusUpdate,
+  visibilitySettings,
+  showTrash,
+  orderedColumnKeys,
+  isSelected,
+  onStockCheckUpdate,
+  isHighlighted,
+  id,
+  onFilterByOrderId,
+  onViewDetails,
+  onViewFiscalDocument,
+  onShowPostSaleActions,
+  onIssueNfe,
+}: OrderHistoryRowProps) => {
+  const settings = getSettings();
+  const isDraft = order.status === 'draft';
+  const isCancelled = order.status === 'cancelled';
+  const canViewDetails =
+    ['scheduled', 'fulfilled', 'cancelled'].includes(order.status || '') ||
+    (order.orderType === 'budget' && order.status === 'quoted');
+  const statuses = (
+    settings.orderStatuses || [
+      { id: 'draft', label: 'Rascunho', color: 'slate', isCore: true },
+      { id: 'scheduled', label: 'Agendado', color: 'amber', isCore: true },
+      { id: 'fulfilled', label: 'Atendido', color: 'emerald', isCore: true },
+      { id: 'cancelled', label: 'Cancelado', color: 'rose', isCore: true },
+    ]
+  )
+    .map((s) => (s.id === 'draft' ? { ...s, label: 'Rascunho', color: 'slate' } : s))
+    .filter((s) => s.id !== 'chargeback' && s.id !== 'disputed');
+
+  const statusConfig: Record<string, { label: string; bg: string; text: string; dot: string }> = {};
+  statuses.forEach((s) => {
+    statusConfig[s.id] = {
+      label: s.label,
+      bg: `bg-${s.color}-${s.color === 'slate' ? '100' : '50'}`,
+      text: `text-${s.color}-${s.color === 'slate' ? '500' : '600'}`,
+      dot: `bg-${s.color}-${s.color === 'slate' ? '400' : '500'}`,
+    };
+  });
+  if (!statusConfig.draft)
+    statusConfig.draft = {
+      label: 'Rascunho',
+      bg: 'bg-slate-100',
+      text: 'text-slate-500',
+      dot: 'bg-slate-400',
+    };
+  if (!statusConfig.fulfilled)
+    statusConfig.fulfilled = {
+      label: 'Atendido',
+      bg: 'bg-emerald-50',
+      text: 'text-emerald-600',
+      dot: 'bg-emerald-500',
+    };
+  if (order.orderType === 'budget' && order.status === 'quoted') {
+    statusConfig.quoted = {
+      label: 'Orçamento cadastrado',
+      bg: 'bg-indigo-50',
+      text: 'text-indigo-700',
+      dot: 'bg-indigo-500',
+    };
+  }
+  statusConfig.fulfilled.label = getOrderStatusLabel(
+    { ...order, status: 'fulfilled' },
+    statusConfig.fulfilled.label
+  );
+  if (statusConfig.scheduled) {
+    statusConfig.scheduled.label = getOrderStatusLabel(
+      { ...order, status: 'scheduled' },
+      statusConfig.scheduled.label
+    );
+  }
+
+  const rowColors = settings.orderTypeColors ?? {
+    delivery: 'green',
+    pickup: 'purple',
+    assistance: 'amber',
+  };
+  const rowColorKey = resolveOrderColor(order.orderType, order.shipping?.deliveryMethod, rowColors);
+  const cls = getOrderTypeClasses(isDraft ? 'slate' : (rowColorKey as any));
+
+  const { hasAssemblyDepot, hasAssemblyOutside } = getOrderAssemblyFlags(order, settings);
+  const isPaidTraffic = isPaidTrafficOrder(order);
+
+  const cellBgClass = isCancelled
+    ? 'bg-red-50/80 dark:bg-red-950/40'
+    : 'bg-white dark:bg-slate-900';
+  const baseTdClass = `px-2 py-1 ${cellBgClass} ${isCancelled ? 'border-b border-red-200 dark:border-red-900/50' : 'border-b border-white dark:border-slate-800/50'} align-middle relative`;
+  const rowColumnKeys = orderedColumnKeys ?? [
+    'id',
+    'orderDate',
+    'deliveryDate',
+    'customer',
+    'totalValue',
+    'actions',
+  ];
+  const hasSaleScheduleRow = order.orderType === 'sale' &&
+    rowColumnKeys.includes('deliveryDate') &&
+    visibilitySettings.deliveryDate !== false &&
+    Boolean(order.shipping?.scheduling);
+  const visibleColumnCount = Math.max(
+    1,
+    rowColumnKeys.filter((key) => visibilitySettings[key as keyof VisibilitySettings] !== false)
+      .length
+  );
+
+  const renderCell = (key: string) => {
+    if (visibilitySettings[key as keyof VisibilitySettings] === false) return null;
+
+    switch (key) {
+      case 'id':
+        return (
+          <td key={key} className={`${baseTdClass} whitespace-nowrap`}>
+            <div className="flex flex-col gap-1 items-start">
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-xs text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-lg">
+                  {formatOrderCode(order)}
+                </span>
+              </div>
+              {order.linkedOrderId && (
+                <div className="flex items-center gap-1 mt-0.5 flex-wrap">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onFilterByOrderId?.(order.linkedOrderId!);
+                    }}
+                    className="flex items-center gap-1 text-[9px] font-black uppercase text-blue-500 hover:text-blue-600 transition-colors tracking-widest bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 dark:hover:bg-blue-900/40 px-1.5 py-0.5 rounded-md w-fit cursor-pointer"
+                    title="Filtrar por pedido vinculado"
+                  >
+                    <i className="bi bi-link-45deg" />
+                    Pedido #{order.linkedOrderCode || formatOrderCode(order)}
+                  </button>
+                  {order.orderType === 'assistance' && (
+                    <span
+                      className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${
+                        (order.linkedOrderDeliveryMethod || order.shipping?.deliveryMethod) === 'pickup'
+                          ? 'bg-purple-50 text-purple-700 border border-purple-200 dark:bg-purple-900/20 dark:text-purple-300 dark:border-purple-800'
+                          : 'bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-300 dark:border-emerald-800'
+                      }`}
+                      title={`Método de entrega do pedido vinculado: ${(order.linkedOrderDeliveryMethod || order.shipping?.deliveryMethod) === 'pickup' ? 'Retirada' : 'Entrega'}`}
+                    >
+                      {(order.linkedOrderDeliveryMethod || order.shipping?.deliveryMethod) === 'pickup' ? 'Retirada' : 'Entrega'}
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+          </td>
+        );
+      case 'orderDate':
+        return (
+          <td key={key} className={`${baseTdClass} whitespace-nowrap`}>
+            <span className="text-sm font-bold text-slate-700 dark:text-slate-200">
+              {showTrash
+                ? formatToBRDate(order.deletedAt || order.date)
+                : formatToBRDate(order.date)}
+            </span>
+          </td>
+        );
+      case 'deliveryDate': {
+        const sched = order.shipping?.scheduling;
+        const deliveryDateStr = sched?.date;
+        let timeDisplay = '-';
+        if (sched) {
+          if (sched.notInformed) timeDisplay = 'Não informado';
+          else if (sched.type === 'range' && sched.startTime && sched.endTime)
+            timeDisplay = `${sched.startTime} às ${sched.endTime}`;
+          else if (sched.startTime) timeDisplay = sched.startTime;
+          else if (sched.time) timeDisplay = sched.time;
+        }
+
+        return (
+          <td key={key} className={`${baseTdClass} min-w-0`}>
+            <div className="relative flex min-w-0 flex-col items-start gap-1.5">
+              {order.orderType === 'sale' ? (
+                <OrderScheduleSummary order={order} showLabel={false} layout="table" className="w-full" statusConfig={statusConfig} />
+              ) : (
+                <div className="flex min-w-0 flex-col gap-0.5">
+                  <span
+                    className={`text-sm font-bold ${sched?.pendingScheduling ? 'text-slate-400 dark:text-slate-500' : 'text-slate-700 dark:text-slate-200'}`}
+                  >
+                    {sched?.pendingScheduling
+                      ? 'AGENDAMENTO PENDENTE'
+                      : sched?.dateType === 'range' && sched?.endDate
+                        ? `${formatToBRDate(deliveryDateStr)} até ${formatToBRDate(sched.endDate)}`
+                        : formatToBRDate(deliveryDateStr)}
+                  </span>
+                  <span className="text-[10px] text-slate-400 dark:text-slate-600 font-bold uppercase tracking-widest">
+                    {timeDisplay}
+                  </span>
+                </div>
+              )}
+              <OrderDeliveryPrompt
+                order={order}
+                showTrash={showTrash}
+                showManualPrompt={false}
+                onStatusUpdate={onStatusUpdate}
+                fulfilledLabel={statusConfig.fulfilled.label}
+              />
+            </div>
+          </td>
+        );
+      }
+      case 'customer':
+        return (
+          <td key={key} className={`${baseTdClass} relative pl-3`}>
+            <div className="flex flex-col py-1">
+              <span
+                className="text-[13px] font-black text-slate-700 dark:text-slate-200 tracking-tight leading-tight mb-1 truncate"
+                title={order.customerData?.fullName || 'Não informado'}
+              >
+                {toTitleCase(order.customerData?.fullName || 'Não informado')}
+              </span>
+              <OrderCancellationFailureNotice state={fiscalCancellationState} />
+              <div className="flex flex-wrap items-center gap-1">
+                {order.orderType !== 'return' && !isDraft && (
+                  <>
+                    <OrderFiscalBadge
+                      status={fiscalBadgeStatus}
+                      loading={fiscalBadgeLoading}
+                      documentId={fiscalDocumentId}
+                      hasReturn={Boolean(
+                        fiscalDevolucaoBadgeStatus &&
+                        fiscalDevolucaoBadgeStatus !== 'cancelled' &&
+                        (fiscalDevolucaoEnvironment !== 2 || fiscalDevolucaoDocuments?.some((d) => d.ambiente !== 2))
+                      )}
+                      onOpenDocument={onViewFiscalDocument}
+                      onIssue={isCancelled ? undefined : (env) => onIssueNfe?.(order, env)}
+                    />
+                    <OrderFiscalBadge
+                      variant="homologation"
+                      status={fiscalHmlBadgeStatus}
+                      loading={fiscalBadgeLoading}
+                      documentId={fiscalHmlDocumentId}
+                      hasReturn={Boolean(
+                        fiscalDevolucaoBadgeStatus &&
+                        fiscalDevolucaoBadgeStatus !== 'cancelled' &&
+                        (fiscalDevolucaoEnvironment === 2 || fiscalDevolucaoDocuments?.some((d) => d.ambiente === 2))
+                      )}
+                      onOpenDocument={onViewFiscalDocument}
+                      onIssue={isCancelled ? undefined : (env) => onIssueNfe?.(order, env)}
+                    />
+                  </>
+                )}
+                <OrderAssemblyBadges
+                  hasAssemblyDepot={hasAssemblyDepot}
+                  hasAssemblyOutside={hasAssemblyOutside}
+                  size="sm"
+                />
+                <OrderOperationalBadges
+                  order={order}
+                  showTrash={showTrash}
+                  showMethodBadge={order.orderType !== 'sale'}
+                  showStatusBadge={!hasSaleScheduleRow}
+                  isPaidTraffic={isPaidTraffic}
+                  statusConfig={statusConfig}
+                  onStatusUpdate={onStatusUpdate}
+                  onStockCheckUpdate={onStockCheckUpdate}
+                />
+              </div>
+            </div>
+          </td>
+        );
+      case 'totalValue': {
+        const displayTotal =
+          order.paymentsSummary?.totalOrderValue || order.paymentsSummary?.totalValue || 0;
+        return (
+          <td key={key} className={`${baseTdClass} text-right whitespace-nowrap`}>
+            <span className="text-sm font-black text-blue-600 dark:text-blue-400">
+              {formatCurrency(displayTotal)}
+            </span>
+          </td>
+        );
+      }
+      case 'actions':
+        return (
+          <td
+            key={key}
+            className={`${baseTdClass} text-right`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="relative z-20 flex items-center justify-end gap-2">
+              <OrderOptionsMenu
+                order={order}
+                showTrash={showTrash}
+                onEdit={onEdit}
+                onDelete={onDelete}
+                onRestore={onRestore}
+                onPermanentDelete={onPermanentDelete}
+                onAction={onAction}
+                onStatusUpdate={onStatusUpdate}
+                onShowPostSaleActions={onShowPostSaleActions}
+              />
+            </div>
+          </td>
+        );
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <tr
+      id={id}
+      onClick={
+        isDraft ? () => onEdit(order) : canViewDetails ? () => onViewDetails?.(order) : undefined
+      }
+      className={`relative transition-colors group ${isDraft || canViewDetails ? 'cursor-pointer' : 'cursor-default'} border-b border-white dark:border-slate-800/50 ${cellBgClass} ${isSelected ? cls.rowActive : ''} ${isHighlighted ? 'animate-highlight' : ''}`}
+    >
+      {rowColumnKeys.map((key) => renderCell(key))}
+      {isCancelled && (
+        <td
+          aria-hidden="true"
+          colSpan={visibleColumnCount}
+          className="pointer-events-none absolute inset-0 z-10 border-0 p-0"
+        >
+          <div data-testid="cancelled-order-row-overlay" className="absolute inset-0 bg-slate-950/25" />
+        </td>
+      )}
+    </tr>
+  );
+};
+
+export default OrderHistoryRow;

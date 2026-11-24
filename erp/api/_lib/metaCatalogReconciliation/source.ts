@@ -100,6 +100,8 @@ export interface DesiredItem {
 export interface DesiredCatalog {
   items: Map<string, DesiredItem>;
   blocked: Map<string, string>;
+  /** Candidate identifiers already derived from the loaded source of one product. */
+  candidateRetailers: string[] | null;
 }
 
 export interface VerifiedItem {
@@ -180,6 +182,7 @@ function addDesiredItems(
   variations: VariationRow[],
   campaignRows: CampaignRow[],
   description: string | null,
+  candidateProductId?: string,
 ) {
   const variationsByProduct = new Map<string, MetaCatalogVariationSource[]>();
   const campaignNames = new Map<string, Set<string>>();
@@ -205,9 +208,17 @@ function addDesiredItems(
   for (const { opportunities, product_categories, ...product } of products) {
     const categoryLinks = (product_categories ?? []).flatMap(({ categories }) =>
       Array.isArray(categories) ? categories.map((category) => ({ categories: category })) : [{ categories }]);
+    const productVariations = variationsByProduct.get(product.id) ?? [];
+    if (product.id === candidateProductId) {
+      desired.candidateRetailers = [...new Set(
+        buildProductMetaCatalogSyncItems({ ...product, status: 'hidden' }, productVariations, [])
+          .map(({ code }) => code)
+          .filter((code) => code.length <= 100),
+      )];
+    }
     const items = buildProductMetaCatalogSyncItems(
       { ...product, product_categories: categoryLinks, activeCampaignNames: [...(campaignNames.get(product.id) ?? [])].sort() },
-      variationsByProduct.get(product.id) ?? [],
+      productVariations,
       Array.isArray(opportunities) ? opportunities : opportunities ? [opportunities] : [],
     );
     for (const item of items) {
@@ -231,8 +242,9 @@ export async function loadDesiredCatalog(
   db: SupabaseClient,
   description: string | null,
   productIds?: string[],
+  candidateProductId?: string,
 ): Promise<DesiredCatalog> {
-  const desired: DesiredCatalog = { items: new Map(), blocked: new Map() };
+  const desired: DesiredCatalog = { items: new Map(), blocked: new Map(), candidateRetailers: null };
   if (productIds?.length === 0) return desired;
   const productPages = completePages<ProductRow>(({ options, previous }) => {
     const query = db.from('products').select(PRODUCT_FIELDS, options)
@@ -257,7 +269,7 @@ export async function loadDesiredCatalog(
           .in('product_id', ids).order('product_id').order('variation_id').order('promotion_id').range(from, to),
         'campanhas vigentes', (row) => JSON.stringify([row.product_id, row.variation_id, row.promotion_id])),
       ]);
-      addDesiredItems(desired, products, variations, campaigns, description);
+      addDesiredItems(desired, products, variations, campaigns, description, candidateProductId);
     }
   }
   return desired;

@@ -256,8 +256,9 @@ export function useProductFormModal({
         const result = await fetchGroupsAndCategories();
         const categoriesList = Array.isArray(result?.categories) ? result.categories : [];
         setAvailableCategories(categoriesList.map((c: any) => ({ ...c, isGroup: false })));
-      } catch (_err) {
-        setAvailableCategories([]);
+      } catch (error) {
+        console.warn('[useProductFormModal] Erro ao carregar categorias:', error);
+        toast.error('Não foi possível atualizar as categorias. A lista anterior foi mantida.');
       }
     };
     fetchCategories();

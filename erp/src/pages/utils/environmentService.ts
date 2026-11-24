@@ -60,7 +60,7 @@ export const fetchEnvironments = async (
 
     if (envsErr) {
       console.error('[CategoryService] Erro ao buscar environments:', envsErr);
-      return [];
+      throw envsErr;
     }
 
     const { data: rels, error: relErr } = sharedRelationships
@@ -72,7 +72,7 @@ export const fetchEnvironments = async (
         '[CategoryService] Erro ao buscar category_relationships para environments:',
         relErr
       );
-      return envsData || [];
+      throw relErr;
     }
 
     return (envsData || []).map((env: any) => ({
@@ -83,7 +83,7 @@ export const fetchEnvironments = async (
     }));
   } catch (err) {
     console.error('[CategoryService] Exceção em fetchEnvironments:', err);
-    return [];
+    throw err;
   }
 };
 
@@ -115,7 +115,11 @@ export const createEnvironment = async (name: string, categoryIds: string[]) => 
   return data[0];
 };
 
-export const updateEnvironment = async (id: string, name: string, categoryIds: string[]) => {
+export const updateEnvironment = async (
+  id: string,
+  name: string,
+  categoryIds: string[] | undefined,
+) => {
   const formattedName = toTitleCase(name.trim());
   const { error } = await supabase
     .from('categories')
@@ -124,17 +128,19 @@ export const updateEnvironment = async (id: string, name: string, categoryIds: s
 
   if (error) throw error;
 
-  // Atualiza relacionamentos em category_relationships
-  const { error: delError } = await supabase
-    .from('category_relationships')
-    .delete()
-    .eq('parent_id', id);
-  if (delError) throw delError;
+  // Undefined means the form confirmed the saved links are unchanged.
+  if (categoryIds !== undefined) {
+    const { error: delError } = await supabase
+      .from('category_relationships')
+      .delete()
+      .eq('parent_id', id);
+    if (delError) throw delError;
 
-  if (categoryIds && categoryIds.length > 0) {
-    const links = categoryIds.map((cid) => ({ parent_id: id, child_id: cid }));
-    const { error: insError } = await supabase.from('category_relationships').insert(links);
-    if (insError) throw insError;
+    if (categoryIds.length > 0) {
+      const links = categoryIds.map((cid) => ({ parent_id: id, child_id: cid }));
+      const { error: insError } = await supabase.from('category_relationships').insert(links);
+      if (insError) throw insError;
+    }
   }
 };
 

@@ -1,10 +1,11 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { Alert } from 'react-native';
 import { z } from 'zod';
 import { useZodForm, flattenFormErrors } from '../../../../hooks/useZodForm';
 import { catalogNameFormSchema } from '../../../../../../shared-utils/catalogFormSchemas';
 import {
   categoryAttributeSelectionsSchema,
+  resolveCategoryAttributeIsRequired,
   type CategoryAttributeSelection,
 } from '../../../../../../shared-utils/categoryAttributeSelection';
 import {
@@ -30,12 +31,42 @@ interface Props {
   onSuccess: () => Promise<void>;
 }
 
+const areIdsEqual = (left: readonly string[], right: readonly string[]) => {
+  if (left.length !== right.length) return false;
+  const sortedLeft = [...left].sort();
+  const sortedRight = [...right].sort();
+  return sortedLeft.every((id, index) => id === sortedRight[index]);
+};
+
+const getPersistedAttributeSelection = (attributes: readonly CategoryAttributeSelection[]) =>
+  [...new Map(
+    attributes.map((attribute) => [
+      attribute.id,
+      resolveCategoryAttributeIsRequired(attribute),
+    ] as const),
+  )]
+    .sort(([leftId], [rightId]) => leftId.localeCompare(rightId));
+
+const areCategoryAttributesEqual = (
+  left: readonly CategoryAttributeSelection[],
+  right: readonly CategoryAttributeSelection[],
+) => {
+  const persistedLeft = getPersistedAttributeSelection(left);
+  const persistedRight = getPersistedAttributeSelection(right);
+  return persistedLeft.length === persistedRight.length && persistedLeft.every(
+    ([id, isRequired], index) =>
+      id === persistedRight[index]?.[0] && isRequired === persistedRight[index]?.[1],
+  );
+};
+
 export function useCategoryFormModal({ environments, categories, onSuccess }: Props) {
   const [showModal, setShowModal] = useState<ModalType | null>(null);
   const [editingNode, setEditingNode] = useState<EditingNode | null>(null);
   const [nameInput, setNameInput] = useState('');
   const [selectedLinks, setSelectedLinks] = useState<string[]>([]);
   const [selectedAttributes, setSelectedAttributes] = useState<CategoryAttributeSelection[]>([]);
+  const initialSelectedLinksRef = useRef<string[]>([]);
+  const initialAttributesRef = useRef<CategoryAttributeSelection[]>([]);
   const [isLoadingAttributes, setIsLoadingAttributes] = useState(false);
   const [attributeLoadFailed, setAttributeLoadFailed] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -83,6 +114,8 @@ export function useCategoryFormModal({ environments, categories, onSuccess }: Pr
     setNameInput('');
     setSelectedLinks([]);
     setSelectedAttributes([]);
+    initialSelectedLinksRef.current = [];
+    initialAttributesRef.current = [];
     setIsLoadingAttributes(false);
     setAttributeLoadFailed(false);
   }, []);
@@ -91,6 +124,9 @@ export function useCategoryFormModal({ environments, categories, onSuccess }: Pr
     setEditingNode(null);
     setNameInput('');
     setSelectedLinks([]);
+    initialSelectedLinksRef.current = [];
+    setSelectedAttributes([]);
+    initialAttributesRef.current = [];
     setIsLoadingAttributes(false);
     setAttributeLoadFailed(false);
     setShowModal('ambiente');
@@ -100,7 +136,9 @@ export function useCategoryFormModal({ environments, categories, onSuccess }: Pr
     setEditingNode(null);
     setNameInput('');
     setSelectedLinks(preSelectedEnvId ? [preSelectedEnvId] : []);
+    initialSelectedLinksRef.current = preSelectedEnvId ? [preSelectedEnvId] : [];
     setSelectedAttributes([]);
+    initialAttributesRef.current = [];
     setIsLoadingAttributes(false);
     setAttributeLoadFailed(false);
     setShowModal('categoria');
@@ -110,6 +148,7 @@ export function useCategoryFormModal({ environments, categories, onSuccess }: Pr
     setEditingNode({ id: env.id, type: 'ambiente' });
     setNameInput(env.name);
     setSelectedLinks(env.categories || []);
+    initialSelectedLinksRef.current = [...(env.categories || [])];
     setIsLoadingAttributes(false);
     setAttributeLoadFailed(false);
     setShowModal('ambiente');
@@ -119,13 +158,16 @@ export function useCategoryFormModal({ environments, categories, onSuccess }: Pr
     setEditingNode({ id: cat.id, type: 'categoria' });
     setNameInput(cat.name);
     setSelectedLinks(cat.parents || []);
+    initialSelectedLinksRef.current = [...(cat.parents || [])];
     setSelectedAttributes([]);
+    initialAttributesRef.current = [];
     setAttributeLoadFailed(false);
     setIsLoadingAttributes(true);
     setShowModal('categoria');
 
     try {
       const attrs = await fetchMobileCategoryAttributes(cat.id);
+      initialAttributesRef.current = attrs.map((attribute) => ({ ...attribute }));
       setSelectedAttributes(attrs);
     } catch (err) {
       console.warn('Erro ao carregar características da categoria:', err);
@@ -156,12 +198,28 @@ export function useCategoryFormModal({ environments, categories, onSuccess }: Pr
         setIsSubmitting(true);
         try {
           if (values.type === 'ambiente') {
-            await saveMobileEnvironment(values.name, values.linkedIds, editingNode?.id);
+            const linksUnchanged = editingNode?.type === 'ambiente' && areIdsEqual(
+              values.linkedIds,
+              initialSelectedLinksRef.current,
+            );
+            await saveMobileEnvironment(
+              values.name,
+              linksUnchanged ? undefined : values.linkedIds,
+              editingNode?.id,
+            );
           } else {
+            const linksUnchanged = editingNode?.type === 'categoria' && areIdsEqual(
+              values.linkedIds,
+              initialSelectedLinksRef.current,
+            );
+            const attributesUnchanged = editingNode?.type === 'categoria' && areCategoryAttributesEqual(
+              values.attributes,
+              initialAttributesRef.current,
+            );
             await saveMobileCategory(
               values.name,
-              values.linkedIds,
-              values.attributes,
+              linksUnchanged ? undefined : values.linkedIds,
+              attributesUnchanged ? undefined : values.attributes,
               editingNode?.id,
             );
           }

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import { crmIntelligenceService, CustomerDesire } from '@/pages/utils/crmIntelligenceService';
-import { redeConciliationService } from '@/pages/services/redeConciliationService';
+import { redeConciliationService } from '@/services/finance/redeConciliationService';
 import { SupabaseAnomalyNotification } from '../types';
 
 interface UseGlobalAppEventsOptions {

@@ -185,7 +185,7 @@ function getGoodsCirculationState(row) {
 }
 var hasGoodsCirculated = (row) => getGoodsCirculationState(row) !== "none";
 
-// erp/src/pages/utils/orderStatusTransitionRules.ts
+// erp/src/pages/utils/order/orderStatusTransitionRules.ts
 var canCancelOrderDirectly = (order) => {
   if (!order.status || order.status === "cancelled" || order.status === "draft") {
     return false;

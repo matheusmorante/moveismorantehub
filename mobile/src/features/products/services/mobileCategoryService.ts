@@ -4,7 +4,6 @@ import {
   type CategoryAttributeSelection,
 } from '../../../../../shared-utils/categoryAttributeSelection';
 import {
-  countDistinctProductsByCategory,
   mapCategoryProductCountRows,
 } from '../../../../../shared-utils/categoryProductCounts';
 import { isProductCategoryOption } from '../../../../../shared-utils/productCategoryOptions';
@@ -87,7 +86,11 @@ export const fetchMobileEnvironments = async (
   }));
 };
 
-export const saveMobileEnvironment = async (name: string, categoryIds: string[], id?: string) => {
+export const saveMobileEnvironment = async (
+  name: string,
+  categoryIds: string[] | undefined,
+  id?: string,
+) => {
   const trimmed = name.trim();
   if (!trimmed) return null;
   const formattedName = toTitleCase(trimmed);
@@ -101,11 +104,13 @@ export const saveMobileEnvironment = async (name: string, categoryIds: string[],
       .single();
     if (error) throw error;
     environmentId = data.id;
-    const { error: deleteError } = await supabase
-      .from('category_relationships')
-      .delete()
-      .eq('parent_id', environmentId);
-    if (deleteError) throw deleteError;
+    if (categoryIds !== undefined) {
+      const { error: deleteError } = await supabase
+        .from('category_relationships')
+        .delete()
+        .eq('parent_id', environmentId);
+      if (deleteError) throw deleteError;
+    }
   } else {
     let uniqueSlug = normalizeSlug(formattedName);
     try {
@@ -121,7 +126,7 @@ export const saveMobileEnvironment = async (name: string, categoryIds: string[],
     if (error) throw error;
     environmentId = data.id;
   }
-  if (categoryIds.length > 0) {
+  if (categoryIds && categoryIds.length > 0) {
     const { error: insertError } = await supabase
       .from('category_relationships')
       .insert(categoryIds.map((child_id) => ({ parent_id: environmentId, child_id })));
@@ -148,47 +153,32 @@ export const fetchMobileCategories = async (
   sharedRelationships?: MobileCategoryEnvironmentRelationshipsSource,
   projection: CategoryListProjection = 'full'
 ): Promise<MobileCategory[]> => {
-  try {
-    const categoriesRequest =
-      projection === 'summary'
-        ? supabase
-            .from('categories')
-            .select(CATEGORY_ENVIRONMENT_SUMMARY_FIELDS)
-              .or('type.neq.environment,type.is.null')
-            .order('name', { ascending: true })
-        : supabase
-            .from('categories')
-            .select('*')
-              .or('type.neq.environment,type.is.null')
-            .order('name', { ascending: true });
-    const { data: catsData, error: catsErr } = await categoriesRequest;
+  const categoriesRequest =
+    projection === 'summary'
+      ? supabase
+          .from('categories')
+          .select(CATEGORY_ENVIRONMENT_SUMMARY_FIELDS)
+          .or('type.eq.category,type.is.null')
+          .order('name', { ascending: true })
+      : supabase
+          .from('categories')
+          .select('*')
+          .or('type.eq.category,type.is.null')
+          .order('name', { ascending: true });
+  const { data: catsData, error: catsErr } = await categoriesRequest;
+  if (catsErr) throw catsErr;
 
-    if (catsErr) {
-      console.warn('[MobileCategoryService] Erro ao buscar categorias:', catsErr);
-      return [];
-    }
+  const { data: relData, error: relErr } = await loadCategoryEnvironmentRelationships(
+    sharedRelationships
+  );
+  if (relErr) throw relErr;
 
-    const { data: relData, error: relErr } = await loadCategoryEnvironmentRelationships(
-      sharedRelationships
-    );
-
-    if (relErr) {
-      console.warn('[MobileCategoryService] Erro ao buscar relacoes:', relErr);
-    }
-
-    const categoriesWithParents = (catsData || [])
-      .filter(isProductCategoryOption)
-      .map((cat: any) => ({
-        ...cat,
-        parents:
-          relData?.filter((r: any) => r.child_id === cat.id).map((r: any) => r.parent_id) || [],
-      }));
-
-    return categoriesWithParents;
-  } catch (err) {
-    console.error('[MobileCategoryService] Exceção:', err);
-    return [];
-  }
+  return (catsData || [])
+    .filter(isProductCategoryOption)
+    .map((cat: any) => ({
+      ...cat,
+      parents: (relData || []).filter((r: any) => r.child_id === cat.id).map((r: any) => r.parent_id),
+    }));
 };
 
 export const fetchMobileCategoryEnvironmentData = async () => {
@@ -204,34 +194,26 @@ export const fetchMobileProductFormCategoryOptions = async () => {
   let sharedRelationships: Promise<MobileCategoryEnvironmentRelationshipsResult> | undefined;
   const loadSharedRelationships = () =>
     (sharedRelationships ??= fetchMobileCategoryEnvironmentRelationships());
-  const [categories, environmentResult] = await Promise.all([
-    fetchMobileCategories(loadSharedRelationships, 'summary'),
+  const [categoriesResult, environmentResult] = await Promise.all([
+    fetchMobileCategories(loadSharedRelationships, 'summary')
+      .then((data) => ({ data }))
+      .catch((error: unknown) => ({ error })),
     fetchMobileEnvironments(loadSharedRelationships, 'summary')
       .then((data) => ({ data }))
       .catch((error: unknown) => ({ error })),
   ]);
-  return { categories, environmentResult };
+  return { categoriesResult, environmentResult };
 };
 
 export const fetchMobileEnvironmentManagerData = async () => {
   const categoriesRequest = (async () => {
-    try {
-      const { data, error } = await supabase
-        .from('categories')
-        .select('id, name, type')
-        .or('type.neq.environment,type.is.null')
-        .order('name', { ascending: true });
-
-      if (error) {
-        console.warn('[MobileCategoryService] Erro ao buscar categorias:', error);
-        return [];
-      }
-
-      return (data || []).filter(isProductCategoryOption);
-    } catch (error) {
-      console.error('[MobileCategoryService] Exceção:', error);
-      return [];
-    }
+    const { data, error } = await supabase
+      .from('categories')
+      .select('id, name, type')
+      .or('type.eq.category,type.is.null')
+      .order('name', { ascending: true });
+    if (error) throw error;
+    return (data || []).filter(isProductCategoryOption);
   })();
   const environmentsRequest = (async () => {
     const { data, error } = await supabase
@@ -436,26 +418,8 @@ export const deleteMobileCategory = async (id: string): Promise<void> => {
   if (directCheck.error) throw directCheck.error;
   const totalLinked = (relationCheck.count || 0) + (directCheck.count || 0);
   if (totalLinked > 0) {
-    const [relationRows, directRows] = await Promise.all([
-      supabase.from('product_categories').select('product_id').eq('category_id', id),
-      supabase.from('products').select('id').eq('category_id', id),
-    ]);
-    if (relationRows.error) throw relationRows.error;
-    if (directRows.error) throw directRows.error;
-
-    const distinctCount =
-      countDistinctProductsByCategory([
-        ...(relationRows.data || []).map((row: { product_id: string }) => ({
-          categoryId: id,
-          productId: row.product_id,
-        })),
-        ...(directRows.data || []).map((row: { id: string }) => ({
-          categoryId: id,
-          productId: row.id,
-        })),
-      ])[id] || totalLinked;
     throw new Error(
-      `Não é possível excluir esta categoria porque ela está sendo utilizada por ${distinctCount} produto${distinctCount > 1 ? 's' : ''}. Remova ou altere a categoria desses produtos antes de excluí-la.`
+      'Não é possível excluir esta categoria porque ela está sendo utilizada por produtos. Remova ou altere a categoria desses produtos antes de excluí-la.'
     );
   }
 

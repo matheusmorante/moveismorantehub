@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { toTitleCase } from '../textUtils';
+import { buildAccentInsensitiveRegex, toTitleCase } from '../textUtils';
 
 describe('toTitleCase - Formatação de Nomes, Variações e Atributos de Produtos', () => {
   it('formata texto simples capitalizando palavras e mantendo preposições e conjunções em minúsculo', () => {
@@ -43,5 +43,26 @@ describe('toTitleCase - Formatação de Nomes, Variações e Atributos de Produt
     expect(toTitleCase(null)).toBe('');
     expect(toTitleCase(undefined)).toBe('');
     expect(toTitleCase('   ')).toBe('');
+  });
+});
+
+describe('textUtils - buildAccentInsensitiveRegex e equivalências fonéticas', () => {
+  it('deve casar "guarda-roupa sydney" com "Guarda Roupa Sidney"', () => {
+    const term = 'guarda-roupa sydney';
+    const regexStr = `.*${buildAccentInsensitiveRegex(term)}.*`;
+    const regex = new RegExp(regexStr, 'i');
+
+    expect(regex.test('Guarda Roupa Sidney')).toBe(true);
+    expect(regex.test('Guarda-Roupa Sidney')).toBe(true);
+    expect(regex.test('Guarda Roupa Sidney 6 Portas 2 Gavetas')).toBe(true);
+  });
+
+  it('deve casar acentuações e variações de i e y', () => {
+    const term = 'sydney';
+    const regex = new RegExp(buildAccentInsensitiveRegex(term), 'i');
+
+    expect(regex.test('sidney')).toBe(true);
+    expect(regex.test('Sydney')).toBe(true);
+    expect(regex.test('Sídney')).toBe(true);
   });
 });

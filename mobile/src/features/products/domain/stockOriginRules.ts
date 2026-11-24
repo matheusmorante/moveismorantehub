@@ -1,4 +1,1 @@
-export {
-  resolveStockOrigin,
-  type StockOrigin,
-} from '../../../../../shared-utils/productStockOrigin';
+export * from './catalog/stockOriginRules';

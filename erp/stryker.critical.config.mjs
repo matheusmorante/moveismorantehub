@@ -15,7 +15,7 @@ export default {
     related: false,
   },
   testFiles: [
-    'src/pages/utils/productKindRules.test.ts',
+    'src/pages/utils/__tests__/productKindRules.test.ts',
     'src/pages/App/Products/ProductList/utils/productActivationState.test.ts',
     'src/pages/App/Products/ProductList/utils/productCatalogState.test.ts',
     'src/pages/App/Products/ProductList/hooks/useProductsActivePersistence.test.ts',

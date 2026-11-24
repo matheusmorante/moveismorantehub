@@ -1,11 +1,13 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { Calendar, CalendarCheck, Clock, Link2, Truck } from 'lucide-react-native';
+import { Calendar, CalendarCheck, CheckCircle2, Clock, Link2, Truck, XCircle } from 'lucide-react-native';
 import { formatOrderDate, formatOrderTotal, toTitleCase } from '../../../../utils/orderUtils';
 import { OrderCardDeliveryFooter } from '../../../../components/cards/OrderCardDeliveryFooter';
 import PickupIcon from '../../../../components/shared/PickupIcon';
 import { OrderFiscalCancellationState } from '../../domain/types';
 import { OrderCancellationFailureNotice } from './OrderCancellationFailureNotice';
+import { getOrderStatusLabel } from '../../domain/orderStatusPresentation';
+import { getStatusConfig } from './orderCardTheme';
 
 export interface OrderCardBodyProps {
   order: any;
@@ -79,6 +81,25 @@ export const OrderCardBody: React.FC<OrderCardBodyProps> = ({
         ? formatOrderDate(scheduleDate)
         : 'Não informada';
   const isSale = String(order?.order_type || order?.orderType || data.orderType || 'sale') === 'sale';
+  const orderStatus = String(order?.status || data.status || 'scheduled').toLowerCase();
+  const statusKey = ({
+    completed: 'scheduled',
+    agendado: 'scheduled',
+    rascunho: 'draft',
+    atendido: 'fulfilled',
+    canceled: 'cancelled',
+    cancelado: 'cancelled',
+  } as Record<string, string>)[orderStatus] || orderStatus;
+  const appointmentStatusConfig = getStatusConfig(statusKey);
+  const statusFallback = statusKey === 'fulfilled'
+    ? 'Atendido'
+    : statusKey === 'scheduled'
+      ? 'Agendado'
+      : statusKey === 'draft'
+        ? 'Rascunho'
+        : statusKey === 'cancelled'
+          ? 'Cancelado'
+          : statusKey;
   const appointmentEntries = appointments.length
     ? appointments.map((appointment, index) => {
         const hasSingleOperationMethodMismatch = appointments.length === 1 && deliveryMethod &&
@@ -195,9 +216,38 @@ export const OrderCardBody: React.FC<OrderCardBodyProps> = ({
                     ? `${schedule.startTime} às ${schedule.endTime}`
                     : schedule.startTime || schedule.time || '';
                   const entryPickup = entry.deliveryMethod === 'pickup';
+                  const appointmentStatusLabel = getOrderStatusLabel(
+                    {
+                      ...order,
+                      ...data,
+                      status: statusKey,
+                      shipping: { ...shipping, deliveryMethod: entry.deliveryMethod },
+                    },
+                    statusFallback
+                  );
+                  const appointmentStatusIcon = appointmentStatusConfig.icon === 'fulfilled'
+                    ? <CheckCircle2 size={10} color="#ffffff" />
+                    : appointmentStatusConfig.icon === 'scheduled'
+                      ? <Calendar size={10} color="#ffffff" />
+                      : appointmentStatusConfig.icon === 'cancelled'
+                        ? <XCircle size={10} color="#ffffff" />
+                        : <Clock size={10} color="#ffffff" />;
 
                   return (
                     <View key={entry.id} style={styles.appointmentRow}>
+                      <View
+                        style={[
+                          styles.appointmentStatusBadge,
+                          {
+                            backgroundColor: appointmentStatusConfig.bg,
+                            borderColor: appointmentStatusConfig.border,
+                          },
+                        ]}
+                        accessibilityLabel={`Status: ${appointmentStatusLabel}`}
+                      >
+                        {appointmentStatusIcon}
+                        <Text style={styles.appointmentStatusText}>{appointmentStatusLabel}</Text>
+                      </View>
                       <View
                         style={[
                           styles.appointmentMethodBadge,
@@ -362,6 +412,21 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderWidth: 1,
     borderRadius: 12,
+  },
+  appointmentStatusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 7,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderRadius: 12,
+  },
+  appointmentStatusText: {
+    color: '#ffffff',
+    fontSize: 9,
+    fontWeight: '800',
+    textTransform: 'uppercase',
   },
   appointmentDeliveryBadge: {
     backgroundColor: '#ecfdf5',

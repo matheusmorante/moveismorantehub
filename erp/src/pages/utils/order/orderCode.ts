@@ -1,0 +1,124 @@
+import type Order from '../../types/order.type';
+import { supabase } from '../supabaseConfig';
+import { readTestArtifactIdentity } from '../../../../../shared-utils/testArtifactPolicy';
+
+// Faixa reservada para testes automatizados (800000 a 999999). Nunca computada na sequência de pedidos reais.
+export const TEST_ORDER_CODE_THRESHOLD = 800000;
+const MAX_ORDER_CODE = 799999;
+
+const ORDER_CODE_PROJECTION = [
+  'order_index',
+  'order_number',
+  'legacy_order_index:order_data->>orderIndex',
+  'legacy_snake_order_index:order_data->>order_index',
+  'legacy_order_number:order_data->>orderNumber',
+  'legacy_snake_order_number:order_data->>order_number',
+].join(',');
+
+export const getOrderIndex = (order?: Partial<Order> | Record<string, any>): number | null => {
+  if (!order) return null;
+  const rawValue =
+    order.orderIndex ??
+    (order as any).order_index ??
+    (order as any).order_data?.orderIndex ??
+    (order as any).order_data?.order_index ??
+    (order as any).orderNumber ??
+    (order as any).order_number;
+
+  const value = Number(rawValue);
+  return Number.isInteger(value) && value > 0 && value <= 999999 ? value : null;
+};
+
+/**
+ * O código de um pedido é um identificador histórico imutável. Em qualquer
+ * atualização, o código persistido prevalece sobre um valor eventualmente
+ * recebido no formulário ou na chamada de atualização.
+ */
+export const resolveOrderIndexForUpdate = (
+  persistedOrder?: Partial<Order> | Record<string, any>,
+  incomingOrder?: Partial<Order> | Record<string, any>
+): number | null => getOrderIndex(persistedOrder) ?? getOrderIndex(incomingOrder);
+
+const getPersistedOrderIndex = (row: Record<string, any>): number | null =>
+  getOrderIndex(row) ??
+  getOrderIndex({
+    orderIndex:
+      row.legacy_order_index ??
+      row.legacy_snake_order_index ??
+      row.legacy_order_number ??
+      row.legacy_snake_order_number,
+  });
+
+/** The human-facing code is always the six-digit sequential order index, never the UUID. */
+export const formatOrderCode = (order?: Partial<Order> | Record<string, any>): string => {
+  if (readTestArtifactIdentity(order)) {
+    const row = (order || {}) as Record<string, unknown>;
+    const rawId = row.id ?? row.order_id ?? row.order_number ?? row.orderNumber;
+    const testToken = String(rawId || '')
+      .replace(/^T-/i, '')
+      .replace(/[^a-z0-9]/gi, '')
+      .slice(0, 8)
+      .toUpperCase();
+    return `TEST-${testToken || 'SEM-ID'}`;
+  }
+
+  const orderIndex = getOrderIndex(order);
+  if (orderIndex) {
+    return String(orderIndex).padStart(6, '0');
+  }
+  return 'CÓDIGO INVÁLIDO';
+};
+
+/**
+ * Retorna o próximo número sequencial de 6 dígitos para o pedido de venda real.
+ * Garante unicidade e NUNCA permite que pedidos de teste (>= 800000) influenciem a sequência real.
+ * Gera de forma ultrarrápida e direta no banco.
+ */
+export const getNextOrderIndex = async (): Promise<number> => {
+  try {
+    const { data: orders, error: fetchErr } = await supabase
+      .from('orders')
+      .select(ORDER_CODE_PROJECTION)
+      .order('created_at', { ascending: false })
+      .limit(200);
+
+    if (fetchErr) {
+      throw new Error(`Erro ao consultar pedidos existentes: ${fetchErr.message}`);
+    }
+
+    let maxCode = 0;
+    for (const o of orders || []) {
+      const num = getPersistedOrderIndex(o);
+      // Blindagem: pedidos de teste (>= 800000) são estritamente ignorados
+      if (num && num < TEST_ORDER_CODE_THRESHOLD && num > maxCode) {
+        maxCode = num;
+      }
+    }
+
+    if (maxCode === 0) {
+      const { data: allOrders, error: allErr } = await supabase
+        .from('orders')
+        .select(ORDER_CODE_PROJECTION)
+        .limit(500);
+      if (allErr) throw allErr;
+      for (const o of allOrders || []) {
+        const num = getPersistedOrderIndex(o);
+        if (num && num < TEST_ORDER_CODE_THRESHOLD && num > maxCode) {
+          maxCode = num;
+        }
+      }
+    }
+
+    const nextCode = maxCode + 1;
+    if (nextCode <= 0 || nextCode > MAX_ORDER_CODE) {
+      throw new Error('Limite máximo de código sequencial de pedidos legítimos (799999) excedido.');
+    }
+
+    return nextCode;
+  } catch (err: any) {
+    console.error('[orderCode] Falha crítica ao gerar código sequencial de pedido:', err);
+    throw new Error(`Não foi possível gerar um código único para o pedido: ${err.message || err}`, {
+      cause: err,
+    });
+  }
+};

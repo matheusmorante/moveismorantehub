@@ -1,4 +1,4 @@
-import React, { memo, useState } from 'react';
+import React, { memo, useEffect, useRef, useState } from 'react';
 import type { WhatsAppMessage } from '../types';
 import { getCatalogProductCardIds, type CatalogInteractiveProductCard } from '../catalogInteractiveProducts';
 import type { CustomerSupportSendResult } from '@/pages/utils/customerSupport/customerSupportService';
@@ -51,6 +51,7 @@ export interface MessageBubbleProps {
   onForwardMessage?: (message: WhatsAppMessage) => void;
   onApproveAiSuggestion?: (message: WhatsAppMessage) => Promise<CustomerSupportSendResult>;
   aiSuggestionAuthorName?: string;
+  mediaObserverRootRef?: { readonly current: Element | null };
 }
 
 export const MessageBubble: React.FC<MessageBubbleProps> = memo(({
@@ -70,8 +71,11 @@ export const MessageBubble: React.FC<MessageBubbleProps> = memo(({
   onForwardMessage,
   onApproveAiSuggestion,
   aiSuggestionAuthorName,
+  mediaObserverRootRef,
 }) => {
   const [isMediaModalOpen, setIsMediaModalOpen] = useState(false);
+  const [requestedMediaKey, setRequestedMediaKey] = useState<string | null>(null);
+  const mediaLoadTargetRef = useRef<HTMLDivElement>(null);
   const [acceptedAiSuggestionLocally, setAcceptedAiSuggestionLocally] = useState(false);
   const [acceptedAiSuggestionWarning, setAcceptedAiSuggestionWarning] = useState('');
   const isPersistedAiSuggestionAccepted = message.rawPayload?.accepted_ai_suggestion === true;
@@ -107,17 +111,48 @@ export const MessageBubble: React.FC<MessageBubbleProps> = memo(({
   const canSelectForDelete = canSelectForActions && message.messageType !== 'deleted' && !isReactionMessage && !isNonChatEvent;
   const isCatalogMessage = getCatalogProductCardIds(displayMessage).length > 0;
   const isOutboundVisualMedia = !isInbound && ['image', 'video', 'sticker'].includes(displayMessage.messageType);
+  const isSupportedMediaType = ['image', 'document', 'audio', 'video', 'sticker', 'template'].includes(
+    displayMessage.messageType
+  );
+  const candidateMediaId = isSupportedMediaType ? displayMessage.mediaId : null;
+  const mediaRequestKey = `${displayMessage.id}:${candidateMediaId || ''}`;
+  const shouldLoadWithoutObserver =
+    (typeof process !== 'undefined' && process.env.NODE_ENV === 'test') ||
+    (typeof window !== 'undefined' && typeof IntersectionObserver === 'undefined');
+  const shouldLoadMedia =
+    Boolean(candidateMediaId) && (shouldLoadWithoutObserver || requestedMediaKey === mediaRequestKey);
+
+  useEffect(() => {
+    if (
+      !candidateMediaId ||
+      shouldLoadWithoutObserver ||
+      requestedMediaKey === mediaRequestKey ||
+      !mediaLoadTargetRef.current ||
+      typeof IntersectionObserver === 'undefined'
+    ) {
+      return;
+    }
+
+    const observer = new IntersectionObserver((entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) {
+        setRequestedMediaKey(mediaRequestKey);
+        observer.disconnect();
+      }
+    }, {
+      root: mediaObserverRootRef?.current || null,
+      rootMargin: '160px 0px',
+    });
+
+    observer.observe(mediaLoadTargetRef.current);
+    return () => observer.disconnect();
+  }, [candidateMediaId, mediaObserverRootRef, mediaRequestKey, requestedMediaKey, shouldLoadWithoutObserver]);
 
   const {
     mediaUrl: fetchedMediaUrl,
     isLoadingMedia: isFetchingMedia,
     mediaError,
     retryMedia,
-  } = useCustomerSupportMedia(
-    ['image', 'document', 'audio', 'video', 'sticker', 'template'].includes(displayMessage.messageType)
-      ? displayMessage.mediaId
-      : null
-  );
+  } = useCustomerSupportMedia(shouldLoadMedia ? candidateMediaId : null);
   const mediaUrl = isMetaSocialMediaUrl(displayMessage.mediaUrl)
     ? displayMessage.mediaUrl
     : fetchedMediaUrl;
@@ -166,6 +201,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = memo(({
       {isInbound && <MessageBubbleAvatar type="inbound" name={contactName} />}
 
       <div
+        ref={mediaLoadTargetRef}
         onClick={handleMessageClick}
         data-message-selected={isSelected || undefined}
         data-catalog-message={isCatalogMessage || undefined}

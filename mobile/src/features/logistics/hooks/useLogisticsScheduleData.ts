@@ -5,9 +5,25 @@ import { schedulePeriodFilters } from '../../../../../shared-utils/schedulePerio
 import { useScopedOrderSchedule } from './useScopedOrderSchedule';
 import { offlineStorageService } from '../../../services/offline/offlineStorageService';
 import { connectivityService } from '../../../services/offline/connectivityService';
+import { getLocalDateString } from '../../../utils/orderUtils';
 
 export function useLogisticsScheduleData() {
-  const schedule = useScopedOrderSchedule('logistics', schedulePeriodFilters('today_and_following'));
+  const [todayKey, setTodayKey] = useState(() => getLocalDateString(new Date()));
+  useEffect(() => {
+    const now = new Date();
+    const nextMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+    const timer = setTimeout(() => {
+      const currentDay = getLocalDateString(new Date());
+      setTodayKey((previousDay) => (previousDay === currentDay ? previousDay : currentDay));
+    }, nextMidnight.getTime() - now.getTime() + 25);
+
+    return () => clearTimeout(timer);
+  }, [todayKey]);
+
+  const schedule = useScopedOrderSchedule(
+    'logistics',
+    schedulePeriodFilters('default', new Date(`${todayKey}T12:00:00`))
+  );
   const [handlingOptions, setHandlingOptions] = useState<any[]>([]);
   useEffect(() => {
     let active = true;

@@ -161,6 +161,7 @@ export const ChatMessageTimeline: React.FC<ChatMessageTimelineProps> = ({
                     >
                       <MessageBubble
                         message={msg}
+                        mediaObserverRootRef={timelineRef}
                         catalogProductCards={cardsByRetailerId}
                         loadingCatalogRetailerIds={loadingRetailerIds}
                         contactName={displayName}

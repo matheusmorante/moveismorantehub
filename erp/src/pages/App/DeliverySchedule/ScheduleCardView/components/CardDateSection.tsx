@@ -60,11 +60,6 @@ export const CardDateSection: React.FC<CardDateSectionProps> = ({
             }`}>
               {formattedDate}
             </h3>
-            <p className={`text-[9px] font-bold uppercase tracking-widest ${
-              isToday ? 'text-blue-100' : 'text-slate-400 dark:text-slate-500'
-            }`}>
-              {isCollapsed ? 'Clique para expandir' : 'Clique para recolher'}
-            </p>
           </div>
         </div>
         <div className="flex items-center gap-2">

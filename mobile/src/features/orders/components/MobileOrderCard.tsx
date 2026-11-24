@@ -38,6 +38,12 @@ export const MobileOrderCard: React.FC<MobileOrderCardProps> = ({
   const isPaidTraffic = isPaidTrafficOrder(order);
 
   const schedule = shipping.scheduling || data.schedule || {};
+  const hasSaleScheduleRow = orderType === 'sale' && Boolean(
+    schedule.appointments?.length ||
+    schedule.date ||
+    schedule.pendingScheduling ||
+    schedule.notInformed
+  );
   const scheduleDate =
     schedule.date ||
     schedule.startDate ||
@@ -148,6 +154,7 @@ export const MobileOrderCard: React.FC<MobileOrderCardProps> = ({
           isReturn={isReturn}
           pickup={pickup}
           showMethodBadge={orderType !== 'sale'}
+          showStatusBadge={!hasSaleScheduleRow}
           isDraft={isDraft}
           cancelled={cancelled}
           isStockChecked={isStockChecked}

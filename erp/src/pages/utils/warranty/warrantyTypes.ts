@@ -27,6 +27,11 @@ export interface WarrantyTermRecord {
   updated_at?: string;
 }
 
+export type WarrantyTermSummary = Pick<
+  WarrantyTermRecord,
+  'document_version' | 'file_hash_sha256'
+>;
+
 export interface WarrantyCompanyInfo {
   name: string;
   cnpj: string;

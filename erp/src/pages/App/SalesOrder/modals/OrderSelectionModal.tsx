@@ -8,7 +8,7 @@ import {
   fetchFulfilledSalesOrdersPage,
   FetchFulfilledOrdersOptions,
 } from '@/pages/utils/orderHistoryService';
-import OrderPagination from '../OrderHistoryList/OrderPagination';
+import OrderPagination from '../OrderHistoryList/components/OrderPagination';
 import { matchesSearchText } from '@/pages/utils/textUtils';
 import { loadCompleteOrder } from '@/pages/utils/orderDetailsLoader';
 import { toast } from 'react-toastify';

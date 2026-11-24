@@ -1,5 +1,7 @@
+import type { NcmCorrelationRecord } from '@/services/fiscal/ncmAdminService';
+
 interface NcmCorrelationRecordsProps {
-  correlations: any[];
+  correlations: NcmCorrelationRecord[];
   selectedCode: string;
   canManage: boolean;
   detailStatus: string;

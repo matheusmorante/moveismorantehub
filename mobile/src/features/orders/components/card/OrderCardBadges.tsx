@@ -27,6 +27,7 @@ export interface OrderCardBadgesProps {
   isReturn: boolean;
   pickup: boolean;
   showMethodBadge?: boolean;
+  showStatusBadge?: boolean;
   isDraft: boolean;
   cancelled: boolean;
   isStockChecked: boolean;
@@ -53,6 +54,7 @@ export const OrderCardBadges: React.FC<OrderCardBadgesProps> = ({
   isReturn,
   pickup,
   showMethodBadge = true,
+  showStatusBadge = true,
   isDraft,
   cancelled,
   isStockChecked,
@@ -202,7 +204,7 @@ export const OrderCardBadges: React.FC<OrderCardBadgesProps> = ({
       )}
 
       {/* 13. Selo de Status (Quadrado 24x24 idêntico ao ERP) */}
-      <View
+      {showStatusBadge && <View
         style={[
           styles.iconBadge,
           {
@@ -222,7 +224,7 @@ export const OrderCardBadges: React.FC<OrderCardBadgesProps> = ({
         ) : (
           <Clock size={11} color="#ffffff" />
         )}
-      </View>
+      </View>}
     </View>
   );
 };

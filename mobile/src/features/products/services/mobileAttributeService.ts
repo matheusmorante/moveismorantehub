@@ -9,6 +9,8 @@ import {
 import { supabase } from '../../../services/supabaseClient';
 import { isWeightCharacteristicName } from '../domain/productCharacteristics';
 import { isCatalogNeverRequiredCharacteristicName } from '../../../../../shared-utils/catalogPublication/requiredCharacteristicPolicy';
+import { buildAccentInsensitiveWordsRegex, matchesSearchText } from '../../../../../shared-utils/searchText';
+import { isCategoryAttributeSelectable } from '../../../../../shared-utils/categoryAttributeSelection';
 
 export interface MobileAttributeValue {
   id: string;
@@ -270,6 +272,35 @@ export const fetchMobileAttributes = async (): Promise<MobileAttribute[]> =>
 
 export const fetchMobileAttributeSummaries = async (): Promise<MobileAttribute[]> =>
   fetchMobileAttributesWithOptionMode(false);
+
+/** Searches only the fields the category picker displays, after the user has entered a query. */
+export const searchMobileCategoryAttributes = async (
+  searchTerm: string,
+): Promise<Array<Pick<MobileAttribute, 'id' | 'name'>>> => {
+  const normalizedSearch = searchTerm.trim();
+  if (normalizedSearch.length < 2) return [];
+
+  const regex = buildAccentInsensitiveWordsRegex(normalizedSearch);
+  const result = await withCatalogAttributesLoadTimeout(
+    fetchAllAttributeRows((firstRow, lastRow) =>
+      supabase
+        .from('attributes')
+        .select('id, name')
+        .filter('name', 'imatch', regex)
+        .order('name', { ascending: true })
+        .order('id', { ascending: true })
+        .range(firstRow, lastRow)
+    ),
+    'mobile:category-attributes:search',
+  );
+  if (result.error) throw result.error;
+
+  return (result.data ?? [])
+    .filter((attribute) => isCategoryAttributeSelectable(String(attribute.name)))
+    .filter((attribute) => matchesSearchText(String(attribute.name), normalizedSearch))
+    .map((attribute) => ({ id: String(attribute.id), name: String(attribute.name) }))
+    .sort((left, right) => left.name.localeCompare(right.name, 'pt-BR', { sensitivity: 'base' }));
+};
 
 /** Saves the complete characteristic definition in the same transaction used by ERP. */
 export const saveMobileAttributeDefinition = async (

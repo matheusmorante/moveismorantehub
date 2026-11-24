@@ -215,18 +215,23 @@ describe('Warranty Term Service — MoranteHub', () => {
   });
 
   describe('fetchWarrantyTermsByOrderId', () => {
-    it('retorna os termos ordenados do mais recente ao mais antigo', async () => {
-      const mockOrder = vi.fn().mockResolvedValue({
-        data: [{ id: 'w-1', document_version: 2 }, { id: 'w-2', document_version: 1 }],
+    it('busca apenas a versão mais recente e os campos exibidos no modal', async () => {
+      const mockLimit = vi.fn().mockResolvedValue({
+        data: [{ document_version: 2, file_hash_sha256: 'hash-latest' }],
         error: null,
       });
+      const mockOrder = vi.fn().mockReturnValue({ limit: mockLimit });
       const mockEq = vi.fn().mockReturnValue({ order: mockOrder });
       const mockSelect = vi.fn().mockReturnValue({ eq: mockEq });
       mockFrom.mockReturnValue({ select: mockSelect });
 
       const records = await fetchWarrantyTermsByOrderId('ord-service-test-1');
-      expect(records.length).toBe(2);
+      expect(mockSelect).toHaveBeenCalledWith('document_version, file_hash_sha256');
+      expect(mockOrder).toHaveBeenCalledWith('generated_at', { ascending: false });
+      expect(mockLimit).toHaveBeenCalledWith(1);
+      expect(records.length).toBe(1);
       expect(records[0].document_version).toBe(2);
+      expect(records[0].file_hash_sha256).toBe('hash-latest');
     });
   });
 });

@@ -1,20 +1,20 @@
 import React, { forwardRef, useImperativeHandle } from 'react';
 import Order, { VisibilitySettings } from '../../../types/order.type';
-import { useOrderHistory } from './useOrderHistory';
-import OrderHistoryTable from './OrderHistoryTable';
+import { useOrderHistory } from './hooks/useOrderHistory';
+import OrderHistoryTable from './components/OrderHistoryTable';
 import StockActionModal from '../OrderActions/StockActionModal';
 import ConfirmModal from '@/components/shared/ConfirmModal';
-import ReturnFulfillmentConfirmModal from './ReturnFulfillmentConfirmModal';
-import CancelReturnModal from './CancelReturnModal';
-import OrderPagination from './OrderPagination';
-import OrderCustomerSearchBar from './OrderCustomerSearchBar';
+import ReturnFulfillmentConfirmModal from './modals/ReturnFulfillmentConfirmModal';
+import CancelReturnModal from './modals/CancelReturnModal';
+import OrderPagination from './components/OrderPagination';
+import OrderCustomerSearchBar from './components/OrderCustomerSearchBar';
 import {
   OrderHistoryEmptyPageNotice,
   OrderHistoryEmptyView,
   OrderHistoryErrorView,
   OrderHistoryLoadingView,
-} from './OrderHistoryStateViews';
-import { useOrderHistoryConfirmations } from './useOrderHistoryConfirmations';
+} from './components/OrderHistoryStateViews';
+import { useOrderHistoryConfirmations } from './hooks/useOrderHistoryConfirmations';
 import { loadCompleteOrder } from '@/pages/utils/orderDetailsLoader';
 import { toast } from 'react-toastify';
 

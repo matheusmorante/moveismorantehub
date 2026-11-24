@@ -1,0 +1,600 @@
+import { ChevronDown, FileText } from 'lucide-react-native';
+import type React from 'react';
+import { useEffect, useRef, useState } from 'react';
+import {
+  Alert,
+  ActivityIndicator,
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import {
+  fetchMobileNcmCatalogEntry,
+  searchMobileNcms,
+} from '../../../services/mobileProductFiscalService';
+import {
+  fillMissingProductFiscalNcmDescription,
+  updateProductFiscalNcmCode,
+} from '../../../../../../../shared-utils/productFiscalNcm';
+import { updateProductFiscalCst } from '../../../../../../../shared-utils/productFiscalCst';
+import {
+  CEST_OPTIONS,
+  CSOSN_OPTIONS,
+  MOBILE_SERVICE_CFOP_OPTIONS,
+  ORIGEM_OPTIONS,
+  PIS_COFINS_OPTIONS,
+  resolveMobileServiceCfopLabel,
+} from '../../../domain/mobileProductFiscalOptions';
+
+import { FormTextInput } from '../../../../../components/shared/FormTextInput';
+import { styles } from './productFormFiscalTab.styles';
+import { ProductFormNcmSuggestion } from './ProductFormNcmSuggestion';
+import { useProductFiscalPickerState } from './useProductFiscalPickerState';
+
+interface Props {
+  formData: any;
+  setFormData: (fn: (prev: any) => any) => void;
+  dark: boolean;
+  canConfigureProductTaxes: boolean;
+  isStockistOnly?: boolean;
+  hasNcmError?: boolean;
+  ncmSuggestion?: { code: string; description: string } | null;
+  isClassifyingNcm?: boolean;
+  onAcceptNcmSuggestion?: () => void;
+  onRejectNcmSuggestion?: () => void;
+}
+
+const formatMobileNcmSubtitle = (official?: string | null, internal?: string | null) => {
+  const officialText = String(official || '').trim().replace(/^(?:[-–—]\s*)+/, '');
+  const internalText = String(internal || '').trim();
+  if (!officialText) return internalText;
+  return internalText ? `${officialText} — ${internalText}` : officialText;
+};
+
+export const ProductFormFiscalTab: React.FC<Props> = ({
+  formData,
+  setFormData,
+  dark,
+  canConfigureProductTaxes,
+  isStockistOnly = false,
+  hasNcmError = false,
+  ncmSuggestion,
+  isClassifyingNcm = false,
+  onAcceptNcmSuggestion,
+  onRejectNcmSuggestion,
+}) => {
+  const {
+    showCfopPicker,
+    setShowCfopPicker,
+    showCestPicker,
+    setShowCestPicker,
+    showCsosnPicker,
+    setShowCsosnPicker,
+    showOrigemPicker,
+    setShowOrigemPicker,
+    showPisPicker,
+    setShowPisPicker,
+    showCofinsPicker,
+    setShowCofinsPicker,
+  } = useProductFiscalPickerState({
+    canConfigureProductTaxes,
+    itemType: formData.itemType,
+  });
+  const [ncmSearch, setNcmSearch] = useState(String(formData.fiscal?.ncm || ''));
+  const [ncmResults, setNcmResults] = useState<any[]>([]);
+  const [ncmLoading, setNcmLoading] = useState(false);
+  const [ncmCatalog, setNcmCatalog] = useState<any>(null);
+  const pendingManualNcmDescriptionCode = useRef<string | null>(null);
+
+  useEffect(() => setNcmSearch(String(formData.fiscal?.ncm || '')), [formData.fiscal?.ncm]);
+
+  useEffect(() => {
+    const query = ncmSearch.trim();
+    if (formData.itemType === 'service') {
+      setNcmResults([]);
+      setNcmLoading(false);
+      return;
+    }
+    if (query.length < 2 || /^\d{8}$/.test(query)) {
+      setNcmResults([]);
+      return;
+    }
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      setNcmLoading(true);
+      try {
+        const results = await searchMobileNcms(query);
+        if (!cancelled) setNcmResults(results);
+      } catch (error) {
+        console.warn('[ProductFormFiscalTab] Falha ao pesquisar NCM:', error);
+        if (!cancelled) setNcmResults([]);
+      } finally {
+        if (!cancelled) setNcmLoading(false);
+      }
+    }, 300);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [ncmSearch, formData.itemType]);
+
+  useEffect(() => {
+    const code = String(formData.fiscal?.ncm || '').replace(/\D/g, '');
+    if (formData.itemType === 'service' || code.length !== 8) {
+      setNcmCatalog(null);
+      if (formData.itemType === 'service') pendingManualNcmDescriptionCode.current = null;
+      return;
+    }
+    let cancelled = false;
+    fetchMobileNcmCatalogEntry(code).then((entry) => {
+      if (cancelled) return;
+      setNcmCatalog(entry);
+      if (pendingManualNcmDescriptionCode.current !== code) return;
+      pendingManualNcmDescriptionCode.current = null;
+      if (!entry?.official_description) return;
+      setFormData((prev) => ({
+        ...prev,
+        fiscal: fillMissingProductFiscalNcmDescription(
+          prev.fiscal || {},
+          code,
+          entry.official_description
+        ),
+      }));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [formData.fiscal?.ncm, formData.itemType, setFormData]);
+
+  const fiscal = formData.fiscal || {};
+
+  const setFiscalField = (field: string, val: any) => {
+    setFormData((prev) => ({
+      ...prev,
+      fiscal: {
+        ...(prev.fiscal || {}),
+        [field]: val,
+      },
+    }));
+  };
+
+  const setManuallyEnteredNcmCode = (code: string) => {
+    const cachedEntry = ncmCatalog?.code === code ? ncmCatalog : null;
+    pendingManualNcmDescriptionCode.current = cachedEntry?.official_description ? null : code;
+    setFormData((prev) => {
+      const fiscal = updateProductFiscalNcmCode(prev.fiscal || {}, code);
+      return {
+        ...prev,
+        fiscal: cachedEntry?.official_description
+          ? fillMissingProductFiscalNcmDescription(fiscal, code, cachedEntry.official_description)
+          : fiscal,
+      };
+    });
+  };
+
+  const updateFiscalCst = (value: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      fiscal: updateProductFiscalCst(prev.fiscal, value),
+    }));
+  };
+
+  const currentCsosn = fiscal.cst || '103';
+  const selectedCsosn = CSOSN_OPTIONS.find((c) => c.value === currentCsosn);
+  const selectedOrigem = ORIGEM_OPTIONS.find((o) => o.value === String(fiscal.origem ?? '0'));
+  const selectedCest = CEST_OPTIONS.find((option) => option.value === String(fiscal.cest || ''));
+
+  return (
+    <View style={styles.container}>
+      {/* Fiscal identification card */}
+      <View style={[styles.card, dark && styles.darkCard]}>
+        <View style={styles.cardHeader}>
+          <FileText size={16} color="#2563eb" />
+          <Text style={[styles.cardTitle, dark && styles.lightText]}>
+            {formData.itemType === 'service'
+              ? 'Informações Fiscais para NF-e'
+              : 'Classificação Fiscal (NCM)'}
+          </Text>
+        </View>
+
+        <View style={styles.field}>
+          {formData.itemType === 'service' && !isStockistOnly && (
+            <>
+              <Text style={[styles.label, dark && styles.dimText]}>
+                Código Municipal / Serviço (LC 116/03) <Text style={{ color: '#ef4444' }}>*</Text>
+              </Text>
+              <FormTextInput
+                value={fiscal.codigoServico || ''}
+                onChangeText={(value) =>
+                  setFiscalField('codigoServico', value.replace(/\D/g, '').slice(0, 8))
+                }
+                keyboardType="numeric"
+                placeholder="Ex: 0101"
+                placeholderTextColor="#94a3b8"
+                style={[styles.input, dark && styles.darkInput, dark && styles.lightText]}
+              />
+            </>
+          )}
+          {formData.itemType !== 'service' && (
+            <>
+              <Text style={[styles.label, dark && styles.dimText]}>
+                Código NCM (8 dígitos) <Text style={{ color: '#ef4444' }}>*</Text>
+              </Text>
+              <FormTextInput
+                value={ncmSearch}
+                onChangeText={(v) => {
+                  setNcmSearch(v);
+                  const code = v.trim();
+                  if (/^\d{8}$/.test(code)) {
+                    setManuallyEnteredNcmCode(code);
+                  } else if (!code) {
+                    pendingManualNcmDescriptionCode.current = null;
+                    setFormData((prev) => ({
+                      ...prev,
+                      fiscal: updateProductFiscalNcmCode(prev.fiscal || {}, ''),
+                    }));
+                  } else {
+                    pendingManualNcmDescriptionCode.current = null;
+                    setFormData((prev) => ({
+                      ...prev,
+                      fiscal: updateProductFiscalNcmCode(prev.fiscal || {}, v),
+                    }));
+                  }
+                }}
+                placeholder="Digite o código ou descrição do NCM"
+                placeholderTextColor="#94a3b8"
+                style={[
+                  styles.input,
+                  dark && styles.darkInput,
+                  dark && styles.lightText,
+                  hasNcmError && styles.errorInput,
+                ]}
+              />
+              {hasNcmError && (
+                <Text style={styles.errorText}>
+                  Informe um NCM válido com 8 dígitos.
+                </Text>
+              )}
+              {ncmLoading && <Text style={styles.ncmDesc}>Pesquisando catálogo oficial...</Text>}
+              {isClassifyingNcm && (
+                <View style={styles.ncmClassificationStatus}>
+                  <ActivityIndicator size="small" color="#2563eb" />
+                  <Text style={styles.ncmDesc}>Jev está conferindo o NCM do produto...</Text>
+                </View>
+              )}
+              {ncmSuggestion && !fiscal.ncm && (
+                <ProductFormNcmSuggestion
+                  dark={dark}
+                  suggestion={ncmSuggestion}
+                  onAccept={onAcceptNcmSuggestion}
+                  onReject={onRejectNcmSuggestion}
+                />
+              )}
+              {ncmResults.length > 0 && ncmSearch.trim().length >= 2 && (
+                <View style={[styles.dropdownBox, dark && styles.darkCard]}>
+                  <ScrollView nestedScrollEnabled style={{ maxHeight: 220 }}>
+                    {ncmResults.map((result: any) => (
+                      <TouchableOpacity
+                        key={result.code}
+                        onPress={() => {
+                          pendingManualNcmDescriptionCode.current = null;
+                          setFormData((prev) => ({
+                            ...prev,
+                            fiscal: {
+                              ...updateProductFiscalNcmCode(prev.fiscal || {}, result.code),
+                              ncmDescription: result.official_description,
+                            },
+                          }));
+                          setNcmSearch(result.code);
+                          setNcmResults([]);
+                        }}
+                        style={styles.dropdownItem}
+                      >
+                        <Text style={[styles.ncmCode, dark && styles.lightText]}>
+                          {result.code}
+                        </Text>
+                        <Text style={styles.ncmDesc}>
+                          {formatMobileNcmSubtitle(
+                            result.official_description,
+                            result.internal_description
+                          )}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
+              {ncmCatalog && (
+                <View style={styles.ncmCatalogDetails}>
+                  <Text style={styles.ncmDesc}>
+                    {formatMobileNcmSubtitle(
+                      ncmCatalog.official_description,
+                      ncmCatalog.internal_description
+                    )}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.ncmDesc,
+                      { color: ncmCatalog.active && ncmCatalog.is_active !== false ? '#15803d' : '#b45309' },
+                    ]}
+                  >
+                    {ncmCatalog.active && ncmCatalog.is_active !== false
+                      ? 'Código ativo no catálogo oficial'
+                      : 'Atenção: código inativo no catálogo oficial'}
+                  </Text>
+                </View>
+              )}
+            </>
+          )}
+        </View>
+
+        {!isStockistOnly &&
+          formData.itemType !== 'service' &&
+          ['201', '202', '500'].includes(fiscal.cst || '') && (
+          <View style={styles.field}>
+            <Text style={[styles.label, dark && styles.dimText]}>
+              Código CEST (Substituição Tributária)
+            </Text>
+            <TouchableOpacity
+              onPress={() => setShowCestPicker((visible) => !visible)}
+              style={[styles.selectBtn, dark && styles.darkInput]}
+              accessibilityRole="button"
+              accessibilityLabel="Selecionar código CEST"
+            >
+              <Text style={[styles.selectBtnText, dark && styles.lightText]} numberOfLines={1}>
+                {selectedCest?.label || 'Sem Substituição Tributária (Nenhum / Nulo)'}
+              </Text>
+              <ChevronDown size={14} color="#94a3b8" />
+            </TouchableOpacity>
+            {showCestPicker && (
+              <View style={[styles.dropdownBox, dark && styles.darkCard]}>
+                {CEST_OPTIONS.map((option) => (
+                  <TouchableOpacity
+                    key={option.value || 'none'}
+                    onPress={() => {
+                      setFiscalField('cest', option.value);
+                      setShowCestPicker(false);
+                    }}
+                    style={styles.dropdownItem}
+                  >
+                    <Text style={[styles.dropdownItemText, dark && styles.lightText]}>
+                      {option.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+            <FormTextInput
+              value={fiscal.cest || ''}
+              onChangeText={(v) => setFiscalField('cest', v.replace(/\D/g, '').slice(0, 7))}
+              keyboardType="numeric"
+              placeholder="Ou digite outro CEST (7 dígitos)..."
+              placeholderTextColor="#94a3b8"
+              style={[styles.input, dark && styles.darkInput, dark && styles.lightText]}
+            />
+          </View>
+        )}
+      </View>
+
+      {/* CFOP & CSOSN Card */}
+      {!isStockistOnly && (
+        <View style={[styles.card, dark && styles.darkCard]}>
+        <Text style={[styles.cardTitle, dark && styles.lightText]}>
+          Regime Tributário & Tributos
+        </Text>
+        {!canConfigureProductTaxes && (
+          <Text style={[styles.permissionNote, dark && styles.dimText]}>
+            Seu perfil pode consultar os dados fiscais, mas não alterar configurações de impostos.
+          </Text>
+        )}
+        <View
+          pointerEvents={canConfigureProductTaxes ? 'auto' : 'none'}
+          style={[styles.taxFields, !canConfigureProductTaxes && styles.disabledTaxFields]}
+        >
+          {formData.itemType === 'service' && (
+            <View style={styles.field}>
+              <Text style={[styles.label, dark && styles.dimText]}>CFOP Padrão (Municipal)</Text>
+              <TouchableOpacity
+                disabled={!canConfigureProductTaxes}
+                accessibilityState={{ disabled: !canConfigureProductTaxes }}
+                onPress={() => setShowCfopPicker(!showCfopPicker)}
+                style={[styles.selectBtn, dark && styles.darkInput]}
+              >
+                <Text style={[styles.selectBtnText, dark && styles.lightText]} numberOfLines={1}>
+                  {resolveMobileServiceCfopLabel(fiscal.cfop)}
+                </Text>
+                <ChevronDown size={14} color="#94a3b8" />
+              </TouchableOpacity>
+              {showCfopPicker && (
+                <View style={[styles.dropdownBox, dark && styles.darkCard]}>
+                  {MOBILE_SERVICE_CFOP_OPTIONS.map((opt) => (
+                    <TouchableOpacity
+                      key={opt.value}
+                      disabled={!canConfigureProductTaxes}
+                      accessibilityState={{ disabled: !canConfigureProductTaxes }}
+                      onPress={() => {
+                        setFiscalField('cfop', opt.value);
+                        setShowCfopPicker(false);
+                      }}
+                      style={styles.dropdownItem}
+                    >
+                      <Text style={[styles.dropdownItemText, dark && styles.lightText]}>
+                        {opt.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+            </View>
+          )}
+
+          {/* CSOSN / CST */}
+          <View style={styles.field}>
+            <Text style={[styles.label, dark && styles.dimText]}>
+              {formData.itemType === 'service'
+                ? 'CST / CSOSN ISSQN'
+                : 'CST / CSOSN ICMS (Simples Nacional)'}
+            </Text>
+            <TouchableOpacity
+              disabled={!canConfigureProductTaxes}
+              accessibilityState={{ disabled: !canConfigureProductTaxes }}
+              onPress={() => setShowCsosnPicker(!showCsosnPicker)}
+              style={[styles.selectBtn, dark && styles.darkInput]}
+            >
+              <Text style={[styles.selectBtnText, dark && styles.lightText]} numberOfLines={1}>
+                {selectedCsosn?.label || CSOSN_OPTIONS[1].label}
+              </Text>
+              <ChevronDown size={14} color="#94a3b8" />
+            </TouchableOpacity>
+            {showCsosnPicker && (
+              <View style={[styles.dropdownBox, dark && styles.darkCard]}>
+                {CSOSN_OPTIONS.map((opt) => (
+                  <TouchableOpacity
+                    key={opt.value}
+                    disabled={!canConfigureProductTaxes}
+                    accessibilityState={{ disabled: !canConfigureProductTaxes }}
+                    onPress={() => {
+                      setShowCsosnPicker(false);
+                      if (opt.value === currentCsosn) return;
+                      if (formData.itemType === 'service') {
+                        updateFiscalCst(opt.value);
+                        return;
+                      }
+                      Alert.alert(
+                        'Confirmar alteração de CSOSN?',
+                        `Tem certeza de que deseja alterar o CSOSN de ${currentCsosn} para ${opt.value}? Essa classificação pode mudar a tributação da operação.`,
+                        [
+                          { text: 'Não, manter atual', style: 'cancel' },
+                          {
+                            text: 'Sim, alterar',
+                            onPress: () => updateFiscalCst(opt.value),
+                          },
+                        ]
+                      );
+                    }}
+                    style={styles.dropdownItem}
+                  >
+                    <Text style={[styles.dropdownItemText, dark && styles.lightText]}>
+                      {opt.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+          </View>
+
+          {/* Origem */}
+          {formData.itemType !== 'service' && (
+            <View style={styles.field}>
+              <Text style={[styles.label, dark && styles.dimText]}>Origem da Mercadoria</Text>
+              <TouchableOpacity
+                disabled={!canConfigureProductTaxes}
+                accessibilityState={{ disabled: !canConfigureProductTaxes }}
+                onPress={() => setShowOrigemPicker(!showOrigemPicker)}
+                style={[styles.selectBtn, dark && styles.darkInput]}
+              >
+                <Text style={[styles.selectBtnText, dark && styles.lightText]} numberOfLines={1}>
+                  {selectedOrigem?.label || '0 - Nacional'}
+                </Text>
+                <ChevronDown size={14} color="#94a3b8" />
+              </TouchableOpacity>
+              {showOrigemPicker && (
+                <View style={[styles.dropdownBox, dark && styles.darkCard]}>
+                  {ORIGEM_OPTIONS.map((opt) => (
+                    <TouchableOpacity
+                      key={opt.value}
+                      disabled={!canConfigureProductTaxes}
+                      accessibilityState={{ disabled: !canConfigureProductTaxes }}
+                      onPress={() => {
+                        setFiscalField('origem', opt.value);
+                        setShowOrigemPicker(false);
+                      }}
+                      style={styles.dropdownItem}
+                    >
+                      <Text style={[styles.dropdownItemText, dark && styles.lightText]}>
+                        {opt.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+            </View>
+          )}
+
+          {/* ICMS % */}
+          <View style={styles.field}>
+            <Text style={[styles.label, dark && styles.dimText]}>
+              {formData.itemType === 'service' ? 'Alíquota ISS (%)' : 'Alíquota ICMS (%)'}
+            </Text>
+            <FormTextInput
+              editable={canConfigureProductTaxes}
+              accessibilityState={{ disabled: !canConfigureProductTaxes }}
+              value={
+                formData.itemType === 'service'
+                  ? String(fiscal.issPercent ?? 0)
+                  : String(fiscal.icmsPercent ?? 0)
+              }
+              onChangeText={(v) =>
+                setFiscalField(formData.itemType === 'service' ? 'issPercent' : 'icmsPercent', v)
+              }
+              keyboardType="numeric"
+              placeholder="0"
+              placeholderTextColor="#94a3b8"
+              style={[styles.input, dark && styles.darkInput, dark && styles.lightText]}
+            />
+          </View>
+
+          {(['pisCst', 'cofinsCst'] as const).map((field) => {
+            const isPis = field === 'pisCst';
+            const visible = isPis ? showPisPicker : showCofinsPicker;
+            const setVisible = isPis ? setShowPisPicker : setShowCofinsPicker;
+            const value = fiscal[field] || '99';
+            const selected = PIS_COFINS_OPTIONS.find((option) => option.value === value);
+            return (
+              <View key={field} style={styles.field}>
+                <Text style={[styles.label, dark && styles.dimText]}>
+                  {isPis ? 'PIS CST' : 'COFINS CST'}
+                </Text>
+                <TouchableOpacity
+                  disabled={!canConfigureProductTaxes}
+                  accessibilityState={{ disabled: !canConfigureProductTaxes }}
+                  onPress={() => setVisible(!visible)}
+                  style={[styles.selectBtn, dark && styles.darkInput]}
+                >
+                  <Text style={[styles.selectBtnText, dark && styles.lightText]} numberOfLines={1}>
+                    {selected?.label || value}
+                  </Text>
+                  <ChevronDown size={14} color="#94a3b8" />
+                </TouchableOpacity>
+                {visible && (
+                  <View style={[styles.dropdownBox, dark && styles.darkCard]}>
+                    <ScrollView nestedScrollEnabled style={{ maxHeight: 220 }}>
+                      {PIS_COFINS_OPTIONS.map((option) => (
+                        <TouchableOpacity
+                          key={option.value}
+                          disabled={!canConfigureProductTaxes}
+                          accessibilityState={{ disabled: !canConfigureProductTaxes }}
+                          onPress={() => {
+                            setFiscalField(field, option.value);
+                            setVisible(false);
+                          }}
+                          style={styles.dropdownItem}
+                        >
+                          <Text style={[styles.dropdownItemText, dark && styles.lightText]}>
+                            {option.label}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  </View>
+                )}
+              </View>
+            );
+          })}
+        </View>
+      </View>
+      )}
+    </View>
+  );
+};

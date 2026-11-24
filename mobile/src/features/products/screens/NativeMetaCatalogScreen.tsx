@@ -39,16 +39,18 @@ export function NativeMetaCatalogScreen({
   const [syncError, setSyncError] = useState<string | null>(null);
   const mountedRef = useRef(false);
 
-  const loadStats = useCallback(async (isRefresh = false) => {
+  const loadStats = useCallback(async (isRefresh = false, refreshLatestRun = true) => {
     if (isRefresh) setRefreshing(true);
     else setLoading(true);
     setError(null);
-    void fetchLastMobileMetaCatalogRun().then((run) => {
-      const finishedAt = run?.finishedAt;
-      if (mountedRef.current && finishedAt) {
-        setLastRun((current) => !current?.finishedAt || finishedAt >= current.finishedAt ? run : current);
-      }
-    }).catch(() => undefined);
+    if (refreshLatestRun) {
+      void fetchLastMobileMetaCatalogRun().then((run) => {
+        const finishedAt = run?.finishedAt;
+        if (mountedRef.current && finishedAt) {
+          setLastRun((current) => !current?.finishedAt || finishedAt >= current.finishedAt ? run : current);
+        }
+      }).catch(() => undefined);
+    }
 
     try {
       const nextStats = await fetchMobileMetaCatalogStats();
@@ -102,7 +104,7 @@ export function NativeMetaCatalogScreen({
       'Sincronização concluída',
       formatMetaCatalogRunSummary(result)
     );
-    void loadStats(true);
+    void loadStats(true, !result.finishedAt);
   }, [isAdmin, loadStats]);
 
   useEffect(() => {

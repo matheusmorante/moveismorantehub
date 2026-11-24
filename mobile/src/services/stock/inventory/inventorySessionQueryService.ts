@@ -5,105 +5,73 @@ import { getLocalInventoryDraft } from '../../sqlite/inventoryDrafts';
 import { getInventorySubmission } from '../../sqlite/inventoryOutbox';
 import { connectivityService } from '../../offline/connectivityService';
 import { withTimeout } from '../../../../../shared-utils/withTimeout';
-import { sumInventoryCountedQuantities } from '../../../../../shared-utils/inventorySupplierStages';
+import {
+  extractSessionCodesFromMarkers,
+  groupAdjustmentsBySession,
+  mapInventorySessionMarker,
+  markDetailsAsStaleLocalSnapshot,
+  parseJsonObservationSafe,
+  type InventoryAdjustmentMoveRow,
+  type InventoryMarkerMoveRow,
+  type InventorySessionSummary,
+} from './inventorySessionMarkers';
 
 export const INVENTORY_SESSIONS_CACHE_KEY = 'inventory_sessions_cache_v1';
 export const INVENTORY_SESSION_DETAILS_CACHE_KEY = 'inventory_session_details_cache_v1';
 
+interface RpcResult<T> {
+  data: T | null;
+  error: { message?: string; code?: string } | null;
+}
+
 const getUserScopedCacheKey = (baseKey: string, userId?: string | null) =>
   userId ? `${baseKey}:${userId}` : null;
 
-const extractSessionCodesFromMarkers = (markerMoves: any[]): string[] =>
-  markerMoves
-    .map((m) => {
-      try {
-        const data = JSON.parse(m.observation || '{}') as any;
-        if (data.inventoryCode) return data.inventoryCode;
-      } catch {}
-      return m.label?.replace('Inventário #', '') || '';
-    })
-    .filter(Boolean);
-
-const groupAdjustmentsBySession = (
-  adjustmentsData: any[]
-): Record<string, { total: number; reversed: number }> =>
-  adjustmentsData.reduce((acc: Record<string, { total: number; reversed: number }>, move) => {
-    const match = move.label?.match(/Ajuste lançado pelo inventário #(.+)/);
-    if (match && match[1]) {
-      const code = match[1].trim();
-      if (!acc[code]) acc[code] = { total: 0, reversed: 0 };
-      acc[code].total += 1;
-
-      const isReversed =
-        move.status === 'reversed' ||
-        (() => {
-          try {
-            return JSON.parse(move.observation || '{}').status === 'reversed';
-          } catch {
-            return false;
-          }
-        })();
-      if (isReversed) {
-        acc[code].reversed += 1;
-      }
-    }
-    return acc;
-  }, {});
-
-const mapInventorySessionMarker = (
-  m: any,
-  adjustmentsBySession: Record<string, { total: number; reversed: number }>
-) => {
-  let productsCount = 0;
-  let countedQuantityTotal: number | undefined;
-  let status = 'in_progress';
-  let inventoryCode = m.id.split('-')[0];
-  let responsibleName = 'Não informado';
-  let sessionName = '';
-
-  try {
-    const data = JSON.parse(m.observation || '{}') as any;
-    inventoryCode =
-      data.inventoryCode || m.label?.replace('Inventário #', '') || inventoryCode;
-    responsibleName = data.responsibleName || 'Não informado';
-    if (data.name) sessionName = data.name;
-
-    if (data.inventoryAudit && Array.isArray(data.items)) {
-      productsCount = data.items.filter(
-        (item: any) => item?.physicalCount !== null && item?.physicalCount !== undefined
-      ).length;
-      countedQuantityTotal = sumInventoryCountedQuantities(data.items);
-      status = data.status || 'completed';
-    } else {
-      productsCount = Math.abs(m.quantity || 0);
-    }
-  } catch {
-    productsCount = Math.abs(m.quantity || 0);
-    inventoryCode = m.label?.replace('Inventário #', '') || inventoryCode;
-  }
-
-  const sessionAdjustments = adjustmentsBySession[inventoryCode] || { total: 0, reversed: 0 };
-
-  return {
-    id: m.id,
-    name: sessionName || `Inventário #${inventoryCode}`,
-    inventoryCode,
-    responsibleName,
-    status: status as 'in_progress' | 'completed' | 'pending',
-    created_at: m.created_at || m.date,
-    updated_at: m.created_at || m.date,
-    items_count: productsCount,
-    productsCount,
-    countedQuantityTotal,
-    adjustmentsCount: sessionAdjustments.total,
-    reversedCount: sessionAdjustments.reversed,
-  };
-};
-
 export interface InventorySessionsFetchResult {
-  sessions: any[];
+  sessions: InventorySessionSummary[];
   fromCache: boolean;
 }
+
+const readCachedSessionsForFirstPage = async (
+  page: number,
+  cacheKeys: readonly string[]
+): Promise<InventorySessionSummary[] | undefined> => {
+  if (page !== 0) return undefined;
+  for (const cacheKey of cacheKeys) {
+    try {
+      const cached = await offlineStorageService.getWorkingSet<InventorySessionSummary[]>(cacheKey);
+      if (Array.isArray(cached?.data)) return cached.data;
+    } catch (error) {
+      console.warn(`Falha ao ler cache local de sessões (${cacheKey}):`, error);
+    }
+  }
+  return undefined;
+};
+
+const cacheSessionDetailsLocally = async (
+  detailsCacheKey: string | null,
+  markerMoves: readonly InventoryMarkerMoveRow[]
+): Promise<void> => {
+  if (!detailsCacheKey) return;
+  try {
+    const existingDetails =
+      (
+        await offlineStorageService.getWorkingSet<Record<string, Record<string, unknown>>>(
+          detailsCacheKey
+        )
+      )?.data || {};
+    const nextDetails: Record<string, Record<string, unknown>> = { ...existingDetails };
+    for (const move of markerMoves) {
+      if (move.id && move.observation) {
+        const parsed = parseJsonObservationSafe(move.observation, `cache-details:${move.id}`);
+        if (parsed) nextDetails[move.id] = parsed;
+      }
+    }
+    await offlineStorageService.cacheWorkingSet(detailsCacheKey, nextDetails);
+  } catch (error) {
+    console.warn('Falha ao atualizar cache local de detalhes do inventário:', error);
+  }
+};
 
 export const fetchInventorySessionsWithStatus = async (
   page: number,
@@ -124,22 +92,12 @@ export const fetchInventorySessionsWithStatus = async (
   const legacySessionsCacheKey =
     periodDays > 0 ? getUserScopedCacheKey(INVENTORY_SESSIONS_CACHE_KEY, userId) : null;
   const detailsCacheKey = getUserScopedCacheKey(INVENTORY_SESSION_DETAILS_CACHE_KEY, userId);
-  const readCachedSessions = async (): Promise<any[] | undefined> => {
-    if (page !== 0) return undefined;
-    const cacheKeys = [sessionsCacheKey, legacySessionsCacheKey].filter(
-      (key): key is string => Boolean(key)
-    );
-    for (const cacheKey of cacheKeys) {
-      try {
-        const cached = await offlineStorageService.getWorkingSet<any[]>(cacheKey);
-        if (Array.isArray(cached?.data)) return cached.data;
-      } catch {}
-    }
-    return undefined;
-  };
+  const cacheKeys = [sessionsCacheKey, legacySessionsCacheKey].filter(
+    (key): key is string => Boolean(key)
+  );
 
   if (!connectivityService.connected) {
-    const cached = await readCachedSessions();
+    const cached = await readCachedSessionsForFirstPage(page, cacheKeys);
     return { sessions: cached || [], fromCache: cached !== undefined };
   }
 
@@ -168,42 +126,17 @@ export const fetchInventorySessionsWithStatus = async (
       query = query.or(`${createdAtFilter},and(${legacyDateBounds.join(',')})`);
     }
 
-    query = query.range(from, to);
-
-    const { data: markerMoves, error } = await query;
-
-    if (error) {
-      throw error;
-    }
-
+    const { data: markerMoves, error } = await query.range(from, to);
+    if (error) throw error;
     if (!markerMoves || markerMoves.length === 0) {
       return { sessions: [], fromCache: false };
     }
 
-    // Cachear detalhes (observation) das sessões remotas para consulta/duplicação offline
-    try {
-      if (detailsCacheKey) {
-        const existingDetails =
-          (
-            await offlineStorageService.getWorkingSet<Record<string, any>>(
-              detailsCacheKey
-            )
-          )?.data || {};
-        const nextDetails: Record<string, any> = { ...existingDetails };
-        for (const m of markerMoves) {
-          if (m.id && m.observation) {
-            try {
-              nextDetails[m.id] = JSON.parse(m.observation);
-            } catch {}
-          }
-        }
-        await offlineStorageService.cacheWorkingSet(detailsCacheKey, nextDetails);
-      }
-    } catch {}
+    const typedMarkers = markerMoves as InventoryMarkerMoveRow[];
+    await cacheSessionDetailsLocally(detailsCacheKey, typedMarkers);
 
-    const sessionCodes = extractSessionCodesFromMarkers(markerMoves);
-
-    let adjustmentsData: any[] = [];
+    const sessionCodes = extractSessionCodesFromMarkers(typedMarkers);
+    let adjustmentsData: InventoryAdjustmentMoveRow[] = [];
     if (sessionCodes.length > 0) {
       const expectedLabels = sessionCodes.map((code) => `Ajuste lançado pelo inventário #${code}`);
       const { data, error: adjustmentsError } = await supabase
@@ -214,26 +147,27 @@ export const fetchInventorySessionsWithStatus = async (
       if (adjustmentsError) {
         console.warn('Erro ao buscar ajustes dos inventários:', adjustmentsError);
       } else {
-        adjustmentsData = data || [];
+        adjustmentsData = (data || []) as InventoryAdjustmentMoveRow[];
       }
     }
 
     const adjustmentsBySession = groupAdjustmentsBySession(adjustmentsData);
-
-    const mappedSessions = markerMoves
-      .map((m) => mapInventorySessionMarker(m, adjustmentsBySession))
+    const mappedSessions = typedMarkers
+      .map((move) => mapInventorySessionMarker(move, adjustmentsBySession))
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
     if (page === 0 && sessionsCacheKey) {
       await offlineStorageService
         .cacheWorkingSet(sessionsCacheKey, mappedSessions)
-        .catch(() => {});
+        .catch((cacheError: unknown) => {
+          console.warn('Falha ao salvar lista de sessões de inventário em cache:', cacheError);
+        });
     }
 
     return { sessions: mappedSessions, fromCache: false };
   } catch (error) {
     console.warn('Erro ao buscar auditorias de inventário (usando fallback offline):', error);
-    const cached = await readCachedSessions();
+    const cached = await readCachedSessionsForFirstPage(page, cacheKeys);
     return { sessions: cached || [], fromCache: cached !== undefined };
   }
 };
@@ -244,7 +178,7 @@ export const fetchInventorySessions = async (
   endDate?: string,
   userId?: string | null,
   periodDays = 0
-): Promise<any[]> => {
+): Promise<InventorySessionSummary[]> => {
   const result = await fetchInventorySessionsWithStatus(
     page,
     startDate,
@@ -258,17 +192,17 @@ export const fetchInventorySessions = async (
 export const getNextInventoryCode = async (
   reservedCodes: readonly string[] = []
 ): Promise<string> => {
-  const response = await withTimeout(
+  const response = await withTimeout<RpcResult<string> | null>(
     Promise.resolve(
       supabase.rpc('reserve_next_inventory_code', { p_reserved_codes: [...reservedCodes] })
-    ).then((result) => ({ result })),
+    ) as Promise<RpcResult<string>>,
     5_000,
-    null as { result: { data: string | null; error: any } } | null,
+    null,
     'inventory:next-code'
   );
   if (!response) throw new Error('A consulta do próximo código de inventário excedeu 5000ms.');
-  const { data, error } = response.result;
 
+  const { data, error } = response;
   if (error) throw error;
   if (typeof data !== 'string' || !data) {
     throw new Error('O servidor não retornou um código de inventário reservado.');
@@ -287,20 +221,20 @@ export const getNextInventoryCodes = async (
     throw new Error('A lista de códigos reservados excede o limite de 1.000.');
   }
 
-  const response = await withTimeout(
+  const response = await withTimeout<RpcResult<string[]> | null>(
     Promise.resolve(
       supabase.rpc('reserve_next_inventory_codes', {
         p_reserved_codes: [...reservedCodes],
         p_count: count,
       })
-    ).then((result) => ({ result })),
+    ) as Promise<RpcResult<string[]>>,
     5_000,
-    null as { result: { data: string[] | null; error: any } } | null,
+    null,
     'inventory:next-codes'
   );
   if (!response) throw new Error('A reserva em lote excedeu 5000ms.');
-  const { data, error } = response.result;
 
+  const { data, error } = response;
   if (error) throw error;
   if (
     !Array.isArray(data) ||
@@ -316,23 +250,21 @@ export const getNextInventoryCodes = async (
 export const fetchInventorySessionDetails = async (
   sessionId: string,
   userId?: string | null
-) => {
+): Promise<Record<string, unknown>> => {
   const detailsCacheKey = getUserScopedCacheKey(INVENTORY_SESSION_DETAILS_CACHE_KEY, userId);
-  const readCachedDetails = async () => {
+
+  const readCachedDetails = async (): Promise<Record<string, unknown> | undefined> => {
     if (!detailsCacheKey) return undefined;
     try {
-      const cachedDetails = await offlineStorageService.getWorkingSet<Record<string, any>>(
-        detailsCacheKey
-      );
+      const cachedDetails = await offlineStorageService.getWorkingSet<
+        Record<string, Record<string, unknown>>
+      >(detailsCacheKey);
       return cachedDetails?.data?.[sessionId];
-    } catch {
+    } catch (error) {
+      console.warn(`Falha ao ler cache local de detalhes (${sessionId}):`, error);
       return undefined;
     }
   };
-  const markAsStaleLocalSnapshot = (details: any) =>
-    details && typeof details === 'object' && !Array.isArray(details)
-      ? { ...details, isStaleLocalSnapshot: true }
-      : details;
 
   // 1. Verificar primeiro se é um rascunho ou submissão congelada no SQLite local
   try {
@@ -350,21 +282,24 @@ export const fetchInventorySessionDetails = async (
         items: localDraft.items,
       };
     }
-  } catch {}
+  } catch (error) {
+    console.warn(`Falha ao ler rascunho local do inventário (${sessionId}):`, error);
+  }
 
   try {
     const localSubmission = await getInventorySubmission(sessionId, userId);
     if (localSubmission?.observation) {
       return localSubmission.observation;
     }
-  } catch {}
+  } catch (error) {
+    console.warn(`Falha ao ler submissão local pendente (${sessionId}):`, error);
+  }
 
   // 2. Se o aparelho confirmou que está offline, evitar uma tentativa remota
-  // quando já existe uma cópia deste operador. Ela é explicitamente marcada
-  // para que a interface avise que os números podem estar desatualizados.
+  // quando já existe uma cópia deste operador marcados como stale local.
   if (connectivityService.explicitlyOffline) {
     const cachedDetails = await readCachedDetails();
-    if (cachedDetails) return markAsStaleLocalSnapshot(cachedDetails);
+    if (cachedDetails) return markDetailsAsStaleLocalSnapshot(cachedDetails);
   }
 
   // 3. Tentar buscar no Supabase; conexão desconhecida/online mantém leitura atual
@@ -375,17 +310,15 @@ export const fetchInventorySessionDetails = async (
       .eq('id', sessionId)
       .single();
     if (!error && data) {
-      try {
-        return JSON.parse(data.observation || '{}');
-      } catch {
-        return {};
-      }
+      return parseJsonObservationSafe(data.observation, `remote-details:${sessionId}`) ?? {};
     }
-  } catch {}
+  } catch (error) {
+    console.warn(`Falha ao consultar detalhes remotos do inventário (${sessionId}):`, error);
+  }
 
   // 4. Fallback no cache local de sessões sincronizadas, também identificado.
   const cachedDetails = await readCachedDetails();
-  if (cachedDetails) return markAsStaleLocalSnapshot(cachedDetails);
+  if (cachedDetails) return markDetailsAsStaleLocalSnapshot(cachedDetails);
 
   throw new Error('Não foi possível carregar os detalhes desta sessão de inventário.');
 };

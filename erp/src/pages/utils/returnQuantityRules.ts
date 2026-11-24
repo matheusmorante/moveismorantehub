@@ -1,6 +1,1 @@
-export {
-  getReturnLineKey,
-  getReturnableQuantities,
-  getReturnRequestValidationError,
-  type ReturnQuantityRecord,
-} from '../../../../shared-utils/commercialReturnRules';
+export * from './returns/returnQuantityRules';

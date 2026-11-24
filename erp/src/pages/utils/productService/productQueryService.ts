@@ -1,180 +1,207 @@
 import { supabase } from '@/pages/utils/supabaseConfig';
 import type Product from '../../types/product.type';
-import type { ComboItem, Variation } from '../../types/product.type';
 import { getProductSalesStats, searchHistoricalItems } from './productAnalyticsQueryService';
+import { applyCompositionAvailability } from './compositionAvailability';
 import { applyProductFiltersAndSort, type ProductQueryFilterOptions } from './productFilterBuilder';
-import { getLocalProducts, saveLocalProducts } from './productLocalCache';
+import {
+  getProductByCode,
+  getProductsByIds,
+  initializeProductsIfEmpty,
+  upsertLocalProducts,
+} from './productLegacyCacheQueries';
+import { getLocalProducts } from './productLocalCache';
 import { mapFromDB } from './productMapper';
 import {
   mapProductComponentAutocompleteCandidate,
   PRODUCT_COMPONENT_AUTOCOMPLETE_COLUMNS,
 } from './productAutocompleteCandidateMapper';
 import {
+  FULL_PRODUCT_COLUMNS,
+  isUuid,
+  LIGHT_COLUMNS,
+  LIGHT_COLUMNS_WITH_CATS,
+  mapPreviewProductOptionRow,
+  PRODUCT_LINK_CONFIRMATION_COLUMNS,
+  PRODUCT_LINK_CONFIRMATION_WITH_VARIATION_COLUMNS,
+  SALES_ORDER_AUTOCOMPLETE_COLUMNS,
+  toProductLinkConfirmation,
+  type ProductLinkConfirmation,
+  type ProductPreviewOption,
+  type ProductPreviewRow,
+} from './productQueryProjections';
+import {
   mapProductVariationBarcodeCandidate,
   PRODUCT_VARIATION_BARCODE_CANDIDATE_COLUMNS,
+  type ProductVariationBarcodeMatch,
 } from './productVariationBarcodeCandidateMapper';
 import { TABLE_NAME } from './productSkuService';
-import { calculateCompositionAvailability } from '../compositionMath';
 import { withAbortTimeout } from '../../../../../shared-utils/withAbortTimeout';
 
-export { getProductSalesStats, searchHistoricalItems };
+export {
+  getProductSalesStats,
+  searchHistoricalItems,
+  applyCompositionAvailability,
+  initializeProductsIfEmpty,
+  getProductsByIds,
+  getProductByCode,
+  LIGHT_COLUMNS,
+  LIGHT_COLUMNS_WITH_CATS,
+  SALES_ORDER_AUTOCOMPLETE_COLUMNS,
+  FULL_PRODUCT_COLUMNS,
+};
+export type { ProductPreviewOption, ProductLinkConfirmation, ProductVariationBarcodeMatch };
 
-export const LIGHT_COLUMNS =
-  'id, name, marketplace_title, code, description, observations, brand, category_id, category, condition, product_kind, is_salvado, opportunity_id, width, height, depth, unit_price, price, cost_price, freight_type, freight_cost, ipi_percent, final_purchase_price, promo_price, initial_stock, stock, min_stock, unit, active, is_draft, status, deleted, supplier_id, main_supplier_id, supplier_ids, images, has_variations, item_type, created_at, updated_at, slug, featured, is_combo, combo_items, technical_specs';
-export const LIGHT_COLUMNS_WITH_CATS =
-  LIGHT_COLUMNS +
-  ', product_categories(*, categories(*)), product_variations(*), product_images(image_url,is_main), category_details:categories!products_category_id_fkey(id, name)';
-
-/** Minimal product and variation data needed to search and add items to a sale. */
-export const SALES_ORDER_AUTOCOMPLETE_COLUMNS =
-  'id,name,marketplace_title,code,description,unit,unit_price,price,promo_price,cost_price,stock,active,is_draft,status,deleted,supplier_id,main_supplier_id,supplier_ids,product_kind,condition,is_salvado,item_type,is_combo,fiscal,variation_details:technical_specs->variationDetails,product_variations(id,product_id,sku,name,stock,price,promo_price,cost_price,active,status,merged_to_variation_id,attributes,use_parent_name,use_parent_price,use_parent_promo_price,use_parent_dimensions,use_parent_description)';
-const PRODUCT_LINK_CONFIRMATION_COLUMNS =
-  'id,deleted,code,name,marketplace_title,description,is_draft,status,item_type';
-const PRODUCT_LINK_CONFIRMATION_WITH_VARIATION_COLUMNS = [
-  PRODUCT_LINK_CONFIRMATION_COLUMNS,
-  'product_variations(id,product_id,sku,name,use_parent_name)',
-].join(',');
-
-export type ProductPreviewOption = {
-  id: string;
-  name: string;
-  title?: string;
+type RawProductRow = Record<string, unknown> & {
+  id?: unknown;
+  variation_details?: unknown;
 };
 
-/** Saldo de um produto composto é a quantidade de kits montáveis com o estoque atual dos componentes. */
-export const applyCompositionAvailability = async (products: Product[]): Promise<Product[]> => {
-  const compositions = products.filter((product) => product.itemType === 'composition');
-  if (!compositions.length) return products;
+interface TrashEligibilityEntry {
+  can_trash: boolean;
+  trash_block_reason: string | null;
+}
 
-  const unavailable = () =>
-    products.map((product) =>
-      product.itemType === 'composition'
-        ? {
-            ...product,
-            stock: 0,
-            variations: product.variations?.map((variation) => ({ ...variation, stock: 0 })),
-          }
-        : product
-    );
+interface TrashEligibilityRow {
+  product_id?: string | number | null;
+  can_trash?: boolean | null;
+  trash_block_reason?: string | null;
+}
 
-  const componentIds = Array.from(
-    new Set(
-      compositions.flatMap((product) => [
-        ...(product.comboItems || []),
-        ...(product.variations || []).flatMap((variation) => variation.comboItems || []),
-      ])
-        .map((item) => String(item.productId || '').trim())
-        .filter(Boolean)
-    )
-  );
-  if (!componentIds.length) return unavailable();
+interface ActiveCampaignPriceRow {
+  product_id?: string | number | null;
+  variation_id?: string | number | null;
+  promotion_id?: string | number | null;
+  promotion_name?: string | null;
+  promotion_discount_percent?: number | null;
+}
 
-  const lookup = await withAbortTimeout(
-    supabase
-      .from(TABLE_NAME)
-      .select('id, stock, product_variations(id, stock)')
-      .in('id', componentIds),
-    'catalogo:saldo-produtos-compostos'
-  ).then((result) => ({ result })).catch(() => null);
-  if (!lookup || lookup.result.error) {
-    console.warn('[ProductService] Não foi possível consultar o estoque atual dos componentes.');
-    return unavailable();
+const SORT_COLUMN_MAP: Record<string, string> = {
+  description: 'description',
+  unitPrice: 'unit_price',
+  stock: 'stock',
+  code: 'code',
+  createdAt: 'created_at',
+  updatedAt: 'updated_at',
+  category: 'category',
+};
+
+const resolvePageProjection = (
+  productProjection?: 'componentAutocomplete' | 'salesOrderAutocomplete'
+): string => {
+  if (productProjection === 'componentAutocomplete') return PRODUCT_COMPONENT_AUTOCOMPLETE_COLUMNS;
+  if (productProjection === 'salesOrderAutocomplete') return SALES_ORDER_AUTOCOMPLETE_COLUMNS;
+  return LIGHT_COLUMNS_WITH_CATS;
+};
+
+const fetchProductsBatchMetadata = async (
+  productUuids: string[],
+  includeTrashEligibility: boolean
+): Promise<{
+  eligibilityMap: Map<string, TrashEligibilityEntry>;
+  campaignByProduct: Map<string, ActiveCampaignPriceRow>;
+  campaignByVariation: Map<string, ActiveCampaignPriceRow>;
+}> => {
+  const eligibilityMap = new Map<string, TrashEligibilityEntry>();
+  const campaignByProduct = new Map<string, ActiveCampaignPriceRow>();
+  const campaignByVariation = new Map<string, ActiveCampaignPriceRow>();
+
+  if (!productUuids.length) {
+    return { eligibilityMap, campaignByProduct, campaignByVariation };
   }
 
-  const currentComponents = new Map<string, { stock: number; variations: Map<string, number> }>();
-  for (const row of lookup.result.data || []) {
-    const variations = new Map<string, number>();
-    for (const variation of row.product_variations || []) {
-      variations.set(String(variation.id), Number(variation.stock) || 0);
+  const [eligibilityResult, campaignResult] = await Promise.allSettled([
+    includeTrashEligibility
+      ? withAbortTimeout(
+          supabase.rpc('get_products_trash_eligibility', { p_product_ids: productUuids }),
+          'products:trash-eligibility'
+        )
+      : Promise.resolve({ data: [] as TrashEligibilityRow[], error: null }),
+    withAbortTimeout(
+      supabase
+        .from('active_campaign_prices')
+        .select('product_id, variation_id, promotion_id, promotion_name, promotion_discount_percent')
+        .in('product_id', productUuids),
+      'products:active-campaign-prices'
+    ),
+  ]);
+
+  if (
+    eligibilityResult.status === 'fulfilled' &&
+    !eligibilityResult.value.error &&
+    Array.isArray(eligibilityResult.value.data)
+  ) {
+    for (const item of eligibilityResult.value.data as TrashEligibilityRow[]) {
+      if (item.product_id) {
+        eligibilityMap.set(String(item.product_id), {
+          can_trash: Boolean(item.can_trash),
+          trash_block_reason: item.trash_block_reason || null,
+        });
+      }
     }
-    currentComponents.set(String(row.id), {
-      stock: Number(row.stock) || 0,
-      variations,
-    });
+  } else if (eligibilityResult.status === 'rejected') {
+    console.warn(
+      '[ProductService] Falha ao verificar elegibilidade de lixeira em lote:',
+      eligibilityResult.reason
+    );
   }
 
-  const availabilityFor = (items: ComboItem[] | undefined): number => {
-    if (!items?.length) return 0;
-    const requirements = new Map<string, { currentStock: number; quantityNeeded: number }>();
-    for (const item of items) {
-      const component = currentComponents.get(String(item.productId));
-      const currentStock = item.variationId
-        ? component?.variations.get(String(item.variationId)) ?? 0
-        : component?.stock ?? 0;
-      const key = `${item.productId}:${item.variationId || ''}`;
-      const existing = requirements.get(key);
-      requirements.set(key, {
-        currentStock,
-        quantityNeeded: (existing?.quantityNeeded || 0) + Number(item.quantity),
-      });
+  if (campaignResult.status === 'fulfilled' && !campaignResult.value.error) {
+    for (const campaign of (campaignResult.value.data || []) as ActiveCampaignPriceRow[]) {
+      if (campaign.variation_id) {
+        campaignByVariation.set(String(campaign.variation_id), campaign);
+      } else if (campaign.product_id) {
+        campaignByProduct.set(String(campaign.product_id), campaign);
+      }
     }
-    const components = Array.from(requirements.values());
-    if (components.some((item) => !Number.isFinite(item.quantityNeeded) || item.quantityNeeded <= 0)) {
-      return 0;
-    }
-    return calculateCompositionAvailability(components);
-  };
+  } else {
+    throw campaignResult.status === 'rejected'
+      ? campaignResult.reason
+      : campaignResult.value.error;
+  }
 
-  return products.map((product) => {
-    if (product.itemType !== 'composition') return product;
+  return { eligibilityMap, campaignByProduct, campaignByVariation };
+};
 
-    const rootItems = product.comboItems || [];
-    const hasVariationComposition = (product.variations || []).some(
-      (variation) => Boolean(variation.comboItems?.length)
-    );
-    const variations = product.variations?.map((variation) => ({
-      ...variation,
-      stock: availabilityFor(variation.comboItems?.length ? variation.comboItems : rootItems),
-    }));
-    const stock = hasVariationComposition
-      ? (variations || []).reduce((total, variation) => total + (Number(variation.stock) || 0), 0)
-      : availabilityFor(rootItems);
+const enrichProductWithMetadata = (
+  product: Product,
+  eligibilityMap: Map<string, TrashEligibilityEntry>,
+  campaignByProduct: Map<string, ActiveCampaignPriceRow>,
+  campaignByVariation: Map<string, ActiveCampaignPriceRow>
+): Product => {
+  const productCampaign = campaignByProduct.get(String(product.id || ''));
+  const currentProduct: Product = productCampaign
+    ? {
+        ...product,
+        promotionId: String(productCampaign.promotion_id),
+        promotionName: String(productCampaign.promotion_name || ''),
+        promotionDiscountPercent: Number(productCampaign.promotion_discount_percent || 0),
+      }
+    : product;
 
-    return { ...product, stock, variations };
+  currentProduct.variations = currentProduct.variations?.map((variation) => {
+    const campaign = campaignByVariation.get(String(variation.id));
+    return campaign
+      ? {
+          ...variation,
+          promotionId: String(campaign.promotion_id),
+          promotionName: String(campaign.promotion_name || ''),
+          promotionDiscountPercent: Number(campaign.promotion_discount_percent || 0),
+        }
+      : variation;
   });
-};
 
-// Helper to initialize products from Supabase
-export const initializeProductsIfEmpty = async (): Promise<Product[]> => {
-  try {
-    console.log(
-      '[ProductService] Carregando produtos a partir da tabela do Supabase do e-commerce...'
-    );
-    let allData: any[] = [];
-    let from = 0;
-    const step = 1000;
-    let fetchMore = true;
-
-    while (fetchMore) {
-      const { data, error } = await supabase
-        .from(TABLE_NAME)
-        .select(LIGHT_COLUMNS_WITH_CATS)
-        .order('created_at', { ascending: false })
-        .range(from, from + step - 1);
-
-      if (error) {
-        console.error('[ProductService] Erro ao buscar produtos do Supabase:', error);
-        return getLocalProducts();
-      }
-
-      if (data && data.length > 0) {
-        allData = [...allData, ...data];
-        from += step;
-        if (data.length < step) fetchMore = false;
-      } else {
-        fetchMore = false;
-      }
-    }
-
-    const fetchedProducts = await applyCompositionAvailability(
-      allData.map((p, idx) => mapFromDB(p, idx))
-    );
-    saveLocalProducts(fetchedProducts);
-    return fetchedProducts;
-  } catch (e) {
-    console.error('[ProductService] Exceção ao sincronizar dados do Supabase:', e);
-    return getLocalProducts();
+  const eligibility = product.id ? eligibilityMap.get(product.id) : undefined;
+  if (eligibility) {
+    currentProduct.can_trash = eligibility.can_trash;
+    currentProduct.trash_block_reason = eligibility.trash_block_reason;
+  } else {
+    currentProduct.can_trash = false;
+    currentProduct.trash_block_reason = currentProduct.isDraft
+      ? 'Rascunhos devem ser descartados diretamente'
+      : 'Validando elegibilidade...';
   }
+
+  return currentProduct;
 };
 
 export const fetchProductsPage = async (
@@ -193,32 +220,14 @@ export const fetchProductsPage = async (
   try {
     const from = (page - 1) * pageSize;
     const to = from + pageSize - 1;
+    const orderColumn = SORT_COLUMN_MAP[options?.sortBy || 'created_at'] || 'created_at';
+    const ascending = (options?.sortOrder || 'desc') === 'asc';
 
-    const sortBy = options?.sortBy || 'created_at';
-    const sortOrder = options?.sortOrder || 'desc';
-    const ascending = sortOrder === 'asc';
-
-    const columnMap: Record<string, string> = {
-      description: 'description',
-      unitPrice: 'unit_price',
-      stock: 'stock',
-      code: 'code',
-      createdAt: 'created_at',
-      updatedAt: 'updated_at',
-      category: 'category',
-    };
-    const orderColumn = columnMap[sortBy] || 'created_at';
-
-    const isComponentAutocompleteProjection =
-      requestOptions.productProjection === 'componentAutocomplete';
-    const isSalesOrderAutocompleteProjection =
-      requestOptions.productProjection === 'salesOrderAutocomplete';
+    const isComponentAutocomplete = requestOptions.productProjection === 'componentAutocomplete';
+    const isSalesOrderAutocomplete = requestOptions.productProjection === 'salesOrderAutocomplete';
     const searchVariationsAsEmbed = Boolean(requestOptions.searchVariationsAsEmbed && options?.search);
-    const projection = isComponentAutocompleteProjection
-      ? PRODUCT_COMPONENT_AUTOCOMPLETE_COLUMNS
-      : isSalesOrderAutocompleteProjection
-        ? SALES_ORDER_AUTOCOMPLETE_COLUMNS
-        : LIGHT_COLUMNS_WITH_CATS;
+    const projection = resolvePageProjection(requestOptions.productProjection);
+
     const baseQuery = supabase.from(TABLE_NAME).select(
       searchVariationsAsEmbed ? `${projection},search_variations:product_variations(id)` : projection,
       requestOptions.includeTotal === false ? {} : { count: 'exact' }
@@ -226,16 +235,15 @@ export const fetchProductsPage = async (
 
     const filters = {
       ...options,
-      ...(isComponentAutocompleteProjection
-        ? { excludeCombos: true }
-        : {}),
-      ...(isSalesOrderAutocompleteProjection
+      ...(isComponentAutocomplete ? { excludeCombos: true } : {}),
+      ...(isSalesOrderAutocomplete
         ? requestOptions.includeCompositions
           ? { excludeCombos: false, productsAndCompositionsOnly: true }
           : { excludeCombos: true, productsOnly: true }
         : {}),
       searchVariationsAsEmbed,
     };
+
     const { data, error, count } = await applyProductFiltersAndSort(baseQuery, filters, {
       orderColumn,
       ascending,
@@ -249,114 +257,33 @@ export const fetchProductsPage = async (
       return { data: [], total: 0 };
     }
 
-    const productUuids = (data || [])
-      .map((p: any) => p.id)
-      .filter((id: any) =>
-        Boolean(
-          id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(id))
-        )
-      );
+    const rows = (data || []) as RawProductRow[];
+    const productUuids = rows.map((row) => row.id).filter(isUuid);
+    const { eligibilityMap, campaignByProduct, campaignByVariation } =
+      await fetchProductsBatchMetadata(productUuids, requestOptions.includeTrashEligibility !== false);
 
-    const eligibilityMap = new Map<
-      string,
-      { can_trash: boolean; trash_block_reason: string | null }
-    >();
-    const campaignByProduct = new Map<string, any>();
-    const campaignByVariation = new Map<string, any>();
-
-    if (productUuids.length > 0) {
-      const [eligibilityResult, campaignResult] = await Promise.allSettled([
-        requestOptions.includeTrashEligibility === false
-          ? Promise.resolve({ data: [], error: null })
-          : withAbortTimeout(
-              supabase.rpc('get_products_trash_eligibility', { p_product_ids: productUuids }),
-              'products:trash-eligibility',
-            ),
-        withAbortTimeout(
-          supabase
-            .from('active_campaign_prices')
-            .select('product_id, variation_id, promotion_id, promotion_name, promotion_discount_percent')
-            .in('product_id', productUuids),
-          'products:active-campaign-prices',
-        ),
-      ]);
-
-      if (eligibilityResult.status === 'fulfilled' && !eligibilityResult.value.error && Array.isArray(eligibilityResult.value.data)) {
-        eligibilityResult.value.data.forEach((item: any) => {
-          if (item.product_id) {
-            eligibilityMap.set(String(item.product_id), {
-              can_trash: Boolean(item.can_trash),
-              trash_block_reason: item.trash_block_reason || null,
-            });
-          }
-        });
-      } else if (eligibilityResult.status === 'rejected') {
-        console.warn('[ProductService] Falha ao verificar elegibilidade de lixeira em lote:', eligibilityResult.reason);
-      }
-
-      if (campaignResult.status === 'fulfilled' && !campaignResult.value.error) {
-        for (const campaign of campaignResult.value.data || []) {
-          if (campaign.variation_id) campaignByVariation.set(String(campaign.variation_id), campaign);
-          else campaignByProduct.set(String(campaign.product_id), campaign);
-        }
-      } else {
-        throw campaignResult.status === 'rejected'
-          ? campaignResult.reason
-          : campaignResult.value.error;
-      }
-    }
-
-    const mapped: Product[] = (data || []).map((p: any, idx: number) => {
-      const product = isComponentAutocompleteProjection
-        ? mapProductComponentAutocompleteCandidate(p, idx)
+    const mapped: Product[] = rows.map((row, idx) => {
+      const baseProduct = isComponentAutocomplete
+        ? mapProductComponentAutocompleteCandidate(row, idx)
         : mapFromDB(
-            isSalesOrderAutocompleteProjection
-              ? { ...p, technical_specs: { variationDetails: p.variation_details } }
-              : p,
-            idx,
+            isSalesOrderAutocomplete
+              ? { ...row, technical_specs: { variationDetails: row.variation_details } }
+              : row,
+            idx
           );
-      const productCampaign = campaignByProduct.get(String(product.id || ''));
-      const currentProduct = productCampaign
-        ? {
-            ...product,
-            promotionId: String(productCampaign.promotion_id),
-            promotionName: String(productCampaign.promotion_name || ''),
-            promotionDiscountPercent: Number(productCampaign.promotion_discount_percent || 0),
-          }
-        : product;
-      currentProduct.variations = currentProduct.variations?.map((variation) => {
-        const campaign = campaignByVariation.get(String(variation.id));
-        return campaign
-          ? {
-              ...variation,
-              promotionId: String(campaign.promotion_id),
-              promotionName: String(campaign.promotion_name || ''),
-              promotionDiscountPercent: Number(campaign.promotion_discount_percent || 0),
-            }
-          : variation;
-      });
-      const eligibility = product.id ? eligibilityMap.get(product.id) : undefined;
-      if (eligibility) {
-        currentProduct.can_trash = eligibility.can_trash;
-        currentProduct.trash_block_reason = eligibility.trash_block_reason;
-      } else {
-        currentProduct.can_trash = false;
-        currentProduct.trash_block_reason = currentProduct.isDraft
-          ? 'Rascunhos devem ser descartados diretamente'
-          : 'Validando elegibilidade...';
-      }
-      return currentProduct;
+      return enrichProductWithMetadata(baseProduct, eligibilityMap, campaignByProduct, campaignByVariation);
     });
 
     return {
-      data: isComponentAutocompleteProjection || isSalesOrderAutocompleteProjection
-        ? mapped
-        : await applyCompositionAvailability(mapped),
+      data:
+        isComponentAutocomplete || isSalesOrderAutocomplete
+          ? mapped
+          : await applyCompositionAvailability(mapped),
       total: count ?? 0,
     };
-  } catch (e) {
-    console.error('[ProductService] Exceção em fetchProductsPage:', e);
-    if (requestOptions.throwOnError) throw e;
+  } catch (error) {
+    console.error('[ProductService] Exceção em fetchProductsPage:', error);
+    if (requestOptions.throwOnError) throw error;
     return { data: [], total: 0 };
   }
 };
@@ -370,14 +297,13 @@ export const fetchPreviewProductOptionsPage = async (
   try {
     const from = (page - 1) * pageSize;
     const to = from + pageSize - 1;
-    const searchVariationsAsEmbed = false;
     // `description` preserves the existing label fallback for legacy products without a name/title.
     const projection = 'id,name,title:marketplace_title,description';
     const baseQuery = supabase.from(TABLE_NAME).select(projection);
 
     const { data, error } = await applyProductFiltersAndSort(
       baseQuery,
-      { ...options, searchVariationsAsEmbed },
+      { ...options, searchVariationsAsEmbed: false },
       { orderColumn: 'created_at', ascending: false, from, to }
     );
 
@@ -386,18 +312,9 @@ export const fetchPreviewProductOptionsPage = async (
       return { data: [], hasMore: false };
     }
 
-    const rows = Array.isArray(data) ? data : [];
+    const rows = Array.isArray(data) ? (data as ProductPreviewRow[]) : [];
     return {
-      data: rows.map((row: any) => ({
-        id: String(row.id),
-        name: String(
-          row.name ||
-            row.title ||
-            String(row.description || '').split('\n')[0].substring(0, 120) ||
-            ''
-        ),
-        ...(row.title ? { title: String(row.title) } : {}),
-      })),
+      data: rows.map(mapPreviewProductOptionRow),
       hasMore: rows.length === pageSize,
     };
   } catch (error) {
@@ -408,58 +325,26 @@ export const fetchPreviewProductOptionsPage = async (
 
 export const getFullProduct = async (id: string): Promise<Product | null> => {
   try {
-    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
-    if (isUUID) {
+    if (isUuid(id)) {
       const { data, error } = await supabase
         .from(TABLE_NAME)
-        .select('*, product_variations(*), product_categories(*, categories(*)), product_images(*)')
+        .select(FULL_PRODUCT_COLUMNS)
         .eq('id', id)
         .maybeSingle();
 
       if (!error && data) {
         const mapped = (await applyCompositionAvailability([mapFromDB(data)]))[0];
-        const localProducts = getLocalProducts();
-        const idx = localProducts.findIndex((p) => String(p.id) === String(id));
-        if (idx !== -1) {
-          localProducts[idx] = mapped;
-        } else {
-          localProducts.push(mapped);
-        }
-        saveLocalProducts(localProducts);
+        upsertLocalProducts([mapped]);
         return mapped;
       }
     }
-  } catch (e) {
-    console.error('[ProductService] Erro ao buscar produto detalhado do Supabase:', e);
+  } catch (error) {
+    console.error('[ProductService] Erro ao buscar produto detalhado do Supabase:', error);
   }
 
-  const products = getLocalProducts();
-  const product = products.find((p) => String(p.id) === String(id));
-  return product
-    ? (await applyCompositionAvailability([product]))[0]
-    : null;
+  const product = getLocalProducts().find((cached) => String(cached.id) === String(id));
+  return product ? (await applyCompositionAvailability([product]))[0] : null;
 };
-
-export type ProductLinkConfirmation = Pick<
-  Product,
-  'id' | 'deleted' | 'code' | 'name' | 'title'
-> & {
-  variations?: Pick<Variation, 'id' | 'sku' | 'name' | 'title'>[];
-};
-
-const toProductLinkConfirmation = (
-  product: Product,
-  variationId?: string
-): ProductLinkConfirmation => ({
-  id: product.id,
-  deleted: product.deleted,
-  code: product.code,
-  name: product.name,
-  title: product.title,
-  variations: product.variations
-    ?.filter((variation) => !variationId || variation.id === variationId)
-    .map(({ id, sku, name, title }) => ({ id, sku, name, title })),
-});
 
 /** Confere somente os dados usados ao vincular um produto a um código de fornecedor. */
 export const getProductLinkConfirmation = async (
@@ -467,8 +352,7 @@ export const getProductLinkConfirmation = async (
   variationId?: string
 ): Promise<ProductLinkConfirmation | null> => {
   try {
-    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
-    if (isUUID) {
+    if (isUuid(id)) {
       const { data, error } = await supabase
         .from(TABLE_NAME)
         .select(
@@ -497,31 +381,23 @@ export const getFullProductsByIds = async (ids: string[]): Promise<Map<string, P
   const result = new Map<string, Product>();
   if (!uniqueIds.length) return result;
 
-  const uuidIds = uniqueIds.filter((id) =>
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
-  );
+  const uuidIds = uniqueIds.filter((id) => isUuid(id));
 
   if (uuidIds.length) {
     try {
       const { data, error } = await withAbortTimeout(
-        supabase
-          .from(TABLE_NAME)
-          .select('*, product_variations(*), product_categories(*, categories(*)), product_images(*)')
-          .in('id', uuidIds),
-        'products:full-by-ids',
+        supabase.from(TABLE_NAME).select(FULL_PRODUCT_COLUMNS).in('id', uuidIds),
+        'products:full-by-ids'
       );
       if (error) throw error;
 
-      const mapped = await applyCompositionAvailability((data || []).map((row) => mapFromDB(row)));
-      const localProducts = getLocalProducts();
+      const mapped = await applyCompositionAvailability(
+        ((data || []) as RawProductRow[]).map((row) => mapFromDB(row))
+      );
       for (const product of mapped) {
-        const id = String(product.id);
-        result.set(id, product);
-        const index = localProducts.findIndex((cached) => String(cached.id) === id);
-        if (index === -1) localProducts.push(product);
-        else localProducts[index] = product;
+        result.set(String(product.id), product);
       }
-      if (mapped.length) saveLocalProducts(localProducts);
+      upsertLocalProducts(mapped);
     } catch (error) {
       console.error('[ProductService] Erro ao buscar produtos detalhados em lote:', error);
       const fallbackProducts = await Promise.all(uniqueIds.map((id) => getFullProduct(id)));
@@ -534,9 +410,6 @@ export const getFullProductsByIds = async (ids: string[]): Promise<Map<string, P
 
   const missingIds = uniqueIds.filter((id) => !result.has(id));
   if (missingIds.length) {
-    // If the batch returned some products but not all, recheck only the missing
-    // IDs individually before using local data. This preserves the previous
-    // fresh-read behavior if the server response was incomplete.
     if (result.size) {
       const fallbackProducts = await Promise.all(missingIds.map((id) => getFullProduct(id)));
       for (const product of fallbackProducts) {
@@ -558,16 +431,10 @@ export const getFullProductsByIds = async (ids: string[]): Promise<Map<string, P
   return result;
 };
 
-export const getProductsByIds = async (ids: string[]): Promise<Product[]> => {
-  const products = getLocalProducts();
-  const idStrings = ids.map(String);
-  return products.filter((p) => idStrings.includes(String(p.id)));
-};
-
 /** Busca GTIN na coluna de detalhes das variações, sem criar coluna ou migration. */
 export const findProductByVariationBarcode = async (
-  barcode: string,
-): Promise<{ product: Product; variation: Variation } | null> => {
+  barcode: string
+): Promise<ProductVariationBarcodeMatch | null> => {
   const normalizedBarcode = String(barcode || '').replace(/\D/g, '');
   if (!normalizedBarcode) return null;
   const { data, error } = await supabase
@@ -584,10 +451,12 @@ export const findProductByVariationBarcode = async (
   }
 
   const cachedMatch = getLocalProducts().find((product) =>
-    product.variations?.some((variation) => String(variation.barcode || '').replace(/\D/g, '') === normalizedBarcode),
+    product.variations?.some(
+      (variation) => String(variation.barcode || '').replace(/\D/g, '') === normalizedBarcode
+    )
   );
   const variation = cachedMatch?.variations?.find(
-    (candidate) => String(candidate.barcode || '').replace(/\D/g, '') === normalizedBarcode,
+    (candidate) => String(candidate.barcode || '').replace(/\D/g, '') === normalizedBarcode
   );
   return cachedMatch && variation ? { product: cachedMatch, variation } : null;
 };
@@ -600,7 +469,7 @@ export const findInboundProductNameMatches = async (name: string): Promise<strin
     1,
     12,
     { search: query, includeDeactivated: true, excludeTestProducts: true },
-    { throwOnError: true },
+    { throwOnError: true }
   );
   const names = new Set<string>();
   for (const product of result.data) {
@@ -610,29 +479,4 @@ export const findInboundProductNameMatches = async (name: string): Promise<strin
     }
   }
   return [...names].slice(0, 12);
-};
-
-export const getProductByCode = async (
-  code: string
-): Promise<{ product: Product; variation?: Variation } | null> => {
-  try {
-    const products = getLocalProducts().filter((p) => !p.deleted);
-
-    const directMatch = products.find((p) => p.code === code);
-    if (directMatch) {
-      return { product: directMatch };
-    }
-
-    for (const p of products) {
-      const variation = p.variations?.find((v) => v.sku === code);
-      if (variation) {
-        return { product: p, variation };
-      }
-    }
-
-    return null;
-  } catch (error) {
-    console.error('Erro ao buscar produto por código:', error);
-    return null;
-  }
 };

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   ActivityIndicator,
@@ -14,9 +14,7 @@ import { Check, Edit2, Layers, Plus, Trash2, X } from 'lucide-react-native';
 import { z } from 'zod';
 import { flattenFormErrors, useZodForm } from '../../../hooks/useZodForm';
 import { catalogNameFormSchema } from '../../../../../shared-utils/catalogFormSchemas';
-
 import { FormTextInput } from '../../../components/shared/FormTextInput';
-const environmentFormSchema = catalogNameFormSchema.extend({ linkedIds: z.array(z.string().min(1)), id: z.string().optional() });
 import {
   fetchMobileEnvironmentManagerData,
   saveMobileEnvironment,
@@ -24,6 +22,15 @@ import {
   MobileCategory,
   MobileEnvironment,
 } from '../services/mobileCategoryService';
+
+const environmentFormSchema = catalogNameFormSchema.extend({ linkedIds: z.array(z.string().min(1)), id: z.string().optional() });
+
+const areIdsEqual = (left: readonly string[], right: readonly string[]) => {
+  if (left.length !== right.length) return false;
+  const sortedLeft = [...left].sort();
+  const sortedRight = [...right].sort();
+  return sortedLeft.every((id, index) => id === sortedRight[index]);
+};
 
 interface Props {
   visible: boolean;
@@ -39,6 +46,9 @@ export const EnvironmentsManagerModal: React.FC<Props> = ({ visible, dark, onClo
   const [selected, setSelected] = useState<string[]>([]);
   const [editingId, setEditingId] = useState<string | undefined>();
   const [loading, setLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const isSavingRef = useRef(false);
+  const initialSelectedRef = useRef<string[]>([]);
   const form = useZodForm(environmentFormSchema, { name, linkedIds: selected, id: editingId });
 
   const load = async () => {
@@ -47,6 +57,9 @@ export const EnvironmentsManagerModal: React.FC<Props> = ({ visible, dark, onClo
       const { environments, categories: cats } = await fetchMobileEnvironmentManagerData();
       setItems(environments);
       setCategories(cats);
+    } catch (error) {
+      console.warn('[EnvironmentsManagerModal] Erro ao carregar ambientes:', error);
+      Alert.alert('Erro ao carregar', 'Não foi possível carregar os ambientes e categorias. Tente novamente.');
     } finally {
       setLoading(false);
     }
@@ -60,18 +73,40 @@ export const EnvironmentsManagerModal: React.FC<Props> = ({ visible, dark, onClo
     setName('');
     setSelected([]);
     setEditingId(undefined);
+    initialSelectedRef.current = [];
   };
 
   const save = async () => {
-    return form.validateAndRun({ name, linkedIds: selected, id: editingId }, async (values) => {
+    if (isSavingRef.current) return;
+    isSavingRef.current = true;
+    setIsSaving(true);
+
     try {
-      await saveMobileEnvironment(values.name, values.linkedIds, values.id);
-      reset();
-      await load();
-    } catch (error: any) {
-      Alert.alert('Não foi possível salvar', error?.message || 'Tente novamente.');
+      return await form.validateAndRun(
+        { name, linkedIds: selected, id: editingId },
+        async (values) => {
+          try {
+            const linksUnchanged = Boolean(values.id) && areIdsEqual(
+              values.linkedIds,
+              initialSelectedRef.current,
+            );
+            await saveMobileEnvironment(
+              values.name,
+              linksUnchanged ? undefined : values.linkedIds,
+              values.id,
+            );
+            reset();
+            await load();
+          } catch (error: any) {
+            Alert.alert('Não foi possível salvar', error?.message || 'Tente novamente.');
+          }
+        },
+        (errors) => Alert.alert('Revise o ambiente', Object.values(flattenFormErrors(errors))[0])
+      );
+    } finally {
+      isSavingRef.current = false;
+      setIsSaving(false);
     }
-    }, (errors) => Alert.alert('Revise o ambiente', Object.values(flattenFormErrors(errors))[0]));
   };
 
   const remove = (item: MobileEnvironment) =>
@@ -121,19 +156,30 @@ export const EnvironmentsManagerModal: React.FC<Props> = ({ visible, dark, onClo
             <FormTextInput
               value={name}
               onChangeText={setName}
+              editable={!isSaving}
               placeholder="Nome do ambiente..."
               placeholderTextColor="#94a3b8"
               style={[styles.input, dark && styles.darkInput, dark && styles.light]}
             />
             <TouchableOpacity
               onPress={() => void save()}
-              style={styles.add}
+              disabled={isSaving}
+              style={[styles.add, isSaving && styles.disabledAction]}
               accessibilityRole="button"
-              accessibilityLabel="Adicionar ou salvar ambiente"
+              accessibilityLabel={isSaving ? 'Salvando ambiente' : 'Adicionar ou salvar ambiente'}
+              accessibilityState={{ disabled: isSaving, busy: isSaving }}
             >
-              <Plus size={17} color="#fff" />
+              {isSaving ? <ActivityIndicator size="small" color="#fff" /> : <Plus size={17} color="#fff" />}
             </TouchableOpacity>
           </View>
+          {isSaving && (
+            <View style={styles.savingStatus}>
+              <ActivityIndicator size="small" color="#2563eb" />
+              <Text style={[styles.savingText, dark && styles.light]} accessibilityLiveRegion="polite">
+                Salvando...
+              </Text>
+            </View>
+          )}
           <Text style={[styles.label, dark && styles.light]}>Categorias vinculadas</Text>
           <ScrollView style={styles.categoryList}>
             {categories
@@ -141,6 +187,7 @@ export const EnvironmentsManagerModal: React.FC<Props> = ({ visible, dark, onClo
               .map((category) => (
                 <TouchableOpacity
                   key={category.id}
+                  disabled={isSaving}
                   onPress={() =>
                     setSelected((prev) =>
                       prev.includes(category.id)
@@ -150,7 +197,7 @@ export const EnvironmentsManagerModal: React.FC<Props> = ({ visible, dark, onClo
                   }
                   style={styles.categoryRow}
                   accessibilityRole="checkbox"
-                  accessibilityState={{ checked: selected.includes(category.id) }}
+                  accessibilityState={{ checked: selected.includes(category.id), disabled: isSaving }}
                 >
                   <View style={[styles.checkbox, selected.includes(category.id) && styles.checked]}>
                     {selected.includes(category.id) && <Check size={12} color="#fff" />}
@@ -171,20 +218,25 @@ export const EnvironmentsManagerModal: React.FC<Props> = ({ visible, dark, onClo
                   </Text>
                 </View>
                 <TouchableOpacity
+                  disabled={isSaving}
                   onPress={() => {
                     setEditingId(item.id);
                     setName(item.name);
                     setSelected(item.categoryIds);
+                    initialSelectedRef.current = [...item.categoryIds];
                   }}
-                  style={styles.actionBtn}
+                  style={[styles.actionBtn, isSaving && styles.disabledAction]}
+                  accessibilityState={{ disabled: isSaving }}
                   accessibilityRole="button"
                   accessibilityLabel={`Editar ambiente ${item.name}`}
                 >
                   <Edit2 size={16} color="#2563eb" />
                 </TouchableOpacity>
                 <TouchableOpacity
+                  disabled={isSaving}
                   onPress={() => remove(item)}
-                  style={styles.actionBtn}
+                  style={[styles.actionBtn, isSaving && styles.disabledAction]}
+                  accessibilityState={{ disabled: isSaving }}
                   accessibilityRole="button"
                   accessibilityLabel={`Excluir ambiente ${item.name}`}
                 >
@@ -239,6 +291,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  disabledAction: { opacity: 0.55 },
+  savingStatus: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  savingText: { fontSize: 12, fontWeight: '700', color: '#475569' },
   label: { fontSize: 11, fontWeight: '800', textTransform: 'uppercase', color: '#475569' },
   categoryList: { maxHeight: 190 },
   categoryRow: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 4 },

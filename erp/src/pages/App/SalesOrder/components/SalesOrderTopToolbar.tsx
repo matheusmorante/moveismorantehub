@@ -1,5 +1,5 @@
 import React from 'react';
-import OrderCustomerSearchBar from '../OrderHistoryList/OrderCustomerSearchBar';
+import OrderCustomerSearchBar from '../OrderHistoryList/components/OrderCustomerSearchBar';
 import ShowTestDataToggle from '@/components/shared/ShowTestDataToggle';
 import { VisibilitySettings } from '../../../types/order.type';
 import ReturnIcon from '@/components/shared/ReturnIcon';
