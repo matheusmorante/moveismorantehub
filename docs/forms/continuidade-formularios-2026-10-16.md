@@ -2,6 +2,8 @@
 
 ## Estado vigente
 
+Em 24/11, a conferência local de **Marketing → Elementos do site → Barra de avisos** cobriu o cadastro com agenda e o interruptor. O resolver entrega identificação, estado e versão ao comando de troca. A lista aguarda o servidor e relê o estado dos dois cartões. A prova de gravação no banco operacional está pendente por falta de fixture autorizada. [Evidências da barra](../marketing/elementos-do-site-2026-11-06.md#atualização-de-24112026--somente-um-aviso-ativo).
+
 Migração global em andamento. ERP: **130/132 itens conferidos ou encerrados (98,5%), dois reabertos no inventário principal** após auditoria dos formulários de notas de saída em 18/10. Fila de autosave e emissão/consulta até o resultado passaram em 142 testes; finalidade e retomada HML seguem em conferência. O recorte inclui CC-e retirada e bibliotecas retidas, sem representar conclusão global dos formulários operacionais. Censo adicional ERP, mobile e catálogo continuam em auditoria. [Provas e pendências](../fiscal/historico-correcoes-2026-10-18.md#nf-de-saída--fila-dos-rascunhos-fiscais).
 
 Conferência da assistência em 18/10: 54 testes em seis arquivos, lint sem erros (três avisos) e build do frontend ERP em 1m45s aprovados. TypeScript global: 359 diagnósticos fora dos arquivos conferidos. [Causa, arquivos e limites](../fiscal/historico-correcoes-2026-10-18.md#assistência--contexto-e-confirmação-do-proprietário).

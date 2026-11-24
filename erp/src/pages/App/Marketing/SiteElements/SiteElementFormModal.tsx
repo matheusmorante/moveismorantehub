@@ -3,11 +3,12 @@ import { createPortal } from 'react-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import FixedAspectImageCropper from '../Posts/FixedAspectImageCropper';
+import AnnouncementBarFormModal from './AnnouncementBarFormModal';
 import {
   SITE_ELEMENT_CONFIG,
   SITE_ELEMENT_LINK_MAX_LENGTH,
   siteElementImageFileSchema,
-  siteElementModelFormSchema,
+  siteElementCarouselFormSchema,
   type SiteElementKind,
 } from '../../../../../../shared-utils/siteElementSchemas';
 import {
@@ -16,7 +17,7 @@ import {
   LEGACY_CAROUSEL_IMAGE,
   type CarouselBannerVariant,
 } from '../../../../../../shared-utils/siteElementDimensions';
-import { saveSiteElementModel, siteElementErrorMessage, siteElementImageUrl, type SiteElementModel } from './siteElementService';
+import { saveSiteElementModel, siteElementErrorMessage, siteElementImageUrl, type CarouselSiteElementModel, type SiteElementModel } from './siteElementService';
 
 interface Props {
   kind: SiteElementKind;
@@ -25,9 +26,9 @@ interface Props {
   onSaved: (cleanupFailed: boolean) => void;
 }
 
-function storedVariant(kind: SiteElementKind, variant: 'mobile' | 'tablet', model?: SiteElementModel) {
+function storedVariant(variant: 'mobile' | 'tablet', model?: CarouselSiteElementModel) {
   const existingImagePath = model?.[`${variant}_image_path`] ?? null;
-  const dimensions = kind === 'carousel' && existingImagePath ? CAROUSEL_BANNER_IMAGES[variant] : undefined;
+  const dimensions = existingImagePath ? CAROUSEL_BANNER_IMAGES[variant] : undefined;
   return {
     file: null,
     existingImagePath,
@@ -36,16 +37,25 @@ function storedVariant(kind: SiteElementKind, variant: 'mobile' | 'tablet', mode
   };
 }
 
-export default function SiteElementFormModal({ kind, model, onClose, onSaved }: Props) {
-  const config = SITE_ELEMENT_CONFIG[kind];
+export default function SiteElementFormModal(props: Props) {
+  if (props.kind === 'top_bar') {
+    return <AnnouncementBarFormModal model={props.model?.kind === 'top_bar' ? props.model : undefined}
+      onClose={props.onClose} onSaved={props.onSaved} />;
+  }
+  return <CarouselSiteElementFormModal model={props.model?.kind === 'carousel' ? props.model : undefined}
+    onClose={props.onClose} onSaved={props.onSaved} />;
+}
+
+function CarouselSiteElementFormModal({ model, onClose, onSaved }: Omit<Props, 'kind'> & { model?: CarouselSiteElementModel }) {
+  const config = SITE_ELEMENT_CONFIG.carousel;
   const form = useForm({
-    resolver: zodResolver(siteElementModelFormSchema),
+    resolver: zodResolver(siteElementCarouselFormSchema),
     defaultValues: {
-      name: model?.name || '', kind, file: null, existingImagePath: model?.image_path || null,
+      name: model?.name || '', kind: 'carousel', file: null, existingImagePath: model?.image_path || null,
       linkUrl: model?.link_url ?? '',
       width: model?.width || 0, height: model?.height || 0,
-      mobile: storedVariant(kind, 'mobile', model),
-      tablet: storedVariant(kind, 'tablet', model),
+      mobile: storedVariant('mobile', model),
+      tablet: storedVariant('tablet', model),
     },
   });
   const desktop = { file: form.watch('file'), existingImagePath: form.watch('existingImagePath') };
@@ -57,7 +67,7 @@ export default function SiteElementFormModal({ kind, model, onClose, onSaved }: 
   const dialog = useRef<HTMLDivElement>(null);
   const { isSubmitting, errors } = form.formState;
   const busy = isSubmitting || !!cropRequest;
-  const legacyCarousel = kind === 'carousel' && model?.height === LEGACY_CAROUSEL_IMAGE.height;
+  const legacyCarousel = model?.height === LEGACY_CAROUSEL_IMAGE.height;
   const updatingLegacy = legacyCarousel && !!(desktop.file || tablet?.file || mobile?.file);
 
   useEffect(() => {
@@ -75,7 +85,7 @@ export default function SiteElementFormModal({ kind, model, onClose, onSaved }: 
         form.setValue('width', model?.width ?? 0);
         form.setValue('height', model?.height ?? 0);
       } else {
-        form.setValue(variant, storedVariant(kind, variant, model), { shouldDirty: true });
+        form.setValue(variant, storedVariant(variant, model), { shouldDirty: true });
       }
       form.setError(field, { message: parsed.error.issues[0].message });
       return;
@@ -87,7 +97,7 @@ export default function SiteElementFormModal({ kind, model, onClose, onSaved }: 
   const confirmCrop = (croppedFile: File) => {
     if (!cropRequest) return;
     const { variant } = cropRequest;
-    const dimensions = kind === 'carousel' ? CAROUSEL_BANNER_IMAGES[variant] : config;
+    const dimensions = CAROUSEL_BANNER_IMAGES[variant];
     if (variant === 'desktop') {
       form.setValue('file', croppedFile, { shouldDirty: true });
       form.setValue('width', dimensions.width);
@@ -117,7 +127,7 @@ export default function SiteElementFormModal({ kind, model, onClose, onSaved }: 
   });
 
   const cropVariant = cropRequest?.variant ?? 'desktop';
-  const cropTarget = kind === 'carousel' ? CAROUSEL_BANNER_IMAGES[cropVariant] : config;
+  const cropTarget = CAROUSEL_BANNER_IMAGES[cropVariant];
 
   return createPortal(<div className="fixed inset-0 z-[100000] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
     <div ref={dialog} role="dialog" tabIndex={-1} aria-modal="true" aria-labelledby="site-element-dialog-title"
@@ -152,7 +162,7 @@ export default function SiteElementFormModal({ kind, model, onClose, onSaved }: 
             className="w-full rounded-xl border border-slate-300 bg-transparent px-3 py-2.5 outline-none focus:border-pink-500 dark:border-slate-700" />
           {errors.name && <p id="site-element-name-error" role="alert" className="mt-1 text-sm text-red-600">{errors.name.message}</p>}
         </div>
-        {kind === 'carousel' && <div>
+        <div>
           <label htmlFor="site-element-link" className="mb-1 block text-sm font-semibold">Link de destino</label>
           <input id="site-element-link" {...form.register('linkUrl')} type="text" inputMode="url"
             autoComplete="url" maxLength={SITE_ELEMENT_LINK_MAX_LENGTH} disabled={busy}
@@ -161,17 +171,8 @@ export default function SiteElementFormModal({ kind, model, onClose, onSaved }: 
             className="w-full rounded-xl border border-slate-300 bg-transparent px-3 py-2.5 outline-none focus:border-pink-500 dark:border-slate-700" />
           <p id="site-element-link-help" className="mt-1 text-xs text-slate-500">Endereço que abre ao clicar na imagem do catálogo. Campo opcional.</p>
           {errors.linkUrl && <p id="site-element-link-error" role="alert" className="mt-1 text-sm text-red-600">{errors.linkUrl.message}</p>}
-        </div>}
-        {kind === 'top_bar' ? <div className="space-y-4">
-          <div>
-            <h3 className="text-sm font-semibold">Imagem para desktop</h3>
-            <p className="mt-1 text-sm text-slate-500">Esta barra será exibida somente em telas desktop. Selecione uma imagem e ajuste o recorte antes de salvar. PNG, JPG ou WebP, até 5 MB.</p>
-          </div>
-          <SiteElementAssetField id="site-element-desktop" label="Imagem para desktop" dimensions={config}
-            file={desktop.file} existingImagePath={desktop.existingImagePath} existingFileName={model?.file_name}
-            error={errors.file?.message} disabled={isSubmitting} required={!model || !desktop.existingImagePath}
-            onSelect={(file) => selectFile('desktop', file)} />
-        </div> : <div className="space-y-3">
+        </div>
+        <div className="space-y-3">
           <p className="text-sm text-slate-500">Selecione as três versões do banner. PNG, JPG ou WebP, até 5 MB por arquivo.</p>
           {legacyCarousel && <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-950/50 dark:text-amber-200">
             Este modelo tem uma imagem de 1920 × 620 px. Para atualizar o banner, selecione e recorte as três versões.
@@ -188,7 +189,7 @@ export default function SiteElementFormModal({ kind, model, onClose, onSaved }: 
                 onSelect={(file) => selectFile(variant, file)} />;
             })}
           </div>
-        </div>}
+        </div>
         {errors.root && <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950/30 dark:text-red-300">{errors.root.message}</p>}
         {isSubmitting && <p role="status" className="flex items-center gap-2 text-sm text-pink-600"><i className="bi bi-arrow-repeat animate-spin" />Salvando modelo…</p>}
         <div className="flex justify-end gap-3 border-t border-slate-100 pt-4 dark:border-slate-800">
@@ -197,10 +198,10 @@ export default function SiteElementFormModal({ kind, model, onClose, onSaved }: 
         </div>
       </form>
     </div>
-    {cropRequest && <FixedAspectImageCropper file={cropRequest.file} kind={kind === 'carousel' ? 'carousel' : 'header'}
-      label={kind === 'carousel' ? `imagem para ${CAROUSEL_BANNER_IMAGES[cropVariant].label.toLowerCase()}` : 'desktop'} targetSize={cropTarget}
-      preferredMaxBytes={kind === 'carousel' ? CAROUSEL_BANNER_IMAGES[cropVariant].preferredMaxBytes : undefined}
-      confirmLabel={kind === 'carousel' ? 'Concluir' : undefined}
+    {cropRequest && <FixedAspectImageCropper file={cropRequest.file} kind="carousel"
+      label={`imagem para ${CAROUSEL_BANNER_IMAGES[cropVariant].label.toLowerCase()}`} targetSize={cropTarget}
+      preferredMaxBytes={CAROUSEL_BANNER_IMAGES[cropVariant].preferredMaxBytes}
+      confirmLabel="Concluir"
       onCancel={() => setCropRequest(null)} onConfirm={confirmCrop} />}
   </div>, document.body);
 }

@@ -7,7 +7,7 @@ import { SubHeader } from './sub-header';
 import { Footer } from './footer';
 import { WhatsAppButton } from './whatsapp-button';
 
-export function SiteChrome({ children }: { children: React.ReactNode }) {
+export function SiteChrome({ children, announcementBar }: { children: React.ReactNode; announcementBar?: React.ReactNode }) {
   const pathname = usePathname();
   const isAdminRoute = pathname.startsWith('/admin');
 
@@ -17,6 +17,7 @@ export function SiteChrome({ children }: { children: React.ReactNode }) {
 
   return (
     <>
+      {announcementBar}
       <Header />
       <Suspense fallback={<div className="h-[46px] sm:h-[54px] bg-primary animate-pulse w-full" />}>
         <SubHeader />

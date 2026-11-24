@@ -7,6 +7,7 @@ import { StoreDesignProvider, SiteChrome } from '@/components/layout';
 import { ReactQueryProvider } from '@/lib/react-query-provider';
 import { ConfirmDialogProvider } from '@/components/providers/confirm-dialog-provider';
 import { CatalogVisitTracker } from '@/features/analytics/CatalogVisitTracker';
+import { AnnouncementBar } from '@/features/announcement-bar';
 
 const inter = Inter({
   variable: '--font-sans',
@@ -55,7 +56,9 @@ export default function RootLayout({
           <ReactQueryProvider>
             <Suspense fallback={null}>
               <CatalogVisitTracker />
-              <SiteChrome>{children}</SiteChrome>
+              <SiteChrome announcementBar={<Suspense fallback={null}><AnnouncementBar /></Suspense>}>
+                {children}
+              </SiteChrome>
             </Suspense>
           </ReactQueryProvider>
         </ConfirmDialogProvider>

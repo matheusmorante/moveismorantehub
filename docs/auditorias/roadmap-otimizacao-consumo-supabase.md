@@ -22150,3 +22150,49 @@ A leitura somente de metadados autorizada para conferir as permissões da SCE-24
 **Validação:** revisão estática dos fontes/scripts e dos registros de consumo existentes; nenhuma consulta ao Logs Explorer foi executada nesta tarefa para não ampliar o medidor. Nenhum teste, migration, DML ou alteração remota foi executado. O consumo dos próximos dias precisa ser comparado no painel no mesmo escopo de projetos e janela de cobrança.
 
 **Arquivos alterados:** AGENTS.md (regra 25; novas restrições de consultas Logs Query) e este roadmap. Nenhum código de produto foi alterado porque não foi encontrada chamada de Logs Query no repositório.
+
+## Ciclo — 24/11/2026 — mostrar banners após a ativação no próximo carregamento (SCE-372)
+
+**Sintoma e evidência:** o modelo estava ativo e completo no Supabase operacional. A página local do Catálogo Digital respondeu HTTP 200 e continha as URLs das três versões responsivas. `getStorefrontCarouselBanners` aplicava cache de 60 segundos, enquanto a ativação no ERP invalidava somente a lista React Query do próprio ERP; não havia invalidação do cache do catálogo.
+
+**Correção aplicada:** a leitura pública do carrossel usa `cache: 'no-store'`. A próxima requisição completa da página consulta o estado atual no Supabase e não reutiliza um resultado anterior ao acionamento de **Ativo**.
+
+**Opções, estimativa e decisão:** manter a revalidação de 60 segundos reduziria leituras repetidas, mas poderia servir o estado anterior após a ativação; foi escolhida a leitura sem cache para refletir o estado no próximo carregamento. Isso implica um pedido REST compacto por requisição da página inicial, com a projeção explícita e o filtro RLS de banners ativos e completos preservados. O estado atual tinha um modelo elegível; chamadas, bytes, egress oficial, CPU e latência não foram medidos. **Status:** executada a pedido do usuário, sem alteração no banco ou publicação.
+
+**Validação e limites:** histórico de migrations, política pública e contagem agregada de banners ativos/completos foram consultados somente para leitura no projeto operacional `hkoxhourxwlddgsfdgws`. A página local respondeu HTTP 200 e o HTML renderizado continha as referências das três versões do banner. Nenhuma migration, escrita de dados, teste ou publicação foi executada. Em desenvolvimento, pode ser necessário recarregar completamente a página para limpar o cache de HMR do Next.js.
+
+**Arquivos alterados:** `digital-catalog/src/features/carousel-banners/server.ts` e `docs/marketing/elementos-do-site-2026-11-06.md`.
+
+## Ciclo — 24/11/2026 — avisos de texto na vitrine (SCE-373)
+
+**Problema observado e causa:** a seção administrativa “Barra de avisos” ainda salvava modelos de imagem na tabela legada. O formato solicitado é por aviso de texto com cores, tipografia, ativação e agenda; o catálogo não tinha uma leitura pública desse formato. A tabela legada estava vazia no projeto operacional, então foi preservada sem conversão ou exclusão.
+
+**Alteração:** foi criada a tabela `public.site_element_announcement_bars` com texto de até 240 caracteres, cores hexadecimais, pesos/tamanhos permitidos, ativação e datas opcionais. A política autenticada mantém a permissão `manageSiteElements`; a leitura `anon` só vê avisos ativos dentro do período e recebe as colunas necessárias para exibição/ordenação. A interface ERP salva com React Hook Form e `zodResolver`, não oferece imagem ou link no aviso e usa um interruptor por registro. O Catálogo Digital lê apenas as colunas visuais e mostra os avisos em sequência, sem controles de rotação ou opções gerais. Agenda, ativação, estilos e texto são salvos juntos por aviso. A migration aditiva `20261124225621_add_site_element_announcement_bars.sql` foi aplicada no projeto operacional, schema `public`; não cria nem remove dados existentes.
+
+**Pedidos, bytes e banco — medidas separadas:**
+
+- **Pedidos:** a biblioteca administrativa continua fazendo uma leitura paginada por página aberta. A barra pública acrescenta uma leitura REST por renderização completa que passa pelo layout do catálogo; cache persistente poderia reduzir essa chamada, mas atrasaria a atualização de ativações e horários. Nenhuma frequência operacional foi medida.
+- **Bytes/egress:** cada resposta pública contém apenas `id`, texto, cores, peso, tamanho e campo de ordenação, sem imagens, links, estado administrativo ou datas da agenda. A projeção administrativa é limitada a 15 linhas. Não foram medidos bytes reais ou egress faturável.
+- **Trabalho e latência do banco:** RLS elimina no servidor avisos inativos ou fora de período. O índice `(created_at DESC, id)` atende à ordenação pública e administrativa. Não foram medidos plano, CPU, tempo ou carga; o índice e o filtro não são apresentados como economia comprovada.
+- **Experiência percebida:** a leitura da barra não bloqueia o ERP. Na vitrine, a busca ocorre pelo layout raiz e o componente não usa cache persistente para refletir mudanças no próximo render. Não há amostra de p50/p95 nem prova visual após gravar um aviso. Como a nova tabela permanece sem linhas, a barra continuará invisível até um aviso ser cadastrado e ativado.
+
+**RLS e migração:** antes da aplicação, histórico remoto, ausência da tabela nova, zero linhas da tabela antiga, `has_manage_site_elements_permission()`, `touch_site_element_model_updated_at()` e `gen_random_uuid()` foram conferidos no ref `hkoxhourxwlddgsfdgws`. Após a aplicação, foram conferidos histórico, colunas, RLS habilitada, policies autenticada/anônima, índice, trigger e leitura sob `SET ROLE anon`; a nova tabela estava vazia. Não houve fixture, DML de teste, teste automatizado, build, publicação ou OTA. Reversão de código pode deixar a tabela aditiva intacta; ela não deve ser removida para preservar avisos que venham a ser criados.
+
+**Arquivos:** `supabase/migrations/20261124225621_add_site_element_announcement_bars.sql`, `shared-utils/schemas/siteElementSchemas.ts`, `erp/src/pages/App/Marketing/SiteElements/AnnouncementBarFormModal.tsx`, `SiteElementFormModal.tsx`, `SiteElementModelActions.tsx`, `SiteElementDeleteDialog.tsx`, `SiteElementDeleteDialog.test.tsx`, `siteElementService.ts`, `siteElementService.test.ts`, `index.tsx`, `index.test.tsx`, `siteElementSchemas.test.ts`, `digital-catalog/src/features/announcement-bar/server.tsx`, `digital-catalog/src/app/layout.tsx`, `digital-catalog/src/components/layout/site-chrome.tsx`, `docs/marketing/elementos-do-site-2026-11-06.md` e este roadmap.
+
+**Próximo recorte exato:** comparar, em um carregamento de catálogo equivalente, as requisições e bytes da leitura pública de avisos com e sem linhas e verificar o tempo de atualização após ativar/desativar ou chegar ao início/fim do período. Só usar aviso existente e operação de UI autorizada; não inserir fixtures. Manter números de chamadas, bytes/egress, banco e rapidez em métricas separadas.
+
+## Ciclo de 24/11/2026 — um aviso ativo na vitrine (SCE-374)
+
+**Evidência e decisão.** A aplicação podia ativar cada aviso separadamente e a vitrine renderizava todas as linhas públicas. O operador pediu uma única seleção, com a agenda aplicada à visibilidade. A alternativa de limitar somente a saída da vitrine manteria seleções simultâneas no ERP. A migration `20261124232124` aplica exclusividade no banco com índice único parcial e faz a troca em um comando transacional. A consulta de pré-aplicação encontrou um único aviso ativo e sem datas. A migration preservou esse registro.
+
+| Medida | Mudança e limite |
+| --- | --- |
+| Pedidos | O catálogo mantém uma leitura a cada carregamento completo e remove a faixa ao vencer sem pedir dados de novo. No ERP, a troca usa um comando que atualiza ambos os avisos e uma releitura da página aberta para obter seus estados e versões confirmados. A frequência real de trocas é desconhecida. |
+| Bytes e saída | A resposta pública tem até uma linha. A projeção troca o identificador pelo fim da exibição, usado no navegador. A releitura do ERP usa a projeção existente de até 15 linhas. Bytes reais e saída faturável não foram medidos. |
+| Banco | A política pública aplica estado, início e fim antes do limite de uma linha. O plano sob o papel `anon` mostrou o filtro abaixo de `Limit`. O índice garante exclusividade. A troca bloqueia por versão antes de desativar o aviso anterior. CPU, latência de execução e volume de tráfego não foram medidos. |
+| Exibição | O catálogo de desenvolvimento mostrou o aviso existente acima do cabeçalho em desktop e celular. O teste isolado confirmou a remoção ao vencer. O início de um aviso agendado passa a valer no próximo carregamento completo. |
+
+**Status e validação.** Implementação pedida pelo operador. A migration foi aplicada no projeto operacional `hkoxhourxwlddgsfdgws`, em `public`. O histórico, o índice válido, o padrão inativo, as permissões e a leitura pública de um aviso foram confirmados sem trocar registros operacionais. A validação de gravação remota depende de fixture autorizada. A versão do domínio público consultada ainda não apresentava a faixa. [Operação, arquivos e verificações](../marketing/elementos-do-site-2026-11-06.md#atualização-de-24112026--somente-um-aviso-ativo).
+
+**Arquivos do recorte.** `supabase/migrations/20261124232124_enforce_single_active_site_element_announcement.sql`, `erp/src/pages/App/Marketing/SiteElements/`, `digital-catalog/src/features/announcement-bar/`, `digital-catalog/src/app/layout.tsx` e `erp/tests/catalog-forms/announcementBar.test.tsx`.

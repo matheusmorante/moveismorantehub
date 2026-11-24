@@ -2,8 +2,11 @@ import type { PostgrestResponse } from '@supabase/supabase-js';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import {
   siteElementActivationFormSchema,
+  siteElementAnnouncementFormSchema,
+  siteElementCarouselFormSchema,
   siteElementDeleteFormSchema,
   siteElementModelFormSchema,
+  type SiteElementAnnouncementFormValues,
   type SiteElementActivationFormValues,
   type SiteElementKind,
   type SiteElementModelFormValues,
@@ -14,13 +17,13 @@ import type { CarouselBannerVariant } from '../../../../../../shared-utils/siteE
 export const SITE_ELEMENT_PAGE_SIZE = 15;
 const BUCKET = 'products';
 const CAROUSEL_FIELDS = 'id,name,image_path,file_name,mime_type,size_bytes,width,height,updated_at,active,tablet_image_path,tablet_file_name,mobile_image_path,mobile_file_name,link_url';
-const TOP_BAR_FIELDS = 'id,name,image_path,file_name,mime_type,size_bytes,width,height,mobile_image_path,mobile_file_name,mobile_mime_type,mobile_size_bytes,mobile_width,mobile_height,tablet_image_path,tablet_file_name,tablet_mime_type,tablet_size_bytes,tablet_width,tablet_height,updated_at';
+const ANNOUNCEMENT_FIELDS = 'id,message,background_color,text_color,font_weight,font_size_px,starts_at,ends_at,active,updated_at';
 const REQUEST_TIMEOUT = 20_000;
 const EXTRA_CAROUSEL_VARIANTS = ['tablet', 'mobile'] as const;
 
-export interface SiteElementModel {
+export interface CarouselSiteElementModel {
   id: string;
-  kind: SiteElementKind;
+  kind: 'carousel';
   name: string;
   image_path: string;
   file_name: string;
@@ -45,7 +48,26 @@ export interface SiteElementModel {
   updated_at: string;
 }
 
-type SiteElementModelRow = Omit<SiteElementModel, 'kind'>;
+export interface AnnouncementBarModel {
+  id: string;
+  kind: 'top_bar';
+  message: string;
+  background_color: string;
+  text_color: string;
+  font_weight: number;
+  font_size_px: number;
+  starts_at: string | null;
+  ends_at: string | null;
+  active: boolean;
+  updated_at: string;
+}
+
+export type SiteElementModel = CarouselSiteElementModel | AnnouncementBarModel;
+type SiteElementModelRow = Omit<CarouselSiteElementModel, 'kind'> | Omit<AnnouncementBarModel, 'kind'>;
+
+export function siteElementModelLabel(model: SiteElementModel) {
+  return model.kind === 'top_bar' ? model.message : model.name;
+}
 
 export function siteElementImageUrl(path: string) {
   return supabase.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
@@ -53,7 +75,7 @@ export function siteElementImageUrl(path: string) {
 
 export async function fetchSiteElementModels(kind: SiteElementKind, page: number, signal?: AbortSignal) {
   const selection = kind === 'top_bar'
-    ? supabase.from('site_element_top_bar_models').select(TOP_BAR_FIELDS, { count: 'exact' })
+    ? supabase.from('site_element_announcement_bars').select(ANNOUNCEMENT_FIELDS, { count: 'exact' })
     : supabase.from('site_element_models').select(CAROUSEL_FIELDS, { count: 'exact' }).eq('kind', 'carousel');
   let query = selection.order('created_at', { ascending: false }).order('id')
     .range((page - 1) * SITE_ELEMENT_PAGE_SIZE, page * SITE_ELEMENT_PAGE_SIZE - 1);
@@ -61,24 +83,26 @@ export async function fetchSiteElementModels(kind: SiteElementKind, page: number
   const result = await withTimeout<PostgrestResponse<SiteElementModelRow> | null>(query, REQUEST_TIMEOUT, null, 'Consultar elementos do site');
   if (!result) throw new Error('A consulta demorou demais. Tente atualizar a lista.');
   if (result.error) throw result.error;
-  const rows = (result.data || []).map((row): SiteElementModel => ({ ...row, kind }));
+  const rows = (result.data || []).map((row): SiteElementModel => ({ ...row, kind } as SiteElementModel));
   return { rows, count: result.count || 0 };
 }
 
 export async function setSiteElementActivation(values: SiteElementActivationFormValues) {
-  const { id, active, updated_at } = siteElementActivationFormSchema.parse(values);
-  const update = supabase.from('site_element_models')
-    .update({ active })
-    .eq('id', id)
-    .eq('kind', 'carousel')
-    .eq('updated_at', updated_at)
-    .select('id,active,updated_at')
-    .maybeSingle();
-  const result = await withTimeout(update, REQUEST_TIMEOUT, null, 'Alterar status do modelo');
+  const { id, kind, active, updated_at } = siteElementActivationFormSchema.parse(values);
+  const resultQuery = kind === 'top_bar'
+    ? supabase.rpc('set_site_element_announcement_activation', {
+      p_id: id,
+      p_active: active,
+      p_expected_updated_at: updated_at,
+    }).maybeSingle()
+    : supabase.from('site_element_models').update({ active }).eq('id', id).eq('kind', 'carousel').eq('updated_at', updated_at).select('id,active,updated_at').maybeSingle();
+  const result = await withTimeout(resultQuery, REQUEST_TIMEOUT, null, kind === 'top_bar' ? 'Alterar status do aviso' : 'Alterar status do modelo');
   if (!result) throw new Error('A alteração de status demorou demais. Confira o status atualizado antes de tentar novamente.');
   if (result.error) throw result.error;
-  if (!result.data) throw new Error('O modelo foi alterado ou removido por outro usuário. Confira a lista atualizada.');
-  return siteElementActivationFormSchema.parse(result.data);
+  if (!result.data) throw new Error(kind === 'top_bar'
+    ? 'O aviso foi alterado ou removido por outro usuário. Confira a lista atualizada.'
+    : 'O modelo foi alterado ou removido por outro usuário. Confira a lista atualizada.');
+  return siteElementActivationFormSchema.parse({ ...result.data, kind });
 }
 
 async function removeImages(paths: Array<string | null | undefined>): Promise<boolean> {
@@ -117,10 +141,38 @@ function carouselVariantColumns(variant: 'tablet' | 'mobile', image: UploadedIma
   };
 }
 
-export async function saveSiteElementModel(values: SiteElementModelFormValues, original?: SiteElementModel) {
-  const parsed = siteElementModelFormSchema.parse(values);
-  if (original && (original.kind !== parsed.kind
-    || original.image_path !== parsed.existingImagePath
+function localDateTimeToIso(value: string) {
+  return value ? new Date(value).toISOString() : null;
+}
+
+async function saveAnnouncementBar(values: SiteElementAnnouncementFormValues, original?: AnnouncementBarModel) {
+  const parsed = siteElementAnnouncementFormSchema.parse(values);
+  const id = original?.id || crypto.randomUUID();
+  const payload = {
+    message: parsed.message,
+    background_color: parsed.backgroundColor.toUpperCase(),
+    text_color: parsed.textColor.toUpperCase(),
+    font_weight: Number(parsed.fontWeight),
+    font_size_px: Number(parsed.fontSizePx),
+    starts_at: localDateTimeToIso(parsed.startsAt),
+    ends_at: localDateTimeToIso(parsed.endsAt),
+    updated_at: new Date().toISOString(),
+  };
+  const mutation = original
+    ? supabase.from('site_element_announcement_bars').update(payload).eq('id', id).eq('updated_at', original.updated_at)
+    : supabase.from('site_element_announcement_bars').insert({ id, ...payload, active: false });
+  const result = await withTimeout(
+    mutation.select(ANNOUNCEMENT_FIELDS).maybeSingle(), REQUEST_TIMEOUT, null, 'Salvar aviso do site',
+  );
+  if (!result) throw new Error('O salvamento não foi confirmado. Atualize a lista antes de repetir.');
+  if (result.error) throw result.error;
+  if (!result.data) throw new Error('O aviso foi alterado ou removido por outro usuário. Atualize a lista.');
+  return { model: { ...result.data, kind: 'top_bar' as const } as AnnouncementBarModel, cleanupFailed: false };
+}
+
+async function saveCarouselModel(values: SiteElementModelFormValues, original?: CarouselSiteElementModel) {
+  const parsed = siteElementCarouselFormSchema.parse(values);
+  if (original && (original.image_path !== parsed.existingImagePath
     || (original.mobile_image_path ?? null) !== parsed.mobile.existingImagePath
     || (original.tablet_image_path ?? null) !== parsed.tablet.existingImagePath
     || (!parsed.file && (original.width !== parsed.width || original.height !== parsed.height)))) {
@@ -135,12 +187,10 @@ export async function saveSiteElementModel(values: SiteElementModelFormValues, o
   const id = original?.id || crypto.randomUUID();
   const uploaded: Partial<Record<CarouselBannerVariant, UploadedImage>> = {};
   try {
-    if (parsed.file) uploaded.desktop = await uploadModelImage(parsed.file, parsed.kind, id);
-    if (parsed.kind === 'carousel') {
-      for (const variant of EXTRA_CAROUSEL_VARIANTS) {
-        const file = parsed[variant].file;
-        if (file) uploaded[variant] = await uploadModelImage(file, parsed.kind, id);
-      }
+    if (parsed.file) uploaded.desktop = await uploadModelImage(parsed.file, 'carousel', id);
+    for (const variant of EXTRA_CAROUSEL_VARIANTS) {
+      const file = parsed[variant].file;
+      if (file) uploaded[variant] = await uploadModelImage(file, 'carousel', id);
     }
   } catch (error) {
     await removeImages(Object.values(uploaded).map((image) => image.image_path));
@@ -160,20 +210,17 @@ export async function saveSiteElementModel(values: SiteElementModelFormValues, o
     width: parsed.width, height: parsed.height,
     updated_at: new Date().toISOString(),
   };
-  const payload = parsed.kind === 'top_bar' ? basePayload : {
+  const payload = {
     ...basePayload,
-    kind: parsed.kind,
     ...(parsed.linkUrl !== undefined ? { link_url: parsed.linkUrl || null } : {}),
     ...carouselVariantColumns('tablet', uploaded.tablet, parsed.tablet),
     ...carouselVariantColumns('mobile', uploaded.mobile, parsed.mobile),
   };
-  const table = parsed.kind === 'top_bar' ? 'site_element_top_bar_models' : 'site_element_models';
-  const fields = parsed.kind === 'top_bar' ? TOP_BAR_FIELDS : CAROUSEL_FIELDS;
   const mutation = original
-    ? supabase.from(table).update(payload).eq('id', id).eq('updated_at', original.updated_at)
-    : supabase.from(table).insert<typeof payload>(payload);
+    ? supabase.from('site_element_models').update(payload).eq('id', id).eq('kind', 'carousel').eq('updated_at', original.updated_at)
+    : supabase.from('site_element_models').insert({ ...payload, kind: 'carousel' });
   const result = await withTimeout(
-    mutation.select<string>(fields).maybeSingle<SiteElementModelRow>(), REQUEST_TIMEOUT, null, 'Salvar modelo do site',
+    mutation.select<string>(CAROUSEL_FIELDS).maybeSingle<SiteElementModelRow>(), REQUEST_TIMEOUT, null, 'Salvar modelo do site',
   );
   // Uma resposta incerta pode já apontar para os novos arquivos; nesse caso, preserve-os.
   if (!result) throw new Error('O salvamento não foi confirmado. Feche o formulário e atualize a lista antes de repetir.');
@@ -194,16 +241,34 @@ export async function saveSiteElementModel(values: SiteElementModelFormValues, o
     uploaded.tablet ? original?.tablet_image_path : null,
     uploaded.mobile ? original?.mobile_image_path : null,
   ].filter((path) => !retainedPaths.has(path ?? undefined))));
-  return { model: { ...result.data, kind: parsed.kind }, cleanupFailed };
+  return { model: { ...result.data, kind: 'carousel' as const }, cleanupFailed };
 }
 
-export async function deleteSiteElementModel(model: SiteElementModel) {
+export async function saveSiteElementModel(values: SiteElementModelFormValues, original?: SiteElementModel) {
+  const parsed = siteElementModelFormSchema.parse(values);
+  if (parsed.kind === 'top_bar') {
+    if (original && original.kind !== 'top_bar') throw new Error('O modelo mudou. Feche o formulário e abra novamente.');
+    return saveAnnouncementBar(parsed, original?.kind === 'top_bar' ? original : undefined);
+  }
+  if (original && original.kind !== 'carousel') throw new Error('O modelo mudou. Feche o formulário e abra novamente.');
+  return saveCarouselModel(parsed, original?.kind === 'carousel' ? original : undefined);
+}
+
+export async function deleteSiteElementModel(model: Pick<SiteElementModel, 'id' | 'kind' | 'updated_at'>) {
   const parsed = siteElementDeleteFormSchema.parse(model);
-  const table = parsed.kind === 'top_bar' ? 'site_element_top_bar_models' : 'site_element_models';
-  let deletion = supabase.from(table).delete().eq('id', parsed.id).eq('updated_at', model.updated_at);
-  if (parsed.kind === 'carousel') deletion = deletion.eq('kind', 'carousel');
+  if (parsed.kind === 'top_bar') {
+    const deletion = supabase.from('site_element_announcement_bars').delete().eq('id', parsed.id).eq('updated_at', model.updated_at)
+      .select('id').maybeSingle();
+    const result = await withTimeout(deletion, REQUEST_TIMEOUT, null, 'Excluir aviso do site');
+    if (!result) throw new Error('A exclusão não foi confirmada. Atualize a lista antes de repetir.');
+    if (result.error) throw result.error;
+    if (!result.data) throw new Error('O aviso foi alterado ou removido por outro usuário. Atualize a lista.');
+    return { cleanupFailed: false };
+  }
+  const deletion = supabase.from('site_element_models').delete().eq('id', parsed.id).eq('kind', 'carousel').eq('updated_at', model.updated_at)
+    .select('image_path,mobile_image_path,tablet_image_path').maybeSingle();
   const result = await withTimeout(
-    deletion.select('image_path,mobile_image_path,tablet_image_path').maybeSingle(),
+    deletion,
     REQUEST_TIMEOUT, null, 'Excluir modelo do site',
   );
   if (!result) throw new Error('A exclusão não foi confirmada. Atualize a lista antes de repetir.');

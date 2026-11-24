@@ -5,6 +5,7 @@ export default {
     { find: /^@\//, replacement: path.resolve(__dirname, '../digital-catalog/src') + '/' },
     { find: /^next\/navigation$/, replacement: path.resolve(__dirname, '../digital-catalog/node_modules/next/navigation.js') },
     { find: /^next\/link$/, replacement: path.resolve(__dirname, '../digital-catalog/node_modules/next/link.js') },
+    { find: /^server-only$/, replacement: path.resolve(__dirname, '../digital-catalog/node_modules/next/dist/compiled/server-only/empty.js') },
     { find: /^sonner$/, replacement: path.resolve(__dirname, '../digital-catalog/node_modules/sonner/dist/index.mjs') },
     { find: /^lucide-react$/, replacement: path.resolve(__dirname, './node_modules/lucide-react/dist/cjs/lucide-react.js') },
     { find: /^react-hook-form$/, replacement: path.resolve(__dirname, './node_modules/react-hook-form/dist/index.esm.mjs') },

@@ -1,9 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { deleteSiteElementModel, fetchSiteElementModels, saveSiteElementModel, setSiteElementActivation, type SiteElementModel } from './siteElementService';
 
-const mocks = vi.hoisted(() => ({ from: vi.fn(), upload: vi.fn(), remove: vi.fn() }));
+const mocks = vi.hoisted(() => ({ from: vi.fn(), rpc: vi.fn(), upload: vi.fn(), remove: vi.fn() }));
 vi.mock('@/pages/utils/supabaseConfig', () => ({ supabase: {
   from: mocks.from,
+  rpc: mocks.rpc,
   storage: { from: () => ({ upload: mocks.upload, remove: mocks.remove }) },
 } }));
 const original: SiteElementModel = {
@@ -56,7 +57,7 @@ describe('site element service', () => {
     expect(chain.abortSignal).toHaveBeenCalledWith(signal);
   });
   it('updates only the activation of the expected carousel revision and returns its new version', async () => {
-    const updated = { id: original.id, active: false, updated_at: '2026-11-06T20:01:00.123456+00:00' };
+    const updated = { id: original.id, kind: 'carousel' as const, active: false, updated_at: '2026-11-06T20:01:00.123456+00:00' };
     const chain = query({ data: updated, error: null });
     await expect(setSiteElementActivation({ ...updated, updated_at: original.updated_at })).resolves.toEqual(updated);
     expect(mocks.from).toHaveBeenCalledWith('site_element_models');
@@ -68,11 +69,34 @@ describe('site element service', () => {
     expect(mocks.remove).not.toHaveBeenCalled();
   });
   it('rejects invalid activation values before the request and reports a stale revision', async () => {
-    const values = { id: original.id, active: false, updated_at: original.updated_at };
+    const values = { id: original.id, kind: 'carousel' as const, active: false, updated_at: original.updated_at };
     await expect(setSiteElementActivation({ ...values, updated_at: '' })).rejects.toThrow(/Atualize a lista/);
     expect(mocks.from).not.toHaveBeenCalled();
     query({ data: null, error: null });
     await expect(setSiteElementActivation(values)).rejects.toThrow(/outro usuário/);
+  });
+  it('asks the server to switch the announcement in a single versioned operation', async () => {
+    const revision = { id: original.id, active: true, updated_at: '2026-11-24T18:01:00Z' };
+    mocks.rpc.mockReturnValue({ maybeSingle: vi.fn().mockResolvedValue({ data: revision, error: null }) });
+    await expect(setSiteElementActivation({ ...revision, kind: 'top_bar', updated_at: original.updated_at }))
+      .resolves.toEqual({ ...revision, kind: 'top_bar' });
+    expect(mocks.rpc.mock.calls).toEqual([['set_site_element_announcement_activation', {
+      p_id: original.id, p_active: true, p_expected_updated_at: original.updated_at,
+    }]]);
+    expect(mocks.from).not.toHaveBeenCalled();
+  });
+  it('creates an inactive announcement without changing the active one', async () => {
+    const chain = query({ data: { id: original.id, active: false }, error: null });
+    await saveSiteElementModel({
+      kind: 'top_bar', message: 'Aviso programado', backgroundColor: '#173D30', textColor: '#FFFFFF',
+      fontWeight: '400', fontSizePx: '14', startsAt: '', endsAt: '',
+    });
+    expect(mocks.from.mock.calls).toEqual([['site_element_announcement_bars']]);
+    expect(chain.insert.mock.calls).toEqual([[expect.objectContaining({
+      message: 'Aviso programado', active: false, starts_at: null, ends_at: null,
+    })]]);
+    expect(chain.update).not.toHaveBeenCalled();
+    expect(mocks.rpc).not.toHaveBeenCalled();
   });
   it('renames without reupload and preserves the image while guarding concurrent edits', async () => {
     const chain = query({ data: { ...original, name: 'Novo nome' }, error: null });

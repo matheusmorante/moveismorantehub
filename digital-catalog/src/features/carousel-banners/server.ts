@@ -21,7 +21,8 @@ export async function getStorefrontCarouselBanners(): Promise<StorefrontCarousel
   try {
     const response = await fetch(url, {
       headers: { apikey: supabaseAnonKey },
-      next: { revalidate: 60 },
+      // An ERP activation must be visible on the next storefront request.
+      cache: 'no-store',
       signal: AbortSignal.timeout(5_000),
     });
     if (!response.ok) return [];

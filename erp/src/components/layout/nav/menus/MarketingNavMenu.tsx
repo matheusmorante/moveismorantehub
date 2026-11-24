@@ -25,7 +25,7 @@ export const MarketingNavMenu: React.FC<Required<NavMenuProps>> = ({
           to="/marketing/site-elements"
           icon="bi-images"
           title="Elementos do site"
-          description="Carrossel e barra de destaque"
+          description="Carrossel e barra de avisos"
           onClick={close}
         />
       )}
