@@ -41,7 +41,8 @@ export function calculateMetaCatalogStats(
 
   products.forEach((parent) => {
     const isParentDeleted = parent.deleted || parent.deleted_at != null;
-    const isParentPublished = parent.status === 'published' && parent.active !== false && !parent.is_draft;
+    const isSalvado = parent.is_salvado === true || parent.product_kind === 'salvado';
+    const isParentPublished = parent.status === 'published' && (isSalvado || parent.active !== false) && !parent.is_draft;
     const parentVariations = variationsByParent[parent.id] || [];
 
     if (isParentDeleted) return;
@@ -53,7 +54,7 @@ export function calculateMetaCatalogStats(
 
     if (parentVariations.length > 0) {
       parentVariations.forEach((variation) => {
-        const isVarPublished = variation.active !== false && !variation.merged_to_variation_id
+        const isVarPublished = (isSalvado || variation.active !== false) && !variation.merged_to_variation_id
           && (!variation.status || variation.status === 'published');
         if (isVarPublished) {
           publishedVariations += 1;

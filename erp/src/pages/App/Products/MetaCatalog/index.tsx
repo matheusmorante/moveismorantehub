@@ -98,7 +98,7 @@ export default function MetaCatalog() {
               </h1>
             </div>
             <p className="text-slate-400 dark:text-slate-500 text-xs font-medium mt-1">
-              Resumo de publicação e sincronização direta via Meta Graph API
+              Status de publicação no ERP e resultado da sincronização com a Meta
             </p>
           </div>
         </div>
@@ -148,7 +148,7 @@ export default function MetaCatalog() {
                 {loadingStats ? '...' : stats.publishedSimple}
               </span>
               <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
-                publicados
+                para publicar
               </span>
             </div>
           </div>
@@ -168,7 +168,7 @@ export default function MetaCatalog() {
                 {loadingStats ? '...' : stats.publishedVariations}
               </span>
               <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400">
-                publicados
+                para publicar
               </span>
             </div>
           </div>
@@ -181,7 +181,7 @@ export default function MetaCatalog() {
           </div>
           <div>
             <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 block">
-              Não Publicados
+              Fora da publicação
             </span>
             <div className="flex items-baseline gap-1.5 mt-0.5">
               <span className="text-xl font-black text-slate-800 dark:text-slate-100">

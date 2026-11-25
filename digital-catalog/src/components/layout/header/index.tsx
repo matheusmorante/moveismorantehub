@@ -29,7 +29,7 @@ export function Header() {
 
   return (
     <header className="w-full border-b border-gray-100 bg-white shrink-0">
-      <div className="container mx-auto flex h-20 sm:h-24 md:h-28 items-center justify-between px-4 sm:px-8 md:px-12 lg:px-16 xl:px-24 gap-4">
+      <div className="container mx-auto flex h-20 sm:h-24 md:h-28 items-center justify-between px-2 sm:px-3 md:px-4 lg:px-16 xl:px-24 gap-4">
         <div className="flex items-center gap-3 h-full shrink-0">
           <MobileMenu />
           <BrandLogo isAdminMode={isAdminMode} />
@@ -57,7 +57,7 @@ export function Header() {
         ref={search.searchContainerRef as any}
         className="lg:hidden px-6 pb-4 pt-2 border-t border-gray-100/50 bg-white flex flex-col justify-center items-center relative"
       >
-        <form noValidate onSubmit={search.submit} className="flex w-full max-w-md items-center">
+        <form noValidate onSubmit={search.submit} className="flex w-full items-center">
           <SearchInput
             value={search.query}
             onChange={search.setQuery}
@@ -72,7 +72,7 @@ export function Header() {
 
         {/* Sugestões no Mobile */}
         {search.showSuggestions && (
-          <div className="w-full max-w-md mt-2 bg-white border border-gray-100 rounded-2xl overflow-hidden max-h-[300px] flex flex-col shadow-lg z-50 absolute top-full left-1/2 -translate-x-1/2">
+          <div className="mt-2 bg-white border border-gray-100 rounded-2xl overflow-hidden max-h-[300px] flex flex-col shadow-lg z-50 absolute top-full left-6 right-6">
             {search.loadingSuggestions ? (
               <div className="p-4 flex items-center justify-center gap-2 text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin text-primary" />

@@ -9,13 +9,13 @@ export const cartQuoteFormSchema = z.object({
   })).min(1, 'O carrinho está vazio.').max(100, 'Consulte até 100 produtos por vez.'),
 });
 
-export function reconcileCartQuote(items: CartItem[], rows: Array<{ id: string; price: number | string | null; stock: number | string | null }>) {
+export function reconcileCartQuote(items: CartItem[], rows: Array<{ id: string; price: number | string | null }>) {
   const byId = new Map(rows.map((row) => [row.id, row]));
   return items.map((item) => {
     const row = byId.get(item.id);
     if (!row || row.price == null || !Number.isFinite(Number(row.price)) || Number(row.price) < 0) {
       throw new Error(`${item.name} não está mais disponível no catálogo. Remova-o para continuar.`);
     }
-    return { ...item, price: Number(row.price), stock: row.stock == null ? null : Number(row.stock) };
+    return { ...item, price: Number(row.price) };
   });
 }

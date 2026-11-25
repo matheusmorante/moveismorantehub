@@ -59,6 +59,8 @@ pet-runs/
 .scannerwork/
 .maintenance/
 .serena/
+.codex/
+**/.codex/
 scratch/
 **/scratch/
 

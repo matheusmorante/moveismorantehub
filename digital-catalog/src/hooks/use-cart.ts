@@ -7,7 +7,6 @@ export interface CartItem {
   price: number;
   image: string;
   quantity: number;
-  stock?: number | null;
 }
 
 interface CartStore {
@@ -54,7 +53,7 @@ export const useCart = create<CartStore>()(
       clearCart: () => set({ items: [] }),
       refreshPrices: (quoted) => set({ items: get().items.map((item) => {
         const current = quoted.find((row) => row.id === item.id);
-        return current ? { ...item, price: current.price, stock: current.stock } : item;
+        return current ? { ...item, price: current.price } : item;
       }) }),
       totalItems: () => get().items.reduce((acc, item) => acc + item.quantity, 0),
       totalPrice: () => get().items.reduce((acc, item) => acc + item.price * item.quantity, 0),

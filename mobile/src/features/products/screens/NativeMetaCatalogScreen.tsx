@@ -146,7 +146,7 @@ export function NativeMetaCatalogScreen({
         <View style={styles.titleBlock}>
           <Text style={[styles.title, textStyle]}>Catálogo Meta</Text>
           <Text style={[styles.subtitle, mutedStyle]}>
-            Resumo de produtos e variações publicados no catálogo.
+            Status de publicação no ERP e resultado da sincronização com a Meta.
           </Text>
         </View>
 
@@ -218,7 +218,7 @@ export function NativeMetaCatalogScreen({
             dark={dark}
             surfaceStyle={surfaceStyle}
             label="Produtos Simples"
-            description="publicados"
+            description="para publicar"
             value={stats?.publishedSimple}
             color="#059669"
             Icon={Package}
@@ -227,7 +227,7 @@ export function NativeMetaCatalogScreen({
             dark={dark}
             surfaceStyle={surfaceStyle}
             label="Variações (Filhos)"
-            description="publicados"
+            description="para publicar"
             value={stats?.publishedVariations}
             color="#2563eb"
             Icon={Tags}
@@ -235,7 +235,7 @@ export function NativeMetaCatalogScreen({
           <StatCard
             dark={dark}
             surfaceStyle={surfaceStyle}
-            label="Não Publicados"
+            label="Fora da publicação"
             description="inativos/ocultos"
             value={stats?.notPublished}
             color="#d97706"

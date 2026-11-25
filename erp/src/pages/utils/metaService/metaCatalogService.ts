@@ -6,6 +6,7 @@ import {
 import {
   buildMetaCatalogBatchPayload,
   formatMetaCatalogDecimalPrice as formatDecimalPrice,
+  META_CATALOG_AVAILABILITY,
   META_CATALOG_BATCH_LIMIT,
   META_CATALOG_FALLBACK_IMAGE_URL,
   serializeMetaCatalogInternalLabels,
@@ -214,11 +215,6 @@ export const metaCatalogService = {
         ? `https://moveismorante.com.br/produto/${product.slug}`
         : `https://moveismorante.com.br/produto/${product.id}`);
 
-    const quantityToSell =
-      product.stock !== null && product.stock !== undefined
-        ? Math.max(0, Number(product.stock))
-        : 1;
-
     const batchRequest = {
       item_type: 'PRODUCT_ITEM',
       requests: [
@@ -234,7 +230,7 @@ export const metaCatalogService = {
                   price: `${itemPrice.toFixed(2)} BRL`,
                   sale_price: hasPromo ? `${promoPrice.toFixed(2)} BRL` : undefined,
                   condition,
-                  availability: isInactiveOrHidden ? 'out of stock' : 'in stock',
+                  ...META_CATALOG_AVAILABILITY,
                   image_link: mainImageUrl,
                   additional_image_link: additionalImageUrls.join(',') || undefined,
                   brand: product.brand || 'Móveis Morante',
@@ -253,7 +249,6 @@ export const metaCatalogService = {
                   material: product.material || undefined,
                   gender: 'unisex',
                   identifier_exists: 'no',
-                  quantity_to_sell_on_facebook: quantityToSell,
                 }
               : undefined,
         },

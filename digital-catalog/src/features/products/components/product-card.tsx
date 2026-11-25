@@ -243,12 +243,9 @@ export function ProductCard({ product, style = defaultProductCardStyle }: Produc
           onClick={() => void trackCatalogEvent('product_click', product.id)}
         >
           <h3
-            className="w-full line-clamp-2 break-words font-bold text-[14px] leading-snug transition-colors sm:text-[15px] lg:text-base [overflow-wrap:anywhere]"
+            className="w-full line-clamp-2 break-words font-bold text-black text-[14px] leading-snug transition-colors sm:text-[15px] lg:text-base [overflow-wrap:anywhere]"
             aria-label={product.name}
             title={product.name}
-            style={{
-              color: getOpportunityTitleColor(product.opportunity),
-            }}
           >
             {product.name}
           </h3>

@@ -7,7 +7,7 @@ import type { DesiredCatalog, VerifiedItem } from '../../../../../../api/_lib/me
 const productId = '123e4567-e89b-42d3-a456-426614174000';
 const otherProductId = '123e4567-e89b-42d3-a456-426614174001';
 const marker = ownershipLabel(productId);
-const empty = (): DesiredCatalog => ({ items: new Map(), blocked: new Map() });
+const empty = (): DesiredCatalog => ({ items: new Map(), blocked: new Map(), candidateRetailers: null });
 
 function desiredProduct() {
   const desired = empty();
@@ -50,6 +50,10 @@ describe('planejamento da reconciliação do catálogo', () => {
     const published = metaProduct(create.changes[0].data);
 
     expect(planCatalogChanges(desired, [published], new Map())).toMatchObject({ changes: [], unchanged: 1 });
+    expect(planCatalogChanges(desired, [{ ...published, availability: 'IN_STOCK' }], new Map()))
+      .toMatchObject({ changes: [], unchanged: 1 });
+    expect(planCatalogChanges(desired, [{ ...published, is_hidden: true }], new Map()).changes)
+      .toMatchObject([{ method: 'UPDATE', retailer_id: 'SKU-ERP', data: { visibility: 'published' } }]);
     const changedByMeta = { ...published, name: 'Poltrona editada na Meta' };
     const plan = planCatalogChanges(desired, [changedByMeta], new Map());
     expect(plan.changes).toMatchObject([{ method: 'UPDATE', retailer_id: 'SKU-ERP', data: { title: 'Poltrona', sale_price: '' } }]);
@@ -181,5 +185,25 @@ describe('consultas e confirmação na Graph API', () => {
 
     await expect(pending).resolves.toEqual(new Map());
     expect(statusChecks).toBe(9);
+  });
+
+  it('mantém a rejeição síncrona por SKU sem bloquear os demais itens do lote', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(Response.json({
+        handles: ['batch-parcial'],
+        validation_status: [
+          { retailer_id: 'SKU-1', warnings: [{ message: 'Campo opcional ausente' }] },
+          { retailer_id: 'SKU-2', errors: [{ message: 'A imagem é inválida.' }] },
+        ],
+      }))
+      .mockResolvedValueOnce(Response.json({
+        data: [{ handle: 'batch-parcial', status: 'finished', errors_total_count: 0 }],
+      }));
+    vi.stubGlobal('fetch', fetchMock);
+    const graph = createCatalogGraph('unit-token', new AbortController().signal);
+    const changes = ['SKU-1', 'SKU-2'].map((id) => ({ method: 'CREATE' as const, retailer_id: id, data: { id } }));
+    await expect(graph.submit('1234', changes)).resolves.toEqual(new Map([
+      ['SKU-2', 'A Meta recusou o item na validação: A imagem é inválida.'],
+    ]));
   });
 });

@@ -102,8 +102,6 @@ export default function ProductPageContent({
   const currentOpportunity =
     product?.opportunities ||
     (product?.is_salvado ? { name: 'Salvados', slug: 'salvado' } : null);
-  const oppTitleColor = getOpportunityTitleColor(currentOpportunity);
-  const titleColor = oppTitleColor === 'inherit' ? 'var(--primary)' : oppTitleColor;
   const isSalvados = Boolean(
     currentOpportunity?.slug === 'salvado' ||
       currentOpportunity?.name?.toLowerCase()?.includes('salvado')
@@ -176,8 +174,7 @@ export default function ProductPageContent({
               )}
 
               <h1
-                className="text-2xl sm:text-3xl font-extrabold leading-[1.1] tracking-tight pr-12 capitalize"
-                style={{ color: titleColor }}
+                className="text-2xl sm:text-3xl font-extrabold text-black leading-[1.1] tracking-tight pr-12 capitalize"
               >
                 {displayTitle}
               </h1>

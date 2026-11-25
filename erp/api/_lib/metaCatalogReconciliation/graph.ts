@@ -17,7 +17,7 @@ const PRODUCT_FIELDS = [
   'availability', 'image_url', 'additional_image_urls', 'brand', 'url', 'product_type',
   'retailer_product_group_id', 'custom_label_0', 'custom_label_1', 'custom_label_2', 'custom_label_3',
   'custom_label_4', 'custom_number_4', 'color', 'size', 'material', 'gender',
-  'quantity_to_sell_on_facebook', 'visibility',
+  'quantity_to_sell_on_facebook', 'visibility', 'is_hidden',
 ].join(',');
 const BATCH_POLL_DELAY_MS = 800;
 const BATCH_POLL_MAX_DELAY_MS = 5_000;
@@ -26,11 +26,16 @@ const BATCH_POLL_TIMEOUT_MS = 45_000;
 interface GraphResponse {
   data?: unknown;
   handles?: unknown;
+  validation_status?: unknown;
   error?: { code?: number };
   paging?: { next?: string; cursors?: { after?: string } };
 }
 
-export class GraphBatchUnconfirmed extends Error {}
+export class GraphBatchUnconfirmed extends Error {
+  constructor(message: string, readonly rejected = new Map<string, string>()) {
+    super(message);
+  }
+}
 class GraphRequestError extends Error {
   constructor(readonly status: number, code: string) {
     super(`Meta Graph HTTP ${status}${code}.`);
@@ -157,6 +162,8 @@ export function createCatalogGraph(token: string, signal: AbortSignal) {
       }
       throw new GraphBatchUnconfirmed(error instanceof Error ? error.message : 'Envio do lote sem confirmação.');
     }
+    const rejected = validationFailures(result.validation_status, changes, token);
+    if (rejected.size === changes.length) return rejected;
     try {
       if (!Array.isArray(result.handles) || !result.handles.length || result.handles.some(
         (handle) => typeof handle !== 'string' || !/^[A-Za-z0-9_=-]{1,512}$/.test(handle),
@@ -165,11 +172,11 @@ export function createCatalogGraph(token: string, signal: AbortSignal) {
       }
 
       const batches = await Promise.all(result.handles.map((handle) => poll(catalogId, handle, changes)));
-      return new Map(batches.flatMap((batch) => [...batch]));
+      return new Map([...batches.flatMap((batch) => [...batch]), ...rejected]);
     } catch (error) {
       // Um timeout ou uma resposta inválida pode ocorrer depois de a Meta aceitar o lote.
       // A próxima execução lê a Meta antes de decidir se deve reenviar.
-      throw new GraphBatchUnconfirmed(error instanceof Error ? error.message : 'Lote não confirmado pela Meta.');
+      throw new GraphBatchUnconfirmed(error instanceof Error ? error.message : 'Lote não confirmado pela Meta.', rejected);
     }
   }
 
@@ -195,6 +202,23 @@ export function createCatalogGraph(token: string, signal: AbortSignal) {
   }
 
   return { readProducts, readRetailers, isExclusiveCatalog, submit, sleep: (ms: number) => sleep(ms, signal) };
+}
+
+function validationFailures(statuses: unknown, changes: CatalogChange[], token: string): Map<string, string> {
+  const failures = new Map<string, string>();
+  if (!Array.isArray(statuses)) return failures;
+  const requested = new Set(changes.map(({ retailer_id }) => retailer_id));
+  for (const status of statuses) {
+    if (!Array.isArray(status?.errors) || !status.errors.length) continue;
+    const id = status.retailer_id ?? status.id ?? (changes.length === 1 ? changes[0].retailer_id : undefined);
+    if (typeof id !== 'string' || !requested.has(id)) continue;
+    const detail = status.errors.find((error: { message?: unknown } | null) => typeof error?.message === 'string')?.message;
+    const reason = typeof detail === 'string'
+      ? detail.split(token || '\u0000').join('[redigido]').replace(/\s+/g, ' ').trim().slice(0, 200)
+      : '';
+    failures.set(id, reason ? `A Meta recusou o item na validação: ${reason}` : 'A Meta recusou o item na validação do lote.');
+  }
+  return failures;
 }
 
 function failedItems(row: Record<string, unknown>, changes: CatalogChange[]): Map<string, string> {

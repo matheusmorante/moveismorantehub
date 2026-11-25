@@ -30,9 +30,9 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 ));
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
-// erp/node_modules/@supabase/supabase-js/dist/tracingRegistry.cjs
+// node_modules/@supabase/supabase-js/dist/tracingRegistry.cjs
 var require_tracingRegistry = __commonJS({
-  "erp/node_modules/@supabase/supabase-js/dist/tracingRegistry.cjs"(exports2) {
+  "node_modules/@supabase/supabase-js/dist/tracingRegistry.cjs"(exports2) {
     var EXTRACTOR_KEY = Symbol.for("@supabase/supabase-js.traceContextExtractor");
     function registerTraceContextExtractor(extractor) {
       globalThis[EXTRACTOR_KEY] = extractor;
@@ -55,9 +55,9 @@ var require_tracingRegistry = __commonJS({
   }
 });
 
-// erp/node_modules/@supabase/supabase-js/dist/index.cjs
+// node_modules/@supabase/supabase-js/dist/index.cjs
 var require_dist = __commonJS({
-  "erp/node_modules/@supabase/supabase-js/dist/index.cjs"(exports2) {
+  "node_modules/@supabase/supabase-js/dist/index.cjs"(exports2) {
     var require_tracingRegistry2 = require_tracingRegistry();
     var _supabase_functions_js = require("@supabase/functions-js");
     var _supabase_postgrest_js = require("@supabase/postgrest-js");
@@ -867,7 +867,7 @@ var require_dist = __commonJS({
   }
 });
 
-// erp/api/_lib/secureIntegrations/handler.ts
+// api/_lib/secureIntegrations/handler.ts
 var handler_exports = {};
 __export(handler_exports, {
   checkAiQuotaOrReject: () => checkAiQuotaOrReject,
@@ -882,7 +882,7 @@ __export(handler_exports, {
 });
 module.exports = __toCommonJS(handler_exports);
 
-// erp/api/_lib/secureIntegrations/types.ts
+// api/_lib/secureIntegrations/types.ts
 var MAX_META_REQUEST_BYTES = 1e6;
 var MAX_OPENAI_REQUEST_BYTES = 4e6;
 var MAX_ROUTE_REQUEST_BYTES = 16e3;
@@ -898,7 +898,7 @@ function getOperation(req) {
   return Array.isArray(value) ? String(value[0] || "") : String(value || "");
 }
 
-// erp/api/_lib/authenticatedErpRequest.ts
+// api/_lib/authenticatedErpRequest.ts
 var import_supabase_js = __toESM(require_dist(), 1);
 var DEFAULT_PERMISSION_ROLES = {
   createEditOrders: ["manager"],
@@ -971,7 +971,7 @@ function hasErpPermission(context, permission) {
   return context.roles.some((role) => allowedRoles.includes(role));
 }
 
-// erp/server/secure-api/verifyMetaAppCredentials.ts
+// server/secure-api/verifyMetaAppCredentials.ts
 var import_node_crypto = require("node:crypto");
 function getGraphErrorDetails(body) {
   const graphError = body && typeof body === "object" && !Array.isArray(body) ? body.error : void 0;
@@ -1053,7 +1053,7 @@ async function verifyMetaAppCredentials({
   return { valid: true };
 }
 
-// erp/server/secure-api/verifyWhatsAppWebhookSubscription.ts
+// server/secure-api/verifyWhatsAppWebhookSubscription.ts
 var import_node_crypto2 = require("node:crypto");
 function isRecord(value) {
   return !!value && typeof value === "object" && !Array.isArray(value);
@@ -1123,7 +1123,7 @@ async function verifyWhatsAppWebhookSubscription({
   return { valid: false, reason: "pagination_limit_exceeded" };
 }
 
-// erp/server/secure-api/ensureWhatsAppEchoWebhookSubscription.ts
+// server/secure-api/ensureWhatsAppEchoWebhookSubscription.ts
 var import_node_crypto3 = require("node:crypto");
 function isRecord2(value) {
   return !!value && typeof value === "object" && !Array.isArray(value);
@@ -1238,11 +1238,11 @@ async function ensureWhatsAppEchoWebhookSubscription({
   return { valid: true, changed: true, fields: verifiedFields };
 }
 
-// shared-utils/metaCatalogIds.ts
+// ../shared-utils/metaCatalogIds.ts
 var META_ADS_CREATIVE_CATALOG_ID = "3884846918337684";
 var META_WHATSAPP_CATALOG_ID = "949184464866249";
 
-// erp/src/pages/utils/metaService/metaGraphProxyPolicy.ts
+// src/pages/utils/metaService/metaGraphProxyPolicy.ts
 var numericId = (value) => {
   const normalized2 = typeof value === "string" ? value.trim() : "";
   if (!/^\d{1,32}$/.test(normalized2)) throw new Error("Identificador Meta inv\xE1lido.");
@@ -1437,14 +1437,14 @@ function planMetaGraphRequest(input, settings) {
   }
 }
 
-// erp/api/_lib/metaCatalogReconciliation/handler.ts
+// api/_lib/metaCatalogReconciliation/handler.ts
 var import_node_crypto6 = require("node:crypto");
 
-// erp/api/_lib/metaCatalogReconciliation/run.ts
+// api/_lib/metaCatalogReconciliation/run.ts
 var import_node_crypto5 = require("node:crypto");
 var import_supabase_js2 = __toESM(require_dist(), 1);
 
-// shared-utils/metaCatalogPayload.ts
+// ../shared-utils/metaCatalogPayload.ts
 var META_CATALOG_GLOBAL_PREFIX = `\u{1F69A}\u{1F4E6} Entrega r\xE1pida (1 a 5 dias \xFAteis) para Curitiba e Regi\xE3o, consulte conosco a disponibilidade e o valor do frete
 
 \u{1F4B3} Pagamento parcelado nas bandeiras VISA, MASTER, MASTERCARD, MAESTRO, HIPERCARD, ELO, em at\xE9 10x sem juros no cart\xE3o de cr\xE9dito
@@ -1680,8 +1680,12 @@ function buildMetaCatalogItems(products, variations, opportunities) {
   return allItems;
 }
 
-// shared-utils/metaCatalogBatchPayload.ts
+// ../shared-utils/metaCatalogBatchPayload.ts
 var META_CATALOG_BATCH_LIMIT = 50;
+var META_CATALOG_AVAILABILITY = {
+  availability: "in stock",
+  quantity_to_sell_on_facebook: 1
+};
 var isMetaCatalogBatchDeletion = (product) => product.status === "hidden" || product.hidden === true || product.deleted === true || product.deleted_at !== void 0 && product.deleted_at !== null || product.status === "draft";
 var SUPABASE_STORAGE_PATTERN = /https:\/\/.*?\.supabase\.co\/storage\/v1\/object\/public\/products\/(.*)/i;
 var R2_BASE_URL = "https://pub-389127050a434f568c29dc66bdce2567.r2.dev";
@@ -1740,7 +1744,6 @@ var buildMetaCatalogBatchPayload = (products, whatsappBaseDescription) => {
     const productType = product.productType || (product.groupName && product.groupName !== "Furniture" ? product.groupName : void 0) || (product.group_name && product.group_name !== "Furniture" ? product.group_name : void 0) || resolveProductType(product);
     const condition = product.condition === "used" || product.condition === "usado" ? "used" : product.is_salvado || product.condition === "refurbished" ? "refurbished" : "new";
     const productLink = product.url || (product.slug ? `https://moveismorante.com.br/produto/${product.slug}` : `https://moveismorante.com.br/produto/${product.id}`);
-    const quantityToSell = product.stock !== null && product.stock !== void 0 ? Math.max(0, Number(product.stock)) : 1;
     const imageUrls = [];
     if (Array.isArray(product.images) && product.images.length > 0) {
       product.images.forEach((image) => {
@@ -1772,7 +1775,7 @@ var buildMetaCatalogBatchPayload = (products, whatsappBaseDescription) => {
         price: `${itemPrice.toFixed(2)} BRL`,
         sale_price: hasPromo ? `${promoPrice.toFixed(2)} BRL` : void 0,
         condition,
-        availability: quantityToSell > 0 ? "in stock" : "out of stock",
+        ...META_CATALOG_AVAILABILITY,
         image_link: mainImageUrl,
         additional_image_link: additionalImageUrls.join(",") || void 0,
         brand: product.brand || "M\xF3veis Morante",
@@ -1788,15 +1791,14 @@ var buildMetaCatalogBatchPayload = (products, whatsappBaseDescription) => {
         size: product.size || void 0,
         material: product.material || void 0,
         gender: "unisex",
-        identifier_exists: "no",
-        quantity_to_sell_on_facebook: quantityToSell
+        identifier_exists: "no"
       }
     };
   });
   return { item_type: "PRODUCT_ITEM", requests };
 };
 
-// erp/api/_lib/metaCatalogReconciliation/graph.ts
+// api/_lib/metaCatalogReconciliation/graph.ts
 var PRODUCT_FIELDS = [
   "id",
   "retailer_id",
@@ -1824,12 +1826,17 @@ var PRODUCT_FIELDS = [
   "material",
   "gender",
   "quantity_to_sell_on_facebook",
-  "visibility"
+  "visibility",
+  "is_hidden"
 ].join(",");
 var BATCH_POLL_DELAY_MS = 800;
 var BATCH_POLL_MAX_DELAY_MS = 5e3;
 var BATCH_POLL_TIMEOUT_MS = 45e3;
 var GraphBatchUnconfirmed = class extends Error {
+  constructor(message, rejected = /* @__PURE__ */ new Map()) {
+    super(message);
+    this.rejected = rejected;
+  }
 };
 var GraphRequestError = class extends Error {
   constructor(status, code) {
@@ -1945,6 +1952,8 @@ function createCatalogGraph(token, signal) {
       }
       throw new GraphBatchUnconfirmed(error instanceof Error ? error.message : "Envio do lote sem confirma\xE7\xE3o.");
     }
+    const rejected = validationFailures(result.validation_status, changes, token);
+    if (rejected.size === changes.length) return rejected;
     try {
       if (!Array.isArray(result.handles) || !result.handles.length || result.handles.some(
         (handle) => typeof handle !== "string" || !/^[A-Za-z0-9_=-]{1,512}$/.test(handle)
@@ -1952,9 +1961,9 @@ function createCatalogGraph(token, signal) {
         throw new Error("A Meta n\xE3o forneceu um identificador para confirmar o lote.");
       }
       const batches = await Promise.all(result.handles.map((handle) => poll(catalogId, handle, changes)));
-      return new Map(batches.flatMap((batch) => [...batch]));
+      return new Map([...batches.flatMap((batch) => [...batch]), ...rejected]);
     } catch (error) {
-      throw new GraphBatchUnconfirmed(error instanceof Error ? error.message : "Lote n\xE3o confirmado pela Meta.");
+      throw new GraphBatchUnconfirmed(error instanceof Error ? error.message : "Lote n\xE3o confirmado pela Meta.", rejected);
     }
   }
   async function poll(catalogId, handle, changes) {
@@ -1979,6 +1988,20 @@ function createCatalogGraph(token, signal) {
     throw new Error("A Meta ainda n\xE3o confirmou o lote dentro do tempo limite.");
   }
   return { readProducts, readRetailers, isExclusiveCatalog, submit, sleep: (ms) => sleep(ms, signal) };
+}
+function validationFailures(statuses, changes, token) {
+  const failures = /* @__PURE__ */ new Map();
+  if (!Array.isArray(statuses)) return failures;
+  const requested = new Set(changes.map(({ retailer_id }) => retailer_id));
+  for (const status of statuses) {
+    if (!Array.isArray(status?.errors) || !status.errors.length) continue;
+    const id = status.retailer_id ?? status.id ?? (changes.length === 1 ? changes[0].retailer_id : void 0);
+    if (typeof id !== "string" || !requested.has(id)) continue;
+    const detail = status.errors.find((error) => typeof error?.message === "string")?.message;
+    const reason = typeof detail === "string" ? detail.split(token || "\0").join("[redigido]").replace(/\s+/g, " ").trim().slice(0, 200) : "";
+    failures.set(id, reason ? `A Meta recusou o item na valida\xE7\xE3o: ${reason}` : "A Meta recusou o item na valida\xE7\xE3o do lote.");
+  }
+  return failures;
 }
 function failedItems(row, changes) {
   const requested = new Set(changes.map((change) => change.retailer_id));
@@ -2006,10 +2029,10 @@ function failedItems(row, changes) {
   return failures;
 }
 
-// erp/api/_lib/metaCatalogReconciliation/plan.ts
+// api/_lib/metaCatalogReconciliation/plan.ts
 var import_node_crypto4 = require("node:crypto");
 
-// shared-utils/testArtifactPolicy.ts
+// ../shared-utils/testArtifactPolicy.ts
 var record2 = (value) => value !== null && typeof value === "object" && !Array.isArray(value) ? value : {};
 function artifactData(value) {
   const row = record2(value);
@@ -2035,7 +2058,7 @@ function isIdentifiedTestArtifact(value) {
   return data.is_test === true || data.is_test === "true" || data.isTest === true || data.isTest === "true";
 }
 
-// shared-utils/isTestProduct.ts
+// ../shared-utils/isTestProduct.ts
 var asRecord = (value) => value !== null && typeof value === "object" && !Array.isArray(value) ? value : null;
 var hasExplicitTestIdentifier = (value) => typeof value === "string" && (/^\s*(?:TEST_AUT_|NFEHML26P\d*)/i.test(value) || /\[?\s*HML\s*NF\s*TEST\b/i.test(value));
 var isHmlFiscalTestProduct = (observations) => typeof observations === "string" && ["HMLNFTEST", "NFE_HML_MATRIX_2026_10"].some(
@@ -2061,7 +2084,7 @@ var isTestProduct = (value) => {
   return variations.some(isTestProduct);
 };
 
-// shared-utils/productMetaCatalogSyncItems.ts
+// ../shared-utils/productMetaCatalogSyncItems.ts
 var deletedItem = (id, code) => ({
   id,
   code,
@@ -2142,11 +2165,11 @@ function buildProductMetaCatalogSyncItems(product, variations, opportunities) {
   return [...built, ...legacyDeletes];
 }
 
-// erp/api/_lib/metaCatalogReconciliation/source.ts
+// api/_lib/metaCatalogReconciliation/source.ts
 var UUID = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
 var PAGE_SIZE = 200;
-var PRODUCT_FIELDS2 = "id,name,description,status,active,deleted,deleted_at,opportunity_id,unit_price,price,promo_price,stock,images,brand,code,is_draft,slug,is_salvado,product_kind,material,condition,observations,testArtifact:technical_specs->testArtifact,product_categories(categories(name,type)),opportunities(id,name,observations)";
-var VARIATION_FIELDS = "id,product_id,status,active,merged_to_variation_id,name,sku,image_url,price,promo_price,stock,attributes,use_parent_price,use_parent_promo_price";
+var PRODUCT_FIELDS2 = "id,name,description,status,active,deleted,deleted_at,opportunity_id,unit_price,price,promo_price,images,brand,code,is_draft,slug,is_salvado,product_kind,material,condition,observations,testArtifact:technical_specs->testArtifact,product_categories(categories(name,type)),opportunities(id,name,observations)";
+var VARIATION_FIELDS = "id,product_id,status,active,merged_to_variation_id,name,sku,image_url,price,promo_price,attributes,use_parent_price,use_parent_promo_price";
 async function* completePages(load, entity, keyOf) {
   const seen = /* @__PURE__ */ new Set();
   let total = 0;
@@ -2248,6 +2271,7 @@ async function loadCandidateRetailers(db, productId) {
 function addDesiredItems(desired, products, variations, campaignRows, description, candidateProductId) {
   const variationsByProduct = /* @__PURE__ */ new Map();
   const campaignNames = /* @__PURE__ */ new Map();
+  const salvadoIds = new Set(products.filter((product) => product.is_salvado === true || product.product_kind === "salvado").map(({ id }) => id));
   for (const row of campaignRows) {
     const key = row.variation_id ?? row.product_id;
     const name = row.promotion_name?.trim();
@@ -2260,7 +2284,7 @@ function addDesiredItems(desired, products, variations, campaignRows, descriptio
     const family = variationsByProduct.get(variation.product_id) ?? [];
     family.push({
       ...variation,
-      status: variation.active === false || variation.merged_to_variation_id || isTestProduct(variation) ? "hidden" : variation.status,
+      status: variation.active === false && !salvadoIds.has(variation.product_id) || variation.merged_to_variation_id || isTestProduct(variation) ? "hidden" : variation.status,
       activeCampaignNames: [...campaignNames.get(variation.id) ?? []].sort()
     });
     variationsByProduct.set(variation.product_id, family);
@@ -2298,7 +2322,7 @@ async function loadDesiredCatalog(db, description, productIds, candidateProductI
   const desired = { items: /* @__PURE__ */ new Map(), blocked: /* @__PURE__ */ new Map(), candidateRetailers: null };
   if (productIds?.length === 0) return desired;
   const productPages = completePages(({ options, previous }) => {
-    const query = db.from("products").select(PRODUCT_FIELDS2, options).eq("status", "published").is("deleted_at", null).not("deleted", "is", true).not("is_draft", "is", true).not("active", "is", false);
+    const query = db.from("products").select(PRODUCT_FIELDS2, options).eq("status", "published").is("deleted_at", null).not("deleted", "is", true).not("is_draft", "is", true).or("active.not.is.false,is_salvado.is.true,product_kind.eq.salvado");
     if (productIds) query.in("id", productIds);
     if (previous) query.gt("id", previous.id);
     return query.order("id").limit(PAGE_SIZE);
@@ -2325,7 +2349,7 @@ async function loadDesiredCatalog(db, description, productIds, candidateProductI
   return desired;
 }
 
-// erp/api/_lib/metaCatalogReconciliation/plan.ts
+// api/_lib/metaCatalogReconciliation/plan.ts
 var OWNER_PREFIX = "morantehub:v1:";
 var ownershipLabel = (productId) => OWNER_PREFIX + productId.toLowerCase();
 function ownerOf(product, verified) {
@@ -2338,6 +2362,14 @@ function ownerOf(product, verified) {
   return link?.meta_item_id === product.id ? link.product_id : void 0;
 }
 var normalized = (value) => String(value ?? "").replace(/\r\n/g, "\n").trim();
+var availability = (value) => normalized(value).toLowerCase().replace(/[\s_-]+/g, " ");
+function hasMetaPublishedVisibility(item) {
+  const hidden = normalized(item.is_hidden).toLowerCase();
+  return hidden !== "true" && hidden !== "1" && (normalized(item.visibility).toLowerCase() || "published") === "published";
+}
+function matchesMetaAvailability(data, remote) {
+  return availability(data.availability) === availability(remote.availability) && normalized(data.quantity_to_sell_on_facebook) === normalized(remote.quantity_to_sell_on_facebook);
+}
 function priceInCents(value) {
   const number = normalized(value).replace(/[A-Z$\s]/gi, "");
   if (!number) return null;
@@ -2359,7 +2391,6 @@ var compareFields = {
   title: "name",
   description: "description",
   condition: "condition",
-  availability: "availability",
   brand: "brand",
   link: "url",
   product_type: "product_type",
@@ -2373,8 +2404,7 @@ var compareFields = {
   color: "color",
   size: "size",
   material: "material",
-  gender: "gender",
-  quantity_to_sell_on_facebook: "quantity_to_sell_on_facebook"
+  gender: "gender"
 };
 var clearableFields = [
   "sale_price",
@@ -2388,7 +2418,7 @@ var clearableFields = [
 function matchesMetaProduct(data, remote) {
   const regular = priceInCents(remote.price);
   const sale = priceInCents(remote.sale_price);
-  return regular === priceInCents(data.price) && (sale === regular || sale === 0 ? null : sale) === priceInCents(data.sale_price) && (normalized(remote.currency).toUpperCase() || (/BRL|R\$/i.test(normalized(remote.price)) ? "BRL" : "")) === "BRL" && (normalized(remote.visibility).toLowerCase() || "published") === data.visibility && Object.entries(compareFields).every(([field, remoteField]) => normalized(data[field]) === normalized(remote[remoteField])) && normalizeImages(data.image_link)[0] === normalizeImages(remote.image_url)[0] && JSON.stringify(normalizeImages(data.additional_image_link)) === JSON.stringify(normalizeImages(remote.additional_image_urls));
+  return regular === priceInCents(data.price) && (sale === regular || sale === 0 ? null : sale) === priceInCents(data.sale_price) && (normalized(remote.currency).toUpperCase() || (/BRL|R\$/i.test(normalized(remote.price)) ? "BRL" : "")) === "BRL" && data.visibility === "published" && hasMetaPublishedVisibility(remote) && matchesMetaAvailability(data, remote) && Object.entries(compareFields).every(([field, remoteField]) => normalized(data[field]) === normalized(remote[remoteField])) && normalizeImages(data.image_link)[0] === normalizeImages(remote.image_url)[0] && JSON.stringify(normalizeImages(data.additional_image_link)) === JSON.stringify(normalizeImages(remote.additional_image_urls));
 }
 function withOwnership(data, productId) {
   const labels = normalized(data.internal_label);
@@ -2446,7 +2476,7 @@ function planCatalogChanges(desired, remote, verified, { scope, completeSnapshot
   return result;
 }
 
-// erp/api/_lib/metaCatalogReconciliation/deletionHistory.ts
+// api/_lib/metaCatalogReconciliation/deletionHistory.ts
 async function recordDeletionAttempts(db, { runId, catalogId, retailerIds, trigger }) {
   const { error } = await db.from("meta_catalog_sync_deletions").insert(retailerIds.map((retailerId) => ({
     run_id: runId,
@@ -2463,10 +2493,12 @@ async function confirmDeletionHistory(db, { runId, catalogId, retailerIds }) {
   }
 }
 
-// erp/api/_lib/metaCatalogReconciliation/run.ts
+// api/_lib/metaCatalogReconciliation/run.ts
 var MAX_CATALOG_DELETIONS = 50;
 var MIN_DELETIONS_FOR_RATIO_GUARD = 10;
 var MAX_CATALOG_DELETION_SHARE = 0.25;
+var CATALOG_READ_BACK_DELAYS = [0, 700, 1400, 2800];
+var PUBLICATION_FIELDS = "id,retailer_id,visibility,is_hidden,availability,quantity_to_sell_on_facebook,custom_label_4";
 var MetaCatalogSyncBusy = class extends Error {
 };
 function serviceDb(signal) {
@@ -2500,7 +2532,7 @@ async function catalogConfig(db) {
 }
 async function verifyDeletions(graph, catalog, retailerIds) {
   let remaining = retailerIds;
-  for (const delay of [0, 700, 1400, 2800]) {
+  for (const delay of CATALOG_READ_BACK_DELAYS) {
     if (!remaining.length) break;
     if (delay) await graph.sleep(delay);
     const products = await graph.readRetailers(catalog.id, remaining, "id,retailer_id");
@@ -2546,26 +2578,31 @@ async function runMetaCatalogReconciliation(scope) {
     counters.errors++;
     if (issues.length < 100) issues.push({ catalog, retailerId, reason });
   }
-  async function confirmUncertainWrites(catalog, changes, failures) {
-    const writes = changes.filter(({ method }) => method !== "DELETE");
-    if (!writes.length) return;
-    const remote = await graph.readRetailers(catalog.id, writes.map(({ retailer_id }) => retailer_id));
-    const matches = /* @__PURE__ */ new Map();
-    for (const item of remote) {
-      const items = matches.get(item.retailer_id) ?? [];
-      items.push(item);
-      matches.set(item.retailer_id, items);
-    }
-    for (const change of writes) {
-      const items = matches.get(change.retailer_id) ?? [];
-      if (items.length === 1 && matchesMetaProduct(change.data, items[0])) {
-        failures.delete(change.retailer_id);
-      } else if (items.length > 1) {
-        failures.set(change.retailer_id, "A Meta retornou mais de um item para o SKU ap\xF3s o lote sem confirma\xE7\xE3o.");
-      } else if (change.method === "CREATE") {
-        failures.set(change.retailer_id, "A Meta ainda n\xE3o publicou o item ap\xF3s o lote sem confirma\xE7\xE3o.");
-      } else {
-        failures.set(change.retailer_id, "A Meta ainda n\xE3o refletiu a atualiza\xE7\xE3o do SKU ap\xF3s o lote sem confirma\xE7\xE3o.");
+  async function confirmWrites(catalog, pending, failures, unconfirmed) {
+    for (const delay of CATALOG_READ_BACK_DELAYS) {
+      if (!pending.length) break;
+      try {
+        if (delay) await graph.sleep(delay);
+        const products = await graph.readRetailers(
+          catalog.id,
+          pending.map(({ retailer_id }) => retailer_id),
+          unconfirmed ? void 0 : PUBLICATION_FIELDS
+        );
+        const matches = /* @__PURE__ */ new Map();
+        for (const item of products) {
+          matches.set(item.retailer_id, matches.has(item.retailer_id) ? null : item);
+        }
+        pending = pending.filter(({ retailer_id, data }) => {
+          const observed = matches.get(retailer_id);
+          const issue = publicationIssue(data, observed, unconfirmed);
+          if (issue) failures.set(retailer_id, issue);
+          else failures.delete(retailer_id);
+          return Boolean(issue);
+        });
+      } catch (error) {
+        const reason = `A consulta de confirma\xE7\xE3o do SKU falhou: ${safeReason(error)}`;
+        for (const { retailer_id } of pending) failures.set(retailer_id, reason);
+        if (signal.aborted) break;
       }
     }
   }
@@ -2590,23 +2627,19 @@ async function runMetaCatalogReconciliation(scope) {
       if (!batch.length) continue;
       let failures;
       let unconfirmed = false;
+      let rejected;
       try {
         signal.throwIfAborted();
         failures = await graph.submit(catalog.id, batch);
       } catch (error) {
-        unconfirmed = error instanceof GraphBatchUnconfirmed;
-        failures = new Map(batch.map(({ retailer_id }) => [retailer_id, safeReason(error)]));
-        if (unconfirmed) {
-          try {
-            await confirmUncertainWrites(catalog, batch, failures);
-          } catch (verificationError) {
-            const reason = `A leitura de confirma\xE7\xE3o dos SKUs tamb\xE9m falhou: ${safeReason(verificationError)}`;
-            for (const change of batch) {
-              if (change.method !== "DELETE") failures.set(change.retailer_id, `${failures.get(change.retailer_id)} ${reason}`);
-            }
-          }
+        if (error instanceof GraphBatchUnconfirmed) {
+          unconfirmed = true;
+          rejected = error.rejected;
         }
+        failures = new Map(batch.map(({ retailer_id }) => [retailer_id, rejected?.get(retailer_id) ?? safeReason(error)]));
       }
+      const writes = batch.filter(({ method, retailer_id }) => method !== "DELETE" && !(unconfirmed ? rejected?.has(retailer_id) : failures.has(retailer_id)));
+      await confirmWrites(catalog, writes, failures, unconfirmed);
       if (retailerIds.length) {
         let confirmed = [];
         try {
@@ -2630,7 +2663,7 @@ async function runMetaCatalogReconciliation(scope) {
           }
         }
       }
-      retainLease ||= unconfirmed && failures.size > 0;
+      retainLease ||= unconfirmed && [...failures.keys()].some((retailerId) => !rejected?.has(retailerId));
       for (const change of batch) {
         const failure = failures.get(change.retailer_id);
         if (failure) recordIssue(failure, catalog.target, change.retailer_id);
@@ -2763,13 +2796,22 @@ async function runMetaCatalogReconciliation(scope) {
   if (finishError || finished !== true) throw new Error("N\xE3o foi poss\xEDvel registrar o resultado da sincroniza\xE7\xE3o.");
   return result;
 }
+function publicationIssue(data, item, unconfirmed) {
+  if (item === null) return "A Meta retornou mais de um item para o SKU.";
+  if (!item) return "O SKU ainda n\xE3o aparece no cat\xE1logo da Meta ap\xF3s o lote.";
+  if (item.custom_label_4 !== data.custom_label_4) return "O SKU na Meta ainda n\xE3o tem o v\xEDnculo esperado com o ERP.";
+  if (!hasMetaPublishedVisibility(item)) return "O SKU est\xE1 presente na Meta sem visibilidade publicada.";
+  if (!matchesMetaAvailability(data, item)) return "O SKU na Meta ainda n\xE3o est\xE1 em estoque com a quantidade esperada.";
+  if (unconfirmed && !matchesMetaProduct(data, item)) return "A Meta ainda n\xE3o refletiu todos os dados do SKU ap\xF3s o lote sem confirma\xE7\xE3o.";
+  return null;
+}
 function safeReason(error) {
   if (!(error instanceof Error)) return "Falha ao consultar a Meta ou o cat\xE1logo do ERP.";
   if (["TimeoutError", "AbortError"].includes(error.name)) return "Tempo limite excedido.";
   return error.message;
 }
 
-// erp/api/_lib/metaCatalogReconciliation/handler.ts
+// api/_lib/metaCatalogReconciliation/handler.ts
 var CONFIRMED_LEGACY_HANDLE = "morantehub-reconciled";
 async function handleMetaCatalogCron(req, res) {
   if (req.method !== "GET") return res.status(405).end();
@@ -2832,7 +2874,7 @@ async function handleCatalogOperation(body, context, res) {
   }
 }
 
-// erp/api/_lib/secureIntegrations/handlers/metaGraphHandler.ts
+// api/_lib/secureIntegrations/handlers/metaGraphHandler.ts
 function getMetaGraphSettings(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};
   const config = value;
@@ -3095,7 +3137,7 @@ async function handleMetaGraph(req, res) {
   }
 }
 
-// erp/api/_lib/secureIntegrations/aiQuotaBridge.ts
+// api/_lib/secureIntegrations/aiQuotaBridge.ts
 var import_supabase_js3 = __toESM(require_dist(), 1);
 var quotaServiceDb = null;
 function getQuotaServiceDb() {
@@ -3178,7 +3220,7 @@ async function recordAiUsageTokensSafe(_userDb, params) {
   }
 }
 
-// shared-utils/openAiAgentAdapter.ts
+// ../shared-utils/openAiAgentAdapter.ts
 var schemaTypes = {
   OBJECT: "object",
   STRING: "string",
@@ -3307,7 +3349,7 @@ function parseOpenAiAgentResponse(response) {
   };
 }
 
-// erp/api/_lib/secureIntegrations/handlers/openAiHandler.ts
+// api/_lib/secureIntegrations/handlers/openAiHandler.ts
 async function handleOpenAi(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "M\xE9todo n\xE3o permitido." });
   const openAiApiKey = process.env.OPENAI_API_KEY?.trim();
@@ -3434,7 +3476,7 @@ async function handleOpenAi(req, res) {
   }
 }
 
-// erp/api/_lib/secureIntegrations/handlers/geminiHandler.ts
+// api/_lib/secureIntegrations/handlers/geminiHandler.ts
 async function handleGemini(req, res) {
   if (req.method === "OPTIONS") return res.status(200).end();
   if (req.method !== "POST") return res.status(405).json({ error: "M\xE9todo n\xE3o permitido." });
@@ -3450,7 +3492,7 @@ async function handleGemini(req, res) {
   return handleOpenAi(req, res);
 }
 
-// erp/api/_lib/secureIntegrations/handlers/googleRoutesHandler.ts
+// api/_lib/secureIntegrations/handlers/googleRoutesHandler.ts
 function validPoint(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const point = value;
@@ -3502,7 +3544,7 @@ async function handleGoogleRoutes(req, res) {
   }
 }
 
-// erp/api/_lib/secureIntegrations/handler.ts
+// api/_lib/secureIntegrations/handler.ts
 var operations = {
   "meta-graph": handleMetaGraph,
   "meta-catalog-cron": handleMetaCatalogCron,

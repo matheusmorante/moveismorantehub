@@ -16,6 +16,18 @@ export function ownerOf(product: MetaProduct, verified: ReadonlyMap<string, Veri
 }
 
 const normalized = (value: unknown): string => String(value ?? '').replace(/\r\n/g, '\n').trim();
+const availability = (value: unknown): string => normalized(value).toLowerCase().replace(/[\s_-]+/g, ' ');
+
+export function hasMetaPublishedVisibility(item: MetaProduct): boolean {
+  const hidden = normalized(item.is_hidden).toLowerCase();
+  return hidden !== 'true' && hidden !== '1'
+    && (normalized(item.visibility).toLowerCase() || 'published') === 'published';
+}
+
+export function matchesMetaAvailability(data: Record<string, unknown>, remote: MetaProduct): boolean {
+  return availability(data.availability) === availability(remote.availability)
+    && normalized(data.quantity_to_sell_on_facebook) === normalized(remote.quantity_to_sell_on_facebook);
+}
 
 function priceInCents(value: unknown): number | null {
   const number = normalized(value).replace(/[A-Z$\s]/gi, '');
@@ -43,7 +55,6 @@ const compareFields = {
   title: 'name',
   description: 'description',
   condition: 'condition',
-  availability: 'availability',
   brand: 'brand',
   link: 'url',
   product_type: 'product_type',
@@ -58,7 +69,6 @@ const compareFields = {
   size: 'size',
   material: 'material',
   gender: 'gender',
-  quantity_to_sell_on_facebook: 'quantity_to_sell_on_facebook',
 } as const;
 
 const clearableFields = [
@@ -71,7 +81,8 @@ export function matchesMetaProduct(data: Record<string, unknown>, remote: MetaPr
   return regular === priceInCents(data.price)
     && (sale === regular || sale === 0 ? null : sale) === priceInCents(data.sale_price)
     && (normalized(remote.currency).toUpperCase() || (/BRL|R\$/i.test(normalized(remote.price)) ? 'BRL' : '')) === 'BRL'
-    && (normalized(remote.visibility).toLowerCase() || 'published') === data.visibility
+    && data.visibility === 'published' && hasMetaPublishedVisibility(remote)
+    && matchesMetaAvailability(data, remote)
     && Object.entries(compareFields).every(([field, remoteField]) =>
       normalized(data[field]) === normalized(remote[remoteField]))
     && normalizeImages(data.image_link)[0] === normalizeImages(remote.image_url)[0]

@@ -31,6 +31,7 @@ function fixture({ exclusive = false, missingProductPage = false, unconfirmedBat
   const product = {
     id: productId, code: 'POL-900', name: 'Poltrona', status: 'draft', active: true,
     deleted: false, deleted_at: null, is_draft: true, stock: 2,
+    is_salvado: false, product_kind: null as string | null,
     unit_price: 550, images: ['https://images.example.test/poltrona.jpg'],
   };
   const variations = [
@@ -54,8 +55,11 @@ function fixture({ exclusive = false, missingProductPage = false, unconfirmedBat
       case '/rest/v1/products': {
         const status = url.searchParams.get('status');
         const active = url.searchParams.get('active');
+        const eligibility = url.searchParams.get('or');
+        if (eligibility) expect(eligibility).toBe('(active.not.is.false,is_salvado.is.true,product_kind.eq.salvado)');
         const matching = exists && (!status || status === 'eq.' + product.status)
           && (!active || product.active)
+          && (!eligibility || product.active || product.is_salvado || product.product_kind === 'salvado')
           && matchesRest(product.id, url.searchParams.get('id'))
           && matchesRest(product.code, url.searchParams.get('code'));
         const rows = matching ? [product] : [];
@@ -253,6 +257,31 @@ it('confirma por SKU alterações já aplicadas quando o handle da Meta continua
   expect([...remote.values()].every((items) => items.has(blue.sku) && !items.has(manualItem.retailer_id))).toBe(true);
 });
 
+it.each([{ is_salvado: true }, { product_kind: 'salvado' }])(
+  'publica o salvado com cadastro e variação inativos e exclui após ocultar a variação (%j)',
+  async (salvado) => {
+    stubCatalogEnv();
+    const { product, variations: [published, hidden], remote } = fixture();
+    Object.assign(product, { name: 'Sofá do saldão', status: 'published', is_draft: false, active: false });
+    Object.assign(published, { name: 'Sofá cinza do saldão', active: false });
+    hidden.active = false;
+
+    expect(await runHourly()).toMatchObject({ success: true, created: 0 });
+    Object.assign(product, salvado);
+    expect(await runHourly()).toMatchObject({ success: true, created: 2 });
+    for (const items of remote.values()) {
+      expect(items.get(published.sku)).toMatchObject({
+        visibility: 'published', availability: 'in stock', quantity_to_sell_on_facebook: 1,
+      });
+      expect(items.has(hidden.sku)).toBe(false);
+    }
+
+    published.status = 'hidden';
+    expect(await runHourly()).toMatchObject({ success: true, deleted: 2 });
+    expect([...remote.values()].every((items) => !items.has(published.sku))).toBe(true);
+  },
+);
+
 it('remove variações inativas ou mescladas sem rótulo e registra a confirmação em cada catálogo exclusivo', async () => {
   stubCatalogEnv();
   const { product, variations: [blue, green], remote, history } = fixture({ exclusive: true });
@@ -270,17 +299,27 @@ it('remove variações inativas ou mescladas sem rótulo e registra a confirmaç
   expect([...remote.values()].every((items) => !items.has(blue.sku) && !items.has(green.sku))).toBe(true);
 });
 
-it('reconcilia um SKU ativo sem estoque e remove o SKU ausente na execução horária exclusiva', async () => {
+it('republica a disponibilidade de um SKU com estoque zero e remove o SKU ausente na execução horária exclusiva', async () => {
   stubCatalogEnv();
-  const { product, variations: [blue], remote, history } = fixture({ exclusive: true });
+  const { product, variations: [blue], remote, history, writes } = fixture({ exclusive: true });
   Object.assign(product, { status: 'published', is_draft: false });
   Object.assign(blue, { stock: 0 });
-  for (const items of remote.values()) items.set(blue.sku, { id: '8111', retailer_id: blue.sku, availability: 'in stock' });
+  await syncProduct();
+  for (const items of remote.values()) {
+    Object.assign(items.get(blue.sku)!, { availability: 'out of stock', quantity_to_sell_on_facebook: 0 });
+  }
 
   expect(await runHourly()).toMatchObject({ success: true, updated: 2, deleted: 2, count: 4 });
   expect(history.every((row) => row.retailer_id === manualItem.retailer_id && row.confirmed_at)).toBe(true);
-  expect([...remote.values()].every((items) => items.get(blue.sku)?.availability === 'out of stock'
-    && !items.has(manualItem.retailer_id))).toBe(true);
+  for (const items of remote.values()) {
+    expect(items.get(blue.sku)).toMatchObject({ availability: 'in stock', quantity_to_sell_on_facebook: 1 });
+    expect(items.has(manualItem.retailer_id)).toBe(false);
+  }
+
+  const sentBatches = writes.length;
+  Object.assign(blue, { stock: 7 });
+  expect(await runHourly()).toMatchObject({ success: true, unchanged: 2, count: 0 });
+  expect(writes).toHaveLength(sentBatches);
 });
 
 it('bloqueia exclusões nos dois destinos quando falta uma página do Supabase', async () => {

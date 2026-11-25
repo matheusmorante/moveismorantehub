@@ -85,9 +85,9 @@ export function MobileMenu() {
         <Button
           variant="ghost"
           size="icon"
-          className="lg:hidden hover:bg-primary/5 rounded-full w-12 h-12 sm:w-14 sm:h-14 shrink-0 flex items-center justify-center"
+          className="lg:hidden hover:bg-primary/5 rounded-full size-12 sm:size-14 shrink-0 flex items-center justify-center"
         >
-          <Menu className="h-7 w-7 sm:h-8 sm:w-8 text-primary" />
+          <Menu className="size-8 sm:size-9 text-primary" />
           <span className="sr-only">Menu</span>
         </Button>
       </SheetTrigger>

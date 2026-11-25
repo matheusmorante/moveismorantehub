@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { buildMetaCatalogBatchPayload } from '../../../../../../../shared-utils/metaCatalogBatchPayload';
 import { ownershipLabel } from '../../../../../../api/_lib/metaCatalogReconciliation/plan';
 import { MetaCatalogSyncBusy, runMetaCatalogReconciliation } from '../../../../../../api/_lib/metaCatalogReconciliation/run';
+import { loadDesiredCatalog } from '../../../../../../api/_lib/metaCatalogReconciliation/source';
 
 const db = vi.hoisted(() => ({
   rpc: vi.fn(),
@@ -15,7 +17,7 @@ vi.mock('@supabase/supabase-js', () => ({ createClient: () => db }));
 vi.mock('../../../../../../api/_lib/metaCatalogReconciliation/source', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../../../../../api/_lib/metaCatalogReconciliation/source')>()),
   loadCandidateRetailers: vi.fn(async () => []),
-  loadDesiredCatalog: vi.fn(async () => ({ items: new Map(), blocked: new Map() })),
+  loadDesiredCatalog: vi.fn(async () => ({ items: new Map(), blocked: new Map(), candidateRetailers: null })),
   loadVerifiedItems: vi.fn(async () => []),
   loadRetailerOwners: vi.fn(async () => new Map()),
 }));
@@ -32,6 +34,7 @@ beforeEach(() => {
   vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', 'test-service-key');
   db.rpc.mockReset();
   db.from.mockReset();
+  vi.mocked(loadDesiredCatalog).mockClear();
   db.from.mockReturnValue({
     select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: { catalogId, description: null } }) }) }),
   });
@@ -95,5 +98,61 @@ describe('execução da reconciliação do Catálogo Meta', () => {
       success: false, deleted: 0, error: expect.stringContaining('Exclusão em massa bloqueada'),
     });
     expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('reconsulta somente SKUs pendentes e confirma criação quando o item está publicado e em estoque', async () => {
+    vi.useFakeTimers();
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    db.rpc.mockResolvedValue({ data: true, error: null });
+    const requests = buildMetaCatalogBatchPayload(['SOFA-OK', 'SOFA-AUSENTE', 'SOFA-OCULTO'].map((code) => ({
+      id: productId, code, name: code, status: 'published', price: 900,
+      images: ['https://catalog.example/sofa.png'],
+    }))).requests;
+    vi.mocked(loadDesiredCatalog).mockResolvedValueOnce({
+      candidateRetailers: null, blocked: new Map(),
+      items: new Map(requests.map((request) => [request.retailer_id, { productId, request }])),
+    });
+    const checks: string[][] = [];
+    const writes: unknown[] = [];
+    const published = {
+      id: '330', retailer_id: 'SOFA-OK', custom_label_4: ownershipLabel(productId),
+      visibility: 'published', availability: 'IN_STOCK', quantity_to_sell_on_facebook: '1',
+    };
+    vi.stubGlobal('fetch', vi.fn(async (url: string, init: RequestInit) => {
+      const request = new URL(url);
+      if (request.pathname.endsWith('/data_sources')) {
+        return Response.json({ data: [{ id: '1111', name: 'App 1001' }] });
+      }
+      if (request.pathname.endsWith('/items_batch')) {
+        writes.push(...JSON.parse(String(init.body)).requests);
+        return Response.json({ handles: ['batch-visibilidade'] });
+      }
+      if (request.pathname.endsWith('/check_batch_request_status')) {
+        return Response.json({ data: [{ handle: 'batch-visibilidade', status: 'finished' }] });
+      }
+      const filter = request.searchParams.get('filter');
+      if (!filter) return Response.json({ data: [] });
+      const skus = JSON.parse(filter).retailer_id.is_any;
+      checks.push(skus);
+      const staged = { ...published, id: '331', retailer_id: 'SOFA-OCULTO', visibility: 'staging' };
+      const data = checks.length === 2 ? [published, staged] : [staged];
+      return Response.json({ data });
+    }));
+    const operation = runMetaCatalogReconciliation({ trigger: 'manual' });
+    await vi.advanceTimersByTimeAsync(4_901);
+    await expect(operation).resolves.toMatchObject({ success: false, created: 1, count: 1, errors: 2 });
+    expect(writes).toHaveLength(3);
+    expect(checks).toEqual([
+      ['SOFA-OK', 'SOFA-AUSENTE', 'SOFA-OCULTO'],
+      ['SOFA-OK', 'SOFA-AUSENTE', 'SOFA-OCULTO'],
+      ['SOFA-AUSENTE', 'SOFA-OCULTO'],
+      ['SOFA-AUSENTE', 'SOFA-OCULTO'],
+    ]);
+    expect(db.rpc).toHaveBeenLastCalledWith('finish_meta_catalog_sync', expect.objectContaining({
+      p_run: expect.objectContaining({ issues: [
+        { catalog: 'whatsapp', retailerId: 'SOFA-AUSENTE', reason: expect.stringContaining('não aparece') },
+        { catalog: 'whatsapp', retailerId: 'SOFA-OCULTO', reason: expect.stringContaining('sem visibilidade') },
+      ] }),
+    }));
   });
 });

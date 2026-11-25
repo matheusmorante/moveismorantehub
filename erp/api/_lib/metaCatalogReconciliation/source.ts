@@ -14,9 +14,9 @@ import { buildProductMetaCatalogSyncItems } from '../../../../shared-utils/produ
 export const UUID = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
 const PAGE_SIZE = 200;
 const PRODUCT_FIELDS =
-  'id,name,description,status,active,deleted,deleted_at,opportunity_id,unit_price,price,promo_price,stock,images,brand,code,is_draft,slug,is_salvado,product_kind,material,condition,observations,testArtifact:technical_specs->testArtifact,product_categories(categories(name,type)),opportunities(id,name,observations)';
+  'id,name,description,status,active,deleted,deleted_at,opportunity_id,unit_price,price,promo_price,images,brand,code,is_draft,slug,is_salvado,product_kind,material,condition,observations,testArtifact:technical_specs->testArtifact,product_categories(categories(name,type)),opportunities(id,name,observations)';
 const VARIATION_FIELDS =
-  'id,product_id,status,active,merged_to_variation_id,name,sku,image_url,price,promo_price,stock,attributes,use_parent_price,use_parent_promo_price';
+  'id,product_id,status,active,merged_to_variation_id,name,sku,image_url,price,promo_price,attributes,use_parent_price,use_parent_promo_price';
 
 interface Page<T> {
   data: T[] | null;
@@ -186,6 +186,9 @@ function addDesiredItems(
 ) {
   const variationsByProduct = new Map<string, MetaCatalogVariationSource[]>();
   const campaignNames = new Map<string, Set<string>>();
+  // Salvados continuam publicáveis com active=false; seu estoque não é o estoque comum.
+  const salvadoIds = new Set(products.filter((product) => product.is_salvado === true || product.product_kind === 'salvado')
+    .map(({ id }) => id));
   for (const row of campaignRows) {
     const key = row.variation_id ?? row.product_id;
     const name = row.promotion_name?.trim();
@@ -198,7 +201,8 @@ function addDesiredItems(
     const family = variationsByProduct.get(variation.product_id) ?? [];
     family.push({
       ...variation,
-      status: variation.active === false || variation.merged_to_variation_id || isTestProduct(variation)
+      status: (variation.active === false && !salvadoIds.has(variation.product_id))
+        || variation.merged_to_variation_id || isTestProduct(variation)
         ? 'hidden'
         : variation.status,
       activeCampaignNames: [...(campaignNames.get(variation.id) ?? [])].sort(),
@@ -250,7 +254,7 @@ export async function loadDesiredCatalog(
     const query = db.from('products').select(PRODUCT_FIELDS, options)
       .eq('status', 'published').is('deleted_at', null)
       .not('deleted', 'is', true).not('is_draft', 'is', true)
-      .not('active', 'is', false);
+      .or('active.not.is.false,is_salvado.is.true,product_kind.eq.salvado');
     if (productIds) query.in('id', productIds);
     if (previous) query.gt('id', previous.id);
     return query.order('id').limit(PAGE_SIZE);

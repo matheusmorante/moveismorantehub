@@ -71,6 +71,7 @@ describe('metaCatalogService', () => {
         name: 'Guarda Roupa',
         description: 'Descrição específica do produto',
         price: 999.9,
+        stock: 0,
         image_url: 'https://moveismorante.com.br/foto.png',
         active: true,
       };
@@ -80,7 +81,9 @@ describe('metaCatalogService', () => {
         payload: expect.objectContaining({ requests: expect.arrayContaining([expect.objectContaining({ retailer_id: 'SKU-001' })]) }),
       }));
       const request = vi.mocked(metaHttpClient.request).mock.calls[0][1] as any;
-      const description = request.payload.requests[0].data.description as string;
+      const { data } = request.payload.requests[0];
+      expect(data).toMatchObject({ availability: 'in stock', quantity_to_sell_on_facebook: 1 });
+      const description = data.description as string;
       expect(description).toContain('Base institucional personalizada');
       expect(description).toContain('Descrição específica do produto');
       expect(description.split(META_CATALOG_GLOBAL_PREFIX.trim())).toHaveLength(2);
