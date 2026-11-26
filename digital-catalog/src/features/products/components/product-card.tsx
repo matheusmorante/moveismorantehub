@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { CatalogProductImage } from '@/components/ui/CatalogProductImage';
 import { ShoppingCart, Pencil } from 'lucide-react';
 import { WhatsAppIcon } from '@/components/icons/whatsapp-icon';
@@ -169,7 +170,7 @@ export function ProductCard({ product, style = defaultProductCardStyle }: Produc
               onClick={handleEditClick}
               className={cn(
                 'absolute right-2 bg-amber-500 text-white p-2 rounded-full shadow-lg hover:bg-amber-600 transition-all z-20 hover:scale-110 opacity-0 group-hover:opacity-100',
-                product.opportunity ? 'top-9' : 'top-2'
+                isSalvados ? 'top-20' : product.opportunity ? 'top-9' : 'top-2'
               )}
               title="Editar Produto"
             >
@@ -179,38 +180,43 @@ export function ProductCard({ product, style = defaultProductCardStyle }: Produc
         </div>
       </Link>
 
-      {product.opportunity && (
-        <span
-          className={cn(
-            'pointer-events-none absolute right-0 top-0 z-10 max-w-full px-2 py-1 text-right text-[10px] font-black uppercase leading-tight tracking-normal',
-            isSalvados
-              ? 'bg-red-600 text-white'
-              : isUltimaUnidade
+      {product.opportunity &&
+        (isSalvados ? (
+          <Image
+            src="/images/queima-salvados-badge.png"
+            alt="Queima dos Salvados"
+            width={1956}
+            height={804}
+            sizes="140px"
+            className="pointer-events-none absolute right-0 top-0 z-10 h-auto w-[40%] max-w-[140px]"
+          />
+        ) : (
+          <span
+            className={cn(
+              'pointer-events-none absolute right-0 top-0 z-10 max-w-full px-2 py-1 text-right text-[10px] font-black uppercase leading-tight tracking-normal',
+              isUltimaUnidade
                 ? 'bg-orange-500 text-black'
                 : isMegaLiquidacao
                   ? 'bg-amber-400 text-black'
                   : 'bg-primary text-white',
-            !(isSalvados || isUltimaUnidade || isMegaLiquidacao) &&
-              getAnimationClass(product.opportunity.badge_animation || style.opportunity_emphasis)
-          )}
-          style={
-            isSalvados ||
-            isUltimaUnidade ||
-            isMegaLiquidacao ||
-            opportunityBadgeBackground === 'inherit'
-              ? undefined
-              : { backgroundColor: opportunityBadgeBackground }
-          }
-        >
-          {isSalvados
-            ? 'Queima dos Salvados'
-            : isUltimaUnidade
+              !(isUltimaUnidade || isMegaLiquidacao) &&
+                getAnimationClass(product.opportunity.badge_animation || style.opportunity_emphasis)
+            )}
+            style={
+              isUltimaUnidade ||
+              isMegaLiquidacao ||
+              opportunityBadgeBackground === 'inherit'
+                ? undefined
+                : { backgroundColor: opportunityBadgeBackground }
+            }
+          >
+            {isUltimaUnidade
               ? 'Última Unidade'
               : isMegaLiquidacao
                 ? 'Mega Liquidação'
                 : product.opportunity.name}
-        </span>
-      )}
+          </span>
+        ))}
 
       {isAdmin && isAdminMode && (
         <AdminProductModal
