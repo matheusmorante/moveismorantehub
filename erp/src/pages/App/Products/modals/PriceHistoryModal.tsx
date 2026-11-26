@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { inventoryBatchEditCommandFormSchema, priceHistoryQueryFormSchema } from '../../../../../../shared-utils/catalogFormSchemas';
-import { withTimeout } from '../../../../../../shared-utils/withTimeout';
-import CurrencyInput from '@/components/CurrencyInput';
-import { formatCurrency, formatDateTime } from '@/pages/utils/formatters';
+import { withTimeout } from '../../../../../../shared-utils/core/withTimeout';
+import CurrencyInput from '@/components/inputs/CurrencyInput';
+import { formatCurrency, formatDateTime } from '@/pages/utils/shared/formatters';
 import Product from '@/pages/types/product.type';
 import { updateInventoryMove } from '@/pages/utils/inventoryService';
 import { toast } from 'react-toastify';

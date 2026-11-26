@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import type { InboundInvoiceItem } from '@/pages/utils/inboundNfe/inboundNfeTypes';
-import { aiService } from '@/pages/utils/aiService';
+import { aiService } from '@/pages/utils/aiService/aiService';
 import {
   fetchSupplierProductsForContext,
   buildSupplierContextSummary,

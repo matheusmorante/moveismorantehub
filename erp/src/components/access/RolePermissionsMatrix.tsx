@@ -9,7 +9,7 @@ import {
   ROLES,
   isFinanceAdminOnlyAction,
   isStockReceiptAccessRole,
-} from '@/pages/utils/permissionConfig';
+} from '@/pages/utils/auth/permissionConfig';
 
 interface RolePermissionsMatrixProps {
   settings: AppSettings;

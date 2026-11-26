@@ -5,7 +5,7 @@ import {
   buildAccentInsensitiveRegex,
   buildNormalizedWordsRegex,
   matchesSearchText,
-} from '../../../../../shared-utils/searchText';
+} from '../../../../../shared-utils/core/searchText';
 import { buildProductSearchTerms, buildProductVariationSearchFilter } from '../../../../../shared-utils/productListSearch';
 
 describe('busca com palavras em qualquer ordem', () => {

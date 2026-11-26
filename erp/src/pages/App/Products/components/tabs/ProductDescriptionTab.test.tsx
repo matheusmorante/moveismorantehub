@@ -3,10 +3,10 @@ import React from 'react';
 import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import ProductDescriptionTab, { validateProductDescriptionPrerequisites } from './ProductDescriptionTab';
-import { aiService } from '../../../../utils/aiService';
+import { aiService } from '../../../../utils/aiService/aiService';
 import { toast } from 'react-toastify';
 
-vi.mock('../../../../utils/aiService', () => ({
+vi.mock('../../../../utils/aiService/aiService', () => ({
   aiService: {
     improveProductDescription: vi.fn(),
     generateDescriptionFromInformativeText: vi.fn(),

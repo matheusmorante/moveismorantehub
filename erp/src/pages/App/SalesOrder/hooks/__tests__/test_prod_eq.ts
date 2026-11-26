@@ -3,8 +3,8 @@ const supabase = createClient(
   'https://hkoxhourxwlddgsfdgws.supabase.co',
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhrb3hob3VyeHdsZGRnc2ZkZ3dzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxNTg5MzgsImV4cCI6MjA5MzczNDkzOH0.vCNJeoR4wDl1BqESiyNhKpgviwxcx0cim8Dbl6MvdJI'
 );
-import { mapFromDB } from '../../../../utils/productService/productMapper';
-import { getProductSelectableById } from '../../../../utils/productService/productQueryService';
+import { mapFromDB } from '../../../../utils/productService/mapping/productMapper';
+import { getProductSelectableById } from '../../../../utils/productService/queries/productQueryService';
 import { getCompositionSelectableById } from '../../../../utils/compositionService';
 
 // Logic from OLD hook

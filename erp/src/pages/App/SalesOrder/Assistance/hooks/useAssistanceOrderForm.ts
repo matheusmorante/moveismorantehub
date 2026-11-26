@@ -12,7 +12,7 @@ import { createAssistanceOrderFormSchema, assistanceOrderDraftFormSchema, assist
 import { buildAssistanceOrderPayload, isAssistanceFormBlank } from '../services/assistanceOrderService';
 import type { AssistanceOrderModalProps } from '../types/assistance.types';
 import type { z } from 'zod';
-import { withTimeout } from '@/../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../../../shared-utils/core/withTimeout';
 
 const EMPTY_CUSTOMER: CustomerData = {
   fullName: '',
@@ -65,6 +65,7 @@ export const useAssistanceOrderForm = ({
   const [selectedAssistanceItems, setSelectedAssistanceItems] = useState<AssistanceItem[]>(
     order?.assistanceItems || []
   );
+  // Preserva itens históricos de assistências antigas sem oferecer uma nova edição no formulário.
   const [extraItems, setExtraItems] = useState<Item[]>(order?.items || []);
   const [assistanceCost, setAssistanceCost] = useState(order?.assistanceCost || 0);
   const [assistanceServiceValue, setAssistanceServiceValue] = useState(
@@ -84,7 +85,6 @@ export const useAssistanceOrderForm = ({
   useEffect(() => { active.current = true; return () => { active.current = false; if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current); }; }, []);
 
   // Submodals visibility
-  const [isProductSearchOpen, setIsProductSearchOpen] = useState(false);
   const [isCustomerSearchOpen, setIsCustomerSearchOpen] = useState(false);
   const [isSelectionModalOpen, setIsSelectionModalOpen] = useState(false);
 
@@ -390,8 +390,6 @@ export const useAssistanceOrderForm = ({
     // Modals
     isSelectionModalOpen,
     setIsSelectionModalOpen,
-    isProductSearchOpen,
-    setIsProductSearchOpen,
     isCustomerSearchOpen,
     setIsCustomerSearchOpen,
   };

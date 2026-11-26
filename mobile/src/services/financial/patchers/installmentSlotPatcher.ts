@@ -1,6 +1,6 @@
-import type { ParsedFinancialIntent } from '../financialTypes';
-import { parsePtBrNumber } from '../financialTextParser';
-import { validateParsedIntent } from '../financialIntentValidator';
+import type { ParsedFinancialIntent } from '../extraction/financialTypes';
+import { parsePtBrNumber } from '../classification/financialTextParser';
+import { validateParsedIntent } from '../extraction/financialIntentValidator';
 
 /**
  * Patcher e manipulador incremental de parcelas e grupos de boletos.

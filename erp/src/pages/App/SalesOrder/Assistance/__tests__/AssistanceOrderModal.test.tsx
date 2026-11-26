@@ -22,7 +22,7 @@ vi.mock('@/pages/utils/supabaseConfig', () => ({
   },
 }));
 
-vi.mock('@/components/SmartInput', () => ({
+vi.mock('@/components/inputs/SmartInput', () => ({
   default: ({ label, value, onValueChange, placeholder }: any) => (
     <input
       data-testid={label || 'smart-input'}
@@ -88,13 +88,21 @@ vi.mock('react-toastify', () => ({
   },
 }));
 
+const advanceAssistanceSteps = (count: number) => {
+  for (let step = 0; step < count; step += 1) {
+    fireEvent.click(screen.getByRole('button', { name: 'Próxima Etapa' }));
+  }
+};
+
 describe('AssistanceOrderModal', () => {
   it('reinicia os campos ao trocar a assistência no mesmo modal', () => {
     const common = { status: 'draft', orderType: 'assistance', customerData: { fullName: 'Cliente', phone: '', noPhone: true }, items: [] } as any;
     const callbacks = { onClose: vi.fn(), onSaveSuccess: vi.fn() };
     const view = render(<AssistanceOrderModal {...callbacks} order={{ ...common, id: 'ast-a', assistanceDescription: 'Serviço A' }} />);
+    advanceAssistanceSteps(1);
     expect(screen.getByDisplayValue('Serviço A')).toBeInTheDocument();
     view.rerender(<AssistanceOrderModal {...callbacks} order={{ ...common, id: 'ast-b', assistanceDescription: 'Serviço B' }} />);
+    advanceAssistanceSteps(1);
     expect(screen.getByDisplayValue('Serviço B')).toBeInTheDocument();
     expect(screen.queryByDisplayValue('Serviço A')).toBeNull();
   });
@@ -112,9 +120,10 @@ describe('AssistanceOrderModal', () => {
     let resolve!: (id: string) => void; vi.mocked(saveOrder).mockReturnValue(new Promise(done => { resolve = done; }));
     const order = { id: 'ast-1', status: 'draft', customerData: { fullName: 'Cliente', phone: '', noPhone: true }, items: [], assistanceDescription: 'Consertar sofá' } as any;
     const onClose = vi.fn(); render(<AssistanceOrderModal order={order} onClose={onClose} onSaveSuccess={vi.fn()} />);
+    advanceAssistanceSteps(2);
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Atualizar Assistência' })); });
     expect(saveOrder).toHaveBeenCalledTimes(1);
-    expect(screen.getByDisplayValue('Consertar sofá').closest('fieldset')).toHaveProperty('disabled', true);
+    expect(document.querySelector('fieldset')).toHaveProperty('disabled', true);
     expect(screen.getByRole('button', { name: 'Cancelar' })).toBeDisabled(); expect(screen.getByRole('button', { name: 'Fechar formulário de assistência' })).toBeDisabled();
     fireEvent.keyDown(window, { key: 'Escape' }); fireEvent.click(screen.getByRole('dialog', { name: 'Formulário de assistência' })); expect(onClose).not.toHaveBeenCalled();
     await act(async () => { resolve('ast-1'); }); expect(onClose).toHaveBeenCalledTimes(1);
@@ -124,8 +133,9 @@ describe('AssistanceOrderModal', () => {
     vi.mocked(saveOrder).mockResolvedValue('ast-1'); const onSaveSuccess = vi.fn().mockRejectedValueOnce(new Error('Painel indisponível')).mockResolvedValue(true); const onClose = vi.fn();
     const order = { id: 'ast-1', status: 'draft', customerData: { fullName: 'Cliente', phone: '', noPhone: true }, items: [], assistanceDescription: 'Consertar sofá' } as any;
     render(<AssistanceOrderModal order={order} onClose={onClose} onSaveSuccess={onSaveSuccess} />);
+    advanceAssistanceSteps(2);
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Atualizar Assistência' })); });
-    expect(screen.getByRole('alert').textContent).toContain('Assistência já gravada'); expect(screen.getByDisplayValue('Consertar sofá').closest('fieldset')).toHaveProperty('disabled', true);
+    expect(screen.getByRole('alert').textContent).toContain('Assistência já gravada'); expect(document.querySelector('fieldset')).toHaveProperty('disabled', true);
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Atualizar Assistência' })); });
     expect(saveOrder).toHaveBeenCalledTimes(1); expect(onSaveSuccess).toHaveBeenCalledTimes(2); expect(onClose).toHaveBeenCalledTimes(1);
   });
@@ -134,9 +144,12 @@ describe('AssistanceOrderModal', () => {
     let resolve!: (id: string) => void; vi.mocked(saveOrder).mockReturnValueOnce(new Promise(done => { resolve = done; })).mockResolvedValue('ast-b');
     const common = { status: 'draft', customerData: { fullName: 'Cliente', phone: '', noPhone: true }, items: [] } as any; const onClose = vi.fn(); const onSaveSuccess = vi.fn();
     const view = render(<AssistanceOrderModal order={{ ...common, id: 'ast-a', assistanceDescription: 'Serviço A' }} onClose={onClose} onSaveSuccess={onSaveSuccess} />);
+    advanceAssistanceSteps(2);
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Atualizar Assistência' })); });
     view.rerender(<AssistanceOrderModal order={{ ...common, id: 'ast-b', assistanceDescription: 'Serviço B' }} onClose={onClose} onSaveSuccess={onSaveSuccess} />);
+    advanceAssistanceSteps(1);
     await act(async () => { resolve('ast-a'); }); expect(onClose).not.toHaveBeenCalled(); expect(onSaveSuccess).not.toHaveBeenCalled(); expect(screen.getByDisplayValue('Serviço B')).toBeInTheDocument();
+    advanceAssistanceSteps(1);
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Atualizar Assistência' })); });
     expect(vi.mocked(saveOrder).mock.calls[1][0]).toMatchObject({ id: 'ast-b', assistanceDescription: 'Serviço B' }); expect(onClose).toHaveBeenCalledTimes(1);
   });
@@ -147,6 +160,7 @@ describe('AssistanceOrderModal', () => {
     render(<AssistanceOrderModal order={order} onClose={vi.fn()} onSaveSuccess={vi.fn()} />);
     fireEvent.change(screen.getByTestId('Buscar Endereço / CEP'), { target: { value: 'Rua Nova' } });
     expect(screen.getByTestId('Logradouro')).toHaveValue('Rua Nova');
+    advanceAssistanceSteps(2);
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Atualizar Assistência' })); });
     const address = vi.mocked(saveOrder).mock.calls[0][0].customerData.fullAddress;
     expect(address.street).toBe('Rua Nova'); expect(address.coords).toBeUndefined(); expect(address.placeId).toBe('');
@@ -170,6 +184,9 @@ describe('AssistanceOrderModal', () => {
 
     // Seção de cliente
     expect(screen.getByText('Dados do Cliente')).toBeInTheDocument();
+    expect(screen.queryByText('Atendente Principal')).not.toBeInTheDocument();
+
+    advanceAssistanceSteps(1);
 
     // Seção de atendente principal
     expect(screen.getByText('Atendente Principal')).toBeInTheDocument();
@@ -179,9 +196,12 @@ describe('AssistanceOrderModal', () => {
     expect(screen.getByText(/Valor Cobrado do Serviço/i)).toBeInTheDocument();
     expect(screen.getByText(/Custo Interno da Assistência/i)).toBeInTheDocument();
 
-    // Seção de peças e materiais extras
-    expect(screen.getByText('Peças e Materiais Utilizados')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Adicionar Item/i })).toBeInTheDocument();
+    // O formulário não oferece mais inclusão de peças/materiais avulsos.
+    expect(screen.queryByText('Peças e Materiais Utilizados')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Adicionar Item/i })).not.toBeInTheDocument();
+
+    advanceAssistanceSteps(1);
+    expect(screen.getByTestId('agendamento-mock')).toBeInTheDocument();
 
     // Botões de ação
     expect(screen.getByRole('button', { name: /Cancelar/i })).toBeInTheDocument();

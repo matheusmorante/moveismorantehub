@@ -1,6 +1,6 @@
 import type { DeliveryRouteItem } from '../hooks/useDeliveryRoute';
 import { supabase } from '../../../services/supabaseClient';
-import { withTimeout } from '../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../shared-utils/core/withTimeout';
 
 export { calculateOptimizedDeliveryRoute as calculateOptimizedRoute } from '../domain/calculateOptimizedDeliveryRoute';
 export type { OptimizationResult } from '../domain/calculateOptimizedDeliveryRoute';

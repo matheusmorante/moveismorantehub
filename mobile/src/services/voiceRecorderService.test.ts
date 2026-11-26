@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({ permission: vi.fn(), mode: vi.fn(), constructor: vi.fn(), prepare: vi.fn(), record: vi.fn(), release: vi.fn(), stop: vi.fn() }));
 vi.mock('react-native', () => ({ Platform: { OS: 'ios' } }));
 vi.mock('expo-audio', () => ({ requestRecordingPermissionsAsync: mocks.permission, setAudioModeAsync: mocks.mode, RecordingPresets: { HIGH_QUALITY: { ios: {}, android: {}, web: {} } }, AudioModule: { AudioRecorder: class { uri = 'local-test'; constructor() { mocks.constructor(); } prepareToRecordAsync() { return mocks.prepare(); } record() { mocks.record(); } stop() { return mocks.stop(); } release() { mocks.release(); } } } }));
-import { startVoiceRecording, stopVoiceRecording } from './voiceRecorderService';
+import { startVoiceRecording, stopVoiceRecording } from './voice/voiceRecorderService';
 const pending = <T,>() => { let resolve!: (value: T) => void; const promise = new Promise<T>(done => { resolve = done; }); return { promise, resolve }; };
 const flush = async () => { for (let i = 0; i < 15; i++) await Promise.resolve(); };
 beforeEach(async () => { vi.useFakeTimers(); await stopVoiceRecording(); vi.resetAllMocks(); mocks.permission.mockResolvedValue({ granted: true }); mocks.mode.mockResolvedValue(undefined); mocks.prepare.mockResolvedValue(undefined); mocks.stop.mockResolvedValue(undefined); });

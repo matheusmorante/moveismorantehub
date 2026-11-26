@@ -1,4 +1,4 @@
-import SupplierAutocomplete from '@/components/SupplierAutocomplete';
+import SupplierAutocomplete from '@/components/selectors/SupplierAutocomplete';
 import type Person from '@/pages/types/person.type';
 import type { InboundInvoice } from '@/pages/utils/inboundNfe/inboundNfeTypes';
 import type Purchase from '@/pages/types/purchase.type';

@@ -5,7 +5,7 @@ import type { Product, Variation } from '@/pages/types/product.type';
 import { useVariationForm } from './useVariationForm';
 
 const mocks = vi.hoisted(() => ({ saveVariation: vi.fn() }));
-vi.mock('@/pages/utils/productService', () => ({
+vi.mock('@/pages/utils/productService/productService', () => ({
   ...mocks,
   generateVariationSku: () => '001-01',
   parseVariationImages: (_: unknown, images: string[] | undefined) => images || [],

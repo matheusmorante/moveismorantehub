@@ -2,7 +2,7 @@ import { useReconciliationSubmit } from './useReconciliationSubmit';
 import type { ReconciliationConfirmation } from '../../../../../../../shared-utils/reconciliationFormSchemas';
 import { catalogSelectionFormSchema } from '../../../../../../../shared-utils/catalogFormSchemas';
 import React, { useState } from 'react';
-import CategoryAutocomplete from '../../../../../components/CategoryAutocomplete';
+import CategoryAutocomplete from '../../../../../components/selectors/CategoryAutocomplete';
 
 interface Props {
   isOpen: boolean;

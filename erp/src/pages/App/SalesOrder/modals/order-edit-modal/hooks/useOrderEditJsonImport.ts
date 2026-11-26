@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { toast } from 'react-toastify';
-import type { useSalesOrderForm } from '../../../hooks/useSalesOrderForm';
+import type { useSalesOrderForm } from '../../../hooks/form-flow/useSalesOrderForm';
 import {
   applyImportedOrderDataToForm,
   buildImportedClientDraft,

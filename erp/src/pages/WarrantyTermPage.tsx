@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { dateNow, stringifyFullAddress, stringifyItems } from './utils/formatters';
+import { dateNow, stringifyFullAddress, stringifyItems } from './utils/shared/formatters';
 
 const WarrantyTermPage = () => {
   const storedOrder = sessionStorage.getItem('order');

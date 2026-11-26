@@ -8,7 +8,7 @@ vi.mock('@/pages/utils/supabaseConfig', () => ({ supabase: {
 } }));
 vi.mock('../settingsService', () => ({ getSettings: () => ({ stockNotificationConditions: ['novo'] }), subscribeToSettings: () => mocks.settings }));
 vi.mock('../orderSyncQueries/sharedOrdersRealtime', () => ({ subscribeToOrderChanges: () => mocks.orders }));
-import { markAsRead, subscribeToNotifications } from '../notificationService';
+import { markAsRead, subscribeToNotifications } from '../notifications/notificationService';
 
 beforeEach(() => {
   localStorage.clear(); vi.useFakeTimers();
@@ -21,6 +21,24 @@ beforeEach(() => {
 afterEach(() => { vi.useRealTimers(); vi.clearAllMocks(); });
 
 describe('snapshot compartilhado de alertas', () => {
+  it.each([
+    { data: null, error: { code: '57014' } },
+    { data: {}, error: null },
+  ])('mantém o snapshot e dispensa a contagem após falha no resumo', async (response) => {
+    const callback = vi.fn(), stop = subscribeToNotifications(callback);
+    try {
+      await vi.waitFor(() => expect(callback).toHaveBeenCalled());
+      expect(mocks.rpc).toHaveBeenCalledWith('list_order_page_ids', expect.any(Object));
+      const snapshot = callback.mock.lastCall?.[0];
+      mocks.rpc.mockClear();
+      mocks.rpc.mockResolvedValueOnce(response);
+      mocks.change?.();
+      await vi.advanceTimersByTimeAsync(751);
+      expect(mocks.rpc.mock.calls.map(([name]) => name)).toEqual(['notification_product_summaries']);
+      expect(callback.mock.lastCall?.[0]).toEqual(snapshot);
+    } finally { stop(); }
+  });
+
   it('sino e dashboard compartilham a consulta e a leitura sem baixar os produtos outra vez', async () => {
     const first = vi.fn(), second = vi.fn();
     const stopA = subscribeToNotifications(first), stopB = subscribeToNotifications(second);

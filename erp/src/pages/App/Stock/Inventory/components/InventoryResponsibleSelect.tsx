@@ -5,7 +5,7 @@ import {
   getInventoryResponsibleDisplayName,
 } from '../../../../../../../shared-utils/inventoryResponsible';
 import { matchesSearchText } from '@/pages/utils/textUtils';
-import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../../../shared-utils/core/withTimeout';
 import { PRODUCT_AUTOCOMPLETE_DEBOUNCE_MS } from '../../../../../../../shared-utils/productAutocompleteFormSchema';
 
 const MIN_SEARCH_CHARACTERS = 3;

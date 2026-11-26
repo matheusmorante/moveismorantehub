@@ -1,1 +1,1 @@
-export * from './schemas/personImportFormSchemas';
+export * from './schemas/system/personImportFormSchemas';

@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import type { AssignedProfileSummary, WhatsAppConversation } from '../types';
-import type { SupportOrderSummary } from '@/pages/utils/customerSupport/supportOrdersService';
+import type { SupportOrderSummary } from '@/pages/utils/customerSupport/orders/supportOrdersService';
 import { useCustomerSupportMessages, useCustomerSupportActions } from '../hooks';
 import { ActivityTimelineDrawer } from './ActivityTimelineDrawer';
 import { ChatArea } from './ChatArea';

@@ -5,8 +5,8 @@ vi.mock('react-native', () => ({ Alert: { alert: mocks.alert }, ScrollView: 'div
 vi.mock('../../../mobile/src/services/mobileFinanceService', () => ({ confirmFinancialDraft: mocks.confirm, createFinancialTransaction: mocks.create }));
 vi.mock('../../../mobile/src/services/financialAiAssistantService', () => ({ extractLocalSemanticDelta: vi.fn(), PRE_ANALYSIS_DEBOUNCE_MS: 100, MAX_VOICE_INACTIVITY_MS: 1000 }));
 vi.mock('../../../mobile/src/services/aiAgent/mobileAgentService', () => ({ MobileAgentService: { sendMessage: mocks.send } }));
-vi.mock('../../../mobile/src/services/geminiLiveService', () => ({ GeminiLiveSession: class {} }));
-vi.mock('../../../mobile/src/services/voiceRecorderService', () => ({ startVoiceRecording: vi.fn(), stopVoiceRecording: vi.fn() }));
+vi.mock('../../../mobile/src/services/voice/geminiLiveService', () => ({ GeminiLiveSession: class {} }));
+vi.mock('../../../mobile/src/services/voice/voiceRecorderService', () => ({ startVoiceRecording: vi.fn(), stopVoiceRecording: vi.fn() }));
 import { useFinancialAiChat } from '../../../mobile/src/features/finance/hooks/useFinancialAiChat';
 
 const valid = { description: '  Compra  ', totalAmount: 100, type: 'expense' as const, paymentMethod: ' PIX ', businessPurpose: 'BUSINESS' as const };

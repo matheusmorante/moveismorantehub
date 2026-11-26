@@ -15,12 +15,12 @@ vi.mock('../../../services/supabaseClient', () => ({
 import {
   ensureMobileAttributeValue,
   ensureMobileAttributeValues,
-} from './mobileVariationAttributeSyncService';
+} from './variations/mobileVariationAttributeSyncService';
 import {
   checkMobileVariationAttributeConflict,
   countMobileParentVariations,
-} from './mobileVariationFamilyQueryService';
-import { mergeMobileVariationIntoCanonical } from './mobileVariationFamilyMutationService';
+} from './variations/mobileVariationFamilyQueryService';
+import { mergeMobileVariationIntoCanonical } from './variations/mobileVariationFamilyMutationService';
 
 const sourceVariationId = '123e4567-e89b-42d3-a456-426614174000';
 const targetVariationId = '123e4567-e89b-42d3-a456-426614174001';

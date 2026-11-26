@@ -7,19 +7,19 @@ import {
   checkVariationIsUsed,
   physicalDeleteProduct,
   physicalDeleteVariation,
-} from './productDependencyCheck';
+} from './queries/productDependencyCheck';
 
 const mockDb = vi.hoisted(() => ({ from: vi.fn(), rpc: vi.fn() }));
 const reconcileMeta = vi.hoisted(() => vi.fn());
 
 vi.mock('@/pages/utils/supabaseConfig', () => ({ supabase: mockDb }));
-vi.mock('./productLocalCache', () => ({
+vi.mock('./drafts/productLocalCache', () => ({
   getLocalProducts: vi.fn(() => []),
   saveLocalProducts: vi.fn(),
   notifySubscribers: vi.fn(),
 }));
-vi.mock('./productMutationService', () => ({ updateProduct: vi.fn() }));
-vi.mock('./productMetaCatalogSync', () => ({ triggerProductMetaCatalogSync: reconcileMeta }));
+vi.mock('./mutations/productMutationService', () => ({ updateProduct: vi.fn() }));
+vi.mock('./catalog/productMetaCatalogSync', () => ({ triggerProductMetaCatalogSync: reconcileMeta }));
 
 const queryResult = (result: { data: unknown[] | null; error: unknown | null }) => {
   const query: any = {
@@ -176,7 +176,7 @@ describe('physicalDeleteVariation', () => {
       error: null,
     });
 
-    const { moveProductToTrash } = await import('./productDependencyCheck');
+    const { moveProductToTrash } = await import('./queries/productDependencyCheck');
     const result = await moveProductToTrash(productId);
 
     expect(mockDb.rpc).toHaveBeenCalledWith('move_product_to_trash', {
@@ -197,7 +197,7 @@ describe('physicalDeleteVariation', () => {
       error: null,
     });
 
-    const { moveProductToTrash } = await import('./productDependencyCheck');
+    const { moveProductToTrash } = await import('./queries/productDependencyCheck');
     const result = await moveProductToTrash(productId);
 
     expect(result.success).toBe(false);
@@ -215,7 +215,7 @@ describe('physicalDeleteVariation', () => {
       error: null,
     });
 
-    const { restoreProductFromTrash } = await import('./productDependencyCheck');
+    const { restoreProductFromTrash } = await import('./queries/productDependencyCheck');
     const result = await restoreProductFromTrash(productId);
 
     expect(mockDb.rpc).toHaveBeenCalledWith('restore_product_from_trash', {

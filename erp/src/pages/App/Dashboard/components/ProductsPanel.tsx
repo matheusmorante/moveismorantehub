@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { formatCurrency } from '@/pages/utils/formatters';
+import { formatCurrency } from '@/pages/utils/shared/formatters';
 import { ProductsData } from '../hooks/useDashboardProducts';
 
 type Tab = 'topByRevenue' | 'topByQuantity' | 'stalled';

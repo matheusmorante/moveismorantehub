@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { fetchMobileProductsPage } from '../../products/services/mobileProductFetchService';
+import { fetchMobileProductsPage } from '../../products/services/products/mobileProductFetchService';
 import { submittedSearchFormSchema } from '../../../../../shared-utils/lookupFormSchemas';
 import { useZodForm } from '../../../hooks/useZodForm';
 

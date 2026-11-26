@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
-import { crmIntelligenceService, CustomerDesire } from '@/pages/utils/crmIntelligenceService';
+import { crmIntelligenceService, CustomerDesire } from '@/pages/utils/aiService/crmIntelligenceService';
 import { redeConciliationService } from '@/services/finance/redeConciliationService';
 import { SupabaseAnomalyNotification } from '../types';
 

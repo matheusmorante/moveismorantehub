@@ -15,7 +15,7 @@ import {
 } from '../product-search-suggestions';
 import { getCachedStoreStyleSettings, invalidateStoreStyleSettings } from '@/lib/store-settings-cache';
 import { catalogCategoriesQuery } from '@/lib/catalog-menu-queries';
-import { withAbortTimeout } from '../../../../../shared-utils/withAbortTimeout';
+import { withAbortTimeout } from '../../../../../shared-utils/core/withAbortTimeout';
 
 export interface CatalogFilters {
   envs?: string[];

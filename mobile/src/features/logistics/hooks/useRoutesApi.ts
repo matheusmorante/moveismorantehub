@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { computeRoute, RouteComputationResult } from '../services/googleRoutesService';
-import { DriverCoordinates } from '../../../services/locationService';
+import { DriverCoordinates } from '../../../services/logistics/locationService';
 
 interface Props {
   origin: DriverCoordinates | null;

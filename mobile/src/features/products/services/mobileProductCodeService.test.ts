@@ -4,7 +4,7 @@ const { supabaseMock } = vi.hoisted(() => ({ supabaseMock: { from: vi.fn() } }))
 
 vi.mock('../../../services/supabaseClient', () => ({ supabase: supabaseMock }));
 
-import { getNextSequentialProductCode } from './mobileProductCodeService';
+import { getNextSequentialProductCode } from './products/mobileProductCodeService';
 
 const createQuery = (result: unknown) => {
   const query: any = {};

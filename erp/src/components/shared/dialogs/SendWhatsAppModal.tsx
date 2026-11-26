@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { toast } from 'react-toastify';
-import { whatsappGraphService } from '@/pages/utils/whatsappGraphService';
+import { whatsappGraphService } from '@/pages/utils/whatsapp/whatsappGraphService';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { whatsappManualFormSchema, whatsappMessageFormSchema } from '../../../../../shared-utils/messagingFormSchemas';
-import { withTimeout } from '../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../shared-utils/core/withTimeout';
 
 interface SendWhatsAppModalProps {
   isOpen: boolean;

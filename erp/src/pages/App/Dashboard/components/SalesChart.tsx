@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { formatCurrency } from '@/pages/utils/formatters';
+import { formatCurrency } from '@/pages/utils/shared/formatters';
 
 interface DataPoint {
   name: string;

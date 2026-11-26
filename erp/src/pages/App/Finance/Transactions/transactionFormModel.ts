@@ -1,4 +1,4 @@
-import { financialTransactionWriteSchema } from '../../../../../../shared-utils/financialFormSchemas';
+import { financialToday, financialTransactionWriteSchema } from '../../../../../../shared-utils/financialFormSchemas';
 import type { FinancialTransaction } from '../../../types/finance.type';
 import { z } from 'zod';
 
@@ -38,4 +38,31 @@ export type TransactionFormData = {
   account_id: string;
   origin: NonNullable<FinancialTransaction['origin']>;
   notes: string;
+};
+
+export const createInitialTransactionFormData = (): TransactionFormData => ({
+  type: 'expense',
+  amount: 0,
+  date: financialToday(),
+  description: '',
+  payment_method: '',
+  category_id: '',
+  category_name: '',
+  purpose: 'BUSINESS',
+  vehicle_id: '',
+  collaborator_id: '',
+  collaborator_name: '',
+  account_id: 'Caixa Geral',
+  origin: 'MANUAL',
+  notes: '',
+});
+
+export const formatCurrency = (value: number) =>
+  new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+
+export const formatToBRDate = (dateString: string) => {
+  if (!dateString) return '-';
+  const [year, month, day] = dateString.split('-').map(Number);
+  const date = new Date(year, month - 1, day);
+  return new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(date);
 };

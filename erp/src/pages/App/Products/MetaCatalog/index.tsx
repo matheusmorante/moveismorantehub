@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { toast } from 'react-toastify';
 import { useAuth } from '@/context/AuthContext';
 import { formatMetaCatalogRunSummary, type MetaCatalogReconciliationResult } from '../../../../../../shared-utils/metaCatalogReconciliationResult';
-import { fetchLastMetaCatalogRun, syncAllProductsToMetaCatalog } from '@/pages/utils/productService/productMetaCatalogSync';
+import { fetchLastMetaCatalogRun, syncAllProductsToMetaCatalog } from '@/pages/utils/productService/catalog/productMetaCatalogSync';
 import { fetchMetaCatalogStats } from './services/metaCatalogDataService';
 
 export default function MetaCatalog() {

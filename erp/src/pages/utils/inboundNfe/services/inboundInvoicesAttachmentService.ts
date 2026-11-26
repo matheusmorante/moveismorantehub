@@ -1,5 +1,5 @@
 import { supabase } from '../../supabaseConfig';
-import { isValidUuid } from '../../uuidUtils';
+import { isValidUuid } from '../../shared/uuidUtils';
 import { InboundInvoice } from '../types/inboundNfeTypes';
 
 /**

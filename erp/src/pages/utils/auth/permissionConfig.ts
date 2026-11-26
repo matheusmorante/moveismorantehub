@@ -1,0 +1,208 @@
+import type { UserRole } from '@/context/AuthContext';
+import {
+  PRODUCT_ACCESS_ROLES,
+  PRODUCT_PERMISSION_AREA,
+} from '../../../../../shared-utils/productPermissions';
+
+export interface RoleOption {
+  value: UserRole;
+  label: string;
+  description: string;
+  icon: string;
+}
+
+export const ROLES: RoleOption[] = PRODUCT_ACCESS_ROLES.map((role) => ({ ...role }));
+
+export type PermissionCapability = 'view' | 'edit' | 'delete' | 'operate' | 'export';
+
+export interface PermissionActionDef {
+  id: string;
+  label: string;
+  description: string;
+  icon: string;
+  defaultRoles: UserRole[];
+  submodule: string;
+  capability: PermissionCapability;
+}
+
+export interface PermissionAreaDef {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  actions: PermissionActionDef[];
+}
+
+const action = (
+  id: string,
+  submodule: string,
+  capability: PermissionCapability,
+  label: string,
+  description: string,
+  icon: string,
+  defaultRoles: UserRole[]
+): PermissionActionDef => ({
+  id,
+  submodule,
+  capability,
+  label,
+  description,
+  icon,
+  defaultRoles,
+});
+
+const managers: UserRole[] = ['manager'];
+const stockViewers: UserRole[] = ['manager', 'deliverer', 'stockist'];
+const stockManagers: UserRole[] = ['manager', 'stockist'];
+const fiscalModuleViewers: UserRole[] = ['administrator', 'manager', 'accountant', 'seller', 'stockist'];
+const financeAdministrators: UserRole[] = ['administrator'];
+const logisticsViewers: UserRole[] = ['manager', 'seller', 'deliverer'];
+
+export const isStockReceiptAccessRole = (role: UserRole): boolean =>
+  role === 'administrator' || role === 'stockist';
+
+export const FINANCE_ADMIN_ONLY_ACTIONS = [
+  'viewFinancials',
+  'viewFinanceTransactions',
+  'viewFinancePayables',
+  'viewFinanceReceivables',
+  'viewFinanceSettings',
+  'exportReports',
+] as const;
+
+export const isFinanceAdminOnlyAction = (actionId: string): boolean =>
+  (FINANCE_ADMIN_ONLY_ACTIONS as readonly string[]).includes(actionId);
+
+export const canUseFinanceModule = (roles: UserRole[]): boolean => roles.includes('administrator');
+
+export const canSeeFinanceModuleBeta = (roles: UserRole[]): boolean =>
+  !canUseFinanceModule(roles) && roles.some((role) => role === 'manager' || role === 'accountant');
+
+export const PERMISSION_AREAS: PermissionAreaDef[] = [
+  {
+    id: 'salesOrders',
+    name: 'Vendas',
+    description: 'Pedidos, orçamentos, assistência, devoluções e relatórios de venda.',
+    icon: 'bi-bag-check-fill',
+    actions: [
+      action('viewOrders', 'Pedidos de venda', 'view', 'Acessar', 'Consultar pedidos e detalhes das vendas.', 'bi-eye-fill', managers),
+      action('createEditOrders', 'Pedidos de venda', 'edit', 'Criar e editar', 'Cadastrar pedidos e alterar itens, preços ou descontos.', 'bi-pencil-square', managers),
+      action('deleteOrders', 'Pedidos de venda', 'delete', 'Excluir e cancelar', 'Excluir ou cancelar pedidos conforme as regras comerciais.', 'bi-trash3-fill', managers),
+      action('viewBudgets', 'Orçamentos', 'view', 'Acessar', 'Consultar orçamentos e propostas.', 'bi-file-earmark-text', managers),
+      action('viewAssistanceOrders', 'Ordens de assistência', 'view', 'Acessar', 'Consultar ordens de assistência.', 'bi-tools', managers),
+      action('viewReturns', 'Devoluções', 'view', 'Acessar', 'Consultar devoluções vinculadas às vendas.', 'bi-arrow-return-left', managers),
+      action('viewSalesReports', 'Relatórios de vendas', 'view', 'Acessar', 'Consultar relatórios e análises de vendas.', 'bi-bar-chart-line', managers),
+      action('exportSalesReports', 'Relatórios de vendas', 'export', 'Exportar', 'Baixar relatórios de vendas.', 'bi-download', managers),
+    ],
+  },
+  PRODUCT_PERMISSION_AREA as unknown as PermissionAreaDef,
+  {
+    id: 'stock',
+    name: 'Estoque',
+    description: 'Operação, compras, recebimentos, etiquetas e fornecedores.',
+    icon: 'bi-boxes',
+    actions: [
+      action('viewStock', 'Acesso ao módulo', 'view', 'Acessar módulo', 'Abrir a área operacional de estoque.', 'bi-boxes', stockViewers),
+      action('viewStockMovements', 'Movimentações', 'view', 'Acessar', 'Consultar entradas, saídas e histórico de estoque.', 'bi-arrow-left-right', stockViewers),
+      action('manualStockMovement', 'Movimentações', 'edit', 'Registrar movimentações', 'Registrar entradas e saídas manuais de estoque.', 'bi-pencil-square', stockManagers),
+      action('viewStockInventory', 'Inventários', 'view', 'Acessar', 'Consultar contagens e sessões de inventário.', 'bi-journal-check', stockViewers),
+      action('finalizeStockInventory', 'Inventários', 'operate', 'Finalizar inventários', 'Concluir a revisão e registrar no estoque as quantidades apuradas.', 'bi-check2-circle', stockManagers),
+      action('viewStockUnavailabilities', 'Indisponibilidades', 'view', 'Acessar', 'Consultar perdas, avarias e indisponibilidades.', 'bi-dash-circle-dotted', stockViewers),
+      action('viewStockPurchases', 'Pedidos de compra', 'view', 'Acessar', 'Consultar pedidos de compra.', 'bi-cart-fill', stockViewers),
+      action('deleteStockPurchases', 'Pedidos de compra', 'delete', 'Apagar pedidos cancelados e rascunhos', 'Apagar pedidos cancelados ou descartar pedidos em rascunho.', 'bi-trash3', stockManagers),
+      action('viewStockReceipts', 'Recebimentos', 'view', 'Acessar', 'Consultar conferências e recebimentos de mercadoria.', 'bi-clipboard-check', ['stockist']),
+      action('viewStockLabels', 'Etiquetas', 'view', 'Acessar', 'Consultar e imprimir etiquetas de produtos e preços.', 'bi-upc-scan', stockViewers),
+      action('viewSuppliers', 'Fornecedores', 'view', 'Acessar', 'Consultar o submódulo de fornecedores do estoque.', 'bi-truck', ['manager', 'seller', 'stockist']),
+    ],
+  },
+  {
+    id: 'logistics',
+    name: 'Logística',
+    description: 'Agendas de entrega, rotas e listas de montagem.',
+    icon: 'bi-truck',
+    actions: [
+      action('viewDeliverySchedule', 'Agenda de entregas', 'view', 'Acessar', 'Consultar agenda e pedidos programados para entrega.', 'bi-calendar-event', logisticsViewers),
+      action('startDelivery', 'Agenda de entregas', 'operate', 'Iniciar e atualizar rota', 'Despachar pedidos e atualizar o andamento da entrega.', 'bi-truck', ['administrator', 'manager', 'deliverer', 'seller', 'stockist']),
+      action('viewAssemblyList', 'Lista de montagem', 'view', 'Acessar', 'Consultar itens e serviços de montagem.', 'bi-tools', logisticsViewers),
+    ],
+  },
+  {
+    id: 'registrations',
+    name: 'Pessoas e cadastros',
+    description: 'Clientes, colaboradores e necessidades de clientes.',
+    icon: 'bi-people-fill',
+    actions: [
+      action('viewPeople', 'Acesso ao módulo', 'view', 'Acessar módulo', 'Abrir a área de cadastros de pessoas.', 'bi-eye-fill', managers),
+      action('viewCustomers', 'Clientes', 'view', 'Acessar', 'Consultar clientes e seus dados cadastrais.', 'bi-person-lines-fill', managers),
+      action('createEditPeople', 'Clientes', 'edit', 'Criar e editar', 'Cadastrar e atualizar clientes e cadastros de pessoas.', 'bi-person-plus-fill', managers),
+      action('deletePeople', 'Clientes', 'delete', 'Excluir e inativar', 'Excluir ou inativar cadastros de pessoas.', 'bi-person-x-fill', managers),
+      action('viewEmployees', 'Colaboradores', 'view', 'Acessar', 'Consultar colaboradores e seus perfis.', 'bi-person-badge-fill', managers),
+      action('viewCustomerDesires', 'Necessidades de clientes', 'view', 'Acessar', 'Consultar preferências e necessidades registradas por clientes.', 'bi-heart', managers),
+    ],
+  },
+  {
+    id: 'fiscal',
+    name: 'Fiscal',
+    description: 'Documentos fiscais, documentos de entrada e catálogo NCM.',
+    icon: 'bi-receipt-cutoff',
+    actions: [
+      action('viewFiscal', 'Notas fiscais de saída', 'view', 'Acessar', 'Consultar documentos fiscais de saída.', 'bi-receipt', fiscalModuleViewers),
+      action('viewInboundFiscal', 'Notas fiscais de entrada', 'view', 'Acessar', 'Consultar documentos fiscais de entrada.', 'bi-file-earmark-arrow-down', fiscalModuleViewers),
+      action('viewNcmCatalog', 'Catálogo NCM', 'view', 'Acessar', 'Consultar códigos e classificações NCM.', 'bi-list-check', fiscalModuleViewers),
+    ],
+  },
+  {
+    id: 'financials',
+    name: 'Financeiro e relatórios',
+    description: 'Movimentações financeiras, indicadores e exportações.',
+    icon: 'bi-currency-dollar',
+    actions: [
+      action('viewFinanceTransactions', 'Transações', 'view', 'Acessar', 'Consultar movimentações e lançamentos financeiros.', 'bi-arrow-left-right', financeAdministrators),
+      action('viewFinancePayables', 'Contas a pagar', 'view', 'Acessar', 'Consultar contas e compromissos a pagar.', 'bi-box-arrow-up-right', financeAdministrators),
+      action('viewFinanceReceivables', 'Contas a receber', 'view', 'Acessar', 'Consultar contas e recebimentos pendentes.', 'bi-box-arrow-in-down-left', financeAdministrators),
+      action('viewFinancials', 'Acesso ao módulo', 'view', 'Acessar módulo', 'Abrir a área financeira.', 'bi-graph-up-arrow', financeAdministrators),
+      action('exportReports', 'Relatórios financeiros', 'export', 'Exportar relatórios', 'Baixar relatórios financeiros em PDF, Excel ou CSV.', 'bi-file-earmark-spreadsheet-fill', financeAdministrators),
+      action('viewFinanceSettings', 'Configurações financeiras', 'view', 'Acessar', 'Consultar configurações do módulo financeiro.', 'bi-gear', financeAdministrators),
+    ],
+  },
+  {
+    id: 'marketing',
+    name: 'Marketing',
+    description: 'Publicações, catálogos e canais de divulgação.',
+    icon: 'bi-megaphone-fill',
+    actions: [
+      action('viewMarketing', 'Acesso ao módulo', 'view', 'Acessar módulo', 'Abrir a área de marketing.', 'bi-instagram', managers),
+      action('viewMarketingPosts', 'Publicações', 'view', 'Acessar publicações', 'Consultar publicações e gerador de conteúdo.', 'bi-card-text', managers),
+      action('manageSiteElements', 'Elementos do site', 'edit', 'Gerenciar modelos', 'Cadastrar, editar e excluir modelos do carrossel e da barra de avisos do catálogo digital.', 'bi-images', managers),
+      action('manageCatalogImageTemplates', 'Modelos de imagem', 'edit', 'Gerenciar modelos', 'Criar e editar modelos de imagem para produtos do ERP e exportar posts.', 'bi-image', managers),
+      action('viewChannelCatalog', 'Catálogo de canais', 'view', 'Acessar', 'Consultar catálogos conectados aos canais de venda.', 'bi-grid-3x3-gap', managers),
+      action('viewMetaCatalog', 'Catálogo Meta', 'view', 'Acessar', 'Consultar o catálogo de produtos para a Meta.', 'bi-meta', managers),
+      action('viewWhatsAppMarketplace', 'Marketplace WhatsApp', 'view', 'Acessar', 'Consultar catálogo e integração do WhatsApp.', 'bi-whatsapp', managers),
+    ],
+  },
+  {
+    id: 'customerSupport',
+    name: 'Central de Atendimento',
+    description: 'Atendimento integrado WhatsApp, conversas e dados comerciais de clientes.',
+    icon: 'bi-chat-dots-fill',
+    actions: [
+      action('viewCustomerSupport', 'Acesso à Central', 'view', 'Acessar Central de Atendimento', 'Consultar e responder conversas do WhatsApp.', 'bi-chat-dots-fill', ['manager', 'seller', 'deliverer']),
+      action('viewCustomerCommercialInfo', 'Dados comerciais no atendimento', 'view', 'Visualizar informações comerciais', 'Consultar pedidos, valores e dados comerciais do cliente na Central.', 'bi-bag-check-fill', ['manager', 'seller']),
+    ],
+  },
+  {
+    id: 'settingsAndAccess',
+    name: 'Configurações e acessos',
+    description: 'Gestão de usuários, perfis e parâmetros do ERP.',
+    icon: 'bi-shield-gear',
+    actions: [
+      action('manageAccess', 'Perfis e usuários', 'edit', 'Gerenciar colaboradores e perfis', 'Cadastrar colaboradores e alterar perfis de acesso.', 'bi-person-badge-fill', managers),
+      action('manageSettings', 'Configurações gerais', 'edit', 'Alterar configurações gerais', 'Alterar preferências, regras e parâmetros do sistema.', 'bi-sliders2', []),
+    ],
+  },
+];
+
+export const PERMISSION_ACTIONS = PERMISSION_AREAS.flatMap((area) => area.actions);
+
+export const findPermissionAction = (actionId: string): PermissionActionDef | undefined =>
+  PERMISSION_ACTIONS.find((actionDefinition) => actionDefinition.id === actionId);

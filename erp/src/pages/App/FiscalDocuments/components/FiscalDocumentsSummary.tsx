@@ -1,5 +1,5 @@
 import React from 'react';
-import { formatCurrency } from '@/pages/utils/formatters';
+import { formatCurrency } from '@/pages/utils/shared/formatters';
 import type { FiscalDocumentsSummary as FiscalDocumentsSummaryData } from '../services/fiscalDocumentsService';
 
 interface FiscalDocumentsSummaryProps {

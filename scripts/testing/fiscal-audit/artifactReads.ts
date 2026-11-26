@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { excludeTestOrders, NON_TEST_ARTIFACT_FILTER } from '../../../shared-utils/testArtifactQueries';
+import { excludeTestOrders, NON_TEST_ARTIFACT_FILTER } from '../../../shared-utils/testing/testArtifactQueries';
 
 export async function testArtifactPostgrestReads() {
   const url = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';

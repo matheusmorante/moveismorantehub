@@ -7,7 +7,7 @@ vi.mock('../../../services/supabaseClient', () => ({
   supabase: { auth: { getSession: getSessionMock } },
 }));
 
-vi.mock('../../../services/apiUsageTracker', () => ({
+vi.mock('../../../services/platform/apiUsageTracker', () => ({
   MobileApiUsageTracker: { record: recordUsageMock },
 }));
 

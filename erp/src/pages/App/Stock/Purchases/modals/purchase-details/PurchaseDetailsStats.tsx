@@ -1,6 +1,6 @@
 import React from 'react';
 import Purchase from '../../../../../types/purchase.type';
-import { formatCurrency } from '../../../../../utils/formatters';
+import { formatCurrency } from '../../../../../utils/shared/formatters';
 
 interface PurchaseDetailsStatsProps {
   purchase: Purchase;

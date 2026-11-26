@@ -12,7 +12,7 @@ import {
   fetchMobileCategoryAttributes,
   saveMobileEnvironment,
   saveMobileCategory,
-} from '../../services/mobileCategoryService';
+} from '../../services/categories/mobileCategoryService';
 import type {
   EnvironmentNode,
   CategoryNode,

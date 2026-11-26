@@ -1,6 +1,6 @@
 import {
   ImportConfig,
-} from '../importMappingTypes';
+} from '../shared/importMappingTypes';
 import type { AiUsageLimitsConfig } from '../../../../../shared-utils/aiUsageLimitSchemas';
 
 export type { AiUsageLimitsConfig };

@@ -1,5 +1,5 @@
 import { Payment } from '../../types/payments.type';
-import CurrencyDisplay from '../../../components/CurrencyDisplay';
+import CurrencyDisplay from '../../../components/display/CurrencyDisplay';
 
 interface Props {
   payments: Payment[];

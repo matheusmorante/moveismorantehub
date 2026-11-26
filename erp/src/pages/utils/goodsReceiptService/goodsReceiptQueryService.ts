@@ -14,9 +14,9 @@ import {
   removeReceiptListener,
 } from './goodsReceiptStorage';
 import { mapGoodsReceiptRow } from './goodsReceiptMapper';
-import { buildPostgrestAccentInsensitiveOrFilter } from '../../../../../shared-utils/searchText';
+import { buildPostgrestAccentInsensitiveOrFilter } from '../../../../../shared-utils/core/searchText';
 import { normalizeFiscalIdentifier } from '../../../../../shared-utils/fiscalIdentifiers';
-import { withTimeout } from '../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../shared-utils/core/withTimeout';
 
 export const fetchGoodsReceiptByFiscalKey = async (fiscalKey: string): Promise<GoodsReceipt | null> => {
   const originalKey = String(fiscalKey || '').trim();

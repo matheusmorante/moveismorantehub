@@ -3,21 +3,21 @@ import crypto from 'crypto';
 import {
   verifyMetaSignature,
   processWhatsAppWebhookPayload,
-} from '@/pages/utils/customerSupport/whatsappWebhookProcessor';
-import { matchCustomerByPhone } from '@/pages/utils/customerSupport/customerMatchingService';
+} from '@/pages/utils/customerSupport/webhook/whatsappWebhookProcessor';
+import { matchCustomerByPhone } from '@/pages/utils/customerSupport/query/customerMatchingService';
 import {
   getCustomerOrders,
   formatBRL,
-} from '@/pages/utils/customerSupport/supportOrdersService';
-import { whatsappSupportGuard } from '@/pages/utils/customerSupport/whatsappSupportGuard';
-import { canPerform } from '@/pages/utils/permissionService';
+} from '@/pages/utils/customerSupport/orders/supportOrdersService';
+import { whatsappSupportGuard } from '@/pages/utils/customerSupport/messaging/whatsappSupportGuard';
+import { canPerform } from '@/pages/utils/auth/permissionService';
 import { registerCustomerSupportInternalCommandCases } from './customerSupportInternalCommandCases';
 import {
   fetchConversations,
   markConversationAsRead,
   toggleArchiveConversation,
   DEFAULT_QUICK_SNIPPETS,
-} from '@/pages/utils/customerSupport/customerSupportService';
+} from '@/pages/utils/customerSupport/query/customerSupportService';
 
 describe('Central de Atendimento WhatsApp — Suíte Completa de Testes', () => {
   beforeEach(() => {

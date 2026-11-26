@@ -8,7 +8,7 @@ const { supabaseMock } = vi.hoisted(() => ({
 
 vi.mock('../../../services/supabaseClient', () => ({ supabase: supabaseMock }));
 
-import { fetchMobileProductTechnicalFields } from './mobileProductTechnicalService';
+import { fetchMobileProductTechnicalFields } from './categories/mobileProductTechnicalService';
 import { missingCategoryApplicationsQuery } from './mobileProductTechnicalService.testUtils';
 
 describe('mobileProductTechnicalService optional schema fallbacks', () => {

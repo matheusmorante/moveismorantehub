@@ -2,18 +2,18 @@
 import React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { ChatMessageTimeline } from '../components/chat/ChatMessageTimeline';
-import { ChatInChatSearch } from '../components/chat/ChatInChatSearch';
+import { ChatMessageTimeline } from '../components/chat/timeline/ChatMessageTimeline';
+import { ChatInChatSearch } from '../components/chat/area/ChatInChatSearch';
 import { ChatArea } from '../components/ChatArea';
 import type { WhatsAppConversation, WhatsAppMessage } from '../types';
 
 const mocks = vi.hoisted(() => ({ fetchMessageSearch: vi.fn() }));
-vi.mock('@/pages/utils/customerSupport/customerSupportService', () => ({
+vi.mock('@/pages/utils/customerSupport/query/customerSupportService', () => ({
   fetchConversationMessageSearchPage: mocks.fetchMessageSearch,
 }));
 vi.mock('@/pages/utils/supabaseConfig', () => ({ supabase: {} }));
 vi.mock('@/context/AuthContext', () => ({ useAuth: () => ({ user: { id: 'operator' }, profile: { full_name: 'Atendente' } }) }));
-vi.mock('../components/chat/ChatComposer', () => ({ ChatComposer: () => <footer data-testid="chat-composer" /> }));
+vi.mock('../components/chat/composer/ChatComposer', () => ({ ChatComposer: () => <footer data-testid="chat-composer" /> }));
 vi.mock('../components/QuickSnippetsModal', () => ({ QuickSnippetsModal: () => null }));
 vi.mock('../components/MessageBubble', () => ({
   MessageBubble: ({ message }: { message: WhatsAppMessage }) => <p>{message.textContent}</p>,

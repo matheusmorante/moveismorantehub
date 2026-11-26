@@ -1,8 +1,8 @@
 import React from 'react';
 import Person from '@/pages/types/person.type';
-import SmartInput from '@/components/SmartInput';
+import SmartInput from '@/components/inputs/SmartInput';
 import { PatternFormat as PatternFormatBase } from 'react-number-format';
-import { toTitleCase } from '@/pages/utils/formatters';
+import { toTitleCase } from '@/pages/utils/shared/formatters';
 const PatternFormat = PatternFormatBase as any;
 
 interface PersonIdentificationSectionProps {

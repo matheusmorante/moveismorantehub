@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { flattenFormErrors, useZodForm } from '../../../../hooks/useZodForm';
 import { purchaseListFormSchema } from '../../../../../../shared-utils/listingFormSchemas';
-import { withTimeout } from '../../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../../shared-utils/core/withTimeout';
 import { supabase } from '../../../../services/supabaseClient';
 import {
   fetchMobilePurchases,

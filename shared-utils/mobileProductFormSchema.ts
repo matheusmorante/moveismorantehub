@@ -1,1 +1,1 @@
-export * from './schemas/mobileProductFormSchema';
+export * from './schemas/products/mobileProductFormSchema';

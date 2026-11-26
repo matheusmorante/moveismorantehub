@@ -9,48 +9,48 @@ import {
   extractMultipleFinancialFacts,
   processFinancialInput,
   validateParsedIntent,
-} from './financial/financialIntentValidator';
+} from './financial/extraction/financialIntentValidator';
 import {
   trySlotFillingFallback,
   extractUnknownFieldsFromText,
-} from './financial/financialSlotFilling';
-import { parsePtBrWrittenNumbers } from './financial/wordToNumberPtBr';
-import { fallbackHeuristicParser, parsePtBrNumber } from './financial/financialTextParser';
-import { normalizeSearchTerm } from '../../../shared-utils/searchText';
+} from './financial/extraction/financialSlotFilling';
+import { parsePtBrWrittenNumbers } from './financial/classification/wordToNumberPtBr';
+import { fallbackHeuristicParser, parsePtBrNumber } from './financial/classification/financialTextParser';
+import { normalizeSearchTerm } from '../../../shared-utils/core/searchText';
 
 import {
   IntentType,
   InstallmentItemDraft,
   ParsedFinancialIntent,
   ChatMessage,
-} from './financial/financialTypes';
+} from './financial/extraction/financialTypes';
 
 export {
   validateParsedIntent,
   extractMultipleFinancialFacts,
   processFinancialInput,
-} from './financial/financialIntentValidator';
+} from './financial/extraction/financialIntentValidator';
 export {
   trySlotFillingFallback,
   extractUnknownFieldsFromText,
-} from './financial/financialSlotFilling';
-export { parsePtBrNumber, fallbackHeuristicParser } from './financial/financialTextParser';
+} from './financial/extraction/financialSlotFilling';
+export { parsePtBrNumber, fallbackHeuristicParser } from './financial/classification/financialTextParser';
 export {
   classifyMultiTurnIntent,
   applyTurnPatch,
   applyTurnPatchWithDraftList,
-} from './financial/multiTurnIntentClassifier';
-export { buildGroupedQuestion } from './financial/financialIntentValidator';
+} from './financial/extraction/multiTurnIntentClassifier';
+export { buildGroupedQuestion } from './financial/extraction/financialIntentValidator';
 export {
   AUTO_SEND_SILENCE_MS,
   MAX_VOICE_INACTIVITY_MS,
   PRE_ANALYSIS_DEBOUNCE_MS,
-} from './financial/voiceConfig';
-export type { UtteranceStatus, TurnIntent, UtteranceSegment } from './financial/voiceConfig';
+} from './financial/extraction/voiceConfig';
+export type { UtteranceStatus, TurnIntent, UtteranceSegment } from './financial/extraction/voiceConfig';
 
 export type { IntentType, InstallmentItemDraft, ParsedFinancialIntent, ChatMessage };
 export type FinancialInstallment = InstallmentItemDraft;
-export type { FinancialCategory } from './financial/mobileFinanceTypes';
+export type { FinancialCategory } from './financial/crud/mobileFinanceTypes';
 
 import { MobileAgentClient } from './aiAgent/mobileAgentClient';
 

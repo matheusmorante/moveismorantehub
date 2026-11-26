@@ -1,5 +1,5 @@
 import React from 'react';
-import { MeasurementInput } from '@/components/MeasurementInput';
+import { MeasurementInput } from '@/components/inputs/MeasurementInput';
 
 interface PaperOption {
   readonly id: string;

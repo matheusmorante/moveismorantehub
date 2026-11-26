@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({ from: vi.fn(), getUser: vi.fn(), current: { service_data: {} } as any, lookupError: null as any, reply: {} as any, insert: vi.fn(), update: vi.fn(), selectCalls: [] as unknown[] }));
 vi.mock('@/pages/utils/supabaseConfig', () => ({ supabase: { from: mocks.from, auth: { getUser: mocks.getUser } } }));
-import { moveToTrash, saveService, updateService } from '../serviceService';
+import { moveToTrash, saveService, updateService } from '../sales/serviceService';
 const service = { description: ' Existing ', unitPrice: 50, costPrice: 20, active: true };
 beforeEach(() => {
   vi.clearAllMocks(); mocks.selectCalls = []; mocks.current = { service_data: { ...service, id: 'wrong-json-id', retainedMetadata: { source: 'original' } }, is_draft: false }; mocks.lookupError = null;

@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { toast } from 'react-toastify';
-import { aiService } from '@/pages/utils/aiService';
+import { aiService } from '@/pages/utils/aiService/aiService';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { assistedOrderFormSchema, textPromptFormSchema } from '../../../../../../../shared-utils/assistedFormSchemas';
-import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../../../shared-utils/core/withTimeout';
 import { SmartAIFillModalProps, SmartAIFillParsedResult, SmartAIFillTab } from './types';
 
 export const useSmartAIFillForm = ({

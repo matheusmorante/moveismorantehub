@@ -9,7 +9,7 @@ import {
   executeAbandonHmlTlsAttempt,
   type SefazConsultOutcome,
 } from '../../services/nfeReconciliationService';
-import { withTimeout } from '../../../../../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../../../../../shared-utils/core/withTimeout';
 import type { NfeItemWithFiscal } from '../../NfeItemsSection';
 
 export interface ExecuteReconcileParams {

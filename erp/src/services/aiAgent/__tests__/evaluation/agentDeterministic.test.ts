@@ -7,7 +7,7 @@ import { AgentExecutionResult, ExecutedToolRecord } from '../../geminiAgentTypes
 import {
   validateParsedIntent,
   processFinancialInput,
-} from '../../../../../../mobile/src/services/financial/financialIntentValidator';
+} from '../../../../../../mobile/src/services/financial/extraction/financialIntentValidator';
 import { GeminiAgentService } from '../../geminiAgentService';
 import { MobileAgentService } from '../../../../../../mobile/src/services/aiAgent/mobileAgentService';
 

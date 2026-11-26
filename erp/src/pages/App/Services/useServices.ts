@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import Service from '../../types/service.type';
-import { subscribeToServices, moveToTrash } from '../../utils/serviceService';
+import { subscribeToServices, moveToTrash } from '../../utils/sales/serviceService';
 import { toast } from 'react-toastify';
 
 export const useServices = () => {

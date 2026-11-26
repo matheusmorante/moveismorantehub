@@ -6,7 +6,7 @@ import {
 } from '../whatsapp/whatsappDispatchTracker';
 import { sendDirectCustomerOrderViaMetaApi } from '../whatsapp/metaDirectSend';
 import { clearRecentSendTimestamps } from '../whatsapp/metaDirectSend';
-import { whatsappGraphService } from '../whatsappGraphService';
+import { whatsappGraphService } from '../whatsapp/whatsappGraphService';
 import { getSettings } from '../settingsService';
 import { toast } from 'react-toastify';
 import Order from '../../types/order.type';
@@ -32,7 +32,7 @@ vi.mock('../settingsService', () => ({
   getSettings: vi.fn(),
 }));
 
-vi.mock('../whatsappGraphService', () => ({
+vi.mock('../whatsapp/whatsappGraphService', () => ({
   whatsappGraphService: {
     sendTemplateMessage: vi.fn(),
     sendTextMessage: vi.fn(),

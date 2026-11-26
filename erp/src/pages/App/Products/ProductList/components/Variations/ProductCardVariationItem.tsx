@@ -4,19 +4,19 @@ import { supabase } from '@/pages/utils/supabaseConfig';
 import {
   canPrintProductIdentificationLabels,
   isProductIdentificationLabelOnlyProfile,
-} from '@/pages/utils/accessRoles';
+} from '@/pages/utils/auth/accessRoles';
 import Product from '@/pages/types/product.type';
-import { formatCurrency } from '@/pages/utils/formatters';
+import { formatCurrency } from '@/pages/utils/shared/formatters';
 import {
   getSelectedProductDisplayName,
   normalizeVariationSku,
-} from '@/pages/utils/productVariationDefaults';
+} from '@/pages/utils/productService/productVariationDefaults';
 import { toTitleCase } from '@/pages/utils/textUtils';
-import { isNonConventionalProduct } from '@/pages/utils/productKindRules';
+import { isNonConventionalProduct } from '@/pages/utils/productService/productKindRules';
 import { isSalvadoStockOrigin } from '../../../../../../../../shared-utils/productStockOrigin';
 import { resolveProductVariationPricing } from '../../../../../../../../shared-utils/productVariationPricing';
-import ProductImage from '@/components/ProductImage';
-import { parseVariationImages } from '@/pages/utils/productService';
+import ProductImage from '@/components/display/ProductImage';
+import { parseVariationImages } from '@/pages/utils/productService/productService';
 import { ChannelStatusBadges } from '../Shared/ChannelStatusBadges';
 import { MergedBadge } from '../Shared/MergedBadge';
 import type { CardVariationItem } from './ProductCardVariationList';

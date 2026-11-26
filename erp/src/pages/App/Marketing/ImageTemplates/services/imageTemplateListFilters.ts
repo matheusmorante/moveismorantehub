@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { getSaoPauloDayInfo } from '../../../../../../../shared-utils/commercialScheduling/timezoneUtils';
-import { buildNormalizedWordsRegex } from '../../../../../../../shared-utils/searchText';
+import { buildNormalizedWordsRegex } from '../../../../../../../shared-utils/core/searchText';
 
 const optionalDay = z.union([z.literal(''), z.iso.date()]);
 export const templateLibraryFilterSchema = z.object({

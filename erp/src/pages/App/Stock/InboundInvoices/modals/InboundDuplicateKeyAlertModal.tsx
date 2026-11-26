@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import type { InboundInvoice } from '@/pages/utils/inboundNfe/inboundNfeTypes';
-import { formatCurrency } from '@/pages/utils/formatters';
+import { formatCurrency } from '@/pages/utils/shared/formatters';
 
 interface InboundDuplicateKeyAlertModalProps {
   readonly isOpen: boolean;

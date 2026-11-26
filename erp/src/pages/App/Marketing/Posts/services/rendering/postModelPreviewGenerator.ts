@@ -1,5 +1,5 @@
 import { AiGateway } from '@/services/aiGateway/AiGateway';
-import { withTimeout } from '../../../../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../../../../shared-utils/core/withTimeout';
 import { PostTemplate } from '../../types/postTemplate';
 import { postGenerationGuidelines } from '../postGenerationGuidelines';
 import {

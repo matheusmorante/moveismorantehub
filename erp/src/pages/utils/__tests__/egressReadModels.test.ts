@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { fetchOrderSummaries } from '../../../../../shared-utils/orderSummaryQuery';
-import { createMeasuredSupabaseFetch } from '../../../../../shared-utils/supabaseReadMetrics';
+import { createMeasuredSupabaseFetch } from '../../../../../shared-utils/core/supabaseReadMetrics';
 import { reconcileCartQuote } from '../../../../../digital-catalog/src/features/products/cart-quote';
 
 afterEach(() => { delete (globalThis as any).__MORANTEHUB_READ_METRICS__; });

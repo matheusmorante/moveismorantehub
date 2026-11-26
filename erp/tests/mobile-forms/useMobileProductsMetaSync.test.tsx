@@ -9,10 +9,10 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock('react-native', () => ({ Alert: { alert: vi.fn() } }));
-vi.mock('../../../mobile/src/features/products/services/mobileProductFetchService', () => ({
+vi.mock('../../../mobile/src/features/products/services/products/mobileProductFetchService', () => ({
   fetchMobileProductsPage: mocks.fetchPage,
 }));
-vi.mock('../../../mobile/src/features/products/services/mobileProductMutationService', () => ({
+vi.mock('../../../mobile/src/features/products/services/products/mobileProductMutationService', () => ({
   deleteMobileProduct: vi.fn(),
   moveMobileProductToTrash: vi.fn(),
   restoreMobileProductFromTrash: vi.fn(),
@@ -20,10 +20,10 @@ vi.mock('../../../mobile/src/features/products/services/mobileProductMutationSer
   toggleMobileProductActive: vi.fn(),
   toggleMobileProductCatalog: vi.fn(),
 }));
-vi.mock('../../../mobile/src/features/products/services/mobileProductMetaCatalogSyncService', () => ({
+vi.mock('../../../mobile/src/features/products/services/catalog/mobileProductMetaCatalogSyncService', () => ({
   triggerMobileProductMetaCatalogSync: mocks.syncMeta,
 }));
-vi.mock('../../../mobile/src/features/products/services/mobileProductTechnicalService', () => ({
+vi.mock('../../../mobile/src/features/products/services/categories/mobileProductTechnicalService', () => ({
   fetchMobileProductTechnicalFields: vi.fn(),
 }));
 

@@ -5,9 +5,9 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import AttendanceVoiceInput from '../AttendanceVoiceInput';
 const mocks = vi.hoisted(() => ({ analyze: vi.fn(), chat: vi.fn(), save: vi.fn(), upload: vi.fn(), profile: { id: 'operator-1', full_name: 'Operador' } }));
 vi.mock('@/context/AuthContext', () => ({ useAuth: () => ({ profile: mocks.profile }) }));
-vi.mock('@/pages/utils/aiService', () => ({ aiService: { chat: mocks.chat } }));
-vi.mock('@/pages/utils/crmIntelligenceService', () => ({ crmIntelligenceService: { analyzeCustomerIntent: mocks.analyze } }));
-vi.mock('@/pages/utils/attendanceService', () => ({ attendanceService: { saveLog: mocks.save, uploadAudio: mocks.upload } }));
+vi.mock('@/pages/utils/aiService/aiService', () => ({ aiService: { chat: mocks.chat } }));
+vi.mock('@/pages/utils/aiService/crmIntelligenceService', () => ({ crmIntelligenceService: { analyzeCustomerIntent: mocks.analyze } }));
+vi.mock('@/pages/utils/sales/attendanceService', () => ({ attendanceService: { saveLog: mocks.save, uploadAudio: mocks.upload } }));
 vi.mock('react-toastify', () => ({ toast: { warn: vi.fn(), error: vi.fn(), success: vi.fn(), info: vi.fn() } }));
 vi.mock('react-number-format', () => ({ PatternFormat: ({ onValueChange, format: _format, ...props }: any) => <input {...props} onChange={(event) => onValueChange({ value: event.target.value })} /> }));
 function deferred<T>() { let resolve!: (value: T) => void; const promise = new Promise<T>((done) => { resolve = done; }); return { promise, resolve }; }

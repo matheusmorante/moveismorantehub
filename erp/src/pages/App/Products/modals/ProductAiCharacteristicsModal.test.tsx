@@ -3,9 +3,9 @@ import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react';
 import { ProductAiCharacteristicsModal } from './ProductAiCharacteristicsModal';
-import { aiService } from '@/pages/utils/aiService';
+import { aiService } from '@/pages/utils/aiService/aiService';
 
-vi.mock('@/pages/utils/aiService', () => ({
+vi.mock('@/pages/utils/aiService/aiService', () => ({
   aiService: {
     extractProductCharacteristicsWithAI: vi.fn(),
     extractFromDescriptiveTextWithAI: vi.fn(),

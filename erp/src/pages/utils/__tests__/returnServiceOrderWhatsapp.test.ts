@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type Order from '../../types/order.type';
-import { buildReturnServiceOrderMessage } from '../whatsappTemplates';
+import { buildReturnServiceOrderMessage } from '../whatsapp/whatsappTemplates';
 
 vi.mock('../maps', () => ({ getShippingRouteUrl: vi.fn(() => '') }));
 vi.mock('../orderCode', () => ({

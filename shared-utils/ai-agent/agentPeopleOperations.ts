@@ -1,5 +1,5 @@
-import { isIdentifiedTestArtifact } from '../testArtifactPolicy';
-import { buildPostgrestAccentInsensitiveOrFilter } from '../searchText';
+import { isIdentifiedTestArtifact } from '../testing/testArtifactPolicy';
+import { buildPostgrestAccentInsensitiveOrFilter } from '../core/searchText';
 
 export interface UpsertAgentCustomerInput {
   clienteId?: string;

@@ -1,1 +1,1 @@
-export * from './schemas/fileFormSchemas';
+export * from './schemas/system/fileFormSchemas';

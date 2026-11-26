@@ -2,12 +2,12 @@
 import React from 'react';
 import { cleanup, fireEvent, render, waitFor } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
-import ProductAutocomplete from './ProductAutocomplete';
-import { fetchAllProductSearchResults } from './productAutocompleteUtils';
+import ProductAutocomplete from './selectors/ProductAutocomplete';
+import { fetchAllProductSearchResults } from './selectors/productAutocompleteUtils';
 vi.mock('./shared/DropdownPortal', () => ({
   default: ({ children, isOpen }: any) => (isOpen ? <div>{children}</div> : null),
 }));
-vi.mock('./productAutocompleteUtils', () => ({
+vi.mock('./selectors/productAutocompleteUtils', () => ({
   fetchAllProductSearchResults: vi.fn().mockResolvedValue([]),
   getVariationDisplayName: (product: any, variation: any) =>
     variation?.name || product.name || product.title || '',

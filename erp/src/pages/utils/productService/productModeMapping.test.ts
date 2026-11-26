@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { mapFromDB } from './productMapper';
-import { mapToDB } from './productToDbMapper';
+import { mapFromDB } from './mapping/productMapper';
+import { mapToDB } from './mapping/productToDbMapper';
 
 const makeDbVariation = (id: string, name: string) => ({
   id,

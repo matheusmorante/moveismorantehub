@@ -1,5 +1,5 @@
 import { supabase } from '@/pages/utils/supabaseConfig';
-import { formatToBRDate } from '@/pages/utils/formatters';
+import { formatToBRDate } from '@/pages/utils/shared/formatters';
 import {
   generateDanfeHtml,
   openDanfePrintWindow,
@@ -12,7 +12,7 @@ import { parseFiscalXmlDetails } from '../utils/fiscalXmlParser';
 import type { NfeDocumentRecord } from '../types/fiscalDocuments.types';
 import { buildAuthorizedNfeDownloadXml } from '@/pages/utils/nfe/authorizedNfeXml';
 import { openDanfePrintPreparationWindow } from '@/pages/utils/printing/printFallbackHandler';
-import { withTimeout } from '../../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../../shared-utils/core/withTimeout';
 
 function createDanfeFallbackOrder(document: NfeDocumentRecord): Order {
   const total = document.valor_total || 0;

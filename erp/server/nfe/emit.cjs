@@ -2838,7 +2838,7 @@ function joinFiscalAdditionalInformation(...sections) {
   return value || void 0;
 }
 
-// shared-utils/orderPaymentState.ts
+// shared-utils/orders/orderPaymentState.ts
 var normalize2 = (value) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
 function classifyOrderPaymentSettlement(status) {
   if (status === void 0 || status === null) return "paid";
@@ -4780,7 +4780,7 @@ function hasResponsibleTechnicianCsrt(xml) {
 // api/nfe/hml-normal-sale/constants.ts
 var HML_NORMAL_SALE_RULESET_VERSION = "HML_NORMAL_SALE_V2";
 
-// shared-utils/orderItemFiscalSnapshot.ts
+// shared-utils/orders/orderItemFiscalSnapshot.ts
 var record3 = (value) => value && typeof value === "object" && !Array.isArray(value) ? value : {};
 var nonEmptyString = (value) => typeof value === "string" && value.trim() ? value.trim() : void 0;
 function hasFiscalItemSnapshot(item) {
@@ -7572,7 +7572,7 @@ var import_node_crypto12 = require("node:crypto");
 // api/nfe/normal-sale/outboundStatus.ts
 var import_node_crypto11 = require("node:crypto");
 
-// shared-utils/withTimeout.ts
+// shared-utils/core/withTimeout.ts
 async function withTimeout(promise, timeoutMs, fallbackValue, label) {
   let timer;
   const timeoutPromise = new Promise((resolve2) => {

@@ -13,7 +13,7 @@ import {
   StatusBar,
 } from 'react-native';
 import { X, Search } from 'lucide-react-native';
-import { matchesSearchText } from '../../../../../../shared-utils/searchText';
+import { matchesSearchText } from '../../../../../../shared-utils/core/searchText';
 import { productAutocompleteFormSchema } from '../../../../../../shared-utils/productAutocompleteFormSchema';
 import { useZodForm } from '../../../../hooks/useZodForm';
 

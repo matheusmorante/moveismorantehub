@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({ fetchVariations: vi.fn(), moveToTrash: vi.fn() }));
 
-vi.mock('../../utils/variationService', () => ({
+vi.mock('../../utils/productService/variationService', () => ({
   fetchVariations: mocks.fetchVariations,
   moveToTrash: mocks.moveToTrash,
   getVariationErrorMessage: (_error: unknown, fallback: string) => fallback,

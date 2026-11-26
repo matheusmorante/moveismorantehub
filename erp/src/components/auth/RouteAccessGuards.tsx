@@ -2,8 +2,8 @@ import React from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import PendingApproval from '../../pages/PendingApproval';
-import { canPerform } from '../../pages/utils/permissionService';
-import { getProfileRoles } from '../../pages/utils/accessRoles';
+import { canPerform } from '../../pages/utils/auth/permissionService';
+import { getProfileRoles } from '../../pages/utils/auth/accessRoles';
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated, loading, isPending } = useAuth();

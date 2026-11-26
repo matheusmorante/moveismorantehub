@@ -3,7 +3,7 @@ import { toast } from 'react-toastify';
 import type Order from '@/pages/types/order.type';
 import { getInventorySensitiveItemChanges } from '../../ItemMovementChangeConfirmModal';
 import { buildUpdatedOrder } from '../utils/orderEditPayload';
-import type { useSalesOrderForm } from '../../../hooks/useSalesOrderForm';
+import type { useSalesOrderForm } from '../../../hooks/form-flow/useSalesOrderForm';
 
 interface UseOrderEditActionsParams {
   readonly effectiveOrder: Order | null;

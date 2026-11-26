@@ -14,7 +14,7 @@ vi.mock('@/context/AuthContext', () => ({
   useAuth: () => ({ profile: { role: 'manager' } }),
 }));
 
-vi.mock('@/pages/utils/accessRoles', () => ({
+vi.mock('@/pages/utils/auth/accessRoles', () => ({
   canPrintProductIdentificationLabels: () => false,
   getProductIdentificationLabelActionAvailability: ({
     canPrint,

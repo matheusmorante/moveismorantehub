@@ -92,13 +92,13 @@ vi.mock('../../../mobile/src/features/products/hooks/useMobileProductJevClassifi
   }),
 }));
 
-vi.mock('../../../mobile/src/features/products/services/mobileProductTechnicalService', () => ({
+vi.mock('../../../mobile/src/features/products/services/categories/mobileProductTechnicalService', () => ({
   fetchMobileProductTechnicalFields: mocks.fetchTechnicalFields,
 }));
 vi.mock('../../../mobile/src/features/products/services/mobileProductFiscalService', () => ({
   fetchMobileProductFiscalDefaults: vi.fn().mockResolvedValue(null),
 }));
-vi.mock('../../../mobile/src/features/products/services/mobileProductCodeService', () => ({
+vi.mock('../../../mobile/src/features/products/services/products/mobileProductCodeService', () => ({
   getNextSequentialProductCode: vi.fn().mockResolvedValue('ARM-001'),
 }));
 

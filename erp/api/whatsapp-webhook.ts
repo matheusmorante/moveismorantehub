@@ -96,7 +96,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   if (operation === 'media') {
-    const { handleWhatsAppMedia } = await import('../src/pages/utils/customerSupport/whatsappMediaProxy.js');
+    const { handleWhatsAppMedia } = await import('../src/pages/utils/customerSupport/messageContent/whatsappMediaProxy.js');
     return handleWhatsAppMedia(req, res, {
       supabaseUrl,
       supabaseAnonKey: process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '',

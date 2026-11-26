@@ -5,7 +5,7 @@ const PatternFormat = PatternFormatBase as any;
 
 import CustomerData from '@/pages/types/customerData.type';
 import { AddressAutocompleteInput } from '@/components/shared/AddressAutocompleteInput';
-import SmartInput from '@/components/SmartInput';
+import SmartInput from '@/components/inputs/SmartInput';
 
 interface AssistanceCustomerSectionProps {
   customerData: CustomerData;

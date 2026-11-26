@@ -41,7 +41,7 @@ vi.mock('@/services/testArtifactOperator', () => ({
 
 vi.mock('@/lib/queryClient', () => ({ queryClient: { clear: vi.fn() } }));
 
-vi.mock('../../../shared-utils/testArtifactContext', () => ({
+vi.mock('../../../shared-utils/testing/testArtifactContext', () => ({
   bindTestArtifactContext: (...args: unknown[]) => mocks.bindTestArtifactContext(...args),
   clearTestArtifactContext: vi.fn(),
   getTestArtifactContext: () => mocks.getTestArtifactContext(),

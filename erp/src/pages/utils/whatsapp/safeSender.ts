@@ -1,6 +1,6 @@
 import Order from '../../types/order.type';
 import { getSettings } from '@/pages/utils/settingsService';
-import { whatsappGraphService } from '../whatsappGraphService';
+import { whatsappGraphService } from './whatsappGraphService';
 import { toast } from 'react-toastify';
 import {
   shippingOrderWhatsappUrl,
@@ -23,7 +23,7 @@ import {
   buildPersonGroupInviteMessage,
   buildReturnServiceOrderMessage,
   buildBudgetWhatsappMessage,
-} from '../whatsappTemplates';
+} from './whatsappTemplates';
 
 /**
  * Utilitário de despacho resiliente para ações que suportam envio via WhatsApp Web (wa.me)

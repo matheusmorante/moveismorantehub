@@ -2,7 +2,7 @@ import { SupabaseAnomalyEvent, OperationType, CircuitBreakerError, GUARD_CONFIG,
 import { CircuitBreaker } from './circuitBreaker';
 import { TelemetryBuffer } from './telemetryBuffer';
 import { AnomalyDetector } from './anomalyDetector';
-import { withTimeout } from '../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../shared-utils/core/withTimeout';
 
 class QueryGuard {
   private inFlightRequests: Map<string, Promise<Response>> = new Map();

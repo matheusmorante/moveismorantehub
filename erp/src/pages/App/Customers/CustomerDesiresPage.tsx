@@ -1,6 +1,6 @@
 import React, { useCallback, useState, useEffect } from 'react';
 import { supabase } from '@/pages/utils/supabaseConfig';
-import type { CustomerDesire } from '../../utils/crmIntelligenceService';
+import type { CustomerDesire } from '../../utils/aiService/crmIntelligenceService';
 
 const PAGE_SIZE = 50;
 

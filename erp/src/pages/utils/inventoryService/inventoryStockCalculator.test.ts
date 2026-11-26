@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({ from: vi.fn(), update: vi.fn(), map: vi.fn(), response: {} as any }));
 vi.mock('@/pages/utils/supabaseConfig', () => ({ supabase: { from: mocks.from } }));
-vi.mock('@/pages/utils/productService', () => ({ mapFromDB: mocks.map, updateProduct: mocks.update }));
+vi.mock('@/pages/utils/productService/productService', () => ({ mapFromDB: mocks.map, updateProduct: mocks.update }));
 import { recalculateProductStockOnMove } from './inventoryStockCalculator';
 const move = { productId: 'product-1', productDescription: 'Product', type: 'entry' as const, quantity: 2, date: '2026-10-15T12:00:00Z' };
 beforeEach(() => {

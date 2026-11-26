@@ -4,7 +4,7 @@ import {
   FinancialCategory,
   fetchFinancialCategories,
 } from '../../../services/mobileFinanceService';
-import { FinancialAiChatView } from '../../finance/components/FinancialAiChatView';
+import { FinancialAiChatView } from '../../finance/components/chat/FinancialAiChatView';
 import { useAuth } from '../../../contexts/AuthContext';
 
 interface Props {

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { flattenFormErrors } from '@/hooks/useZodForm';
 import type { FieldErrors } from 'react-hook-form';
-import { withTimeout } from '../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../shared-utils/core/withTimeout';
 
 export class FinancialUnconfirmedError extends Error {
   constructor() { super('Não foi possível confirmar a gravação. Consulte a conta ou o histórico antes de repetir.'); }

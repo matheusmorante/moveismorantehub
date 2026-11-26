@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, act, fireEvent, waitFor } from '@testing-library/react';
 import SellerSearchModal from './SellerSearchModal';
 import { supabase } from '@/pages/utils/supabaseConfig';
-import { isValidEmployee } from '@/pages/utils/accessRoles';
+import { isValidEmployee } from '@/pages/utils/auth/accessRoles';
 
 vi.mock('@/pages/utils/supabaseConfig', () => ({
   supabase: {

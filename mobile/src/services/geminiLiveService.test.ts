@@ -9,7 +9,7 @@ vi.mock('react-native-audio-api', () => ({
 vi.mock('./supabaseClient', () => ({ supabase: { functions: { invoke: mocks.invoke } } }));
 vi.mock('./aiAgent/mobileToolDeclarations', () => ({ mobileAgentTools: [] }));
 vi.mock('./aiAgent/mobileToolDispatcher', () => ({ MobileToolDispatcher: { execute: mocks.dispatch } }));
-import { GeminiLiveSession } from './geminiLiveService';
+import { GeminiLiveSession } from './voice/geminiLiveService';
 const deferred = <T,>() => { let resolve!: (value: T) => void; const promise = new Promise<T>(done => { resolve = done; }); return { promise, resolve }; };
 const flush = async () => { for (let i = 0; i < 20; i++) await Promise.resolve(); };
 const quota = { usedMs: 0, remainingMs: 10000, limitMs: 10000, active: true, usageDate: '2026-10-18' };

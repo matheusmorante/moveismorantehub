@@ -12,14 +12,14 @@ import {
   isTechnicalFieldAllowedForCategories,
 } from '../../../../../../../../../shared-utils/productTechnicalFieldScope';
 import { isSofaCategoryName } from '../../../../../../../../../shared-utils/productTechnicalFieldRules';
-import { normalizeSearchTerm } from '../technicalTabUtils';
+import { normalizeSearchTerm } from '../rules/technicalTabUtils';
 import {
   SOFA_ONLY_DIMENSION_NAMES,
   SOFA_ONLY_DIMENSION_DEFAULTS,
   getSofaRequiredTechnicalFields,
 } from './sofaTechnicalConstants';
 import { getDresserOrWardrobeRequiredTechnicalFields } from './dresserTechnicalConstants';
-import { resolveProductCharacteristicApplication } from '../productCharacteristicGroupRules';
+import { resolveProductCharacteristicApplication } from '../rules/productCharacteristicGroupRules';
 
 export const resolveTechnicalCategoryFields = (
   allTechnicalFields: readonly TechnicalFieldDefinition[],

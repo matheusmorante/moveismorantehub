@@ -10,7 +10,7 @@ import {
   findApplicableWorkflow,
   type InboundMessageParams,
   type WhatsAppAiAgentDependencies,
-} from '@/pages/utils/customerSupport/whatsappAiAgentService';
+} from '@/pages/utils/customerSupport/whatsappAiAgent/whatsappAiAgentService';
 import type { WhatsAppAiAgentConfig } from '@/pages/utils/settings/types';
 
 const openAiTextResponse = (text: string) => new Response(JSON.stringify({

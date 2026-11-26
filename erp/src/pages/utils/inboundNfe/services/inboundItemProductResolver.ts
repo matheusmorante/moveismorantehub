@@ -1,5 +1,5 @@
 import type { InboundInvoiceItem } from '../types/inboundNfeTypes';
-import { getFullProduct } from '@/pages/utils/productService';
+import { getFullProduct } from '@/pages/utils/productService/productService';
 
 export interface LinkedProductDetails {
   productErpName: string;

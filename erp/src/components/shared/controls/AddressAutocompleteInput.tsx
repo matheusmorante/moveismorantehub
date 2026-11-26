@@ -3,7 +3,7 @@ import { DropdownPortal } from '../DropdownPortal';
 import { AddressSuggestionsMenu } from '../AddressSuggestionsMenu';
 import { searchAddressSuggestions, fetchPlaceDetails, normalizeUf } from '@/pages/utils/maps';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
-import { withTimeout } from '../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../shared-utils/core/withTimeout';
 import { addressPlaceLookupFormSchema, addressSelectionFormSchema, addressSuggestionsFormSchema, createAddressChoiceFormSchema, routeAddressFormSchema, routeAddressSearchFormSchema } from '../../../../../shared-utils/routeFormSchemas';
 import { addressSelectionKey, addressStateKey, getSuggestedAddress, mergeAddressSelection, type AddressSelectionBaseline, type AddressSuggestion, type SelectedAddress } from '../../../../../shared-utils/addressSelection';
 import type { FieldErrors } from 'react-hook-form';

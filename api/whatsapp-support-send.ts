@@ -1,23 +1,15 @@
 import { createClient } from '@supabase/supabase-js';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { authenticateErpRequest, hasErpPermission } from '../erp/api/_lib/authenticatedErpRequest.js';
-import { supportCustomerSendSchema } from '../shared-utils/customerSupportFormSchemas.js';
 import type { CustomerSupportWhatsAppSendQuota } from '../shared-utils/customerSupportWhatsAppSendQuota.js';
-import { fetchWhatsAppMetaMonthlyUsage, saoPauloMonthStart } from './whatsappSupportMetaUsage.js';
 import { getSupabaseSecretKey } from './supabaseSecretKey.js';
 import { RequestBodyError } from './whatsappSupportRequestError.js';
 import {
   resolveWhatsAppSupportCatalogMessage,
   type ResolvedCatalogMessage,
 } from './whatsappSupportCatalogMessage.js';
-import {
-  classifyWhatsAppSupportFile,
-} from './whatsappSupportFileClassifier.js';
-import {
-  parseMultipart,
-  UUID_PATTERN,
-  type SendPayload,
-} from './whatsappSupportSendRequest.js';
+import { classifyWhatsAppSupportFile } from './whatsappSupportFileClassifier.js';
+import { type SendPayload } from './whatsappSupportSendRequest.js';
 import { uploadWhatsAppSupportMedia } from './whatsappSupportMediaUploader.js';
 import { buildWhatsAppSupportGraphPayload } from './whatsappSupportPayloadBuilder.js';
 import {
@@ -25,44 +17,22 @@ import {
   revertAiSuggestionClaim,
   persistWhatsAppSupportOutboundMessage,
 } from './whatsappSupportMessagePersistence.js';
-import { markLatestCustomerMessageAsRead } from '../erp/src/pages/utils/customerSupport/whatsappReadReceipt.js';
+import { markLatestCustomerMessageAsRead } from '../erp/src/pages/utils/customerSupport/messageContent/whatsappReadReceipt.js';
+import {
+  handleGetSendQuota,
+  quotaWaitLabel,
+  responseJson,
+  withTimeout,
+} from './_lib/whatsappSupportQuotaHandler.js';
+import {
+  MAX_WHATSAPP_UPLOAD_BYTES,
+  normalizePhone,
+  parseWhatsAppSupportSendRequest,
+} from './_lib/whatsappSupportJsonRequest.js';
 
 export { classifyWhatsAppSupportFile };
 
 const GRAPH_VERSION = 'v26.0';
-const MAX_UPLOAD_BYTES = 4 * 1024 * 1024;
-
-const withTimeout = async <T>(promise: PromiseLike<T>, timeoutMs: number): Promise<T> => {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  try {
-    return await Promise.race([
-      Promise.resolve(promise),
-      new Promise<T>((_, reject) => { timer = setTimeout(() => reject(new Error('timeout')), timeoutMs); }),
-    ]);
-  } finally {
-    if (timer) clearTimeout(timer);
-  }
-};
-
-const normalizePhone = (value: string) => value.replace(/\D/g, '');
-
-async function readRequestBody(req: VercelRequest, maxBytes: number): Promise<Buffer> {
-  const request = req as VercelRequest & { rawBody?: Buffer };
-  if (Buffer.isBuffer(request.rawBody)) {
-    if (request.rawBody.byteLength > maxBytes) throw new RequestBodyError('Arquivo excede o limite de 4 MB.', 413);
-    return request.rawBody;
-  }
-
-  const chunks: Buffer[] = [];
-  let byteLength = 0;
-  for await (const value of req as unknown as AsyncIterable<Buffer | string>) {
-    const chunk = Buffer.isBuffer(value) ? value : Buffer.from(value);
-    byteLength += chunk.byteLength;
-    if (byteLength > maxBytes) throw new RequestBodyError('Arquivo excede o limite de 4 MB.', 413);
-    chunks.push(chunk);
-  }
-  return Buffer.concat(chunks, byteLength);
-}
 
 function metaErrorMessage(data: Record<string, any>): string {
   const code = Number(data.error?.code);
@@ -72,68 +42,6 @@ function metaErrorMessage(data: Record<string, any>): string {
   return 'O WhatsApp recusou o envio. Confira o arquivo e a conexão do canal.';
 }
 
-function responseJson(res: VercelResponse, status: number, body: Record<string, unknown>) {
-  return res.status(status).json(body);
-}
-
-function quotaWaitLabel(seconds: number): string {
-  if (seconds < 60) return `${seconds} segundo${seconds === 1 ? '' : 's'}`;
-  const minutes = Math.ceil(seconds / 60);
-  if (minutes < 60) return `${minutes} minuto${minutes === 1 ? '' : 's'}`;
-  const hours = Math.ceil(minutes / 60);
-  return `${hours} hora${hours === 1 ? '' : 's'}`;
-}
-
-async function handleGetSendQuota(req: VercelRequest, res: VercelResponse, fetchMeta: typeof fetch) {
-  res.setHeader('Cache-Control', 'no-store, max-age=0');
-  const context = await authenticateErpRequest(req, res, { includeWhatsAppConfig: true }).catch(() => null);
-  if (!context) return;
-  if (!hasErpPermission(context, 'viewCustomerSupport')) {
-    return responseJson(res, 403, { error: 'Você não tem acesso à Central de Atendimento.' });
-  }
-  const supportPermission = await withTimeout(context.userDb.rpc('customer_support_can_view'), 12_000).catch(() => null);
-  if (!supportPermission || supportPermission.error) return responseJson(res, 503, { error: 'Não foi possível validar o acesso à Central.' });
-  if (supportPermission?.data !== true) return responseJson(res, 403, { error: 'Sem permissão para usar a Central de Atendimento.' });
-
-  const whatsappConfig = context.whatsappConfig && typeof context.whatsappConfig === 'object'
-    ? context.whatsappConfig as { phoneNumberId?: unknown; wabaId?: unknown }
-    : null;
-  const phoneNumberId = typeof whatsappConfig?.phoneNumberId === 'string' ? whatsappConfig.phoneNumberId.trim() : '';
-  if (!/^\d{1,32}$/.test(phoneNumberId)) return responseJson(res, 503, { error: 'O canal WhatsApp não está configurado.' });
-
-  const supabaseUrl = process.env.SUPABASE_URL?.trim() || process.env.VITE_SUPABASE_URL?.trim() || '';
-  const supabaseSecret = getSupabaseSecretKey();
-  if (!supabaseUrl || !supabaseSecret) return responseJson(res, 503, { error: 'Cota de envio indisponível.' });
-  const adminDb = createClient(supabaseUrl, supabaseSecret, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
-  const quotaResult = await withTimeout(adminDb.rpc('customer_support_outside_window_quota', {
-    p_business_phone_number_id: phoneNumberId,
-    p_source: 'central',
-    p_reserve: false,
-  }), 12_000).catch(() => null);
-  if (quotaResult?.error || !quotaResult?.data || typeof quotaResult.data !== 'object') {
-    return responseJson(res, 503, { error: 'Cota de envio indisponível.' });
-  }
-  if (req.query?.include_cost !== '1') {
-    return responseJson(res, 200, { quota: quotaResult.data as CustomerSupportWhatsAppSendQuota });
-  }
-
-  const now = new Date();
-  const metaUsage = hasErpPermission(context, 'viewFinancials')
-    ? await fetchWhatsAppMetaMonthlyUsage({
-        wabaId: typeof whatsappConfig?.wabaId === 'string' ? whatsappConfig.wabaId.trim() : '',
-        accessToken: process.env.WHATSAPP_ACCESS_TOKEN?.trim() || '', fetchMeta, now,
-      })
-    : {
-        status: 'restricted', amount: null, currency: null, delivered: null,
-        service_free: null, billable_delivered: null, free_entry_point: null,
-        period_start: saoPauloMonthStart(now).toISOString(), as_of: now.toISOString(),
-        message: 'Seu perfil não tem permissão para consultar o gasto da Meta.',
-      };
-  return responseJson(res, 200, { quota: quotaResult.data as CustomerSupportWhatsAppSendQuota, metaUsage });
-}
-
 export function createWhatsAppSupportSendHandler(dependencies: { fetchMeta?: typeof fetch } = {}) {
   const fetchMeta = dependencies.fetchMeta || ((input, init) => globalThis.fetch(input, init));
 
@@ -141,64 +49,9 @@ export function createWhatsAppSupportSendHandler(dependencies: { fetchMeta?: typ
     if (req.method === 'GET') return handleGetSendQuota(req, res, fetchMeta);
     if (req.method !== 'POST') return responseJson(res, 405, { error: 'Método não permitido.' });
 
-    const rawContentType = String(req.headers['content-type'] || '');
-    const contentType = rawContentType.toLowerCase();
     let payload: SendPayload;
     try {
-      const body = await readRequestBody(req, MAX_UPLOAD_BYTES + 32_000);
-      if (contentType.includes('multipart/form-data')) {
-        // Multipart boundaries are case-sensitive; preserve the original header value.
-        payload = parseMultipart(body, rawContentType);
-      } else if (contentType.includes('application/json')) {
-        if (body.byteLength > 16_000) return responseJson(res, 413, { error: 'Solicitação excede o tamanho permitido.' });
-        const parsed = body.length ? JSON.parse(body.toString('utf8')) : {};
-        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new RequestBodyError('Solicitação inválida.', 400);
-        const conversationId = typeof parsed.conversationId === 'string' ? parsed.conversationId.trim() : '';
-        const message = typeof parsed.message === 'string' ? parsed.message : '';
-        const aiSuggestionMessageId = typeof parsed.aiSuggestionMessageId === 'string'
-          ? parsed.aiSuggestionMessageId.trim()
-          : '';
-        const replyToWamid = typeof parsed.replyToWamid === 'string' ? parsed.replyToWamid.trim() : '';
-        const forwarded = parsed.forwarded === true;
-        const contact = parsed.contact && typeof parsed.contact === 'object' && !Array.isArray(parsed.contact)
-          ? parsed.contact as { name?: unknown; phone?: unknown }
-          : undefined;
-        const catalogSelection = parsed.catalogSelection;
-        if (!UUID_PATTERN.test(conversationId)) throw new RequestBodyError('Conversa inválida.', 400);
-        if (aiSuggestionMessageId && !UUID_PATTERN.test(aiSuggestionMessageId)) {
-          throw new RequestBodyError('Sugestão da IA inválida.', 400);
-        }
-        let normalizedContact: SendPayload['contact'];
-        if (contact) {
-          const name = typeof contact.name === 'string' ? contact.name.trim() : '';
-          const phone = typeof contact.phone === 'string' ? normalizePhone(contact.phone) : '';
-          if (!name || name.length > 100 || !/^\d{10,15}$/.test(phone)) {
-            throw new RequestBodyError('Contato inválido.', 400);
-          }
-          normalizedContact = { name, phone };
-        }
-        const sendInput = supportCustomerSendSchema.safeParse({
-          conversationId,
-          message,
-          ...(replyToWamid ? { replyToWamid } : {}),
-          ...(forwarded ? { forwarded: true } : {}),
-          attachmentType: normalizedContact ? 'contact' : catalogSelection ? 'catalog' : 'text',
-          ...(normalizedContact ? { contactName: normalizedContact.name, contactPhone: normalizedContact.phone } : {}),
-          ...(catalogSelection !== undefined ? { catalogSelection } : {}),
-        });
-        if (!sendInput.success) throw new RequestBodyError(sendInput.error.issues[0]?.message || 'Solicitação inválida.', 400);
-        payload = {
-          conversationId: sendInput.data.conversationId,
-          message: sendInput.data.message,
-          ...(aiSuggestionMessageId ? { aiSuggestionMessageId } : {}),
-          ...(sendInput.data.replyToWamid ? { replyToWamid: sendInput.data.replyToWamid } : {}),
-          ...(sendInput.data.forwarded ? { forwarded: true } : {}),
-          ...(normalizedContact ? { contact: normalizedContact } : {}),
-          ...(sendInput.data.catalogSelection ? { catalogSelection: sendInput.data.catalogSelection } : {}),
-        };
-      } else {
-        return responseJson(res, 415, { error: 'Formato de solicitação inválido.' });
-      }
+      payload = await parseWhatsAppSupportSendRequest(req);
     } catch (error) {
       if (error instanceof RequestBodyError) return responseJson(res, error.statusCode, { error: error.message });
       return responseJson(res, 400, { error: 'Solicitação inválida.' });
@@ -208,7 +61,7 @@ export function createWhatsAppSupportSendHandler(dependencies: { fetchMeta?: typ
     if ((!message && !payload.file && !payload.contact && !payload.catalogSelection) || message.length > 4096) {
       return responseJson(res, 400, { error: 'Escreva uma mensagem ou adicione um anexo. O texto pode ter até 4096 caracteres.' });
     }
-    if (payload.file && payload.file.bytes.byteLength > MAX_UPLOAD_BYTES) {
+    if (payload.file && payload.file.bytes.byteLength > MAX_WHATSAPP_UPLOAD_BYTES) {
       return responseJson(res, 413, { error: 'Cada arquivo deve ter no máximo 4 MB nesta central.' });
     }
     if (payload.file && message.length > 1024) {

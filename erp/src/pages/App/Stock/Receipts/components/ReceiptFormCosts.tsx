@@ -1,4 +1,4 @@
-import CurrencyOrPercentInput from '@/components/CurrencyOrPercentInput';
+import CurrencyOrPercentInput from '@/components/inputs/CurrencyOrPercentInput';
 
 interface ToggleValueFieldProps {
   readonly label: string;

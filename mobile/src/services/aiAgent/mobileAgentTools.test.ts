@@ -7,12 +7,12 @@ const mocks = vi.hoisted(() => ({
   listProductMetadata: vi.fn(),
 }));
 
-vi.mock('../financial/mobileCategoryService', () => ({
+vi.mock('../financial/crud/mobileCategoryService', () => ({
   fetchFinancialCategories: mocks.fetchCategories,
 }));
-vi.mock('../financial/mobilePayablesService', () => ({ fetchPayableAccounts: vi.fn() }));
-vi.mock('../financial/mobileFinanceReports', () => ({ fetchMonthlySummary: vi.fn() }));
-vi.mock('../financial/mobileTransactionCrudService', () => ({
+vi.mock('../financial/crud/mobilePayablesService', () => ({ fetchPayableAccounts: vi.fn() }));
+vi.mock('../financial/crud/mobileFinanceReports', () => ({ fetchMonthlySummary: vi.fn() }));
+vi.mock('../financial/crud/mobileTransactionCrudService', () => ({
   createFinancialTransaction: vi.fn(),
   deleteFinancialTransaction: vi.fn(),
 }));

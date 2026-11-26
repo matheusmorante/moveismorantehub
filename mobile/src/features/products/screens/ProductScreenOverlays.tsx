@@ -1,11 +1,11 @@
 import type React from 'react';
 import { ActivityIndicator, Text, View } from 'react-native';
-import { AttributesManagerModal } from '../modals/AttributesManagerModal';
-import { MobileMergeVariationModal } from '../modals/MobileMergeVariationModal';
-import { MobileMoveVariationModal } from '../modals/MobileMoveVariationModal';
-import { MobileProductDetailsModal } from '../modals/MobileProductDetailsModal';
+import { AttributesManagerModal } from '../modals/attributes/AttributesManagerModal';
+import { MobileMergeVariationModal } from '../modals/managers/MobileMergeVariationModal';
+import { MobileMoveVariationModal } from '../modals/moveVariation/MobileMoveVariationModal';
+import { MobileProductDetailsModal } from '../modals/managers/MobileProductDetailsModal';
 import { ProductFormModal } from '../modals/ProductFormModal';
-import { ProductLinkedOrdersModal } from '../modals/ProductLinkedOrdersModal';
+import { ProductLinkedOrdersModal } from '../modals/managers/ProductLinkedOrdersModal';
 import { styles } from './nativeProductsScreen.styles';
 
 interface Props {

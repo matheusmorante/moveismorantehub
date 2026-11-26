@@ -18,8 +18,8 @@ vi.mock('@/pages/utils/settings', () => ({
 }));
 vi.mock('../services/whatsappAiAgentSettings', () => ({ setWhatsAppAiAgentEnabled: setEnabled }));
 
-import { AiAgentTabOverview } from '../components/aiAgentModal/AiAgentTabOverview';
-import { buildDefaultAiAgentFormValues } from '../components/aiAgentModal/useWhatsAppAiAgentFormDefaults';
+import { AiAgentTabOverview } from '../components/aiAgentModal/config/AiAgentTabOverview';
+import { buildDefaultAiAgentFormValues } from '../components/aiAgentModal/form/useWhatsAppAiAgentFormDefaults';
 import type { WhatsAppAiAgentFormData } from '../../../../../shared-utils/whatsappAiAgentSchemas';
 import { useWhatsAppAiAgentSwitch } from './useWhatsAppAiAgentSwitch';
 

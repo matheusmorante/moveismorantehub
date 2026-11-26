@@ -1,9 +1,9 @@
 import Item from '../../types/items.type';
 import type Shipping from '../../types/Shipping.type';
-import CurrencyDisplay from '../../../components/CurrencyDisplay';
-import UnitDisplay from '../../../components/UnitDisplay';
+import CurrencyDisplay from '../../../components/display/CurrencyDisplay';
+import UnitDisplay from '../../../components/display/UnitDisplay';
 import { getSettings } from '@/pages/utils/settingsService';
-import { getFixedDiscount } from '@/pages/utils/calculations';
+import { getFixedDiscount } from '@/pages/utils/sales/calculations';
 
 interface Props {
   items: Item[];

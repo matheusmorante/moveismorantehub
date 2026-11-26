@@ -6,7 +6,7 @@ import { parseNfeApiResponse } from '@/pages/utils/nfe/parseNfeApiResponse';
 import { mapOrderFromDatabase } from '@/pages/utils/orderMapper';
 import { getGoodsCirculationState } from '@/pages/utils/nfe/cancellationEligibility';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
-import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../../../shared-utils/core/withTimeout';
 import { hasAutomaticSaleCancellationFiscalDecision, saleCancellationPreviewRequestSchema, saleCancellationPreviewSchema, type SaleCancellationPreview } from '../../../../../../../shared-utils/saleCancellationFormSchemas';
 
 type Props = {

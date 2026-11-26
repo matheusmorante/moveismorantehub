@@ -8,7 +8,7 @@ afterEach(() => {
   cleanup();
 });
 
-vi.mock('@/components/ProductAutocomplete', () => ({
+vi.mock('@/components/selectors/ProductAutocomplete', () => ({
   default: ({ onSelect, placeholder, value }: any) => (
     <div data-testid="product-autocomplete">
       <input
@@ -32,7 +32,7 @@ vi.mock('@/components/ProductAutocomplete', () => ({
   ),
 }));
 
-vi.mock('@/components/CurrencyInput', () => ({
+vi.mock('@/components/inputs/CurrencyInput', () => ({
   default: ({ value, onChange }: any) => (
     <input
       aria-label="Custo unitário"

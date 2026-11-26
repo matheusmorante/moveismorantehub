@@ -6,7 +6,7 @@ import {
   recordInventorySubmissionFailure,
 } from '../../../../services/sqlite/inventoryOutbox';
 import { connectivityService } from '../../../../services/offline/connectivityService';
-import { withTimeout } from '../../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../../shared-utils/core/withTimeout';
 import {
   buildInventorySubmissionClaimRpcParams,
   buildInventorySubmissionRpcParams,

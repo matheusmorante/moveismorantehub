@@ -15,7 +15,7 @@ import { Search, UserRound, X } from 'lucide-react-native';
 import { z } from 'zod';
 import { FormTextInput } from '../../../../../components/shared/FormTextInput';
 import { useZodForm } from '../../../../../hooks/useZodForm';
-import { matchesSearchText } from '../../../../../../../shared-utils/searchText';
+import { matchesSearchText } from '../../../../../../../shared-utils/core/searchText';
 import type {
   AvailableStaffMember,
   DeliveryStaffSearchFeedback,

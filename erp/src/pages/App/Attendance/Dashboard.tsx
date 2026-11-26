@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { attendanceService } from '../../utils/attendanceService';
+import { attendanceService } from '../../utils/sales/attendanceService';
 import { AttendanceLog } from '../../types/attendance.type';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';

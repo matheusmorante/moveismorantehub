@@ -6,7 +6,7 @@ import {
   deleteMobileEnvironment,
   deleteMobileCategory,
   unlinkMobileCategoryFromEnvironment,
-} from '../../services/mobileCategoryService';
+} from '../../services/categories/mobileCategoryService';
 import {
   EnvironmentNode,
   CategoryNode,

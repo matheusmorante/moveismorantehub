@@ -9,7 +9,7 @@ import { syncPendingInventorySubmissions } from '../../features/stock/inventory/
 import {
   getPendingLocalCalendarEvents,
   syncPendingLocalCalendarEvents,
-} from '../scheduleEventsService';
+} from '../logistics/scheduleEventsService';
 import {
   getPendingGoodsReceiptChecks,
   syncPendingGoodsReceipts,
@@ -17,7 +17,7 @@ import {
 import { eventPatch } from './offlineEventPatch';
 import { prepareDeliveryProofs } from './deliveryProofQueuePreparation';
 import { sendOrderDirectFallback } from './offlineOrderDirectFallback';
-import { withTimeout } from '../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../shared-utils/core/withTimeout';
 import { applyDeliveryOperationEvent, attachDeliveryOperationStates, type DeliveryOperationEvent } from '../../features/orders/services/deliveryOperationState';
 import type { RpcResult } from './offlineOrderDirectFallback';
 import {

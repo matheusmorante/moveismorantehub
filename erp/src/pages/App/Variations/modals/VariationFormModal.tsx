@@ -6,7 +6,7 @@ import type {
   CharacteristicGroup,
   VariationOption,
 } from '../../../types/variation.type';
-import { saveCharacteristicOptions } from '../../../utils/variationService';
+import { saveCharacteristicOptions } from '../../../utils/productService/variationService';
 import type { CharacteristicFormData } from '../domain/characteristicFormRules';
 import {
   getCharacteristicFillTypeLabel,

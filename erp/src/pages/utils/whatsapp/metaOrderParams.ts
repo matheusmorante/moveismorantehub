@@ -3,8 +3,8 @@ import {
   stringifyFullAddressWithObservation,
   formatDate,
   formatCurrency,
-} from '../formatters';
-import { calcItemTotalValue, calcPaymentTotalValue } from '../calculations';
+} from '../shared/formatters';
+import { calcItemTotalValue, calcPaymentTotalValue } from '../sales/calculations';
 import { getEffectiveOrderDeliveryAddress } from '../orderDeliveryAddress';
 import { cleanOrderConfirmationText } from './orderConfirmationText';
 

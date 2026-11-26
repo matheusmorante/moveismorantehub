@@ -1,6 +1,6 @@
 import React, { useId, useRef, useState } from 'react';
 import Shipping from '../../../types/Shipping.type';
-import { ValidationErrors } from '../../../utils/validations';
+import { ValidationErrors } from '../../../utils/sales/validations';
 import {
   AFTERNOON_SHIFT,
   MORNING_SHIFT,
@@ -57,6 +57,7 @@ interface AgendamentoProps {
   hideNotice?: boolean;
   hideTitle?: boolean;
   title?: string;
+  operationNoun?: string;
   headerActions?: React.ReactNode;
   modeSelector?: React.ReactNode;
   groupPrimarySections?: boolean;
@@ -74,6 +75,7 @@ const Agendamento = ({
   hideNotice,
   hideTitle,
   title,
+  operationNoun,
   headerActions,
   modeSelector,
   groupPrimarySections,
@@ -102,6 +104,7 @@ const Agendamento = ({
 
   const memory = activeMemoryRef.current!;
   const isImmediatePickup = Boolean(isPickup && scheduling.immediatePickup);
+  const scheduledOperationNoun = operationNoun || (isPickup ? 'retirada' : 'entrega');
   const isPendingScheduling = Boolean(scheduling.pendingScheduling && !isImmediatePickup);
   const hasExplicitModeSelector = modeSelector !== undefined;
   const isScheduleReadOnly = isPendingScheduling || isImmediatePickup;
@@ -412,7 +415,7 @@ const Agendamento = ({
                 Aviso de Agendamento
               </span>
               <span className="text-[11px] font-medium uppercase tracking-tight text-amber-600/80 dark:text-amber-500/80">
-                Data e horário não serão informados para esta {isPickup ? 'retirada' : 'entrega'}
+                Data e horário não serão informados para esta {scheduledOperationNoun}
               </span>
             </div>
           </div>

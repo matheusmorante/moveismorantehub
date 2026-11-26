@@ -3,7 +3,7 @@ import type Shipping from '@/pages/types/Shipping.type';
 import type Item from '@/pages/types/items.type';
 import type CustomerData from '@/pages/types/customerData.type';
 import type FullAddress from '@/pages/types/fullAddress.type';
-import type { ValidationErrors } from '@/pages/utils/validations';
+import type { ValidationErrors } from '@/pages/utils/sales/validations';
 import { getShippingRouteUrl } from '@/pages/utils/maps';
 import { calculateFreightByDistance } from '@/pages/utils/shippingPricing';
 import { getSaoPauloDayInfo } from '../../../../../../shared-utils/commercialOrderRules';

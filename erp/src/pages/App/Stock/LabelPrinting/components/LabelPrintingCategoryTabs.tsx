@@ -1,7 +1,7 @@
 import React from 'react';
-import type { CategoryType } from '../hooks/useLabelCategory';
+import type { CategoryType } from '../hooks/label-printing/useLabelCategory';
 
-export type { CategoryType } from '../hooks/useLabelCategory';
+export type { CategoryType } from '../hooks/label-printing/useLabelCategory';
 
 interface Props {
   selectedCategory: CategoryType | null;

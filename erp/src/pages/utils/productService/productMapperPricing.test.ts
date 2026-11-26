@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { LIGHT_COLUMNS } from './productQueryService';
-import { mapFromDB } from './productMapper';
+import { LIGHT_COLUMNS } from './queries/productQueryService';
+import { mapFromDB } from './mapping/productMapper';
 
 const productRow = (overrides: Record<string, unknown> = {}) => ({
   id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',

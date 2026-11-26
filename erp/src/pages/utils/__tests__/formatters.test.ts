@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { capitalizeOrder, formatCurrency } from '../formatters';
+import { capitalizeOrder, formatCurrency } from '../shared/formatters';
 
 describe('capitalizeOrder', () => {
   it('formata um pedido sem depender de variável global', () => {

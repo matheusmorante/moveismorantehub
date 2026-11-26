@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { AssignedProfileSummary } from '@/pages/App/CustomerSupport/types';
-import { withTimeout } from '../../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../../shared-utils/core/withTimeout';
 
 /** Assignment and its persisted event are a single server command. */
 export async function assignConversation(

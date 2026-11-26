@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { VariationRow } from './VariationRow';
 import type { Variation } from '@/pages/types/product.type';
 
-vi.mock('@/components/ProductImage', () => ({ default: () => <span>Foto</span> }));
+vi.mock('@/components/display/ProductImage', () => ({ default: () => <span>Foto</span> }));
 afterEach(cleanup);
 const variation: Variation = { id: 'v1', name: 'Armário Azul', sku: '001-01', unitPrice: 100,
   stock: 0, active: false, status: 'draft', attributes: [] };

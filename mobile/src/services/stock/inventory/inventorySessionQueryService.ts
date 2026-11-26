@@ -4,7 +4,7 @@ import { offlineStorageService } from '../../offline/offlineStorageService';
 import { getLocalInventoryDraft } from '../../sqlite/inventoryDrafts';
 import { getInventorySubmission } from '../../sqlite/inventoryOutbox';
 import { connectivityService } from '../../offline/connectivityService';
-import { withTimeout } from '../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../shared-utils/core/withTimeout';
 import {
   extractSessionCodesFromMarkers,
   groupAdjustmentsBySession,

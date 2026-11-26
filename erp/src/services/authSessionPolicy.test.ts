@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { shouldRunAuthSessionMaintenance } from '../../../shared-utils/authSessionPolicy';
+import { shouldRunAuthSessionMaintenance } from '../../../shared-utils/auth/authSessionPolicy';
 
 describe('shouldRunAuthSessionMaintenance', () => {
   it('skips maintenance for a silent token refresh', () => {

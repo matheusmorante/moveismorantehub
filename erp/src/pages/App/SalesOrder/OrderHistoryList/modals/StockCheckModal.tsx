@@ -4,7 +4,7 @@ import Order, { AssistanceItem } from '../../../../types/order.type';
 import { Item } from '../../../../types/items.type';
 import { formatOrderCode } from '../../../../utils/orderCode';
 import { createStockLabelingFormSchema } from '../../../../../../../shared-utils/operationsFormSchemas';
-import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../../../shared-utils/core/withTimeout';
 
 interface Props {
   readonly isOpen: boolean;

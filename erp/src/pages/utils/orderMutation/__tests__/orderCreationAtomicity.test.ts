@@ -58,7 +58,7 @@ vi.mock('../orderStatusWorkflowService', () => ({ recordOrderStatusHistory: mock
 import { executeSaveOrder } from '../orderCreationService';
 import { executeUpdateOrder } from '../orderUpdateService';
 import { setPersistedOrderDataSnapshot } from '../../orderMapper';
-import { bindTestArtifactContext, clearTestArtifactContext } from '../../../../../../shared-utils/testArtifactContext';
+import { bindTestArtifactContext, clearTestArtifactContext } from '../../../../../../shared-utils/testing/testArtifactContext';
 import { registerOrderTestArtifactGuardCases } from './orderTestArtifactGuardCases';
 import { registerOrderPaymentPersistenceCases } from './orderPaymentPersistenceCases';
 

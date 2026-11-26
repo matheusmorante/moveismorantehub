@@ -1,1 +1,1 @@
-export * from './schemas/productDuplicateMergeFormSchemas';
+export * from './schemas/products/productDuplicateMergeFormSchemas';

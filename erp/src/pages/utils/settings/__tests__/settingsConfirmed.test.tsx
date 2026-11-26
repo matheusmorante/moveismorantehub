@@ -2,8 +2,8 @@
 import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { supabase } from '@/pages/utils/supabaseConfig';
-import { useLabelLayouts } from '@/pages/App/Stock/LabelPrinting/hooks/useLabelLayouts';
-import type { CategoryType } from '@/pages/App/Stock/LabelPrinting/hooks/useLabelCategory';
+import { useLabelLayouts } from '@/pages/App/Stock/LabelPrinting/hooks/label-printing/useLabelLayouts';
+import type { CategoryType } from '@/pages/App/Stock/LabelPrinting/hooks/label-printing/useLabelCategory';
 import { DEFAULT_LAYOUT_MODELS } from '@/pages/App/Stock/LabelPrinting/utils/LabelConstants';
 import { getSettings, saveSettings, subscribeToSettings } from '../storage';
 import { SETTINGS_KEY } from '../defaults';

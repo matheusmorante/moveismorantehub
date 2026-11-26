@@ -12,7 +12,7 @@ import {
   personCsvPreviewFormSchema,
   type PersonCsvColumnMapping,
 } from '../../../../../../../../shared-utils/personImportFormSchemas';
-import { withTimeout } from '../../../../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../../../../shared-utils/core/withTimeout';
 import { getSettings } from '@/pages/utils/settingsService';
 import { ImportRow, ImportStep, ImportBusyState, emptyMapping, PersonImportModalProps } from './types';
 import { parseCSV, parseBoolean, parseMarketingOrigin } from './csvParser';

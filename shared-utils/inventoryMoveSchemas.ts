@@ -1,1 +1,1 @@
-export * from './schemas/inventoryMoveSchemas';
+export * from './schemas/stock/inventoryMoveSchemas';

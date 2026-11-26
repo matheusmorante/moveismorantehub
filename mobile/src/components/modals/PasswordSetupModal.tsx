@@ -1,4 +1,4 @@
-import { waitForAuthOperation } from '../../../../shared-utils/authOperationTimeout';
+import { waitForAuthOperation } from '../../../../shared-utils/auth/authOperationTimeout';
 import { Lock } from 'lucide-react-native';
 import { useRef, useState } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';

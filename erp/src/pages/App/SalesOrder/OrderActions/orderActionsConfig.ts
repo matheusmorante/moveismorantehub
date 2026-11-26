@@ -12,7 +12,7 @@ import {
   sendDirectReturnOSCustomerMessage,
   sendDirectReturnOSTeamMessage,
   sendDirectCustomerOrderViaMetaApi,
-} from '../../../utils/whatsapp';
+} from '../../../utils/whatsapp/whatsapp';
 import { printOperationInfo, printSalesOrder, printReceipt } from '../../../utils/printing/printService';
 import { printAssistanceServiceOrder } from './printers/printAssistanceOs';
 import { printReturnServiceOrder } from './printers/printReturnOs';

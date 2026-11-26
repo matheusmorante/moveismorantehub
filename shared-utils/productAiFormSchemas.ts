@@ -1,1 +1,1 @@
-export * from './schemas/productAiFormSchemas';
+export * from './schemas/products/productAiFormSchemas';

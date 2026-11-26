@@ -28,7 +28,7 @@ vi.mock('@/pages/utils/settingsService', () => ({
   }),
 }));
 
-import { whatsappGraphService } from '@/pages/utils/whatsappGraphService';
+import { whatsappGraphService } from '@/pages/utils/whatsapp/whatsappGraphService';
 
 const readProxyRequest = (init?: RequestInit) => JSON.parse(String(init?.body || '{}'));
 const batchResponse = (request: Record<string, any>, handle: string) =>

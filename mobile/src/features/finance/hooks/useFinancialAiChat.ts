@@ -20,16 +20,16 @@ import {
   updateFinancialTimelineCardState,
 } from '../components/chat/financialCardTimeline';
 import type { FinancialCardTimelineEntry } from '../components/chat/financialCardTimeline';
-import { withTimeout } from '../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../shared-utils/core/withTimeout';
 import { financialChatUtilityFormSchema } from '../../../../../shared-utils/financialVoiceFormSchemas';
-import { advanceFinancialBatch, rebuildFinancialBatch } from '../../../services/financial/financialBatchQueue';
+import { advanceFinancialBatch, rebuildFinancialBatch } from '../../../services/financial/extraction/financialBatchQueue';
 import { confirmationFormSchema, messageFormSchema, singleTransactionFormSchema } from './financialAiChatSchemas';
 import { useFinancialAiVoiceSession } from './useFinancialAiVoiceSession';
 import {
   beginAssistantOrderTimingTurn,
   cancelAssistantOrderTimingTurn,
   markAssistantOrderFirstSignal,
-} from '../../../../../shared-utils/assistantOrderTimingMetrics';
+} from '../../../../../shared-utils/ai-agent/assistantOrderTimingMetrics';
 
 const uncertainMessage = 'Não foi possível confirmar o registro. Confira as movimentações antes de repetir.';
 

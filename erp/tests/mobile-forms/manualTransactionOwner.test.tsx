@@ -5,7 +5,7 @@ const mocks = vi.hoisted(() => ({ alert: vi.fn(), create: vi.fn(), update: vi.fn
 vi.mock('react-native', () => ({ Alert: { alert: mocks.alert } }));
 vi.mock('../../../mobile/src/services/mobileFinanceService', () => ({ createFinancialTransaction: mocks.create, updateFinancialTransaction: mocks.update }));
 vi.mock('../../../mobile/src/services/supabaseClient', () => ({ supabase: { from: () => ({ select: () => ({ limit: mocks.limit }) }) } }));
-vi.mock('../../../mobile/src/services/financial/mobileCategoryService', () => ({ sortCategoriesWithOthersAtEnd: (items: unknown) => items }));
+vi.mock('../../../mobile/src/services/financial/crud/mobileCategoryService', () => ({ sortCategoriesWithOthersAtEnd: (items: unknown) => items }));
 import { useTransactionForm } from '../../../mobile/src/features/finance/hooks/useTransactionForm';
 
 const categories = [{ id: 'category', name: 'Combustível', type: 'expense' as const, result_nature: 'DESPESA' as const }];

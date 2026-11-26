@@ -1,5 +1,5 @@
 import { PurchaseItem } from '../../types/purchase.type';
-import type { TestArtifactIdentity } from '../../../../../shared-utils/testArtifactPolicy';
+import type { TestArtifactIdentity } from '../../../../../shared-utils/testing/testArtifactPolicy';
 
 export type GoodsReceiptStatus = 'draft' | 'received' | 'estornado';
 

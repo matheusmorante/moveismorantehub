@@ -4,7 +4,7 @@ import {
   isConfiguredTestArtifactOperator,
   isTestArtifactOperatorRuntimeEnabled,
 } from '../../../../api/testing/testArtifactOperatorPolicy';
-import { testArtifactIdentityForAuthenticatedUser } from '../../../../../shared-utils/testArtifactContext';
+import { testArtifactIdentityForAuthenticatedUser } from '../../../../../shared-utils/testing/testArtifactContext';
 
 const runId = '550e8400-e29b-41d4-a716-446655440001';
 const ownerId = '550e8400-e29b-41d4-a716-446655440002';

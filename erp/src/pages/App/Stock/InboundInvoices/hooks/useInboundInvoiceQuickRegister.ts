@@ -3,11 +3,11 @@ import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import type { InboundInvoiceItem } from '@/pages/utils/inboundNfe/inboundNfeTypes';
 import { itemCostWithAdditionalCosts } from '@/pages/utils/inboundNfe/inboundItemCosts';
 import { createInboundQuickRegisterReuseSchema, createInboundQuickRegisterSchema } from '../../../../../../../shared-utils/inboundProductLinkFormSchemas';
-import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../../../shared-utils/core/withTimeout';
 import type Product from '@/pages/types/product.type';
-import { findInboundProductNameMatches, findProductByVariationBarcode, getFullProduct, saveProduct, saveVariation } from '@/pages/utils/productService';
-import { updateProduct } from '@/pages/utils/productService/productMutationService';
-import { findProductSupplierCodes, saveProductSupplierCode } from '@/pages/utils/productSupplierCodesService';
+import { findInboundProductNameMatches, findProductByVariationBarcode, getFullProduct, saveProduct, saveVariation } from '@/pages/utils/productService/productService';
+import { updateProduct } from '@/pages/utils/productService/mutations/productMutationService';
+import { findProductSupplierCodes, saveProductSupplierCode } from '@/pages/utils/productService/productSupplierCodesService';
 import { getCompleteQuickVariationName, getInboundGtin, hasSiblingVariationName, normalizeNcm, withOwnInboundVariationCost } from '../../../../../../../shared-utils/inboundQuickRegisterRules';
 import { getDefaultShowNameForVariationOverride } from '../../../../../../../shared-utils/productVariationAttributeDefaults';
 import {

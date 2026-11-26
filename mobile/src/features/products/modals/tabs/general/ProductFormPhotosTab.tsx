@@ -22,7 +22,7 @@ import {
   moveMobileProductImageGlobally,
   replaceMobileProductImageGlobally,
 } from '../../../domain/mobileProductImageOrdering';
-import { uploadMobileProductPhoto } from '../../../services/mobileProductPhotoService';
+import { uploadMobileProductPhoto } from '../../../services/products/mobileProductPhotoService';
 import { ProductSquareImageCropModal } from '../../components/ProductSquareImageCropModal';
 import {
   mobileProductPhotoUploadFormSchema,
@@ -30,7 +30,7 @@ import {
 } from '../../../../../../../shared-utils/productImageFormSchemas';
 import { removeProductImageGlobally } from '../../../../../../../shared-utils/productImageOperations';
 import { limitProductImageSelection } from '../../../../../../../shared-utils/productImageSelection';
-import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../../../shared-utils/core/withTimeout';
 import { styles } from './productFormPhotosTab.styles';
 
 interface Props {

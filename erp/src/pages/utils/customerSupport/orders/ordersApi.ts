@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { withTimeout } from '../../../../../../shared-utils/withTimeout.js';
+import { withTimeout } from '../../../../../../shared-utils/core/withTimeout.js';
 import { supportCustomerRecordFiltersSchema } from '../../../../../../shared-utils/customerSupportFormSchemas.js';
 import {
   type SupportOrderSummary,

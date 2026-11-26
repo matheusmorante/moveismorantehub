@@ -2,10 +2,10 @@ import React from 'react';
 import type Order from '@/pages/types/order.type';
 import { OrderEditModalHeader } from './OrderEditModalHeader';
 import { OrderEditSubModals } from './OrderEditSubModals';
-import SalesOrderFormSection from '../../../components/SalesOrderFormSection';
-import ProductReconciliationItems from '../../../components/ProductReconciliationItems';
-import OrderStatusTimeline from '../../../components/OrderStatusTimeline';
-import type { useSalesOrderForm } from '../../../hooks/useSalesOrderForm';
+import SalesOrderFormSection from '../../../components/form/SalesOrderFormSection';
+import ProductReconciliationItems from '../../../components/form/ProductReconciliationItems';
+import OrderStatusTimeline from '../../../components/stepper/OrderStatusTimeline';
+import type { useSalesOrderForm } from '../../../hooks/form-flow/useSalesOrderForm';
 import { canCustomerAccessLogistics } from '../../../components/customer/customerSelectionRules';
 
 interface OrderEditModalContentProps {

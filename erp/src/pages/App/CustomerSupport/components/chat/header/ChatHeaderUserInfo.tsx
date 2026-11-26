@@ -1,6 +1,6 @@
 import React from 'react';
 import type { WhatsAppConversation } from '../../../types';
-import type { CareWindow } from '@/pages/utils/customerSupport/whatsappSupportGuard';
+import type { CareWindow } from '@/pages/utils/customerSupport/messaging/whatsappSupportGuard';
 
 interface ChatHeaderUserInfoProps {
   conversation: WhatsAppConversation;

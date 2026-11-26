@@ -1,24 +1,24 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { getNextSequentialProductCode } from '@/pages/utils/productService/productSkuService';
+import { getNextSequentialProductCode } from '@/pages/utils/productService/mutations/productSkuService';
 import {
   prepareNewParentWithVariation,
   prepareExistingParentNewVariation,
 } from './inboundProductPreparationService';
-import { ensureDefaultVariation } from '@/pages/utils/productVariationDefaults';
+import { ensureDefaultVariation } from '@/pages/utils/productService/productVariationDefaults';
 import type Product from '@/pages/types/product.type';
 
-vi.mock('@/pages/utils/aiService', () => ({
+vi.mock('@/pages/utils/aiService/aiService', () => ({
   aiService: { extractProductColor: vi.fn().mockResolvedValue('Azul') },
 }));
 vi.mock('@/pages/utils/categoryService', () => ({ fetchGroupsAndCategories: vi.fn() }));
 vi.mock('@/pages/utils/categoryResolutionService', () => ({ resolveAutoCategory: vi.fn() }));
-vi.mock('@/pages/utils/variationService', () => ({
+vi.mock('@/pages/utils/productService/variationService', () => ({
   ensureAttributeValue: vi.fn().mockResolvedValue({ name: 'Cor', value: 'Azul' }),
 }));
 vi.mock('@/pages/utils/supabaseConfig', () => ({ supabase: {} }));
-vi.mock('@/pages/utils/productService/productLocalCache', () => ({ getLocalProducts: () => [] }));
-vi.mock('@/pages/utils/productService/productSkuService', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@/pages/utils/productService/productSkuService')>()),
+vi.mock('@/pages/utils/productService/drafts/productLocalCache', () => ({ getLocalProducts: () => [] }));
+vi.mock('@/pages/utils/productService/mutations/productSkuService', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/pages/utils/productService/mutations/productSkuService')>()),
   getNextSequentialProductCode: vi.fn().mockResolvedValue('000123'),
 }));
 

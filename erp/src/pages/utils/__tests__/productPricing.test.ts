@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getSelectedProductPricing } from '../productPricing';
+import { getSelectedProductPricing } from '../productService/productPricing';
 
 describe('getSelectedProductPricing', () => {
   it('retorna preço de tabela e desconto zero quando o produto não tem promoção', () => {

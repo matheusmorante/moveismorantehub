@@ -5,9 +5,9 @@ import {
   saveProductSupplierCode,
   findProductSupplierCodes,
   ProductSupplierCode,
-} from '../../productSupplierCodesService';
-import { saveProduct, saveVariation } from '../../productService';
-import { ensureAttributeValue } from '../../variationService';
+} from '../../productService/productSupplierCodesService';
+import { saveProduct, saveVariation } from '../../productService/productService';
+import { ensureAttributeValue } from '../../productService/variationService';
 import { extractColorCandidateFromTitle } from '../inboundMatchingRules';
 import Product from '@/pages/types/product.type';
 

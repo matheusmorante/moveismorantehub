@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../../../shared-utils/core/withTimeout';
 import { imageContentBounds } from '@/pages/utils/images/imageContentBounds';
 import type { TemplateImageCrop } from '../templateImageCrop';
 

@@ -1,1 +1,1 @@
-export * from './schemas/accountFormSchemas';
+export * from './schemas/system/accountFormSchemas';

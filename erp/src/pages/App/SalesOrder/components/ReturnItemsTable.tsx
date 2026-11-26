@@ -1,9 +1,9 @@
 import React from 'react';
-import SectionCard from '@/components/SectionCard';
+import SectionCard from '@/components/display/SectionCard';
 import Item from '@/pages/types/items.type';
-import { calcItemsSummary } from '@/pages/utils/calculations';
-import { getSelectedProductDisplayName } from '@/pages/utils/productVariationDefaults';
-import { getSelectedProductPricing } from '@/pages/utils/productPricing';
+import { calcItemsSummary } from '@/pages/utils/sales/calculations';
+import { getSelectedProductDisplayName } from '@/pages/utils/productService/productVariationDefaults';
+import { getSelectedProductPricing } from '@/pages/utils/productService/productPricing';
 import ItemsTable from '../ItemsTable';
 
 type Props = {

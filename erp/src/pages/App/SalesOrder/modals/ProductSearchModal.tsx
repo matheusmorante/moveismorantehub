@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import Product, { Variation } from '@/pages/types/product.type';
 import ProductFormModal from '@/pages/App/Products/modals/ProductFormModal';
-import { useProductSearch_new } from '../hooks/useProductSearch_new';
-import { fetchSelectableDeep } from '../hooks/productSearchDeepFetch';
-import { ProductSearchItem } from '../components/ProductSearchItem';
+import { useProductSearch_new } from '../hooks/items-pricing/useProductSearch_new';
+import { fetchSelectableDeep } from '../hooks/items-pricing/productSearchDeepFetch';
+import { ProductSearchItem } from '../components/form/ProductSearchItem';
 import { toast } from 'react-toastify';
 
 interface Props {

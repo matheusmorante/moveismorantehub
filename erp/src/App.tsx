@@ -1,7 +1,7 @@
 import Router from './Router';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import ErrorBoundary from './components/ErrorBoundary';
+import ErrorBoundary from './components/display/ErrorBoundary';
 import { ConfirmDialogHost } from './components/shared/ConfirmDialogHost';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from './lib/queryClient';

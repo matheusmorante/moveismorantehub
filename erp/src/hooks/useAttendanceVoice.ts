@@ -1,13 +1,13 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { toast } from 'react-toastify';
-import { aiService } from '@/pages/utils/aiService';
-import { attendanceService } from '@/pages/utils/attendanceService';
-import { crmIntelligenceService } from '@/pages/utils/crmIntelligenceService';
+import { aiService } from '@/pages/utils/aiService/aiService';
+import { attendanceService } from '@/pages/utils/sales/attendanceService';
+import { crmIntelligenceService } from '@/pages/utils/aiService/crmIntelligenceService';
 import { useAuth } from '@/context/AuthContext';
 import { AttendanceLog } from '@/pages/types/attendance.type';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { attendanceVoiceFormSchema } from '../../../shared-utils/messagingFormSchemas';
-import { withTimeout } from '../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../shared-utils/core/withTimeout';
 
 export const useAttendanceVoice = () => {
   const [isRecording, setIsRecording] = useState(false);

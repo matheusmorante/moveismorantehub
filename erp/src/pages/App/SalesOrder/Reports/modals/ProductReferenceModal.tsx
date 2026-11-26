@@ -3,7 +3,7 @@ import { requestConfirmation } from '@/components/shared/confirmationService';
 import { useAuth } from '@/context/AuthContext';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { salesReportReferenceRowSchema, salesReportReferenceWriteFormSchema, salesReportReferenceQueryFormSchema } from '../../../../../../../shared-utils/salesReportFormSchemas';
-import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../../../shared-utils/core/withTimeout';
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { normalizeSearchTerm } from '@/pages/utils/textUtils';

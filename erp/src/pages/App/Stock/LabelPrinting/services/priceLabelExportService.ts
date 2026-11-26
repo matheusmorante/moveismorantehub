@@ -1,7 +1,7 @@
 import html2canvas from 'html2canvas';
 import type { z } from 'zod';
 import { labelArtworkExportFormSchema } from '../../../../../../../shared-utils/labelArtworkFormSchemas';
-import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../../../shared-utils/core/withTimeout';
 import { hasMobileLabelBridge, requestMobileLabelAction } from './mobileLabelBridge';
 
 /** The owner validates the intent with RHF and keeps its preview stable until completion. */

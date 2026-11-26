@@ -3,7 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { passwordSetupFormSchema } from '../../../../shared-utils/authFormSchemas';
-import { waitForAuthOperation } from '../../../../shared-utils/authOperationTimeout';
+import { waitForAuthOperation } from '../../../../shared-utils/auth/authOperationTimeout';
 import type { z } from 'zod';
 
 export const PasswordSetupPrompt = () => {

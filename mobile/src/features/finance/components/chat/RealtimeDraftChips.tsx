@@ -4,7 +4,7 @@ import { ParsedFinancialIntent } from '../../../../services/financialAiAssistant
 import {
   buildDraftAnalysisChips,
   DraftAnalysisChip,
-} from '../../../../services/financial/draftAnalysisChips';
+} from '../../../../services/financial/classification/draftAnalysisChips';
 
 interface Props {
   draft?: ParsedFinancialIntent | null;

@@ -24,8 +24,8 @@ vi.mock('./supabaseClient', () => ({
   },
 }));
 
-import { formatExtendDateLabel, generateLocalSmartText } from './aiSummaryService';
-import { buildCanonicalSummaryPayload, CanonicalSummaryPayload } from './canonicalSummaryInput';
+import { formatExtendDateLabel, generateLocalSmartText } from './summary/aiSummaryService';
+import { buildCanonicalSummaryPayload, CanonicalSummaryPayload } from './summary/canonicalSummaryInput';
 
 describe('aiSummaryService - Resumo Inteligente de Entregas', () => {
   describe('formatExtendDateLabel', () => {

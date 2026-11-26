@@ -5,14 +5,14 @@ import { ChevronDown, Settings } from 'lucide-react-native';
 import {
   fetchMobileProductFormCategoryOptions,
   type MobileCategory,
-} from '../../../services/mobileCategoryService';
+} from '../../../services/categories/mobileCategoryService';
 import {
   fetchMobileOpportunities,
   type MobileOpportunity,
-} from '../../../services/mobileOpportunityService';
+} from '../../../services/catalog/mobileOpportunityService';
 import { OpportunitySelectModal } from '../../components/OpportunitySelectModal';
 import { CategoryMultiSelectList } from '../../components/CategoryMultiSelectList';
-import { CategoriesManagerModal } from '../../CategoriesManagerModal';
+import { CategoriesManagerModal } from '../../managers/CategoriesManagerModal';
 import {
   getProductCategoryRootNames,
   keepManualCategorySelection,

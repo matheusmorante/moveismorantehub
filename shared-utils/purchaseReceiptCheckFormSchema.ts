@@ -1,1 +1,1 @@
-export * from './schemas/purchaseReceiptCheckFormSchema';
+export * from './schemas/stock/purchaseReceiptCheckFormSchema';

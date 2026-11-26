@@ -1,7 +1,11 @@
 import Order from '../../../types/order.type';
 import { buttons } from './orderActionsConfig';
-import { POST_RETURN_ACTION_KEYS, POST_SALE_ACTION_KEYS } from '../../../utils/postSaleActions';
-import { isIdentifiedTestArtifact } from '../../../../../../shared-utils/testArtifactPolicy';
+import {
+  POST_ASSISTANCE_ACTION_KEYS,
+  POST_RETURN_ACTION_KEYS,
+  POST_SALE_ACTION_KEYS,
+} from '../../../utils/sales/postSaleActions';
+import { isIdentifiedTestArtifact } from '../../../../../../shared-utils/testing/testArtifactPolicy';
 import { canIssuePromissoryNote } from '../../../utils/promissory/promissoryNoteService';
 
 export const DELIVERY_ACTION_KEYS = new Set([
@@ -13,7 +17,9 @@ export const DELIVERY_ACTION_KEYS = new Set([
 export type PostOrderButtonConfig = (typeof buttons)[number];
 
 export function getAvailablePostOrderActions(order: Order): PostOrderButtonConfig[] {
+  const orderType = order.orderType || 'sale';
   const isReturnOrder = order.orderType === 'return';
+  const isAssistanceOrder = orderType === 'assistance';
   const isCollectionScheduled =
     order.status === 'scheduled' &&
     (order.returnMethod === 'store_collection' || order.returnMethod == null);
@@ -22,7 +28,12 @@ export function getAvailablePostOrderActions(order: Order): PostOrderButtonConfi
 
   return buttons.filter(
     (btn) =>
-      (isReturnOrder ? POST_RETURN_ACTION_KEYS : POST_SALE_ACTION_KEYS).has(btn.key) &&
+      (isReturnOrder
+        ? POST_RETURN_ACTION_KEYS
+        : isAssistanceOrder
+          ? POST_ASSISTANCE_ACTION_KEYS
+          : POST_SALE_ACTION_KEYS).has(btn.key) &&
+      (!btn.orderTypes || btn.orderTypes.includes(orderType)) &&
       (isReturnOrder || !DELIVERY_ACTION_KEYS.has(btn.key)) &&
       (btn.key !== 'sendReturnOSTeam' || isCollectionScheduled) &&
       (!isReturnOrder || !isTestArtifact || !btn.key.startsWith('sendReturnOS')) &&

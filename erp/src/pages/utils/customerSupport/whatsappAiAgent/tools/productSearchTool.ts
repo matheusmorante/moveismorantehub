@@ -9,9 +9,9 @@ import {
 import {
   buildPostgrestAccentInsensitiveOrFilter,
   buildPostgrestAccentInsensitivePattern,
-} from '../../../../../../../shared-utils/searchText';
+} from '../../../../../../../shared-utils/core/searchText';
 import { resolveProductUnitPrice } from '../../../../../../../shared-utils/productUnitPrice';
-import { NON_TEST_PRODUCT_ARTIFACT_FILTER } from '../../../../../../../shared-utils/testArtifactQueries';
+import { NON_TEST_PRODUCT_ARTIFACT_FILTER } from '../../../../../../../shared-utils/testing/testArtifactQueries';
 import { buildProductMetaCatalogSyncItems } from '../../../../../../../shared-utils/productMetaCatalogSyncItems';
 
 // Keep dimensions out of this text filter. Measures remain searchable through

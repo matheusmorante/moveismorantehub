@@ -6,7 +6,7 @@ import {
   fetchConversationMessageContext,
   fetchPreviousConversationMessages,
   fetchConversationReplyTarget,
-} from '@/pages/utils/customerSupport/customerSupportService';
+} from '@/pages/utils/customerSupport/query/customerSupportService';
 
 function messageRow(id: string, timestamp: string, type = 'system_event') {
   return {

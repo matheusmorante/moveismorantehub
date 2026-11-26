@@ -10,7 +10,7 @@ const mocks = vi.hoisted(() => ({
 }));
 vi.mock('@/context/AuthContext', () => ({ useAuth: () => mocks.auth }));
 vi.mock('@/pages/utils/supabaseConfig', () => ({ supabase: { auth: { setSession: mocks.setSession, getUser: mocks.getUser } } }));
-vi.mock('@/pages/utils/permissionService', () => ({ canPerform: mocks.canPerform }));
+vi.mock('@/pages/utils/auth/permissionService', () => ({ canPerform: mocks.canPerform }));
 vi.mock('@/pages/utils/settingsService', () => ({ subscribeToSettings: mocks.subscribe }));
 vi.mock('../Index', () => ({ default: () => <div>Gerador autorizado</div> }));
 import MobileLabelsPage from '../MobileLabelsPage';

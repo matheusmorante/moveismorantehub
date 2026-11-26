@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { bindTestArtifactContext, clearTestArtifactContext } from '../../../../../shared-utils/testArtifactContext';
+import { bindTestArtifactContext, clearTestArtifactContext } from '../../../../../shared-utils/testing/testArtifactContext';
 import { savePeopleBatch, savePerson, updatePerson } from './personMutationService';
 
 const db = vi.hoisted(() => ({

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Product, { Variation } from '@/pages/types/product.type';
-import ProductAutocomplete from '@/components/ProductAutocomplete';
-import { migrateProductReferences } from '@/pages/utils/productService';
+import ProductAutocomplete from '@/components/selectors/ProductAutocomplete';
+import { migrateProductReferences } from '@/pages/utils/productService/productService';
 import { toast } from 'react-toastify';
 import { requestConfirmation } from '@/components/shared/confirmationService';
 

@@ -8,7 +8,7 @@ vi.mock('@/pages/utils/supabaseConfig', () => ({ supabase: { from: () => ({
   select: () => ({ order: async () => ({ data: [{ id: 'user-1', email: 'pessoa@example.test', full_name: 'Pessoa', role: 'seller', roles: ['seller'] }], error: null }) }), update: mocks.update,
 }) } }));
 vi.mock('react-toastify', () => ({ toast: { error: mocks.error, success: mocks.success } }));
-vi.mock('@/pages/utils/accessRoles', () => ({
+vi.mock('@/pages/utils/auth/accessRoles', () => ({
   SYSTEM_ROLES: [['seller', 'Vendedor'], ['accountant', 'Contador']], roleLabel: (role: string) => role,
   getProfileRoles: (profile: any) => profile.roles, getPrimaryRole: (roles: string[]) => roles[0] || 'pending',
 }));

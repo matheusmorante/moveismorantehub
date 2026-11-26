@@ -1,6 +1,17 @@
 import type Order from '@/pages/types/order.type';
 import { formatOrderCode } from '@/pages/utils/orderCode';
-import { getSettings } from '@/pages/utils/settingsService';
+
+const escapeHtml = (value: unknown): string =>
+  String(value ?? '').replace(/[&<>"']/g, (character) => {
+    const entities: Record<string, string> = {
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#39;',
+    };
+    return entities[character] || character;
+  });
 
 /**
  * Renderiza e imprime o documento oficial de Ordem de Serviço (Assistência Técnica).
@@ -11,39 +22,19 @@ export const printAssistanceServiceOrder = (order: Order): void => {
   const printWindow = window.open('', '_blank');
   if (!printWindow) return;
 
-  const settings = getSettings();
-  const allHandlingOptions = [
-    ...(settings.deliveryHandlingOptions || []),
-    ...(settings.pickupHandlingOptions || []),
-  ];
-
-  const assistanceItemsHtml = (order.assistanceItems || [])
-    .map(
-      (item) => `
-          <tr>
-              <td style="padding: 12px; border-bottom: 1px solid #eee; font-weight: 700;">${item.description}${item.observation?.trim() ? ` - ${item.observation.trim()}` : ''}</td>
-              <td style="padding: 12px; border-bottom: 1px solid #eee; text-align: center; font-weight: 700;">${item.quantity}</td>
-          </tr>
-      `
-    )
-    .join('');
-
-  const extraItemsHtml = (order.items || [])
-    .map((item) => {
-      const opt = allHandlingOptions.find((o) => o.label === (item.handlingType || '').trim());
-      const bgColor = opt?.color ? `${opt.color}20` : 'transparent';
-      const textColor = opt?.color || '#64748b';
-
-      return `
-              <tr>
-                  <td style="padding: 12px; border-bottom: 1px solid #eee; font-weight: 700;">${item.description}${item.observation?.trim() ? ` - ${item.observation.trim()}` : ''}</td>
-                  <td style="padding: 12px; border-bottom: 1px solid #eee; text-align: center; font-weight: 700; background-color: ${bgColor}; color: ${textColor}; -webkit-print-color-adjust: exact; print-color-adjust: exact; font-size: 10px;">${item.handlingType || '-'}</td>
-                  <td style="padding: 12px; border-bottom: 1px solid #eee; text-align: center; font-weight: 700;">${item.quantity}</td>
-                  <td style="padding: 12px; border-bottom: 1px solid #eee; text-align: right; font-weight: 700;">R$ ${item.unitPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-              </tr>
-          `;
-    })
-    .join('');
+  const assistanceItemsHtml = order.assistanceItems?.length
+    ? order.assistanceItems
+        .map(
+          (item) => `
+            <div style="padding: 6px 0; font-size: 12px; font-weight: 800; color: #1e293b;">
+              ${escapeHtml(item.description)}
+              <span style="font-size: 10px; color: #64748b;"> · Qtd.: ${item.quantity}</span>
+              ${item.observation?.trim() ? `<div style="font-size: 10px; font-weight: 600; color: #64748b;">${escapeHtml(item.observation.trim())}</div>` : ''}
+            </div>
+          `
+        )
+        .join('')
+    : '<div style="font-size: 11px; color: #64748b;">Item não informado.</div>';
 
   printWindow.document.write(`
           <html>
@@ -52,8 +43,6 @@ export const printAssistanceServiceOrder = (order: Order): void => {
                   <style>
                       body { font-family: sans-serif; padding: 20px; color: #333; line-height: 1.5; }
                       .ticket { max-width: 800px; margin: 0 auto; border: 2px solid #eee; padding: 30px; border-radius: 20px; }
-                      table { width: 100%; border-collapse: collapse; margin-block: 20px; }
-                      th { text-align: left; font-size: 10px; font-weight: 900; text-transform: uppercase; background: #f8fafc; padding: 12px; color: #475569; border-bottom: 2px solid #e2e8f0; }
                       .info-box { background: #f8fafc; padding: 15px; border-radius: 12px; border: 1px solid #e2e8f0; }
                       .label { font-size: 9px; font-weight: 900; text-transform: uppercase; color: #64748b; margin-bottom: 4px; }
                       .value { font-size: 13px; font-weight: 800; color: #1e293b; }
@@ -105,8 +94,8 @@ export const printAssistanceServiceOrder = (order: Order): void => {
                       </div>
                       
                       <div style="margin-bottom: 20px; padding: 15px; border: 1px solid #fed7aa; background: #fff7ed; border-radius: 12px;">
-                          <div class="label" style="color: #c2410c;">Agendamento Técnico</div>
-                          <div style="display: flex; gap: 30px; align-items: center;">
+                          <div class="label" style="color: #c2410c;">Logística da Assistência</div>
+                          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px 30px; align-items: start;">
                               <div>
                                   <span style="font-size: 10px; font-weight: 700; color: #9a3412;">Data:</span> 
                                   <span style="font-size: 15px; font-weight: 900; color: #7c2d12;">
@@ -136,6 +125,10 @@ export const printAssistanceServiceOrder = (order: Order): void => {
                                       }
                                   </span>
                               </div>
+                              <div style="grid-column: 1 / -1; border-top: 1px solid #fed7aa; padding-top: 10px;">
+                                  <div class="label" style="color: #c2410c;">Item da Assistência</div>
+                                  ${assistanceItemsHtml}
+                              </div>
                           </div>
                       </div>
                       
@@ -143,30 +136,6 @@ export const printAssistanceServiceOrder = (order: Order): void => {
                           <div class="label">Descrição do Problema / Solicitação</div>
                           <div style="font-size: 14px; color: #334155; font-weight: 500; white-space: pre-wrap;">${order.assistanceDescription || 'Nenhuma descrição informada.'}</div>
                       </div>
-
-                      ${
-                        order.assistanceItems?.length
-                          ? `
-                          <h3 style="font-size: 11px; font-weight: 900; text-transform: uppercase; color: #1e293b; border-left: 4px solid #ea580c; padding-left: 10px; margin-bottom: 10px;">Itens para Assistência</h3>
-                          <table>
-                              <thead><tr><th style="width: 80%;">Produto</th><th style="text-align: center;">Qtd</th></tr></thead>
-                              <tbody>${assistanceItemsHtml}</tbody>
-                          </table>
-                      `
-                          : ''
-                      }
-
-                      ${
-                        order.items?.length
-                          ? `
-                          <h3 style="font-size: 11px; font-weight: 900; text-transform: uppercase; color: #1e293b; border-left: 4px solid #ea580c; padding-left: 10px; margin-top: 20px; margin-bottom: 10px;">Peças e Materiais Extras</h3>
-                          <table>
-                              <thead><tr><th style="width: 50%;">Item</th><th style="text-align: center;">Manuseio</th><th style="text-align: center;">Qtd</th><th style="text-align: right;">Preço</th></tr></thead>
-                              <tbody>${extraItemsHtml}</tbody>
-                          </table>
-                      `
-                          : ''
-                      }
 
                       <div style="margin-top: 30px; border-top: 2px dashed #e2e8f0; padding-top: 20px; text-align: right;">
                           <span style="font-size: 12px; font-weight: 900; text-transform: uppercase; color: #64748b; margin-right: 10px;">Total do Serviço:</span>

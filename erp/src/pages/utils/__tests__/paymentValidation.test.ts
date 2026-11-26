@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { validateOrder, validatePayments } from '../validations';
+import { validateOrder, validatePayments } from '../sales/validations';
 
 vi.mock('../settingsService', () => ({ getSettings: () => ({ requiredFields: {} }) }));
 

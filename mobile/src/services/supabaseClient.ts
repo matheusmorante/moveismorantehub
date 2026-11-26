@@ -2,7 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
-import { createMeasuredSupabaseFetch } from '../../../shared-utils/supabaseReadMetrics';
+import { createMeasuredSupabaseFetch } from '../../../shared-utils/core/supabaseReadMetrics';
 
 export const SUPABASE_URL = 'https://hkoxhourxwlddgsfdgws.supabase.co';
 export const SUPABASE_ANON_KEY =

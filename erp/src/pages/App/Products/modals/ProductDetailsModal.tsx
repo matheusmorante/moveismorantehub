@@ -1,7 +1,7 @@
 import React from 'react';
 import Product, { Variation } from '@/pages/types/product.type';
-import { formatCurrency } from '@/pages/utils/formatters';
-import { normalizeProductVariationName } from '@/pages/utils/productVariationDefaults';
+import { formatCurrency } from '@/pages/utils/shared/formatters';
+import { normalizeProductVariationName } from '@/pages/utils/productService/productVariationDefaults';
 import { isSalvadoStockOrigin } from '../../../../../../shared-utils/productStockOrigin';
 
 type ProductDetailsData = Product & {

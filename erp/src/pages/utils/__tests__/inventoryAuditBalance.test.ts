@@ -6,7 +6,7 @@ const { supabaseFrom, updateProduct } = vi.hoisted(() => ({
 }));
 
 vi.mock('../supabaseConfig', () => ({ supabase: { from: supabaseFrom } }));
-vi.mock('../productService', () => ({
+vi.mock('../productService/productService', () => ({
   mapFromDB: (row: any) => row,
   updateProduct,
 }));

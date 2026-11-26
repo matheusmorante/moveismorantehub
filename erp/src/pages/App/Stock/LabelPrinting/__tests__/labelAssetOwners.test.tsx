@@ -2,11 +2,11 @@
 import React from 'react';
 import { act, cleanup, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { useLabelModalsAndAssets } from '../hooks/useLabelModalsAndAssets';
+import { useLabelModalsAndAssets } from '../hooks/label-printing/useLabelModalsAndAssets';
 import LabelNewAssetModal from '../modals/LabelNewAssetModal';
 import LabelCustomDesignModal from '../modals/LabelCustomDesignModal';
 import { createInitialLabelConfig } from '../services/labelModelMapper';
-import type { CategoryType } from '../hooks/useLabelCategory';
+import type { CategoryType } from '../hooks/label-printing/useLabelCategory';
 const mocks = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn(), info: vi.fn() }));
 vi.mock('react-toastify', () => ({ toast: mocks }));
 vi.mock('react-router-dom', () => ({ useLocation: () => ({ pathname: '/stock/labels' }) }));

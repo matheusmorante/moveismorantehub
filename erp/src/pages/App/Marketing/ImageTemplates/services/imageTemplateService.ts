@@ -1,6 +1,6 @@
 import { supabase } from '@/pages/utils/supabaseConfig';
-import { withAbortTimeout } from '../../../../../../../shared-utils/withAbortTimeout';
-import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
+import { withAbortTimeout } from '../../../../../../../shared-utils/core/withAbortTimeout';
+import { withTimeout } from '../../../../../../../shared-utils/core/withTimeout';
 import {
   deleteImageTemplateSchema, imageTemplateFormSchema, imageTemplateMetadataSchema, normalizeLegacyCatalogLayers, templateAssetIds,
   type DeleteImageTemplateValues, type ImageTemplateFormValues,

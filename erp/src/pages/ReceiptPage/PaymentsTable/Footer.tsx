@@ -1,4 +1,4 @@
-import CurrencyDisplay from '../../../components/CurrencyDisplay';
+import CurrencyDisplay from '../../../components/display/CurrencyDisplay';
 import { PaymentsSummary } from '../../types/payments.type';
 
 interface Props {

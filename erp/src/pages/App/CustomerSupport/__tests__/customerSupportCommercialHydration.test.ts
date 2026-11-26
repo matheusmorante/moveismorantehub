@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { fetchConversations } from '@/pages/utils/customerSupport/customerSupportService';
+import { fetchConversations } from '@/pages/utils/customerSupport/query/customerSupportService';
 
 const summaries = 'customer_support_list_customer_summaries';
 const counts = 'customer_support_list_customer_order_indicators';

@@ -79,13 +79,13 @@ vi.mock('../../../mobile/src/features/products/modals/tabs/ProductFormTechnicalT
 vi.mock('../../../mobile/src/features/products/modals/components/ProductVariationPhotosEditor', () => ({
   ProductVariationPhotosEditor: () => null,
 }));
-vi.mock('../../../mobile/src/features/products/modals/ProductVariationGenerationModal', () => ({
+vi.mock('../../../mobile/src/features/products/modals/managers/ProductVariationGenerationModal', () => ({
   ProductVariationGenerationModal: () => null,
 }));
 vi.mock('../../../mobile/src/features/products/components/MergedBadge', () => ({
   MergedBadge: () => null,
 }));
-vi.mock('../../../mobile/src/features/products/services/mobileProductMutationService', () => ({
+vi.mock('../../../mobile/src/features/products/services/products/mobileProductMutationService', () => ({
   checkMobileProductVariationHasMoves: vi.fn().mockResolvedValue(false),
 }));
 

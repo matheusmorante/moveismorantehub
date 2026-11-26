@@ -4,7 +4,7 @@ import { WhatsAppConversation, ConversationFilter, CustomerSupportFolderCriteria
 import {
   fetchConversationCounts,
   fetchConversations,
-} from '@/pages/utils/customerSupport/customerSupportService';
+} from '@/pages/utils/customerSupport/query/customerSupportService';
 import { SortOrder } from '../components/ConversationSidebar';
 import { useConversationsRealtime, useConversationsPolling } from './conversations';
 

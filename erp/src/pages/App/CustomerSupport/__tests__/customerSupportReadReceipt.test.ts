@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { markConversationAsRead } from '@/pages/utils/customerSupport/customerSupportService';
+import { markConversationAsRead } from '@/pages/utils/customerSupport/query/customerSupportService';
 
 afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); });
 

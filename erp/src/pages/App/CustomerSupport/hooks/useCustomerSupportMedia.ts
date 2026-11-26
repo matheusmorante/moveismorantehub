@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/pages/utils/supabaseConfig';
-import { withTimeout } from '../../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../../shared-utils/core/withTimeout';
 
 /** Native media elements receive only a temporary local URL, never a session token. */
 export function useCustomerSupportMedia(mediaId: string | null) {

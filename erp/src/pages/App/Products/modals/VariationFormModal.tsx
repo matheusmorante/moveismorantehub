@@ -4,7 +4,7 @@ import { useAuth } from '@/context/AuthContext';
 import type Product from '../../../types/product.type';
 import type { Variation } from '../../../types/product.type';
 import VariationPhotosTab from '../components/tabs/images/VariationPhotosTab';
-import { MAX_VARIATION_IMAGES } from '@/pages/utils/productImageLimits';
+import { MAX_VARIATION_IMAGES } from '@/pages/utils/productService/productImageLimits';
 import { useVariationForm } from '../hooks/variation/useVariationForm';
 import type { VariationFormOperationGuard } from '../hooks/variation/variationForm.types';
 import { VariationIdentificationTab } from '../components/variationTabs/VariationIdentificationTab';
@@ -15,7 +15,7 @@ import { VariationCompositionItemsTab } from '../components/variationTabs/Variat
 import { checkERPLegibility, checkEcomLegibility } from '../domain/productLegibilityRules';
 import { getEffectiveProductForVariationReadiness } from '../../../../../../shared-utils/productErpLegibility';
 import { isSingleProductVariationFormMode } from '../../../../../../shared-utils/productVariationMode';
-import { isStockistOnlyProfile } from '@/pages/utils/accessRoles';
+import { isStockistOnlyProfile } from '@/pages/utils/auth/accessRoles';
 import {
   getVariationFormTabs,
   INHERITED_DATA_TABS,

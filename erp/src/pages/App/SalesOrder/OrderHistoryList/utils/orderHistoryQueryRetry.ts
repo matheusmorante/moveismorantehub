@@ -1,4 +1,5 @@
 import { CircuitBreakerError } from '@/services/monitoring';
+import { OrderReadContractError } from '../../../../../../../shared-utils/orders/orderReadContractError';
 
 const isCircuitBreakerFailure = (error: unknown) => {
   if (error instanceof CircuitBreakerError) return true;
@@ -12,4 +13,4 @@ const isCircuitBreakerFailure = (error: unknown) => {
 };
 
 export const shouldRetryOrderRead = (failureCount: number, error: unknown) =>
-  !isCircuitBreakerFailure(error) && failureCount < 1;
+  failureCount < 1 && !(error instanceof OrderReadContractError) && !isCircuitBreakerFailure(error);

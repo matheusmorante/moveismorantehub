@@ -3,7 +3,7 @@ import { ApiUsageGuard } from '@/services/apiMonitoring/apiUsageGuard';
 import { ApiUsageTracker } from '@/services/apiMonitoring/apiUsageTracker';
 import { parseCoordinatesFromMapsUrl } from '../mapCoordinates';
 import { isGoogleQuotaError, loadGoogleMapsApi } from './googleMapsLoader';
-import { withTimeout } from '../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../shared-utils/core/withTimeout';
 
 export interface GeocodeResponse {
   coords: [number, number];

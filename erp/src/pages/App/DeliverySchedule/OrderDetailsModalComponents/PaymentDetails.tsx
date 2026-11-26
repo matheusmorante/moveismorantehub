@@ -1,5 +1,5 @@
 import type { Payment } from '../../../types/payments.type';
-import { getFixedFee } from '../../../utils/calculations';
+import { getFixedFee } from '../../../utils/sales/calculations';
 
 const formatCurrency = (value: number) =>
   Number(value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });

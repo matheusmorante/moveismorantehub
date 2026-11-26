@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { CalendarDays } from 'lucide-react-native';
-import { formatDateBr } from '../transactionModalUtils';
+import { formatDateBr } from '../modals/transactionModalUtils';
 
 interface Props {
   transactionDate: string;

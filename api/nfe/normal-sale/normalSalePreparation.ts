@@ -24,7 +24,7 @@ import { readOutboundAttemptStatus } from './outboundStatus';
 import { withNfeEmissionStage } from '../nfeEmissionPerformance';
 import { appendResponsibleTechnician } from '../responsibleTechnician';
 import { validateNfeAgainstOfficialSchema, validateUnsignedNfeStructure } from '../schemaValidator';
-import { withTimeout } from '../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../shared-utils/core/withTimeout';
 
 export const OUTBOUND_PREPARATION_TIMEOUT_MS = 20_000;
 

@@ -1,5 +1,5 @@
 import type { ProductTechnicalField } from '../productCharacteristicDefinitions';
-import { matchesSearchText } from '../../../../../../shared-utils/searchText';
+import { matchesSearchText } from '../../../../../../shared-utils/core/searchText';
 
 const normalizeTechnicalSearchText = (value: unknown) =>
   String(value ?? '')

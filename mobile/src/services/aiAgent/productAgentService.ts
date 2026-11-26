@@ -1,4 +1,4 @@
-import { fetchMobileProductsPage } from '../../features/products/services/mobileProductFetchService';
+import { fetchMobileProductsPage } from '../../features/products/services/products/mobileProductFetchService';
 import { supabase } from '../supabaseClient';
 import { isTestProduct } from '../../../../shared-utils/isTestProduct';
 import {

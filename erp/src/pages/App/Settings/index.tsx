@@ -5,22 +5,22 @@ import { useTheme } from '../../../context/ThemeContext';
 import { useAuth } from '../../../context/AuthContext';
 import { matchesSearchText } from '@/pages/utils/textUtils';
 
-import SettingsSidebar from './components/SettingsSidebar';
-import SettingsSection from './components/SettingsSection';
-import StatusLabelsSection from './components/StatusLabelsSection';
-import LogisticsSection from './components/LogisticsSection';
-import HandlingSection from './components/HandlingSection';
-import AppearanceSection from './components/AppearanceSection';
-import WhatsAppConfigSection from './components/WhatsAppConfigSection';
-import OrderNotificationTestSection from './components/OrderNotificationTestSection';
-import WhatsAppTemplatesSection from './components/WhatsAppTemplatesSection';
-import CardFlagSettings from './components/CardFlagSettings';
+import SettingsSidebar from './components/general/SettingsSidebar';
+import SettingsSection from './components/general/SettingsSection';
+import StatusLabelsSection from './components/operations/StatusLabelsSection';
+import LogisticsSection from './components/operations/LogisticsSection';
+import HandlingSection from './components/operations/HandlingSection';
+import AppearanceSection from './components/general/AppearanceSection';
+import WhatsAppConfigSection from './components/integrations/WhatsAppConfigSection';
+import OrderNotificationTestSection from './components/operations/OrderNotificationTestSection';
+import WhatsAppTemplatesSection from './components/integrations/WhatsAppTemplatesSection';
+import CardFlagSettings from './components/integrations/CardFlagSettings';
 import FiscalSettingsSection from './components/FiscalSettingsSection';
-import ScannerConfigSection from './components/ScannerConfigSection';
-import CompanySettingsSection from './components/CompanySettingsSection';
-import PrintConfigSection from './components/PrintConfigSection';
+import ScannerConfigSection from './components/operations/ScannerConfigSection';
+import CompanySettingsSection from './components/general/CompanySettingsSection';
+import PrintConfigSection from './components/operations/PrintConfigSection';
 
-import { settingsCategories } from './components/settingsCategories';
+import { settingsCategories } from './components/general/settingsCategories';
 
 export default function Settings(): any {
   const { setTheme } = useTheme();

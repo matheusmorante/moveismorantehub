@@ -4,8 +4,8 @@ import {
   MORANTE_DELIVERY_HANDLING_OPTIONS,
   MORANTE_PICKUP_HANDLING_OPTIONS,
   settingsUseGenericDefaults,
-} from '../handlingMigration';
-import { PERMISSION_ACTIONS } from '../permissionConfig';
+} from '../sales/handlingMigration';
+import { PERMISSION_ACTIONS } from '../auth/permissionConfig';
 
 /**
  * Migra configurações antigas para o novo formato e remove dados legados ou sensíveis

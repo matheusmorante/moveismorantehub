@@ -1,11 +1,11 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { withTimeout } from '../../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../../shared-utils/core/withTimeout';
 import { supportMessageSearchSchema } from '../../../../../../shared-utils/customerSupportFormSchemas';
 import {
   MESSAGE_SELECT_COLUMNS,
   type CustomerSupportHistoryCursor,
   type CustomerSupportHistoryPage,
-} from '../customerSupportHistoryTypes';
+} from '../query/customerSupportHistoryTypes';
 import {
   applyHistoryCursor,
   literalSupportSearchPattern,

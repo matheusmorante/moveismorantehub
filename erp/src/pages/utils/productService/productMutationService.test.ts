@@ -2,19 +2,19 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   bindTestArtifactContext,
   clearTestArtifactContext,
-} from '../../../../../shared-utils/testArtifactContext';
+} from '../../../../../shared-utils/testing/testArtifactContext';
 import type Product from '../../types/product.type';
 import {
   HML_FISCAL_TEST_ORDER_MARKER,
   TEST_PRODUCT_CATALOG_PUBLICATION_ERROR,
 } from '../hmlTestData';
-import { activateProduct, deactivateProduct } from './productDependencyCheck';
+import { activateProduct, deactivateProduct } from './queries/productDependencyCheck';
 import {
   bulkMoveToTrash,
   bulkRestoreProducts,
   saveProduct,
   updateProduct,
-} from './productMutationService';
+} from './mutations/productMutationService';
 
 const mockDb = vi.hoisted(() => ({
   from: vi.fn(),
@@ -32,12 +32,12 @@ vi.mock('@/pages/utils/supabaseConfig', () => ({ supabase: mockDb }));
 vi.mock('@/lib/queryClient', () => ({
   queryClient: { invalidateQueries: mockDb.invalidateQueries },
 }));
-vi.mock('./productLocalCache', () => ({
+vi.mock('./drafts/productLocalCache', () => ({
   getLocalProducts: vi.fn(() => []),
   saveLocalProducts: vi.fn(),
   notifySubscribers: vi.fn(),
 }));
-vi.mock('./productPersistenceService', () => ({
+vi.mock('./mutations/productPersistenceService', () => ({
   ensureUuidFormat: (product: any) => product.id || crypto.randomUUID(),
   omitCompositionAvailabilityStock: (product: any) => product.itemType === 'composition'
     ? {
@@ -50,7 +50,7 @@ vi.mock('./productPersistenceService', () => ({
     mockDb.syncCalls.push(args);
   }),
 }));
-vi.mock('./productDraftPersistence', () => ({
+vi.mock('./drafts/productDraftPersistence', () => ({
   persistProductDraft: vi.fn(async (product: any) => {
     product.updatedAt = '2026-10-11T16:00:00.000Z';
     mockDb.persistedDrafts.push(product);

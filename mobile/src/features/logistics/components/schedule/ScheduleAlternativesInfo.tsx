@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Calendar, RefreshCw } from 'lucide-react-native';
-import type { EffectiveScheduleResolution } from '../../../../../../shared-utils/commercialSchedulingRules';
+import type { EffectiveScheduleResolution } from '../../../../../../shared-utils/scheduling/commercialSchedulingRules';
 
 interface ScheduleAlternativesInfoProps {
   scheduleRes: EffectiveScheduleResolution;

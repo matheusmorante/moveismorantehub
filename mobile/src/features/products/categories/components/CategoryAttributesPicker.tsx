@@ -2,7 +2,7 @@ import { FormTextInput } from '../../../../components/shared/FormTextInput';
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, ActivityIndicator, StyleSheet, Switch} from 'react-native';
 import { Sliders, Check, X, Search } from 'lucide-react-native';
-import { searchMobileCategoryAttributes } from '../../services/mobileAttributeService';
+import { searchMobileCategoryAttributes } from '../../services/categories/mobileAttributeService';
 import { toggleCategoryAttribute } from '../domain/categoryEnvironmentRules';
 import { normalizeSearchTerm } from '../../../../../../shared-utils/productText';
 import {

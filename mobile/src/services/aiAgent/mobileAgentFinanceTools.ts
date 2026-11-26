@@ -1,19 +1,19 @@
 import {
   fetchFinancialCategories,
   fetchFinancialCategoriesForAgent,
-} from '../financial/mobileCategoryService';
+} from '../financial/crud/mobileCategoryService';
 import {
   deleteFinancialTransaction,
   updateFinancialTransaction,
   createFinancialTransaction,
-} from '../financial/mobileTransactionCrudService';
+} from '../financial/crud/mobileTransactionCrudService';
 import { supabase } from '../supabaseClient';
 import { ToolExecutionResponse } from './mobileAgentTypes';
 import {
   VEHICLES,
   isProLaboreCat,
   buildIncomeCategories,
-} from '../../features/finance/components/transactionModalUtils';
+} from '../../features/finance/components/modals/transactionModalUtils';
 import {
   normalizeFinancialPaymentMethod,
   normalizeFinancialDate,

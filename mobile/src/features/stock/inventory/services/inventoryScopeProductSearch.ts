@@ -1,4 +1,4 @@
-import { matchesSearchText } from '../../../../../../shared-utils/searchText';
+import { matchesSearchText } from '../../../../../../shared-utils/core/searchText';
 import type { ScopeProduct } from '../hooks/useInventoryScopeBuilder';
 import type { SearchableProduct } from '../modals/InventoryProductSearchModal';
 

@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Check, PackageMinus, PackagePlus, PackageX } from 'lucide-react';
 import type Order from '../../../../types/order.type';
-import { isPartialSaleStockMovement } from '../../../../utils/saleInventoryRules';
+import { isPartialSaleStockMovement } from '../../../../utils/sales/saleInventoryRules';
 import { getInventoryBadgeContent } from '../utils/inventoryBadgeContent';
 import { InventoryBadgePopover } from './InventoryBadgePopover';
 

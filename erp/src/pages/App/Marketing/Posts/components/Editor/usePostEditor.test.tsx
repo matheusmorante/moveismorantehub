@@ -3,7 +3,7 @@ import { act, cleanup, fireEvent, render, renderHook, screen, waitFor } from '@t
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({ products: vi.fn(), product: vi.fn(), bounds: vi.fn(), templates: vi.fn(), save: vi.fn(), compose: vi.fn(), user: { id: 'operator' } }));
 vi.mock('@/context/AuthContext', () => ({ useAuth: () => ({ user: mocks.user }) }));
-vi.mock('@/pages/utils/productService', () => ({ fetchPreviewProductOptionsPage: mocks.products, getFullProduct: mocks.product }));
+vi.mock('@/pages/utils/productService/productService', () => ({ fetchPreviewProductOptionsPage: mocks.products, getFullProduct: mocks.product }));
 vi.mock('@/pages/utils/supabaseConfig', () => ({ supabase: { from: () => { const query = { select: () => query, eq: async () => ({ data: [], error: null }) }; return query; } } }));
 vi.mock('../../services/imageSubjectBounds', () => ({ detectImageSubjectBounds: mocks.bounds }));
 vi.mock('../../services/templateService', () => ({ templateService: { getAll: mocks.templates, save: mocks.save } }));

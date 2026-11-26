@@ -16,7 +16,7 @@ vi.mock('@/pages/utils/inboundNfe/inboundInvoicesService', () => ({
   ensureInboundInvoiceAttachment: vi.fn(() => Promise.resolve('https://storage/nfe-xml.pdf')),
 }));
 
-vi.mock('@/pages/utils/productSupplierCodesService', () => ({
+vi.mock('@/pages/utils/productService/productSupplierCodesService', () => ({
   findProductSupplierCodes: vi.fn(() =>
     Promise.resolve(
       new Map([['FORN-SKU-100', { productId: 'prod-uuid-1', productVariationId: 'var-uuid-1' }]])
@@ -24,7 +24,7 @@ vi.mock('@/pages/utils/productSupplierCodesService', () => ({
   ),
 }));
 
-vi.mock('@/pages/utils/productService', () => ({
+vi.mock('@/pages/utils/productService/productService', () => ({
   getProductsByIds: vi.fn(() =>
     Promise.resolve([
       {

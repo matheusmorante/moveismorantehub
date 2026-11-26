@@ -5,7 +5,7 @@ import { saveInventoryMove, subscribeToInventoryMoves } from '@/pages/utils/inve
 import { toast } from 'react-toastify';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { stockLaunchFormSchema } from '../../../../../../shared-utils/inventoryMoveSchemas';
-import { withTimeout } from '../../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../../shared-utils/core/withTimeout';
 import InventoryMove from '../../../types/inventoryMove.type';
 import { calculateInventoryTimelineBalance } from '@/pages/utils/inventoryTimelineBalance';
 

@@ -1,5 +1,5 @@
 import React from 'react';
-import type { CustomerSummary } from '@/pages/utils/customerSupport/customerMatchingService';
+import type { CustomerSummary } from '@/pages/utils/customerSupport/query/customerMatchingService';
 import { useManualLinkModal, ManualLinkSearchResults } from './manualLink';
 
 interface ManualLinkModalProps {

@@ -1,5 +1,5 @@
 import { supabase } from '../../supabaseClient';
-import { buildNormalizedWordsRegex, buildPostgrestAccentInsensitiveOrFilter } from '../../../../../shared-utils/searchText';
+import { buildNormalizedWordsRegex, buildPostgrestAccentInsensitiveOrFilter } from '../../../../../shared-utils/core/searchText';
 import { buildProductSearchTerms } from '../../../../../shared-utils/productListSearch';
 import {
   inboundInvoiceCatalogSearchFormSchema,
@@ -8,7 +8,7 @@ import {
   inboundInvoiceSupplierIdSchema,
   INBOUND_INVOICE_SEARCH_RESULT_LIMIT,
 } from '../../../../../shared-utils/inboundProductLinkFormSchemas';
-import { fetchMobileProductsPage } from '../../../features/products/services/mobileProductFetchService';
+import { fetchMobileProductsPage } from '../../../features/products/services/products/mobileProductFetchService';
 
 export const searchInboundInvoiceSuppliers = async (searchTerm: string, signal: AbortSignal) => {
   const { query: term } = inboundInvoiceCatalogSearchFormSchema.parse({ query: searchTerm });

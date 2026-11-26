@@ -1,9 +1,9 @@
 import React, { memo, useEffect, useRef, useState } from 'react';
 import type { WhatsAppMessage } from '../types';
 import { getCatalogProductCardIds, type CatalogInteractiveProductCard } from '../catalogInteractiveProducts';
-import type { CustomerSupportSendResult } from '@/pages/utils/customerSupport/customerSupportService';
+import type { CustomerSupportSendResult } from '@/pages/utils/customerSupport/query/customerSupportService';
 import { useCustomerSupportMedia } from '../hooks/useCustomerSupportMedia';
-import { isMetaSocialMediaUrl } from '@/pages/utils/customerSupport/socialMediaUrl';
+import { isMetaSocialMediaUrl } from '@/pages/utils/customerSupport/query/socialMediaUrl';
 import { MediaLoadStatus } from './chat/bubble/MediaLoadStatus';
 import {
   renderFormattedText,

@@ -1,5 +1,5 @@
 import { expect, it, vi } from 'vitest';
-import type { fetchMobileProductTechnicalFields } from './mobileProductTechnicalService';
+import type { fetchMobileProductTechnicalFields } from './categories/mobileProductTechnicalService';
 import { scopedCategoryQueryWith } from './mobileProductTechnicalService.testUtils';
 import type { missingCategoryApplicationsQuery } from './mobileProductTechnicalService.testUtils';
 

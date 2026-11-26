@@ -11,8 +11,8 @@ import { DEFAULT_AI_USAGE_LIMITS } from '../../../../../shared-utils/aiUsageLimi
 import {
   MORANTE_DELIVERY_HANDLING_OPTIONS,
   MORANTE_PICKUP_HANDLING_OPTIONS,
-} from '../handlingMigration';
-import { PERMISSION_ACTIONS } from '../permissionConfig';
+} from '../sales/handlingMigration';
+import { PERMISSION_ACTIONS } from '../auth/permissionConfig';
 import { DEFAULT_ORDER_CONFIRMATION_TEMPLATE } from '../whatsapp/orderConfirmationText';
 
 export const SETTINGS_KEY = 'pdv_app_settings';

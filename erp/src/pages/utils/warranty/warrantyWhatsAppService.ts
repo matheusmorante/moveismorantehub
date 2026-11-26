@@ -2,7 +2,7 @@ import type Order from '@/pages/types/order.type';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { getSettings } from '@/pages/utils/settingsService';
 import { isSamePhoneNumber } from '@/pages/utils/textUtils';
-import { whatsappGraphService } from '@/pages/utils/whatsappGraphService';
+import { whatsappGraphService } from '@/pages/utils/whatsapp/whatsappGraphService';
 import {
   recordWhatsAppDispatch,
   waitForMetaDeliveryConfirmation,

@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { verifyMetaSignature } from '@/pages/utils/customerSupport/whatsappWebhookProcessor';
+import { verifyMetaSignature } from '@/pages/utils/customerSupport/webhook/whatsappWebhookProcessor';
 import whatsappDispatchHandler from '../../../../../../api/whatsapp-dispatch';
 
 afterEach(() => { vi.restoreAllMocks(); });

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Order from '../../../../types/order.type';
 import Person from '../../../../types/person.type';
 import { getOrdersByCustomerInfoPage } from '../../../../utils/orderHistoryService';
-import { formatCurrency, formatToBRDate } from '../../../../utils/formatters';
+import { formatCurrency, formatToBRDate } from '../../../../utils/shared/formatters';
 import { getOrderTypeClasses, resolveOrderColor } from '../../../../utils/orderTypeColorUtils';
 import { getSettings } from '@/pages/utils/settingsService';
 import { ERPListPagination } from '@/components/shared/ERPListPagination';

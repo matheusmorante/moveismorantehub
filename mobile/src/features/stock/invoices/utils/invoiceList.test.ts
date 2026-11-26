@@ -8,7 +8,7 @@ import {
   hasUnlinkedInvoiceItems,
   normalizeInvoiceStatus,
 } from './invoiceList';
-import { buildPostgrestAccentInsensitiveOrFilter } from '../../../../../../shared-utils/searchText';
+import { buildPostgrestAccentInsensitiveOrFilter } from '../../../../../../shared-utils/core/searchText';
 
 describe('invoice list helpers', () => {
   it('preserves letters when searching fiscal identifiers', () => {

@@ -1,4 +1,4 @@
-import { waitForAuthOperation } from '../../../../shared-utils/authOperationTimeout';
+import { waitForAuthOperation } from '../../../../shared-utils/auth/authOperationTimeout';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -23,7 +23,7 @@ import {
   isPasswordReauthenticationRequired,
   requestPasswordChangeReauthentication,
   updateAuthenticatedPassword,
-} from '../../services/authPasswordRecovery';
+} from '../../services/auth/authPasswordRecovery';
 
 import { FormTextInput } from '../shared/FormTextInput';
 interface Props {

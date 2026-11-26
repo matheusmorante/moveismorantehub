@@ -1,7 +1,7 @@
 import { supabase } from '../supabaseClient';
 import { ITEMS_PER_PAGE } from './stockPagination';
 import { connectivityService } from '../offline/connectivityService';
-import { withTimeout } from '../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../shared-utils/core/withTimeout';
 import { normalizeFiscalIdentifier } from '../../../../shared-utils/fiscalIdentifiers';
 import {
   fetchInUseInvoiceKeys,

@@ -6,7 +6,7 @@ import {
   getCustomerOrderRecordsPage,
   type SupportCustomerOrderGroup,
   type SupportOrderSummary,
-} from '@/pages/utils/customerSupport/supportOrdersService';
+} from '@/pages/utils/customerSupport/orders/supportOrdersService';
 import { supabase } from '@/pages/utils/supabaseConfig';
 
 const CUSTOMER_RECORD_PAGE_SIZE = 5;

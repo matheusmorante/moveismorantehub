@@ -1,7 +1,7 @@
 import React from 'react';
-import { ValidationErrors } from '../../../utils/validations';
-import CurrencyInput from '@/components/CurrencyInput';
-import { DistanceInput } from '@/components/DistanceInput';
+import { ValidationErrors } from '../../../utils/sales/validations';
+import CurrencyInput from '@/components/inputs/CurrencyInput';
+import { DistanceInput } from '@/components/inputs/DistanceInput';
 
 interface FreteDistanciaProps {
   title?: string;

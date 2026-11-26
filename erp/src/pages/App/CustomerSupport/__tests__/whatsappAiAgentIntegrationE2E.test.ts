@@ -5,7 +5,7 @@ import {
   clearProcessedMessagesCache,
   type InboundMessageParams,
   type WhatsAppAiAgentDependencies,
-} from '@/pages/utils/customerSupport/whatsappAiAgentService';
+} from '@/pages/utils/customerSupport/whatsappAiAgent/whatsappAiAgentService';
 import type { WhatsAppAiAgentConfig } from '@/pages/utils/settings/types';
 import { DEFAULT_WHATSAPP_AI_AGENT_PROMPT } from '../../../../../../shared-utils/whatsappAiAgentSchemas';
 

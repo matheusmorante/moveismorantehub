@@ -1,5 +1,5 @@
 import React from 'react';
-import { formatToBRDate } from '../../../utils/formatters';
+import { formatToBRDate } from '../../../utils/shared/formatters';
 import { resolveEffectiveSchedule } from '../../../../../../shared-utils/commercialOrderRules';
 
 export interface SchedulingSectionProps {

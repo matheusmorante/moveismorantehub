@@ -1,7 +1,7 @@
 import { supabase } from '../supabaseClient';
-import { isIdentifiedTestArtifact } from '../../../../shared-utils/testArtifactPolicy';
+import { isIdentifiedTestArtifact } from '../../../../shared-utils/testing/testArtifactPolicy';
 import { isAssemblyInternalType, isAssemblyOutsideType } from '../../utils/aiSummaryHelper';
-import { withAbortTimeout } from '../../../../shared-utils/withAbortTimeout';
+import { withAbortTimeout } from '../../../../shared-utils/core/withAbortTimeout';
 import {
   getActiveAgentPermissionContext,
   hasAgentActionPermission,

@@ -1,1 +1,1 @@
-export { normalizeSlug, resolveUniqueSlug } from '../../../../shared-utils/uniqueSlug';
+export * from './shared/uniqueSlug';

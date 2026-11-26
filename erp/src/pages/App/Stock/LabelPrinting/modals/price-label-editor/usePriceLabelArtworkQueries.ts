@@ -4,7 +4,7 @@ import {
   labelArtConfigSchema,
   labelArtLayoutSelectionSchema,
 } from '../../../../../../../../shared-utils/labelArtworkFormSchemas';
-import { withTimeout } from '../../../../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../../../../shared-utils/core/withTimeout';
 import {
   fetchPriceLabelArtConfigResult,
   fetchOpportunitiesResult,

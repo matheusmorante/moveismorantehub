@@ -1,9 +1,9 @@
 import React from 'react';
-import SectionCard from '@/components/SectionCard';
-import NoticeInput from '@/components/NoticeInput';
-import ShippingInputs from '../ShippingData';
+import SectionCard from '@/components/display/SectionCard';
+import NoticeInput from '@/components/inputs/NoticeInput';
+import ShippingInputs from '../shipping/ShippingData';
 import DeliveryTruckIcon from '@/components/shared/DeliveryTruckIcon';
-import { useSalesOrderForm } from '../../hooks/useSalesOrderForm';
+import { useSalesOrderForm } from '../../hooks/form-flow/useSalesOrderForm';
 import {
   hasPendingCardOnDelivery,
   syncDeliveryAndAssemblyNotices,

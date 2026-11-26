@@ -4,7 +4,7 @@ import type { CharacteristicGroup } from '@/pages/types/variation.type';
 import type { TechnicalFieldDefinition } from '@/pages/utils/technicalValuesService';
 import { fetchTechnicalFieldDefinitions } from '../../services/technicalFieldService';
 import { fetchCharacteristicGroups } from '@/pages/utils/characteristicGroupService';
-import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../../../shared-utils/core/withTimeout';
 
 interface UseVariationTechnicalReferenceDataOptions {
   initialTechnicalFields?: TechnicalFieldDefinition[];

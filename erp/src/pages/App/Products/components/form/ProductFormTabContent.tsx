@@ -7,7 +7,7 @@ import ProductEcommerceTab from '../tabs/ProductEcommerceTab';
 import ProductGeneralTab from '../tabs/ProductGeneralTab';
 import ProductInventoryTab from '../tabs/ProductInventoryTab';
 import ProductVariationsTab from '../tabs/ProductVariationsTab';
-import ProductTechnicalTab from '../tabs/technical/ProductTechnicalTab';
+import ProductTechnicalTab from '../tabs/technical/sections/ProductTechnicalTab';
 import VariationCompositionItemsTab from '../variationTabs/VariationCompositionItemsTab';
 
 type EcommerceSubTab = 'vitrine' | 'photos' | 'descriptions' | 'logistics' | 'seo';

@@ -6,13 +6,13 @@ import { fireEvent, render, screen, cleanup, waitFor } from '@testing-library/re
 import { describe, expect, it, vi, afterEach } from 'vitest';
 import type { Product, Variation } from '@/pages/types/product.type';
 import { VariationDescriptionTab } from './VariationDescriptionTab';
-import { aiService } from '@/pages/utils/aiService';
+import { aiService } from '@/pages/utils/aiService/aiService';
 
 vi.mock('react-toastify', () => ({
   toast: { error: vi.fn(), success: vi.fn() },
 }));
 
-vi.mock('@/pages/utils/aiService', () => ({
+vi.mock('@/pages/utils/aiService/aiService', () => ({
   aiService: {
     improveProductDescription: vi.fn(),
   },

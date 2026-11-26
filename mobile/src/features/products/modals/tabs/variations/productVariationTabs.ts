@@ -8,7 +8,7 @@ export type VariationTabId =
   | 'compostos'
   | 'estoque';
 
-type VariationTab = {
+export type VariationTab = {
   id: VariationTabId;
   label: string;
   Icon: typeof Info | typeof Images | typeof Settings | typeof FileText | typeof Package | typeof Network;

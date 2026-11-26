@@ -3,7 +3,7 @@ import { Alert, Linking, StyleSheet, Text, TouchableOpacity, View } from 'react-
 import { MessageCircle, UserCheck } from 'lucide-react-native';
 import { supabase } from '../../../../services/supabaseClient';
 import { formatOrderCode } from '../../../../utils/orderUtils';
-import { buildPostgrestAccentInsensitivePattern } from '../../../../../../shared-utils/searchText';
+import { buildPostgrestAccentInsensitivePattern } from '../../../../../../shared-utils/core/searchText';
 
 interface Props {
   order: any;

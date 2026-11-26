@@ -6,7 +6,7 @@ import { toast } from 'react-toastify';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { inventoryMoveFormSchema } from '../../../../../../../shared-utils/operationsFormSchemas';
 
-import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../../../shared-utils/core/withTimeout';
 
 export interface InventoryMoveEditModalProps {
   readonly move: InventoryMove | null;

@@ -3,7 +3,7 @@ import Body from './Body';
 import Footer from './Footer';
 import { PaymentsSummary, Payment } from '../../../types/payments.type';
 import { useWindowSize } from '../../../../hooks/useWindowSize';
-import { ValidationErrors } from '../../../utils/validations';
+import { ValidationErrors } from '../../../utils/sales/validations';
 
 type Props = {
   payments: Payment[];

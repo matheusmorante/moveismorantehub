@@ -1,6 +1,6 @@
-import type { CustomerSupportHistoryCursor, CustomerSupportHistoryPage } from '../customerSupportHistoryTypes';
-import { mapRowToMessage } from '../customerSupportMappers';
-import { buildPostgrestAccentInsensitiveWordsPattern } from '../../../../../../shared-utils/searchText';
+import type { CustomerSupportHistoryCursor, CustomerSupportHistoryPage } from '../query/customerSupportHistoryTypes';
+import { mapRowToMessage } from '../query/customerSupportMappers';
+import { buildPostgrestAccentInsensitiveWordsPattern } from '../../../../../../shared-utils/core/searchText';
 
 export function applyTimestampCursor(query: any, before: { timestamp: string; id: string }) {
   const timestamp = JSON.stringify(before.timestamp);

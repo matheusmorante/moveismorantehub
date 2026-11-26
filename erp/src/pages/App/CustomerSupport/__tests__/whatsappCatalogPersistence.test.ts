@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createWhatsAppSupportSendHandler } from '../../../../../../api/whatsapp-support-send';
-import { mapRowToMessage } from '@/pages/utils/customerSupport/customerSupportMappers';
+import { mapRowToMessage } from '@/pages/utils/customerSupport/query/customerSupportMappers';
 import { getCatalogRetailerIds } from '../catalogInteractiveProducts';
 
 const mocks = vi.hoisted(() => ({

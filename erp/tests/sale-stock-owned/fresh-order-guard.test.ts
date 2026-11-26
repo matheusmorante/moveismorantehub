@@ -23,8 +23,8 @@ vi.mock('../../../mobile/src/repositories/OrderRepository', () => ({
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { executeSaveOrder } from '@/pages/utils/orderMutation/orderCreationService';
 import { buildOrderPersistencePayload } from '@/pages/utils/orderPersistencePayload';
-import { bindTestArtifactContext } from '../../../shared-utils/testArtifactContext';
-import { NON_TEST_ORDER_FILTER } from '../../../shared-utils/testArtifactQueries';
+import { bindTestArtifactContext } from '../../../shared-utils/testing/testArtifactContext';
+import { NON_TEST_ORDER_FILTER } from '../../../shared-utils/testing/testArtifactQueries';
 import { orderFormSchema } from '../../../shared-utils/orderDomainValidation';
 import { deliveryFlowService } from '../../../mobile/src/features/orders/services/deliveryFlowService';
 

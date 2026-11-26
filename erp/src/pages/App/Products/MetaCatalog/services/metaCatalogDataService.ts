@@ -1,6 +1,6 @@
 import { supabase } from '@/pages/utils/supabaseConfig';
 import type { MetaCatalogStats } from './metaCatalogStats';
-import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../../../shared-utils/core/withTimeout';
 
 const META_SYNC_PAGE_SIZE = 500;
 const META_SYNC_QUERY_TIMEOUT_MS = 15_000;

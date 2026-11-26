@@ -11,7 +11,7 @@ import { Plus, Minus, Trash2, Search, Info } from 'lucide-react-native';
 import {
   searchMobileProductCompositionCandidates,
   type MobileProductCompositionCandidate,
-} from '../../../services/mobileProductCompositionService';
+} from '../../../services/compositions/mobileProductCompositionService';
 import { parseLocalizedNumber } from '../../../domain/productNumbers';
 import { useZodForm } from '../../../../../hooks/useZodForm';
 import { resolveProductAutocompleteDisplayPrice } from '../../../../../../../shared-utils/productAutocompleteDisplayPrice';

@@ -6,8 +6,8 @@ import {
   getMaxParentProductImages,
   MAX_PARENT_PRODUCT_IMAGES,
   MAX_VARIATION_IMAGES,
-} from '@/pages/utils/productImageLimits';
-import { uploadFile } from '@/pages/utils/storageService';
+} from '@/pages/utils/productService/productImageLimits';
+import { uploadFile } from '@/pages/utils/shared/storageService';
 import { createBackgroundRemovedPngFile } from '@/pages/utils/images/backgroundRemoval';
 import type Product from '../../../../types/product.type';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';

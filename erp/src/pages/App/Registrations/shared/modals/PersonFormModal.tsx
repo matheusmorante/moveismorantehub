@@ -1,7 +1,7 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
 import { useAuth } from '@/context/AuthContext';
-import { getTestArtifactContext } from '../../../../../../../shared-utils/testArtifactContext';
+import { getTestArtifactContext } from '../../../../../../../shared-utils/testing/testArtifactContext';
 import Person from '../../../../types/person.type';
 import {
   usePersonForm,

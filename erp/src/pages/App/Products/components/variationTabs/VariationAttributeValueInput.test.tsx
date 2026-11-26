@@ -3,11 +3,11 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { act, render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react';
 import React from 'react';
 import { VariationAttributeValueInput } from './VariationAttributeValueInput';
-import * as variationService from '@/pages/utils/variationService';
+import * as variationService from '@/pages/utils/productService/variationService';
 import { toast } from 'react-toastify';
 
 // Mock do serviço de variações
-vi.mock('@/pages/utils/variationService', () => ({
+vi.mock('@/pages/utils/productService/variationService', () => ({
   saveAttributeValue: vi.fn(),
 }));
 

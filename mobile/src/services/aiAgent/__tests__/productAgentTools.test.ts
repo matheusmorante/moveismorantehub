@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { MobileToolDispatcher } from '../mobileToolDispatcher';
 import { mobileAgentTools } from '../mobileAgentTools';
 import { supabase } from '../../supabaseClient';
-import * as mobileProductFetchService from '../../../features/products/services/mobileProductFetchService';
+import * as mobileProductFetchService from '../../../features/products/services/products/mobileProductFetchService';
 
 // Identificador único obrigatório de teste
 const testRunId = `TEST_AUT_${Date.now()}_mob_prod_tools`;
@@ -13,7 +13,7 @@ vi.mock('../../supabaseClient', () => ({
   },
 }));
 
-vi.mock('../../../features/products/services/mobileProductFetchService', () => ({
+vi.mock('../../../features/products/services/products/mobileProductFetchService', () => ({
   fetchMobileProductsPage: vi.fn(),
 }));
 

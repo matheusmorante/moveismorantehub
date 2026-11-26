@@ -2,8 +2,8 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { toast } from 'react-toastify';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { labelImageUploadFormSchema, labelImageQueryFormSchema, labelImageDeleteFormSchema, labelImageSelectionFormSchema } from '../../../../../../../shared-utils/labelImageFormSchemas';
-import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
-import type { CategoryType } from '../hooks/useLabelCategory';
+import { withTimeout } from '../../../../../../../shared-utils/core/withTimeout';
+import type { CategoryType } from '../hooks/label-printing/useLabelCategory';
 import {
   createLabelImage,
   deleteLabelImage,

@@ -11,7 +11,7 @@ vi.mock('@/pages/utils/supabaseConfig', () => ({
   supabase: { from: () => ({ select }) },
 }));
 
-import { getProductLinkConfirmation } from './productQueryService';
+import { getProductLinkConfirmation } from './queries/productQueryService';
 
 const productRow = {
   id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',

@@ -11,16 +11,16 @@ vi.mock('@/pages/utils/supabaseConfig', () => ({
   supabase: { from: mocks.from },
   ecommerceSupabase: { from: mocks.from },
 }));
-vi.mock('../productService/productFilterBuilder', () => ({
+vi.mock('../productService/mapping/productFilterBuilder', () => ({
   applyProductFiltersAndSort: mocks.applyProductFiltersAndSort,
 }));
-vi.mock('../productService/productMapper', () => ({ mapFromDB: vi.fn() }));
-vi.mock('../productService/productLocalCache', () => ({
+vi.mock('../productService/mapping/productMapper', () => ({ mapFromDB: vi.fn() }));
+vi.mock('../productService/drafts/productLocalCache', () => ({
   getLocalProducts: vi.fn(() => []),
   saveLocalProducts: vi.fn(),
 }));
-vi.mock('../productService/productSkuService', () => ({ TABLE_NAME: 'products' }));
-vi.mock('../productService/productAnalyticsQueryService', () => ({
+vi.mock('../productService/mutations/productSkuService', () => ({ TABLE_NAME: 'products' }));
+vi.mock('../productService/queries/productAnalyticsQueryService', () => ({
   searchHistoricalItems: vi.fn(),
   getProductSalesStats: vi.fn(),
 }));
@@ -31,10 +31,10 @@ vi.mock('../personService/personMapper', () => ({
 vi.mock('../personService/personSyncService', () => ({ syncMissingEmployeesFromProfiles: vi.fn() }));
 vi.mock('@/lib/queryClient', () => ({ queryClient: { invalidateQueries: vi.fn() } }));
 
-import { fetchProductsPage } from '../productService/productQueryService';
-import { mapFromDB } from '../productService/productMapper';
+import { fetchProductsPage } from '../productService/queries/productQueryService';
+import { mapFromDB } from '../productService/mapping/productMapper';
 import { fetchPersons } from '../personService/personQueryService';
-import { fetchVariations } from '../variationService';
+import { fetchVariations } from '../productService/variationService';
 
 const failedQueryChain = () => {
   const chain: any = {

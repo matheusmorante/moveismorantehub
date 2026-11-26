@@ -1,8 +1,8 @@
-import { excludeTestOrders } from '../../../../../shared-utils/testArtifactQueries';
+import { excludeTestOrders } from '../../../../../shared-utils/testing/testArtifactQueries';
 import Order from '../../types/order.type';
 import type { GeoMapOrderProjection, RecentOrderProjection } from '../../types/dashboardOrderProjection.type';
 import { supabase } from '@/pages/utils/supabaseConfig';
-import { capitalizeOrder } from '../formatters';
+import { capitalizeOrder } from '../shared/formatters';
 import { mapOrderFromDatabase } from '../orderMapper';
 import { isHmlFiscalTestOrder } from '../hmlTestData';
 import {

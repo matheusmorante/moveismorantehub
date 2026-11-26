@@ -5,13 +5,13 @@ const mocks = vi.hoisted(() => ({ chat: {} as any, choose: vi.fn() }));
 vi.mock('react-native', () => ({ View: 'div', Text: 'span', ScrollView: 'section', ActivityIndicator: 'progress', StyleSheet: { create: (value: unknown) => value } }));
 vi.mock('lucide-react-native', () => ({ Bot: () => null }));
 vi.mock('../../../mobile/src/features/finance/hooks/useFinancialAiChat', () => ({ useFinancialAiChat: () => mocks.chat }));
-vi.mock('../../../mobile/src/features/finance/components/AssistantEmptyState', () => ({ AssistantEmptyState: () => null }));
+vi.mock('../../../mobile/src/features/finance/components/chat/AssistantEmptyState', () => ({ AssistantEmptyState: () => null }));
 vi.mock('../../../mobile/src/features/finance/components/chat/ChatHeaderToolBar', () => ({ ChatHeaderToolBar: () => null }));
 vi.mock('../../../mobile/src/features/finance/components/chat/ChatMessageItem', () => ({ ChatMessageItem: () => null }));
 vi.mock('../../../mobile/src/features/finance/components/chat/FinancialChatInputBar', () => ({ FinancialChatInputBar: () => null }));
 vi.mock('../../../mobile/src/features/finance/components/chat/GeminiLiveOrb', () => ({ GeminiLiveOrb: () => null }));
-vi.mock('../../../mobile/src/features/finance/components/TransactionPreviewCard', () => ({ TransactionPreviewCard: ({ intent, readOnly, onSelectCandidate }: any) => <button disabled={readOnly} onClick={() => onSelectCandidate(intent.candidateAccounts[0])}>Selecionar {intent.description}</button> }));
-import { FinancialAiChatView } from '../../../mobile/src/features/finance/components/FinancialAiChatView';
+vi.mock('../../../mobile/src/features/finance/components/transactions/TransactionPreviewCard', () => ({ TransactionPreviewCard: ({ intent, readOnly, onSelectCandidate }: any) => <button disabled={readOnly} onClick={() => onSelectCandidate(intent.candidateAccounts[0])}>Selecionar {intent.description}</button> }));
+import { FinancialAiChatView } from '../../../mobile/src/features/finance/components/chat/FinancialAiChatView';
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
 describe('composição da fila financeira', () => {
   it('mostra o cartão incompleto e entrega sua identidade ao proprietário ao escolher conta', () => {

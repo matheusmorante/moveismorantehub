@@ -1,7 +1,7 @@
 import { supabase } from '../../supabaseClient';
-import { fetchMobileProductsPage } from '../../../features/products/services/mobileProductFetchService';
+import { fetchMobileProductsPage } from '../../../features/products/services/products/mobileProductFetchService';
 import { ITEMS_PER_PAGE } from '../stockMovesService';
-import { withTimeout } from '../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../shared-utils/core/withTimeout';
 import {
   clearOfflineInventoryCatalogCache,
   ensureOfflineInventoryCatalogSynced,
@@ -19,7 +19,7 @@ import { OFFLINE_INVENTORY_CATALOG_FORMAT_VERSION } from '../../../features/stoc
 import {
   buildAccentInsensitiveWordsRegex,
   matchesSearchText,
-} from '../../../../../shared-utils/searchText';
+} from '../../../../../shared-utils/core/searchText';
 
 const assertInventoryCatalogCurrent = (formatVersion?: number) => {
   if (formatVersion !== OFFLINE_INVENTORY_CATALOG_FORMAT_VERSION) {

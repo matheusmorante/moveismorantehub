@@ -1,14 +1,14 @@
 import { supabase } from '@/pages/utils/supabaseConfig';
 import Product from '../../../../../types/product.type';
-import { normalizeVariationSku } from '@/pages/utils/productVariationDefaults';
-import { updateProduct } from '@/pages/utils/productService';
+import { normalizeVariationSku } from '@/pages/utils/productService/productVariationDefaults';
+import { updateProduct } from '@/pages/utils/productService/productService';
 import {
   isTestProduct,
   TEST_PRODUCT_CATALOG_PUBLICATION_ERROR,
 } from '@/pages/utils/hmlTestData';
-import { triggerProductMetaCatalogSync } from '@/pages/utils/productService/productMetaCatalogSync';
+import { triggerProductMetaCatalogSync } from '@/pages/utils/productService/catalog/productMetaCatalogSync';
 
-export { validateCatalogPublication } from '../../../../../../../../shared-utils/catalogPublicationValidation';
+export { validateCatalogPublication } from '../../../../../../../../shared-utils/catalogPublication/catalogPublicationValidation';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 

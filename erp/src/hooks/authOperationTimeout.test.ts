@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { waitForAuthOperation } from '../../../shared-utils/authOperationTimeout';
+import { waitForAuthOperation } from '../../../shared-utils/auth/authOperationTimeout';
 afterEach(() => vi.useRealTimers());
 describe('prazo local da operação de autenticação', () => {
   it('preserva sucesso inclusive callback void e libera todos os timers', async () => {

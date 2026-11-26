@@ -3,9 +3,9 @@ import React from 'react';
 import { act, cleanup, fireEvent, render, renderHook, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MoveVariationFamilyModal, type MoveVariationFamilyModalProps } from './MoveVariationFamilyModal';
-import { moveVariationToFamily } from '@/pages/utils/productService/productVariationActionsService';
-import { fetchVariationFamilies, fetchVariationFamilyConflict } from '@/pages/utils/productService/productVariationFamilyQueries';
-import { ensureAttributeValue } from '@/pages/utils/variationService';
+import { moveVariationToFamily } from '@/pages/utils/productService/mutations/productVariationActionsService';
+import { fetchVariationFamilies, fetchVariationFamilyConflict } from '@/pages/utils/productService/queries/productVariationFamilyQueries';
+import { ensureAttributeValue } from '@/pages/utils/productService/variationService';
 import { toast } from 'react-toastify';
 import {
   canAddVariationFamilyAttribute,
@@ -36,9 +36,9 @@ vi.mock('@/pages/utils/supabaseConfig', () => {
   }, rpc: transport.rpc };
   return { supabase: client, ecommerceSupabase: client };
 });
-vi.mock('@/pages/utils/productService', async () => ({ moveVariationToFamily: (await vi.importActual<typeof import('@/pages/utils/productService/productVariationActionsService')>('@/pages/utils/productService/productVariationActionsService')).moveVariationToFamily }));
-vi.mock('@/pages/utils/productService/productMutationService', () => ({ updateProduct: vi.fn() }));
-vi.mock('@/pages/utils/productService/productLocalCache', () => ({ LOCAL_STORAGE_KEY: 'local_products', getLocalProducts: () => [], notifySubscribers: transport.notify }));
+vi.mock('@/pages/utils/productService/productService', async () => ({ moveVariationToFamily: (await vi.importActual<typeof import('@/pages/utils/productService/mutations/productVariationActionsService')>('@/pages/utils/productService/productVariationActionsService')).moveVariationToFamily }));
+vi.mock('@/pages/utils/productService/mutations/productMutationService', () => ({ updateProduct: vi.fn() }));
+vi.mock('@/pages/utils/productService/drafts/productLocalCache', () => ({ LOCAL_STORAGE_KEY: 'local_products', getLocalProducts: () => [], notifySubscribers: transport.notify }));
 vi.mock('react-toastify', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
 const sourceId = '00000000-0000-4000-8000-000000000001', parentId = '00000000-0000-4000-8000-000000000002';

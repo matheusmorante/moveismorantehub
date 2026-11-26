@@ -1,15 +1,15 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import type { User } from '@supabase/supabase-js';
 import { supabase } from '@/pages/utils/supabaseConfig';
-import { shouldRunAuthSessionMaintenance } from '../../../../shared-utils/authSessionPolicy';
-import { withTimeout } from '../../../../shared-utils/withTimeout';
-import { waitForAuthOperation } from '../../../../shared-utils/authOperationTimeout';
+import { shouldRunAuthSessionMaintenance } from '../../../../shared-utils/auth/authSessionPolicy';
+import { withTimeout } from '../../../../shared-utils/core/withTimeout';
+import { waitForAuthOperation } from '../../../../shared-utils/auth/authOperationTimeout';
 import {
   bindTestArtifactContext,
   clearTestArtifactContext,
   getTestArtifactContext,
   testArtifactIdentityForAuthenticatedUser,
-} from '../../../../shared-utils/testArtifactContext';
+} from '../../../../shared-utils/testing/testArtifactContext';
 import { queryClient } from '@/lib/queryClient';
 import { verifyConfiguredTestArtifactOperator } from '@/services/testArtifactOperator';
 import { invalidateSessionScopedCaches } from './sessionCacheRegistry';

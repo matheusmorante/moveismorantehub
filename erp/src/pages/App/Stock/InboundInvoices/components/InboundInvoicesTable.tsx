@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import type { InboundInvoice } from '@/pages/utils/inboundNfe/inboundNfeTypes';
-import { formatCurrency } from '@/pages/utils/formatters';
+import { formatCurrency } from '@/pages/utils/shared/formatters';
 import { InboundInvoiceActionsMenu } from './InboundInvoiceActionsMenu';
 import { SummaryXmlStatusBadge } from './SummaryXmlStatusBadge';
 import {

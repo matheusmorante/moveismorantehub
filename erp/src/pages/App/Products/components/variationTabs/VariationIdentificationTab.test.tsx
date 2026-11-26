@@ -9,7 +9,7 @@ vi.mock('react-toastify', () => ({
   toast: { error: vi.fn() },
 }));
 
-vi.mock('@/pages/utils/variationService', () => ({
+vi.mock('@/pages/utils/productService/variationService', () => ({
   saveAttributeValue: vi.fn(),
 }));
 

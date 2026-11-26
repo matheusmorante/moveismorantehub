@@ -5,13 +5,13 @@ import { ProductSupplierField } from './ProductSupplierField';
 import { ProductPricingFields } from './ProductPricingFields';
 import { ProductManufacturingTypeToggle } from './ProductManufacturingTypeToggle';
 import { syncVariationsWithParent } from '../../domain/variationParentSync';
-import type { SuggestPricesResult } from '../../hooks/form/useProductFormAi';
+import type { SuggestPricesResult } from '../../hooks/form/ai/useProductFormAi';
 import { calculateProductFinalPurchasePrice } from '../../../../../../../shared-utils/productPurchasePricing';
 import {
   getProductMinimumStockInputDisplayValue,
   parseProductMinimumStockInput,
 } from '../../../../../../../shared-utils/productMinimumStockInput';
-import { isSalvadoProduct } from '@/pages/utils/productKindRules';
+import { isSalvadoProduct } from '@/pages/utils/productService/productKindRules';
 
 interface ProductInventoryTabProps {
   readonly formData: Partial<Product>;

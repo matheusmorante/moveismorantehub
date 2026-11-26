@@ -26,7 +26,7 @@ import {
   canShowMobileSingleVariationReorganizationActions,
   canToggleProductActivationFromCardMenu,
 } from '../domain/mobileProductCardRules';
-import { getMobileVariationActionRequirements } from '../services/mobileProductVariationActionsService';
+import { getMobileVariationActionRequirements } from '../services/variations/mobileProductVariationActionsService';
 
 interface Props {
   product: any;

@@ -7,7 +7,7 @@ import {
   OPENAI_MODEL_PATTERN,
   bodySize,
 } from '../types.js';
-import { buildOpenAiAgentRequest, parseOpenAiAgentResponse } from '../../../../../shared-utils/openAiAgentAdapter.js';
+import { buildOpenAiAgentRequest, parseOpenAiAgentResponse } from '../../../../../shared-utils/ai-agent/openAiAgentAdapter.js';
 
 export async function handleOpenAi(req: VercelRequest, res: VercelResponse): Promise<unknown> {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Método não permitido.' });

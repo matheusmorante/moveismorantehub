@@ -9,11 +9,11 @@ import { InboundIndividualProductModal } from './InboundIndividualProductModal';
 const mocks = vi.hoisted(() => ({ find: vi.fn(), context: vi.fn(), title: vi.fn(), classify: vi.fn(), categories: vi.fn(),
   category: vi.fn(), details: vi.fn(), change: vi.fn(), save: vi.fn(), toast: { error: vi.fn(), info: vi.fn(), success: vi.fn(), warning: vi.fn() } }));
 vi.mock('@/pages/utils/supabaseConfig', () => ({ supabase: {} }));
-vi.mock('@/pages/utils/productService', () => ({ getFullProduct: vi.fn(), saveVariation: vi.fn() }));
-vi.mock('@/pages/utils/productSupplierCodesService', () => ({ findProductSupplierCodes: mocks.find, saveProductSupplierCode: mocks.save, deleteProductSupplierCode: vi.fn() }));
+vi.mock('@/pages/utils/productService/productService', () => ({ getFullProduct: vi.fn(), saveVariation: vi.fn() }));
+vi.mock('@/pages/utils/productService/productSupplierCodesService', () => ({ findProductSupplierCodes: mocks.find, saveProductSupplierCode: mocks.save, deleteProductSupplierCode: vi.fn() }));
 vi.mock('@/pages/utils/categoryService', () => ({ fetchGroupsAndCategories: mocks.categories }));
 vi.mock('@/pages/utils/categoryResolutionService', () => ({ resolveAutoCategory: mocks.category }));
-vi.mock('@/pages/utils/aiService', () => ({ aiService: { generateMarketplaceTitle: mocks.title, classifyInboundItemWithSupplierContext: mocks.classify } }));
+vi.mock('@/pages/utils/aiService/aiService', () => ({ aiService: { generateMarketplaceTitle: mocks.title, classifyInboundItemWithSupplierContext: mocks.classify } }));
 vi.mock('@/pages/utils/inboundNfe/inboundSupplierProductContext', () => ({ fetchSupplierProductsForContext: mocks.context, buildSupplierContextSummary: () => 'catálogo' }));
 vi.mock('@/pages/utils/inboundNfe/inboundItemProductResolver', () => ({ resolveLinkedProductDetails: mocks.details,
   enrichInboundItemsWithProductDetails: async (items: unknown) => items, isGenericOrEmptyProductName: () => false }));

@@ -2,8 +2,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { queryClient } from '@/lib/queryClient';
 import { PERSON_QUERY_COLUMNS } from '../personService/personQueryService';
 import { savePerson, moveToTrash } from '../personService/personMutationService';
-import { saveVariation, moveToTrash as moveVariationToTrash } from '../variationService';
-import { deactivateProduct } from '../productService/productDependencyCheck';
+import { saveVariation, moveToTrash as moveVariationToTrash } from '../productService/variationService';
+import { deactivateProduct } from '../productService/queries/productDependencyCheck';
 
 vi.mock('@/pages/utils/supabaseConfig', () => {
   const createChain = () => {

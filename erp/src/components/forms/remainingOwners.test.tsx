@@ -8,7 +8,7 @@ import type Purchase from '@/pages/types/purchase.type';
 const mocks = vi.hoisted(() => ({ updatePurchase: vi.fn(), getProducts: vi.fn(), error: vi.fn(), success: vi.fn() }));
 vi.mock('react-toastify', () => ({ toast: { error: mocks.error, success: mocks.success } }));
 vi.mock('@/pages/utils/purchaseService', () => ({ updatePurchase: mocks.updatePurchase }));
-vi.mock('@/pages/utils/productService', () => ({ getProductsByIds: mocks.getProducts }));
+vi.mock('@/pages/utils/productService/productService', () => ({ getProductsByIds: mocks.getProducts }));
 vi.mock('@/components/shared/QRScannerModal', () => ({ default: () => null }));
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
 

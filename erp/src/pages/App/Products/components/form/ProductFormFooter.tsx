@@ -1,5 +1,5 @@
 import React from 'react';
-import type { ProductDraftAutoSaveStatus } from '../../hooks/form/useProductFormDraft';
+import type { ProductDraftAutoSaveStatus } from '../../hooks/form/drafts/useProductFormDraft';
 
 export interface ProductFormFooterProps {
   readonly isDraftProduct: boolean;

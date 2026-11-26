@@ -12,7 +12,7 @@ vi.mock('react-toastify', () => ({
   toast: { error: vi.fn(), success: vi.fn() },
 }));
 
-vi.mock('@/pages/utils/aiService', () => ({
+vi.mock('@/pages/utils/aiService/aiService', () => ({
   aiService: {
     improveProductDescription: vi.fn(),
   },
@@ -67,7 +67,7 @@ vi.mock('@/pages/utils/characteristicGroupService', () => ({
   fetchCharacteristicGroups: vi.fn().mockResolvedValue({ groups: [], categories: [] }),
 }));
 
-vi.mock('../tabs/technical/TechnicalFieldInput', () => ({
+vi.mock('../tabs/technical/inputs/TechnicalFieldInput', () => ({
   TechnicalFieldInput: ({ field, value, onChange, disabled }: any) => (
     <input
       data-testid={`input-${field.name}`}

@@ -4,7 +4,7 @@ import type Shipping from '@/pages/types/Shipping.type';
 import { isPromissoryPaymentMethod } from '../../../../../shared-utils/orderPaymentState';
 import { getOrderIndex, formatOrderCode } from '../orderCode';
 import { currencyToWordsPtBr } from '../currencyToWords';
-import { formatCurrency, formatToBRDate } from '../formatters';
+import { formatCurrency, formatToBRDate } from '../shared/formatters';
 import { getSettings } from '../settingsService';
 import type { AppSettings } from '../settings/types';
 

@@ -2,7 +2,7 @@ import React from 'react';
 import { toast } from 'react-toastify';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { labelQueueImageUploadFormSchema } from '../../../../../../../../shared-utils/labelImageFormSchemas';
-import { readImageFile } from '../../../../../../../../shared-utils/readImageFile';
+import { readImageFile } from '../../../../../../../../shared-utils/core/readImageFile';
 
 interface UseLabelQueueImageUploadParams {
   labelItems: any[];

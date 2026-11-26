@@ -5,7 +5,7 @@ import { offlineSyncManager } from '../../../services/offline/offlineSyncManager
 import type { SyncEventType } from '../../../services/offline/offlineTypes';
 import { applyDeliveryOperationEvent, getIndependentOperationId, projectOperationOrder, type DeliveryOperationEvent } from './deliveryOperationState';
 import { syncLocalOrderCaches } from './deliveryOrderCacheSync';
-import { withTimeout } from '../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../shared-utils/core/withTimeout';
 
 type OperationInput = {
   orderId: string;

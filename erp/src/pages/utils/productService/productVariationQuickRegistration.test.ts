@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type Product from '@/pages/types/product.type';
-import { saveVariation } from './productVariationActionsService';
-import { mapDbVariations } from './productVariationMapper';
+import { saveVariation } from './mutations/productVariationActionsService';
+import { mapDbVariations } from './mapping/productVariationMapper';
 const mocks = vi.hoisted(() => ({
   from: vi.fn(),
   upsert: vi.fn(),
@@ -12,10 +12,10 @@ const mocks = vi.hoisted(() => ({
   isVariationSkuUniqueConstraintError: vi.fn(),
 }));
 vi.mock('@/pages/utils/supabaseConfig', () => ({ supabase: { from: mocks.from } }));
-vi.mock('./productLocalCache', () => ({ LOCAL_STORAGE_KEY: 'products', getLocalProducts: mocks.local, saveLocalProducts: vi.fn(), notifySubscribers: vi.fn() }));
-vi.mock('./productMutationService', () => ({ updateProduct: vi.fn(), invalidateProductQueries: vi.fn() }));
-vi.mock('./productMetaCatalogSync', () => ({ triggerProductMetaCatalogSync: vi.fn() }));
-vi.mock('./productVariationSkuAvailabilityService', () => ({
+vi.mock('./drafts/productLocalCache', () => ({ LOCAL_STORAGE_KEY: 'products', getLocalProducts: mocks.local, saveLocalProducts: vi.fn(), notifySubscribers: vi.fn() }));
+vi.mock('./mutations/productMutationService', () => ({ updateProduct: vi.fn(), invalidateProductQueries: vi.fn() }));
+vi.mock('./catalog/productMetaCatalogSync', () => ({ triggerProductMetaCatalogSync: vi.fn() }));
+vi.mock('./queries/productVariationSkuAvailabilityService', () => ({
   resolveVariationSkuForPersistence: mocks.resolveVariationSkuForPersistence,
   isVariationSkuUniqueConstraintError: mocks.isVariationSkuUniqueConstraintError,
 }));

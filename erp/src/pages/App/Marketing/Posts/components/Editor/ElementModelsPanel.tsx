@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { marketingElementImageUploadFormSchema, marketingElementSaveFormSchema } from '../../../../../../../../shared-utils/marketingFormSchemas';
-import { uploadFile } from '@/pages/utils/storageService';
+import { uploadFile } from '@/pages/utils/shared/storageService';
 import { Layer, DynamicTextLayer } from '../../types';
 import {
   ElementModel,

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import type Product from '@/pages/types/product.type';
 import { ecommerceSupabase as supabase } from '@/pages/utils/supabaseConfig';
-import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../../../shared-utils/core/withTimeout';
 
 interface UseVariationFormReferencesOptions {
   isOpen: boolean;

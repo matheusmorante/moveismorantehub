@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { fetchAssemblyPrintOrders, fetchShowroomAssemblyPrintRows } from '@/pages/utils/assemblyPrintOrdersService';
 import { getSettings } from '@/pages/utils/settingsService';
-import { formatToBRDate } from '@/pages/utils/formatters';
+import { formatToBRDate } from '@/pages/utils/shared/formatters';
 import { formatOrderCode } from '@/pages/utils/orderCode';
 import { mapOrderFromDatabase } from '@/pages/utils/orderMapper';
 

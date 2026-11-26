@@ -1,6 +1,6 @@
 import type React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { normalizePageNumber } from '../../../../../shared-utils/fixedPagination';
+import { normalizePageNumber } from '../../../../../shared-utils/core/fixedPagination';
 import type { ProductListPageSize } from '../../../../../shared-utils/listingFormSchemas';
 import { FixedPageSlots } from '../../../components/shared/FixedPageSlots';
 

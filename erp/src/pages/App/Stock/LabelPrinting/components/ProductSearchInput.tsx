@@ -2,8 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import Product from '@/pages/types/product.type';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { processProductData } from '../utils/processLabelProductData';
-import { getSelectedProductDisplayName } from '@/pages/utils/productVariationDefaults';
-import { buildPostgrestAccentInsensitiveOrFilter, matchesSearchText } from '../../../../../../../shared-utils/searchText';
+import { getSelectedProductDisplayName } from '@/pages/utils/productService/productVariationDefaults';
+import { buildPostgrestAccentInsensitiveOrFilter, matchesSearchText } from '../../../../../../../shared-utils/core/searchText';
 
 const LABEL_PRODUCT_COLUMNS =
   'id, name, description, code, unit_price, cost_price, price, promo_price, stock, active, deleted_at, has_variations, category, unit, images, is_combo';

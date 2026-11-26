@@ -6,8 +6,8 @@ import {
   clearSuccessfulInitialStatusBroadcast,
   consumeSuccessfulInitialStatusBroadcast,
   subscribeToTeamLocations,
-} from '../../../services/teamLocationService';
-import { DriverCoordinates, calculateDistanceInMeters } from '../../../services/locationService';
+} from '../../../services/logistics/teamLocationService';
+import { DriverCoordinates, calculateDistanceInMeters } from '../../../services/logistics/locationService';
 
 interface UseTeamLocationsOptions {
   userProfile?: { id: string; fullName?: string; role?: string } | null;

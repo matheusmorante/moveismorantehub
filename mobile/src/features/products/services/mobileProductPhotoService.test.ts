@@ -3,7 +3,7 @@ import {
   mobileProductPhotoUploadFormSchema,
   mobileProductPhotoUrlsFormSchema,
 } from '../../../../../shared-utils/productImageFormSchemas';
-import { uploadMobileProductPhoto } from './mobileProductPhotoService';
+import { uploadMobileProductPhoto } from './products/mobileProductPhotoService';
 
 const photoMocks = vi.hoisted(() => ({
   manipulate: vi.fn(),

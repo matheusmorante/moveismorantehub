@@ -1,6 +1,6 @@
 import React from 'react';
 import labelMdf from '../../../../../../assets/label_mdf.png';
-import ProductAutocomplete from '@/components/ProductAutocomplete';
+import ProductAutocomplete from '@/components/selectors/ProductAutocomplete';
 import type { Product, Variation } from '@/pages/types/product.type';
 import ProductSearchInput from '../ProductSearchInput';
 import { LabelMobileProductPicker } from '../LabelMobileProductPicker';

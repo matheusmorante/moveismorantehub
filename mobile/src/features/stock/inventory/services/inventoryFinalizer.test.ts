@@ -21,7 +21,7 @@ vi.mock('../../../../services/sqlite/inventoryDrafts', () => ({
 vi.mock('../../../../services/offline/connectivityService', () => ({
   connectivityService: connected,
 }));
-vi.mock('../../../../../../shared-utils/withTimeout', () => ({ withTimeout }));
+vi.mock('../../../../../../shared-utils/core/withTimeout', () => ({ withTimeout }));
 
 import { executeInventoryFinalization } from './inventoryFinalizer';
 import { syncPendingInventorySubmissions } from './inventoryOutboxSync';

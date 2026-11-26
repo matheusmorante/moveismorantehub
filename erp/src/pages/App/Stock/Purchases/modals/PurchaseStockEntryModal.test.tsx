@@ -7,7 +7,7 @@ import type Purchase from '@/pages/types/purchase.type';
 const mocks = vi.hoisted(() => ({ save: vi.fn(), update: vi.fn(), subscribe: vi.fn(), success: vi.fn() }));
 vi.mock('@/pages/utils/inventoryService', () => ({ saveInventoryMove: mocks.save }));
 vi.mock('@/pages/utils/purchaseService', () => ({ updatePurchase: mocks.update }));
-vi.mock('@/pages/utils/productService', () => ({ subscribeToProducts: mocks.subscribe }));
+vi.mock('@/pages/utils/productService/productService', () => ({ subscribeToProducts: mocks.subscribe }));
 vi.mock('react-toastify', () => ({ toast: { success: mocks.success } }));
 const purchase = { id: 'purchase-1', purchaseNumber: 10, supplierName: 'Fornecedor', date: '2026-10-15', status: 'ordered', stockProcessed: false,
   items: [{ productId: 'product-1', variationId: 'variation-1', description: 'Produto', quantity: 2, unitCost: 0, totalCost: 0 }] } as Purchase;

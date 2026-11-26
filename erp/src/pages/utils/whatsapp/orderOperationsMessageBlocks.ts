@@ -4,8 +4,8 @@ import {
   formatDate,
   stringifyFullAddressWithObservation,
   stringifyItemsWithValues,
-} from '../formatters';
-import { splitNoticeTags } from '../noticeTags';
+} from '../shared/formatters';
+import { splitNoticeTags } from '../shared/noticeTags';
 import {
   DELIVERY_NOTICE_OPTIONS,
   normalizeNotice,

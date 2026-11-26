@@ -4,8 +4,8 @@ import { toast } from 'react-toastify';
 import type Order from '@/pages/types/order.type';
 import { fetchOrderById } from '@/pages/utils/orderHistoryService';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
-import type { useSalesOrderForm } from '../../../hooks/useSalesOrderForm';
-import { withTimeout } from '../../../../../../../../shared-utils/withTimeout';
+import type { useSalesOrderForm } from '../../../hooks/form-flow/useSalesOrderForm';
+import { withTimeout } from '../../../../../../../../shared-utils/core/withTimeout';
 
 interface UseOrderEditLoaderParams {
   readonly order?: Order;

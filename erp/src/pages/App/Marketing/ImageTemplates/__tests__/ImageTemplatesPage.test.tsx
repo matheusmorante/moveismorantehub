@@ -3,7 +3,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { startImageTemplate } from '../../../../../../../shared-utils/catalogImageTemplate';
-import { bindTestArtifactContext, clearTestArtifactContext } from '../../../../../../../shared-utils/testArtifactContext';
+import { bindTestArtifactContext, clearTestArtifactContext } from '../../../../../../../shared-utils/testing/testArtifactContext';
 import ImageTemplatesPage from '../index';
 import { listPreviewProductGroups, listPreviewProducts, mapPreviewProduct, readPreviewProduct } from '../productPreviewService';
 import { prepareTemplateAsset, readTemplateAssets } from '../imageTemplateService';

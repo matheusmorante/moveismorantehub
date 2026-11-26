@@ -2,7 +2,7 @@ import { useState, useMemo, useCallback } from 'react';
 import type Product from '@/pages/types/product.type';
 import type { Variation } from '@/pages/types/product.type';
 import type Person from '@/pages/types/person.type';
-import { getVariationDisplayName } from '@/components/productAutocompleteUtils';
+import { getVariationDisplayName } from '@/components/selectors/productAutocompleteUtils';
 import type {
   InventoryScopeType,
   ScopeConfiguration,

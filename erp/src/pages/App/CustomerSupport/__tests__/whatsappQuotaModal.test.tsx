@@ -6,7 +6,7 @@ import { MemoryRouter } from 'react-router-dom';
 
 const mocks = vi.hoisted(() => ({ getQuota: vi.fn(), getDetails: vi.fn() }));
 vi.mock('@/pages/utils/supabaseConfig', () => ({ supabase: {} }));
-vi.mock('@/pages/utils/customerSupport/customerSupportService', () => ({
+vi.mock('@/pages/utils/customerSupport/query/customerSupportService', () => ({
   fetchCustomerSupportWhatsAppSendQuota: mocks.getQuota,
   fetchCustomerSupportWhatsAppUsageDetails: mocks.getDetails,
 }));

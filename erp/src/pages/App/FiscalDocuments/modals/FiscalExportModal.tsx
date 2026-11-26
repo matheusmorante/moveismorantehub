@@ -2,7 +2,7 @@ import React from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { endOfMonth, format, startOfMonth, subMonths } from 'date-fns';
-import { formatCurrency } from '@/pages/utils/formatters';
+import { formatCurrency } from '@/pages/utils/shared/formatters';
 import { fiscalExportFormSchema } from '../schemas/fiscalExportSchema';
 import {
   fetchFiscalExportHistory,

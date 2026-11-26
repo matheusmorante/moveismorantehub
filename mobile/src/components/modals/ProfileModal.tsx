@@ -12,7 +12,7 @@ import {
 } from 'lucide-react-native';
 import * as Updates from 'expo-updates';
 import { checkAndUpdateManually } from '../../hooks/useExpoAutoUpdate';
-import { testRemotePushNotification } from '../../services/notificationService';
+import { testRemotePushNotification } from '../../services/platform/notificationService';
 import { APP_NAME, APP_VERSION, APP_BUILD } from '../../constants/appVersion';
 import { styles } from './ProfileModalStyles';
 import { UserProfileAvatar } from '../shared/UserProfileAvatar';

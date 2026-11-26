@@ -19,7 +19,7 @@ import PurchaseReceiptCheckModal from './modals/PurchaseReceiptCheckModal';
 import PurchaseSupplierFilter from './components/PurchaseSupplierFilter';
 import PurchaseTable from './components/PurchaseTable';
 import { ERPListPagination } from '@/components/shared/ERPListPagination';
-import { canPerform } from '@/pages/utils/permissionService';
+import { canPerform } from '@/pages/utils/auth/permissionService';
 import { fetchPurchaseById, PURCHASE_LIST_PAGE_SIZE } from '@/pages/utils/purchasePageService';
 import { usePurchasesPage } from './hooks/usePurchasesPage';
 

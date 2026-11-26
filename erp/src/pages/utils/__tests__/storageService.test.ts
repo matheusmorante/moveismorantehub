@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { getCatalogApiUrl, uploadFile } from '../storageService';
+import { getCatalogApiUrl, uploadFile } from '../shared/storageService';
 
 describe('storageService', () => {
   beforeEach(() => {

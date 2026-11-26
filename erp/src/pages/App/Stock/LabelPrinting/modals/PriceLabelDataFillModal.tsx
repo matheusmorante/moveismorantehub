@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { toast } from 'react-toastify';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { labelManualDataFormSchema, labelDataFillProductFormSchema, labelCatalogSearchFormSchema, labelCatalogProductsSchema, type LabelManualData } from '../../../../../../../shared-utils/labelDataFillFormSchemas';
-import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../../../shared-utils/core/withTimeout';
 import {
   searchProductsForLabelResult,
   PriceLabelCatalogProduct,

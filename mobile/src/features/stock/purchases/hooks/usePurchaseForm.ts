@@ -5,7 +5,7 @@ import {
   getPurchaseConfirmationBlockReasons,
   mobilePurchaseFormSchema,
 } from '../../../../../../shared-utils/purchaseFormSchemas';
-import { fetchMobilePurchaseSupplierPicker } from '../../../products/services/mobileSupplierService';
+import { fetchMobilePurchaseSupplierPicker } from '../../../products/services/products/mobileSupplierService';
 import {
   MobilePurchase,
   MobilePurchaseItem,

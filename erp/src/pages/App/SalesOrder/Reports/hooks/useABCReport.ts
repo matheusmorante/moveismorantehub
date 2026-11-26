@@ -1,8 +1,8 @@
-import { excludeTestOrders } from '../../../../../../../shared-utils/testArtifactQueries';
+import { excludeTestOrders } from '../../../../../../../shared-utils/testing/testArtifactQueries';
 import { useState } from 'react';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { parse, format } from 'date-fns';
-import { resolveCanonicalVariationReportItems } from '@/pages/utils/variationCanonicalService';
+import { resolveCanonicalVariationReportItems } from '@/pages/utils/productService/variationCanonicalService';
 
 export interface ABCResult {
   product: string;

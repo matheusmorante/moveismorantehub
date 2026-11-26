@@ -20,7 +20,7 @@ import { useState } from 'react';
 import { useZodForm, flattenFormErrors } from '@/hooks/useZodForm';
 import { cartQuoteFormSchema, reconcileCartQuote } from '@/features/products/cart-quote';
 import { supabase } from '@/lib/supabase/client';
-import { withAbortTimeout } from '../../../../shared-utils/withAbortTimeout';
+import { withAbortTimeout } from '../../../../shared-utils/core/withAbortTimeout';
 
 export function CartDrawer({ children }: { children: React.ReactNode }) {
   const { items, removeItem, updateQuantity, totalPrice, totalItems, refreshPrices } = useCart();

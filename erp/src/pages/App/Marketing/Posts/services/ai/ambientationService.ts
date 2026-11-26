@@ -1,7 +1,7 @@
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { AmbientedImageRecord } from '../../types';
 import { ambientationRecordFormSchema } from '../../../../../../../../shared-utils/marketingFormSchemas';
-import { withTimeout } from '../../../../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../../../../shared-utils/core/withTimeout';
 
 const LOCAL_STORAGE_AMBIENTED_KEY = 'morante_ambiented_images_v1';
 

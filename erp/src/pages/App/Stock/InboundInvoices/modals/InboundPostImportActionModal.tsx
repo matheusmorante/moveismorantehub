@@ -1,6 +1,6 @@
 import React from 'react';
 import { InboundInvoice } from '@/pages/utils/inboundNfe/inboundNfeTypes';
-import { formatCurrency } from '@/pages/utils/formatters';
+import { formatCurrency } from '@/pages/utils/shared/formatters';
 
 interface InboundPostImportActionModalProps {
   readonly isOpen: boolean;

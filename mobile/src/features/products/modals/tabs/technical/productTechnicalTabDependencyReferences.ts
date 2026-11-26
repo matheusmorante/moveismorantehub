@@ -5,7 +5,7 @@ import {
   isConfiguredProductTechnicalDependencySatisfied,
   isProductTechnicalFieldRequiredForCatalog,
 } from '../../../domain/productCharacteristics';
-import type { MobileProductTechnicalField } from '../../../services/mobileProductTechnicalService';
+import type { MobileProductTechnicalField } from '../../../services/categories/mobileProductTechnicalService';
 import { normalizeName, normalizeSearchTerm } from './productTechnicalTabFieldVisibility';
 
 interface ResolveConfiguredProductTechnicalDependencyReferenceIdsArgs {

@@ -3,7 +3,7 @@ import type { AuditItem } from '../types/inventoryAudit.types';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { inventoryAuditReviewFormSchema, inventoryAuditReviewQuerySchema } from '../../../../../../../shared-utils/inventoryAuditFormSchemas';
-import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../../../shared-utils/core/withTimeout';
 import { prepareSupplierStageReviewItems } from '../../../../../../../shared-utils/inventorySupplierStages';
 
 type ReviewedItem = AuditItem & { reconciledExpected: number; difference: number };

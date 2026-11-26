@@ -1,6 +1,6 @@
 import { getSettings } from '@/pages/utils/settingsService';
 import { supabase } from '@/pages/utils/supabaseConfig';
-import { withTimeout } from '../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../shared-utils/core/withTimeout';
 
 export const GRAPH_API_VERSION = 'v26.0';
 export const FACEBOOK_GRAPH_URL = 'https://graph.facebook.com';

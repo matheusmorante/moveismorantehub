@@ -4,8 +4,8 @@ import Product, { ComboItem, Variation } from '../../../types/product.type';
 import { toast } from 'react-toastify';
 import DropdownPortal from '@/components/shared/DropdownPortal';
 import { useRef } from 'react';
-import { getSelectedProductDisplayName } from '../../../utils/productVariationDefaults';
-import { buildAccentInsensitiveWordsRegex } from '../../../../../../shared-utils/searchText';
+import { getSelectedProductDisplayName } from '../../../utils/productService/productVariationDefaults';
+import { buildAccentInsensitiveWordsRegex } from '../../../../../../shared-utils/core/searchText';
 
 interface ProductSearchResult {
   id: string;

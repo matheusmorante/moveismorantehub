@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { formatCurrency, formatToBRDate } from '@/pages/utils/formatters';
+import { formatCurrency, formatToBRDate } from '@/pages/utils/shared/formatters';
 import { formatAccessKey } from '@/pages/utils/nfe/nfeAccessKey';
 import type {
   CancellationEligibility,

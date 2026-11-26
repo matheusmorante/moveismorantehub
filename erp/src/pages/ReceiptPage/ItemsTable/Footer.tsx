@@ -1,6 +1,6 @@
 import { ItemsSummary } from '../../types/items.type';
-import CurrencyDisplay from '../../../components/CurrencyDisplay';
-import UnitDisplay from '../../../components/UnitDisplay';
+import CurrencyDisplay from '../../../components/display/CurrencyDisplay';
+import UnitDisplay from '../../../components/display/UnitDisplay';
 
 interface Props {
   summary: ItemsSummary;

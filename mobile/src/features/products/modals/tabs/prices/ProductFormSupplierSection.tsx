@@ -2,7 +2,7 @@ import type React from 'react';
 import { ActivityIndicator, Text, TouchableOpacity, View } from 'react-native';
 import { Plus, Search, Truck, X } from 'lucide-react-native';
 import { getProductSupplierDisplayName } from '../../../../../../../shared-utils/productSupplierDisplayName';
-import type { MobileProductSupplier } from '../../../services/mobileSupplierService';
+import type { MobileProductSupplier } from '../../../services/products/mobileSupplierService';
 import { styles } from './productFormPricesTab.styles';
 import { FormTextInput } from '../../../../../components/shared/FormTextInput';
 

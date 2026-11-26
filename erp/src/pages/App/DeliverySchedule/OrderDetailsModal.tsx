@@ -23,7 +23,7 @@ import { autoCalculateRouteDistance } from '../../utils/maps';
 import { updateOrder } from '../../utils/orderHistoryService';
 import { toast } from 'react-toastify';
 import { formatOrderCode } from '../../utils/orderCode';
-import { splitNoticeTags } from '../../utils/noticeTags';
+import { splitNoticeTags } from '../../utils/shared/noticeTags';
 import { useState, useEffect } from 'react';
 import { loadCompleteOrder } from '../../utils/orderDetailsLoader';
 import { isOrderSummary } from '../../../../../shared-utils/orderSummaryQuery';

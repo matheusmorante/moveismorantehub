@@ -4,7 +4,7 @@ import {
   formatCurrency,
   formatDate,
   stringifyFullAddressWithObservation,
-} from '../formatters';
+} from '../shared/formatters';
 import { formatOrderCode } from '../orderCode';
 import type { OperationScheduleOption } from './orderOperationsMessageBlocks';
 

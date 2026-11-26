@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { normalizeSlug, resolveUniqueSlug } from '../../../../../shared-utils/uniqueSlug';
+import { normalizeSlug, resolveUniqueSlug } from '../../../../../shared-utils/core/uniqueSlug';
 
 describe('unique slug helpers', () => {
   it('normalizes case, accents and separators consistently', () => {

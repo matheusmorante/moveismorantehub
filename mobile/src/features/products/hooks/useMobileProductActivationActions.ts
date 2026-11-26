@@ -3,7 +3,7 @@ import { Alert } from 'react-native';
 import { toMobileProductActivationCandidate } from '../domain/mobileProductActivationCandidate';
 import { applyMobileProductActiveStatusToList } from '../domain/mobileProductActiveStatus';
 import { validateProductActivationRequirements } from '../../../../../shared-utils/productActivationValidation';
-import { toggleMobileProductActive } from '../services/mobileProductMutationService';
+import { toggleMobileProductActive } from '../services/products/mobileProductMutationService';
 
 interface UseMobileProductActivationActionsParams {
   products: any[];

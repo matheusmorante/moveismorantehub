@@ -1,10 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { useAuth, UserRole } from '../../../context/AuthContext';
-import { getPrimaryRole, getProfileRoles, roleLabel } from '@/pages/utils/accessRoles';
+import { getPrimaryRole, getProfileRoles, roleLabel } from '@/pages/utils/auth/accessRoles';
 import UserRolesModal, { AccessProfile } from './UserRolesModal';
 import { toast } from 'react-toastify';
-import { withTimeout } from '../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../shared-utils/core/withTimeout';
 
 type Profile = AccessProfile & { role: UserRole };
 

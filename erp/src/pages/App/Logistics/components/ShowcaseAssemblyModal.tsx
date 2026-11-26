@@ -4,7 +4,7 @@ import { showcaseAssemblyFormSchema } from '../../../../../../shared-utils/opera
 import React, { useState, useEffect } from 'react';
 import { ShowcaseAssembly, saveShowcaseAssembly } from '@/pages/utils/showcaseAssemblyService';
 import { toast } from 'react-toastify';
-import { formatToBRDate } from '@/pages/utils/formatters';
+import { formatToBRDate } from '@/pages/utils/shared/formatters';
 
 interface Props {
   isOpen: boolean;

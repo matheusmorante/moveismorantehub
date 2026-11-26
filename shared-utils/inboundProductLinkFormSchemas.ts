@@ -1,1 +1,1 @@
-export * from './schemas/inboundProductLinkFormSchemas';
+export * from './schemas/stock/inboundProductLinkFormSchemas';

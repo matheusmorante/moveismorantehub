@@ -2,7 +2,7 @@ import React from 'react';
 import { createPortal } from 'react-dom';
 import type Order from '../../../../types/order.type';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
-import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../../../shared-utils/core/withTimeout';
 import { returnFulfillmentFormSchema, getReturnFulfillmentFormValues, ReturnFulfillmentUnconfirmedError, type ReturnFulfillmentValues } from '../../../../../../../shared-utils/returnFormSchemas';
 
 type Props = {

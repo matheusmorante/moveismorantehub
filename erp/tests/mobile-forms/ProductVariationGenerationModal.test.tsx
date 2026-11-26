@@ -32,11 +32,11 @@ vi.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
 
-vi.mock('../../../mobile/src/features/products/services/mobileAttributeService', () => ({
+vi.mock('../../../mobile/src/features/products/services/categories/mobileAttributeService', () => ({
   fetchMobileAttributes: mocks.fetchAttributes,
 }));
 
-import { ProductVariationGenerationModal } from '../../../mobile/src/features/products/modals/ProductVariationGenerationModal';
+import { ProductVariationGenerationModal } from '../../../mobile/src/features/products/modals/managers/ProductVariationGenerationModal';
 
 describe('ProductVariationGenerationModal success state', () => {
   beforeEach(() => {

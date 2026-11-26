@@ -1,5 +1,5 @@
 import React from 'react';
-import ProductImage from '@/components/ProductImage';
+import ProductImage from '@/components/display/ProductImage';
 interface CardThumbnailProps {
   readonly images?: string[];
   readonly name?: string;

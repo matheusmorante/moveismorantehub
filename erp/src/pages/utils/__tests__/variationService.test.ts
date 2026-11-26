@@ -32,7 +32,7 @@ import {
   saveCharacteristicOptions,
   saveVariation,
   subscribeToVariations,
-} from '../variationService';
+} from '../productService/variationService';
 
 const pagedQuery = (result: (from: number, to: number) => unknown) => {
   const chain: any = {

@@ -1,11 +1,11 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../../../context/AuthContext';
-import { getProfileRoles } from '../../../utils/accessRoles';
-import { canPerform } from '../../../utils/permissionService';
+import { getProfileRoles } from '../../../utils/auth/accessRoles';
+import { canPerform } from '../../../utils/auth/permissionService';
 import { subscribeToSettings } from '../../../utils/settingsService';
 import { supabase } from '../../../utils/supabaseConfig';
-import { withTimeout } from '../../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../../shared-utils/core/withTimeout';
 
 type SessionMessage = {
   type: 'morante-label-session';

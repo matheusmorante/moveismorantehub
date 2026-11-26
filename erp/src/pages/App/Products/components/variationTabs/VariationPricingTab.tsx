@@ -1,8 +1,8 @@
 import React from 'react';
 import type Product from '../../../../types/product.type';
 import type { Variation } from '../../../../types/product.type';
-import CurrencyInput from '@/components/CurrencyInput';
-import { PercentInput } from '@/components/PercentInput';
+import CurrencyInput from '@/components/inputs/CurrencyInput';
+import { PercentInput } from '@/components/inputs/PercentInput';
 import { resolveProductVariationPricing } from '../../../../../../../shared-utils/productVariationPricing';
 
 interface VariationPricingTabProps {

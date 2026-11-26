@@ -2,8 +2,8 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   fetchConversationActivityPage,
   type CustomerSupportHistoryCursor,
-} from '@/pages/utils/customerSupport/customerSupportService';
-import { formatDate } from '@/pages/utils/customerSupport/supportOrdersService';
+} from '@/pages/utils/customerSupport/query/customerSupportService';
+import { formatDate } from '@/pages/utils/customerSupport/orders/supportOrdersService';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import type { WhatsAppMessage } from '../../types';
 

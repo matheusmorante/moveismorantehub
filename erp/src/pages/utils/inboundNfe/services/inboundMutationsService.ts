@@ -1,6 +1,6 @@
 import { supabase } from '../../supabaseConfig';
 import { InboundInvoice } from '../types/inboundNfeTypes';
-import { isValidUuid } from '../../uuidUtils';
+import { isValidUuid } from '../../shared/uuidUtils';
 import { getLocalInvoices, saveLocalInvoices } from './inboundCacheService';
 import { isSampleInvoice } from './inboundNormalizationService';
 import { parseInboundNfeXml } from '../utils/inboundXmlParser';

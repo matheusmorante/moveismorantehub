@@ -1,9 +1,9 @@
 import type Product from '../../../../types/product.type';
 import type { Variation } from '../../../../types/product.type';
-import { generateVariationSku } from '@/pages/utils/productService';
-import { buildProductVariationName } from '@/pages/utils/productVariationDefaults';
+import { generateVariationSku } from '@/pages/utils/productService/productService';
+import { buildProductVariationName } from '@/pages/utils/productService/productVariationDefaults';
 import { toTitleCase } from '@/pages/utils/textUtils';
-import { isProductDraft } from '@/pages/utils/productService/productDraftSnapshot';
+import { isProductDraft } from '@/pages/utils/productService/drafts/productDraftSnapshot';
 import { getVariationNameAttributeValues } from '../../../../../../shared-utils/productVariationNameValidation';
 import { isSingleProductVariationFormMode } from '../../../../../../shared-utils/productVariationMode';
 

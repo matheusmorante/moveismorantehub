@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import Footer from './Footer';
 import Body from './Body';
 import { Item, ItemsSummary } from '../../../types/items.type';
-import { ValidationErrors } from '../../../utils/validations';
+import { ValidationErrors } from '../../../utils/sales/validations';
 import { useWindowSize } from '../../../../hooks/useWindowSize';
 import { ItemsTableHeader } from './ItemsTableHeader';
 import { ItemsTableDesktopHeader } from './ItemsTableDesktopHeader';

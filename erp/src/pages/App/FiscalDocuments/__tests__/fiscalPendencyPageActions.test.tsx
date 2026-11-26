@@ -13,8 +13,8 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock('@/context/AuthContext', () => ({ useAuth: () => ({ profile: { id: 'operator' } }) }));
-vi.mock('@/pages/utils/accessRoles', () => ({ getProfileRoles: () => ['admin'] }));
-vi.mock('@/pages/utils/permissionService', () => ({ canPerform: () => true }));
+vi.mock('@/pages/utils/auth/accessRoles', () => ({ getProfileRoles: () => ['admin'] }));
+vi.mock('@/pages/utils/auth/permissionService', () => ({ canPerform: () => true }));
 vi.mock('@/pages/utils/nfe/fiscalAuthorization', () => ({ hasFiscalOperationRole: () => true }));
 vi.mock('@/pages/utils/nfe/nfeNumberPreviewPrefetch', () => ({ prefetchNfeNumberPreviews: vi.fn() }));
 vi.mock('@/pages/utils/orderHistoryService', () => ({ fetchOrderById: mocks.fetchOrder }));

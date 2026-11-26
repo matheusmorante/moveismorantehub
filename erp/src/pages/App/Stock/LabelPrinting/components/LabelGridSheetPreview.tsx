@@ -2,8 +2,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { labelSampleImageFormSchema } from '../../../../../../../shared-utils/labelImageFormSchemas';
-import { readImageFile } from '../../../../../../../shared-utils/readImageFile';
-import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
+import { readImageFile } from '../../../../../../../shared-utils/core/readImageFile';
+import { withTimeout } from '../../../../../../../shared-utils/core/withTimeout';
 
 export interface LabelGridSheetPreviewLayout {
   paperWidth: number;

@@ -9,7 +9,7 @@ const catalog = { allProducts: [], suppliers: [], employees: [], getSupplierName
 vi.mock('../hooks/useInventoryAuditData', () => ({ useInventoryAuditData: () => catalog }));
 vi.mock('@/pages/utils/inventoryService', () => ({ getNextInventoryCode: vi.fn().mockResolvedValue('1') }));
 vi.mock('@/pages/utils/supabaseConfig', () => ({ supabase: { rpc: vi.fn() } }));
-vi.mock('@/pages/utils/productService', () => ({ fetchProductsPage: vi.fn() }));
+vi.mock('@/pages/utils/productService/productService', () => ({ fetchProductsPage: vi.fn() }));
 vi.mock('../components/InventoryOperationScreen', () => ({ default: () => <div>Contagem</div> }));
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 const session = { id: 'existing', inventoryCode: '1', date: '2026-10-15T12:00:00Z', status: 'in_progress' as const, items: [], productsCount: 0, adjustmentsCount: 0, reversedCount: 0 };

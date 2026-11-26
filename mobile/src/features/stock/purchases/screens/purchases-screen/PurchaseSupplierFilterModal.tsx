@@ -2,10 +2,10 @@ import { FormTextInput } from '../../../../../components/shared/FormTextInput';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { FlatList, Modal, Text, TouchableOpacity, View } from 'react-native';
 import { X } from 'lucide-react-native';
-import { fetchMobileSuppliers } from '../../../../products/services/mobileSupplierService';
+import { fetchMobileSuppliers } from '../../../../products/services/products/mobileSupplierService';
 import { useAuth } from '../../../../../contexts/AuthContext';
 import { styles } from './purchasesScreen.styles';
-import { matchesSearchText } from '../../../../../../../shared-utils/searchText';
+import { matchesSearchText } from '../../../../../../../shared-utils/core/searchText';
 
 interface PurchaseSupplierFilterModalProps {
   visible: boolean;

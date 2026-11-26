@@ -2,14 +2,14 @@
 import React from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor, cleanup } from '@testing-library/react';
-import { fetchConversationCounts, fetchConversations, fetchTeamProfiles, type FetchConversationsOptions } from '@/pages/utils/customerSupport/customerSupportService';
-import * as customerSupportService from '@/pages/utils/customerSupport/customerSupportService';
+import { fetchConversationCounts, fetchConversations, fetchTeamProfiles, type FetchConversationsOptions } from '@/pages/utils/customerSupport/query/customerSupportService';
+import * as customerSupportService from '@/pages/utils/customerSupport/query/customerSupportService';
 import {
   DEFAULT_SUPPORT_FOLDER_CRITERIA,
   fetchCustomerSupportFolders,
   saveCustomerSupportFolder,
   deleteCustomerSupportFolder,
-} from '@/pages/utils/customerSupport/customerSupportInboxService';
+} from '@/pages/utils/customerSupport/query/customerSupportInboxService';
 import { AddCustomInboxModal } from '../components/inbox/AddCustomInboxModal';
 import { InboxSectionCustom } from '../components/inbox/InboxSectionCustom';
 import { InboxSectionMain } from '../components/inbox/InboxSectionMain';
@@ -18,7 +18,7 @@ import { ConversationScopeMenu } from '../components/conversation/ConversationSc
 import { ConversationSortMenu } from '../components/conversation/ConversationSortMenu';
 import { ConversationAdvancedFilterModal } from '../components/conversation/ConversationAdvancedFilterModal';
 import { ConversationItem } from '../components/ConversationItem';
-import { ChatComposer } from '../components/chat/ChatComposer';
+import { ChatComposer } from '../components/chat/composer/ChatComposer';
 import { CustomerNotesTab } from '../components/infoPanel/CustomerNotesTab';
 import { QuickSnippetsModal } from '../components/QuickSnippetsModal';
 import { ActivityTimelineDrawer } from '../components/ActivityTimelineDrawer';
@@ -398,7 +398,7 @@ describe('Inbox da Central de Atendimento', () => {
 
   it('copia um snippet sem criar um comentário interno', async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
-    const createNote = vi.spyOn(await import('@/pages/utils/customerSupport/customerSupportService'), 'createInternalNoteMessage');
+    const createNote = vi.spyOn(await import('@/pages/utils/customerSupport/query/customerSupportService'), 'createInternalNoteMessage');
     Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
     render(<QuickSnippetsModal isOpen onClose={vi.fn()} />);
     fireEvent.click(screen.getAllByRole('button', { name: 'Copiar' })[0]);

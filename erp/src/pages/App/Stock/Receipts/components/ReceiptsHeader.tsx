@@ -1,5 +1,5 @@
 import React from 'react';
-import SupplierAutocomplete from '@/components/SupplierAutocomplete';
+import SupplierAutocomplete from '@/components/selectors/SupplierAutocomplete';
 import Person from '@/pages/types/person.type';
 import { ReceiptActionButtons } from './ReceiptActionButtons';
 import { ReceiptPeriod } from '../types/receiptPeriodFilter.types';

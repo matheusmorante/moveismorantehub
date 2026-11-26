@@ -2,9 +2,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { fetchProductsPage } = vi.hoisted(() => ({ fetchProductsPage: vi.fn() }));
 
-vi.mock('./mobileProductFetchService', () => ({ fetchMobileProductsPage: fetchProductsPage }));
+vi.mock('./products/mobileProductFetchService', () => ({ fetchMobileProductsPage: fetchProductsPage }));
 
-import { searchMobileProductCompositionCandidates } from './mobileProductCompositionService';
+import { searchMobileProductCompositionCandidates } from './compositions/mobileProductCompositionService';
 
 describe('searchMobileProductCompositionCandidates', () => {
   beforeEach(() => vi.clearAllMocks());

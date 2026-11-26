@@ -158,7 +158,7 @@ const PersonCardActionsMenu = ({
                       onClick={(event) => {
                         event.stopPropagation();
                         setIsMenuOpen(false);
-                        import('../../../../utils/whatsapp').then(
+                        import('../../../../utils/whatsapp/whatsapp').then(
                           ({ sendDirectPersonGroupInviteMessage }) => {
                             sendDirectPersonGroupInviteMessage(person);
                           }

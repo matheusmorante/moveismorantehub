@@ -2,11 +2,11 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, act, cleanup } from '@testing-library/react';
-import CustomerDataInputs from '../CustomerData';
+import CustomerDataInputs from '../customer/CustomerData';
 import CustomerData from '@/pages/types/customerData.type';
 import Person from '@/pages/types/person.type';
 import { getRecentPeople, searchPeople } from '@/pages/utils/personService';
-import { bindTestArtifactContext, clearTestArtifactContext } from '../../../../../../../shared-utils/testArtifactContext';
+import { bindTestArtifactContext, clearTestArtifactContext } from '../../../../../../../shared-utils/testing/testArtifactContext';
 
 const mockPeople: Person[] = [
   {

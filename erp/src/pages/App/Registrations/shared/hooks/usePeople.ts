@@ -10,7 +10,7 @@ import {
   syncMissingEmployeesFromProfiles,
 } from '@/pages/utils/personService';
 import type { EmployeeDirectorySortBy, PersonMutationOptions } from '@/pages/utils/personService';
-import { getProfileRoles } from '@/pages/utils/accessRoles';
+import { getProfileRoles } from '@/pages/utils/auth/accessRoles';
 import { toast } from 'react-toastify';
 import { requestConfirmation } from '@/components/shared/confirmationService';
 import { matchesSearchText } from '@/pages/utils/textUtils';

@@ -14,7 +14,7 @@ vi.mock('react-native', () => ({
 vi.mock('lucide-react-native', () => ({ Eye: () => null, MoreVertical: () => null, Package: () => null }));
 vi.mock('../../../services/supabaseClient', () => ({ WEB_URL: 'https://example.invalid' }));
 vi.mock('../../../components/shared/ProductImage', () => ({ ProductImage: () => null }));
-vi.mock('../services/mobileProductVariationActionsService', () => ({
+vi.mock('../services/variations/mobileProductVariationActionsService', () => ({
   toMobileVariationAttributes: vi.fn(() => []),
 }));
 vi.mock('./MobileChannelBadges', () => ({ MobileChannelBadges: () => null }));

@@ -7,7 +7,7 @@ import { ConversationItem } from '../components/ConversationItem';
 import { CustomerInfoPanel } from '../components/CustomerInfoPanel';
 import { CustomerOrderRecordsView } from '../components/infoPanel/CustomerOrderRecordsView';
 import type { WhatsAppConversation } from '../types';
-import * as supportOrdersService from '@/pages/utils/customerSupport/supportOrdersService';
+import * as supportOrdersService from '@/pages/utils/customerSupport/orders/supportOrdersService';
 
 vi.mock('@/context/AuthContext', () => ({
   useAuth: () => ({
@@ -26,11 +26,11 @@ vi.mock('@/context/AuthContext', () => ({
   }),
 }));
 
-vi.mock('@/pages/utils/accessRoles', () => ({
+vi.mock('@/pages/utils/auth/accessRoles', () => ({
   getProfileRoles: () => ['admin', 'manager'],
 }));
 
-vi.mock('@/pages/utils/permissionService', () => ({
+vi.mock('@/pages/utils/auth/permissionService', () => ({
   canPerform: () => true,
 }));
 

@@ -1,8 +1,8 @@
 import React from 'react';
 import type Product from '@/pages/types/product.type';
 import type { Variation } from '@/pages/types/product.type';
-import { useProductSearch_new } from '../../../SalesOrder/hooks/useProductSearch_new';
-import { getVariationDisplayName } from '@/components/productAutocompleteUtils';
+import { useProductSearch_new } from '../../../SalesOrder/hooks/items-pricing/useProductSearch_new';
+import { getVariationDisplayName } from '@/components/selectors/productAutocompleteUtils';
 
 interface InventoryProductSearchModalProps {
   readonly onSelect: (product: Product, variation?: Variation) => void;

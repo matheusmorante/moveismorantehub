@@ -10,7 +10,7 @@ const mocks = vi.hoisted(() => ({ fetchConversations: vi.fn(), fetchConversation
   fetchChanges: vi.fn(), fetchContext: vi.fn(),
   fetchConversationMessages: vi.fn(), fetchPreviousConversationMessages: vi.fn(), fetchConversationReplyTarget: vi.fn(), markConversationAsRead: vi.fn(),
   messageListener: undefined as undefined | ((payload: any) => unknown) }));
-vi.mock('@/pages/utils/customerSupport/customerSupportService', () => ({ fetchConversations: mocks.fetchConversations,
+vi.mock('@/pages/utils/customerSupport/query/customerSupportService', () => ({ fetchConversations: mocks.fetchConversations,
   fetchInitialConversationMessagePage: async (...args: any[]) => ({ messages: await mocks.fetchConversationMessages(...args), watermark: '2026-11-04T12:00:00Z' }),
   fetchConversationMessageChanges: mocks.fetchChanges,
   fetchConversationMessageContext: mocks.fetchContext,
@@ -27,8 +27,8 @@ vi.mock('@/pages/utils/supabaseConfig', () => ({ supabase: {
 vi.mock('@/context/AuthContext', () => ({
   useAuth: () => ({ user: { id: 'operator' }, profile: { role: 'administrator' }, isAdministrator: true }),
 }));
-vi.mock('@/pages/utils/permissionService', () => ({ canPerform: () => true }));
-vi.mock('@/pages/utils/accessRoles', () => ({ getProfileRoles: () => ['administrator'] }));
+vi.mock('@/pages/utils/auth/permissionService', () => ({ canPerform: () => true }));
+vi.mock('@/pages/utils/auth/accessRoles', () => ({ getProfileRoles: () => ['administrator'] }));
 vi.mock('../hooks/useWhatsAppAiAgentSwitch', () => ({
   useWhatsAppAiAgentSwitch: () => ({ isAiAgentEnabled: false, isAgentStatusKnown: true, isTogglingAiAgent: false, handleToggleAiAgent: vi.fn() }),
 }));

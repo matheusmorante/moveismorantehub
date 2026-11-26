@@ -12,7 +12,7 @@ import { InventoryStagesView } from './InventoryStagesView';
 import { playInventoryCountBeep, prepareInventoryAudio } from './inventoryScanAudio';
 import type { InventoryScopeType } from '../types/inventoryScope.types';
 import ConfirmModal from '@/components/shared/ConfirmModal';
-import { matchScannedProductItem } from '@/pages/utils/barcodeScannerUtils';
+import { matchScannedProductItem } from '@/pages/utils/shared/barcodeScannerUtils';
 import { getPhysicalInventoryScanId } from '../services/inventoryScanRules';
 import {
   ensureOfflineInventoryCatalogSynced,

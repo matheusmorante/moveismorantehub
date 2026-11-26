@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { bulkAttributeFormSchema } from '../../../../../../../shared-utils/catalogFormSchemas';
-import { saveAttributeValue } from '@/pages/utils/variationService';
+import { saveAttributeValue } from '@/pages/utils/productService/variationService';
 import {
   isDimensionCharacteristicName,
   isWeightCharacteristicName,

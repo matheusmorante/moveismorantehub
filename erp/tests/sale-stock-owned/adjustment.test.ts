@@ -3,8 +3,8 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { buildOrderPersistencePayload } from '@/pages/utils/orderPersistencePayload';
-import { bindTestArtifactContext } from '../../../shared-utils/testArtifactContext';
-import { NON_TEST_ORDER_FILTER } from '../../../shared-utils/testArtifactQueries';
+import { bindTestArtifactContext } from '../../../shared-utils/testing/testArtifactContext';
+import { NON_TEST_ORDER_FILTER } from '../../../shared-utils/testing/testArtifactQueries';
 import { orderFormSchema } from '../../../shared-utils/orderDomainValidation';
 
 const phase = process.env.SALE_STOCK_OWNED_PHASE || '';

@@ -887,7 +887,7 @@ function getResponsibleTechnicianConfigurationIssues(env = process.env, environm
   return invalidConfigurationFields(readResponsibleTechnicianConfig(env, environment));
 }
 
-// shared-utils/orderItemFiscalSnapshot.ts
+// shared-utils/orders/orderItemFiscalSnapshot.ts
 var record = (value) => value && typeof value === "object" && !Array.isArray(value) ? value : {};
 var nonEmptyString = (value) => typeof value === "string" && value.trim() ? value.trim() : void 0;
 function hasFiscalItemSnapshot(item) {

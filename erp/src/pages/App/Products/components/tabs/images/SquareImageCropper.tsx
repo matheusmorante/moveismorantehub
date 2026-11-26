@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { withTimeout } from '../../../../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../../../../shared-utils/core/withTimeout';
 import { compressImageToFile } from '@/pages/utils/images/imageUtils';
 import { toast } from 'react-toastify';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';

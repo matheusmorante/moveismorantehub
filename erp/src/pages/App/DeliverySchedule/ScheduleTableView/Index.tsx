@@ -1,11 +1,12 @@
-import React, { useRef, useState, useEffect, useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import Order from '../../../types/order.type';
 import TableCell from '../ScheduleTableViewComponents/TableCell';
-import { getHour, calculateLanes, getStartAndEnd } from '../ScheduleTableViewComponents/laneUtils';
+import { calculateLanes, getStartAndEnd } from '../ScheduleTableViewComponents/laneUtils';
 import { getSettings } from '@/pages/utils/settingsService';
-import { ORDER_TYPE_COLOR_OPTIONS } from '../../../utils/orderTypeColorUtils';
-import { formatOrderCode } from '../../../utils/orderCode';
-import { getLocalISODate } from '../../../utils/formatters';
+import { getLocalISODate } from '../../../utils/shared/formatters';
+import { SchedulePendingOrdersBanner } from './SchedulePendingOrdersBanner';
+import { ScheduleTableLegend } from './ScheduleTableLegend';
+import { useScheduleTableZoomAndPan } from './useScheduleTableZoomAndPan';
 
 interface Props {
   schedule: Record<string, Order[]>;
@@ -21,32 +22,11 @@ const BASE_END_HOUR = 20;
 const ScheduleTableView = ({
   schedule,
   onOrderClick,
-  isReadOnly,
   hasInitialScrolled,
   pendingOrders = [],
 }: Props) => {
   const settings = getSettings();
-  const containerRef = useRef<HTMLDivElement>(null);
-  const scrollParentRef = useRef<HTMLDivElement>(null);
-  const [isMobile, setIsMobile] = useState(false);
   const [isPendingOpen, setIsPendingOpen] = useState(false);
-
-  const zoomState = useRef({
-    scale: 1,
-    startScale: 1,
-    startDistance: 0,
-    contentMidpoint: { x: 0, y: 0 },
-    isPinching: false,
-  });
-
-  const [tableHeight, setTableHeight] = useState(1000);
-
-  // Calculate height based on lanes
-  useEffect(() => {
-    if (containerRef.current) {
-      setTableHeight(containerRef.current.offsetHeight || 1000);
-    }
-  }, [schedule, isMobile]);
 
   const HOURS = useMemo(() => {
     const allOrders = Object.values(schedule).flat();
@@ -63,276 +43,27 @@ const ScheduleTableView = ({
     return Array.from({ length: Math.max(1, max - min) }, (_, i) => i + min);
   }, [schedule]);
 
-  const applyTransform = () => {
-    if (containerRef.current && scrollParentRef.current) {
-      const s = zoomState.current.scale;
-      containerRef.current.style.transform = `scale(${s}) translateZ(0)`;
-      scrollParentRef.current.style.setProperty('--zoom', s.toString());
-
-      // High-performance Manual Sticky
-      const scrollX = scrollParentRef.current.scrollLeft;
-      const stickyX = scrollX / s;
-      const stickyElements = containerRef.current.querySelectorAll('.manual-sticky');
-      stickyElements.forEach((el: any) => {
-        el.style.transform = `translateX(${stickyX}px) translateZ(10px)`;
-      });
-    }
-  };
-
-  const handleTouchStart = (e: TouchEvent) => {
-    if (e.touches.length === 2 && scrollParentRef.current) {
-      e.preventDefault();
-      const t1 = e.touches[0];
-      const t2 = e.touches[1];
-
-      const dist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
-      if (dist < 10) return;
-
-      const rect = scrollParentRef.current.getBoundingClientRect();
-      const midX = (t1.clientX + t2.clientX) / 2 - rect.left;
-      const midY = (t1.clientY + t2.clientY) / 2 - rect.top;
-
-      zoomState.current.contentMidpoint = {
-        x: (scrollParentRef.current.scrollLeft + midX) / zoomState.current.scale,
-        y: (scrollParentRef.current.scrollTop + midY) / zoomState.current.scale,
-      };
-
-      zoomState.current.startDistance = dist;
-      zoomState.current.startScale = zoomState.current.scale;
-      zoomState.current.isPinching = true;
-    }
-  };
-
-  const handleTouchMove = (e: TouchEvent) => {
-    if (e.touches.length === 2 && zoomState.current.isPinching && scrollParentRef.current) {
-      e.preventDefault();
-      const t1 = e.touches[0];
-      const t2 = e.touches[1];
-      const dist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
-
-      const ratio = dist / zoomState.current.startDistance;
-      const newScale = Math.min(5, Math.max(0.1, zoomState.current.startScale * ratio));
-
-      const rect = scrollParentRef.current.getBoundingClientRect();
-      const midX = (t1.clientX + t2.clientX) / 2 - rect.left;
-      const midY = (t1.clientY + t2.clientY) / 2 - rect.top;
-
-      zoomState.current.scale = newScale;
-      applyTransform();
-
-      scrollParentRef.current.scrollLeft = zoomState.current.contentMidpoint.x * newScale - midX;
-      scrollParentRef.current.scrollTop = zoomState.current.contentMidpoint.y * newScale - midY;
-    }
-  };
-
-  const handleTouchEnd = () => {
-    zoomState.current.isPinching = false;
-  };
-
-  const handleWheel = (e: WheelEvent) => {
-    if ((e.ctrlKey || e.metaKey) && scrollParentRef.current) {
-      e.preventDefault();
-      const delta = e.deltaY < 0 ? 1.05 : 0.95;
-      const newScale = Math.min(5, Math.max(0.1, zoomState.current.scale * delta));
-
-      const rect = scrollParentRef.current.getBoundingClientRect();
-      const midX = e.clientX - rect.left;
-      const midY = e.clientY - rect.top;
-
-      const contentX = (scrollParentRef.current.scrollLeft + midX) / zoomState.current.scale;
-      const contentY = (scrollParentRef.current.scrollTop + midY) / zoomState.current.scale;
-
-      zoomState.current.scale = newScale;
-      applyTransform();
-
-      scrollParentRef.current.scrollLeft = contentX * newScale - midX;
-      scrollParentRef.current.scrollTop = contentY * newScale - midY;
-    }
-  };
-
-  useEffect(() => {
-    const handleLayout = () => {
-      const parent = scrollParentRef.current;
-      const container = containerRef.current;
-      if (!parent || !container) return;
-
-      const width = parent.offsetWidth;
-      const height = parent.offsetHeight;
-      const mobile = window.innerWidth < 1024;
-      setIsMobile(mobile);
-
-      // Resetar transform temporariamente para medir o tamanho real se necessário
-      // ou confiar que scrollWidth/scrollHeight retornam o tamanho intrínseco.
-      const contentWidth = container.scrollWidth;
-
-      // Para tabelas, priorizamos que ela ocupe a largura total disponível.
-      // Não queremos que ela encolha para caber na altura, pois tabelas devem ser roladas verticalmente.
-      let scale = (width - 10) / contentWidth;
-
-      // No desktop, não queremos escala > 1.0 se o conteúdo for pequeno
-      if (!mobile && scale > 1) scale = 1;
-
-      // No mobile, garantimos um limite mínimo de escala para legibilidade
-      if (mobile) scale = Math.max(scale, 0.4);
-
-      zoomState.current.scale = scale;
-      applyTransform();
-    };
-
-    const timer = setTimeout(handleLayout, 100);
-    window.addEventListener('resize', handleLayout);
-    return () => {
-      clearTimeout(timer);
-      window.removeEventListener('resize', handleLayout);
-    };
-  }, [schedule, HOURS, tableHeight]);
-
-  const dragRef = useRef({
-    isDragging: false,
-    startX: 0,
-    startY: 0,
-    scrollLeft: 0,
-    scrollTop: 0,
-  });
-
-  const handleMouseDown = (e: React.MouseEvent) => {
-    // Prevent drag on interactive elements if needed, but for table it's fine
-    if (!scrollParentRef.current) return;
-    dragRef.current = {
-      isDragging: true,
-      startX: e.pageX - scrollParentRef.current.offsetLeft,
-      startY: e.pageY - scrollParentRef.current.offsetTop,
-      scrollLeft: scrollParentRef.current.scrollLeft,
-      scrollTop: scrollParentRef.current.scrollTop,
-    };
-    scrollParentRef.current.style.cursor = 'grabbing';
-    scrollParentRef.current.style.userSelect = 'none';
-  };
-
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (!dragRef.current.isDragging || !scrollParentRef.current) return;
-    e.preventDefault();
-    const x = e.pageX - scrollParentRef.current.offsetLeft;
-    const y = e.pageY - scrollParentRef.current.offsetTop;
-    const walkX = (x - dragRef.current.startX) * 1.5;
-    const walkY = (y - dragRef.current.startY) * 1.5;
-    scrollParentRef.current.scrollLeft = dragRef.current.scrollLeft - walkX;
-    scrollParentRef.current.scrollTop = dragRef.current.scrollTop - walkY;
-  };
-
-  const handleMouseUp = () => {
-    dragRef.current.isDragging = false;
-    if (scrollParentRef.current) {
-      scrollParentRef.current.style.cursor = 'grab';
-      scrollParentRef.current.style.removeProperty('user--select');
-    }
-  };
-
-  useEffect(() => {
-    if (hasInitialScrolled?.current) return;
-
-    const today = new Date();
-    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-
-    // Find the closest date (today or future)
-    const availableDates = Object.keys(schedule).sort();
-    const targetDate = availableDates.find((d) => d >= todayStr) || availableDates[0];
-
-    if (!targetDate) return;
-
-    setTimeout(() => {
-      const element = document.getElementById(`table-date-${targetDate}`);
-      if (element && scrollParentRef.current) {
-        element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        if (hasInitialScrolled) hasInitialScrolled.current = true;
-      }
-    }, 500); // Give it a bit more time for the zoom/layout to settle
-  }, [schedule, hasInitialScrolled]);
-
-  useEffect(() => {
-    const el = scrollParentRef.current;
-    if (!el) return;
-
-    el.addEventListener('touchstart', handleTouchStart, { passive: false });
-    el.addEventListener('touchmove', handleTouchMove, { passive: false });
-    el.addEventListener('touchend', handleTouchEnd);
-    el.addEventListener('touchcancel', handleTouchEnd);
-    el.addEventListener('wheel', handleWheel, { passive: false });
-    el.addEventListener('scroll', applyTransform);
-
-    el.style.cursor = 'grab';
-
-    return () => {
-      el.removeEventListener('touchstart', handleTouchStart);
-      el.removeEventListener('touchmove', handleTouchMove);
-      el.removeEventListener('touchend', handleTouchEnd);
-      el.removeEventListener('touchcancel', handleTouchEnd);
-      el.removeEventListener('wheel', handleWheel);
-      el.removeEventListener('scroll', applyTransform);
-    };
-  }, []);
+  const {
+    containerRef,
+    scrollParentRef,
+    isMobile,
+    tableHeight,
+    handleMouseDown,
+    handleMouseMove,
+    handleMouseUp,
+  } = useScheduleTableZoomAndPan({ schedule, hours: HOURS, hasInitialScrolled });
 
   return (
     <div
       className={`flex flex-col bg-white dark:bg-slate-950 ${isMobile ? 'p-0 w-full h-[calc(100vh-140px)] overflow-hidden' : 'p-0 w-full h-[calc(100vh-280px)]'}`}
     >
-      {pendingOrders.length > 0 && (
-        <div className="px-4 py-3 border-b border-amber-100 dark:border-amber-900/30 bg-amber-50/20">
-          <div
-            onClick={() => setIsPendingOpen(!isPendingOpen)}
-            className="flex items-center justify-between cursor-pointer select-none p-2.5 rounded-2xl hover:bg-amber-100/50 dark:hover:bg-amber-900/30 transition-all"
-          >
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-amber-100 dark:bg-amber-900/30 rounded-xl text-amber-600 dark:text-amber-400">
-                <i className="bi bi-clock-history text-lg" />
-              </div>
-              <div>
-                <h3 className="text-xs sm:text-sm font-black text-slate-800 dark:text-slate-100 uppercase tracking-widest leading-none">
-                  Entregas a Agendar
-                </h3>
-                <p className="text-[9px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-[0.15em] mt-1">
-                  {isPendingOpen
-                    ? 'Clique no tópico para recolher'
-                    : 'Aguardando agendamento de data (Clique para visualizar)'}
-                </p>
-              </div>
-            </div>
+      <SchedulePendingOrdersBanner
+        pendingOrders={pendingOrders}
+        isPendingOpen={isPendingOpen}
+        onToggleOpen={() => setIsPendingOpen((prev) => !prev)}
+        onOrderClick={onOrderClick}
+      />
 
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-black text-amber-700 dark:text-amber-300 bg-white dark:bg-slate-900 px-3 py-1 rounded-full border border-amber-200 dark:border-amber-800 uppercase">
-                {pendingOrders.length} {pendingOrders.length === 1 ? 'pendente' : 'pendentes'}
-              </span>
-              <div className="w-7 h-7 rounded-xl bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center text-amber-700 dark:text-amber-300 text-xs font-bold">
-                <i className={`bi bi-chevron-${isPendingOpen ? 'up' : 'down'}`} />
-              </div>
-            </div>
-          </div>
-
-          {isPendingOpen && (
-            <div className="flex gap-4 overflow-x-auto pt-3 pb-2 custom-scrollbar animate-slide-up">
-              {pendingOrders.map((order) => (
-                <button
-                  key={(order as any)._taskKey || order.id}
-                  onClick={() => onOrderClick(order)}
-                  className="flex-none w-64 bg-white dark:bg-slate-900 p-4 rounded-2xl border border-amber-200 dark:border-amber-800/50 shadow-sm hover:shadow-md hover:border-amber-400 dark:hover:border-amber-700 transition-all text-left group"
-                >
-                  <div className="flex justify-between items-start mb-2">
-                    <span className="text-[9px] font-black text-amber-600 bg-amber-50 dark:bg-amber-900/20 px-2 py-0.5 rounded-lg border border-amber-100 dark:border-amber-800">
-                      #{formatOrderCode(order)}
-                    </span>
-                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                      {new Date(order.date).toLocaleDateString('pt-BR')}
-                    </span>
-                  </div>
-                  <h4 className="text-[11px] font-black text-slate-800 dark:text-slate-100 group-hover:text-amber-600 transition-colors uppercase truncate">
-                    {order.customerData?.fullName || 'Cliente não informado'}
-                  </h4>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
       <div
         ref={scrollParentRef}
         onMouseDown={handleMouseDown}
@@ -365,7 +96,7 @@ const ScheduleTableView = ({
                   {HOURS.map((h) => (
                     <th
                       key={h}
-                      className={`p-3 text-[10px] sm:text-xs font-black border-r border-slate-800 dark:border-slate-900 last:border-0 opacity-80 tracking-widest text-center min-w-[280px]`}
+                      className="p-3 text-[10px] sm:text-xs font-black border-r border-slate-800 dark:border-slate-900 last:border-0 opacity-80 tracking-widest text-center min-w-[280px]"
                     >
                       {String(h).padStart(2, '0')}:00
                     </th>
@@ -460,47 +191,7 @@ const ScheduleTableView = ({
         </div>
       </div>
 
-      <div className="mt-2 flex items-center justify-between border-t border-slate-100 dark:border-slate-800 pt-4 px-4 overflow-x-auto custom-scrollbar">
-        <div className="flex items-center gap-6 min-w-max">
-          {ORDER_TYPE_COLOR_OPTIONS.filter(
-            (opt) =>
-              opt.value === settings.orderTypeColors.delivery ||
-              opt.value === settings.orderTypeColors.pickup ||
-              opt.value === settings.orderTypeColors.assistance
-          ).map((opt) => {
-            const type = Object.entries(settings.orderTypeColors).find(
-              ([_, val]) => val === opt.value
-            )?.[0];
-            const label = type ? (settings.orderTypeLabels as any)[type] : opt.label;
-            return (
-              <div key={opt.value} className="flex items-center gap-2">
-                <div className={`w-3 h-3 rounded ${opt.dotClass} shadow-sm`}></div>
-                <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">
-                  {label}
-                </span>
-              </div>
-            );
-          })}
-          <div className="flex items-center gap-2 border-l border-slate-200 dark:border-slate-800 pl-6">
-            <div className="w-4 h-3 border border-dashed border-slate-400 bg-slate-50 rounded"></div>
-            <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">
-              Rascunho
-            </span>
-          </div>
-        </div>
-      </div>
-      <style
-        dangerouslySetInnerHTML={{
-          __html: `
-                .custom-scrollbar::-webkit-scrollbar { height: 6px; width: 6px; }
-                .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-                .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
-                @media (prefers-color-scheme: dark) {
-                    .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; }
-                }
-            `,
-        }}
-      />
+      <ScheduleTableLegend settings={settings} />
     </div>
   );
 };

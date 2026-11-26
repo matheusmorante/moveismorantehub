@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { OutboundDatabase } from './outboundTypes';
-import { withTimeout } from '../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../shared-utils/core/withTimeout';
 
 export const OUTBOUND_ATTEMPT_STATUS_TIMEOUT_MS = 5_000;
 

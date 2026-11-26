@@ -3,7 +3,7 @@ import {
   calculateVariationCatalogStats,
   type VariationCatalogStats,
 } from '../utils/catalog/registeredVariationCount';
-import { NON_TEST_PRODUCT_ARTIFACT_FILTER } from '../../../../../../../shared-utils/testArtifactQueries';
+import { NON_TEST_PRODUCT_ARTIFACT_FILTER } from '../../../../../../../shared-utils/testing/testArtifactQueries';
 import { registerSessionCacheInvalidator } from '@/context/auth/sessionCacheRegistry';
 
 export interface LoadProductCatalogStatsOptions {

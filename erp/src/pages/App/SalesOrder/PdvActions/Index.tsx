@@ -1,10 +1,10 @@
 import React, { useRef, useState } from 'react';
 import Order, { OrderAction, IsButtonsClicked } from '../../../types/order.type';
 import { buttons, actionsMap } from '../OrderActions/orderActionsConfig';
-import { validateOrder, validateAssistanceOrder } from '../../../utils/validations';
+import { validateOrder, validateAssistanceOrder } from '../../../utils/sales/validations';
 import { toast } from 'react-toastify';
 import { canGenerateReturn } from '../../../utils/returnPolicy';
-import { isIdentifiedTestArtifact } from '../../../../../../shared-utils/testArtifactPolicy';
+import { isIdentifiedTestArtifact } from '../../../../../../shared-utils/testing/testArtifactPolicy';
 
 const OrderActions = ({ order }: { order: Order }) => {
   const [isButtonsClicked, setIsButtonsClicked] = useState<IsButtonsClicked>({

@@ -6,7 +6,7 @@ import { deliveryFlowService } from '../../features/orders/services/deliveryFlow
 import { prepareIndependentDelivery } from '../../features/orders/services/deliveryOperationService';
 import { getIndependentOperationId } from '../../features/orders/services/deliveryOperationState';
 import { hasSeparateFulfillments } from '../../../../shared-utils/fulfillmentScheduleGuard';
-import { isServerConfirmedOrderDetails } from '../../services/orderDetailsReadService';
+import { isServerConfirmedOrderDetails } from '../../services/logistics/orderDetailsReadService';
 import {
   useOrderDetailsModal,
   OrderDetailsModalHeader,

@@ -5,7 +5,7 @@ import type Order from '@/pages/types/order.type';
 import type { FiscalAcquisitionPurpose } from '@/pages/types/order.type';
 import { fetchOrderById, updateOrder } from '@/pages/utils/orderHistoryService';
 import { nfeAcquisitionPurposeFormSchema, nfeEmissionDraftFormSchema } from '../../../../../../../../shared-utils/nfeEmissionFormValidation';
-import { withTimeout } from '../../../../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../../../../shared-utils/core/withTimeout';
 import type { NfeItemWithFiscal } from '../NfeItemsSection';
 import { buildNfeDraftChanges } from '../services/nfeDraftService';
 

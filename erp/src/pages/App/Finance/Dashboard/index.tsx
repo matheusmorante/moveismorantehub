@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { financeService, FinanceDashboardForecastSummary } from '@/pages/services/financeService';
-import { getLocalISODate } from '@/pages/utils/formatters';
+import { getLocalISODate } from '@/pages/utils/shared/formatters';
 import {
   BarChart,
   Bar,

@@ -7,7 +7,7 @@ import {
 } from '../types/reconciliation.types';
 import { SupplierSearchField } from './SupplierSearchField';
 import { useReconciliationSupplierSearch } from './useReconciliationSupplierSearch';
-import CategoryAutocomplete from '../../../../../components/CategoryAutocomplete';
+import CategoryAutocomplete from '../../../../../components/selectors/CategoryAutocomplete';
 import { VariationAttributeValueInput } from '../../components/variationTabs/VariationAttributeValueInput';
 import { toast } from 'react-toastify';
 import {

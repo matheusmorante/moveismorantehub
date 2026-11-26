@@ -4,7 +4,7 @@ import PickupIcon from '@/components/shared/PickupIcon';
 import Order from '../../../types/order.type';
 import { getSettings } from '@/pages/utils/settingsService';
 import { resolveEffectiveSchedule } from '../../../../../../shared-utils/commercialOrderRules';
-import { formatCurrency, formatDate, getLocalISODate, stringifyFullAddressWithObservation } from '../../../utils/formatters';
+import { formatCurrency, formatDate, getLocalISODate, stringifyFullAddressWithObservation } from '../../../utils/shared/formatters';
 import {
   getOrderTypeClasses,
   resolveOrderColor,

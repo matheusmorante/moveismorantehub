@@ -1,6 +1,6 @@
 import type { ReceiptPeriod } from '@/pages/App/Stock/Receipts/types/receiptPeriodFilter.types';
 import type InventoryMove from '../../types/inventoryMove.type';
-import { withAbortTimeout } from '../../../../../shared-utils/withAbortTimeout';
+import { withAbortTimeout } from '../../../../../shared-utils/core/withAbortTimeout';
 import type { PostgrestError } from '@supabase/supabase-js';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { mapInventoryMoveFromDB } from './inventoryMapper';

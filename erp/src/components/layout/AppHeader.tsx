@@ -4,7 +4,6 @@ import DesktopNav from './DesktopNav';
 import ProfileDropdown from './ProfileDropdown';
 import GlobalAutoScroll from '../shared/GlobalAutoScroll';
 import NotificationBell from '../shared/NotificationBell';
-import AiQuotaHeaderNotice from '../shared/AiQuotaHeaderNotice';
 import logoMoranteHorizontal from '../../assets/logo-morante-horizontal.svg';
 import logoMoranteMark from '../../assets/brand-mark.svg';
 import { MenuKey } from './types';
@@ -24,7 +23,6 @@ export default function AppHeader({
 
   return (
     <div className="relative z-[99999]">
-      <AiQuotaHeaderNotice />
       <header className="w-full glass-header px-4 lg:px-8 xl:px-12 h-14 xl:h-16 flex items-center justify-between z-[99999] shadow-premium transition-all duration-500">
         <div className="flex items-center gap-6 xl:gap-12 h-full">
           <button

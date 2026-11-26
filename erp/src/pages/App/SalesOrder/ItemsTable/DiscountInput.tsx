@@ -1,5 +1,5 @@
 import React from 'react';
-import CurrencyOrPercentInput from '../../../../components/CurrencyOrPercentInput';
+import CurrencyOrPercentInput from '../../../../components/inputs/CurrencyOrPercentInput';
 import type Item from '../../../types/items.type';
 
 interface DiscountInputProps {

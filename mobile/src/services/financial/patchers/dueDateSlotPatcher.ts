@@ -1,5 +1,5 @@
-import type { ParsedFinancialIntent } from '../financialTypes';
-import { validateParsedIntent } from '../financialIntentValidator';
+import type { ParsedFinancialIntent } from '../extraction/financialTypes';
+import { validateParsedIntent } from '../extraction/financialIntentValidator';
 
 export function tryPatchDueDateSlots(
   text: string,

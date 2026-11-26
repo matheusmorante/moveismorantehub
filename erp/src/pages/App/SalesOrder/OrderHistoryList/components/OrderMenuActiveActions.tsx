@@ -6,8 +6,8 @@ import UndoFulfillmentButton from './UndoFulfillmentButton';
 import CancelScheduledSaleButton from './CancelScheduledSaleButton';
 import { ReturnNfeActionMenuButton } from './ReturnNfeActionMenuButton';
 import { canGenerateReturn } from '@/pages/utils/returnPolicy';
-import { canGenerateAssistance } from '@/pages/utils/assistancePolicy';
-import { isIdentifiedTestArtifact } from '../../../../../../../shared-utils/testArtifactPolicy';
+import { canGenerateAssistance } from '@/pages/utils/sales/assistancePolicy';
+import { isIdentifiedTestArtifact } from '../../../../../../../shared-utils/testing/testArtifactPolicy';
 
 interface OrderMenuActiveActionsProps {
   order: Order;

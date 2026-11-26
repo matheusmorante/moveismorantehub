@@ -1,7 +1,7 @@
 import React from 'react';
-import SectionCard from '@/components/SectionCard';
+import SectionCard from '@/components/display/SectionCard';
 import PaymentsTable from '../../PaymentsTable/Index';
-import { useSalesOrderForm } from '../../hooks/useSalesOrderForm';
+import { useSalesOrderForm } from '../../hooks/form-flow/useSalesOrderForm';
 
 type FormInstance = ReturnType<typeof useSalesOrderForm>;
 

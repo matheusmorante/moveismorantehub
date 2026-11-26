@@ -1,5 +1,5 @@
 import { supabase } from '../../supabaseConfig';
-import { isValidUuid } from '../../uuidUtils';
+import { isValidUuid } from '../../shared/uuidUtils';
 
 export const PRODUCT_RESOLUTION_DECISIONS = ['accepted', 'rejected', 'corrected'] as const;
 export const PRODUCT_RESOLUTION_RELATIONS = [

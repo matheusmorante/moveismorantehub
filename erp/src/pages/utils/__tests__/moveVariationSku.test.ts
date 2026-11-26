@@ -13,7 +13,7 @@ vi.mock('@/pages/utils/supabaseConfig', () => ({
 import {
   calculateNextVariationSku,
   generateVariationSku,
-} from '../productService/productSkuService';
+} from '../productService/mutations/productSkuService';
 
 describe('calculateNextVariationSku', () => {
   it('reutiliza o menor sufixo disponível quando há buracos na sequência (-01, -02, -04 → -03)', () => {

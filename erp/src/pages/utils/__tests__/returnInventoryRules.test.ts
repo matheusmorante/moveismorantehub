@@ -6,7 +6,7 @@ import {
   shouldCreateReturnEntry,
 } from '../returnInventoryRules';
 import { replayMovingAverageMoves } from '../movingAverageCostRules';
-import { canCreateSaleExitForItem } from '../saleInventoryRules';
+import { canCreateSaleExitForItem } from '../sales/saleInventoryRules';
 
 describe('devolução de produto cadastrado', () => {
   it('usa o CMV materializado na venda, sem consultar o custo atual', () => {

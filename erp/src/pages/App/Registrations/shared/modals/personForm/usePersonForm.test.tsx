@@ -5,7 +5,7 @@ import { usePersonForm } from './usePersonForm';
 
 const mocks = vi.hoisted(() => ({ save: vi.fn(), identifiers: vi.fn(), emailTaken: vi.fn(), nameTaken: vi.fn(), profile: vi.fn(), profileById: vi.fn(), syncProfile: vi.fn(), cep: vi.fn(), error: vi.fn() }));
 vi.mock('@/pages/utils/personService', () => ({ savePerson: mocks.save, getPersonByIdentifiers: mocks.identifiers, isEmployeeEmailTaken: mocks.emailTaken, isSupplierNameTaken: mocks.nameTaken }));
-vi.mock('@/pages/utils/employeeProfileService', () => ({ getUserProfileByEmail: mocks.profile, getUserProfileByIdOrEmail: mocks.profileById, saveEmployeeInProfile: mocks.syncProfile }));
+vi.mock('@/pages/utils/auth/employeeProfileService', () => ({ getUserProfileByEmail: mocks.profile, getUserProfileByIdOrEmail: mocks.profileById, saveEmployeeInProfile: mocks.syncProfile }));
 vi.mock('@/pages/utils/settingsService', () => ({ getSettings: () => ({ requiredFields: {} }) }));
 vi.mock('@/pages/utils/maps', () => ({ getAddressByCep: mocks.cep, getShippingRouteUrl: () => '' }));
 vi.mock('react-toastify', () => ({ toast: { error: mocks.error, success: vi.fn(), warn: vi.fn(), info: vi.fn() } }));

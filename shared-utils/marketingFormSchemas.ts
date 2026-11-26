@@ -1,1 +1,1 @@
-export * from './schemas/marketingFormSchemas';
+export * from './schemas/catalog/marketingFormSchemas';

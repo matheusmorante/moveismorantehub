@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { z } from 'zod';
-import { withAbortTimeout } from '../../../../../../shared-utils/withAbortTimeout';
+import { withAbortTimeout } from '../../../../../../shared-utils/core/withAbortTimeout';
 
 export interface LowStockItem {
   productId: string;

@@ -1,5 +1,5 @@
 import Product from '../../../../../types/product.type';
-import { parseVariationImages } from '@/pages/utils/productService';
+import { parseVariationImages } from '@/pages/utils/productService/productService';
 import { resolveProductVariationPricing } from '../../../../../../../../shared-utils/productVariationPricing';
 import { resolveProductVariationSku } from '../../../../../../../../shared-utils/productVariationSku';
 import type { ProductListRow, ProductListVariationAttribute } from '../../types';

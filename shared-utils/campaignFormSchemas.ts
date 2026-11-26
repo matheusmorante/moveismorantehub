@@ -1,1 +1,1 @@
-export * from './schemas/campaignFormSchemas';
+export * from './schemas/catalog/campaignFormSchemas';

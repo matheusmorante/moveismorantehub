@@ -1,4 +1,4 @@
-import { buildPostgrestAccentInsensitiveOrFilter } from '../searchText';
+import { buildPostgrestAccentInsensitiveOrFilter } from '../core/searchText';
 import { normalizeSearchTerm } from '../productText';
 
 const PRODUCT_SEARCH_COLUMNS = [

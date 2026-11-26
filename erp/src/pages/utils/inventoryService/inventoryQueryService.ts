@@ -2,7 +2,7 @@ import { supabase } from '@/pages/utils/supabaseConfig';
 import InventoryMove from '../../types/inventoryMove.type';
 import { INVENTORY_TABLE_NAME } from './inventoryTypeRules';
 import { mapInventoryMoveFromDB } from './inventoryMapper';
-import { withTimeout } from '../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../shared-utils/core/withTimeout';
 
 export const getInventoryMoveById = async (id: string): Promise<InventoryMove | null> => {
   try {

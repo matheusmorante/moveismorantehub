@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Product } from '@/pages/types/product.type';
-import type { ProductPreviewOption } from '@/pages/utils/productService';
+import type { ProductPreviewOption } from '@/pages/utils/productService/productService';
 
 type Props = {
   search: string;

@@ -3,7 +3,7 @@ import React from 'react';
 import { cleanup, render } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import Product, { Variation } from '../pages/types/product.type';
-import ProductAutocomplete from './ProductAutocomplete';
+import ProductAutocomplete from './selectors/ProductAutocomplete';
 
 const { mockUseProductAutocomplete } = vi.hoisted(() => ({
   mockUseProductAutocomplete: vi.fn(),
@@ -13,7 +13,7 @@ vi.mock('./hooks/useProductAutocomplete', () => ({
   useProductAutocomplete: mockUseProductAutocomplete,
 }));
 
-vi.mock('../pages/utils/productService', () => ({
+vi.mock('../pages/utils/productService/productService', () => ({
   fetchProductsPage: vi.fn(),
 }));
 

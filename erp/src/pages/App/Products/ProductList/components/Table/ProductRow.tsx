@@ -8,7 +8,7 @@ import { ProductRowActionsCell } from './ProductRowActionsCell';
 import { ProductRowModals } from '../../modals/ProductRowModals';
 import { renderProductRowStandardCell } from './ProductRowStandardCells';
 import { isSalvadoStockOrigin } from '../../../../../../../../shared-utils/productStockOrigin';
-import { getSelectedProductDisplayName } from '@/pages/utils/productVariationDefaults';
+import { getSelectedProductDisplayName } from '@/pages/utils/productService/productVariationDefaults';
 import type { ProductListRow } from '../../types';
 
 export interface ProductRowProps {

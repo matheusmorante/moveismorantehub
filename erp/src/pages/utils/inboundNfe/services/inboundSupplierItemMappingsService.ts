@@ -1,6 +1,6 @@
 import { normalizeInboundSupplierProductCode, type GlobalInboundSupplierItemMapping } from '../../../../../../shared-utils/inboundInvoiceMappingState';
 import { supabase } from '../../supabaseConfig';
-import { withTimeout } from '../../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../../shared-utils/core/withTimeout';
 
 export type InboundSupplierItemMappingComponent = {
   productId: string;

@@ -3,7 +3,7 @@ import {
   extractDigits,
   getPhoneLookupCandidates,
   parseBrazilianPhone,
-} from '../../phoneUtils.js';
+} from '../../query/phoneUtils.js';
 import type { SafeToolContext } from './types.js';
 
 export async function handleConsultarMeusPedidos(

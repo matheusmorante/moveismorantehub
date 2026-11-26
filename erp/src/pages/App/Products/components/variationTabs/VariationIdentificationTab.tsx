@@ -3,7 +3,7 @@ import Product, { Variation } from '../../../../types/product.type';
 import {
   getVariationAttributeValuesInNameOrder,
   isVariationNamePlaceholderSuffix,
-} from '@/pages/utils/productVariationDefaults';
+} from '@/pages/utils/productService/productVariationDefaults';
 import { toTitleCase } from '@/pages/utils/textUtils';
 
 export interface DbAttributeValueItem {

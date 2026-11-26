@@ -13,7 +13,7 @@ const mocks = vi.hoisted(() => {
 vi.mock('@/pages/utils/supabaseConfig', () => ({
   supabase: { from: mocks.supabaseFrom },
 }));
-vi.mock('@/pages/utils/whatsappGraphService', () => ({
+vi.mock('@/pages/utils/whatsapp/whatsappGraphService', () => ({
   whatsappGraphService: { fetchCatalogProducts: mocks.fetchCatalogProducts },
 }));
 

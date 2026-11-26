@@ -1,7 +1,7 @@
 import React from 'react';
 import type { GoodsReceipt } from '@/pages/utils/goodsReceiptService';
 import type { PurchaseItem } from '@/pages/types/purchase.type';
-import { formatCurrency } from '@/pages/utils/formatters';
+import { formatCurrency } from '@/pages/utils/shared/formatters';
 
 interface ExtendedPurchaseItem extends PurchaseItem {
   readonly code?: string;

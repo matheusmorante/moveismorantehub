@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Service from '../../types/service.type';
-import { saveService } from '../../utils/serviceService';
+import { saveService } from '../../utils/sales/serviceService';
 import { toast } from 'react-toastify';
-import CurrencyInput from '../../../components/CurrencyInput';
+import CurrencyInput from '../../../components/inputs/CurrencyInput';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { serviceFormSchema } from '../../../../../shared-utils/serviceFormSchema';
-import { withTimeout } from '../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../shared-utils/core/withTimeout';
 
 interface ServiceFormModalProps {
   isOpen: boolean;

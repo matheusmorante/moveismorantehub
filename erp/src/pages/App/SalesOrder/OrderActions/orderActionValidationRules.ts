@@ -1,8 +1,8 @@
 import Order, { IsButtonsClicked } from '../../../types/order.type';
 import { buttons } from './orderActionsConfig';
-import { validateOrder } from '../../../utils/validations';
+import { validateOrder } from '../../../utils/sales/validations';
 import { canGenerateReturn } from '../../../utils/returnPolicy';
-import { canGenerateAssistance } from '../../../utils/assistancePolicy';
+import { canGenerateAssistance } from '../../../utils/sales/assistancePolicy';
 
 export const DEFAULT_CLICKED_BUTTONS: IsButtonsClicked = {
   printReceipt: false,

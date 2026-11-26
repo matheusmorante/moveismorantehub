@@ -1,1 +1,1 @@
-export * from './schemas/whatsappAiAgentSchemas';
+export * from './schemas/support/whatsappAiAgentSchemas';

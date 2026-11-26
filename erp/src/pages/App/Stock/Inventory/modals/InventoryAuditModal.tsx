@@ -12,10 +12,10 @@ import type { InventoryScopeType } from '../types/inventoryScope.types';
 import InventoryOperationScreen from '../components/InventoryOperationScreen';
 import InventoryReviewModal from '../modals/InventoryReviewModal';
 import { useInventoryAuditWorkflow } from '../hooks/useInventoryAuditWorkflow';
-import { getVariationDisplayName } from '@/components/productAutocompleteUtils';
+import { getVariationDisplayName } from '@/components/selectors/productAutocompleteUtils';
 import { useAuth } from '@/context/AuthContext';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
-import { canPerform } from '@/pages/utils/permissionService';
+import { canPerform } from '@/pages/utils/auth/permissionService';
 import {
   getInventorySupplierIds,
   isInventoryVariationEligible,

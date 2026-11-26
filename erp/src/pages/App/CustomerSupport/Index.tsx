@@ -7,8 +7,8 @@ import {
   InboxSidebar,
 } from './components';
 import { WhatsAppAiAgentModal } from './components/WhatsAppAiAgentModal';
-import { AiAgentTabTestChat } from './components/aiAgentModal/AiAgentTabTestChat';
-import { buildDefaultAiAgentFormValues } from './components/aiAgentModal/useWhatsAppAiAgentFormDefaults';
+import { AiAgentTabTestChat } from './components/aiAgentModal/testChat/AiAgentTabTestChat';
+import { buildDefaultAiAgentFormValues } from './components/aiAgentModal/form/useWhatsAppAiAgentFormDefaults';
 import {
   InboxSidebarColumn,
   ConversationSidebarColumn,

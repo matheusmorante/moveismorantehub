@@ -19,11 +19,11 @@ vi.mock('@/context/AuthContext', () => ({
   useAuth: () => ({ profile: { role: 'admin' }, isAdministrator: true }),
 }));
 
-vi.mock('@/pages/utils/permissionService', () => ({
+vi.mock('@/pages/utils/auth/permissionService', () => ({
   canPerform: () => true,
 }));
 
-vi.mock('@/pages/utils/accessRoles', () => ({
+vi.mock('@/pages/utils/auth/accessRoles', () => ({
   getProfileRoles: () => ['admin'],
 }));
 

@@ -4,10 +4,10 @@ import { isTestPerson } from '../../../../../../shared-utils/personTestVisibilit
 import {
   readTestArtifactIdentity,
   type TestArtifactIdentity,
-} from '../../../../../../shared-utils/testArtifactPolicy';
+} from '../../../../../../shared-utils/testing/testArtifactPolicy';
 import {
   isTestOperatorVisibleToUser,
-} from '../../../../../../shared-utils/testOperatorVisibility';
+} from '../../../../../../shared-utils/testing/testOperatorVisibility';
 
 export { isTestPerson };
 

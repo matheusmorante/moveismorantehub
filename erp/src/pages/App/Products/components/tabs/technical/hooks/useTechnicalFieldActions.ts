@@ -10,11 +10,11 @@ import {
 import {
   SYNCED_FIELDS,
   normalizeTechnicalName,
-} from '../technicalTabUtils';
+} from '../rules/technicalTabUtils';
 import {
   syncProductWithVariations,
   applyTechnicalValueChangeToProduct,
-} from '../technicalSyncUtils';
+} from '../sync/technicalSyncUtils';
 
 export interface UseTechnicalFieldActionsParams {
   readonly allTechnicalFields: readonly TechnicalFieldDefinition[];

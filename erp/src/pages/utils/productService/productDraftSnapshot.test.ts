@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type Product from '../../types/product.type';
-import { createProductDraftSnapshot, isProductDraft, restoreProductDraft } from './productDraftSnapshot';
-import { mapFromDB, mapToDB } from './productMapper';
+import { createProductDraftSnapshot, isProductDraft, restoreProductDraft } from './drafts/productDraftSnapshot';
+import { mapFromDB, mapToDB } from './mapping/productMapper';
 
 const product: Product = {
   id: '9b2ec3b1-8629-4514-b38b-3894fb33719f', code: 'TEST_AUT_DRAFT', name: 'Armário',

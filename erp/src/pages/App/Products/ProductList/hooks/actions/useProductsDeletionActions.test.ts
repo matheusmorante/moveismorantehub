@@ -21,7 +21,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock('@/pages/utils/supabaseConfig', () => ({ supabase: {} }));
-vi.mock('@/pages/utils/productService', () => ({
+vi.mock('@/pages/utils/productService/productService', () => ({
   bulkMoveToTrash: mocks.bulkMoveToTrash,
   bulkRestoreProducts: mocks.bulkRestoreProducts,
   deleteProduct: mocks.deleteProduct,
@@ -29,7 +29,7 @@ vi.mock('@/pages/utils/productService', () => ({
   moveProductToTrash: mocks.moveProductToTrash,
   restoreProductFromTrash: mocks.restoreProductFromTrash,
 }));
-vi.mock('@/pages/utils/productService/productMetaCatalogSync', () => ({
+vi.mock('@/pages/utils/productService/catalog/productMetaCatalogSync', () => ({
   triggerProductMetaCatalogSync: mocks.reconcileMeta,
 }));
 vi.mock('@/components/shared/confirmationService', () => ({

@@ -1,1 +1,1 @@
-export * from './schemas/authFormSchemas';
+export * from './schemas/system/authFormSchemas';

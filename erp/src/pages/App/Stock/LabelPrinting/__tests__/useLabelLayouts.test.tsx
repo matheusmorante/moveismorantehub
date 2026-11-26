@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { useLabelLayouts } from '../hooks/useLabelLayouts';
+import { useLabelLayouts } from '../hooks/label-printing/useLabelLayouts';
 import {
   deleteRemoteLabelLayout,
   fetchRemoteLabelLayouts,

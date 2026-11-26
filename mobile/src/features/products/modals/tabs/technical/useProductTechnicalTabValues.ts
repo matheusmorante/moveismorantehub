@@ -14,7 +14,7 @@ import {
   resolveMobileVariableTechnicalFieldNames,
 } from '../../../domain/productCharacteristics';
 import { getProductTechnicalRootFallbackValue } from '../../../../../../../shared-utils/productTechnicalRootPatch';
-import type { MobileProductTechnicalField } from '../../../services/mobileProductTechnicalService';
+import type { MobileProductTechnicalField } from '../../../services/categories/mobileProductTechnicalService';
 
 interface Args {
   formData: any;

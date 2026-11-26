@@ -7,7 +7,7 @@ import type Product from '@/pages/types/product.type';
 import type Person from '@/pages/types/person.type';
 import type { ScopeConfiguration } from '../types/inventoryScope.types';
 
-vi.mock('@/pages/utils/productService', () => ({ fetchProductsPage: vi.fn(() => { throw new Error('Unexpected catalog request'); }) }));
+vi.mock('@/pages/utils/productService/productService', () => ({ fetchProductsPage: vi.fn(() => { throw new Error('Unexpected catalog request'); }) }));
 const { authState } = vi.hoisted(() => ({ authState: { profile: null as { id: string } | null } }));
 vi.mock('@/context/AuthContext', () => ({ useAuth: () => ({ profile: authState.profile }) }));
 

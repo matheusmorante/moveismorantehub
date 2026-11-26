@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { processBusinessAppEcho } from '../whatsappWebhookEchoService.js';
+import { processBusinessAppEcho } from './whatsappWebhookEchoService.js';
 
 export interface EchoBatchResult {
   processedMessages: number;

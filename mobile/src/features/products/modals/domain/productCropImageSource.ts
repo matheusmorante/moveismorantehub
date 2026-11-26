@@ -1,6 +1,6 @@
 import * as FileSystem from 'expo-file-system/legacy';
 import { Platform } from 'react-native';
-import { withTimeout } from '../../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../../shared-utils/core/withTimeout';
 
 export interface PreparedProductCropImageSource {
   uri: string;

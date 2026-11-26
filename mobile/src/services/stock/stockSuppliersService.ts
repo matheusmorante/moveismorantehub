@@ -2,12 +2,12 @@ import { supabase } from '../supabaseClient';
 import { toPersonStockOriginsRow } from '../../../../shared-utils/personStockOrigins';
 import { ITEMS_PER_PAGE } from './stockPagination';
 import { fetchServerOrderPage } from '../../../../shared-utils/orderListServerQuery';
-import { withAbortTimeout } from '../../../../shared-utils/withAbortTimeout';
+import { withAbortTimeout } from '../../../../shared-utils/core/withAbortTimeout';
 import type { SupplierDeletionCounts } from '../../../../shared-utils/supplierDeletion';
 import {
   buildNormalizedWordsRegex,
   buildPostgrestAccentInsensitivePattern,
-} from '../../../../shared-utils/searchText';
+} from '../../../../shared-utils/core/searchText';
 
 const postgrestValue = (value: string) =>
   `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;

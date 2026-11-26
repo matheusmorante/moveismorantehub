@@ -1,7 +1,7 @@
 import React from 'react';
 import Product from '@/pages/types/product.type';
 import { useAuth } from '@/context/AuthContext';
-import { isProductIdentificationLabelOnlyProfile } from '@/pages/utils/accessRoles';
+import { isProductIdentificationLabelOnlyProfile } from '@/pages/utils/auth/accessRoles';
 import { LabelPrintType } from '../../../components/modals/product/LabelPrintSelectionModal';
 import { ChildVariationActions } from './ProductRowActions/ChildVariationActions';
 import { ParentProductActions } from './ProductRowActions/ParentProductActions';

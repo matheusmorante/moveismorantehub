@@ -1,5 +1,5 @@
 import Shipping from '../types/Shipping.type';
-import { formatDate } from '../utils/formatters';
+import { formatDate } from '../utils/shared/formatters';
 
 interface Props {
   shipping?: Shipping | null;

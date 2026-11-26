@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { WhatsAppMessage } from '@/pages/App/CustomerSupport/types';
-import { mapRowToMessage } from '../customerSupportMappers';
-import { withTimeout } from '../../../../../../shared-utils/withTimeout';
+import { mapRowToMessage } from '../query/customerSupportMappers';
+import { withTimeout } from '../../../../../../shared-utils/core/withTimeout';
 import { supportInternalCommentSchema } from '../../../../../../shared-utils/customerSupportFormSchemas';
 
 /** Authenticated identity and timestamp are derived by the RPC. */

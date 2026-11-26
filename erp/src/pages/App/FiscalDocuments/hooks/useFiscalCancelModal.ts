@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import { toast } from 'react-toastify';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { createFiscalCancellationFormSchema } from '../../../../../../shared-utils/fiscalOperationFormSchemas';
-import { formatToBRDate } from '@/pages/utils/formatters';
+import { formatToBRDate } from '@/pages/utils/shared/formatters';
 import type {
   CancellationEligibility,
   NfeDocumentRecord,

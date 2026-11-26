@@ -16,12 +16,12 @@ import {
 import {
   isTestOperator,
   isTestOperatorVisibleToUser,
-} from '../../../../../../shared-utils/testOperatorVisibility';
+} from '../../../../../../shared-utils/testing/testOperatorVisibility';
 import {
   getGrantedNonAccountantAccessRoles,
   hasGrantedNonAccountantAccessProfile,
 } from '../../../../../../shared-utils/operationalCollaborators';
-import { matchesSearchText, normalizeSearchTerm } from '../../../../../../shared-utils/searchText';
+import { matchesSearchText, normalizeSearchTerm } from '../../../../../../shared-utils/core/searchText';
 
 const DELIVERY_STAFF_CACHE_KEY_PREFIX = 'delivery_staff_search_v2';
 const MAX_CACHED_SEARCHES = 12;

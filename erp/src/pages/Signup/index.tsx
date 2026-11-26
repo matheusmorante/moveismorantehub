@@ -1,9 +1,9 @@
 import React, { useState, useRef } from 'react';
-import { waitForAuthOperation } from '../../../../shared-utils/authOperationTimeout';
+import { waitForAuthOperation } from '../../../../shared-utils/auth/authOperationTimeout';
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { toast } from 'react-toastify';
-import { translateAuthError } from '../../pages/utils/authErrors';
+import { translateAuthError } from '../utils/auth/authErrors';
 import { signInWithGoogle } from '@/services/authPasswordSetup';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { signupFormSchema } from '../../../../shared-utils/authFormSchemas';

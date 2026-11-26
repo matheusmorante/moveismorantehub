@@ -3,7 +3,7 @@ import React from 'react';
 import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useMobileLabels } from '../../stock/labels/MobileLabelsProvider';
 import { ProductImage } from '../../../components/shared/ProductImage';
-import { toMobileVariationAttributes } from '../services/mobileProductVariationActionsService';
+import { toMobileVariationAttributes } from '../services/variations/mobileProductVariationActionsService';
 import { normalizeVariationSku } from '../domain/productSku';
 import {
   getMobileProductVariationCardActionAvailability,

@@ -6,8 +6,8 @@ const mocks = vi.hoisted(() => ({ query: vi.fn(), supplier: vi.fn(), category: v
 vi.mock('./services/reconciliationQueries', () => ({ fetchProductsForReconciliation: mocks.query }));
 vi.mock('./services/reconciliationMutations', () => ({ applySupplierBatch: mocks.supplier, applyCategoryBatch: mocks.category, applyNcmBatch: mocks.ncm, applyAttributeBatch: mocks.attribute, saveSingleProductReconciliation: mocks.single }));
 vi.mock('@/pages/utils/supabaseConfig', () => ({ supabase: { from: mocks.from } }));
-vi.mock('@/components/CategoryAutocomplete', () => ({ default: ({ onSelect }: any) => <button onClick={() => onSelect({ id: 'c2', name: 'Nova categoria' })}>Categoria de filtro</button> }));
-vi.mock('@/components/SupplierAutocomplete', () => ({ default: () => null }));
+vi.mock('@/components/selectors/CategoryAutocomplete', () => ({ default: ({ onSelect }: any) => <button onClick={() => onSelect({ id: 'c2', name: 'Nova categoria' })}>Categoria de filtro</button> }));
+vi.mock('@/components/selectors/SupplierAutocomplete', () => ({ default: () => null }));
 vi.mock('react-toastify', () => ({ toast: { error: mocks.error, success: mocks.success, info: vi.fn() } }));
 import ProductReconciliation from './ProductReconciliation';
 const product = { id: 'p1', name: 'Produto inicial', price: 20, categoryId: 'c1', category: 'Categoria', variations: [],

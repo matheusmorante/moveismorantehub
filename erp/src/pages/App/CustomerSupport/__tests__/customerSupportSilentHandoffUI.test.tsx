@@ -19,7 +19,7 @@ vi.mock('@/context/AuthContext', () => ({
 }));
 
 // Mock dos serviços de mensageria e formulários
-vi.mock('@/pages/utils/customerSupport/customerSupportService', () => ({
+vi.mock('@/pages/utils/customerSupport/query/customerSupportService', () => ({
   sendCustomerSupportMessage: vi.fn(),
   updateConversationAiStatus: vi.fn(),
 }));

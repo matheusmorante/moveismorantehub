@@ -13,7 +13,7 @@ export {
   buildPublishedCatalogEditConfirmationMessage,
   getPublishedCatalogEditIssues,
   type PublishedCatalogEditIssue,
-} from '../../../../../../shared-utils/catalogPublicationValidation';
+} from '../../../../../../shared-utils/catalogPublication/catalogPublicationValidation';
 
 export function checkERPLegibility(data: Readonly<Partial<Product>>): ERPLegibilityResult {
   return checkProductErpLegibility(data);

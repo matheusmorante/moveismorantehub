@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { supabase } from '@/pages/utils/supabaseConfig';
-import { withTimeout } from '../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../shared-utils/core/withTimeout';
 
 const amount = z.number().finite();
 const count = amount.int().nonnegative();

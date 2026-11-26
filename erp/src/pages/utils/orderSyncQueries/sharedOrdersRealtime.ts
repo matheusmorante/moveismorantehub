@@ -1,6 +1,6 @@
 import Order from '../../types/order.type';
 import { supabase } from '@/pages/utils/supabaseConfig';
-import { capitalizeOrder } from '../formatters';
+import { capitalizeOrder } from '../shared/formatters';
 import { mapOrderFromDatabase } from '../orderMapper';
 import { TABLE_NAME, ORDER_LIST_COLUMNS, recordOrdersReadMetric } from './orderSyncConstants';
 import { OrdersChangeEvent, OrdersSubscriber, OrdersChangeSubscriber } from './orderSyncTypes';

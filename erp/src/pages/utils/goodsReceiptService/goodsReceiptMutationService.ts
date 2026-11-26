@@ -8,9 +8,9 @@ import {
   isValidUuid,
 } from './goodsReceiptMapper';
 import { syncGoodsReceiptItems } from './goodsReceiptItemsSync';
-import { getTestArtifactContext } from '../../../../../shared-utils/testArtifactContext';
+import { getTestArtifactContext } from '../../../../../shared-utils/testing/testArtifactContext';
 import { receiptInvoiceConflictError } from '../../../../../shared-utils/receiptInvoiceAvailability';
-import { withTimeout } from '../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../shared-utils/core/withTimeout';
 
 export const saveGoodsReceiptDraft = async (
   draftData: Partial<GoodsReceipt>

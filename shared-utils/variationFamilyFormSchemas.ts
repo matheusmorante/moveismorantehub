@@ -1,1 +1,1 @@
-export * from './schemas/variationFamilyFormSchemas';
+export * from './schemas/products/variationFamilyFormSchemas';

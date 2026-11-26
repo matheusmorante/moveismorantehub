@@ -1,7 +1,7 @@
 import Order from '../../types/order.type';
 import { supabase } from '../supabaseConfig';
 import { isEffectiveInventoryMove } from '../movingAverageCostRules';
-import { isPartialSaleStockMovement } from '../saleInventoryRules';
+import { isPartialSaleStockMovement } from '../sales/saleInventoryRules';
 
 /** Atualiza flags visuais com base em movimentações efetivas ou estornadas vinculadas ao pedido. */
 export const applyActualInventoryStatus = async (orders: Order[]): Promise<Order[]> => {

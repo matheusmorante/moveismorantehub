@@ -14,7 +14,7 @@ import {
   isYesNoCharacteristic,
   TechnicalFieldDefinition,
 } from '../../technicalValuesService';
-import { cleanupDependentCharacteristicsOnZero } from '../../../App/Products/components/tabs/technical/technicalSyncUtils';
+import { cleanupDependentCharacteristicsOnZero } from '../../../App/Products/components/tabs/technical/sync/technicalSyncUtils';
 
 describe('technicalValues - Regras de Categoria Pias, Materiais e Dependências', () => {
   it('identifica corretamente a categoria Pias por ID', () => {

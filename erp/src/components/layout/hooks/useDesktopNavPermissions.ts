@@ -1,8 +1,8 @@
 import { useMemo } from 'react';
 import type { UserProfile } from '../../../context/AuthContext';
-import { canPerform } from '../../../pages/utils/permissionService';
-import { getProfileRoles } from '../../../pages/utils/accessRoles';
-import { canSeeFinanceModuleBeta, canUseFinanceModule } from '../../../pages/utils/permissionConfig';
+import { canPerform } from '../../../pages/utils/auth/permissionService';
+import { getProfileRoles } from '../../../pages/utils/auth/accessRoles';
+import { canSeeFinanceModuleBeta, canUseFinanceModule } from '../../../pages/utils/auth/permissionConfig';
 
 export interface DesktopNavPermissions {
   // Roles

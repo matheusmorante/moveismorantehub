@@ -1,12 +1,12 @@
 import type { Product, Variation } from '@/pages/types/product.type';
-import { MAX_VARIATION_IMAGES } from '@/pages/utils/productImageLimits';
+import { MAX_VARIATION_IMAGES } from '@/pages/utils/productService/productImageLimits';
 import {
   buildProductVariationName,
   computeVariationName,
   getVariationNameAttributes,
   isVariationNamePlaceholderSuffix,
-} from '@/pages/utils/productVariationDefaults';
-import { generateVariationSku } from '@/pages/utils/productService';
+} from '@/pages/utils/productService/productVariationDefaults';
+import { generateVariationSku } from '@/pages/utils/productService/productService';
 import { toTitleCase } from '@/pages/utils/textUtils';
 import { resolveVariationDimensions } from '../../domain/variationRegistrationRules';
 

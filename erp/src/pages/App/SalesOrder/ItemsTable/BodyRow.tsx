@@ -3,14 +3,14 @@ import { createPortal } from 'react-dom';
 import { requestConfirmation } from '@/components/shared/confirmationService';
 import Product, { Variation } from '../../../types/product.type';
 import Item from '../../../types/items.type';
-import { ValidationErrors } from '../../../utils/validations';
-import { getNonStockOrigin } from '@/pages/utils/saleInventoryRules';
+import { ValidationErrors } from '../../../utils/sales/validations';
+import { getNonStockOrigin } from '@/pages/utils/sales/saleInventoryRules';
 import { useBodyRowPricing } from './useBodyRowPricing';
 import { BodyRowMobile } from './BodyRowMobile';
 import { BodyRowDesktop } from './BodyRowDesktop';
 import { useSettings, getSettings } from '@/pages/utils/settingsService';
 import { requiresAssemblyResponsible } from '../../../../../../shared-utils/commercialOrderRules';
-import { fetchSelectableDeep } from '../hooks/productSearchDeepFetch';
+import { fetchSelectableDeep } from '../hooks/items-pricing/productSearchDeepFetch';
 import { toast } from 'react-toastify';
 import './BudgetItemEditor.css';
 

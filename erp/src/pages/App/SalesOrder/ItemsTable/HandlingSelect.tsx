@@ -1,7 +1,7 @@
 import React, { useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Drill } from '@/components/shared/DrillIcon';
-import { isGenericHandlingLabel } from '@/pages/utils/handlingMigration';
+import { isGenericHandlingLabel } from '@/pages/utils/sales/handlingMigration';
 import type { HandlingOption } from '@/pages/utils/settingsService';
 
 const STANDARD_HANDLING_GREEN = '#10b981';

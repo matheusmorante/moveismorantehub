@@ -1,5 +1,5 @@
 import type * as OpenCv from '@techstark/opencv-js';
-import { withTimeout } from '../../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../../shared-utils/core/withTimeout';
 import {
   colorRefinementCandidates,
   colorForegroundCandidates,

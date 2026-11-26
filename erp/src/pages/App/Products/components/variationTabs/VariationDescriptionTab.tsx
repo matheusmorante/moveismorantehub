@@ -1,7 +1,7 @@
 import type React from 'react';
 import { useState } from 'react';
 import type { Product, Variation } from '@/pages/types/product.type';
-import { aiService } from '@/pages/utils/aiService';
+import { aiService } from '@/pages/utils/aiService/aiService';
 import { toast } from 'react-toastify';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { productDescriptionAiFormSchema } from '../../../../../../../shared-utils/productAiFormSchemas';

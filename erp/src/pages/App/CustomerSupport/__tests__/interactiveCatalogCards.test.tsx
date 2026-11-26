@@ -4,10 +4,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, renderHook, screen, waitFor } from '@testing-library/react';
 import type { WhatsAppMessage } from '../types';
 import { getCatalogMessageCaption, getCatalogRetailerIds } from '../catalogInteractiveProducts';
-import { CatalogProductCardsBoundary } from '../components/chat/CatalogProductCardsBoundary';
+import { CatalogProductCardsBoundary } from '../components/chat/area/CatalogProductCardsBoundary';
 import { InteractiveMessageMedia } from '../components/chat/bubble/media/InteractiveMessageMedia';
 import { useInteractiveCatalogProductCards } from '../hooks/useInteractiveCatalogProductCards';
-import { extractMessageContent } from '@/pages/utils/customerSupport/whatsappMessageContent';
+import { extractMessageContent } from '@/pages/utils/customerSupport/messageContent/whatsappMessageContent';
 
 const mocks = vi.hoisted(() => ({ query: vi.fn() }));
 vi.mock('@/pages/utils/supabaseConfig', () => ({

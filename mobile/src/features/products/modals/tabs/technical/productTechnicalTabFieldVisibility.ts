@@ -4,7 +4,7 @@ import {
   isProductTechnicalFieldApplicableByCategory,
   isProductTechnicalFieldRequired,
 } from '../../../domain/productCharacteristics';
-import type { MobileProductTechnicalField } from '../../../services/mobileProductTechnicalService';
+import type { MobileProductTechnicalField } from '../../../services/categories/mobileProductTechnicalService';
 
 interface ResolveVisibleProductTechnicalFieldsArgs {
   technicalFields: MobileProductTechnicalField[];

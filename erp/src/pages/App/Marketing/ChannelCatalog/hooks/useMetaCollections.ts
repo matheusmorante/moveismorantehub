@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { toast } from 'react-toastify';
 import { requestConfirmation } from '@/components/shared/confirmationService';
-import { whatsappGraphService } from '@/pages/utils/whatsappGraphService';
+import { whatsappGraphService } from '@/pages/utils/whatsapp/whatsappGraphService';
 import { MetaCollectionItem } from '../types';
 
 export function useMetaCollections() {

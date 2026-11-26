@@ -28,13 +28,13 @@ import {
   type ProductAiSuggestedCharacteristics,
 } from '../../../../../../shared-utils/productAiFormSchemas';
 import { applyMobileAiCharacteristicsToProduct, buildMobileAiSuggestionRows } from '../../domain/mobileProductAiApply';
-import type { MobileProductTechnicalField } from '../../services/mobileProductTechnicalService';
+import type { MobileProductTechnicalField } from '../../services/categories/mobileProductTechnicalService';
 import {
   extractMobileProductCharacteristicsFromText,
   extractMobileProductCharacteristicsWithAI,
   getMobileProductCharacteristicsQuota,
   type MobileProductCharacteristicsQuota,
-} from '../../services/mobileProductAiService';
+} from '../../services/products/mobileProductAiService';
 
 type Props = {
   formData: any;

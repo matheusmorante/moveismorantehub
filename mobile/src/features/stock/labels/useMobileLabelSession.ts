@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { AppState } from 'react-native';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from '../../../services/supabaseClient';
-import { withTimeout } from '../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../shared-utils/core/withTimeout';
 
 export function useMobileLabelSession() {
   const [session, setSession] = useState<Session | null>(null);

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import Product from '../../../../types/product.type';
 import Person from '../../../../types/person.type';
-import { subscribeToProducts } from '@/pages/utils/productService';
+import { subscribeToProducts } from '@/pages/utils/productService/productService';
 import { subscribeToPeople } from '@/pages/utils/personService';
 
 export interface UsePurchaseSubscriptionsProps {

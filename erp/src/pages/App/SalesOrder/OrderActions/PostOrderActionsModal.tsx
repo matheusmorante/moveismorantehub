@@ -40,6 +40,7 @@ const PostOrderActionsModal: React.FC<PostOrderActionsModalProps> = ({
   const isAdministrator =
     propIsAdministrator ?? Boolean(auth?.isAdministrator || auth?.isRealAdministrator);
   const orderId = order.id;
+  const isAssistanceOrder = order.orderType === 'assistance';
   const [nfeChoiceOrder, setNfeChoiceOrder] = React.useState<Order | null>(null);
   const [chosenEnvironment, setChosenEnvironment] = React.useState<1 | 2>(1);
   const [nfeEmissionOrder, setNfeEmissionOrder] = React.useState<Order | null>(null);
@@ -51,7 +52,10 @@ const PostOrderActionsModal: React.FC<PostOrderActionsModalProps> = ({
 
   React.useEffect(() => {
     let active = true;
-    if (!orderId) return;
+    if (!orderId || isAssistanceOrder) {
+      setFiscalStatuses(null);
+      return;
+    }
     void fetchOrderFiscalBadgeStatuses([orderId])
       .then((res) => {
         if (active) setFiscalStatuses(res[orderId] || null);
@@ -60,7 +64,7 @@ const PostOrderActionsModal: React.FC<PostOrderActionsModalProps> = ({
     return () => {
       active = false;
     };
-  }, [orderId]);
+  }, [orderId, isAssistanceOrder]);
 
   const isNfeIssued = Boolean(
     fiscalStatuses?.production === 'issued' ||
@@ -77,7 +81,11 @@ const PostOrderActionsModal: React.FC<PostOrderActionsModalProps> = ({
   const isCollectionScheduled =
     order.status === 'scheduled' &&
     (order.returnMethod === 'store_collection' || order.returnMethod == null);
-  const modalTitle = isReturnOrder ? 'Ações após cadastro' : 'Ações Pós-Venda';
+  const modalTitle = isAssistanceOrder
+    ? 'Ações necessárias'
+    : isReturnOrder
+      ? 'Ações após cadastro'
+      : 'Ações Pós-Venda';
   const availableActions = getAvailablePostOrderActions(order);
 
   const [clickedButtons, setClickedButtons] = React.useState<Record<string, boolean | undefined>>(
@@ -199,7 +207,9 @@ const PostOrderActionsModal: React.FC<PostOrderActionsModalProps> = ({
       <button
         type="button"
         aria-label={
-          isReturnOrder
+          isAssistanceOrder
+            ? 'Fechar modal de ações necessárias'
+            : isReturnOrder
             ? 'Fechar modal de ações após cadastro'
             : 'Fechar modal de ações pós-venda'
         }
@@ -238,7 +248,11 @@ const PostOrderActionsModal: React.FC<PostOrderActionsModalProps> = ({
 
         <div className="p-6 flex flex-col gap-3">
           <p className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
-            {isReturnOrder ? (
+            {isAssistanceOrder ? (
+              <>
+                Esta assistência é uma única operação. Use as ações necessárias abaixo para compartilhar ou registrar o atendimento.
+              </>
+            ) : isReturnOrder ? (
               <>
                 O <strong>pedido de devolução já foi cadastrado e gravado</strong>. Você pode{' '}
                 {isCollectionScheduled
@@ -253,7 +267,7 @@ const PostOrderActionsModal: React.FC<PostOrderActionsModalProps> = ({
           </p>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {!isReturnOrder && (
+            {!isReturnOrder && !isAssistanceOrder && (
               <button
                 type="button"
                 title={deliveryModalLabel}

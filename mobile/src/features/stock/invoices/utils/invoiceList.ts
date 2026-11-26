@@ -1,6 +1,6 @@
 import type { Invoice, InvoiceDateFilter } from '../../types/stock.types';
 import { normalizeFiscalIdentifier } from '../../../../../../shared-utils/fiscalIdentifiers';
-import { buildPostgrestAccentInsensitiveOrFilter } from '../../../../../../shared-utils/searchText';
+import { buildPostgrestAccentInsensitiveOrFilter } from '../../../../../../shared-utils/core/searchText';
 
 export const getInvoiceMonthBounds = (month: string) => {
   const [year, monthNumber] = month.split('-').map(Number);

@@ -4,7 +4,7 @@ const mocks = vi.hoisted(() => ({ from: vi.fn() }));
 
 vi.mock('../supabaseConfig', () => ({ supabase: { from: mocks.from } }));
 
-import { dispatchAppNotification } from '../pushNotificationService';
+import { dispatchAppNotification } from '../notifications/pushNotificationService';
 
 const payload = {
   orderId: 'pedido-teste',

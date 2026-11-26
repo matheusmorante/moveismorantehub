@@ -2,7 +2,7 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { AiAgentTabTestChat } from '../components/aiAgentModal/AiAgentTabTestChat';
+import { AiAgentTabTestChat } from '../components/aiAgentModal/testChat/AiAgentTabTestChat';
 import {
   DEFAULT_WHATSAPP_AI_AGENT_PROMPT,
   DEFAULT_KNOWLEDGE_ARTICLES,

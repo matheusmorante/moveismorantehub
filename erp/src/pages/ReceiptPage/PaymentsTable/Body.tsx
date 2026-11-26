@@ -1,6 +1,6 @@
 import { Payment } from '../../types/payments.type';
-import CurrencyDisplay from '../../../components/CurrencyDisplay';
-import { calcPaymentTotalValue } from '../../utils/calculations';
+import CurrencyDisplay from '../../../components/display/CurrencyDisplay';
+import { calcPaymentTotalValue } from '../../utils/sales/calculations';
 
 interface Props {
   payments?: Payment[] | null;

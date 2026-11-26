@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ElementModelsPanel } from './ElementModelsPanel';
 import type { Layer } from '../../types';
 const mocks = vi.hoisted(() => ({ upload: vi.fn() }));
-vi.mock('@/pages/utils/storageService', () => ({ uploadFile: mocks.upload }));
+vi.mock('@/pages/utils/shared/storageService', () => ({ uploadFile: mocks.upload }));
 vi.mock('../../services/elementModels', () => ({ loadElementModels: async () => [], saveElementModel: vi.fn(), applyElementModel: vi.fn() }));
 afterEach(cleanup);
 beforeEach(() => { vi.clearAllMocks(); mocks.upload.mockResolvedValue('https://example.com/element.png'); });

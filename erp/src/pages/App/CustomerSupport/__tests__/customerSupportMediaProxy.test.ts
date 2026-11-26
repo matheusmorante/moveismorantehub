@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import mediaHandler from '../../../../../../api/whatsapp-media';
 import webhookHandler from '../../../../../api/whatsapp-webhook';
-import { handleWhatsAppMedia } from '../../../utils/customerSupport/whatsappMediaProxy';
+import { handleWhatsAppMedia } from '../../../utils/customerSupport/messageContent/whatsappMediaProxy';
 
 const { createClient } = vi.hoisted(() => ({ createClient: vi.fn() }));
 vi.mock('@supabase/supabase-js', () => ({ createClient }));

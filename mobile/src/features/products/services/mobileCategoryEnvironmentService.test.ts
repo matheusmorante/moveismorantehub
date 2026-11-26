@@ -4,7 +4,7 @@ import {
   deleteMobileEnvironment,
   unlinkMobileCategoryFromEnvironment,
   fetchMobileCategories,
-} from './mobileCategoryService';
+} from './categories/mobileCategoryService';
 import { supabase } from '../../../services/supabaseClient';
 
 vi.mock('../../../services/supabaseClient', () => {

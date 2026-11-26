@@ -1,1 +1,1 @@
-export * from './schemas/operationConfirmationFormSchema';
+export * from './schemas/orders/operationConfirmationFormSchema';

@@ -6,9 +6,9 @@ import {
   productListFormSchema,
   type ProductListPageSize,
 } from '../../../../../shared-utils/listingFormSchemas';
-import { getProductCategoryIds, validateCatalogPublication } from '../../../../../shared-utils/catalogPublicationValidation';
+import { getProductCategoryIds, validateCatalogPublication } from '../../../../../shared-utils/catalogPublication/catalogPublicationValidation';
 import { getProductCatalogMutationFailureNotice } from '../../../../../shared-utils/productCatalogPermission';
-import { withTimeout } from '../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../shared-utils/core/withTimeout';
 import {
   isProductVariationSearchTooBroadError,
 } from '../../../../../shared-utils/productListSearch';
@@ -27,17 +27,17 @@ import {
   shouldClearMobileProductListSnapshot,
 } from '../domain/mobileProductListRequest';
 import { applyMobileProductCatalogStatusToList } from '../domain/mobileProductListCatalogStatus';
-import { fetchMobileProductsPage } from '../services/mobileProductFetchService';
+import { fetchMobileProductsPage } from '../services/products/mobileProductFetchService';
 import {
   fetchMobileProductTechnicalFields,
   type MobileProductTechnicalField,
-} from '../services/mobileProductTechnicalService';
+} from '../services/categories/mobileProductTechnicalService';
 import {
   deleteMobileProduct,
   saveMobileProduct,
   toggleMobileProductCatalog,
-} from '../services/mobileProductMutationService';
-import { triggerMobileProductMetaCatalogSync } from '../services/mobileProductMetaCatalogSyncService';
+} from '../services/products/mobileProductMutationService';
+import { triggerMobileProductMetaCatalogSync } from '../services/catalog/mobileProductMetaCatalogSyncService';
 import { useMobileProductListSearch } from './useMobileProductListSearch';
 import { useMobileProductActivationActions } from './useMobileProductActivationActions';
 import { useMobileProductTrashActions } from './useMobileProductTrashActions';

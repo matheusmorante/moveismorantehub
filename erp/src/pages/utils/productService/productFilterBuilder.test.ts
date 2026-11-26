@@ -6,7 +6,7 @@ vi.mock('@/pages/utils/supabaseConfig', () => ({
   isTestEnvironment: false,
 }));
 
-import { applyProductFiltersAndSort } from './productFilterBuilder';
+import { applyProductFiltersAndSort } from './mapping/productFilterBuilder';
 import { PRODUCT_LIST_PRODUCT_ITEM_TYPE_FILTER } from '../../../../../shared-utils/productListTypeFilters';
 import { PRODUCT_LIST_DRAFT_FILTER } from '../../../../../shared-utils/productListDraftFilters';
 

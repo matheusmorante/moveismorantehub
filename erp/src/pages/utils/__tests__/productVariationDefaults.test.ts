@@ -6,7 +6,7 @@ import {
   getIncompleteVariationAttributes,
   hasMissingRequiredAttributes,
   ensureDefaultVariation,
-} from '../productVariationDefaults';
+} from '../productService/productVariationDefaults';
 
 describe('computeVariationName', () => {
   it('compõe o título com quantidades de portas e gavetas na ordem escolhida', () => {

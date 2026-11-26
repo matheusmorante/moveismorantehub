@@ -1,5 +1,5 @@
 import CustomerData from '../types/customerData.type';
-import { toTitleCase } from '../utils/formatters';
+import { toTitleCase } from '../utils/shared/formatters';
 
 interface Props {
   customerData: CustomerData;

@@ -4,7 +4,7 @@ import { LEGACY_TEMPLATES } from '../legacyTemplates';
 import { compositionTemplate } from '../compositionDefaults';
 import { decodeTemplateLayers, encodeTemplateLayers } from '../templateMetadata';
 import { marketingTemplateFormSchema, marketingTemplateFormValues } from '../../../../../../../../shared-utils/marketingFormSchemas';
-import { withTimeout } from '../../../../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../../../../shared-utils/core/withTimeout';
 
 const LOCAL_STORAGE_TEMPLATES_KEY = 'morante_marketing_templates_v1';
 const canonicalJson = (value: unknown) => JSON.stringify(value, (_key, item) => item && typeof item === 'object' && !Array.isArray(item) ? Object.fromEntries(Object.entries(item).sort(([a], [b]) => a.localeCompare(b))) : item);

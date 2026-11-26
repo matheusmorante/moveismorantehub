@@ -1,6 +1,6 @@
 import React from 'react';
 import DropdownPortal from '../../../../components/shared/DropdownPortal';
-import { formatCurrency } from '../../../utils/formatters';
+import { formatCurrency } from '../../../utils/shared/formatters';
 import paymentMethods from './paymentMethods';
 
 interface Props {

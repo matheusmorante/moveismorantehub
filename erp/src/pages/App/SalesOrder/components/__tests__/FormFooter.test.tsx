@@ -2,7 +2,7 @@
 import React from 'react';
 import { cleanup, fireEvent, render } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import FormFooter from '../FormFooter';
+import FormFooter from '../form/FormFooter';
 import type Order from '@/pages/types/order.type';
 
 const baseProps = {

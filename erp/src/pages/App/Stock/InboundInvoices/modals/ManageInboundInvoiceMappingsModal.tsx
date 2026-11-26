@@ -1,5 +1,5 @@
 import PersonFormModal from '@/pages/App/Registrations/shared/modals/PersonFormModal';
-import SupplierAutocomplete from '@/components/SupplierAutocomplete';
+import SupplierAutocomplete from '@/components/selectors/SupplierAutocomplete';
 import { InboundInvoiceItemsReview } from '../components/InboundInvoiceItemsReview';
 import {
   useInboundInvoiceMappingsModal,

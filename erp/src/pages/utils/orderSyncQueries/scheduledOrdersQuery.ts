@@ -1,7 +1,7 @@
 import { fetchOrderScheduleRows } from '../../../../../shared-utils/orderScheduleServerQuery';
 import Order from '../../types/order.type';
 import { supabase } from '@/pages/utils/supabaseConfig';
-import { capitalizeOrder } from '../formatters';
+import { capitalizeOrder } from '../shared/formatters';
 import { mapOrderFromDatabase } from '../orderMapper';
 import { ORDER_SUMMARY_COLUMNS } from '../../../../../shared-utils/orderSummaryQuery';
 import { isValidOrderRow, enrichOrdersWithPeopleOrigins } from './orderPeopleEnrichment';

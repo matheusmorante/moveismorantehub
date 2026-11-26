@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import CurrencyInput from '@/components/CurrencyInput';
+import CurrencyInput from '@/components/inputs/CurrencyInput';
 import {
   CONDITION_OPERATORS, isPercentageField, isPriceField, MAX_CONDITION_VALUE_LENGTH, MAX_CONDITION_VALUES,
   parseCatalogPrice, parseConditionValues, serializeConditionValues,

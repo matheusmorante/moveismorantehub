@@ -5,7 +5,7 @@ import { toast } from 'react-toastify';
 import { requestConfirmation } from '@/components/shared/confirmationService';
 import { ERPListPagination } from '@/components/shared/ERPListPagination';
 import { useAuth } from '@/context/AuthContext';
-import { canPerform } from '@/pages/utils/permissionService';
+import { canPerform } from '@/pages/utils/auth/permissionService';
 import {
   fetchStockUnavailabilities,
   STOCK_UNAVAILABILITIES_PAGE_SIZE,

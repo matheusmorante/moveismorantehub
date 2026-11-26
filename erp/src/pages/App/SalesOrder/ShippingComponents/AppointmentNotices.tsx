@@ -1,13 +1,13 @@
 import React, { useEffect } from 'react';
-import SectionCard from '@/components/SectionCard';
-import NoticeInput from '@/components/NoticeInput';
+import SectionCard from '@/components/display/SectionCard';
+import NoticeInput from '@/components/inputs/NoticeInput';
 import type Shipping from '@/pages/types/Shipping.type';
 import {
   DELIVERY_NOTICE_OPTIONS,
   normalizeNotice,
   type DeliveryNoticeField,
 } from '../components/steps/logisticsNoticeRules';
-import { joinNoticeTags, splitNoticeTags } from '@/pages/utils/noticeTags';
+import { joinNoticeTags, splitNoticeTags } from '@/pages/utils/shared/noticeTags';
 
 type OperationNotices = NonNullable<
   NonNullable<Shipping['scheduling']['appointments']>[number]['notices']

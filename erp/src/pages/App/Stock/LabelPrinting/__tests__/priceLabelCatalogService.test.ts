@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { searchProductsForLabel, searchProductsForLabelResult, extractProductName } from '../services/priceLabelCatalogService';
 import { supabase } from '@/pages/utils/supabaseConfig';
-import * as productLocalCache from '@/pages/utils/productService/productLocalCache';
+import * as productLocalCache from '@/pages/utils/productService/drafts/productLocalCache';
 
 vi.mock('@/pages/utils/supabaseConfig', () => ({
   supabase: {
@@ -9,7 +9,7 @@ vi.mock('@/pages/utils/supabaseConfig', () => ({
   },
 }));
 
-vi.mock('@/pages/utils/productService/productLocalCache', () => ({
+vi.mock('@/pages/utils/productService/drafts/productLocalCache', () => ({
   getLocalProducts: vi.fn(),
 }));
 

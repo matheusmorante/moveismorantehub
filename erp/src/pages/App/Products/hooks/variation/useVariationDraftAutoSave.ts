@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Variation } from '@/pages/types/product.type';
-import type { ProductDraftAutoSaveStatus } from '../form/useProductFormDraft';
+import type { ProductDraftAutoSaveStatus } from '../form/drafts/useProductFormDraft';
 import { useZodForm } from '@/hooks/useZodForm';
 import { productVariationDraftSchema } from '../../../../../../../shared-utils/productVariationValidation';
 

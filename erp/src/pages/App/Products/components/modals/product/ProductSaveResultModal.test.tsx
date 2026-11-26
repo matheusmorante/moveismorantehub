@@ -4,12 +4,12 @@ import { act, render, screen, fireEvent, cleanup, waitFor } from '@testing-libra
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import { ProductSaveResultModal } from './ProductSaveResultModal';
 import type Product from '@/pages/types/product.type';
-import { normalizeProductForSave } from '@/pages/utils/productKindRules';
-import * as productService from '@/pages/utils/productService';
+import { normalizeProductForSave } from '@/pages/utils/productService/productKindRules';
+import * as productService from '@/pages/utils/productService/productService';
 import * as characteristicGroupService from '@/pages/utils/characteristicGroupService';
 import * as technicalFieldService from '@/pages/App/Products/services/technicalFieldService';
 
-vi.mock('@/pages/utils/productService', () => ({
+vi.mock('@/pages/utils/productService/productService', () => ({
   saveProduct: vi.fn().mockResolvedValue('prod-123'),
 }));
 vi.mock('@/pages/App/Products/services/technicalFieldService', () => ({

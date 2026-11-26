@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getDefaultSettings } from '@/pages/utils/settings/defaults';
 const mocks = vi.hoisted(() => ({ connection: vi.fn(), templates: vi.fn(), send: vi.fn(), error: vi.fn(), success: vi.fn(), user: { id: 'operator' } }));
 vi.mock('@/context/AuthContext', () => ({ useAuth: () => ({ user: mocks.user }) }));
-vi.mock('@/pages/utils/whatsappGraphService', () => ({ whatsappGraphService: { testConnection: mocks.connection, fetchMessageTemplates: mocks.templates, sendTemplateMessage: mocks.send } }));
+vi.mock('@/pages/utils/whatsapp/whatsappGraphService', () => ({ whatsappGraphService: { testConnection: mocks.connection, fetchMessageTemplates: mocks.templates, sendTemplateMessage: mocks.send } }));
 vi.mock('react-toastify', () => ({ toast: { warning: mocks.error, error: mocks.error, info: vi.fn(), success: mocks.success } }));
 import WhatsAppConfigSection from './WhatsAppConfigSection';
 const settings = () => ({ ...getDefaultSettings(), whatsappConfig: { accessToken: ' legacy-token ', phoneNumberId: ' sender ', wabaId: ' waba ', catalogId: '', templateNameOrderConfirmation: ' order_template ', templateLanguage: ' pt_BR ', templateVariableCount: 0 } });

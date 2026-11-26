@@ -2,7 +2,7 @@ import { afterEach, describe, it, expect, vi, beforeEach } from 'vitest';
 import { fetchGoodsReceiptsPage, subscribeToGoodsReceipts } from '../goodsReceiptQueryService';
 import { GoodsReceipt } from '../goodsReceipt.types';
 import * as storage from '../goodsReceiptStorage';
-import { buildPostgrestAccentInsensitiveOrFilter } from '../../../../../../shared-utils/searchText';
+import { buildPostgrestAccentInsensitiveOrFilter } from '../../../../../../shared-utils/core/searchText';
 
 // Mock localStorage
 const localStorageMock = (() => {

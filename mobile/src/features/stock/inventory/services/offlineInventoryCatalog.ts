@@ -22,7 +22,7 @@ import {
   getInventoryResponsibleDisplayName,
   isEligibleInventoryResponsible,
 } from '../../../../../../shared-utils/inventoryResponsible';
-import { withTimeout } from '../../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../../shared-utils/core/withTimeout';
 import { isTestProduct } from '../../../../../../shared-utils/isTestProduct';
 
 export type { OfflineInventoryCatalog, OfflineInventoryMatch };

@@ -1,4 +1,4 @@
-import { formatToBRDate } from '../utils/formatters';
+import { formatToBRDate } from '../utils/shared/formatters';
 import { formatOrderCode } from '../utils/orderCode';
 import logoMorante from '../../assets/logo-morante.svg';
 

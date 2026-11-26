@@ -1,8 +1,8 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { WhatsAppConversation } from '../../types';
-import { formatPhoneForDisplay } from '@/pages/utils/customerSupport/phoneUtils';
-import { CustomerSummary } from '@/pages/utils/customerSupport/customerMatchingService';
+import { formatPhoneForDisplay } from '@/pages/utils/customerSupport/query/phoneUtils';
+import { CustomerSummary } from '@/pages/utils/customerSupport/query/customerMatchingService';
 
 interface CustomerDetailsTabProps {
   conversation: WhatsAppConversation;

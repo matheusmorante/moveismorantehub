@@ -1,6 +1,6 @@
 import React from 'react';
 import Order from '../../../../types/order.type';
-import { getLocalISODate } from '../../../../utils/formatters';
+import { getLocalISODate } from '../../../../utils/shared/formatters';
 import { DeliveryOrderCard } from './DeliveryOrderCard';
 
 interface CardDateSectionProps {

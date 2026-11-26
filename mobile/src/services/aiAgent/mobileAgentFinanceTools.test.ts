@@ -2,16 +2,16 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const rpc = vi.hoisted(() => vi.fn());
 vi.mock('../supabaseClient', () => ({ supabase: { rpc } }));
-vi.mock('../financial/mobileCategoryService', () => ({
+vi.mock('../financial/crud/mobileCategoryService', () => ({
   fetchFinancialCategories: vi.fn().mockResolvedValue([]),
   fetchFinancialCategoriesForAgent: vi.fn().mockResolvedValue([]),
 }));
-vi.mock('../financial/mobileTransactionCrudService', () => ({
+vi.mock('../financial/crud/mobileTransactionCrudService', () => ({
   deleteFinancialTransaction: vi.fn(),
   updateFinancialTransaction: vi.fn(),
   createFinancialTransaction: vi.fn(),
 }));
-vi.mock('../../features/finance/components/transactionModalUtils', () => ({
+vi.mock('../../features/finance/components/modals/transactionModalUtils', () => ({
   VEHICLES: [],
   isProLaboreCat: vi.fn(() => false),
   buildIncomeCategories: vi.fn((categories) => categories),

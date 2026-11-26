@@ -1,5 +1,5 @@
 import React from 'react';
-import { formatCurrency, formatToBRDate } from '@/pages/utils/formatters';
+import { formatCurrency, formatToBRDate } from '@/pages/utils/shared/formatters';
 import type {
   CancellationEligibility,
   FiscalDocumentDetails,

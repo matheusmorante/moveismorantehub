@@ -1,0 +1,400 @@
+import { supabase } from '@/pages/utils/supabaseConfig';
+import type Product from '../../../types/product.type';
+import { isNonConventionalProduct, isSalvadoProduct } from '../productKindRules';
+import { normalizeVariationSku } from '../productVariationDefaults';
+import { resolveUniqueSlug } from '../../shared/uniqueSlug';
+import { MAX_VARIATION_IMAGES } from '../mapping/productImageHelpers';
+import { mapToDB } from '../mapping/productMapper';
+import { generateUniqueCode, TABLE_NAME } from './productSkuService';
+import { withTimeout } from '../../../../../../shared-utils/core/withTimeout';
+import {
+  findNextAvailableVariationSku,
+  generateVariationSku,
+} from '../../../../../../shared-utils/productVariationSku';
+import {
+  fetchRequiredProductCategoryAttributes,
+  projectRequiredCategoryAttributesToVariations,
+  type RequiredProductCategoryAttribute,
+} from '../../../../../../shared-utils/productCategoryRequiredAttributes';
+
+export const ensureUuidFormat = (product: Partial<Product>): string => {
+  if (!product.id) return crypto.randomUUID();
+  const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(product.id);
+  if (isUUID) return product.id;
+  throw new Error(
+    'IDs existentes são imutáveis. Um cadastro legado sem UUID deve ser regularizado em manutenção externa antes de ser alterado.'
+  );
+};
+
+export const isCompositionProduct = (product: Partial<Product>): boolean =>
+  product.itemType === 'composition' || (product as any).item_type === 'composition';
+
+/** Availability of a composition is a read projection, not physical inventory. */
+export const omitCompositionAvailabilityStock = <T extends Partial<Product>>(product: T): T => {
+  if (!isCompositionProduct(product)) return product;
+
+  return {
+    ...product,
+    stock: undefined,
+    variations: product.variations?.map((variation) => ({ ...variation, stock: undefined })),
+  } as T;
+};
+
+export const syncProductToSupabase = async (
+  product: Product,
+  options: { insertOnly?: boolean } = {}
+): Promise<void> => {
+  try {
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+      product.id || ''
+    );
+    if (!isUUID) {
+      throw new Error(
+        'Produto sem UUID válido. IDs existentes não podem ser regenerados pelo sistema; regularize-o diretamente em manutenção externa.'
+      );
+    }
+
+    const categoryIds = Array.isArray(product.categoryIds)
+      ? product.categoryIds.map(String).filter(Boolean)
+      : (product as any).category_id
+        ? [String((product as any).category_id)]
+        : [];
+    let requiredCategoryAttributes: RequiredProductCategoryAttribute[] = [];
+    if ((product.variations?.length || 0) > 0 && categoryIds.length > 0) {
+      const fetchedAttributes = await withTimeout(
+        fetchRequiredProductCategoryAttributes(supabase, categoryIds),
+        15000,
+        null,
+        'produto:carregar-atributos-obrigatorios'
+      );
+      if (!fetchedAttributes) {
+        throw new Error('Não foi possível confirmar os atributos obrigatórios da categoria. O produto não foi alterado.');
+      }
+      requiredCategoryAttributes = fetchedAttributes;
+    }
+
+    // Composition availability is calculated from its components when read. Do not
+    // write that projection over the physical-stock cache maintained by inventory moves.
+    const persistenceProduct = omitCompositionAvailabilityStock(product);
+    const dbData = mapToDB(persistenceProduct);
+    // Remover propriedades que não são colunas diretas da tabela products
+    delete dbData.variations;
+    delete dbData.category;
+    delete dbData.ecommerce_description;
+    delete dbData.whatsapp_description;
+    delete dbData.whatsapp_template;
+    delete dbData.ecommerce_template;
+    delete dbData.initial_stock_entries;
+    delete dbData.meta_title;
+    delete dbData.meta_description;
+    delete dbData.seo_description;
+
+    dbData.slug = await resolveUniqueSlug(
+      supabase,
+      TABLE_NAME,
+      dbData.slug || dbData.name || product.description || 'produto',
+      dbData.id
+    );
+
+    // Preencher category_id primário na tabela products se houver categorias selecionadas
+    if (Array.isArray(product.categoryIds) && product.categoryIds.length > 0) {
+      dbData.category_id = product.categoryIds[0];
+    } else if (Array.isArray(product.categoryIds) && product.categoryIds.length === 0) {
+      dbData.category_id = null;
+    }
+
+    // Sincronizar active com base nas variações quando existirem
+    if (isNonConventionalProduct(product)) {
+      dbData.active = false;
+    } else if (Array.isArray(product.variations) && product.variations.length > 0) {
+      const hasActiveVariation = product.variations.some((v) => v.active !== false);
+      dbData.active = product.isDraft ? false : hasActiveVariation;
+    }
+
+    // O upsert atende tanto produtos novos quanto edições pelo UUID.
+    dbData.name = dbData.name || product.description || 'Produto Sem Nome';
+    let { error: productError } = options.insertOnly
+      ? await supabase.from(TABLE_NAME).insert(dbData)
+      : await supabase.from(TABLE_NAME).upsert(dbData);
+    if (
+      productError &&
+      (productError.code === '23505' || productError.message?.toLowerCase().includes('slug'))
+    ) {
+      dbData.slug = await resolveUniqueSlug(supabase, TABLE_NAME, dbData.slug, dbData.id);
+      const retry = options.insertOnly
+        ? await supabase.from(TABLE_NAME).insert(dbData)
+        : await supabase.from(TABLE_NAME).upsert(dbData);
+      productError = retry.error;
+    }
+    if (productError) throw productError;
+
+    // Sincronizar categorias e imagens em paralelo
+    await Promise.all([
+      (async () => {
+        if (product.id && Array.isArray(product.categoryIds)) {
+          try {
+            await supabase.from('product_categories').delete().eq('product_id', product.id);
+            if (product.categoryIds.length > 0) {
+              const categoryRecords = product.categoryIds.map((catId) => ({
+                product_id: product.id,
+                category_id: catId,
+              }));
+              const { error: catInsertErr } = await supabase
+                .from('product_categories')
+                .insert(categoryRecords);
+              if (catInsertErr) {
+                console.warn('[ProductService] Aviso ao inserir product_categories:', catInsertErr);
+              }
+            }
+          } catch (catErr) {
+            console.error('[ProductService] Erro ao sincronizar product_categories:', catErr);
+          }
+        }
+      })(),
+      (async () => {
+        if (product.id && Array.isArray(product.images)) {
+          const { error: imageSyncError } = await supabase.rpc('replace_product_images', {
+            p_product_id: product.id,
+            p_image_urls: product.images,
+          });
+          if (imageSyncError) throw imageSyncError;
+        }
+      })(),
+    ]);
+
+    // Sincronizar variações na tabela product_variations
+    if (product.id) {
+      if (
+        (product.hasVariations ||
+          (Array.isArray(product.variations) && product.variations.length > 0)) &&
+        product.variations &&
+        product.variations.length > 0
+      ) {
+        const existingSpecs =
+          persistenceProduct.technicalSpecs || (persistenceProduct as any).technical_specs || {};
+        const variationsToPersist = projectRequiredCategoryAttributesToVariations(
+          [...(persistenceProduct.variations || [])],
+          {
+            categoryIds,
+            requiredAttributes: requiredCategoryAttributes,
+            parentTechnicalValues: {
+              ...(existingSpecs.technicalValues || {}),
+              ...(product.technicalValues || {}),
+            },
+          }
+        );
+        // Foto é requisito de publicação no catálogo, não requisito operacional.
+        const isUuid = (value?: string) =>
+          Boolean(
+            value && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)
+          );
+        const variationsWithUuid = variationsToPersist
+          .map((variation, originalIndex) => ({ variation, originalIndex }))
+          .filter(({ variation }) => isUuid(variation.id));
+        if (variationsWithUuid.length !== product.variations.length) {
+          console.warn(
+            '[ProductService] Variações legadas sem UUID foram preservadas e ignoradas neste salvamento.'
+          );
+        }
+
+        const variationParentCode =
+          product.code && product.code !== '000000'
+            ? product.code
+            : generateUniqueCode(product.id, product.itemType);
+        const candidateSkus = [
+          ...new Set(
+            variationsWithUuid
+              .map(({ variation: v, originalIndex: index }) => {
+                const defaultSku = generateVariationSku(variationParentCode, index);
+                const rawSku =
+                  v.sku && typeof v.sku === 'string'
+                    ? normalizeVariationSku(v.sku.trim(), variationParentCode)
+                    : '';
+                return rawSku || defaultSku;
+              })
+              .filter(Boolean)
+          ),
+        ];
+
+        const [currentParentVariationsResult, existingVariationsResult] = await Promise.all([
+          !isNonConventionalProduct(product)
+            ? supabase
+                .from('product_variations')
+                .select('id, sku')
+                .eq('product_id', product.id)
+            : Promise.resolve({ data: null, error: null }),
+          candidateSkus.length > 0
+            ? supabase
+                .from('product_variations')
+                .select('id, sku')
+                .in('sku', candidateSkus)
+            : Promise.resolve({ data: [], error: null }),
+        ]);
+
+        if (currentParentVariationsResult.error) throw currentParentVariationsResult.error;
+        if (existingVariationsResult.error) throw existingVariationsResult.error;
+
+        let generatedDefaultId: string | undefined;
+        if (!isNonConventionalProduct(product)) {
+          const requestedIds = new Set(variationsToPersist.map((item) => item.id));
+          const generatedDefault = (currentParentVariationsResult.data || []).find(
+            (item: any) =>
+              String(item.sku || '').startsWith('DEFAULT-') && !requestedIds.has(item.id)
+          );
+          generatedDefaultId = generatedDefault?.id;
+        }
+
+        const requestedVariationIds = new Set(
+          variationsWithUuid.map(({ variation }) => String(variation.id))
+        );
+        const existingSkuOwners = new Map<string, string>();
+        const usedSkus = new Set<string>();
+        for (const existingVariation of existingVariationsResult.data || []) {
+          const sku = String(existingVariation.sku || '').trim();
+          const id = String(existingVariation.id || '');
+          if (!sku) continue;
+          existingSkuOwners.set(sku, id);
+          if (!requestedVariationIds.has(id)) usedSkus.add(sku);
+        }
+
+        const findAvailableSequentialSku = (variationId: string): Promise<string> =>
+          findNextAvailableVariationSku(
+            variationParentCode,
+            async (candidates) => {
+              const result = await withTimeout(
+                supabase
+                  .from('product_variations')
+                  .select('id, sku')
+                  .in('sku', [...candidates]),
+                10000,
+                null,
+                'produto:consultar-sku-sequencial-livre'
+              );
+              if (!result) {
+                throw new Error('A consulta de disponibilidade do SKU expirou. O produto não foi salvo.');
+              }
+              if (result.error) throw result.error;
+
+              const persistedCollisions = new Set<string>();
+              for (const existingVariation of result.data || []) {
+                const sku = String(existingVariation.sku || '').trim();
+                const id = String(existingVariation.id || '');
+                if (!sku) continue;
+                existingSkuOwners.set(sku, id);
+                if (id !== variationId) {
+                  persistedCollisions.add(sku);
+                  usedSkus.add(sku);
+                }
+              }
+              return persistedCollisions;
+            },
+            usedSkus
+          );
+
+        const recordsToSave: any[] = [];
+        for (const { variation: v, originalIndex: index } of variationsWithUuid) {
+          const attributesToSave = (v.attributes || [])
+            .filter((attr: any) => attr.name && (attr.value === null || typeof attr.value === 'boolean' || (typeof attr.value === 'string' && attr.value.trim())))
+            .map((attr: any) => ({
+              name: attr.name,
+              value: attr.value,
+              showName: attr.showName ?? true,
+            }));
+
+          const defaultSku = generateVariationSku(variationParentCode, index);
+          const sourceSku = v.sku && typeof v.sku === 'string' ? v.sku.trim() : '';
+          const rawSku =
+            sourceSku ? normalizeVariationSku(sourceSku, variationParentCode) : '';
+          const wasLegacySkuNormalized = Boolean(sourceSku && rawSku !== sourceSku);
+          let resolvedSku = rawSku || defaultSku;
+          const existingOwnerId = existingSkuOwners.get(resolvedSku);
+          const collidesWithAnotherVariation =
+            usedSkus.has(resolvedSku) ||
+            (existingOwnerId !== undefined && existingOwnerId !== String(v.id));
+          if (collidesWithAnotherVariation) {
+            if (!rawSku || rawSku === defaultSku || product.isDraft || wasLegacySkuNormalized) {
+              resolvedSku = await findAvailableSequentialSku(String(v.id));
+            } else {
+              throw new Error(
+                `O SKU da variação "${resolvedSku}" já está em uso.`
+              );
+            }
+          }
+          usedSkus.add(resolvedSku);
+          existingSkuOwners.set(resolvedSku, String(v.id));
+          v.sku = resolvedSku;
+
+          const effectiveImages = v.images || [];
+          recordsToSave.push({
+            ...(v.id ? { id: v.id } : {}),
+            product_id: product.id,
+            name: v.name,
+            sku: resolvedSku,
+            price: v.syncUnitPrice
+              ? product.unitPrice
+                ? Number(product.unitPrice)
+                : 0
+              : v.unitPrice !== undefined && v.unitPrice !== null
+                ? Number(v.unitPrice)
+                : 0,
+            ...(isSalvadoProduct(product)
+              ? { stock: null }
+              : isCompositionProduct(product)
+                ? {}
+                : { stock: v.stock ? parseInt(String(v.stock), 10) : 0 }),
+            image_url: effectiveImages.length > 0 ? effectiveImages.join(',') : null,
+            attributes: attributesToSave,
+            combo_items: Array.isArray((v as any).comboItems) ? (v as any).comboItems : [],
+            promo_price:
+              v.syncPromoPrice !== false
+                ? product.promoPrice
+                  ? Number(product.promoPrice)
+                  : null
+                : v.promoPrice !== undefined && v.promoPrice !== null
+                  ? Number(v.promoPrice)
+                  : null,
+            description: v.syncDescription ? null : v.description || null,
+            width: v.width ? String(v.width) : null,
+            depth: v.depth ? String(v.depth) : null,
+            height: v.height ? String(v.height) : null,
+            use_parent_price: v.syncUnitPrice !== false,
+            use_parent_promo_price: v.syncPromoPrice !== false,
+            use_parent_dimensions: v.syncWidth !== false,
+            use_parent_description: v.syncDescription !== false,
+            use_parent_name: true,
+            status: v.status || product.status || 'hidden',
+            active: isNonConventionalProduct(product)
+              ? false
+              : v.active !== undefined
+                ? Boolean(v.active)
+                : product.active !== false,
+          });
+        }
+
+        if (recordsToSave.length > 0) {
+          const { error: varErr } = options.insertOnly
+            ? await supabase.from('product_variations').insert(recordsToSave)
+            : await supabase.from('product_variations').upsert(recordsToSave);
+          if (varErr) throw varErr;
+          if (generatedDefaultId) {
+            // Replace the deferred placeholder only after the requested rows exist,
+            // so the database never sees a committed product with zero variations.
+            const { error: defaultDeleteError } = await supabase
+              .from('product_variations')
+              .delete()
+              .eq('id', generatedDefaultId);
+            if (defaultDeleteError) throw defaultDeleteError;
+          }
+
+          if (!product.isDraft) {
+            const hasActive = recordsToSave.some((r) => r.active !== false);
+            await supabase.from(TABLE_NAME).update({ active: hasActive }).eq('id', product.id);
+          }
+        }
+      }
+    }
+  } catch (err: any) {
+    console.error('[ProductService] Erro ao salvar dados no Supabase:', err);
+    throw new Error(err.message || 'Erro ao salvar no Supabase', { cause: err });
+  }
+};

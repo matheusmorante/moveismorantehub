@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 import { toast } from 'react-toastify';
 import type Order from '@/pages/types/order.type';
 import { flattenFormErrors } from '@/hooks/useZodForm';
-import { getPostSaleActionsStaleAfterEdit } from '@/pages/utils/postSaleActions';
+import { getPostSaleActionsStaleAfterEdit } from '@/pages/utils/sales/postSaleActions';
 
 interface UseOrderEditFiscalFlowParams {
   readonly effectiveOrder: Order | null;

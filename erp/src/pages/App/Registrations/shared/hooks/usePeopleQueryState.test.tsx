@@ -23,7 +23,7 @@ vi.mock('@/pages/utils/personService', () => ({
   updatePerson: mocks.updatePerson,
   syncMissingEmployeesFromProfiles: mocks.syncMissingEmployeesFromProfiles,
 }));
-vi.mock('@/pages/utils/accessRoles', () => ({ getProfileRoles: () => ['seller'] }));
+vi.mock('@/pages/utils/auth/accessRoles', () => ({ getProfileRoles: () => ['seller'] }));
 vi.mock('react-toastify', () => ({ toast: { error: vi.fn(), success: vi.fn(), info: vi.fn() } }));
 
 import { usePeople } from './usePeople';

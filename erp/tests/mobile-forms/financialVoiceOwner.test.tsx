@@ -5,12 +5,12 @@ vi.mock('react-native', () => ({ Alert: { alert: mocks.alert }, ScrollView: 'div
 vi.mock('../../../mobile/src/services/mobileFinanceService', () => ({ confirmFinancialDraft: mocks.confirm, createFinancialTransaction: mocks.create }));
 vi.mock('../../../mobile/src/services/financialAiAssistantService', () => ({ extractLocalSemanticDelta: mocks.semantic, PRE_ANALYSIS_DEBOUNCE_MS: 100, MAX_VOICE_INACTIVITY_MS: 1000 }));
 vi.mock('../../../mobile/src/services/aiAgent/mobileAgentService', () => ({ MobileAgentService: { sendMessage: vi.fn() } }));
-vi.mock('../../../mobile/src/services/geminiLiveService', () => ({ GeminiLiveSession: class {
+vi.mock('../../../mobile/src/services/voice/geminiLiveService', () => ({ GeminiLiveSession: class {
   id: string; callbacks: any;
   constructor(callbacks: any) { this.id = 'live-' + mocks.sessions.length; this.callbacks = callbacks; mocks.sessions.push(this); }
   start() { return mocks.liveStart(this); } end() { return mocks.liveEnd(this); } pause() { return mocks.pause(this); } resume() { return mocks.resume(this); } toggleMute() { return mocks.mute(this); }
 } }));
-vi.mock('../../../mobile/src/services/voiceRecorderService', () => ({ startVoiceRecording: mocks.record, stopVoiceRecording: mocks.stop }));
+vi.mock('../../../mobile/src/services/voice/voiceRecorderService', () => ({ startVoiceRecording: mocks.record, stopVoiceRecording: mocks.stop }));
 import { useFinancialAiChat } from '../../../mobile/src/features/finance/hooks/useFinancialAiChat';
 const pending = <T,>() => { let resolve!: (value: T) => void; const promise = new Promise<T>(done => { resolve = done; }); return { promise, resolve }; };
 beforeEach(() => {

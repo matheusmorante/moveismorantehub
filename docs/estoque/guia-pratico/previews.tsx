@@ -5,7 +5,7 @@ import { MemoryRouter } from 'react-router-dom';
 import '../../../erp/src/index.css';
 import { QuickRegisterVariationModal } from '@/pages/App/Stock/InboundInvoices/modals/QuickRegisterVariationModal';
 import { InboundInvoiceItemRow } from '@/pages/App/Stock/InboundInvoices/components/InboundInvoiceItemRow';
-import SupplierAutocomplete from '@/components/SupplierAutocomplete';
+import SupplierAutocomplete from '@/components/selectors/SupplierAutocomplete';
 import { InventoryManualMode } from '@/pages/App/Stock/Inventory/components/InventoryManualMode';
 import { LabelPrintSelectionModal } from '@/pages/App/Products/components/modals/product/LabelPrintSelectionModal';
 import { InboundInvoiceActionsMenu } from '@/pages/App/Stock/InboundInvoices/components/InboundInvoiceActionsMenu';

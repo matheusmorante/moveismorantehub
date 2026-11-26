@@ -1,8 +1,8 @@
 import Order from '../../types/order.type';
-import { isIdentifiedTestArtifact } from '../../../../../shared-utils/testArtifactPolicy';
+import { isIdentifiedTestArtifact } from '../../../../../shared-utils/testing/testArtifactPolicy';
 import { formatOrderCode } from '../orderCode';
 import { formatOrderSchedulingText } from '../orderSchedulingStatus';
-import { dispatchAppNotification } from '@/pages/utils/pushNotificationService';
+import { dispatchAppNotification } from '@/pages/utils/notifications/pushNotificationService';
 import {
   getOrderAssemblyKinds,
   notifyNewAssemblies,

@@ -2,9 +2,9 @@
 import React from 'react';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
-import { TruncatedProductTitle } from './TruncatedProductTitle';
+import { TruncatedProductTitle } from './display/TruncatedProductTitle';
 
-vi.mock('./productAutocompleteUtils', () => ({
+vi.mock('./selectors/productAutocompleteUtils', () => ({
   renderHighlightedProductText: (text: string) => text,
 }));
 

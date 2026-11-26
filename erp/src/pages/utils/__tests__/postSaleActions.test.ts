@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { POST_SALE_ACTION_KEYS, canOpenPostSaleActions } from '../postSaleActions';
+import { POST_SALE_ACTION_KEYS, canOpenPostSaleActions } from '../sales/postSaleActions';
 import { validateOrderStatusTransition } from '../orderStatusTransitionRules';
 import Order from '../../types/order.type';
 

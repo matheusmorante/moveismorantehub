@@ -4,7 +4,7 @@ import {
   hasScheduleOptionPassed,
   resolveEffectiveSchedule,
   resolveScheduleOptionCutoffTime,
-} from '../../../../../shared-utils/commercialSchedulingRules';
+} from '../../../../../shared-utils/scheduling/commercialSchedulingRules';
 import { getOperationalScheduleDate } from '../operationalSchedule';
 import { getDeliverySchedulePeriod } from '../../../../../mobile/src/features/logistics/utils/deliverySchedulePeriod';
 

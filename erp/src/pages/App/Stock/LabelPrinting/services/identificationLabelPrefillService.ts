@@ -1,6 +1,6 @@
 import type Product from '@/pages/types/product.type';
 import { supabase } from '@/pages/utils/supabaseConfig';
-import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../../../shared-utils/core/withTimeout';
 import { processProductData } from '../utils/processLabelProductData';
 
 export interface IdentificationLabelReference {

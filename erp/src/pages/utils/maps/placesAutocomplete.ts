@@ -5,7 +5,7 @@ import { normalizeUf, parseAddressPrediction } from '../addressParsing';
 import { getSettings } from '../settingsService';
 import { geocodeCache } from './addressGeocoding';
 import { loadGoogleMapsApi } from './googleMapsLoader';
-import { withTimeout } from '../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../shared-utils/core/withTimeout';
 
 const searchAddressSuggestionsRequest = async (
   query: string,

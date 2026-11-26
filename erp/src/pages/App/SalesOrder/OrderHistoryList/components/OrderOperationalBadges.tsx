@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import Order from '../../../../types/order.type';
 import InventoryMovementBadge from './InventoryMovementBadge';
 import { binaryOrderBadgeClass } from '../utils/orderBadgeStyles';
-import { isPartialSaleStockMovement } from '@/pages/utils/saleInventoryRules';
+import { isPartialSaleStockMovement } from '@/pages/utils/sales/saleInventoryRules';
 import ReturnIcon from '@/components/shared/ReturnIcon';
 import PickupIcon from '@/components/shared/PickupIcon';
 
@@ -31,10 +31,7 @@ export const OrderOperationalBadges = ({
   const isCancelled = order.status === 'cancelled';
   const isAssis = order.orderType === 'assistance';
   const isRet = order.orderType === 'return';
-  const linkedMethod = order.linkedOrderDeliveryMethod || order.shipping?.deliveryMethod;
-  const isAssisLinkedPickup = isAssis && Boolean(order.linkedOrderId) && linkedMethod === 'pickup';
-  const isAssisLinkedDelivery = isAssis && Boolean(order.linkedOrderId) && linkedMethod !== 'pickup';
-  const isPick = isAssis ? isAssisLinkedPickup : order.shipping?.deliveryMethod === 'pickup';
+  const isPick = !isAssis && order.shipping?.deliveryMethod === 'pickup';
   const hasLinkedReturn = !isRet && Boolean(order.returnOrderId);
   const isPendingScheduling =
     Boolean(order.shipping?.scheduling?.pendingScheduling) &&
@@ -135,7 +132,7 @@ export const OrderOperationalBadges = ({
                 ? 'bg-slate-400 dark:bg-slate-600 border border-slate-500 dark:border-slate-600'
                 : currentStatus.bg.replace('/10', '').replace('/20', '').replace('-50', '-500')
           } text-white transition-all shadow-2xs border border-black/10 ${isStatusBadgeReadOnly ? 'cursor-default' : 'hover:brightness-110 active:scale-95'}`}
-          title={`Status: ${currentStatus.label}${isPendingScheduling ? ' (Agendamento pendente)' : ''} | Tipo: ${isRet ? 'Devolução' : isAssis ? (isAssisLinkedPickup ? 'Assistência (Retirada)' : isAssisLinkedDelivery ? 'Assistência (Entrega)' : 'Assistência') : isPick ? 'Retirada' : 'Entrega'}`}
+          title={`Status: ${currentStatus.label}${isPendingScheduling ? ' (Agendamento pendente)' : ''} | Tipo: ${isRet ? 'Devolução' : isAssis ? 'Assistência' : isPick ? 'Retirada' : 'Entrega'}`}
         >
           <i className={`bi ${sIcon} text-white text-[14px] leading-none`} />
           {isPendingScheduling && (
@@ -192,22 +189,12 @@ export const OrderOperationalBadges = ({
           <ReturnIcon white className="h-5 w-5" />
         </div>
       ) : showMethodBadge && isAssis ? (
-        order.linkedOrderId ? (
-          <div
-            className={`flex items-center justify-center h-6 w-6 rounded-md border shadow-2xs ${
-              isAssisLinkedPickup
-                ? 'bg-purple-600 text-white border-purple-700'
-                : 'bg-emerald-600 text-white border-emerald-700'
-            }`}
-            title={isAssisLinkedPickup ? 'Retirada' : 'Entrega'}
-          >
-            {isAssisLinkedPickup ? (
-              <PickupIcon white className="h-5 w-5" />
-            ) : (
-              <i className="bi bi-truck text-[14px] leading-none text-white" />
-            )}
-          </div>
-        ) : null
+        <div
+          className="flex h-6 w-6 items-center justify-center rounded-md border border-amber-700 bg-amber-600 text-white shadow-2xs"
+          title="Assistência"
+        >
+          <i className="bi bi-tools text-[14px] leading-none text-white" />
+        </div>
       ) : showMethodBadge && !isRet ? (
         <div
           className={`flex items-center justify-center h-6 w-6 rounded-md border shadow-2xs ${

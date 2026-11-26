@@ -6,8 +6,8 @@ import {
   INBOUND_INVOICE_SEARCH_MIN_CHARACTERS,
 } from '../../../../../../../../shared-utils/inboundProductLinkFormSchemas';
 import * as stockService from '../../../../../../services/stockService';
-import { withTimeout } from '../../../../../../../../shared-utils/withTimeout';
-import { saveMobileProduct } from '../../../../../products/services/mobileProductMutationService';
+import { withTimeout } from '../../../../../../../../shared-utils/core/withTimeout';
+import { saveMobileProduct } from '../../../../../products/services/products/mobileProductMutationService';
 import { landedUnitCost } from '../inboundCostUtils';
 import type { MappingItem, Product } from '../types';
 

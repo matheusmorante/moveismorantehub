@@ -4,7 +4,7 @@
 import { describe, it, expect } from 'vitest';
 import { formatTimeAgo } from '../components/ConversationItem';
 import { groupMessagesByDate } from '../components/ChatArea';
-import { projectVisibleMessageReactions } from '../components/chat/ChatMessageTimeline';
+import { projectVisibleMessageReactions } from '../components/chat/timeline/ChatMessageTimeline';
 import type { WhatsAppMessage } from '../types';
 
 describe('Apresentação temporal da timeline', () => {

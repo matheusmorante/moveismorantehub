@@ -7,7 +7,7 @@ import {
 } from '@/pages/utils/technicalValuesService';
 import { getProductTechnicalValueCandidateKeys } from '../../../../../../../../../shared-utils/productTechnicalValueAliases';
 import { isCatalogNeverRequiredCharacteristicName } from '../../../../../../../../../shared-utils/catalogPublication/requiredCharacteristicPolicy';
-import { normalizeTechnicalName } from '../technicalTabUtils';
+import { normalizeTechnicalName } from '../rules/technicalTabUtils';
 
 /**
  * Preenche valores técnicos iniciais com dimensões do produto quando as características

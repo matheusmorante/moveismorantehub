@@ -1,12 +1,12 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { WhatsAppConversation, WhatsAppMessage } from '@/pages/App/CustomerSupport/types';
-import { mapRowToConversation, mapRowToMessage } from '../customerSupportMappers';
-import { withTimeout } from '../../../../../../shared-utils/withTimeout';
+import { mapRowToConversation, mapRowToMessage } from '../query/customerSupportMappers';
+import { withTimeout } from '../../../../../../shared-utils/core/withTimeout';
 import { supportGlobalMessageSearchSchema } from '../../../../../../shared-utils/customerSupportFormSchemas';
 import {
   CONVERSATION_SELECT_COLUMNS,
   type CustomerSupportHistoryCursor,
-} from '../customerSupportHistoryTypes';
+} from '../query/customerSupportHistoryTypes';
 import {
   applyColumnTimestampCursor,
   applyHistoryCursor,

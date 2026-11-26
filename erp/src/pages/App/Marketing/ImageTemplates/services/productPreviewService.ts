@@ -1,13 +1,13 @@
 import { supabase } from '@/pages/utils/supabaseConfig';
-import { extractProductImages } from '@/pages/utils/productService/productDimensionsExtractor';
-import { mapDbVariations } from '@/pages/utils/productService/productVariationMapper';
-import { getSelectedProductPricing } from '@/pages/utils/productPricing';
+import { extractProductImages } from '@/pages/utils/productService/mapping/productDimensionsExtractor';
+import { mapDbVariations } from '@/pages/utils/productService/mapping/productVariationMapper';
+import { getSelectedProductPricing } from '@/pages/utils/productService/productPricing';
 import type { Variation } from '@/pages/types/product.type';
 import { toAbsoluteHttpsUrl } from '../../Posts/services/postProductImageResolver';
 import { resolveProductUnitPrice } from '../../../../../../../shared-utils/productUnitPrice';
 import { normalizeProductVariationSku } from '../../../../../../../shared-utils/productVariationSku';
 import { MAX_PARENT_PRODUCT_IMAGES, MAX_VARIATION_IMAGES } from '../../../../../../../shared-utils/productImageLimits';
-import { withAbortTimeout } from '../../../../../../../shared-utils/withAbortTimeout';
+import { withAbortTimeout } from '../../../../../../../shared-utils/core/withAbortTimeout';
 import { buildProductParentSearchFilter, buildProductSearchTerms, buildProductVariationSearchFilter,
   createProductVariationSearchTooBroadError, PRODUCT_LIST_SEARCH_MIN_LENGTH, PRODUCT_VARIATION_SEARCH_MATCH_LIMIT } from '../../../../../../../shared-utils/productListSearch';
 import { resolveStockOrigin } from '../../../../../../../shared-utils/productStockOrigin';

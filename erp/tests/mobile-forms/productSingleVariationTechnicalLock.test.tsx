@@ -87,7 +87,7 @@ vi.mock('../../../mobile/src/features/products/modals/components/ProductAiCharac
   ProductAiCharacteristicsAssistant: () => null,
 }));
 
-vi.mock('../../../mobile/src/features/products/services/mobileProductTechnicalService', () => ({
+vi.mock('../../../mobile/src/features/products/services/categories/mobileProductTechnicalService', () => ({
   fetchMobileProductTechnicalFields: mocks.fetchFields,
 }));
 

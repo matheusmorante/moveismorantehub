@@ -1,4 +1,4 @@
-import { extractDigits, getPhoneLookupCandidates } from '../../phoneUtils.js';
+import { extractDigits, getPhoneLookupCandidates } from '../../query/phoneUtils.js';
 
 /**
  * Validação rigorosa do número de teste: normaliza e compara candidatos do telefone

@@ -5,7 +5,7 @@ import { VariationDescriptionTab } from './VariationDescriptionTab';
 import { VariationTechnicalDescriptionSection } from './VariationTechnicalDescriptionSection';
 import type { Product, Variation } from '@/pages/types/product.type';
 const mocks = vi.hoisted(() => ({ improve: vi.fn(), error: vi.fn() }));
-vi.mock('@/pages/utils/aiService', () => ({ aiService: { improveProductDescription: mocks.improve } }));
+vi.mock('@/pages/utils/aiService/aiService', () => ({ aiService: { improveProductDescription: mocks.improve } }));
 vi.mock('react-toastify', () => ({ toast: { error: mocks.error, success: vi.fn() } }));
 afterEach(cleanup);
 beforeEach(() => { vi.clearAllMocks(); mocks.improve.mockResolvedValue({ improvedDescription: 'Descrição revisada' }); });

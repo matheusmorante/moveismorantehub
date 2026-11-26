@@ -10,14 +10,14 @@ import type { WhatsAppConversation } from '../types';
 const mocks = vi.hoisted(() => ({ rpc: vi.fn(), link: vi.fn(), unlink: vi.fn(), orders: vi.fn(), canCommercial: true }));
 vi.mock('@/pages/utils/supabaseConfig', () => ({ supabase: { rpc: mocks.rpc } }));
 vi.mock('@/context/AuthContext', () => ({ useAuth: () => ({ user: { id: 'operator' }, profile: { role: 'administrator' } }) }));
-vi.mock('@/pages/utils/permissionService', () => ({ canPerform: () => mocks.canCommercial }));
-vi.mock('@/pages/utils/accessRoles', () => ({ getProfileRoles: () => ['administrator'] }));
-vi.mock('@/pages/utils/customerSupport/customerMatchingService', async (original) => ({
-  ...await original<typeof import('@/pages/utils/customerSupport/customerMatchingService')>(),
+vi.mock('@/pages/utils/auth/permissionService', () => ({ canPerform: () => mocks.canCommercial }));
+vi.mock('@/pages/utils/auth/accessRoles', () => ({ getProfileRoles: () => ['administrator'] }));
+vi.mock('@/pages/utils/customerSupport/query/customerMatchingService', async (original) => ({
+  ...await original<typeof import('@/pages/utils/customerSupport/query/customerMatchingService')>(),
   manuallyLinkCustomer: mocks.link, unlinkCustomer: mocks.unlink,
 }));
-vi.mock('@/pages/utils/customerSupport/supportOrdersService', async (original) => ({
-  ...await original<typeof import('@/pages/utils/customerSupport/supportOrdersService')>(), getCustomerOrders: mocks.orders,
+vi.mock('@/pages/utils/customerSupport/orders/supportOrdersService', async (original) => ({
+  ...await original<typeof import('@/pages/utils/customerSupport/orders/supportOrdersService')>(), getCustomerOrders: mocks.orders,
 }));
 const id = '00000000-0000-4000-8000-000000000001';
 const row = { id: 'legacy-person-id', full_name: 'Cliente sintético' };

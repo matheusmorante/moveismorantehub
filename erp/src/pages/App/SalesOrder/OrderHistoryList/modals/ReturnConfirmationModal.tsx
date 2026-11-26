@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { z } from 'zod';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
-import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../../../shared-utils/core/withTimeout';
 import ReturnIcon from '@/components/shared/ReturnIcon';
 
 const returnDraftConfirmationSchema = z.object({

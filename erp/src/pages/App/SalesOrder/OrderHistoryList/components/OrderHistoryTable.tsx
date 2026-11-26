@@ -4,7 +4,7 @@ import OrderHistoryCard from './OrderHistoryCard';
 import Order, { AssistanceItem, VisibilitySettings } from '../../../../types/order.type';
 import { Item } from '../../../../types/items.type';
 import { getSettings } from '@/pages/utils/settingsService';
-import { useAutoScroll } from '../../../../utils/useAutoScroll';
+import { useAutoScroll } from '../../../../utils/shared/useAutoScroll';
 import { useWindowSize } from '../../../../../hooks/useWindowSize';
 
 import { OrderTableHeader, COLUMNS_DEF, ColumnDef, OrderHistoryFilters } from './OrderTableHeader';

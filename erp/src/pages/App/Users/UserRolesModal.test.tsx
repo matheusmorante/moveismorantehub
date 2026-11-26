@@ -6,7 +6,7 @@ import UserRolesModal from './UserRolesModal';
 import type { AccessProfile } from './UserRolesModal';
 const mocks = vi.hoisted(() => ({ error: vi.fn() }));
 vi.mock('react-toastify', () => ({ toast: { error: mocks.error } }));
-vi.mock('@/pages/utils/accessRoles', () => ({
+vi.mock('@/pages/utils/auth/accessRoles', () => ({
   SYSTEM_ROLES: [['seller', 'Vendedor'], ['accountant', 'Contador']],
   roleLabel: (role: string) => role,
 }));

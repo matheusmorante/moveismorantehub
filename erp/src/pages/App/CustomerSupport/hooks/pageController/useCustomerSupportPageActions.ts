@@ -1,8 +1,8 @@
 import { useCallback, useState } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { WhatsAppConversation, WhatsAppMessage } from '../../types';
-import type { SupportOrderSummary } from '@/pages/utils/customerSupport/supportOrdersService';
-import { sendCustomerSupportMessage } from '@/pages/utils/customerSupport/customerSupportService';
+import type { SupportOrderSummary } from '@/pages/utils/customerSupport/orders/supportOrdersService';
+import { sendCustomerSupportMessage } from '@/pages/utils/customerSupport/query/customerSupportService';
 
 interface UseCustomerSupportPageActionsParams {
   supabase: SupabaseClient;

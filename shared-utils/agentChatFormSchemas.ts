@@ -1,1 +1,1 @@
-export * from './schemas/agentChatFormSchemas';
+export * from './schemas/support/agentChatFormSchemas';

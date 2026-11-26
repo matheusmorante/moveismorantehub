@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { withAbortTimeout } from '../../../../../shared-utils/withAbortTimeout';
+import { withAbortTimeout } from '../../../../../shared-utils/core/withAbortTimeout';
 
 afterEach(() => vi.useRealTimers());
 

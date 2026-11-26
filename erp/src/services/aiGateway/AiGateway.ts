@@ -9,7 +9,7 @@ import { parseOpenAiResponse } from './core/parseOpenAiResponse';
 import { AiLatencyTracker } from './core/AiLatencyTracker';
 import { inferModuleFromOperation } from '../apiMonitoring/apiModuleMapper';
 import { clearModelAiQuotaAlert } from './aiQuotaNotifier';
-import { withTimeout } from '../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../shared-utils/core/withTimeout';
 import { buildOpenAiPayload } from './core/openAiPayloadBuilder';
 import { calculateOpenAiCost } from './core/openAiCostCalculator';
 import { AiGatewayUsageLogger } from './core/aiGatewayUsageLogger';

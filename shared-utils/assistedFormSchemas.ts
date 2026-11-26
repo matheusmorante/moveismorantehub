@@ -1,1 +1,1 @@
-export * from './schemas/assistedFormSchemas';
+export * from './schemas/orders/assistedFormSchemas';

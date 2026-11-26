@@ -8,13 +8,13 @@ import { invalidateTechnicalFieldDefinitionsCache } from '../services/technicalF
 import { createProductVariationFormSchema, productVariationDraftSchema } from '../../../../../../shared-utils/productVariationValidation';
 
 const mocks = vi.hoisted(() => ({ cachedParents: [] as Product[], updateParent: vi.fn(), upload: vi.fn(), compress: vi.fn(), saveVariation: vi.fn(), fetchProductsPage: vi.fn(), response: vi.fn(), success: vi.fn(), error: vi.fn(), profile: { role: 'admin' } as { role: string } }));
-vi.mock('@/pages/utils/productService/productLocalCache', () => ({ getLocalProducts: () => mocks.cachedParents }));
-vi.mock('@/pages/utils/productService/productMutationService', () => ({ updateProduct: mocks.updateParent }));
+vi.mock('@/pages/utils/productService/drafts/productLocalCache', () => ({ getLocalProducts: () => mocks.cachedParents }));
+vi.mock('@/pages/utils/productService/mutations/productMutationService', () => ({ updateProduct: mocks.updateParent }));
 vi.mock('../components/tabs/images/productImageUpload', () => ({ uploadOptimizedProductImage: mocks.upload }));
 vi.mock('@/pages/utils/images/imageUtils', () => ({ compressImageToFile: mocks.compress }));
 vi.mock('@/context/AuthContext', () => ({ useAuth: () => ({ profile: mocks.profile }) }));
 vi.mock('react-toastify', () => ({ toast: { success: mocks.success, error: mocks.error, warn: vi.fn() } }));
-vi.mock('@/pages/utils/productService', () => ({ saveVariation: mocks.saveVariation, fetchProductsPage: mocks.fetchProductsPage, generateVariationSku: () => '001-01', parseVariationImages: (_raw: unknown, images: string[] | undefined) => images || [] }));
+vi.mock('@/pages/utils/productService/productService', () => ({ saveVariation: mocks.saveVariation, fetchProductsPage: mocks.fetchProductsPage, generateVariationSku: () => '001-01', parseVariationImages: (_raw: unknown, images: string[] | undefined) => images || [] }));
 vi.mock('@/pages/utils/supabaseConfig', () => {
   const client = { from: (table: string) => {
     const query: Record<string, unknown> = {};

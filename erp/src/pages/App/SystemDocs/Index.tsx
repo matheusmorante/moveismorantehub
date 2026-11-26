@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import SectionCard from '../../../components/SectionCard';
+import SectionCard from '../../../components/display/SectionCard';
 import { systemDocumentation, DocumentationSection } from './systemDocumentation';
 import { userDocumentation } from './userDocumentation';
 import DocumentationFlow from './DocumentationFlow';

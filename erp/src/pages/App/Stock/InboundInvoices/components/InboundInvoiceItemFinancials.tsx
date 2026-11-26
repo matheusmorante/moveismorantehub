@@ -1,5 +1,5 @@
 import type { InboundInvoiceItem } from '@/pages/utils/inboundNfe/inboundNfeTypes';
-import { formatCurrency } from '@/pages/utils/formatters';
+import { formatCurrency } from '@/pages/utils/shared/formatters';
 
 interface InboundInvoiceItemFinancialsProps {
   readonly item: InboundInvoiceItem;

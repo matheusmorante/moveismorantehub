@@ -18,11 +18,11 @@ vi.mock('maplibre-gl', () => ({
 // Mock dependencies
 import OrderEditModal from '../modals/OrderEditModal';
 import NewSaleOrder from '../pages/NewSaleOrder';
-import FormFooter from '../components/FormFooter';
+import FormFooter from '../components/form/FormFooter';
 import Order from '@/pages/types/order.type';
 import { fetchOrderById } from '@/pages/utils/orderHistoryService';
 import { useOrderEditActions } from '../modals/order-edit-modal/hooks/useOrderEditActions';
-import { bindTestArtifactContext, clearTestArtifactContext } from '../../../../../../shared-utils/testArtifactContext';
+import { bindTestArtifactContext, clearTestArtifactContext } from '../../../../../../shared-utils/testing/testArtifactContext';
 
 const { mockUseAuth, mockFormHookOptions, mockFlushDraft } = vi.hoisted(() => ({
   mockUseAuth: vi.fn((): { isAdministrator: boolean } => ({ isAdministrator: false })),
@@ -57,7 +57,7 @@ vi.mock('@/pages/utils/orderHistoryService', () => ({
   fetchOrderById: vi.fn(),
 }));
 
-vi.mock('../components/SalesOrderFormSection', () => ({
+vi.mock('../components/form/SalesOrderFormSection', () => ({
   default: (props: any) => (
     <div
       data-testid="mock-sales-order-form-section"
@@ -70,7 +70,7 @@ vi.mock('../components/SalesOrderFormSection', () => ({
 
 vi.mock('@/context/AuthContext', () => ({ useAuth: mockUseAuth }));
 
-vi.mock('../hooks/useSalesOrderForm', () => ({
+vi.mock('../hooks/form-flow/useSalesOrderForm', () => ({
   useSalesOrderForm: (...args: unknown[]) => (mockFormHookOptions(...args), {
     state: {
       currentStep: 1,

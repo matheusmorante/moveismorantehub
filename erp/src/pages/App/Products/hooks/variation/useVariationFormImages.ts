@@ -5,10 +5,10 @@ import {
   productImageReplacementFormSchema,
 } from '../../../../../../../shared-utils/productImageFormSchemas';
 import { uploadOptimizedProductImage } from '../../components/tabs/images/productImageUpload';
-import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../../../shared-utils/core/withTimeout';
 import type { Product, Variation } from '@/pages/types/product.type';
-import { getLocalProducts } from '@/pages/utils/productService/productLocalCache';
-import { updateProduct } from '@/pages/utils/productService/productMutationService';
+import { getLocalProducts } from '@/pages/utils/productService/drafts/productLocalCache';
+import { updateProduct } from '@/pages/utils/productService/mutations/productMutationService';
 import {
   replaceImageUrlAcrossList,
   replaceProductImageGlobally,

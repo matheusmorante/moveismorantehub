@@ -1,5 +1,5 @@
 import React from 'react';
-import { formatPhoneForDisplay } from '@/pages/utils/customerSupport/phoneUtils';
+import { formatPhoneForDisplay } from '@/pages/utils/customerSupport/query/phoneUtils';
 import type { WhatsAppConversation } from '../../types';
 
 export interface CustomerInfoContactCardProps {

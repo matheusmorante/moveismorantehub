@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/pages/utils/supabaseConfig';
-import { uploadFile } from '@/pages/utils/storageService';
+import { uploadFile } from '@/pages/utils/shared/storageService';
 import { toast } from 'react-toastify';
 import { createOpportunitySealImage, OpportunitySeal } from './opportunitySealImage';
 import OpportunitySealImageEditor from './OpportunitySealImageEditor';

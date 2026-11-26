@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { AssignedProfileSummary } from '../types';
-import { fetchTeamProfiles } from '@/pages/utils/customerSupport/customerSupportService';
+import { fetchTeamProfiles } from '@/pages/utils/customerSupport/query/customerSupportService';
 
 export function useCustomerSupportAgents(supabase: SupabaseClient, userId?: string) {
   const [agents, setAgents] = useState<AssignedProfileSummary[]>([]);

@@ -1,6 +1,6 @@
 import React from 'react';
 import Purchase from '../../../../../types/purchase.type';
-import { formatToBRDate } from '../../../../../utils/formatters';
+import { formatToBRDate } from '../../../../../utils/shared/formatters';
 import { formatPurchaseNumber } from '../../../../../../../../shared-utils/purchaseNumber';
 
 interface PurchaseDetailsHeaderProps {

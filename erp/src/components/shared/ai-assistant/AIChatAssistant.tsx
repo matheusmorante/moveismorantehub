@@ -8,7 +8,7 @@ import {
   agentSendFormSchema, agentResponseSchema, agentHistoryFormSchema,
   agentClearHistoryFormSchema, agentVoicePreferenceFormSchema,
 } from '../../../../../shared-utils/agentChatFormSchemas';
-import { withTimeout } from '../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../shared-utils/core/withTimeout';
 import { useAuth } from '@/context/AuthContext';
 import { GeminiAgentService } from '@/services/aiAgent/geminiAgentService';
 import { getAgentPageContext } from '@/services/aiAgent/getAgentPageContext';
@@ -19,7 +19,7 @@ import {
   beginAssistantOrderTimingTurn,
   cancelAssistantOrderTimingTurn,
   markAssistantOrderFirstSignal,
-} from '../../../../../shared-utils/assistantOrderTimingMetrics';
+} from '../../../../../shared-utils/ai-agent/assistantOrderTimingMetrics';
 
 export interface AIChatAssistantProps {
   isFloating?: boolean;

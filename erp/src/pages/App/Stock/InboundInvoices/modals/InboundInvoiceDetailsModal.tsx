@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 import type { InboundInvoice } from '@/pages/utils/inboundNfe/inboundNfeTypes';
-import { formatCurrency, formatToBRDate } from '@/pages/utils/formatters';
+import { formatCurrency, formatToBRDate } from '@/pages/utils/shared/formatters';
 import { InboundInvoiceFiscalReview } from '../components/InboundInvoiceFiscalReview';
 import { hasInboundItemCommercialData } from '../../../../../../../shared-utils/inboundInvoiceCompleteness';
 import {

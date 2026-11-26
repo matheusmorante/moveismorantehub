@@ -18,7 +18,7 @@ import {
   searchCollaboratorsForAgent,
   normalizeAgentOrderIdentifier,
 } from '../../../../shared-utils/agentOrderAndPeopleOperations';
-import { recordAssistantOrderTiming } from '../../../../shared-utils/assistantOrderTimingMetrics';
+import { recordAssistantOrderTiming } from '../../../../shared-utils/ai-agent/assistantOrderTimingMetrics';
 import {
   AgentCreateProductInput,
   AgentUpdateProductInput,

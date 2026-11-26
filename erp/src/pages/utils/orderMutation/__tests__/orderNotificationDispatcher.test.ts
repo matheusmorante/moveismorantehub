@@ -15,7 +15,7 @@ const mocks = vi.hoisted(() => ({
   shouldNotifyOrderChange: vi.fn(() => true),
 }));
 
-vi.mock('@/pages/utils/pushNotificationService', () => ({
+vi.mock('@/pages/utils/notifications/pushNotificationService', () => ({
   dispatchAppNotification: mocks.dispatchAppNotification,
 }));
 vi.mock('@/pages/utils/orderEventNotificationService', () => ({

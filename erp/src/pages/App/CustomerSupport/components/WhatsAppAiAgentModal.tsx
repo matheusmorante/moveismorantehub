@@ -14,7 +14,7 @@ import {
   AiAgentTabQuotas,
   AiAgentModalFooter,
 } from './aiAgentModal';
-import { useWhatsAppAiAgentForm } from './aiAgentModal/useWhatsAppAiAgentForm';
+import { useWhatsAppAiAgentForm } from './aiAgentModal/form/useWhatsAppAiAgentForm';
 
 export interface WhatsAppAiAgentModalProps {
   isOpen: boolean;

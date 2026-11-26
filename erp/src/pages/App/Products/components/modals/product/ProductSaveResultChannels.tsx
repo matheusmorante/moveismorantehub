@@ -1,5 +1,5 @@
 import React from 'react';
-import type { EcomLegibilityResult } from '../../../../../../../../shared-utils/catalogPublicationValidation';
+import type { EcomLegibilityResult } from '../../../../../../../../shared-utils/catalogPublication/catalogPublicationValidation';
 import type { ProductSaveResult } from './ProductSaveResultModal';
 
 interface ProductSaveResultChannelsProps {

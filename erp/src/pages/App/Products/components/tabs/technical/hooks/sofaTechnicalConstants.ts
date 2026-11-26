@@ -1,5 +1,5 @@
 import { TechnicalFieldDefinition } from '@/pages/utils/technicalValuesService';
-import { normalizeSearchTerm } from '../technicalTabUtils';
+import { normalizeSearchTerm } from '../rules/technicalTabUtils';
 import {
   isSofaRecliningCharacteristic,
   isSofaRetractableCharacteristic,

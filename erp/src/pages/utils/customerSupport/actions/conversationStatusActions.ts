@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { ConversationStatus } from '@/pages/App/CustomerSupport/types';
-import { withTimeout } from '../../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../../shared-utils/core/withTimeout';
 
 /** Marca a conversa como lida somente na central de atendimento. */
 export async function markConversationAsRead(

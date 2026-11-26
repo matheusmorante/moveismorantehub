@@ -2,9 +2,9 @@ import React, { useMemo, useRef, useEffect } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Crosshair, Maximize2 } from 'lucide-react-native';
 import { DeliveryRouteItem } from '../../hooks/useDeliveryRoute';
-import { DriverCoordinates } from '../../../../services/locationService';
+import { DriverCoordinates } from '../../../../services/logistics/locationService';
 import { getOperationActivityType } from '../../../schedule/utils/operationActivity';
-import { TeamMemberLocation } from '../../../../services/teamLocationService';
+import { TeamMemberLocation } from '../../../../services/logistics/teamLocationService';
 
 interface Props {
   items: DeliveryRouteItem[];

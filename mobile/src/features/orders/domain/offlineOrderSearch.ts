@@ -1,4 +1,4 @@
-import { matchesSearchText } from '../../../../../shared-utils/searchText';
+import { matchesSearchText } from '../../../../../shared-utils/core/searchText';
 import type { MobileOrderListItem } from '../services/mobileOrderListService';
 
 const normalize = (value: unknown) => String(value || '').normalize('NFD')

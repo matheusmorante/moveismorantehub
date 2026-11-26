@@ -1,9 +1,9 @@
 import { useEffect, useRef, type Dispatch, type SetStateAction } from 'react';
-import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../../../shared-utils/core/withTimeout';
 import {
   fetchMobileProductTechnicalFields,
   type MobileProductTechnicalField,
-} from '../../../services/mobileProductTechnicalService';
+} from '../../../services/categories/mobileProductTechnicalService';
 
 interface Args {
   categoryIds: string[];

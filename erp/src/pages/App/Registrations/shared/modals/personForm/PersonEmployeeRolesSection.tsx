@@ -1,6 +1,6 @@
 import React from 'react';
 import Person from '@/pages/types/person.type';
-import SmartInput from '@/components/SmartInput';
+import SmartInput from '@/components/inputs/SmartInput';
 import { UserRole } from '@/context/AuthContext';
 import { EMPLOYEE_ROLES } from './usePersonForm';
 

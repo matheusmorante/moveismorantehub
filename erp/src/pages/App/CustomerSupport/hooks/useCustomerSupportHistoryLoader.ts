@@ -4,7 +4,7 @@ import type { WhatsAppMessage } from '../types';
 import {
   fetchInitialConversationMessagePage,
   fetchConversationMessageContext,
-} from '@/pages/utils/customerSupport/customerSupportService';
+} from '@/pages/utils/customerSupport/query/customerSupportService';
 import { useOlderMessagesPaging } from './history/useOlderMessagesPaging';
 
 interface UseCustomerSupportHistoryLoaderParams {

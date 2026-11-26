@@ -7,7 +7,7 @@ import { dispatchAiResponse } from '@/pages/utils/customerSupport/whatsappAiAgen
 import {
   DEFAULT_KNOWLEDGE_ARTICLES,
   DEFAULT_SITUATION_RULES,
-} from '../../../../../../shared-utils/whatsappAiAgentDefaults';
+} from '../../../../../../shared-utils/support/whatsappAiAgentDefaults';
 import { DEFAULT_WHATSAPP_AI_AGENT_PROMPT } from '../../../../../../shared-utils/whatsappAiAgentSchemas';
 
 describe('Central de Atendimento — Regras Comerciais de Frete, Pagamento e Escalonamento Silencioso', () => {

@@ -12,7 +12,7 @@ import ProductVariationsTab from "./ProductVariationsTab";
 
 const mocks = vi.hoisted(() => ({ checkVariationIsUsed: vi.fn() }));
 
-vi.mock("@/pages/utils/productService", () => ({
+vi.mock("@/pages/utils/productService/productService", () => ({
 	checkVariationIsUsed: mocks.checkVariationIsUsed,
 }));
 

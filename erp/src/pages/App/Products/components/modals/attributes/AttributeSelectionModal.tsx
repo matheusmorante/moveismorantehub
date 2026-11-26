@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import VariationType from '../../../../../types/variation.type';
-import { subscribeToVariations } from '../../../../../utils/variationService';
+import { subscribeToVariations } from '../../../../../utils/productService/variationService';
 import { normalizeSearchTerm } from '../../../../../utils/textUtils';
 import { matchesSearchText } from '@/pages/utils/textUtils';
 

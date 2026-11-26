@@ -1,6 +1,6 @@
 import React from 'react';
 import type { GoodsReceipt } from '@/pages/utils/goodsReceiptService';
-import { formatCurrency, formatToBRDate } from '@/pages/utils/formatters';
+import { formatCurrency, formatToBRDate } from '@/pages/utils/shared/formatters';
 
 interface Props {
   readonly receipt: GoodsReceipt;

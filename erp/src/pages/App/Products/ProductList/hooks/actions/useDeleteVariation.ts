@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import Swal from 'sweetalert2';
-import { physicalDeleteVariation } from '@/pages/utils/productService';
+import { physicalDeleteVariation } from '@/pages/utils/productService/productService';
 
 export const useDeleteVariation = (productId: string, onRefresh?: () => void) => {
   const [checkingUsageId, setCheckingUsageId] = useState<string | null>(null);

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { whatsappGraphService } from '../whatsappGraphService';
+import { whatsappGraphService } from '../whatsapp/whatsappGraphService';
 
 describe('whatsappGraphService.sanitizeTemplateParam', () => {
   it('substitui quebras de linha e tabs por bullet points limpos', () => {

@@ -3,7 +3,7 @@ import { supabase } from '@/pages/utils/supabaseConfig';
 import {
   fetchConversationMessageSearchPage,
   type CustomerSupportHistoryCursor,
-} from '@/pages/utils/customerSupport/customerSupportService';
+} from '@/pages/utils/customerSupport/query/customerSupportService';
 import { supportMessageSearchSchema } from '../../../../../../shared-utils/customerSupportFormSchemas';
 import type { WhatsAppMessage } from '../types';
 import { readSupportSearchCache, writeSupportSearchCache } from './supportSearchCache';

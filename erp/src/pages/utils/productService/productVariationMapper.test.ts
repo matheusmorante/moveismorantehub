@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { mapDbVariations } from './productVariationMapper';
+import { mapDbVariations } from './mapping/productVariationMapper';
 
 describe('mapDbVariations', () => {
   it('normaliza o nome de variações legadas para o mesmo padrão visual', () => {

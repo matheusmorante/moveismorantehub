@@ -1,5 +1,5 @@
 import type { ExtractedMessageContent } from './types.js';
-import { extractTemplatePreview } from '../whatsappTemplatePreview.js';
+import { extractTemplatePreview } from './whatsappTemplatePreview.js';
 
 export function parseMediaMessage(
   type: string,

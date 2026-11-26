@@ -3,7 +3,7 @@ import { supabase } from '../../services/supabaseClient';
 import {
   checkCurrentUserHasPassword,
   createCurrentUserPassword,
-} from '../../services/authPasswordSetup';
+} from '../../services/auth/authPasswordSetup';
 
 export type PasswordCredentialStatus = 'idle' | 'checking' | 'required' | 'configured' | 'error';
 

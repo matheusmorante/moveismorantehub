@@ -3,16 +3,16 @@
  * Organizado seguindo Clean Architecture, SRP e Modularização.
  */
 
-export * from './ProductTechnicalTab';
-export * from './useProductTechnicalTab';
-export * from './TechnicalCharacteristicSearch';
-export * from './TechnicalFieldRow';
-export * from './TechnicalFieldInput';
+export * from './sections/ProductTechnicalTab';
+export * from './hooks/useProductTechnicalTab';
+export * from './search/TechnicalCharacteristicSearch';
+export * from './inputs/TechnicalFieldRow';
+export * from './inputs/TechnicalFieldInput';
 export * from './inputs';
-export * from './TechnicalFieldGroupSection';
-export * from './TechnicalTabFeedbackState';
-export * from './DisabledFieldWrapper';
-export * from './YesNoPowerToggle';
-export * from './technicalTabUtils';
-export * from './technicalSyncUtils';
-export * from './technicalSearchUtils';
+export * from './sections/TechnicalFieldGroupSection';
+export * from './sections/TechnicalTabFeedbackState';
+export * from './inputs/DisabledFieldWrapper';
+export * from './inputs/YesNoPowerToggle';
+export * from './rules/technicalTabUtils';
+export * from './sync/technicalSyncUtils';
+export * from './search/technicalSearchUtils';

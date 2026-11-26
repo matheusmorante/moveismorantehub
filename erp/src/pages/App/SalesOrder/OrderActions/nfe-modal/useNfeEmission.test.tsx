@@ -72,7 +72,7 @@ vi.mock('@/pages/utils/nfe/nfeService', () => ({
 vi.mock('@/pages/utils/settingsService', () => ({
   getSettings: () => ({ companyUF: 'PR', companyCRT: '1', fiscalDefaults: { cst: '103' } }),
 }));
-vi.mock('@/pages/utils/productService', () => ({ getFullProduct: mocks.getFullProduct }));
+vi.mock('@/pages/utils/productService/productService', () => ({ getFullProduct: mocks.getFullProduct }));
 vi.mock('@/pages/utils/productService/productFiscalDataService', () => ({
   getProductsFiscalData: mocks.getProductsFiscalData,
 }));

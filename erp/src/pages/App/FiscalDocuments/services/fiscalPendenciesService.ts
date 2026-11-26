@@ -1,5 +1,5 @@
 import { supabase } from '@/pages/utils/supabaseConfig';
-import { withTimeout } from '../../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../../shared-utils/core/withTimeout';
 import type { FiscalPendencyItem } from '../types/fiscalPendencies.types';
 
 const API_ENDPOINT = '/api/nfe/fiscal-pendencies';

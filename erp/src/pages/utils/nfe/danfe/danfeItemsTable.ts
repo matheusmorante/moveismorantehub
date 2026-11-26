@@ -1,6 +1,6 @@
 import Order from '@/pages/types/order.type';
 import { AppSettings } from '../../settingsService';
-import { formatCurrency } from '../../formatters';
+import { formatCurrency } from '../../shared/formatters';
 import type { ParsedFiscalDetails } from '@/pages/App/FiscalDocuments/types/fiscalDocuments.types';
 import { escapeDanfeHtml, formatDanfeDecimal, formatDanfeMoney } from './danfeHtmlUtils';
 

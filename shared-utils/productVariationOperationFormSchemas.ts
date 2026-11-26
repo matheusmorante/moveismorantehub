@@ -1,1 +1,1 @@
-export * from './schemas/productVariationOperationFormSchemas';
+export * from './schemas/products/productVariationOperationFormSchemas';

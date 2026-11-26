@@ -6,7 +6,7 @@ import {
   syncAllProductsToMetaCatalog,
   syncProductToMetaCatalog,
   triggerProductMetaCatalogSync,
-} from './productMetaCatalogSync';
+} from './catalog/productMetaCatalogSync';
 
 vi.mock('../metaService/metaHttpClient', () => ({ metaHttpClient: { request: vi.fn() } }));
 

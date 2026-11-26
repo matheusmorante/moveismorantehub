@@ -7,7 +7,7 @@ import {
   type NfeDocumentRecord,
 } from '../../types/fiscalDocuments.types';
 import { parseFiscalXmlDetails } from '../../utils/fiscalXmlParser';
-import { buildPostgrestAccentInsensitiveOrFilter } from '../../../../../../../shared-utils/searchText';
+import { buildPostgrestAccentInsensitiveOrFilter } from '../../../../../../../shared-utils/core/searchText';
 
 export interface FetchFiscalDocumentsParams {
   filters: FiscalDocumentFilters;

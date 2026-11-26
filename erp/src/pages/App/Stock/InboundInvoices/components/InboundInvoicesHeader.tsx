@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { useAiQuotaStatus } from '@/pages/utils/openAiQuotaService';
+import { useAiQuotaStatus } from '@/pages/utils/aiService/openAiQuotaService';
 import { AiQuotaWarningBanner } from './GeminiQuotaWarningBanner';
 import { SefazSyncStatusBadge } from './SefazSyncStatusBadge';
 

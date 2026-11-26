@@ -1,6 +1,6 @@
 import React from 'react';
 import type Product from '@/pages/types/product.type';
-import { isNonConventionalProduct } from '@/pages/utils/productKindRules';
+import { isNonConventionalProduct } from '@/pages/utils/productService/productKindRules';
 import { clearProductValidationField } from './productCategoryEnvironment';
 
 interface OpportunityOption {

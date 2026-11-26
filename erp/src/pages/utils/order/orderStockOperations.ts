@@ -10,8 +10,8 @@ import {
 } from '../movingAverageCostService';
 import { getSettings } from '@/pages/utils/settingsService';
 import { formatOrderCode } from '../orderCode';
-import { getSaleInventoryDate, shouldProcessSaleStock } from '../saleItemInventorySync';
-import { isStockEligibleSaleItem } from '../saleInventoryRules';
+import { getSaleInventoryDate, shouldProcessSaleStock } from '../sales/saleItemInventorySync';
+import { isStockEligibleSaleItem } from '../sales/saleInventoryRules';
 
 /**
  * Lógica centralizada para movimentação de saídas de estoque em vendas.

@@ -4,10 +4,10 @@ import {
   enrichInboundItemsWithProductDetails,
   isGenericOrEmptyProductName,
 } from '../inboundItemProductResolver';
-import { getFullProduct } from '@/pages/utils/productService';
+import { getFullProduct } from '@/pages/utils/productService/productService';
 import type { InboundInvoiceItem } from '../inboundNfeTypes';
 
-vi.mock('@/pages/utils/productService', () => ({
+vi.mock('@/pages/utils/productService/productService', () => ({
   getFullProduct: vi.fn(),
 }));
 

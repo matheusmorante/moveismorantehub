@@ -8,8 +8,8 @@ import {
   SupportOrderSummary,
   SUPPORT_ORDERS_LOAD_ERROR,
   SUPPORT_ORDERS_PERMISSION_ERROR,
-} from '@/pages/utils/customerSupport/supportOrdersService';
-import { unlinkCustomer } from '@/pages/utils/customerSupport/customerMatchingService';
+} from '@/pages/utils/customerSupport/orders/supportOrdersService';
+import { unlinkCustomer } from '@/pages/utils/customerSupport/query/customerMatchingService';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import type { PanelTab } from './CustomerInfoTabsNav';
 

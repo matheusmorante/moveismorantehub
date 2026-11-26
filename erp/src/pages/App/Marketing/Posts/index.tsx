@@ -4,16 +4,14 @@ import { toast } from 'react-toastify';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { marketingImageSelectionFormSchema, marketingImageSelectionResetFormSchema } from '../../../../../../shared-utils/marketingFormSchemas';
 import { useAuth } from '@/context/AuthContext';
-import { withTimeout } from '../../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../../shared-utils/core/withTimeout';
 import { campaignRulesFormSchema } from '../../../../../../shared-utils/campaignFormSchemas';
 import { postCampaignCommandFormSchema, postCampaignDeleteFormSchema, postCampaignLookupFormSchema, postElementCommandFormSchema } from '../../../../../../shared-utils/postManagerFormSchemas';
 import { usePostEditor } from './components/Editor/usePostEditor';
 import { CampaignElementsPanel } from './components/CampaignElementsPanel';
-import { CampaignManagerModal } from './components/CampaignManagerModal';
 import { GeneralCampaignRules } from './components/GeneralCampaignRules';
-import { ElementModelDetailsModal } from './components/ElementModelDetailsModal';
-import { PostCreatorModelModal } from './components/PostCreatorModelModal';
-import { PreviewProductPicker } from './components/PreviewProductPicker';
+import { PostCampaignToolbar } from './components/PostCampaignToolbar';
+import { PostEditorModals } from './components/PostEditorModals';
 import { PromptPreview } from './components/PromptPreview/PromptPreview';
 import { PostsLibraryPage } from './components/PostsLibrary/PostsLibraryPage';
 import { postCreatorService } from './services/postCreatorService';
@@ -334,82 +332,24 @@ export default function MarketingPostsManager() {
         <PostsLibraryPage campaigns={campaigns} />
       ) : (
         <>
-          {/* Barra de Configuração Responsiva */}
-          <div className="mb-4 grid gap-3 rounded-xl border border-slate-800/80 bg-slate-900/60 p-3.5 sm:p-4 md:grid-cols-2 items-end">
-            {/* Campanha */}
-            <div className="text-xs font-semibold text-slate-300">
-              <label htmlFor="post-campaign-select" className="block mb-1">
-                Campanha
-              </label>
-              <div className="flex gap-2">
-                <select
-                  id="post-campaign-select"
-                  value={campaignId}
-                  aria-label="Campanha selecionada"
-                  disabled={operationBusy}
-                  onChange={(event) => void selectCampaign(event.target.value)}
-                  className="min-w-0 flex-1 rounded-lg bg-slate-950 px-3 py-2 text-xs text-slate-100 border border-slate-800 focus:outline-none focus:border-indigo-500"
-                >
-                  {campaigns
-                    .filter((item) => item.active)
-                    .map((item) => (
-                      <option key={item.id} value={item.id}>
-                        {item.name}{item.persistedRemotely === false ? ' (rascunho local)' : ''}
-                      </option>
-                    ))}
-                </select>
-                <button
-                  disabled={operationBusy}
-                  onClick={() => setManagerOpen(true)}
-                  className="shrink-0 rounded-lg border border-indigo-400/40 bg-indigo-950/30 px-2.5 py-1.5 text-[11px] font-bold text-indigo-300 hover:bg-indigo-900/50 transition-colors"
-                  title="Gerenciar Campanhas"
-                >
-                  Gerenciar
-                </button>
-              </div>
-            </div>
-
-            {/* Produto para Preview */}
-            <div className="text-xs font-semibold text-slate-300">
-              <PreviewProductPicker
-                search={editor.search}
-                products={editor.products}
-                selected={editor.product}
-                loading={editor.listLoading}
-                selectionLoading={editor.selectionLoading}
-                resultsSearch={editor.resultsSearch}
-                searchError={editor.listError}
-                onSearch={editor.setSearch}
-                onSelect={(id) => void editor.selectProduct(id)}
-              />
-            </div>
-          </div>
-
-          {/* Abas do Editor de Posts (Universal para Desktop, Tablet e Mobile) */}
-          <div className="mb-4 flex flex-wrap sm:flex-nowrap rounded-xl bg-slate-900 border border-slate-800 p-1 gap-1">
-            <button
-              type="button"
-              onClick={() => setEditorTab('elements')}
-              className={`flex-1 py-2 px-3.5 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
-                editorTab === 'elements'
-                  ? 'bg-indigo-600 text-white shadow-md'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
-              }`}
-            >
-              <span>📦 Elementos da Campanha</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setEditorTab('prompt_assets')}
-              className={`flex-1 py-2 px-3.5 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
-                editorTab === 'prompt_assets'
-                  ? 'bg-indigo-600 text-white shadow-md'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
-              }`}
-            >
-              <span>📋 Preview de Prompt + Assets</span>
-            </button>
-          </div>
+          <PostCampaignToolbar
+            campaigns={campaigns}
+            campaignId={campaignId}
+            operationBusy={operationBusy}
+            onSelectCampaign={(id) => void selectCampaign(id)}
+            onOpenManager={() => setManagerOpen(true)}
+            editorSearch={editor.search}
+            editorProducts={editor.products}
+            selectedProduct={editor.product}
+            listLoading={editor.listLoading}
+            selectionLoading={editor.selectionLoading}
+            resultsSearch={editor.resultsSearch}
+            listError={editor.listError}
+            onSearchProduct={editor.setSearch}
+            onSelectProduct={(id) => void editor.selectProduct(id)}
+            editorTab={editorTab}
+            onChangeEditorTab={setEditorTab}
+          />
 
           {/* Conteúdo Principal — Renderização Ampla e Focada por Aba */}
           <div className="w-full min-w-0">
@@ -465,38 +405,23 @@ export default function MarketingPostsManager() {
             )}
           </div>
 
-          {managerOpen && (
-            <CampaignManagerModal
-              campaigns={campaigns}
-              onClose={() => { if (!inFlight.current) setManagerOpen(false); }}
-              onSave={saveCampaign}
-              onRemove={removeCampaign}
-              onSavingChange={handleSavingChange}
-            />
-          )}
-          {creating && (
-            <PostCreatorModelModal
-              elementType={creating.type}
-              initialOpportunityId={creating.opportunityId}
-              opportunities={opportunities}
-              onClose={() => { if (!inFlight.current) setCreating(undefined); }}
-              onSave={createModel}
-              onSavingChange={handleSavingChange}
-            />
-          )}
-          {editing && (
-            <PostCreatorModelModal
-              elementType={editing.elementType}
-              value={editing}
-              opportunities={opportunities}
-              onClose={() => { if (!inFlight.current) setEditing(undefined); }}
-              onSave={updateModel}
-              onSavingChange={handleSavingChange}
-            />
-          )}
-          {viewing && (
-            <ElementModelDetailsModal model={viewing} onClose={() => setViewing(undefined)} />
-          )}
+          <PostEditorModals
+            managerOpen={managerOpen}
+            campaigns={campaigns}
+            creating={creating}
+            editing={editing}
+            viewing={viewing}
+            opportunities={opportunities}
+            onCloseManager={() => { if (!inFlight.current) setManagerOpen(false); }}
+            onSaveCampaign={saveCampaign}
+            onRemoveCampaign={removeCampaign}
+            onCloseCreating={() => { if (!inFlight.current) setCreating(undefined); }}
+            onCreateModel={createModel}
+            onCloseEditing={() => { if (!inFlight.current) setEditing(undefined); }}
+            onUpdateModel={updateModel}
+            onCloseViewing={() => setViewing(undefined)}
+            onSavingChange={handleSavingChange}
+          />
         </>
       )}
     </section>

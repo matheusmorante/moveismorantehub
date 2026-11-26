@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { shouldClearQueryListSnapshot } from '../queryListSnapshot';
+import { shouldClearQueryListSnapshot } from '../shared/queryListSnapshot';
 
 describe('query list snapshot isolation', () => {
   it('clears the previous key snapshot when the current key fails without data', () => {

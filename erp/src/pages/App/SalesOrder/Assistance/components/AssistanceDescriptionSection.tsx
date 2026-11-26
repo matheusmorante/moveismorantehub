@@ -1,6 +1,7 @@
 import React from 'react';
-import SmartInput from '@/components/SmartInput';
-import NoticeInput from '@/components/NoticeInput';
+import SmartInput from '@/components/inputs/SmartInput';
+import NoticeInput from '@/components/inputs/NoticeInput';
+import CurrencyInput from '@/components/inputs/CurrencyInput';
 
 interface AssistanceDescriptionSectionProps {
   description: string;
@@ -67,13 +68,11 @@ const AssistanceDescriptionSection: React.FC<AssistanceDescriptionSectionProps> 
           <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-black text-slate-400 select-none">
             R$
           </span>
-          <input
-            type="number"
-            min="0"
-            step="0.01"
-            value={assistanceServiceValue || ''}
-            onChange={(e) => setAssistanceServiceValue(Math.max(0, parseFloat(e.target.value) || 0))}
-            placeholder="0,00"
+          <CurrencyInput
+            value={assistanceServiceValue || null}
+            onChangeValue={setAssistanceServiceValue}
+            min={0}
+            showBadge={false}
             className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-400 transition-all placeholder:text-slate-400"
           />
         </div>
@@ -87,13 +86,11 @@ const AssistanceDescriptionSection: React.FC<AssistanceDescriptionSectionProps> 
           <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-black text-slate-400 select-none">
             R$
           </span>
-          <input
-            type="number"
-            min="0"
-            step="0.01"
-            value={assistanceCost || ''}
-            onChange={(e) => setAssistanceCost(Math.max(0, parseFloat(e.target.value) || 0))}
-            placeholder="0,00"
+          <CurrencyInput
+            value={assistanceCost || null}
+            onChangeValue={setAssistanceCost}
+            min={0}
+            showBadge={false}
             className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-400 transition-all placeholder:text-slate-400"
           />
         </div>

@@ -4,7 +4,7 @@ vi.mock('@/pages/utils/supabaseConfig', () => ({ supabase: { from: mocks.from } 
 vi.mock('./inventorySubscriptionState', () => ({ prependMoveToState: mocks.prepend, removeMoveFromState: vi.fn(), updateMoveInState: vi.fn(), notifyInventoryMoveMutation: vi.fn(), notifyInventoryMoveMutationCompleted: vi.fn() }));
 vi.mock('./inventoryStockCalculator', () => ({ recalculateProductStockOnMove: mocks.delta, revertProductStockFromMove: vi.fn() }));
 vi.mock('@/pages/utils/inventoryAuditBalance', () => ({ recalculateInventoryAuditBalance: mocks.audit }));
-vi.mock('@/pages/utils/productService', () => ({ mapFromDB: vi.fn(), updateProduct: vi.fn() }));
+vi.mock('@/pages/utils/productService/productService', () => ({ mapFromDB: vi.fn(), updateProduct: vi.fn() }));
 import { saveInventoryMove } from './inventoryMutationService';
 import { mapInventoryMoveFromDB } from './inventoryMapper';
 import type InventoryMove from '../../types/inventoryMove.type';

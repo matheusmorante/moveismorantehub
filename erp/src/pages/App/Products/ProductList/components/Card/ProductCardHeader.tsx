@@ -1,8 +1,8 @@
 import React from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { isProductIdentificationLabelOnlyProfile } from '@/pages/utils/accessRoles';
+import { isProductIdentificationLabelOnlyProfile } from '@/pages/utils/auth/accessRoles';
 import Product from '../../../../../types/product.type';
-import { normalizeVariationSku } from '@/pages/utils/productVariationDefaults';
+import { normalizeVariationSku } from '@/pages/utils/productService/productVariationDefaults';
 import type { CardVariationItem } from '../Variations/ProductCardVariationList';
 import { ProductCardActions } from './ProductCardActions';
 import { ProductCardBadges } from './ProductCardBadges';

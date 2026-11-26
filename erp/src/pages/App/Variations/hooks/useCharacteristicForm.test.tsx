@@ -3,9 +3,9 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CharacteristicGroup } from '../../../types/variation.type';
 import { useCharacteristicForm } from './useCharacteristicForm';
-import { saveVariation } from '../../../utils/variationService';
+import { saveVariation } from '../../../utils/productService/variationService';
 
-vi.mock('../../../utils/variationService', () => ({
+vi.mock('../../../utils/productService/variationService', () => ({
   saveVariation: vi.fn().mockResolvedValue('saved-id'),
   getVariationErrorMessage: (error: unknown) => error instanceof Error ? error.message : 'Erro',
   fetchVariationOptionByValue: vi.fn(),

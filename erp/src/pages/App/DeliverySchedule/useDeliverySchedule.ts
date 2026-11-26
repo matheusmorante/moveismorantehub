@@ -4,7 +4,7 @@ import {
   subscribeToOrderChanges,
   fetchScheduledAndDraftOrders,
 } from '../../utils/orderHistoryService';
-import { getLocalISODate } from '../../utils/formatters';
+import { getLocalISODate } from '../../utils/shared/formatters';
 import { getSettings, subscribeToSettings } from '@/pages/utils/settingsService';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { shouldShowOrderInSchedule } from '@/pages/utils/scheduleOrderVisibility';
@@ -13,8 +13,8 @@ import {
   normalizeScheduleStatus,
 } from '@/pages/utils/operationalSchedule';
 import { resolveEffectiveSchedule } from '../../../../../shared-utils/commercialOrderRules';
-import { schedulePeriodFilters } from '../../../../../shared-utils/schedulePeriodFilters';
-import { withAbortTimeout } from '../../../../../shared-utils/withAbortTimeout';
+import { schedulePeriodFilters } from '../../../../../shared-utils/scheduling/schedulePeriodFilters';
+import { withAbortTimeout } from '../../../../../shared-utils/core/withAbortTimeout';
 import { expandOrderAppointments } from '../../../../../shared-utils/orderAppointmentOccurrences';
 
 export type ScheduleFilter = 'custom' | 'default' | 'week' | 'month' | 'year' | 'all';

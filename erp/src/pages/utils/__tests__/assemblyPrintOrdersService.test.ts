@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { NON_TEST_ARTIFACT_FILTER } from '../../../../../shared-utils/testArtifactQueries';
+import { NON_TEST_ARTIFACT_FILTER } from '../../../../../shared-utils/testing/testArtifactQueries';
 
 const mockDb = vi.hoisted(() => ({ from: vi.fn() }));
 

@@ -1,7 +1,7 @@
 import { binaryOrderBadgeClass } from './orderBadgeStyles';
 import Order from '../../../../types/order.type';
 import Item from '../../../../types/items.type';
-import { getNonStockOrigin } from '../../../../utils/saleInventoryRules';
+import { getNonStockOrigin } from '../../../../utils/sales/saleInventoryRules';
 
 export interface InventoryBadgeContentOptions {
   isReturn: boolean;

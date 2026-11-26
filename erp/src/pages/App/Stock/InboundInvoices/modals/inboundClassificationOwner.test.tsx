@@ -3,11 +3,11 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({ full: vi.fn(), variation: vi.fn(), code: vi.fn(), find: vi.fn(), details: vi.fn(), change: vi.fn(), reset: vi.fn(), success: vi.fn(), title: vi.fn(), open: vi.fn() }));
 vi.mock('@/pages/utils/supabaseConfig', () => ({ supabase: {} }));
-vi.mock('@/pages/utils/productService', () => ({ getFullProduct: mocks.full, saveVariation: mocks.variation }));
-vi.mock('@/pages/utils/productSupplierCodesService', () => ({ findProductSupplierCodes: mocks.find, saveProductSupplierCode: mocks.code }));
+vi.mock('@/pages/utils/productService/productService', () => ({ getFullProduct: mocks.full, saveVariation: mocks.variation }));
+vi.mock('@/pages/utils/productService/productSupplierCodesService', () => ({ findProductSupplierCodes: mocks.find, saveProductSupplierCode: mocks.code }));
 vi.mock('@/pages/utils/categoryService', () => ({ fetchGroupsAndCategories: vi.fn().mockResolvedValue({ categories: [] }) }));
 vi.mock('@/pages/utils/categoryResolutionService', () => ({ resolveAutoCategory: vi.fn().mockResolvedValue(null) }));
-vi.mock('@/pages/utils/aiService', () => ({ aiService: { generateMarketplaceTitle: mocks.title } }));
+vi.mock('@/pages/utils/aiService/aiService', () => ({ aiService: { generateMarketplaceTitle: mocks.title } }));
 vi.mock('@/pages/utils/inboundNfe/inboundItemProductResolver', () => ({ resolveLinkedProductDetails: mocks.details }));
 vi.mock('react-toastify', () => ({ toast: { success: mocks.success, error: vi.fn(), info: vi.fn() } }));
 import { useInboundInvoiceProductCreation } from '../hooks/useInboundInvoiceProductCreation';

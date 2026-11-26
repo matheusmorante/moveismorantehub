@@ -3,7 +3,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 import { parseAuthorizedInvoiceLines } from '../../erp/src/pages/utils/nfe/invoiceLineSnapshot';
 import { authorizeFiscalOperator } from './fiscalAuthorization';
-import { isIdentifiedTestArtifact, readTestArtifactIdentity } from '../../shared-utils/testArtifactPolicy.js';
+import { isIdentifiedTestArtifact, readTestArtifactIdentity } from '../../shared-utils/testing/testArtifactPolicy.js';
 
 const supabaseUrl =
   process.env.VITE_SUPABASE_URL ||

@@ -1,1 +1,1 @@
-export { calculateCompositionAvailability } from '../../../../shared-utils/compositionMath';
+export * from './stock/compositionMath';

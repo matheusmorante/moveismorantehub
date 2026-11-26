@@ -5,7 +5,7 @@ import {
   markAllAsRead,
   markAsRead,
   AppNotification,
-} from '../../../pages/utils/notificationService';
+} from '../../../pages/utils/notifications/notificationService';
 
 const severityColor: Record<string, string> = {
   critical: 'text-red-500 dark:text-red-400',

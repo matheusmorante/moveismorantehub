@@ -5,13 +5,13 @@ import { getCategoryBreadcrumb } from '@/pages/utils/categoryService';
 import ProductSalesModal from '../../../components/modals/product/ProductSalesModal';
 import { useProductMetadata } from '../../hooks/data/useProductMetadata';
 import { getVariationDisplayName } from '../../utils/presentation/getVariationDisplayName';
-import { getSelectedProductDisplayName } from '@/pages/utils/productVariationDefaults';
+import { getSelectedProductDisplayName } from '@/pages/utils/productService/productVariationDefaults';
 import { CardThumbnail } from './CardThumbnail';
 import { CardPriceStock } from './CardPriceStock';
 import { ProductCardVariationList } from '../Variations/ProductCardVariationList';
 import { ProductCardHeader } from './ProductCardHeader';
 import { ProductCardBadges } from './ProductCardBadges';
-import { isNonConventionalProduct } from '@/pages/utils/productKindRules';
+import { isNonConventionalProduct } from '@/pages/utils/productService/productKindRules';
 import { isSalvadoStockOrigin } from '../../../../../../../../shared-utils/productStockOrigin';
 
 interface ProductCardProps {

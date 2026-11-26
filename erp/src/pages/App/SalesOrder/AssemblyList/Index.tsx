@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { toast } from 'react-toastify';
 import { Drill } from '@/components/shared/DrillIcon';
-import { getLocalISODate } from '@/pages/utils/formatters';
+import { getLocalISODate } from '@/pages/utils/shared/formatters';
 import { Assembly } from './assemblyTypes';
 import { AssemblyFormCard } from './AssemblyFormCard';
 import { AssemblyGroupsView } from './AssemblyGroupsView';

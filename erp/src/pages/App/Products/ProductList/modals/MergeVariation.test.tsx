@@ -4,8 +4,8 @@ import { act, cleanup, fireEvent, render, renderHook, screen } from '@testing-li
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MergeVariationModal } from './MergeVariationModal';
 import { useMergeVariation } from './MergeVariation/useMergeVariation';
-import { mergeVariationIntoCanonical } from '@/pages/utils/productService/productVariationActionsService';
-import { searchCanonicalVariations } from '@/pages/utils/productService/productVariationMergeQueries';
+import { mergeVariationIntoCanonical } from '@/pages/utils/productService/mutations/productVariationActionsService';
+import { searchCanonicalVariations } from '@/pages/utils/productService/queries/productVariationMergeQueries';
 import { toast } from 'react-toastify';
 
 type Query = { table: string; columns: string; filters: Record<string, unknown>; payload?: unknown; ors: { value: string; scope?: unknown }[] };
@@ -24,10 +24,10 @@ vi.mock('@/pages/utils/supabaseConfig', () => ({ supabase: {
     };
   }, rpc: transport.rpc,
 } }));
-vi.mock('@/pages/utils/productService', () => ({ mergeVariationIntoCanonical: transport.merge }));
-vi.mock('@/pages/utils/productService/productMutationService', () => ({ updateProduct: vi.fn() }));
-vi.mock('@/pages/utils/productService/productMetaCatalogSync', () => ({ triggerProductMetaCatalogSync: transport.sync }));
-vi.mock('@/pages/utils/productService/productLocalCache', () => ({ LOCAL_STORAGE_KEY: 'local_products', getLocalProducts: () => [], notifySubscribers: transport.notify }));
+vi.mock('@/pages/utils/productService/productService', () => ({ mergeVariationIntoCanonical: transport.merge }));
+vi.mock('@/pages/utils/productService/mutations/productMutationService', () => ({ updateProduct: vi.fn() }));
+vi.mock('@/pages/utils/productService/catalog/productMetaCatalogSync', () => ({ triggerProductMetaCatalogSync: transport.sync }));
+vi.mock('@/pages/utils/productService/drafts/productLocalCache', () => ({ LOCAL_STORAGE_KEY: 'local_products', getLocalProducts: () => [], notifySubscribers: transport.notify }));
 vi.mock('react-toastify', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
 const sourceId = '00000000-0000-4000-8000-000000000001', targetId = '00000000-0000-4000-8000-000000000002';

@@ -11,11 +11,11 @@ vi.mock('@/pages/utils/supabaseConfig', () => ({
   supabase: { from: mocks.from },
 }));
 
-vi.mock('./productSkuService', () => ({
+vi.mock('./mutations/productSkuService', () => ({
   TABLE_NAME: 'products',
 }));
 
-import { applyCompositionAvailability } from './compositionAvailability';
+import { applyCompositionAvailability } from './queries/compositionAvailability';
 
 describe('applyCompositionAvailability', () => {
   beforeEach(() => {

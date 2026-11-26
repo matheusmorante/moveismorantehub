@@ -14,7 +14,7 @@ import { normalizeFiscalIdentifier } from '../../../../../../shared-utils/fiscal
 import { ChevronRight } from 'lucide-react-native';
 import { receiptSourceSearchSchema } from '../../../../../../shared-utils/receiptFormSchemas';
 import { invoiceListFormSchema } from '../../../../../../shared-utils/listingFormSchemas';
-import { withTimeout } from '../../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../../shared-utils/core/withTimeout';
 import { flattenFormErrors, useZodForm } from '../../../../hooks/useZodForm';
 import { fetchReceiptInvoiceSources } from '../../../../services/stock/stockReceiptsService';
 import type { Invoice, InvoiceDateFilter, InvoiceDateFilterMode } from '../../types/stock.types';

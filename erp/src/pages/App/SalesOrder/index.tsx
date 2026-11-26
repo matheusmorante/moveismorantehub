@@ -1,13 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
 import OrderHistoryList, { OrderHistoryListRef } from './OrderHistoryList';
-import OrderFilters from './components/OrderFilters';
+import OrderFilters from './components/toolbar/OrderFilters';
 import { useAuth } from '@/context/AuthContext';
 import { hasFiscalOperationRole } from '@/pages/utils/nfe/fiscalAuthorization';
 import { prefetchNfeNumberPreviews } from '@/pages/utils/nfe/nfeNumberPreviewPrefetch';
-import { useSalesOrderRoutingFilters } from './hooks/useSalesOrderRoutingFilters';
-import { useSalesOrderModals } from './hooks/useSalesOrderModals';
+import { useSalesOrderRoutingFilters } from './hooks/form-flow/useSalesOrderRoutingFilters';
+import { useSalesOrderModals } from './hooks/form-flow/useSalesOrderModals';
 import SalesOrderModalsContainer from './modals/SalesOrderModalsContainer';
-import { SalesOrderTopToolbar } from './components/SalesOrderTopToolbar';
+import { SalesOrderTopToolbar } from './components/toolbar/SalesOrderTopToolbar';
 import { OrderCollectionOverlayModal } from './modals/OrderCollectionOverlayModal';
 
 const SalesOrder = () => {

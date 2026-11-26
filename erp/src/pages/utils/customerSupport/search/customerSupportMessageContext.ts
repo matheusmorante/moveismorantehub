@@ -1,8 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { WhatsAppMessage } from '@/pages/App/CustomerSupport/types';
-import { mapRowToMessage } from '../customerSupportMappers';
-import { withTimeout } from '../../../../../../shared-utils/withTimeout';
-import { MESSAGE_SELECT_COLUMNS } from '../customerSupportHistoryTypes';
+import { mapRowToMessage } from '../query/customerSupportMappers';
+import { withTimeout } from '../../../../../../shared-utils/core/withTimeout';
+import { MESSAGE_SELECT_COLUMNS } from '../query/customerSupportHistoryTypes';
 import { applyTimestampCursor } from './customerSupportSearchFilters';
 
 export interface CustomerSupportMessageContext {

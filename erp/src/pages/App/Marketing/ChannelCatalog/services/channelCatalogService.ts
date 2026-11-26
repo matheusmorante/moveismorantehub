@@ -1,8 +1,8 @@
 import { supabase } from '@/pages/utils/supabaseConfig';
-import { whatsappGraphService } from '@/pages/utils/whatsappGraphService';
+import { whatsappGraphService } from '@/pages/utils/whatsapp/whatsappGraphService';
 import { pluralizeProductType } from '@/pages/utils/pluralize';
 import { VariationRow, CatalogCollectionItem, ChannelFilter } from '../types';
-import { buildPostgrestAccentInsensitiveOrFilter, matchesSearchText } from '../../../../../../../shared-utils/searchText';
+import { buildPostgrestAccentInsensitiveOrFilter, matchesSearchText } from '../../../../../../../shared-utils/core/searchText';
 
 const CATALOG_COLUMNS =
   'id, code, description, brand, category, unit_price, stock, active, deleted_at, images, environment, product_type_name, last_whatsapp_sync, line, variations, product_variations(id, product_id, name, sku, price, stock, status, image_url, attributes)';

@@ -1,11 +1,9 @@
 import React from 'react';
 import Order from '../../../../../types/order.type';
-import { formatToBRDate, toTitleCase } from '../../../../../utils/formatters';
+import { formatToBRDate, toTitleCase } from '../../../../../utils/shared/formatters';
 import { formatOrderCode } from '../../../../../utils/orderCode';
 import { OrderCancellationFailureNotice } from '../OrderCancellationFailureNotice';
 import { OrderDeliveryPrompt } from '../OrderDeliveryPrompt';
-import PickupIcon from '@/components/shared/PickupIcon';
-import DeliveryTruckIcon from '@/components/shared/DeliveryTruckIcon';
 import { OrderScheduleSummary } from '../OrderScheduleSummary';
 import { OrderHistoryCardProps, OrderStatusConfigMap } from './OrderHistoryCard.types';
 
@@ -38,12 +36,6 @@ export const OrderCardBody: React.FC<OrderCardBodyProps> = ({
   statusConfig,
   timeDisplay,
 }) => {
-  const effectiveDeliveryMethod =
-    order.orderType === 'assistance'
-      ? (order.linkedOrderDeliveryMethod || order.shipping?.deliveryMethod)
-      : order.shipping?.deliveryMethod;
-  const isPickupDeliveryMethod = effectiveDeliveryMethod === 'pickup';
-
   return (
     <div className="px-3 pt-2.5 pb-3">
       <h3
@@ -92,23 +84,10 @@ export const OrderCardBody: React.FC<OrderCardBodyProps> = ({
           </button>
           {order.orderType === 'assistance' && (
             <span
-              className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${
-                isPickupDeliveryMethod
-                  ? 'bg-purple-50 text-purple-700 border border-purple-200 dark:bg-purple-900/20 dark:text-purple-300 dark:border-purple-800'
-                  : 'bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-300 dark:border-emerald-800'
-              }`}
+              className="inline-flex items-center gap-1 rounded border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wider text-amber-700 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-300"
             >
-              {isPickupDeliveryMethod ? (
-                <>
-                  <PickupIcon className="h-2.5 w-2.5" />
-                  Retirada
-                </>
-              ) : (
-                <>
-                  <DeliveryTruckIcon className="h-2.5 w-2.5" />
-                  Entrega
-                </>
-              )}
+              <i className="bi bi-tools" aria-hidden="true" />
+              Assistência
             </span>
           )}
         </div>

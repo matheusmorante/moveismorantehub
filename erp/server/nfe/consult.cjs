@@ -1847,7 +1847,7 @@ var money2 = (value, field, positive = false) => {
   return Math.round(value * 100);
 };
 
-// shared-utils/orderPaymentState.ts
+// shared-utils/orders/orderPaymentState.ts
 var normalize2 = (value) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
 function classifyOrderPaymentSettlement(status) {
   if (status === void 0 || status === null) return "paid";
@@ -3973,7 +3973,7 @@ async function reconcileNormalSale(db, documentId, allowTransmission = false, pr
 // api/nfe/normal-sale/outboundStatus.ts
 var import_node_crypto9 = require("node:crypto");
 
-// shared-utils/withTimeout.ts
+// shared-utils/core/withTimeout.ts
 async function withTimeout(promise, timeoutMs, fallbackValue, label) {
   let timer;
   const timeoutPromise = new Promise((resolve2) => {

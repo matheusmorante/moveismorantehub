@@ -1,6 +1,6 @@
 import React from 'react';
 import Order from '../../../../types/order.type';
-import { formatToBRDate } from '../../../../utils/formatters';
+import { formatToBRDate } from '../../../../utils/shared/formatters';
 import PickupIcon from '@/components/shared/PickupIcon';
 import DeliveryTruckIcon from '@/components/shared/DeliveryTruckIcon';
 import { resolveCardTimeDisplay } from './OrderHistoryCard/orderCardPresentation';
@@ -24,6 +24,7 @@ export const OrderScheduleSummary: React.FC<OrderScheduleSummaryProps> = ({
   statusConfig,
 }) => {
   const isTable = layout === 'table';
+  const isAssistanceOrder = order.orderType === 'assistance';
   const scheduling = order.shipping?.scheduling;
   const hasAppointmentRecords =
     order.orderType === 'sale' && Boolean(scheduling?.appointments?.length);
@@ -90,7 +91,9 @@ export const OrderScheduleSummary: React.FC<OrderScheduleSummaryProps> = ({
         <span className="mb-0.5 text-[8px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
           {order.orderType === 'return'
             ? 'Data de coleta'
-            : 'Agendamentos'}
+            : isAssistanceOrder
+              ? 'Agendamento da Assistência'
+              : 'Agendamentos'}
         </span>
       )}
       <div
@@ -143,17 +146,21 @@ export const OrderScheduleSummary: React.FC<OrderScheduleSummaryProps> = ({
                   {statusBadge}
                   <span
                     className={`inline-flex h-4 items-center gap-1.5 font-semibold leading-4 ${
-                      entry.deliveryMethod === 'pickup'
+                      isAssistanceOrder
+                        ? 'text-amber-700 dark:text-amber-300'
+                        : entry.deliveryMethod === 'pickup'
                         ? 'text-purple-700 dark:text-purple-300'
                         : 'text-emerald-700 dark:text-emerald-300'
                     }`}
                   >
-                    {entry.deliveryMethod === 'pickup' ? (
+                    {isAssistanceOrder ? (
+                      <i className="bi bi-tools" aria-hidden="true" />
+                    ) : entry.deliveryMethod === 'pickup' ? (
                       <PickupIcon className="h-3 w-3" />
                     ) : (
                       <DeliveryTruckIcon className="h-3 w-3" />
                     )}
-                    {entry.deliveryMethod === 'pickup' ? 'Retirada' : 'Entrega'}
+                    {isAssistanceOrder ? 'Assistência' : entry.deliveryMethod === 'pickup' ? 'Retirada' : 'Entrega'}
                   </span>
                 </div>
                 {pending || !dateText ? (
@@ -173,20 +180,24 @@ export const OrderScheduleSummary: React.FC<OrderScheduleSummaryProps> = ({
               className="flex w-full min-w-0 max-w-full flex-nowrap items-center justify-start gap-x-2 overflow-hidden py-1 text-[11px]"
             >
               {statusBadge}
-              {order.orderType === 'sale' && (
+              {(order.orderType === 'sale' || isAssistanceOrder) && (
                 <span
                   className={`inline-flex h-4 shrink-0 items-center gap-1.5 font-semibold leading-4 ${
-                    entry.deliveryMethod === 'pickup'
+                    isAssistanceOrder
+                      ? 'text-amber-700 dark:text-amber-300'
+                      : entry.deliveryMethod === 'pickup'
                       ? 'text-purple-700 dark:text-purple-300'
                       : 'text-emerald-700 dark:text-emerald-300'
                   }`}
                 >
-                  {entry.deliveryMethod === 'pickup' ? (
+                  {isAssistanceOrder ? (
+                    <i className="bi bi-tools" aria-hidden="true" />
+                  ) : entry.deliveryMethod === 'pickup' ? (
                     <PickupIcon className="h-3 w-3 text-purple-600 dark:text-purple-400" />
                   ) : (
                     <DeliveryTruckIcon className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
                   )}
-                  {entry.deliveryMethod === 'pickup' ? 'Retirada' : 'Entrega'}
+                  {isAssistanceOrder ? 'Assistência' : entry.deliveryMethod === 'pickup' ? 'Retirada' : 'Entrega'}
                 </span>
               )}
               {pending ? (

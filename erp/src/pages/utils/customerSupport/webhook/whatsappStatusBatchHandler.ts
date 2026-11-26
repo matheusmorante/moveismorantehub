@@ -2,7 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   parseMetaStatusFailure,
   persistDeliveryStatusUpdate,
-} from '../whatsappWebhookStatusService.js';
+} from './whatsappWebhookStatusService.js';
 
 export interface StatusBatchResult {
   processedStatuses: number;

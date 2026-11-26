@@ -1,6 +1,6 @@
 import { supabase } from '../../supabaseClient';
 import { parseInboundNfeXml } from '../../../features/stock/invoices/utils/inboundXmlParser';
-import { withTimeout } from '../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../shared-utils/core/withTimeout';
 import {
   getSupplierStockOriginsFromRelation,
   isSalvadosOnlySupplier,

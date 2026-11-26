@@ -10,7 +10,7 @@ import {
   removeNonStockItemLinks,
   getSaleInventoryDate,
   shouldProcessSaleStock,
-} from '../saleInventoryRules';
+} from '../sales/saleInventoryRules';
 
 const sale = (status: string, item: any): Order =>
   ({ orderType: 'sale', status, items: [item] }) as Order;

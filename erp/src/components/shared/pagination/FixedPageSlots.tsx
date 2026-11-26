@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { getFixedPageSlots, normalizePageNumber } from '../../../../../shared-utils/fixedPagination';
+import { getFixedPageSlots, normalizePageNumber } from '../../../../../shared-utils/core/fixedPagination';
 
 interface FixedPageSlotsProps {
   readonly currentPage: number;

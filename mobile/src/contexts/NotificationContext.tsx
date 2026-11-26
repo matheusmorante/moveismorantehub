@@ -4,13 +4,13 @@ import {
   registerPushToken,
   triggerLocalNotification,
   initPushTokenListeners,
-} from '../services/notificationService';
-import { fetchAppNotificationSummaries } from '../services/appNotificationQuery';
+} from '../services/platform/notificationService';
+import { fetchAppNotificationSummaries } from '../services/platform/appNotificationQuery';
 import { AppState } from 'react-native';
 import {
   APP_NOTIFICATION_REALTIME_EVENT,
   APP_NOTIFICATION_REALTIME_TOPIC,
-} from '../../../shared-utils/appNotificationRealtime';
+} from '../../../shared-utils/notifications/appNotificationRealtime';
 
 interface NotificationContextProps {
   notifications: any[];

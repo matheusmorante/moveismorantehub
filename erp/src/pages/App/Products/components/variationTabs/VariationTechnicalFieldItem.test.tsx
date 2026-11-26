@@ -9,7 +9,7 @@ import {
   resolveVariationFieldState,
 } from './VariationTechnicalFieldItem';
 
-vi.mock('../tabs/technical/TechnicalFieldInput', () => ({
+vi.mock('../tabs/technical/inputs/TechnicalFieldInput', () => ({
   TechnicalFieldInput: ({ field, value, onChange, disabled }: any) => (
     <input
       data-testid={`input-${field.name}`}

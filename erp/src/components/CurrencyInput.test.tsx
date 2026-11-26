@@ -2,7 +2,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import * as userEvent from '@testing-library/user-event';
-import CurrencyInput from './CurrencyInput';
+import CurrencyInput from './inputs/CurrencyInput';
 import React from 'react';
 
 // Garante que o DOM é limpo após cada teste

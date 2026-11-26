@@ -13,7 +13,7 @@ vi.mock('./supabaseClient', () => ({ supabase: { from: mocks.from } }));
 import {
   getLatestSavedSummaryRecord,
   getSavedSummaryRecord,
-} from './deliverySummaryService';
+} from './logistics/deliverySummaryService';
 
 const createQuery = (result: { data: any; error: any }) => {
   const query: any = {};

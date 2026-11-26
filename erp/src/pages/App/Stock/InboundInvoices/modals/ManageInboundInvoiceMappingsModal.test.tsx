@@ -7,10 +7,10 @@ import type { InboundInvoice } from '@/pages/utils/inboundNfe/inboundNfeTypes';
 const mocks = vi.hoisted(() => ({ save: vi.fn(), suppliers: vi.fn(), mappings: vi.fn(), result: undefined as unknown }));
 vi.mock('@/pages/utils/inboundNfe/inboundInvoicesService', () => ({ saveInboundInvoice: mocks.save }));
 vi.mock('@/pages/utils/personService', () => ({ fetchPersons: mocks.suppliers }));
-vi.mock('@/pages/utils/productSupplierCodesService', () => ({ findProductSupplierCodes: mocks.mappings }));
+vi.mock('@/pages/utils/productService/productSupplierCodesService', () => ({ findProductSupplierCodes: mocks.mappings }));
 vi.mock('@/pages/utils/inboundNfe/inboundXmlParser', () => ({ parseInboundNfeXml: vi.fn() }));
 vi.mock('@/pages/App/Registrations/shared/modals/PersonFormModal', () => ({ default: () => null }));
-vi.mock('@/components/SupplierAutocomplete', () => ({ default: ({ onSelect, disabled }: any) => <button disabled={disabled} onClick={() => onSelect(' supplier-2 ')}>Trocar fornecedor</button> }));
+vi.mock('@/components/selectors/SupplierAutocomplete', () => ({ default: ({ onSelect, disabled }: any) => <button disabled={disabled} onClick={() => onSelect(' supplier-2 ')}>Trocar fornecedor</button> }));
 vi.mock('../components/InboundInvoiceItemsReview', () => ({ InboundInvoiceItemsReview: ({ items, onChange }: any) => <>
   <pre data-testid="items">{JSON.stringify(items)}</pre>
   <button onClick={async () => { mocks.result = await onChange(1, { ncm: '9403.60.00', sellingPrice: 0 }); }}>Alterar NCM</button>

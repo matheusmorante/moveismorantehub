@@ -1,4 +1,4 @@
-import { saveProductSupplierCode } from '@/pages/utils/productSupplierCodesService';
+import { saveProductSupplierCode } from '@/pages/utils/productService/productSupplierCodesService';
 import type { InboundReceiptItem } from '../components/InboundNfeItemsSection';
 
 export async function persistInboundSupplierProductCodes(

@@ -1,5 +1,5 @@
 import { CategoryNode, EnvironmentNode, CategoryFilterType } from '../types/mobileCategory.types';
-import { matchesSearchText } from '../../../../../../shared-utils/searchText';
+import { matchesSearchText } from '../../../../../../shared-utils/core/searchText';
 
 export interface AttributeRef {
   id: string;

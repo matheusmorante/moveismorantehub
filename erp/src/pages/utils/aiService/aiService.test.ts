@@ -10,7 +10,7 @@ vi.mock('@/pages/utils/supabaseConfig', () => ({
   },
 }));
 
-import { aiService } from '../aiService';
+import { aiService } from './aiService';
 
 describe('aiService Facade & Modularization', () => {
   it('deve expor todos os métodos de catálogo e precificação', () => {

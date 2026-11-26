@@ -3,16 +3,16 @@ import { resolve } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 
 // Product persistence is real; do not call the external Meta Catalog for fixtures.
-vi.mock('@/pages/utils/productService/productMetaCatalogSync', () => ({
+vi.mock('@/pages/utils/productService/catalog/productMetaCatalogSync', () => ({
   triggerProductMetaCatalogSync: () => undefined,
 }));
 
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { savePerson } from '@/pages/utils/personService/personMutationService';
-import { saveProduct } from '@/pages/utils/productService/productMutationService';
+import { saveProduct } from '@/pages/utils/productService/mutations/productMutationService';
 import { executeSaveOrder } from '@/pages/utils/orderMutation/orderCreationService';
-import { validateProductFormSubmission } from '@/pages/App/Products/hooks/form/productFormValidation';
-import { bindTestArtifactContext } from '../../../shared-utils/testArtifactContext';
+import { validateProductFormSubmission } from '@/pages/App/Products/hooks/form/submission/productFormValidation';
+import { bindTestArtifactContext } from '../../../shared-utils/testing/testArtifactContext';
 import { createPersonFormSchema } from '../../../shared-utils/personDomainValidation';
 import { orderFormSchema } from '../../../shared-utils/orderDomainValidation';
 

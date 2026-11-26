@@ -2,7 +2,7 @@ import { Alert } from 'react-native';
 import {
   moveMobileProductToTrash,
   restoreMobileProductFromTrash,
-} from '../services/mobileProductMutationService';
+} from '../services/products/mobileProductMutationService';
 
 interface UseMobileProductTrashActionsParams {
   currentPage: number;

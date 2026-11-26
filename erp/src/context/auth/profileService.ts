@@ -1,6 +1,6 @@
 import { supabase } from '@/pages/utils/supabaseConfig';
 import type { User } from '@supabase/supabase-js';
-import { withTimeout } from '../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../shared-utils/core/withTimeout';
 import type { Profile, UserRole } from './auth.types';
 import { getCachedProfile, setCachedProfile } from './profileCache';
 import { isMasterEmail, createMasterProfile } from './masterIdentity';

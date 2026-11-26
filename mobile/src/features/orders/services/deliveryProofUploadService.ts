@@ -1,6 +1,6 @@
 import { Platform } from 'react-native';
 import * as FileSystem from 'expo-file-system/legacy';
-import { withTimeout } from '../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../shared-utils/core/withTimeout';
 
 const CATALOG_API_URL = (
   process.env.EXPO_PUBLIC_CATALOG_API_URL || 'https://www.moveismorante.com.br'

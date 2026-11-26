@@ -2,8 +2,8 @@ import { mergeAddressSelection } from '../../../../../../../../shared-utils/addr
 import React from 'react';
 import Person from '@/pages/types/person.type';
 import { AddressAutocompleteInput } from '@/components/shared/AddressAutocompleteInput';
-import AddressVerificationMap from '@/pages/App/SalesOrder/components/AddressVerificationMap';
-import { BRAZILIAN_UF_CODES } from '@/pages/utils/brazilianUfCodes';
+import AddressVerificationMap from '@/pages/App/SalesOrder/components/maps/AddressVerificationMap';
+import { BRAZILIAN_UF_CODES } from '@/pages/utils/shared/brazilianUfCodes';
 
 interface PersonAddressSectionProps {
   formData: Partial<Person>;

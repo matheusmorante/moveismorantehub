@@ -1,12 +1,12 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { NfeItemWithFiscal, NfeItemFiscal } from './NfeItemsSection';
-import { formatCurrency } from '@/pages/utils/formatters';
+import { formatCurrency } from '@/pages/utils/shared/formatters';
 import { NcmSelect } from './NcmSelect';
 import {
   composeServiceFiscalValues,
   type FiscalProductItem,
 } from '@/pages/utils/nfe/serviceFiscalComposition';
-import { UnregisteredProductIndicator } from '@/pages/App/SalesOrder/components/UnregisteredProductIndicator';
+import { UnregisteredProductIndicator } from '@/pages/App/SalesOrder/components/form/UnregisteredProductIndicator';
 import { CSOSN_OPTIONS, ORIGEM_OPTIONS, CEST_OPTIONS } from '@/pages/utils/nfe/fiscalConstants';
 import type { NfeItemCfopOption } from './domain/itemFiscalCfopOptions';
 import { matchesSearchText } from '@/pages/utils/textUtils';

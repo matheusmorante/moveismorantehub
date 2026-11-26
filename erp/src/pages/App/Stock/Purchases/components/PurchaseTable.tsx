@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import Purchase from '@/pages/types/purchase.type';
-import { formatCurrency, formatToBRDate } from '@/pages/utils/formatters';
+import { formatCurrency, formatToBRDate } from '@/pages/utils/shared/formatters';
 import { formatPurchaseNumber } from '../../../../../../../shared-utils/purchaseNumber';
 
 export interface PurchaseTableProps {

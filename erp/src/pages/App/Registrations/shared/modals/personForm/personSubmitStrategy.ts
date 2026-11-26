@@ -8,8 +8,8 @@ import {
 import {
   getUserProfileByIdOrEmail,
   saveEmployeeInProfile,
-} from '@/pages/utils/employeeProfileService';
-import { getPrimaryRole } from '@/pages/utils/accessRoles';
+} from '@/pages/utils/auth/employeeProfileService';
+import { getPrimaryRole } from '@/pages/utils/auth/accessRoles';
 import { toast } from 'react-toastify';
 
 export interface PersonCollectionStrategy {

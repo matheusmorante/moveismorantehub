@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { bulkNcmFormSchema } from './catalogFormSchemas';
+import { bulkNcmFormSchema } from './catalog/catalogFormSchemas';
 export const ncmCatalogQueryFormSchema = z.object({
   search: z.string(), page: z.number().int().nonnegative(),
   filter: z.enum(['all', 'vigentes', 'encerrados', 'alterados', 'com_produtos', 'revisar', 'futuros']),

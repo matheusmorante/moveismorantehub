@@ -1,6 +1,6 @@
 import React from 'react';
-import { buildDraftAnalysisChips, DraftAnalysisChip } from '../../../pages/utils/draftAnalysisChips';
-import type { ParsedFinancialIntent } from '../../../../../mobile/src/services/financial/financialTypes';
+import { buildDraftAnalysisChips, DraftAnalysisChip } from '../../../pages/utils/aiService/draftAnalysisChips';
+import type { ParsedFinancialIntent } from '../../../../../mobile/src/services/financial/extraction/financialTypes';
 
 interface Props {
   draft?: ParsedFinancialIntent | null;

@@ -5,12 +5,12 @@ import { quickRegisterSelectionFormSchema } from '../../../../../../../shared-ut
 import { getApplicableTechnicalFields, resolveVariableTechnicalFieldNames } from '@/pages/utils/technicalValuesService';
 import { fetchTechnicalFieldDefinitions } from '@/pages/App/Products/services/technicalFieldService';
 import { fetchGroupsAndCategories } from '@/pages/utils/categoryService';
-import { getFullProduct } from '@/pages/utils/productService';
+import { getFullProduct } from '@/pages/utils/productService/productService';
 import type Product from '@/pages/types/product.type';
 import type { ComboItem, Variation } from '@/pages/types/product.type';
 import type { InboundInvoiceItem } from '@/pages/utils/inboundNfe/inboundNfeTypes';
-import ProductAutocomplete from '@/components/ProductAutocomplete';
-import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
+import ProductAutocomplete from '@/components/selectors/ProductAutocomplete';
+import { withTimeout } from '../../../../../../../shared-utils/core/withTimeout';
 import { getCompleteQuickVariationName, hasSiblingVariationName, normalizeNcm } from '../../../../../../../shared-utils/inboundQuickRegisterRules';
 import { getDefaultShowNameForVariationOverride } from '../../../../../../../shared-utils/productVariationAttributeDefaults';
 

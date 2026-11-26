@@ -14,8 +14,8 @@ import {
 } from 'react-native';
 import type { MetaCatalogStats } from '../../../../../shared-utils/metaCatalogStats';
 import { formatMetaCatalogRunSummary, type MetaCatalogReconciliationResult } from '../../../../../shared-utils/metaCatalogReconciliationResult';
-import { fetchMobileMetaCatalogStats } from '../services/mobileMetaCatalogStatsService';
-import { fetchLastMobileMetaCatalogRun, syncMobileMetaCatalog } from '../services/mobileMetaCatalogSyncService';
+import { fetchMobileMetaCatalogStats } from '../services/catalog/mobileMetaCatalogStatsService';
+import { fetchLastMobileMetaCatalogRun, syncMobileMetaCatalog } from '../services/catalog/mobileMetaCatalogSyncService';
 
 interface NativeMetaCatalogScreenProps {
   dark: boolean;

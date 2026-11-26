@@ -1,0 +1,54 @@
+import { aiProductCatalogService } from './aiProductCatalogService';
+import { aiFiscalClassificationService } from './aiFiscalClassificationService';
+import {
+  aiOrderExtractionService,
+  AIIntentResponse,
+  AIChatResponse,
+} from './aiOrderExtractionService';
+import {
+  aiInboundInvoiceClassificationService,
+  InboundSupplierClassificationResult,
+} from './aiInboundInvoiceClassificationService';
+
+export type { AIIntentResponse, AIChatResponse, InboundSupplierClassificationResult };
+
+/**
+ * Fachada Canônica do aiService do Morante Hub.
+ * Preserva 100% da retrocompatibilidade da API pública delegando a execução
+ * para serviços altamente coesos e desacoplados por domínio.
+ */
+export const aiService = {
+  // 1. Catálogo, Títulos, Descrições e Cores
+  generateDescription: aiProductCatalogService.generateDescription.bind(aiProductCatalogService),
+  generateMarketplaceTitle:
+    aiProductCatalogService.generateMarketplaceTitle.bind(aiProductCatalogService),
+  extractProductColor: aiProductCatalogService.extractProductColor.bind(aiProductCatalogService),
+  generateProductDescription:
+    aiProductCatalogService.generateProductDescription.bind(aiProductCatalogService),
+  generateComboName: aiProductCatalogService.generateComboName.bind(aiProductCatalogService),
+  suggestPrices: aiProductCatalogService.suggestPrices.bind(aiProductCatalogService),
+  improveProductDescription:
+    aiProductCatalogService.improveProductDescription.bind(aiProductCatalogService),
+  extractProductCharacteristicsWithAI:
+    aiProductCatalogService.extractProductCharacteristicsWithAI.bind(aiProductCatalogService),
+  extractFromDescriptiveTextWithAI:
+    aiProductCatalogService.extractFromDescriptiveTextWithAI.bind(aiProductCatalogService),
+  generateDescriptionFromInformativeText:
+    aiProductCatalogService.generateDescriptionFromInformativeText.bind(aiProductCatalogService),
+
+  // 2. Dados fiscais complementares (NCM é selecionado pelo catálogo por tokens)
+  generateFiscalData: aiFiscalClassificationService.generateFiscalData.bind(
+    aiFiscalClassificationService
+  ),
+
+  // 3. Extração de Pedidos e Intenções em Linguagem Natural
+  detectIntent: aiOrderExtractionService.detectIntent.bind(aiOrderExtractionService),
+  chat: aiOrderExtractionService.chat.bind(aiOrderExtractionService),
+  parseOrderFreeText: aiOrderExtractionService.parseOrderFreeText.bind(aiOrderExtractionService),
+
+  // 4. Classificação de NF de Entrada com Contexto do Fornecedor
+  classifyInboundItemWithSupplierContext:
+    aiInboundInvoiceClassificationService.classifyInboundItemWithSupplierContext.bind(
+      aiInboundInvoiceClassificationService
+    ),
+};

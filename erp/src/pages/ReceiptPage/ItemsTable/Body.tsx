@@ -1,7 +1,7 @@
 import Item from '../../types/items.type';
-import { calcItemTotalValue, getFixedDiscount } from '../../utils/calculations';
-import CurrencyDisplay from '../../../components/CurrencyDisplay';
-import UnitDisplay from '../../../components/UnitDisplay';
+import { calcItemTotalValue, getFixedDiscount } from '../../utils/sales/calculations';
+import CurrencyDisplay from '../../../components/display/CurrencyDisplay';
+import UnitDisplay from '../../../components/display/UnitDisplay';
 
 interface Props {
   items?: Item[] | null;

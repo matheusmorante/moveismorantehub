@@ -5,7 +5,7 @@ import type { SearchableProduct } from '../../inventory/components/InventoryProd
 import {
   fetchMobilePurchaseSuppliersByIds,
   type MobilePurchaseSupplier,
-} from '../../../products/services/mobileSupplierService';
+} from '../../../products/services/products/mobileSupplierService';
 
 export type Supplier = MobilePurchaseSupplier;
 

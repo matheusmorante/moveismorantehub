@@ -1,4 +1,4 @@
-import { getTestArtifactContext } from '../../../../../../../shared-utils/testArtifactContext';
+import { getTestArtifactContext } from '../../../../../../../shared-utils/testing/testArtifactContext';
 import { IMAGE_TEMPLATE_TEST_SCENARIO, imageTemplateTestArtifactSchema,
   type ImageTemplateTestArtifact } from '../../../../../../../shared-utils/catalogImageTemplate';
 

@@ -13,11 +13,11 @@ vi.mock('../../../services/supabaseClient', () => ({
   },
 }));
 
-vi.mock('./mobileProductMetaCatalogSyncService', () => ({
+vi.mock('./catalog/mobileProductMetaCatalogSyncService', () => ({
   triggerMobileProductMetaCatalogSync: mocks.triggerMetaCatalogSync,
 }));
 
-import { checkMobileProductVariationHasMoves } from './mobileProductMutationService';
+import { checkMobileProductVariationHasMoves } from './products/mobileProductMutationService';
 
 let query: any;
 

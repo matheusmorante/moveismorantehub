@@ -76,7 +76,7 @@ vi.mock('../../../mobile/src/contexts/AuthContext', () => ({
   }),
 }));
 
-vi.mock('../../../mobile/src/features/products/services/mobileProductCodeService', () => ({
+vi.mock('../../../mobile/src/features/products/services/products/mobileProductCodeService', () => ({
   getNextSequentialProductCode: mocks.getNextSequentialProductCode,
 }));
 

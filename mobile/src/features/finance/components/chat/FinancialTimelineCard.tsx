@@ -3,7 +3,7 @@ import { View, Text, StyleSheet } from 'react-native';
 import { Bot } from 'lucide-react-native';
 import type { FinancialCategory } from '../../../../services/mobileFinanceService';
 import type { ParsedFinancialIntent } from '../../../../services/financialAiAssistantService';
-import { TransactionPreviewCard } from '../TransactionPreviewCard';
+import { TransactionPreviewCard } from '../transactions/TransactionPreviewCard';
 import type { FinancialCardTimelineEntry } from './financialCardTimeline';
 
 interface Props {

@@ -1,1 +1,1 @@
-export * from './schemas/commercialSchedulingFormSchema';
+export * from './schemas/orders/commercialSchedulingFormSchema';

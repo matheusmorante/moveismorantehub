@@ -5,7 +5,7 @@ import {
   fetchGlobalCustomerSupportMessagePage,
   type CustomerSupportGlobalMessageMatch,
   type CustomerSupportHistoryCursor,
-} from '@/pages/utils/customerSupport/customerSupportService';
+} from '@/pages/utils/customerSupport/query/customerSupportService';
 import { supportGlobalMessageSearchSchema } from '../../../../../../shared-utils/customerSupportFormSchemas';
 import type { WhatsAppConversation } from '../types';
 import { readSupportSearchCache, writeSupportSearchCache } from './supportSearchCache';

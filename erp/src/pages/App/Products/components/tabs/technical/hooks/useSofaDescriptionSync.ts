@@ -1,8 +1,8 @@
 import { useEffect } from 'react';
 import type Product from '@/pages/types/product.type';
 import { TechnicalFieldDefinition } from '@/pages/utils/technicalValuesService';
-import { extractSofaDescriptionCharacteristics } from '../sofaDescriptionCharacteristics';
-import { applyTechnicalValueChangeToProduct } from '../technicalSyncUtils';
+import { extractSofaDescriptionCharacteristics } from '../rules/sofaDescriptionCharacteristics';
+import { applyTechnicalValueChangeToProduct } from '../sync/technicalSyncUtils';
 import {
   SOFA_ONLY_DIMENSION_DEFAULTS,
   SOFA_RETRACTABLE_FIELD,

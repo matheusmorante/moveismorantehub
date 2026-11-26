@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { toast } from 'react-toastify';
 import Person from '@/pages/types/person.type';
 import { savePerson } from '@/pages/utils/personService';
-import { capitalizePerson } from '@/pages/utils/formatters';
+import { capitalizePerson } from '@/pages/utils/shared/formatters';
 import { flattenFormErrors, UseZodFormReturn } from '@/hooks/useZodForm';
 import { getPersonCollectionStrategy } from './personSubmitStrategy';
 

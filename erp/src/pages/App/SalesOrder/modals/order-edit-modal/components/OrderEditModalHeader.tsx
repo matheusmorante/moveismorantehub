@@ -1,6 +1,6 @@
 import React from 'react';
-import OrderStepper from '../../../components/OrderStepper';
-import type { ValidationErrors } from '@/pages/utils/validations';
+import OrderStepper from '../../../components/stepper/OrderStepper';
+import type { ValidationErrors } from '@/pages/utils/sales/validations';
 
 export interface OrderEditModalHeaderProps {
   readonly reconciliationMode?: boolean;

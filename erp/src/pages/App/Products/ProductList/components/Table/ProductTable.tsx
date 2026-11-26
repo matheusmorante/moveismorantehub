@@ -3,7 +3,7 @@ import ProductRow from './ProductRow';
 import ProductCard from '../Card/ProductCard';
 import Product, { ProductVisibilitySettings } from '../../../../../types/product.type';
 import type { ProductCategoryTree, ProductListFilters, ProductListRow } from '../../types';
-import { useAutoScroll } from '@/pages/utils/useAutoScroll';
+import { useAutoScroll } from '@/pages/utils/shared/useAutoScroll';
 import { getSettings } from '@/pages/utils/settingsService';
 import { useWindowSize } from '@/hooks/useWindowSize';
 import {
@@ -17,7 +17,7 @@ import { MoveVariationFamilyModal } from '../../modals/MoveVariationFamilyModal'
 import { MergeVariationModal } from '../../modals/MergeVariationModal';
 import { MergeDuplicateProductModal } from '../../modals/MergeDuplicateProductModal';
 import { useAuth } from '@/context/AuthContext';
-import { shouldHideCatalogPublicationStatus } from '@/pages/utils/accessRoles';
+import { shouldHideCatalogPublicationStatus } from '@/pages/utils/auth/accessRoles';
 import { ProductMetadataProvider } from '../../hooks/data/useProductMetadata';
 
 interface ProductTableProps {

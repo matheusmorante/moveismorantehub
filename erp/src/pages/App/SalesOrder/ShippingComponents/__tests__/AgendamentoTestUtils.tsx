@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import Agendamento from '../Agendamento';
 import Shipping from '@/pages/types/Shipping.type';
-import { ValidationErrors } from '@/pages/utils/validations';
+import { ValidationErrors } from '@/pages/utils/sales/validations';
 
 export const createDefaultScheduling = (
   overrides: Partial<Shipping['scheduling']> = {}

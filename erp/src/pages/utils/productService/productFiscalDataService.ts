@@ -1,6 +1,6 @@
 import { supabase } from '@/pages/utils/supabaseConfig';
 import type { FiscalInfo } from '@/pages/types/product.type';
-import { getLocalProducts } from './productLocalCache';
+import { getLocalProducts } from './drafts/productLocalCache';
 
 export interface ProductFiscalData extends Partial<FiscalInfo> {
   id: string;

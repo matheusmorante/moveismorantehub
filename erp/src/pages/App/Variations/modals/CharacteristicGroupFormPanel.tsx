@@ -3,7 +3,7 @@ import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 import { requestConfirmation } from '@/components/shared/confirmationService';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import type { default as VariationType, CharacteristicGroup } from '../../../types/variation.type';
-import { getVariationErrorMessage } from '../../../utils/variationService';
+import { getVariationErrorMessage } from '../../../utils/productService/variationService';
 import {
   deleteCharacteristicGroup,
   saveCharacteristicGroup,

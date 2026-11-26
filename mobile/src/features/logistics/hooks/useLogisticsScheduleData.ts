@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../../services/supabaseClient';
-import { withAbortTimeout } from '../../../../../shared-utils/withAbortTimeout';
-import { schedulePeriodFilters } from '../../../../../shared-utils/schedulePeriodFilters';
+import { withAbortTimeout } from '../../../../../shared-utils/core/withAbortTimeout';
+import { schedulePeriodFilters } from '../../../../../shared-utils/scheduling/schedulePeriodFilters';
 import { useScopedOrderSchedule } from './useScopedOrderSchedule';
 import { offlineStorageService } from '../../../services/offline/offlineStorageService';
 import { connectivityService } from '../../../services/offline/connectivityService';

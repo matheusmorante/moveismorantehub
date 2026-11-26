@@ -1,6 +1,6 @@
 import { supabase } from '../../supabaseConfig';
 import { InboundInvoice } from '../types/inboundNfeTypes';
-import { isValidUuid } from '../../uuidUtils';
+import { isValidUuid } from '../../shared/uuidUtils';
 
 /**
  * Garante que a NF de entrada tenha uma cópia/snapshot no bucket de anexos de recebimento (`purchase-attachments`),

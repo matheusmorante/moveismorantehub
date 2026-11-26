@@ -1,6 +1,6 @@
 import React, { useRef } from 'react';
-import { usePriceLabelFonts } from '../hooks/usePriceLabelFonts';
-import { usePriceLabelCanvasScale } from '../hooks/usePriceLabelCanvasScale';
+import { usePriceLabelFonts } from '../hooks/price-label/usePriceLabelFonts';
+import { usePriceLabelCanvasScale } from '../hooks/price-label/usePriceLabelCanvasScale';
 import type { PriceLabelLayerKey } from '../types/PriceLabelArtEditorTypes';
 import type { PriceLabelArtData } from '../types/PriceLabelArtData';
 import { PriceLabelArtTransformHandles } from './PriceLabelArtTransformHandles';

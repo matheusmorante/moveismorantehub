@@ -1,7 +1,7 @@
 import React from 'react';
 import Order from '@/pages/types/order.type';
 import { OrderHistoryListRef } from '../OrderHistoryList';
-import { SalesOrderModalsManager } from '../hooks/useSalesOrderModals';
+import { SalesOrderModalsManager } from '../hooks/form-flow/useSalesOrderModals';
 import NewSaleOrder from '../pages/NewSaleOrder.tsx';
 import UnlinkedReturnOrderModal from './UnlinkedReturnOrderModal';
 import AssistanceOrderModal from './AssistanceOrderModal';

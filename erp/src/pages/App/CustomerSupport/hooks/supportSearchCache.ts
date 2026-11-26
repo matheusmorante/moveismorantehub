@@ -1,4 +1,4 @@
-import type { CustomerSupportGlobalSearchPage } from '@/pages/utils/customerSupport/customerSupportService';
+import type { CustomerSupportGlobalSearchPage } from '@/pages/utils/customerSupport/query/customerSupportService';
 
 const SEARCH_CACHE_TTL_MS = 5 * 60_000;
 

@@ -1,1 +1,1 @@
-export * from './schemas/postManagerFormSchemas';
+export * from './schemas/catalog/postManagerFormSchemas';

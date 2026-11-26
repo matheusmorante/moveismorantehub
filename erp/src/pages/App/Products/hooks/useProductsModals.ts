@@ -6,9 +6,9 @@ import {
   generateVariationSku,
   getFullProduct,
   getNextSequentialProductCode,
-} from '@/pages/utils/productService';
-import { copyProductImages } from '@/pages/utils/storageService';
-import { MAX_VARIATION_IMAGES } from '@/pages/utils/productImageLimits';
+} from '@/pages/utils/productService/productService';
+import { copyProductImages } from '@/pages/utils/shared/storageService';
+import { MAX_VARIATION_IMAGES } from '@/pages/utils/productService/productImageLimits';
 
 export interface StockLaunchTarget {
   product?: Product | null;

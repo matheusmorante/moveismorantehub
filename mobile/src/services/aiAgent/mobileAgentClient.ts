@@ -1,8 +1,8 @@
 import { supabase } from '../supabaseClient';
 import { GeminiContent } from './mobileAgentTypes';
-import { withTimeout } from '../../../../shared-utils/withTimeout';
-import { buildOpenAiAgentRequest, parseOpenAiAgentResponse } from '../../../../shared-utils/openAiAgentAdapter';
-import { createOpenAiHttpError } from '../../../../shared-utils/openAiProviderError';
+import { withTimeout } from '../../../../shared-utils/core/withTimeout';
+import { buildOpenAiAgentRequest, parseOpenAiAgentResponse } from '../../../../shared-utils/ai-agent/openAiAgentAdapter';
+import { createOpenAiHttpError } from '../../../../shared-utils/ai-agent/openAiProviderError';
 
 interface GenerateContentPayload {
   model?: string;

@@ -9,8 +9,8 @@ import { validateOrderStatusTransition } from '../orderStatusTransitionRules';
 import type { OrderCirculationState } from '../nfe/cancellationEligibility';
 import { ensureCustomerInCrm, syncCustomerToCrmBackground } from './orderCrmSyncService';
 import { dispatchOrderUpdateNotifications } from './orderNotificationDispatcher';
-import { removeNonStockItemLinks } from '../saleInventoryRules';
-import { isIdentifiedTestArtifact } from '../../../../../shared-utils/testArtifactPolicy';
+import { removeNonStockItemLinks } from '../sales/saleInventoryRules';
+import { isIdentifiedTestArtifact } from '../../../../../shared-utils/testing/testArtifactPolicy';
 import { queryClient } from '@/lib/queryClient';
 import { ensureOrderItemsHaveFiscalSnapshots } from '../orderFiscalSnapshotService';
 import { assertOrderHasNoCompositionLines } from './orderCompositionRules';
@@ -20,7 +20,7 @@ import {
   setPersistedOrderDataSnapshot,
 } from '../orderMapper';
 import type { OrderUpdateOptions } from './orderMutationTypes';
-import { withTimeout } from '../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../shared-utils/core/withTimeout';
 import { returnFulfillmentFormSchema, getReturnFulfillmentFormValues, returnFulfillmentReceiptSchema, ReturnFulfillmentUnconfirmedError,
   returnCancellationFormSchema, getReturnCancellationFormValues, returnCancellationReceiptSchema, ReturnCancellationUnconfirmedError,
   type ReturnCancellationValues, type ReturnCancellationReceipt, type ReturnFulfillmentValues, type ReturnFulfillmentReceipt } from '../../../../../shared-utils/returnFormSchemas';

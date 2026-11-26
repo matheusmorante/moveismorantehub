@@ -1,9 +1,9 @@
 import { supabase } from '../../supabaseConfig';
 import { normalizeFiscalIdentifier } from '../../../../../../shared-utils/fiscalIdentifiers';
 import { normalizeSearchTerm } from '../../../../../../shared-utils/productText';
-import { buildPostgrestAccentInsensitivePattern } from '../../../../../../shared-utils/searchText';
+import { buildPostgrestAccentInsensitivePattern } from '../../../../../../shared-utils/core/searchText';
 import { isSalvadosOnlySupplier } from '../../../../../../shared-utils/productSupplierStockOrigin';
-import { withTimeout } from '../../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../../shared-utils/core/withTimeout';
 import { findInboundInvoiceHistorySupplier } from '../../../../../../shared-utils/inboundInvoiceLinkReuse';
 
 interface SupplierLookupRow {

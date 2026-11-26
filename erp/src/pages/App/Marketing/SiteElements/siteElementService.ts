@@ -11,7 +11,7 @@ import {
   type SiteElementKind,
   type SiteElementModelFormValues,
 } from '../../../../../../shared-utils/siteElementSchemas';
-import { withTimeout } from '../../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../../shared-utils/core/withTimeout';
 import type { CarouselBannerVariant } from '../../../../../../shared-utils/siteElementDimensions';
 
 export const SITE_ELEMENT_PAGE_SIZE = 15;

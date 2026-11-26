@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { canGenerateAssistance } from '../assistancePolicy';
+import { canGenerateAssistance } from '../sales/assistancePolicy';
 import Order from '@/pages/types/order.type';
 
 describe('canGenerateAssistance', () => {

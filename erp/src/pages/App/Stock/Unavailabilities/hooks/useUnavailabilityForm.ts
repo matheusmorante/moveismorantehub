@@ -3,7 +3,7 @@ import { toast } from 'react-toastify';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { stockUnavailabilityOwnerFormSchema, stockUnavailabilityPhotosFormSchema, stockUnavailabilitySupplierQuerySchema,
   StockUnavailabilityUnconfirmedError, type StockUnavailabilityOperationGuard } from '../../../../../../../shared-utils/stockUnavailabilityFormSchemas';
-import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../../../shared-utils/core/withTimeout';
 import type { Product, Variation } from '@/pages/types/product.type';
 import { createStockUnavailability } from '@/pages/utils/stockUnavailabilityService';
 import { fetchSuppliersForProductResult } from '../services/unavailabilitySupplierService';

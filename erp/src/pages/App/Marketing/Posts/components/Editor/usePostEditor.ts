@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { withTimeout } from '../../../../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../../../../shared-utils/core/withTimeout';
 import { postProductQueryFormSchema, postPreviewProductFormSchema, postEditorCampaignFormSchema, postCompositionFormSchema } from '../../../../../../../../shared-utils/postEditorFormSchemas';
-import { fetchPreviewProductOptionsPage, getFullProduct } from '@/pages/utils/productService';
-import type { ProductPreviewOption } from '@/pages/utils/productService';
+import { fetchPreviewProductOptionsPage, getFullProduct } from '@/pages/utils/productService/productService';
+import type { ProductPreviewOption } from '@/pages/utils/productService/productService';
 import { Product } from '@/pages/types/product.type';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { Layer, MarketingTemplate, MarketingCampaign, MarketingAsset } from '../../types';

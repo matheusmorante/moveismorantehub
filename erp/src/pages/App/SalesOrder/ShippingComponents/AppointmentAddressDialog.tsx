@@ -7,7 +7,7 @@ import { PatternFormat } from 'react-number-format';
 import { z } from 'zod';
 import { AddressAutocompleteInput } from '@/components/shared/AddressAutocompleteInput';
 import type FullAddress from '@/pages/types/fullAddress.type';
-import { BRAZILIAN_UF_CODES } from '@/pages/utils/brazilianUfCodes';
+import { BRAZILIAN_UF_CODES } from '@/pages/utils/shared/brazilianUfCodes';
 import { operationDeliveryAddressFormSchema as addressSchema } from '../../../../../../shared-utils/routeFormSchemas';
 
 type AddressFormValues = z.input<typeof addressSchema>;

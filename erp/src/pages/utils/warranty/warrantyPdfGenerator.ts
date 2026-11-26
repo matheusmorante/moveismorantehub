@@ -1,6 +1,6 @@
 import { jsPDF } from 'jspdf';
 import { formatOrderCode } from '../orderCode';
-import { formatDate } from '../formatters';
+import { formatDate } from '../shared/formatters';
 import type { GeneratedWarrantyPdf, WarrantyPdfParams } from './warrantyTypes';
 import { DEFAULT_WARRANTY_COMPANY_INFO } from './warrantyLegalContent';
 import { calculateSha256 } from './cryptoUtils';

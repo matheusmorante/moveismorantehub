@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
-import { usePriceLabelState } from '../hooks/usePriceLabelState';
+import { usePriceLabelState } from '../hooks/price-label/usePriceLabelState';
 
 describe('usePriceLabelState - Undo / Redo e Gerenciamento de Histórico', () => {
   beforeEach(() => {

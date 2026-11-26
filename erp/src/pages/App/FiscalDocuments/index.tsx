@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { toast } from 'react-toastify';
 import { useAuth } from '@/context/AuthContext';
-import { getProfileRoles } from '@/pages/utils/accessRoles';
-import { canPerform } from '@/pages/utils/permissionService';
+import { getProfileRoles } from '@/pages/utils/auth/accessRoles';
+import { canPerform } from '@/pages/utils/auth/permissionService';
 import { hasFiscalOperationRole } from '@/pages/utils/nfe/fiscalAuthorization';
 import { prefetchNfeNumberPreviews } from '@/pages/utils/nfe/nfeNumberPreviewPrefetch';
 import { FiscalIssueCard } from '@/pages/App/shared/components/FiscalIssueCard';
@@ -12,7 +12,7 @@ import type { ReplacementPendingAction } from '@/pages/utils/nfe/orderFiscalBadg
 import type Order from '@/pages/types/order.type';
 import { fetchOrderById } from '@/pages/utils/orderHistoryService';
 import { beginFiscalEmissionReplacement } from '@/pages/utils/nfe/nfeEmissionRequestState';
-import { withTimeout } from '../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../shared-utils/core/withTimeout';
 
 import OrderDetailsModal from '../DeliverySchedule/OrderDetailsModal';
 import { useFiscalDocumentsList } from './hooks/useFiscalDocumentsList';

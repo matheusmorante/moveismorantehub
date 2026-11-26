@@ -1,1 +1,1 @@
-export * from './schemas/siteElementSchemas';
+export * from './schemas/catalog/siteElementSchemas';

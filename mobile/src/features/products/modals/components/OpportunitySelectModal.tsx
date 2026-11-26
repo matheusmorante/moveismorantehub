@@ -1,7 +1,7 @@
 import React from 'react';
 import { Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Check, X } from 'lucide-react-native';
-import { MobileOpportunity } from '../../services/mobileOpportunityService';
+import { MobileOpportunity } from '../../services/catalog/mobileOpportunityService';
 
 interface OpportunitySelectModalProps {
   visible: boolean;

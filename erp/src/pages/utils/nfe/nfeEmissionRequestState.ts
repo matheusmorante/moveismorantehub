@@ -1,7 +1,7 @@
 import type Order from '@/pages/types/order.type';
 import { parseFiscalItemSelections } from '../../../../../shared-utils/fiscalItemSelections';
 import { supabase } from '../supabaseConfig';
-import { withTimeout } from '../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../shared-utils/core/withTimeout';
 import { isFiscalNumber } from '../../../../../shared-utils/fiscalNumbering';
 import type { OrderFiscalBadgeStatuses } from './orderFiscalBadgeRules';
 

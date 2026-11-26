@@ -1,5 +1,5 @@
 import { supabase } from '../supabaseConfig';
-import { withTimeout } from '../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../shared-utils/core/withTimeout';
 
 export const FISCAL_NUMBER_PREVIEW_TTL_MS = 30_000;
 export const FISCAL_NUMBER_PREVIEW_TIMEOUT_MS = 10_000;

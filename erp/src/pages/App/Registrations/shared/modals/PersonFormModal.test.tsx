@@ -13,7 +13,7 @@ vi.mock('@/context/AuthContext', () => ({
   useAuth: () => ({ isAdministrator: mocks.isAdministrator }),
 }));
 
-vi.mock('../../../../../../../shared-utils/testArtifactContext', () => ({
+vi.mock('../../../../../../../shared-utils/testing/testArtifactContext', () => ({
   getTestArtifactContext: () => ({
     runId: '550e8400-e29b-41d4-a716-446655440000',
     ownerId: '550e8400-e29b-41d4-a716-446655440001',

@@ -4,7 +4,7 @@ import { flattenFormErrors, useZodForm } from '../../../../../../hooks/useZodFor
 import {
   mobileInboundMappingsFormSchema,
 } from '../../../../../../../../shared-utils/inboundProductLinkFormSchemas';
-import { withTimeout } from '../../../../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../../../../shared-utils/core/withTimeout';
 import * as stockService from '../../../../../../services/stockService';
 import type { Invoice } from '../../../../types/stock.types';
 import {

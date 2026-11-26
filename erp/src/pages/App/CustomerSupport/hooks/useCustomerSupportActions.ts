@@ -9,7 +9,7 @@ import {
   createInternalNoteMessage,
   toggleArchiveConversation,
   updateConversationAiStatus,
-} from '@/pages/utils/customerSupport/customerSupportService';
+} from '@/pages/utils/customerSupport/query/customerSupportService';
 
 interface UseCustomerSupportActionsParams {
   selectedConversation: WhatsAppConversation | null;

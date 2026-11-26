@@ -1,7 +1,7 @@
 import { Alert } from 'react-native';
-import { withTimeout } from '../../../../../../shared-utils/withTimeout';
-import { getProductCategoryIds } from '../../../../../../shared-utils/catalogPublicationValidation';
-import { fetchMobileProductTechnicalFields } from '../../services/mobileProductTechnicalService';
+import { withTimeout } from '../../../../../../shared-utils/core/withTimeout';
+import { getProductCategoryIds } from '../../../../../../shared-utils/catalogPublication/catalogPublicationValidation';
+import { fetchMobileProductTechnicalFields } from '../../services/categories/mobileProductTechnicalService';
 import { shouldValidatePublishedCatalogEdit } from '../productSaveState';
 import {
   getMobilePublishedCatalogEditLegibility,

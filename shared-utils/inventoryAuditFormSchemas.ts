@@ -1,1 +1,1 @@
-export * from './schemas/inventoryAuditFormSchemas';
+export * from './schemas/stock/inventoryAuditFormSchemas';

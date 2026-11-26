@@ -3,7 +3,7 @@ import { supabase } from '@/pages/utils/supabaseConfig';
 import { AppSettings } from './types';
 import { getDefaultSettings, SETTINGS_KEY, SETTINGS_ID, SUPABASE_SETTINGS_TABLE } from './defaults';
 import { migrateSettings } from './migrations';
-import { withTimeout } from '../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../shared-utils/core/withTimeout';
 
 /**
  * Helper to deep merge objects

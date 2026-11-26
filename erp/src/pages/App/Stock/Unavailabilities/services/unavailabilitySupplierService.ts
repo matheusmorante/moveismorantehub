@@ -1,7 +1,7 @@
 import { supabase } from '@/pages/utils/supabaseConfig';
 import type { UnavailabilitySupplier } from '../types/unavailabilityForm.types';
 import { stockUnavailabilitySupplierQuerySchema } from '../../../../../../../shared-utils/stockUnavailabilityFormSchemas';
-import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../../../shared-utils/core/withTimeout';
 
 interface ProductSuppliersRow {
   supplier_id?: string | null;

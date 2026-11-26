@@ -2,7 +2,7 @@
 import React from 'react';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
-import ShippingData from '../components/ShippingData';
+import ShippingData from '../components/shipping/ShippingData';
 import Agendamento from '../ShippingComponents/Agendamento';
 import Shipping from '@/pages/types/Shipping.type';
 
@@ -30,7 +30,7 @@ vi.mock('@/pages/utils/supabaseConfig', () => ({
   },
 }));
 
-vi.mock('../components/AddressVerificationMap', () => ({
+vi.mock('../components/maps/AddressVerificationMap', () => ({
   default: () => <div data-testid="address-verification-map" />,
 }));
 

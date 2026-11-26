@@ -1,9 +1,9 @@
 /** @jsxImportSource react */
 import React, { useState, useEffect } from 'react';
-import { whatsappGraphService, WhatsAppProduct } from '../../utils/whatsappGraphService';
+import { whatsappGraphService, WhatsAppProduct } from '../../utils/whatsapp/whatsappGraphService';
 import { toast } from 'react-toastify';
 import { requestConfirmation } from '@/components/shared/confirmationService';
-import { syncFromWhatsApp } from '@/pages/utils/productService';
+import { syncFromWhatsApp } from '@/pages/utils/productService/productService';
 
 export default function WhatsAppMarketplace() {
   const [products, setProducts] = useState<WhatsAppProduct[]>([]);

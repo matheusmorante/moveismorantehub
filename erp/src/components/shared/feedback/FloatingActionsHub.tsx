@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { roleLabel, SYSTEM_ROLES } from '@/pages/utils/accessRoles';
+import { roleLabel, SYSTEM_ROLES } from '@/pages/utils/auth/accessRoles';
 
 export default function FloatingActionsHub() {
   const { isRealAdministrator, activeRoleMode, setActiveRoleMode } = useAuth();

@@ -8,7 +8,7 @@ vi.mock('react-toastify', () => ({ toast: { error: mocks.error, success: vi.fn()
 vi.mock('@/pages/utils/personService', () => ({ subscribeToPeople: (_collection: string, callback: (people: unknown[]) => void) => { callback([{ id: 'supplier', fullName: 'Fornecedor', type: 'suppliers' }]); return () => {}; } }));
 vi.mock('@/pages/utils/goodsReceiptService', () => ({ saveGoodsReceiptDraft: mocks.saveDraft, finalizeGoodsReceipt: mocks.finalize }));
 vi.mock('@/pages/utils/inboundNfe/inboundInvoicesService', () => ({ markInvoiceAsReceived: mocks.markReceived }));
-vi.mock('@/pages/utils/productSupplierCodesService', () => ({ saveProductSupplierCode: vi.fn() }));
+vi.mock('@/pages/utils/productService/productSupplierCodesService', () => ({ saveProductSupplierCode: vi.fn() }));
 vi.mock('../utils/inboundInvoiceToReceiptAdapter', () => ({ adaptInboundInvoiceToReceiptState: vi.fn() }));
 beforeEach(() => { vi.useFakeTimers(); vi.clearAllMocks(); mocks.saveDraft.mockResolvedValue({ id: 'draft', receiptIndex: 10 }); mocks.finalize.mockResolvedValue(undefined); });
 afterEach(() => { cleanup(); vi.useRealTimers(); });

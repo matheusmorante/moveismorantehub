@@ -1,1 +1,1 @@
-export * from './schemas/inboundInvoiceFormSchema';
+export * from './schemas/stock/inboundInvoiceFormSchema';

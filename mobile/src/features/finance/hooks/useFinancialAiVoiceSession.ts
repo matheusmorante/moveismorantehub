@@ -9,11 +9,11 @@ import {
   PRE_ANALYSIS_DEBOUNCE_MS,
   type ChatMessage,
 } from '../../../services/financialAiAssistantService';
-import { OpenAiRealtimeVoiceSession, type LiveState, type Quota } from '../../../services/realtimeVoiceService';
+import { OpenAiRealtimeVoiceSession, type LiveState, type Quota } from '../../../services/voice/realtimeVoiceService';
 import type { ExecutedToolRecord } from '../../../services/aiAgent/mobileAgentTypes';
 import type { VoiceSessionState } from '../types/VoiceSessionState';
-import { startVoiceRecording, stopVoiceRecording } from '../../../services/voiceRecorderService';
-import { withTimeout } from '../../../../../shared-utils/withTimeout';
+import { startVoiceRecording, stopVoiceRecording } from '../../../services/voice/voiceRecorderService';
+import { withTimeout } from '../../../../../shared-utils/core/withTimeout';
 import {
   financialLiveCommandFormSchema,
   financialRecordingCommandFormSchema,

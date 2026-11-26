@@ -7,8 +7,8 @@ import InboundInvoicesPage from './InboundInvoicesScreen';
 import { fetchInboundInvoicesPage } from '@/pages/utils/inboundNfe/inboundInvoicesService';
 
 vi.mock('@/context/AuthContext', () => ({ useAuth: () => ({ profile: null }) }));
-vi.mock('@/pages/utils/permissionService', () => ({ canPerform: () => false }));
-vi.mock('@/pages/utils/accessRoles', () => ({ canPrintProductIdentificationLabels: () => false, getProfileRoles: () => [] }));
+vi.mock('@/pages/utils/auth/permissionService', () => ({ canPerform: () => false }));
+vi.mock('@/pages/utils/auth/accessRoles', () => ({ canPrintProductIdentificationLabels: () => false, getProfileRoles: () => [] }));
 vi.mock('@/pages/utils/inboundNfe/inboundInvoicesService', () => ({
   fetchInboundInvoicesPage: vi.fn(),
   subscribeToInboundInvoiceListRefresh: (onRefresh: () => void, onFirstSubscribed?: () => void) => {

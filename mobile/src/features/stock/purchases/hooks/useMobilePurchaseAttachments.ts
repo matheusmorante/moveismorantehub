@@ -3,7 +3,7 @@ import { Alert } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import { flattenFormErrors, useZodForm } from '../../../../hooks/useZodForm';
 import { mobilePurchaseAttachmentUploadFormSchema } from '../../../../../../shared-utils/purchaseFormSchemas';
-import { withTimeout } from '../../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../../shared-utils/core/withTimeout';
 import { supabase } from '../../../../services/supabaseClient';
 
 export type PickedPurchaseAttachment = {

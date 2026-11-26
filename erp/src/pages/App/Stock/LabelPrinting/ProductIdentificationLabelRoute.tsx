@@ -1,8 +1,8 @@
 import { lazy, Suspense } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../../../context/AuthContext';
-import { getProfileRoles } from '../../../utils/accessRoles';
-import { canPerform } from '../../../utils/permissionService';
+import { getProfileRoles } from '../../../utils/auth/accessRoles';
+import { canPerform } from '../../../utils/auth/permissionService';
 import { buildIdentificationOnlyLabelSearch } from './utils/identificationLabelRoute';
 
 const LabelPrinting = lazy(() => import('./Index'));

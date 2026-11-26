@@ -4,7 +4,7 @@ vi.mock('./supabaseClient', () => ({ supabase: { from: mocks.from } }));
 vi.mock('../repositories/OrderRepository', () => ({ OrderRepository: { getById: mocks.get, saveLocal: mocks.save, overlayPendingLocalOrders: mocks.overlay } }));
 vi.mock('./offline/connectivityService', () => ({ connectivityService: mocks.connectivity }));
 vi.mock('./offline/offlineStorageService', () => ({ offlineStorageService: { getWorkingSet: mocks.cached } }));
-import { loadMobileOrderDetails } from './orderDetailsReadService';
+import { loadMobileOrderDetails } from './logistics/orderDetailsReadService';
 
 beforeEach(() => {
   vi.resetAllMocks(); mocks.connectivity.connected = true;

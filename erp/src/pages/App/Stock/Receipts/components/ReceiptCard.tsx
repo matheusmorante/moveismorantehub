@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { GoodsReceipt } from '@/pages/utils/goodsReceiptService';
-import { formatCurrency, formatToBRDate } from '@/pages/utils/formatters';
+import { formatCurrency, formatToBRDate } from '@/pages/utils/shared/formatters';
 import { formatGoodsReceiptCode } from '@/pages/utils/goodsReceiptCode';
 import { ReceiptMovementBadge } from './ReceiptMovementBadge';
 import { ReceiptsActionsMenu } from './ReceiptsActionsMenu';

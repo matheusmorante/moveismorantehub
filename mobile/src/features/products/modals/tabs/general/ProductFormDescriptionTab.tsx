@@ -9,7 +9,7 @@ import { parseLocalizedNumber } from '../../../domain/productNumbers';
 import {
   generateMobileProductDescriptionFromText,
   improveMobileProductDescription,
-} from '../../../services/mobileProductAiService';
+} from '../../../services/products/mobileProductAiService';
 import { ProductDescriptionAiModal } from '../../components/ProductDescriptionAiModal';
 
 import { FormTextInput } from '../../../../../components/shared/FormTextInput';

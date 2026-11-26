@@ -1,10 +1,10 @@
 import Order from '../../types/order.type';
 import { supabase } from '@/pages/utils/supabaseConfig';
-import { capitalizeOrder } from '../formatters';
-import { splitNoticeTags } from '../noticeTags';
+import { capitalizeOrder } from '../shared/formatters';
+import { splitNoticeTags } from '../shared/noticeTags';
 import { mapOrderFromDatabase } from '../orderMapper';
-import { excludeTestOrders } from '../../../../../shared-utils/testArtifactQueries';
-import { withAbortTimeout } from '../../../../../shared-utils/withAbortTimeout';
+import { excludeTestOrders } from '../../../../../shared-utils/testing/testArtifactQueries';
+import { withAbortTimeout } from '../../../../../shared-utils/core/withAbortTimeout';
 import { fetchServerOrderPage } from '../../../../../shared-utils/orderListServerQuery';
 import { fetchOrdersPage } from '../orderSyncQueries/orderListQueries';
 

@@ -2,7 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({ compress: vi.fn(), upload: vi.fn() }));
 vi.mock('@/pages/utils/images/imageUtils', () => ({ compressImageToFile: mocks.compress }));
-vi.mock('@/pages/utils/storageService', () => ({ uploadFile: mocks.upload }));
+vi.mock('@/pages/utils/shared/storageService', () => ({ uploadFile: mocks.upload }));
 import { uploadOptimizedProductImage } from './productImageUpload';
 const file = () => new File(['image'], 'photo.webp', { type: 'image/webp' });
 beforeEach(() => { vi.resetAllMocks(); mocks.compress.mockImplementation(async (image) => image); mocks.upload.mockImplementation(async (_file, path) => 'https://images.example/' + path); });

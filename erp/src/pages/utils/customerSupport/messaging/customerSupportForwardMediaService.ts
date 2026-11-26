@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { WhatsAppMessage } from '@/pages/App/CustomerSupport/types';
-import { withTimeout } from '../../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../../shared-utils/core/withTimeout';
 import { CustomerSupportSendError } from './customerSupportSendService';
 
 export async function downloadCustomerSupportForwardFile(

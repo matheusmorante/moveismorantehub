@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { waitForAuthOperation } from '../../../../shared-utils/authOperationTimeout';
+import { waitForAuthOperation } from '../../../../shared-utils/auth/authOperationTimeout';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { supabase } from '../utils/supabaseConfig';

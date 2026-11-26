@@ -12,7 +12,7 @@ import {
   INBOUND_INVOICE_MAPPING_SUPPLIER_QUERY_COLUMNS,
 } from '@/pages/utils/personService';
 import type Person from '@/pages/types/person.type';
-import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../../../shared-utils/core/withTimeout';
 import { isSalvadosOnlySupplier } from '../../../../../../../shared-utils/productSupplierStockOrigin';
 import { markInboundInvoiceItemsNotApplicable } from '../../../../../../../shared-utils/inboundInvoiceSupplierRules';
 import { getInboundReceiptBlockedReason } from '../inboundReceiptEligibility';

@@ -1,8 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { WhatsAppConversation, AssignedProfileSummary } from '@/pages/App/CustomerSupport/types';
-import { mapPersonToSummary, type CustomerLinkStatus, type CustomerSummary } from '../customerMatchingService';
-import type { SupportOrderSummary } from '../supportOrdersService';
-import { withTimeout } from '../../../../../../shared-utils/withTimeout';
+import { mapPersonToSummary, type CustomerLinkStatus, type CustomerSummary } from './customerMatchingService';
+import type { SupportOrderSummary } from '../orders/supportOrdersService';
+import { withTimeout } from '../../../../../../shared-utils/core/withTimeout';
 
 export async function hydrateConversationsCommercialData(
   supabase: SupabaseClient,

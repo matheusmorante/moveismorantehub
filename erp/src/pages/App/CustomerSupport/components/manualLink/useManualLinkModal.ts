@@ -7,8 +7,8 @@ import {
   type CustomerSummary,
   mapPersonToSummary,
   manuallyLinkCustomer,
-} from '@/pages/utils/customerSupport/customerMatchingService';
-import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
+} from '@/pages/utils/customerSupport/query/customerMatchingService';
+import { withTimeout } from '../../../../../../../shared-utils/core/withTimeout';
 import {
   supportCustomerSearchSchema as searchSchema,
   supportCustomerLinkSchema,

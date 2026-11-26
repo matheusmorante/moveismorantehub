@@ -10,7 +10,7 @@ import {
   resolveProductMetadata,
   type ProductMetadataSource,
   type ProductNameMaps,
-} from '../services/mobileProductMetadataService';
+} from '../services/categories/mobileProductMetadataService';
 
 const ProductMetadataContext = createContext<ProductNameMaps>(emptyProductNameMaps);
 type Props = { products: readonly ProductMetadataSource[]; children?: ReactNode };

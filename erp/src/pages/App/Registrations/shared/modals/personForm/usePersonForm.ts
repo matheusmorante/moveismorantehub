@@ -3,8 +3,8 @@ import Person from '@/pages/types/person.type';
 import { getSettings } from '@/pages/utils/settingsService';
 import { createPersonFormSchema } from '@/pages/utils/personService/personFormValidation';
 import { useZodForm } from '@/hooks/useZodForm';
-import { setTestArtifactMode } from '../../../../../../../../shared-utils/testArtifactContext';
-import { readTestArtifactIdentity } from '../../../../../../../../shared-utils/testArtifactPolicy';
+import { setTestArtifactMode } from '../../../../../../../../shared-utils/testing/testArtifactContext';
+import { readTestArtifactIdentity } from '../../../../../../../../shared-utils/testing/testArtifactPolicy';
 
 import { createInitialPersonState } from './personFormState';
 import { usePersonAddress } from './usePersonAddress';

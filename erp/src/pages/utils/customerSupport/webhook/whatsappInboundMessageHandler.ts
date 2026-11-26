@@ -1,9 +1,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { normalizeToE164 } from '../phoneUtils.js';
-import { matchCustomerByPhone } from '../customerMatchingService.js';
-import { extractMessageContent } from '../whatsappMessageContent.js';
+import { normalizeToE164 } from '../query/phoneUtils.js';
+import { matchCustomerByPhone } from '../query/customerMatchingService.js';
+import { extractMessageContent } from '../messageContent/whatsappMessageContent.js';
 import { processDurableAiJob } from '../whatsappAiAgent/durableAiJob.js';
-import { processRevokedMessage } from '../whatsappWebhookEchoService.js';
+import { processRevokedMessage } from './whatsappWebhookEchoService.js';
 
 export interface InboundBatchResult {
   processedMessages: number;

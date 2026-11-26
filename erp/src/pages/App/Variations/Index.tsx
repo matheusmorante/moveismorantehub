@@ -8,7 +8,7 @@ import {
   fetchVariationOptionsByAttributeId,
   getVariationErrorMessage,
   saveCharacteristicOptions,
-} from '../../utils/variationService';
+} from '../../utils/productService/variationService';
 import {
   CHARACTERISTIC_GROUPS_QUERY_KEY,
   deleteCharacteristicGroup,

@@ -1,4 +1,4 @@
-import { PercentInput } from '@/components/PercentInput';
+import { PercentInput } from '@/components/inputs/PercentInput';
 import React, { useState } from 'react';
 import { AppSettings } from '@/pages/utils/settingsService';
 

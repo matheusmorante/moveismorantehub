@@ -1,8 +1,8 @@
 import {
   processFinancialInput,
   validateParsedIntent,
-} from '../../../../../mobile/src/services/financial/financialIntentValidator';
-import type { ParsedFinancialIntent } from '../../../../../mobile/src/services/financial/financialTypes';
+} from '../../../../../mobile/src/services/financial/extraction/financialIntentValidator';
+import type { ParsedFinancialIntent } from '../../../../../mobile/src/services/financial/extraction/financialTypes';
 
 export interface PreAnalysisSnapshot {
   version: number;

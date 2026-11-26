@@ -3,9 +3,9 @@ import type { InboundInvoiceItem } from '@/pages/utils/inboundNfe/inboundNfeType
 import type Product from '@/pages/types/product.type';
 import type { Variation } from '@/pages/types/product.type';
 import type { InboundSuggestion } from '../hooks/useInboundInvoiceSuggestions';
-import ProductAutocomplete from '@/components/ProductAutocomplete';
-import type { ProductAutocompleteExcludedLink } from '@/components/productAutocompleteUtils';
-import { formatCurrency } from '@/pages/utils/formatters';
+import ProductAutocomplete from '@/components/selectors/ProductAutocomplete';
+import type { ProductAutocompleteExcludedLink } from '@/components/selectors/productAutocompleteUtils';
+import { formatCurrency } from '@/pages/utils/shared/formatters';
 
 interface InboundItemSingleModeProps {
   item: InboundInvoiceItem;

@@ -1,6 +1,6 @@
 import type React from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { checkVariationIsUsed } from "@/pages/utils/productService";
+import { checkVariationIsUsed } from "@/pages/utils/productService/productService";
 import type Product from "../../../../types/product.type";
 import type { Variation } from "../../../../types/product.type";
 import { VariationToSimpleWarningModal } from "../modals/variations/VariationToSimpleWarningModal";

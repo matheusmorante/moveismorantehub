@@ -1,4 +1,4 @@
-import { splitNoticeTags, joinNoticeTags } from '@/pages/utils/noticeTags';
+import { splitNoticeTags, joinNoticeTags } from '@/pages/utils/shared/noticeTags';
 import { requiresAssemblyResponsible } from '../../../../../../../shared-utils/commercialOrderRules';
 
 export const CALL_BEFORE_DELIVERY_NOTICE = 'Ligar antes da entrega';

@@ -1,11 +1,11 @@
 import React from 'react';
 import Item from '../../../types/items.type';
 import Product, { Variation } from '../../../types/product.type';
-import { calcItemTotalValue } from '../../../utils/calculations';
+import { calcItemTotalValue } from '../../../utils/sales/calculations';
 import UnitInput from './UnitInput';
-import CurrencyInput from '../../../../components/CurrencyInput';
-import CurrencyDisplay from '../../../../components/CurrencyDisplay';
-import ProductAutocomplete from '../../../../components/ProductAutocomplete';
+import CurrencyInput from '../../../../components/inputs/CurrencyInput';
+import CurrencyDisplay from '../../../../components/display/CurrencyDisplay';
+import ProductAutocomplete from '../../../../components/selectors/ProductAutocomplete';
 import TemporaryProductWarning from './TemporaryProductWarning';
 import { getSettings } from '@/pages/utils/settingsService';
 import { BodyRowViewProps } from './BodyRowMobile';
@@ -13,6 +13,9 @@ import DiscountInput from './DiscountInput';
 import { STOCK_ORIGIN_PRODUCT_KINDS } from './stockOriginProductKinds';
 import { BodyRowDesktopCollapsed } from './BodyRowDesktopCollapsed';
 import { HandlingSelect } from './HandlingSelect';
+import { StockOriginSelect } from './StockOriginSelect';
+import { AssemblyResponsibleSelect } from './AssemblyResponsibleSelect';
+import { BodyRowDesktopCompactFooterRow } from './BodyRowDesktopCompactFooterRow';
 
 export const BodyRowDesktop: React.FC<BodyRowViewProps> = ({
   item,
@@ -69,8 +72,6 @@ export const BodyRowDesktop: React.FC<BodyRowViewProps> = ({
   } = pricing;
 
   const settings = propSettings || getSettings();
-  const stockOriginLockedTitle =
-    'Bloqueado porque há um produto cadastrado vinculado ao item. Remova o produto selecionado no campo Produto para liberar e alterar a origem do estoque.';
   const handlingOptions =
     (deliveryMethod === 'pickup'
       ? settings.pickupHandlingOptions
@@ -90,31 +91,16 @@ export const BodyRowDesktop: React.FC<BodyRowViewProps> = ({
       />
       {assemblyResponsibleRequired && (
         <div className="mt-2">
-          <label className="mb-1 block text-[9px] font-black uppercase tracking-wider text-slate-400">
-            Responsável pela montagem <span className="text-red-500">*</span>
-          </label>
-          <select
-            aria-label="Responsável pela montagem"
-            aria-required="true"
-            aria-invalid={Boolean(assemblyResponsibleError)}
-            required
-            className={`w-full appearance-none border-b-2 bg-transparent px-2 py-1 text-[10px] font-bold outline-none transition-colors dark:text-slate-300 ${
+          <AssemblyResponsibleSelect
+            value={item.assemblyResponsible}
+            error={assemblyResponsibleError}
+            selectClassName={`w-full appearance-none border-b-2 bg-transparent px-2 py-1 text-[10px] font-bold outline-none transition-colors dark:text-slate-300 ${
               assemblyResponsibleError
                 ? 'border-red-500 focus:border-red-500'
                 : 'border-slate-200 focus:border-blue-600 dark:border-slate-800 dark:focus:border-blue-500'
             }`}
-            value={item.assemblyResponsible || ''}
-            onChange={(event) => onChange(idx, 'assemblyResponsible', event.target.value)}
-          >
-            <option value="">Selecione</option>
-            <option value="Nossa equipe">Nossa equipe</option>
-            <option value="Montador terceirizado">Montador terceirizado</option>
-          </select>
-          {assemblyResponsibleError && (
-            <span className="mt-1 block text-[9px] text-red-600 dark:text-red-400">
-              {assemblyResponsibleError}
-            </span>
-          )}
+            onChange={(value) => onChange(idx, 'assemblyResponsible', value)}
+          />
         </div>
       )}
     </div>
@@ -255,28 +241,18 @@ export const BodyRowDesktop: React.FC<BodyRowViewProps> = ({
             <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
               {shouldShowStockOrigin && (
                 <>
-                  <span className="relative inline-flex items-center" title={isLinkedProduct ? stockOriginLockedTitle : undefined}>
-                    {isLinkedProduct && <i className="bi bi-lock-fill pointer-events-none absolute right-6 z-10 text-[9px] text-amber-500" aria-hidden="true" />}
-                  <select
-                    className={`${isLinkedProduct ? 'w-[130px]' : 'w-[110px]'} shrink-0 bg-slate-50/60 dark:bg-slate-800/40 border-x-0 border-t-0 border-b-2 px-2 py-0.5 rounded-none text-[10px] font-bold text-slate-700 dark:text-slate-200 outline-none transition-all ${
+                  <StockOriginSelect
+                    value={item.condition}
+                    isLinkedProduct={isLinkedProduct}
+                    error={stockOriginError}
+                    ariaLabel="Origem do estoque (obrigatória)"
+                    selectClassName={`${isLinkedProduct ? 'w-[130px]' : 'w-[110px]'} shrink-0 bg-slate-50/60 dark:bg-slate-800/40 border-x-0 border-t-0 border-b-2 px-2 py-0.5 rounded-none text-[10px] font-bold text-slate-700 dark:text-slate-200 outline-none transition-all ${
                       stockOriginError
                         ? 'border-b-red-500 focus:border-b-red-500'
                         : 'border-b-slate-200/80 dark:border-b-slate-700/80 focus:border-b-blue-500'
                     } ${isLinkedProduct ? 'cursor-not-allowed opacity-60 !bg-slate-100 !pr-8 dark:!bg-slate-800' : ''}`}
-                    value={item.condition ?? ''}
-                    disabled={isLinkedProduct}
-                    onChange={(event) => handleStockOriginChange(event.target.value)}
-                    title={isLinkedProduct ? stockOriginLockedTitle : 'Origem do estoque'}
-                    aria-label="Origem do estoque (obrigatória)"
-                    aria-required="true"
-                    aria-invalid={Boolean(stockOriginError)}
-                  >
-                    <option value="">Selecione</option>
-                    <option value="novo">Convencional</option>
-                    <option value="salvado">Salvados</option>
-                    <option value="usado">Usados</option>
-                  </select>
-                  </span>
+                    onChange={handleStockOriginChange}
+                  />
                   <span className="text-[10px] font-black text-red-500" aria-hidden="true">
                     *
                   </span>
@@ -332,28 +308,18 @@ export const BodyRowDesktop: React.FC<BodyRowViewProps> = ({
             <div className="mt-1 flex items-center gap-2">
               {shouldShowStockOrigin && (
                 <>
-                  <span className="relative inline-flex items-center" title={isLinkedProduct ? stockOriginLockedTitle : undefined}>
-                    {isLinkedProduct && <i className="bi bi-lock-fill pointer-events-none absolute right-6 z-10 text-[9px] text-amber-500" aria-hidden="true" />}
-                  <select
-                    className={`${isLinkedProduct ? 'w-[130px]' : 'w-[110px]'} shrink-0 bg-slate-50/60 dark:bg-slate-800/40 border-x-0 border-t-0 border-b-2 px-2 py-0.5 rounded-none text-[10px] font-bold text-slate-700 dark:text-slate-200 outline-none transition-all ${
+                  <StockOriginSelect
+                    value={item.condition}
+                    isLinkedProduct={isLinkedProduct}
+                    error={stockOriginError}
+                    ariaLabel="Origem do estoque (obrigatória)"
+                    selectClassName={`${isLinkedProduct ? 'w-[130px]' : 'w-[110px]'} shrink-0 bg-slate-50/60 dark:bg-slate-800/40 border-x-0 border-t-0 border-b-2 px-2 py-0.5 rounded-none text-[10px] font-bold text-slate-700 dark:text-slate-200 outline-none transition-all ${
                       stockOriginError
                         ? 'border-b-red-500 focus:border-b-red-500'
                         : 'border-b-slate-200/80 dark:border-b-slate-700/80 focus:border-b-blue-500'
                     } ${isLinkedProduct ? 'cursor-not-allowed opacity-60 !bg-slate-100 !pr-8 dark:!bg-slate-800' : ''}`}
-                    value={item.condition ?? ''}
-                    disabled={isLinkedProduct}
-                    onChange={(e) => handleStockOriginChange(e.target.value)}
-                    title={isLinkedProduct ? stockOriginLockedTitle : 'Origem do estoque'}
-                    aria-label="Origem do estoque (obrigatória)"
-                    aria-required="true"
-                    aria-invalid={Boolean(stockOriginError)}
-                  >
-                    <option value="">Selecione</option>
-                    <option value="novo">Convencional</option>
-                    <option value="salvado">Salvados</option>
-                    <option value="usado">Usados</option>
-                  </select>
-                  </span>
+                    onChange={handleStockOriginChange}
+                  />
                   <span className="text-[10px] font-black text-red-500" aria-hidden="true">
                     *
                   </span>
@@ -467,85 +433,25 @@ export const BodyRowDesktop: React.FC<BodyRowViewProps> = ({
       </td>
     </tr>
     {compactDesktop && !item.isComboItem && (
-      <tr
-        className={`border-b border-slate-100 dark:border-slate-800 ${
-          highlightAsTemporary
-            ? 'bg-amber-50/50 dark:bg-amber-950/20'
-            : itemHasError
-              ? 'bg-red-50/30 dark:bg-red-950/10'
-              : 'bg-white dark:bg-slate-900'
-        }`}
-      >
-        <td colSpan={7} className="px-3 pb-2 pt-0">
-          <div className="flex min-w-0 flex-wrap items-center gap-3">
-            {!shouldHideHandling && (
-              <div className="flex min-w-0 max-w-[55%] flex-none items-center">
-                <div className="min-w-0 max-w-full flex-none">
-                  <HandlingSelect
-                    options={handlingOptions}
-                    value={item.handlingType}
-                    error={handlingError}
-                    placeholder="Manuseio"
-                    fitContent
-                    className={`appearance-none border-b-2 bg-transparent px-2 py-1 pr-6 text-[11px] font-bold outline-none transition-colors dark:bg-slate-900 ${
-                      handlingError
-                        ? 'border-red-500 focus:border-red-500'
-                        : 'border-slate-200 focus:border-blue-600 dark:border-slate-800 dark:focus:border-blue-500'
-                    }`}
-                    onChange={handleHandlingChange}
-                  />
-                </div>
-              </div>
-            )}
-            {shouldShowStockOrigin && (
-              <div
-                className={`relative flex shrink-0 items-center gap-1 ${isLinkedProduct ? 'cursor-not-allowed' : ''}`}
-                title={isLinkedProduct ? stockOriginLockedTitle : undefined}
-              >
-                <span className="relative inline-flex items-center">
-                {isLinkedProduct && <i className="bi bi-lock-fill pointer-events-none absolute right-6 z-10 text-[9px] text-amber-500" aria-hidden="true" />}
-                <select
-                  className={`${isLinkedProduct ? 'w-[140px]' : 'w-[120px]'} shrink-0 bg-slate-50/60 dark:bg-slate-800/40 border-x-0 border-t-0 border-b-2 px-2 py-1 rounded-none text-[10px] font-bold text-slate-700 dark:text-slate-200 outline-none transition-all ${
-                    stockOriginError
-                      ? 'border-b-red-500 focus:border-b-red-500'
-                      : 'border-b-slate-200/80 dark:border-b-slate-700/80 focus:border-b-blue-500'
-                  } ${isLinkedProduct ? 'cursor-not-allowed opacity-60 !bg-slate-100 !pr-8 dark:!bg-slate-800' : ''}`}
-                  value={item.condition ?? ''}
-                  disabled={isLinkedProduct}
-                  onChange={(event) => handleStockOriginChange(event.target.value)}
-                  title={isLinkedProduct ? stockOriginLockedTitle : 'Origem do estoque'}
-                  aria-label="Origem do estoque (obrigatória)"
-                  aria-required="true"
-                  aria-invalid={Boolean(stockOriginError)}
-                >
-                  <option value="">Selecione</option>
-                  <option value="novo">Convencional</option>
-                  <option value="salvado">Salvados</option>
-                  <option value="usado">Usados</option>
-                </select>
-                </span>
-                <span className="text-[10px] font-black text-red-500" aria-hidden="true">
-                  *
-                </span>
-              </div>
-            )}
-            <input
-              type="text"
-              value={tempObservation}
-              onChange={(event) => setTempObservation(event.target.value)}
-              onBlur={commitObservation}
-              placeholder={isService ? 'Observação...' : 'Observação (ex: salvados, peça do mostruário com avaria)...'}
-              aria-label={isCompositionComponent ? `Observação do componente ${displayNumber}` : undefined}
-              className="min-w-[220px] flex-1 bg-slate-50/60 dark:bg-slate-800/40 border-x-0 border-t-0 border-b-2 border-b-slate-200/80 dark:border-b-slate-700/80 focus:border-b-blue-500 px-2 py-1 rounded-none text-[11px] font-medium text-slate-700 dark:text-slate-200 outline-none transition-all placeholder:text-slate-400"
-            />
-          </div>
-          {stockOriginError && (
-            <span className="mt-1 block text-[10px] text-red-600 dark:text-red-400">
-              {stockOriginError}
-            </span>
-          )}
-        </td>
-      </tr>
+      <BodyRowDesktopCompactFooterRow
+        item={item}
+        displayNumber={displayNumber}
+        isService={isService}
+        isCompositionComponent={isCompositionComponent}
+        shouldHideHandling={shouldHideHandling}
+        shouldShowStockOrigin={shouldShowStockOrigin}
+        isLinkedProduct={isLinkedProduct}
+        highlightAsTemporary={highlightAsTemporary}
+        itemHasError={itemHasError}
+        handlingOptions={handlingOptions}
+        handlingError={handlingError}
+        stockOriginError={stockOriginError}
+        tempObservation={tempObservation}
+        onObservationChange={setTempObservation}
+        onObservationBlur={commitObservation}
+        onHandlingChange={handleHandlingChange}
+        onStockOriginChange={handleStockOriginChange}
+      />
     )}
     </>
   );

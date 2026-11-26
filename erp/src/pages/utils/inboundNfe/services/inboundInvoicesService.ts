@@ -1,4 +1,4 @@
-import { isValidUuid } from '../../uuidUtils';
+import { isValidUuid } from '../../shared/uuidUtils';
 
 export { isValidUuid };
 

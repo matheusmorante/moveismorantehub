@@ -7,7 +7,7 @@ import { buildInventoryAuditObservation } from '../domain/inventoryAuditObservat
 import { getEmployeeDisplayName } from '../utils/employeeDisplayName';
 import { finalizeWebInventory } from '../services/finalizeWebInventory';
 import { getInventorySubmission } from '../services/inventoryOutbox';
-import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../../../shared-utils/core/withTimeout';
 import { inventoryAuditCompletionSchema } from '../../../../../../../shared-utils/inventoryAuditFormSchemas';
 import { prepareSupplierStageReviewItems } from '../../../../../../../shared-utils/inventorySupplierStages';
 

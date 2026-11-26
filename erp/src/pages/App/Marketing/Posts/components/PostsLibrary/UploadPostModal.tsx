@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { withTimeout } from '../../../../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../../../../shared-utils/core/withTimeout';
 import { submittedSearchFormSchema } from '../../../../../../../../shared-utils/lookupFormSchemas';
 import type { ProductPost } from '../../types/postSpecification';
 import { toast } from 'react-toastify';

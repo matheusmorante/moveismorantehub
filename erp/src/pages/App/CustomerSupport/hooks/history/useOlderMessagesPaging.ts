@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { WhatsAppMessage } from '../../types';
-import { fetchPreviousConversationMessages } from '@/pages/utils/customerSupport/customerSupportService';
+import { fetchPreviousConversationMessages } from '@/pages/utils/customerSupport/query/customerSupportService';
 
 const OLDER_MESSAGE_PAGE_SIZE = 50;
 

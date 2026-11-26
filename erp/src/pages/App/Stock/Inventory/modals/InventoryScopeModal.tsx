@@ -3,7 +3,7 @@ import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { useAuth } from '@/context/AuthContext';
 import { inventoryAuditScopeSchema } from '../../../../../../../shared-utils/inventoryAuditFormSchemas';
 import { filterInventoryResponsibleCandidates } from '../../../../../../../shared-utils/inventoryResponsible';
-import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../../../shared-utils/core/withTimeout';
 import type Product from '@/pages/types/product.type';
 import type Person from '@/pages/types/person.type';
 import { useInventoryScopeBuilder } from '../hooks/useInventoryScopeBuilder';

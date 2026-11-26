@@ -15,7 +15,7 @@ import {
 import {
   buildPostgrestAccentInsensitiveOrFilter,
   buildAccentInsensitiveWordsRegex,
-} from '../searchText';
+} from '../core/searchText';
 
 const applyProductReconciliationSqlFilters = (
   query: any,

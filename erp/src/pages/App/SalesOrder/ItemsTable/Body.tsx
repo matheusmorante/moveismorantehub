@@ -2,7 +2,7 @@ import React from 'react';
 import BodyRow from './BodyRow';
 import { Item } from '../../../types/items.type';
 import { sanitizeItem } from '../../../utils/sanitization';
-import { ValidationErrors } from '../../../utils/validations';
+import { ValidationErrors } from '../../../utils/sales/validations';
 import CompositionGroupRow, { IndexedCompositionItem } from './CompositionGroupRow';
 
 interface Props {

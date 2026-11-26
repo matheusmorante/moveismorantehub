@@ -1,6 +1,6 @@
 import React from 'react';
 import Order from '../../../../types/order.type';
-import { formatDate } from '../../../../utils/formatters';
+import { formatDate } from '../../../../utils/shared/formatters';
 import type { EffectiveScheduleResolution } from '../../../../../../../shared-utils/commercialScheduling';
 import { getStatusIcon } from './cardViewHelpers';
 import { formatOrderCode, getOrderIndex } from '../../../../utils/orderCode';

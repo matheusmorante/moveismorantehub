@@ -4,7 +4,7 @@ import {
   isNewScheduledOrderNotification,
   isOrderCancelledNotification,
   isOrderUpdatedNotification,
-} from '../notificationSoundRouting';
+} from '../notifications/notificationSoundRouting';
 
 describe('som da notificação de novo pedido agendado', () => {
   it('usa level up seguido da voz somente na criação agendada', () => {

@@ -15,7 +15,7 @@ import {
   deleteMobileAttributeValue,
   fetchMobileAttributes,
   saveMobileAttributeDefinition,
-} from './mobileAttributeService';
+} from './categories/mobileAttributeService';
 
 describe('mobile attribute service', () => {
   beforeEach(() => {

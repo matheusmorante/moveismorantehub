@@ -29,7 +29,7 @@ vi.mock('../../hooks/data/useProductMetadata', () => ({
 
 vi.mock('./ProductRowModals', () => ({ ProductRowModals: () => null }));
 
-vi.mock('@/pages/utils/accessRoles', () => ({
+vi.mock('@/pages/utils/auth/accessRoles', () => ({
   isProductIdentificationLabelOnlyProfile: () => false,
   canPrintProductIdentificationLabels: () => true,
   getProductIdentificationLabelActionAvailability: () => ({

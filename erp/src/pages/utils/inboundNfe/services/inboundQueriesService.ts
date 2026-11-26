@@ -2,11 +2,11 @@
 import { InboundInvoice, InboundInvoiceItem } from '../types/inboundNfeTypes';
 import { DateFilterConfig } from '../../../App/Stock/InboundInvoices/components/InboundInvoicesHeader';
 import { parseInboundNfeXml } from '../utils/inboundXmlParser';
-import { isValidUuid } from '../../uuidUtils';
+import { isValidUuid } from '../../shared/uuidUtils';
 import {
   buildPostgrestAccentInsensitiveOrFilter,
   buildAccentInsensitiveWordsRegex,
-} from '../../../../../../shared-utils/searchText';
+} from '../../../../../../shared-utils/core/searchText';
 import { matchesSearchText } from '@/pages/utils/textUtils';
 import { getLocalInvoices } from './inboundCacheService';
 import {

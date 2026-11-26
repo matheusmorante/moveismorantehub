@@ -2,7 +2,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import Order from '@/pages/types/order.type';
 import { buildSalesOrderHtml, buildReceiptHtml } from '@/pages/utils/printing/printHtmlBuilder';
-import { buildDeliveryMessage, buildCustomerOrderMessage } from '@/pages/utils/whatsappTemplates';
+import { buildDeliveryMessage, buildCustomerOrderMessage } from '@/pages/utils/whatsapp/whatsappTemplates';
 
 vi.mock('@/pages/utils/supabaseConfig', () => ({
   supabase: {

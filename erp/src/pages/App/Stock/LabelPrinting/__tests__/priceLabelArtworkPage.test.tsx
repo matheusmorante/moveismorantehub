@@ -16,8 +16,8 @@ vi.mock('react-toastify', () => ({ toast: { success: vi.fn(), error: vi.fn(), in
 vi.mock('../services/priceLabelTemplateSync', () => ({ publishPriceLabelTemplateUpdate: vi.fn() }));
 vi.mock('../services/priceLabelCatalogService', () => ({ searchProductsForLabelResult: vi.fn() }));
 vi.mock('../services/priceLabelExportService', () => ({ exportLabelImage: vi.fn() }));
-vi.mock('../hooks/usePriceLabelEditorKeyboardShortcuts', () => ({ usePriceLabelEditorKeyboardShortcuts: () => undefined }));
-vi.mock('../hooks/usePriceLabelLayerSelection', () => ({ usePriceLabelLayerSelection: () => vi.fn() }));
+vi.mock('../hooks/price-label/usePriceLabelEditorKeyboardShortcuts', () => ({ usePriceLabelEditorKeyboardShortcuts: () => undefined }));
+vi.mock('../hooks/price-label/usePriceLabelLayerSelection', () => ({ usePriceLabelLayerSelection: () => vi.fn() }));
 vi.mock('../components/PriceLabelArtRenderer', () => ({
   PriceLabelArtRenderer: ({ data }: { data: Record<string, unknown> }) => <output aria-label="Arte de trabalho">{JSON.stringify(data)}</output>,
 }));

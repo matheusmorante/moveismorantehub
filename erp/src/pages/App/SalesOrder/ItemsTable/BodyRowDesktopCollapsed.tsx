@@ -1,7 +1,7 @@
 import React from 'react';
 import Item from '../../../types/items.type';
-import { calcItemTotalValue, getFixedDiscount } from '../../../utils/calculations';
-import CurrencyDisplay from '../../../../components/CurrencyDisplay';
+import { calcItemTotalValue, getFixedDiscount } from '../../../utils/sales/calculations';
+import CurrencyDisplay from '../../../../components/display/CurrencyDisplay';
 
 interface Props {
   item: Item;

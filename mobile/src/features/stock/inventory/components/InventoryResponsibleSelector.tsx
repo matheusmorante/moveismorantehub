@@ -7,7 +7,7 @@ import {
   filterInventoryResponsibleCandidates,
   getInventoryResponsibleDisplayName,
 } from '../../../../../../shared-utils/inventoryResponsible';
-import { matchesSearchText } from '../../../../../../shared-utils/searchText';
+import { matchesSearchText } from '../../../../../../shared-utils/core/searchText';
 
 interface Props {
   isDarkMode: boolean;

@@ -1,5 +1,5 @@
 import Order from '../../types/order.type';
-import { dispatchAppNotification } from '../pushNotificationService';
+import { dispatchAppNotification } from '../notifications/pushNotificationService';
 import { getSettings } from '../settingsService';
 
 type AssemblyKind = 'outside' | 'depot';

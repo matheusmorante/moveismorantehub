@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type Product from '../../types/product.type';
-import { saveProduct } from './productMutationService';
+import { saveProduct } from './mutations/productMutationService';
 
 const state = vi.hoisted(() => ({
   products: [] as Product[], saveInventoryMove: vi.fn(), persistDraft: vi.fn(),
@@ -8,10 +8,10 @@ const state = vi.hoisted(() => ({
 }));
 vi.mock('@/pages/utils/supabaseConfig', () => ({ supabase: { from: vi.fn() } }));
 vi.mock('../inventoryService', () => ({ saveInventoryMove: state.saveInventoryMove }));
-vi.mock('./productDraftPersistence', () => ({ persistProductDraft: state.persistDraft }));
-vi.mock('./productPersistenceService', () => ({ ensureUuidFormat: (product: Product) => product.id, syncProductToSupabase: state.sync }));
-vi.mock('./productSkuService', () => ({ TABLE_NAME: 'products', generateUniqueCode: () => '999999', checkSkusUniquenessBatch: vi.fn(async () => ({})) }));
-vi.mock('./productLocalCache', () => ({ getLocalProducts: () => state.products, saveLocalProducts: state.saveCache, notifySubscribers: state.notify }));
+vi.mock('./drafts/productDraftPersistence', () => ({ persistProductDraft: state.persistDraft }));
+vi.mock('./mutations/productPersistenceService', () => ({ ensureUuidFormat: (product: Product) => product.id, syncProductToSupabase: state.sync }));
+vi.mock('./mutations/productSkuService', () => ({ TABLE_NAME: 'products', generateUniqueCode: () => '999999', checkSkusUniquenessBatch: vi.fn(async () => ({})) }));
+vi.mock('./drafts/productLocalCache', () => ({ getLocalProducts: () => state.products, saveLocalProducts: state.saveCache, notifySubscribers: state.notify }));
 
 const createProduct = (isDraft: boolean): Product => ({
   id: '9b2ec3b1-8629-4514-b38b-3894fb33719f', code: '999999', name: 'TEST_AUT_Armário',

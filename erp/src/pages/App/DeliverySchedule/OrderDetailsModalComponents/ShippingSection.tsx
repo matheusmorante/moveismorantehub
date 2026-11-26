@@ -1,6 +1,6 @@
 import React from 'react';
-import { stringifyFullAddress } from '../../../utils/formatters';
-import { splitNoticeTags } from '@/pages/utils/noticeTags';
+import { stringifyFullAddress } from '../../../utils/shared/formatters';
+import { splitNoticeTags } from '@/pages/utils/shared/noticeTags';
 
 export interface ShippingSectionProps {
   fullAddress: any;

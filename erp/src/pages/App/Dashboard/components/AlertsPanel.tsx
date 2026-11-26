@@ -6,7 +6,7 @@ import {
   markAllAsRead,
   AppNotification,
   NotificationSeverity,
-} from '../../../../pages/utils/notificationService';
+} from '../../../utils/notifications/notificationService';
 
 const severityConfig: Record<
   NotificationSeverity,

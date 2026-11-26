@@ -75,6 +75,8 @@ export const buildAssistanceOrderPayload = ({
 }: BuildAssistancePayloadOptions): Order => {
   const itemsSummary = calcAssistanceItemsSummary(extraItems);
   const totalValue = itemsSummary.itemsTotalValue + assistanceServiceValue;
+  const assistanceScheduling = { ...scheduling };
+  delete assistanceScheduling.appointments;
 
   const resolvedStatus: Order['status'] = isDraft
     ? 'draft'
@@ -119,7 +121,7 @@ export const buildAssistanceOrderPayload = ({
         noDate: false,
         noTime: false,
       }),
-      scheduling,
+      scheduling: assistanceScheduling,
     },
     seller: seller.trim(),
     date: baseOrder?.date || new Date().toISOString(),

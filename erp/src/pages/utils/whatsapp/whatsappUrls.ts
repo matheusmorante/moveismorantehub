@@ -10,7 +10,7 @@ import {
   buildAssistanceServiceOrderMessage,
   buildBudgetWhatsappMessage,
   buildReturnServiceOrderMessage,
-} from '../whatsappTemplates';
+} from './whatsappTemplates';
 
 export const shippingOrderWhatsappUrl = (order: Order) => {
   const message = buildDeliveryMessage(order);

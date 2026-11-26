@@ -4,8 +4,8 @@ import MapView, { PROVIDER_GOOGLE, Polyline } from 'react-native-maps';
 import { Crosshair, Maximize2 } from 'lucide-react-native';
 import { DeliveryMarker } from './DeliveryMarker';
 import { DeliveryRouteItem } from '../../hooks/useDeliveryRoute';
-import { DriverCoordinates } from '../../../../services/locationService';
-import { TeamMemberLocation } from '../../../../services/teamLocationService';
+import { DriverCoordinates } from '../../../../services/logistics/locationService';
+import { TeamMemberLocation } from '../../../../services/logistics/teamLocationService';
 
 interface Props {
   items: DeliveryRouteItem[];

@@ -1,12 +1,12 @@
 import React from 'react';
 import type { WhatsAppConversation, WhatsAppMessage } from '../../types';
-import type { SupportOrderSummary } from '@/pages/utils/customerSupport/supportOrdersService';
+import type { SupportOrderSummary } from '@/pages/utils/customerSupport/orders/supportOrdersService';
 import type {
   CustomerSupportSendInput,
   CustomerSupportSendResult,
-} from '@/pages/utils/customerSupport/customerSupportService';
+} from '@/pages/utils/customerSupport/query/customerSupportService';
 import { ChatArea } from '../ChatArea';
-import type { ChatAreaProps } from '../chat/chatAreaTypes';
+import type { ChatAreaProps } from '../chat/area/chatAreaTypes';
 import { CustomerInfoPanel } from '../CustomerInfoPanel';
 import { ActivityTimelineDrawer } from '../ActivityTimelineDrawer';
 

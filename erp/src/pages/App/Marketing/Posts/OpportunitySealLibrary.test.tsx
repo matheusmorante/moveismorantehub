@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import OpportunitySealLibrary from './OpportunitySealLibrary';
 
 const mocks = vi.hoisted(() => ({ upload: vi.fn(), update: vi.fn(), error: vi.fn(), query: vi.fn(), eq: vi.fn() }));
-vi.mock('@/pages/utils/storageService', () => ({ uploadFile: mocks.upload }));
+vi.mock('@/pages/utils/shared/storageService', () => ({ uploadFile: mocks.upload }));
 vi.mock('@/pages/utils/supabaseConfig', () => ({ supabase: { from: () => ({
   select: () => ({ eq: () => ({ order: mocks.query }) }), update: mocks.update,
 }) } }));

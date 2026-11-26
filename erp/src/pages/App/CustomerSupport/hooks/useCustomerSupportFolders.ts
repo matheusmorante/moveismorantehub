@@ -8,7 +8,7 @@ import {
   deleteCustomerSupportFolder,
   fetchCustomerSupportFolders,
   saveCustomerSupportFolder,
-} from '@/pages/utils/customerSupport/customerSupportInboxService';
+} from '@/pages/utils/customerSupport/query/customerSupportInboxService';
 
 export function useCustomerSupportFolders(userId?: string) {
   const [folders, setFolders] = useState<CustomerSupportFolder[]>([]);

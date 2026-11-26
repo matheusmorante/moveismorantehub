@@ -3,7 +3,7 @@ import {
   extractLabelIdentity,
   extractScannedCodes,
   matchScannedProductItem,
-} from '../../../../utils/barcodeScannerUtils';
+} from '../../../../utils/shared/barcodeScannerUtils';
 import { generateInventoryLabelsBatch } from '../services/inventoryLabelService';
 import { supabase } from '../../../../utils/supabaseConfig';
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { INITIAL_PRODUCT_FORM_DATA } from './productFormInitialData';
-import { ensureDefaultVariation } from '@/pages/utils/productVariationDefaults';
+import { ensureDefaultVariation } from '@/pages/utils/productService/productVariationDefaults';
 
 describe('INITIAL_PRODUCT_FORM_DATA', () => {
   it('inicia um produto como simples e sem estoque lançado', () => {

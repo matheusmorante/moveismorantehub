@@ -5,7 +5,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { supabase } from '@/pages/utils/supabaseConfig';
-import { useLabelPrintingState } from '../hooks/useLabelPrintingState';
+import { useLabelPrintingState } from '../hooks/label-printing/useLabelPrintingState';
 import { ModalsSection } from '../sections/ModalsSection';
 import { mapModelToDb } from '../services/labelLayoutMapper';
 import type { GridModel } from '../types/LabelGridModelTypes';
@@ -15,9 +15,9 @@ vi.mock('@/pages/utils/supabaseConfig', () => ({ supabase: { from: vi.fn() } }))
 vi.mock('react-toastify', () => ({ toast: { success: vi.fn(), info: vi.fn(), error: vi.fn(), warning: vi.fn() } }));
 vi.mock('../../../../utils/settingsService', () => ({ getSettings: () => ({}), saveSettings: vi.fn(), subscribeToSettings: () => () => undefined }));
 vi.mock('../services/priceLabelTemplateSync', () => ({ subscribeToPriceLabelTemplateUpdates: () => () => undefined, publishPriceLabelTemplateUpdate: vi.fn() }));
-vi.mock('../hooks/useLabelProducts', () => ({ useLabelProducts: () => ({ products: [], selectedProductToAdd: null }) }));
-vi.mock('../hooks/useLabelQueue', () => ({ useLabelQueue: () => ({ setLogoItems: vi.fn(), setLabelItems: vi.fn() }) }));
-vi.mock('../hooks/useLabelPreview', () => ({ useLabelPreview: () => ({}) }));
+vi.mock('../hooks/label-printing/useLabelProducts', () => ({ useLabelProducts: () => ({ products: [], selectedProductToAdd: null }) }));
+vi.mock('../hooks/label-printing/useLabelQueue', () => ({ useLabelQueue: () => ({ setLogoItems: vi.fn(), setLabelItems: vi.fn() }) }));
+vi.mock('../hooks/label-printing/useLabelPreview', () => ({ useLabelPreview: () => ({}) }));
 vi.mock('../modals/LabelAssetLibraryModal', () => ({ default: () => null }));
 vi.mock('../modals/LabelCustomDesignModal', () => ({ default: () => null }));
 vi.mock('../modals/LabelImageModal', () => ({ default: () => null }));

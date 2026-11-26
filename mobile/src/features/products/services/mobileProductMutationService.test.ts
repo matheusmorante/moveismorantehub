@@ -13,7 +13,7 @@ vi.mock('../../../services/supabaseClient', () => ({
   },
 }));
 
-vi.mock('./mobileProductMetaCatalogSyncService', () => ({
+vi.mock('./catalog/mobileProductMetaCatalogSyncService', () => ({
   triggerMobileProductMetaCatalogSync: mocks.triggerMetaCatalogSync,
 }));
 
@@ -32,7 +32,7 @@ import {
   moveMobileProductToTrash,
   restoreMobileProductFromTrash,
   saveMobileProduct,
-} from './mobileProductMutationService';
+} from './products/mobileProductMutationService';
 import { fetchRequiredProductCategoryAttributes } from '../../../../../shared-utils/productCategoryRequiredAttributes';
 
 let query: any;

@@ -5,7 +5,7 @@ import { AccountReceivable } from '../../../types/finance.type';
 import { matchesSearchText, normalizeSearchTerm } from '@/pages/utils/textUtils';
 import ReceivableModal from './ReceivableModal';
 import { ERPListPagination } from '@/components/shared/ERPListPagination';
-import { withTimeout } from '../../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../../shared-utils/core/withTimeout';
 
 const RECEIVABLES_PAGE_SIZE = 15;
 

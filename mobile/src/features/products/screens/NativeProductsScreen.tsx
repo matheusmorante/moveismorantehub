@@ -5,7 +5,6 @@ import {
   Alert,
   Linking,
   Platform,
-  RefreshControl,
   ScrollView,
   StatusBar,
   Text,
@@ -21,16 +20,12 @@ import {
 import { useAuth } from '../../../contexts/AuthContext';
 import { WEB_URL } from '../../../services/supabaseClient';
 import { NativeCategoriesScreen } from '../categories';
-import { MobileProductCard } from '../components/MobileProductCard';
-import { MobileProductPagination } from '../components/MobileProductPagination';
 import { ProductsHeader } from '../components/ProductsHeader';
 import type { ProductListMode } from '../components/header/ProductsHeaderModeSelector';
 import { useMobileProducts } from '../hooks/useMobileProducts';
-import { MobileProductMetadataProvider } from '../hooks/useMobileProductMetadata';
-import { shouldShowMobileProductPagination } from '../domain/mobileProductListPresentation';
 import { NativeMetaCatalogScreen } from './NativeMetaCatalogScreen';
 import { ProductModulesMenu } from './ProductModulesMenu';
-import { NativeProductListStatus } from './NativeProductListStatus';
+import { NativeProductListSection } from './NativeProductListSection';
 import { ProductScreenOverlays } from './ProductScreenOverlays';
 import {
   canShowMobileLinkedProductOrders,
@@ -369,118 +364,45 @@ export const NativeProductsScreen: React.FC<Props> = ({
           <NativeCategoriesScreen dark={isDarkMode} />
         </View>
       ) : (
-        <ScrollView
-          ref={scrollViewRef}
-          contentContainerStyle={styles.content}
-          refreshControl={
-            <RefreshControl
-              refreshing={productsHook.refreshing}
-              onRefresh={() => productsHook.refresh()}
-            />
+        <NativeProductListSection
+          scrollViewRef={scrollViewRef}
+          activeMode={activeMode}
+          isDarkMode={isDarkMode}
+          productsHook={productsHook}
+          canEditProducts={canEditProducts}
+          canCreateComposition={canCreateComposition}
+          canViewWhatsAppMarketplace={canViewWhatsAppMarketplace}
+          canDeleteProducts={canDeleteProducts}
+          canDeleteProductsFromCardActions={canDeleteProductsFromCardActions}
+          hideCatalogPublicationStatus={hideCatalogPublicationStatus}
+          canPrintLabels={canPrintLabels}
+          canViewDetails={canViewDetails}
+          canViewLinkedProductOrders={canViewLinkedProductOrders}
+          isLabelOnlyProfile={isLabelOnlyProfile}
+          onBack={returnToMenu}
+          onNewProduct={handleOpenNew}
+          onNewComposition={() => {
+            if (!canCreateComposition) return;
+            setEditingProduct(null);
+            setNewProductInitialData({ itemType: 'composition' });
+            setShowFormModal(true);
+          }}
+          onOpenWhatsAppMarketplace={handleOpenWhatsAppMarketplace}
+          onRestoreProductFromTrash={handleRestoreProductFromTrash}
+          onMoveProductToTrash={handleMoveProductToTrash}
+          onEditProduct={handleOpenEdit}
+          onDeleteProduct={handleDeleteProduct}
+          onDuplicateProduct={handleDuplicate}
+          onViewDetails={setDetailsProduct}
+          onShowOrders={setOrdersProduct}
+          onMoveVariation={(variation, parentProduct) =>
+            setVariationToMove({ variation, parentProduct })
           }
-        >
-          <ProductsHeader
-            mode={activeMode === 'composition' ? 'standard' : activeMode}
-            onBack={returnToMenu}
-            dark={isDarkMode}
-            search={productsHook.searchTerm}
-            totalCount={productsHook.totalItems}
-            showCount={productsHook.products.length > 0}
-            onSearch={productsHook.setSearchTerm}
-            onSubmitSearch={productsHook.submitSearchTerm}
-            onNewProduct={handleOpenNew}
-            canCreateProduct={canEditProducts}
-            onNewComposition={() => {
-              if (!canCreateComposition) return;
-              setEditingProduct(null);
-              setNewProductInitialData({ itemType: 'composition' });
-              setShowFormModal(true);
-            }}
-            canCreateComposition={canCreateComposition}
-            canViewWhatsAppMarketplace={canViewWhatsAppMarketplace}
-            onOpenWhatsAppMarketplace={handleOpenWhatsAppMarketplace}
-            statusFilter={productsHook.statusFilter}
-            showMergedProducts={productsHook.showMergedProducts}
-            onToggleMergedProducts={productsHook.onToggleMergedProducts}
-            showDeactivated={productsHook.showDeactivated}
-            onToggleDeactivated={() => productsHook.setShowDeactivated((value) => !value)}
-            showTrash={productsHook.showTrash}
-            canViewTrash={canDeleteProducts}
-            onToggleTrash={() => productsHook.setShowTrash((value) => !value)}
-          />
-
-          {productsHook.loading && !productsHook.refreshing ? (
-            <NativeProductListStatus state="loading" />
-          ) : productsHook.loadError && productsHook.products.length === 0 ? (
-            <NativeProductListStatus
-              state="error"
-              message={productsHook.loadError}
-              onRetry={() => productsHook.retry()}
-            />
-          ) : productsHook.products.length === 0 ? (
-            <NativeProductListStatus
-              state="empty"
-              isComposition={activeMode === 'composition'}
-              showTrash={productsHook.showTrash}
-              canCreateComposition={canCreateComposition}
-              dark={isDarkMode}
-            />
-          ) : (
-            <MobileProductMetadataProvider products={productsHook.products}>
-            {productsHook.products.map((product) => (
-              <MobileProductCard
-                key={product.id}
-                product={product}
-                dark={isDarkMode}
-                showTrash={productsHook.showTrash}
-                onRestore={productsHook.showTrash ? handleRestoreProductFromTrash : undefined}
-                onMoveToTrash={handleMoveProductToTrash}
-                onEdit={handleOpenEdit}
-                onToggleCatalog={productsHook.handleToggleCatalog}
-                onToggleActive={productsHook.handleToggleActive}
-                onDelete={handleDeleteProduct}
-                canEdit={canEditProducts && !productsHook.showTrash}
-                canDelete={canDeleteProducts && !productsHook.showTrash}
-                canDeleteFromMenu={canDeleteProductsFromCardActions && !productsHook.showTrash}
-                canChangeCatalog={canEditProducts && !productsHook.showTrash && !hideCatalogPublicationStatus}
-                showCatalogStatus={!hideCatalogPublicationStatus}
-                canPrintLabels={canPrintLabels && !productsHook.showTrash}
-                canViewDetails={canViewDetails && !productsHook.showTrash}
-                isLabelOnlyProfile={isLabelOnlyProfile}
-                onDuplicate={handleDuplicate}
-                onViewDetails={setDetailsProduct}
-                onShowOrders={canViewLinkedProductOrders ? setOrdersProduct : undefined}
-                onMoveVariation={
-                  canEditProducts && !productsHook.showTrash && !isLabelOnlyProfile
-                    ? (variation, parentProduct) => setVariationToMove({ variation, parentProduct })
-                    : undefined
-                }
-                onMergeVariation={
-                  canEditProducts && !productsHook.showTrash && !isLabelOnlyProfile
-                    ? (variation, parentProduct) =>
-                        setVariationToMerge({ variation, parentProduct })
-                    : undefined
-                }
-              />
-            ))}
-            </MobileProductMetadataProvider>
-          )}
-
-          {shouldShowMobileProductPagination(
-            productsHook.products.length,
-            productsHook.loading,
-            productsHook.refreshing,
-          ) && (
-            <MobileProductPagination
-              currentPage={productsHook.currentPage}
-              totalPages={productsHook.totalPages}
-              totalItems={productsHook.totalItems}
-              itemsPerPage={productsHook.itemsPerPage}
-              dark={isDarkMode}
-              onPageChange={handlePageChange}
-            />
-          )}
-        </ScrollView>
+          onMergeVariation={(variation, parentProduct) =>
+            setVariationToMerge({ variation, parentProduct })
+          }
+          onPageChange={handlePageChange}
+        />
       )}
 
       <ProductScreenOverlays

@@ -7,11 +7,11 @@ import {
   isShelfWeightCapacityCharacteristic,
   isQuantityCharacteristic,
 } from '@/pages/utils/technicalValuesService';
-import { TechnicalFieldInput } from '../tabs/technical/TechnicalFieldInput';
+import { TechnicalFieldInput } from '../tabs/technical/inputs/TechnicalFieldInput';
 import {
   DisabledFieldWrapper,
   DisabledFieldInfoButton,
-} from '../tabs/technical/DisabledFieldWrapper';
+} from '../tabs/technical/inputs/DisabledFieldWrapper';
 import { getTechnicalFieldDisplayName } from '../../../../../../../shared-utils/productTechnicalFieldScope';
 
 export interface ResolvedVariationFieldState {

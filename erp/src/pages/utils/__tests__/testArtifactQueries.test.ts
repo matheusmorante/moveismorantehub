@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { excludeTestOrders, NON_TEST_ORDER_FILTER } from '../../../../../shared-utils/testArtifactQueries';
+import { excludeTestOrders, NON_TEST_ORDER_FILTER } from '../../../../../shared-utils/testing/testArtifactQueries';
 
 describe('filtro de testes aplicado no servidor', () => {
   it('usa os campos JSON existentes e preserva pedidos com JSON/flags ausentes', () => {

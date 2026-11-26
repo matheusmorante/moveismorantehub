@@ -3,7 +3,7 @@ import Order, { AssistanceItem, VisibilitySettings } from '../../../../types/ord
 import { Item } from '../../../../types/items.type';
 import { getSettings } from '@/pages/utils/settingsService';
 import { getOrderStatusLabel } from '@/pages/utils/orderStatusPresentation';
-import { formatCurrency, formatToBRDate, toTitleCase } from '../../../../utils/formatters';
+import { formatCurrency, formatToBRDate, toTitleCase } from '../../../../utils/shared/formatters';
 import { formatOrderCode } from '../../../../utils/orderCode';
 import { getOrderTypeClasses, resolveOrderColor } from '../../../../utils/orderTypeColorUtils';
 import { getOrderAssemblyFlags, isPaidTrafficOrder } from '../utils/orderItemHandlingUtils';
@@ -232,14 +232,11 @@ const OrderHistoryRow = ({
                   </button>
                   {order.orderType === 'assistance' && (
                     <span
-                      className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${
-                        (order.linkedOrderDeliveryMethod || order.shipping?.deliveryMethod) === 'pickup'
-                          ? 'bg-purple-50 text-purple-700 border border-purple-200 dark:bg-purple-900/20 dark:text-purple-300 dark:border-purple-800'
-                          : 'bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-300 dark:border-emerald-800'
-                      }`}
-                      title={`Método de entrega do pedido vinculado: ${(order.linkedOrderDeliveryMethod || order.shipping?.deliveryMethod) === 'pickup' ? 'Retirada' : 'Entrega'}`}
+                      className="inline-flex items-center gap-1 rounded border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wider text-amber-700 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-300"
+                      title="Operação: assistência"
                     >
-                      {(order.linkedOrderDeliveryMethod || order.shipping?.deliveryMethod) === 'pickup' ? 'Retirada' : 'Entrega'}
+                      <i className="bi bi-tools" aria-hidden="true" />
+                      Assistência
                     </span>
                   )}
                 </div>

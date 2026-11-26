@@ -22,7 +22,7 @@ vi.mock('@/pages/services/financeService', () => ({ financeService: {
 vi.mock('@/context/AuthContext', () => ({
   useAuth: () => ({ isAdmin: true, profile: { full_name: 'Operador' }, user: { email: 'operador@example.com' } }),
 }));
-vi.mock('@/components/CurrencyInput', () => ({ default: ({ value, onChangeValue }: {
+vi.mock('@/components/inputs/CurrencyInput', () => ({ default: ({ value, onChangeValue }: {
   value: number; onChangeValue: (value: number) => void;
 }) => <input aria-label="Amount" value={value} onChange={(event) => onChangeValue(Number(event.target.value))} /> }));
 vi.mock('react-toastify', () => ({ toast: { error: mocks.error, success: vi.fn() } }));

@@ -1,6 +1,6 @@
 import type Product from '@/pages/types/product.type';
 import type { Variation } from '@/pages/types/product.type';
-import ProductAutocomplete from '@/components/ProductAutocomplete';
+import ProductAutocomplete from '@/components/selectors/ProductAutocomplete';
 import InventoryMoveDeleteModal from '../modals/InventoryMoveDeleteModal';
 import InventoryMoveEditModal from '../modals/InventoryMoveEditModal';
 import { InventoryMoveCard } from './InventoryMoveCard';
@@ -8,7 +8,7 @@ import { InventoryMovesTable } from './InventoryMovesTable';
 import { ReceiptPeriodSelector } from '../../Receipts/components/ReceiptPeriodSelector';
 import { ERPListPagination } from '@/components/shared/ERPListPagination';
 import { useAuth } from '@/context/AuthContext';
-import { canPerform } from '@/pages/utils/permissionService';
+import { canPerform } from '@/pages/utils/auth/permissionService';
 import { useInventoryMovesHistory } from '../hooks/useInventoryMovesHistory';
 
 interface InventoryMovesHistoryProps {

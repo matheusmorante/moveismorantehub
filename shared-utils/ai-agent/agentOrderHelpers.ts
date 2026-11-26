@@ -1,4 +1,4 @@
-import { isIdentifiedTestArtifact } from '../testArtifactPolicy';
+import { isIdentifiedTestArtifact } from '../testing/testArtifactPolicy';
 
 export interface AgentOrderItemInput {
   codigoOuSku?: string;

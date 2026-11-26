@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { processWhatsAppWebhookPayload } from '@/pages/utils/customerSupport/whatsappWebhookProcessor';
-import { mapRowToMessage } from '@/pages/utils/customerSupport/customerSupportService';
+import { processWhatsAppWebhookPayload } from '@/pages/utils/customerSupport/webhook/whatsappWebhookProcessor';
+import { mapRowToMessage } from '@/pages/utils/customerSupport/query/customerSupportService';
 
 const payload = {
   entry: [{ changes: [{ value: {

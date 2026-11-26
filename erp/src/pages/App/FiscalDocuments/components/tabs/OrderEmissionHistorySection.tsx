@@ -2,7 +2,7 @@ import React from 'react';
 import type { NfeDocumentRecord } from '../../types/fiscalDocuments.types';
 import { formatFiscalDateTime } from '../../utils/fiscalPresentationHelpers';
 import { formatAccessKey } from '@/pages/utils/nfe/nfeAccessKey';
-import { formatCurrency } from '@/pages/utils/formatters';
+import { formatCurrency } from '@/pages/utils/shared/formatters';
 import { getFiscalDocumentStatusBadgeClass } from './fiscalDocumentStatusBadge';
 
 interface Props {

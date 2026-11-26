@@ -7,8 +7,8 @@ vi.mock('@/pages/utils/supabaseConfig', () => ({ supabase: { from: mocks.from } 
 import { ReconciliationProductCard } from './ReconciliationProductCard';
 import type { ReconciliationProductItem } from '../types/reconciliation.types';
 vi.mock('react-toastify', () => ({ toast: { info: vi.fn(), success: vi.fn() } }));
-vi.mock('../../../../../components/SupplierAutocomplete', () => ({ default: () => null }));
-vi.mock('../../../../../components/CategoryAutocomplete', () => ({ default: () => null }));
+vi.mock('../../../../../components/selectors/SupplierAutocomplete', () => ({ default: () => null }));
+vi.mock('../../../../../components/selectors/CategoryAutocomplete', () => ({ default: () => null }));
 vi.mock('../../components/variationTabs/VariationAttributeValueInput', () => ({ VariationAttributeValueInput: ({ attributeName, value, onChange }: any) => <input aria-label={`Característica ${attributeName}`} value={value} onChange={(event) => onChange(event.target.value)} /> }));
 beforeEach(() => {
   mocks.from.mockImplementation(() => {

@@ -1,3 +1,7 @@
+## Ciclo — 26/11/2026 — alertas, paginação, retry e métricas do catálogo
+
+O operador aprovou SUP-PROP-005 a SUP-PROP-008. As três primeiras foram implementadas no checkout do ERP e removem trabalho evitável quando falha o resumo dos alertas, quando muda o filtro do histórico ou quando sua resposta viola o contrato. O app usa os validadores compartilhados e já reseta a página na troca de busca ou status. A migration `20261126181712` foi aplicada ao Supabase operacional. A versão candidata devolveu JSON idêntico na comparação de leitura e reduziu o custo estimado de 10.010,78 para 1.552,41. As medidas de uso e rede seguem pendentes. [Decisões, estimativas e reversão](../auditoria-supabase/propostas.md) · [Arquivos e validações](../auditoria-supabase/historico.md#26112026--implementação-de-sup-prop-005-a-sup-prop-008).
+
 ## Ciclo — 26/11/2026 — agenda, pedidos, alertas e dispatcher fiscal
 
 O operador aprovou SUP-PROP-001 a SUP-PROP-004. As migrations 20261126152432, 20261126152451 e 20261126152514 foram aplicadas ao projeto MoranteHub. Elas usam pré-filtros na agenda, pulam buscas textuais vazias nos pedidos, consolidam a leitura de variações nos alertas e evitam enfileirar HTTP quando a fila fiscal está sem trabalho elegível.

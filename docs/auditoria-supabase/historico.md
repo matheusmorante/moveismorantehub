@@ -1,5 +1,12 @@
 # Histórico
 
+## 26/11/2026 — implementação de SUP-PROP-005 a SUP-PROP-008
+
+- O operador aprovou expressamente as quatro propostas. No ERP, `notificationService.ts` evita selecionar rascunhos se o resumo de produtos falhar. `useOrderHistory.ts` vincula a página à identidade do filtro e usa 15 pedidos por página. `orderHistoryQueryRetry.ts` encerra a tentativa automática para os erros dos validadores compartilhados de página e resumos, preservando as mensagens.
+- No app, o fluxo de pedidos já volta à página 1 ao trocar busca ou status. O serviço usa os mesmos validadores atualizados e o hook trata a falha da leitura sem retry equivalente. A RPC de métricas tem consumidor no painel do ERP. A consulta de alertas de estoque revisada pertence ao ERP.
+- A migration `20261126181712_bound_dashboard_catalog_recent_analytics` foi aplicada ao MoranteHub. O JSON antigo e o candidato coincidiram no mesmo snapshot antes da aplicação. O `EXPLAIN` estimou 10.010,78 e 1.552,41 unidades, respectivamente. Verificação posterior confirmou a definição, o proprietário, os grants, o modo de segurança e o caminho de busca da função. [Métricas](metricas.md#26112026--comparação-sql-de-sup-prop-008).
+- Vitest passou em 24 casos do ERP e em nove casos dos serviços de listagem do app com `erp/vitest.mobile.config.ts`. O SQL foi verificado por comparação direta de leitura e metadados, sem login no painel. Alterações do ERP e dos validadores permanecem no checkout. Sem publicação ou OTA.
+
 ## 2026-11-26 — primeira execução e criação da automação
 
 - **Objetivo:** iniciar auditoria incremental após o operador compartilhar logs de SQLSTATE 57014, SQLSTATE 08006, duração superior a 10 segundos e falhas de inicialização do pg_cron.
@@ -98,3 +105,82 @@ Ler este histórico e os diagnósticos antes de escolher o próximo recorte. Par
 - **Checkpoint às 14:48:27 BRT.** Revisão em `main` após leitura da documentação fiscal e do histórico. Os arquivos das três migrations examinadas não tinham diff local. O histórico de status escrito pela transação compartilhada não identifica o ciclo nem a origem automática. A leitura remota de metadados confirmou que o job trata o conflito de versão emitido como `P0001` no caminho genérico de falha. Registrados SUP-010 e SUP-PROP-009.
 - **Decisões e validação.** SUP-PROP-005 a 009 aguardam aprovação individual. SUP-PROP-003 segue aplicada ao dispatcher, com o autofinalizador em observação, e SUP-PROP-004 aguarda o medidor oficial. Revisão estática e metadados operacionais. Sem execução do job, testes de implementação, mudança funcional, escrita remota ou nova leitura do Logs Explorer. Checkpoint de logs até 12h15 BRT.
 - **Próximo recorte.** Buscar a série oficial de Log Query e Log Ingestion em Usage ou uma fonte autorizada equivalente, conferindo o escopo e a granularidade antes de compará-la à amostra de `auto_explain`. A revisão dos conflitos só deve avançar para frequência se houver fonte agregada capaz de distingui-los de outras falhas.
+
+## 2026-11-26 — aplicação da SUP-PROP-009
+
+- O operador aprovou explicitamente a SUP-PROP-009. Revisei a migration completa e o histórico remoto do projeto operacional `hkoxhourxwlddgsfdgws`. A migration `20261126175900_classify_auto_fulfill_order_version_conflicts` atualizou somente a função `public.auto_fulfill_scheduled_orders()`.
+- Verificação remota às 14:59 BRT confirmou o reconhecimento da mensagem exata junto ao SQLSTATE `P0001`, manutenção do caminho `40001`, ausência de EXECUTE para anon, authenticated e service_role e um job de autofinalização ativo na cadência de dois minutos. A primeira checagem usou cast inválido de regproc e falhou sem efeito. A checagem corrigida com regprocedure passou.
+- Não executei o job nem testes comportamentais com pedido, conflito ou erro injetado. Portanto, a validação dinâmica de contadores e avisos reais permanece pendente. Nenhum outro código, dado, cron ou configuração foi alterado.
+- Próximo recorte: obter Usage oficial para comparar Log Query e Log Ingestion com a amostra de auto_explain.
+
+## 2026-11-26T15:03:17-03:00 — acesso aos medidores oficiais
+
+- Em main, conferidos o histórico, os diffs de auditoria e as fontes oficiais. Usage permite selecionar o projeto e o período. O conector disponível não oferece as séries de Logs Query e Logs Ingest, e a referência pública da Management API não apresentou rota equivalente. Sem acesso autorizado ao painel em headless, ambos ficaram não medidos. A amostra de 12h00–12h15 BRT cobre só texto de eventos PostgreSQL. Atribuir parcela da ingestão exigiria escopo e intervalo compatíveis, mesmo com um total oficial diário. [Logs Query](https://supabase.com/docs/guides/platform/manage-your-usage/logs-query) e [Logs Ingest](https://supabase.com/docs/guides/platform/manage-your-usage/logs-ingest).
+- Nenhum novo diagnóstico causal ou proposta. SUP-PROP-004 aguarda o medidor oficial, SUP-PROP-005 a 008 aguardam aprovação individual e SUP-PROP-009 consta como aplicada com verificação de metadados. Sem consulta operacional ou testes. Última janela no Logs Explorer até 12h15 BRT.
+- Próximo recorte. Verificar a precedência dos limites de tempo das RPCs que tiveram 57014 em SUP-002, começando pelas definições e chamadores que mudaram desde a auditoria anterior. Retomar Usage quando houver série oficial acessível.
+
+## 2026-11-26T15:20:59-03:00 — limites de tempo do painel de Catálogo Digital
+
+- Em main, conferidos status, diffs, SUP-002, SUP-009 e histórico SCE-137/SCE-322. A última definição versionada de get_dashboard_digital_catalog_metrics, o hook ERP e a configuração do cliente estão sem diff local. A RPC não declara statement_timeout próprio nessa migration e o hook chama a RPC sem prazo específico. O cliente ERP usa um fetch compartilhado. A busca dirigida confirma um chamador operacional no ERP e nenhum no app ou nos serviços compartilhados. A troca local de import na consulta de estoque pertence a outro hook. A revisão estática não determina qual prazo efetivo causou o 57014 do painel.
+- Sem novo diagnóstico ou proposta, medição remota ou teste de implementação. Logs Explorer coberto até 12h15 BRT. SUP-PROP-005 a 008 aguardam aprovação individual, 004 depende do Usage e 009 consta como aplicada com verificação de metadados.
+- Próximo recorte. Conferir, nos diffs e no histórico, se a camada compartilhada de fetch ou o Query Guard mudou a política de cancelamento para o painel. Retomar a atribuição do 57014 quando houver evidência do orçamento efetivo por camada e papel.
+
+## 2026-11-26T15:35:06.9956823-03:00 — retentativa do painel após negativa de acesso
+
+- Em `main`, conferi os diffs, o histórico SCE-137/SCE-322, os chamadores e o fetch do Query Guard. Seu diff local troca o import do helper. O temporizador de 10 s deste trecho limita a leitura da cópia do corpo para telemetria, após a resposta do fetch. A revisão não atribuiu o `57014` a essa camada. A política global do ERP permite uma retentativa após a negativa `42501` do painel, sob as condições registradas em SUP-011.
+- SUP-PROP-010 aguarda aprovação própria. SUP-PROP-005 a 007 seguem implementadas no checkout e dependem de publicação do ERP. SUP-PROP-008 e 009 constam como aplicadas remotamente. SUP-PROP-004 depende do Usage. Revisão estática e conferência documental. Checkpoint do Logs Explorer permanece às 12h15 BRT. Sem teste de implementação, consulta remota ou alteração funcional.
+- Próximo recorte. Obter uma base de execuções e tempo SQL da RPC do painel após SUP-PROP-008, se houver entrada comparável nas estatísticas acumuladas. Separar a medição operacional de latência, cancelamentos e cobrança. Retomar atribuição de timeout somente com evidência do prazo efetivo por camada.
+
+## 2026-11-26T15:48:22-03:00 — base para o delta da RPC de métricas do catálogo
+
+- Em `main`, conferi o histórico da SUP-PROP-008 aplicada, documentação SCE relacionada, diffs e status. O projeto MoranteHub estava ativo e saudável. Uma leitura agregada de `pg_stat_statements` capturou a RPC após a migration. A amostra é cumulativa desde 18/10 e não isola a versão nova. O queryid, reset e desalocações foram registrados como condição para comparar o próximo intervalo.
+- Atualizei a base métrica para permitir cálculo de deltas. Nenhuma mudança funcional, consulta ao Logs Explorer ou teste. SUP-PROP-010 permanece aguardando decisão; SUP-PROP-004 aguarda a comparação oficial em Usage; SUP-PROP-005 a 007 continuam implementadas no checkout e dependem de publicação; SUP-PROP-008 e SUP-PROP-009 constam aplicadas.
+- Próximo recorte: repetir a leitura somente num intervalo futuro comparável e calcular delta se queryid, reset e desalocações continuarem estáveis. O total de chamadas não prova redução de Log Query ou de bytes. Uso oficial, erros cancelados, egress e recursos seguem sem medição.
+
+## 2026-11-26T16:02:05-03:00 — intervalo sem chamadas registradas para o painel do catálogo
+
+- Em `main`, conferi status e diffs das fontes do recorte. No MoranteHub, a leitura de `pg_stat_statements` comparada com a base de 15:47 BRT mostrou zero novas execuções do queryid monitorado em cerca de 15 minutos. Reset, queryid e desalocações permaneceram estáveis. A métrica é cumulativa e não fornece custo da nova implementação sem chamadas no intervalo.
+- Nenhum achado ou proposta nova. SUP-PROP-010 aguarda decisão; 004 aguarda Usage; 005–007 seguem no checkout; 008 e 009 aplicadas. Logs Query e Ingest oficiais não medidos; Logs Explorer coberto até 12h15 BRT. Sem testes ou mudanças funcionais.
+- Próximo recorte: medir novo delta somente após intervalo em que a RPC tenha chamadas registradas, ou escolher outra evidência nova. Não inferir redução de uso ou logs deste intervalo sem chamadas.
+
+## 2026-11-26T16:16:55-03:00 — diffs do cliente do catálogo sem mudança no fluxo de leitura
+
+- Em `main`, o recorte da vitrine mostrou somente relocação de imports em `useCatalogProductsQuery.ts` e no cliente Supabase do catálogo; `shared-utils/supabaseReadMetrics.ts` reexporta o módulo movido. Comparei o conteúdo de `shared-utils/core/supabaseReadMetrics.ts` ao arquivo rastreado anterior, que coincide integralmente. ERP/app continuam apontando para a implementação movida. Sem mudança funcional nos chamadores ou na medição local.
+- Não acrescentei diagnóstico, proposta ou métrica. A base anterior da RPC ainda não teve novas chamadas. SUP-PROP-010 aguarda decisão; SUP-PROP-004 aguarda Usage; SUP-PROP-005 a 007 seguem no checkout; SUP-PROP-008 e 009 aplicadas. Sem consultas remotas, Logs Explorer ou testes.
+- Próximo recorte: aguardar incremento da RPC monitorada ou evidência funcional nova em acesso a dados; avançar apenas com diff comportamental ou métrica comparável.
+
+## 2026-11-26T16:31:53-03:00 — nenhum diff funcional novo no recorte do catálogo
+
+- Revisei o checkpoint, o estado da branch main e os diffs restritos às fontes de leitura do Catálogo Digital. Desde o ciclo anterior, nenhuma alteração lógica nova apareceu nos arquivos consultados. A movimentação do wrapper e da instrumentação já conferida continua sendo apenas relocação idêntica.
+- Sem achado, proposta, teste ou consulta remota novos. SUP-PROP-010 aguarda decisão; SUP-PROP-004 aguarda Usage; SUP-PROP-005 a 007 seguem no checkout; SUP-PROP-008 e 009 aplicadas. Última comparação do painel mostrou zero chamadas na janela, e o Logs Explorer permanece coberto até 12h15 BRT.
+- Próximo recorte: retomar a coleta do painel somente após chamadas acumuladas ou diante de nova alteração funcional/telemetria; Usage oficial segue indisponível nesta sessão.
+
+## 2026-11-26T16:48:07-03:00 — mudança de imports da agenda sem alteração na consulta
+
+- Em main, o checkout marca alterações nas chamadas de agenda do ERP e do app, mas seus diffs apenas movem imports de formatador e serviço de realtime. O helper compartilhado está extraído para shared-utils/orders/; a comparação com a definição rastreada confirmou o mesmo fluxo de RPC, timeout de 25 s, validação, paginação e carregamento em lotes, com imports reorganizados. As migrations de agenda e timeout não têm diff.
+- Nenhum novo achado, proposta ou métrica. SUP-PROP-010 aguarda decisão; SUP-PROP-004 aguarda Usage; SUP-PROP-005 a 007 seguem no checkout; SUP-PROP-008 e 009 aplicadas. Sem consulta remota, Logs Explorer ou teste.
+- Próximo recorte: retomar a comparação da agenda caso surja alteração lógica, amostra operacional nova ou delta de execução que sustente avaliação. Não reavaliar apenas por realocação de imports.
+
+## 2026-11-26T17:03:27-03:00 — revisão estática das correções da listagem de pedidos
+
+- Em main, conferi os diffs das propostas aprovadas SUP-PROP-006 e 007 nos caminhos do ERP e do app, além dos validadores compartilhados. A troca de filtro usa a chave normalizada para iniciar na página 1 já na renderização que dispara a consulta. A lista ainda limita a 15. As respostas inválidas de IDs ou resumos geram OrderReadContractError, e a política do histórico do ERP encerra retry automático somente para esse erro, mantendo a exclusão de erro do Query Guard e a retentativa de outras falhas. etchOrdersPage propaga essas falhas no caminho revisado. A inspeção não encontrou regressão adicional nos diffs.
+- SUP-PROP-005 a 007 constam implementadas no checkout e aguardam publicação do ERP; o mobile mantém o fluxo imperativo/offline sem retry automático desta lista. SUP-PROP-010 aguarda decisão; SUP-PROP-004 aguarda Usage; 008/009 aplicadas. Sem execução de testes, consulta remota ou Logs Explorer.
+- Próximo recorte: apenas alteração lógica nova ou evidência de uso/erro com intervalo identificável. Os diffs atuais não exigem novo diagnóstico ou proposta.
+
+## 2026-11-26T17:19:56-03:00 — amostra horária do autofinalizador após a migration
+
+- No projeto MoranteHub ativo, consultei somente o agregado de cron.job_run_details do job auto_fulfill_scheduled_orders, para end_time entre 16h e 17h BRT. O único job identificado concluiu 30 de 30 execuções com sucesso. Não houve status diferente de sucesso nem assinatura de timeout de partida ou SQL na mensagem resumida. Média de 620,35 ms e máximo de 4.686,06 ms por execução bem-sucedida.
+- A amostra posterior à migration confirma continuidade da execução nesse intervalo. Não exercita nem comprova a classificação de conflito P0001; quantidade de pedidos processados, ciclos sem trabalho, causa de início das antigas falhas, logs e cobrança continuam indeterminados. Sem novo diagnóstico causal ou proposta. SUP-PROP-010 aguarda decisão; SUP-PROP-004 aguarda Usage; SUP-PROP-005 a 007 seguem no checkout; 008/009 aplicadas.
+- Próximo recorte: acompanhar novos resultados apenas se houver necessidade de validar nova janela após mudança ou se surgirem falhas. Sem consulta ao Logs Explorer ou testes.
+
+## 2026-11-26T17:32:16-03:00 — checkpoint sem mudança lógica nas consultas monitoradas
+
+- Em main, conferi branch, status e diffs das funções e chamadores já acompanhados. O diff permanece nas alterações previamente revisadas de paginação/retry ERP e na relocação de imports da agenda/Query Guard; migrations das RPCs não apresentam alteração nova. O resultado horário do autofinalizador foi registrado no ciclo anterior.
+- Sem nova evidência, diagnóstico, proposta, medição ou teste. SUP-PROP-010 aguarda decisão; SUP-PROP-004 aguarda Usage; SUP-PROP-005 a 007 seguem no checkout; 008/009 constam aplicadas. Não reconsultei cron nem Logs Explorer nesta rodada.
+- Próximo recorte: aguardar regressão, novo diff lógico ou validação pendente acionável; manter Log Query e Log Ingestion como não medidos sem acesso ao Usage oficial.
+
+## 2026-11-26T17:49:45-03:00 — atualizacao do remoto sem novos commits
+
+- A pedido do operador, executei fetch e pull fast-forward em main. origin/main e HEAD estavam sincronizados, com zero commits para integrar. O pull informou que a branch ja estava atualizada.
+- As alteracoes locais existentes permaneceram no checkout. Nenhum arquivo funcional foi alterado pela operacao Git. Sem nova medicao, diagnostico ou proposta nesta execucao.
+- Proximo recorte da auditoria segue condicionado a diff logico novo, regressao ou validacao pendente acionavel.

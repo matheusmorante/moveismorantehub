@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { createOperationConfirmationFormSchema } from '../../../../../../../shared-utils/operationConfirmationFormSchema';
-import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../../../shared-utils/core/withTimeout';
 import { hasAutomaticSaleCancellationFiscalDecision, type SaleCancellationPreview } from '../../../../../../../shared-utils/saleCancellationFormSchemas';
 
 interface CancelSaleModalProps {

@@ -1,9 +1,9 @@
 import { supabase } from '../supabaseClient';
 import { OrderRepository } from '../../repositories/OrderRepository';
 import { connectivityService } from './connectivityService';
-import { withAbortTimeout } from '../../../../shared-utils/withAbortTimeout';
+import { withAbortTimeout } from '../../../../shared-utils/core/withAbortTimeout';
 import { isOrderSummary } from '../../../../shared-utils/orderSummaryQuery';
-import { isIdentifiedTestArtifact } from '../../../../shared-utils/testArtifactPolicy';
+import { isIdentifiedTestArtifact } from '../../../../shared-utils/testing/testArtifactPolicy';
 
 /** Offline operations need complete snapshots; transfer only missing/changed versions. */
 let snapshotQueue: Promise<void> = Promise.resolve();

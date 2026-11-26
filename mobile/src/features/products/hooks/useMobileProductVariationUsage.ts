@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { checkMobileProductVariationHasMoves } from '../services/mobileProductMutationService';
+import { checkMobileProductVariationHasMoves } from '../services/products/mobileProductMutationService';
 
 export const useMobileProductVariationUsage = (
   productId: string,

@@ -8,11 +8,11 @@ import { ProductCardVariationItem } from './ProductCardVariationItem';
 
 vi.mock('@/context/AuthContext', () => ({ useAuth: () => ({ profile: { role: 'admin' } }) }));
 vi.mock('@/pages/utils/supabaseConfig', () => ({ supabase: { from: vi.fn() } }));
-vi.mock('@/pages/utils/accessRoles', () => ({
+vi.mock('@/pages/utils/auth/accessRoles', () => ({
   canPrintProductIdentificationLabels: () => true,
   isProductIdentificationLabelOnlyProfile: () => false,
 }));
-vi.mock('@/components/ProductImage', () => ({ default: () => null }));
+vi.mock('@/components/display/ProductImage', () => ({ default: () => null }));
 vi.mock('../Shared/ChannelStatusBadges', () => ({ ChannelStatusBadges: () => null }));
 vi.mock('../Shared/MergedBadge', () => ({ MergedBadge: () => null }));
 vi.mock('./VariationItemActions', () => ({ VariationItemActions: () => null }));

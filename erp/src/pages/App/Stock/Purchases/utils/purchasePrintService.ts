@@ -1,5 +1,5 @@
 import Purchase from '../../../../types/purchase.type';
-import { formatCurrency, formatToBRDate } from '../../../../utils/formatters';
+import { formatCurrency, formatToBRDate } from '../../../../utils/shared/formatters';
 import { formatPurchaseNumber } from '../../../../../../../shared-utils/purchaseNumber';
 
 export function printPurchaseDocument(purchase: Purchase): void {

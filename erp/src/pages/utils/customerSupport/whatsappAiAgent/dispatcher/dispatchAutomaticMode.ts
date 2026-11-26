@@ -8,7 +8,7 @@ import {
 } from './dispatchOutcomeRecorder.js';
 import { sendMetaNativeCatalogMessage, sendMetaTextMessage, type MetaMessageResult } from './metaGraphSender.js';
 import { prepareDispatchIdempotency } from './prepareDispatchIdempotency.js';
-import { markLatestCustomerMessageAsRead } from '../../whatsappReadReceipt.js';
+import { markLatestCustomerMessageAsRead } from '../../messageContent/whatsappReadReceipt.js';
 
 export async function dispatchAutomaticMode(
   params: DispatchAiResponseParams

@@ -1,1 +1,1 @@
-export * from './schemas/aiUsageLimitSchemas';
+export * from './schemas/support/aiUsageLimitSchemas';

@@ -1,6 +1,6 @@
 import { expect, it, vi } from 'vitest';
 import type { executeSaveOrder } from '../orderCreationService';
-import type { bindTestArtifactContext } from '../../../../../../shared-utils/testArtifactContext';
+import type { bindTestArtifactContext } from '../../../../../../shared-utils/testing/testArtifactContext';
 
 type OrderTestArtifactIdentity = {
   runId: string;

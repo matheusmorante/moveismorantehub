@@ -1,6 +1,6 @@
 import type { Item } from '../../types/items.type';
 import type Order from '../../types/order.type';
-import { getNonStockOrigin } from '../saleInventoryRules';
+import { getNonStockOrigin } from '../sales/saleInventoryRules';
 
 /** A devolução reentra pelo CMV materializado na venda, nunca pelo custo atual do produto. */
 export const getReturnUnitCost = (item: Item) => item.unitCost;

@@ -1,4 +1,4 @@
-import type { ParsedFinancialIntent } from '../financialTypes';
+import type { ParsedFinancialIntent } from '../extraction/financialTypes';
 
 export interface BusinessPurposeValidationResult {
   handled: boolean;

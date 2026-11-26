@@ -7,7 +7,7 @@ import {
   catalogSelectionFormSchema,
   categoryEnvironmentFormSchema,
 } from '@/shared-utils/catalogFormSchemas';
-import { withTimeout } from '../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../shared-utils/core/withTimeout';
 import { supabase } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
 import { useConfirmDialog } from '@/components/providers/confirm-dialog-provider';

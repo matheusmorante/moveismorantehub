@@ -1,5 +1,5 @@
-import type { ParsedFinancialIntent } from '../financialTypes';
-import { isBankFinancialInstitution } from '../bankKeywords';
+import type { ParsedFinancialIntent } from '../extraction/financialTypes';
+import { isBankFinancialInstitution } from '../classification/bankKeywords';
 
 export interface LoanValidationResult {
   handled: boolean;

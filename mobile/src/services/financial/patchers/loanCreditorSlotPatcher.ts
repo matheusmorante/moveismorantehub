@@ -1,6 +1,6 @@
-import type { ParsedFinancialIntent } from '../financialTypes';
-import { validateParsedIntent } from '../financialIntentValidator';
-import { isBankFinancialInstitution } from '../bankKeywords';
+import type { ParsedFinancialIntent } from '../extraction/financialTypes';
+import { validateParsedIntent } from '../extraction/financialIntentValidator';
+import { isBankFinancialInstitution } from '../classification/bankKeywords';
 
 export const tryPatchLoanCreditorSlots = (
   text: string,

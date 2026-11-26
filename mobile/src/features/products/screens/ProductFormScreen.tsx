@@ -1,26 +1,15 @@
 import { useZodForm } from '../../../hooks/useZodForm';
 import { createMobileProductFormSchema } from '../../../../../shared-utils/mobileProductFormSchema';
-import {
-  hasRequiredProductName,
-} from '../../../../../shared-utils/productNameRequirement';
-import {
-  isVersionedProductSaveRpcUnavailable,
-  type MobileProductSaveAcknowledgement,
-} from '../../../../../shared-utils/mobileProductSaveAcknowledgement';
-import { deriveProductDiscountFields } from '../../../../../shared-utils/productDiscountFields';
-import { withOwnInboundVariationCost } from '../../../../../shared-utils/inboundQuickRegisterRules';
-import { withTimeout } from '../../../../../shared-utils/withTimeout';
+import { type MobileProductSaveAcknowledgement } from '../../../../../shared-utils/mobileProductSaveAcknowledgement';
 import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  Alert,
   KeyboardAvoidingView,
   Modal,
   Platform,
   ScrollView,
   StatusBar,
   Text,
-  TouchableOpacity,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -28,80 +17,37 @@ import { styles } from './productFormScreen.styles';
 import { useProductFormPermissions } from '../hooks/useProductFormPermissions';
 import { useMobileProductJevClassification } from '../hooks/useMobileProductJevClassification';
 import {
-  getMobileProductFormCompositionItems,
-  synchronizeMobileProductFormCompositionItems,
-} from '../domain/mobileProductCompositionItems';
+  applyInitialMobileProductCode,
+  hydrateExistingMobileProductFormData,
+} from '../domain/mobileProductFormHydration';
+import { isMobileProductDescriptionTabDisabled } from '../domain/mobileProductFormErrorNavigation';
 import {
-  initializeMobileProductCode,
-  resolveMobileProductFormHasVariations,
-} from '../domain/mobileProductVariationMode';
-import { resolveMobileVariationImages } from '../domain/mobileVariationImages';
-import {
-  isMobileProductDescriptionTabDisabled,
-} from '../domain/mobileProductFormErrorNavigation';
-import {
-  getPersistableProductTechnicalValues,
-  getProductCharacteristicAttributes,
-  getTechnicalValue,
-  hasTechnicalValue,
-  resolveMobileVariableTechnicalFieldNames,
-} from '../domain/productCharacteristics';
-import { parseLocalizedNumber as parseLocalizedPrice } from '../domain/productNumbers';
-import {
-  getMobileVariationRegistrationIssue,
   getMobileProductReadiness,
   isMobileSalvadoProduct,
-  type MobileVariationRegistrationIssue,
 } from '../domain/productRegistrationRules';
-import {
-  buildMobileProductSavePayload,
-} from '../domain/productSavePayload';
-import { verifyAndConfirmMobilePublishedCatalogEdit } from '../domain/mobilePublishedCatalogConfirmation';
 import {
   createMobileProductDraftSaveQueue,
   type MobileProductDraftSaveEntry,
 } from '../domain/mobileProductDraftSaveQueue';
 import { syncMobileVariationsWithParent } from '../domain/productVariationParentSync';
 import { resolveMobileProductFinalPurchasePrice } from '../domain/productPurchasePrice';
-import { createMobileProductVariationId } from '../domain/mobileProductVariationGeneration';
-import { ProductFormBasicTab } from '../modals/tabs/ProductFormBasicTab';
-import { ProductFormCompositionTab } from '../modals/tabs/ProductFormCompositionTab';
-import { ProductFormDescriptionTab } from '../modals/tabs/ProductFormDescriptionTab';
-import { ProductFormFiscalTab } from '../modals/tabs/ProductFormFiscalTab';
-import { ProductFormPhotosTab } from '../modals/tabs/ProductFormPhotosTab';
-import { ProductFormPricesTab } from '../modals/tabs/ProductFormPricesTab';
-import { ProductFormTechnicalTab } from '../modals/tabs/ProductFormTechnicalTab';
-import { ProductFormVariationsTab } from '../modals/tabs/ProductFormVariationsTab';
 import { ProductFormReadinessChecklist } from './ProductFormReadinessChecklist';
 import { ProductFormHeader } from './ProductFormHeader';
 import { buildMobileProductFormReadinessItems } from './productFormReadinessItems';
 import { ProductFormTabNavigation } from './ProductFormTabNavigation';
 import { ProductFormStepFooter } from './ProductFormStepFooter';
+import { ProductFormTabContent } from './ProductFormTabContent';
 import { useProductFormValidationFeedback } from './useProductFormValidationFeedback';
 import { useProductFormSwipeNavigation } from './useProductFormSwipeNavigation';
+import {
+  createMobileProductOperationUuid,
+  useMobileProductDraftAutoSave,
+} from './useMobileProductDraftAutoSave';
+import { useMobileProductSubmitFlow } from './useMobileProductSubmitFlow';
 import { TABS, type TabId } from './productFormTabs';
 import { INITIAL_FORM } from './productFormInitialState';
-import { getNextSequentialProductCode } from '../services/mobileProductCodeService';
+import { getNextSequentialProductCode } from '../services/products/mobileProductCodeService';
 import { fetchMobileProductFiscalDefaults } from '../services/mobileProductFiscalService';
-
-const createUuid = () =>
-  'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (character) => {
-    const random = Math.floor(Math.random() * 16);
-    return (character === 'x' ? random : (random & 0x3) | 0x8).toString(16);
-  });
-
-const isVersionedSaveAcknowledgement = (
-  value: unknown
-): value is MobileProductSaveAcknowledgement =>
-  Boolean(
-    value &&
-      typeof value === 'object' &&
-      'productId' in value &&
-      typeof value.productId === 'string' &&
-      'updatedAt' in value &&
-      typeof value.updatedAt === 'string' &&
-      Number.isFinite(Date.parse(value.updatedAt))
-  );
 
 // ─── Props ───────────────────────────────────────────────────────────────────
 interface Props {
@@ -273,178 +219,13 @@ export const ProductFormScreen: React.FC<Props> = ({
     setAutoSaveError('');
     saveOperationIdRef.current = null;
     saveRequestedAtRef.current = null;
-    clientProductIdRef.current = product?.id ? null : createUuid();
+    clientProductIdRef.current = product?.id ? null : createMobileProductOperationUuid();
     serverProductIdRef.current = product?.id ? String(product.id) : null;
     serverProductVersionRef.current = product?.updated_at || product?.updatedAt || null;
     clientProductCodeRef.current = null;
     dirtyRef.current = false;
     if (product) {
-      const productCategories = Array.isArray(product.product_categories)
-        ? product.product_categories
-            .map((relation: any) => relation.category_id || relation.categories?.id || relation.id)
-            .filter(Boolean)
-        : [];
-      const rawVariations = Array.isArray(product.allVariations) ? product.allVariations : [];
-      const hasVariations = resolveMobileProductFormHasVariations(product);
-      const isComposition = (product.item_type || product.itemType) === 'composition';
-      const technicalValues = getPersistableProductTechnicalValues(product);
-      for (const [attribute, value] of [
-        ['Altura', product.height],
-        ['Largura', product.width],
-        [
-          product.depth_use_length || product.depthUseLength ? 'Comprimento' : 'Profundidade',
-          product.depth,
-        ],
-        ['Peso', product.weight],
-      ]) {
-        if (
-          value !== null &&
-          value !== undefined &&
-          String(value).trim() &&
-          (!hasTechnicalValue(technicalValues, attribute) ||
-            !String(getTechnicalValue(technicalValues, attribute) ?? '').trim())
-        ) {
-          technicalValues[attribute] = value;
-        }
-      }
-      const comboItems = getMobileProductFormCompositionItems(
-        product,
-        isComposition && !hasVariations
-      );
-      const unitPrice = product.unitPrice ?? product.unit_price ?? '';
-      const promoPrice = product.promoPrice ?? product.promo_price ?? '';
-      const finalPurchasePrice = resolveMobileProductFinalPurchasePrice(product);
-      const discountFields = deriveProductDiscountFields(
-        parseLocalizedPrice(unitPrice),
-        parseLocalizedPrice(promoPrice)
-      );
-      setFormDataRaw({
-        ...INITIAL_FORM,
-        ...product,
-        id: product.id,
-        name: product.name || '',
-        slug: product.slug || '',
-        title: product.title || product.marketplaceTitle || product.name || '',
-        marketplaceTitle: product.marketplaceTitle || product.title || product.name || '',
-        metaTitle: product.meta_title || product.metaTitle || '',
-        metaDescription: product.meta_description || product.metaDescription || '',
-        seoDescription: product.seo_description || product.seoDescription || '',
-        code: product.code || '',
-        itemType: product.item_type || product.itemType || 'product',
-        environment: product.environment || '',
-        includeEnvironment: product.include_environment !== false,
-        includeBrand: product.include_brand !== false,
-        titleOrder: Array.isArray(product.title_order)
-          ? product.title_order
-          : INITIAL_FORM.titleOrder,
-        featured: Boolean(product.featured),
-        productKind:
-          product.product_kind ||
-          product.productKind ||
-          (product.condition === 'salvado' || product.is_salvado
-            ? 'salvado'
-            : product.condition === 'usado'
-              ? 'usado'
-              : 'normal'),
-        condition: product.condition || (product.is_salvado ? 'salvado' : 'novo'),
-        category: product.category || '',
-        categoryId: product.category_id || product.categoryId || '',
-        categoryIds:
-          product.categoryIds ||
-          (productCategories.length
-            ? productCategories
-            : product.category_id || product.categoryId
-              ? [product.category_id || product.categoryId]
-              : []),
-        mainSupplierId: product.main_supplier_id || product.mainSupplierId || '',
-        description: product.description || '',
-        observations: product.observations || '',
-        unitPrice,
-        promoPrice,
-        ...discountFields,
-        costPrice: product.costPrice ?? product.cost_price ?? '',
-        ipiPercent: product.ipi_percent ?? product.ipiPercent ?? '',
-        freightType: product.freight_type || product.freightType || 'fixed',
-        freightCost: product.freight_cost ?? product.freightCost ?? '',
-        finalPurchasePrice,
-        stock: product.stock ?? '',
-        minStock: product.min_stock ?? product.minStock ?? '',
-        width: product.width ?? '',
-        height: product.height ?? '',
-        depth: product.depth ?? '',
-        weight: product.weight ?? '',
-        images: Array.isArray(product.images) ? product.images : [],
-        variations: syncMobileVariationsWithParent(
-          rawVariations.map((variation: any) => ({
-            ...variation,
-            images: resolveMobileVariationImages(
-              variation.image_url ?? variation.imageUrl,
-              variation.images,
-              hasVariations
-            ),
-            syncName: variation.syncName ?? variation.use_parent_name !== false,
-            differentiateTitle: Boolean(
-              variation.differentiateTitle ||
-                (variation.title && variation.title !== variation.name) ||
-                (variation.marketplaceTitle && variation.marketplaceTitle !== variation.name)
-            ),
-            attributes: (() => {
-              const normalizedAttributes = getProductCharacteristicAttributes(variation.attributes);
-              return normalizedAttributes.length
-                ? normalizedAttributes
-                : variation.attributes || {};
-            })(),
-            price: variation.price ?? variation.unit_price ?? '',
-            costPrice: variation.costPrice ?? variation.cost_price ?? '',
-            promoPrice: variation.promoPrice ?? variation.promo_price ?? '',
-            syncUnitPrice: variation.syncUnitPrice ?? variation.use_parent_price !== false,
-            syncPromoPrice: variation.syncPromoPrice ?? variation.use_parent_promo_price !== false,
-            syncCostPrice:
-              variation.syncCostPrice ?? variation.use_parent_cost_price !== false,
-            syncDescription:
-              variation.syncDescription ?? variation.use_parent_description !== false,
-            syncCondition: variation.syncCondition ?? variation.use_parent_condition !== false,
-            syncFiscal: variation.syncFiscal ?? variation.use_parent_fiscal !== false,
-            syncIpi: variation.syncIpi ?? variation.use_parent_ipi !== false,
-            syncFreight: variation.syncFreight ?? variation.use_parent_freight !== false,
-            syncWidth: variation.syncWidth ?? variation.use_parent_dimensions !== false,
-            syncHeight: variation.syncHeight ?? variation.use_parent_dimensions !== false,
-            syncDepth: variation.syncDepth ?? variation.use_parent_dimensions !== false,
-            syncWeight: variation.syncWeight ?? variation.use_parent_dimensions !== false,
-            comboItems:
-              typeof variation.combo_items === 'string'
-                ? (() => {
-                    try {
-                      return JSON.parse(variation.combo_items);
-                    } catch {
-                      return [];
-                    }
-                  })()
-                : variation.combo_items || variation.comboItems || [],
-          })),
-          product,
-          product
-        ),
-        comboItems,
-        hasVariations,
-        active: product.active ?? true,
-        isDraft: Boolean(product.is_draft || product.isDraft || product.status === 'draft'),
-        status: product.status || (product.is_draft || product.isDraft ? 'draft' : 'hidden'),
-        // Disponibilidade calculada de uma composição não é estoque inicial.
-        initialStock: isComposition
-          ? undefined
-          : product.initial_stock ?? product.initialStock ?? product.stock ?? 0,
-        unit: product.unit || 'UN',
-        depthUseLength: product.depth_use_length ?? product.depthUseLength ?? false,
-        technicalValues,
-        ecommerceDescription: product.ecommerce_description || product.ecommerceDescription || '',
-        whatsappDescription: product.whatsapp_description || product.whatsappDescription || '',
-        fiscal: product.fiscal || {},
-        variableTechnicalFields: resolveMobileVariableTechnicalFieldNames({
-          ...product,
-          variations: rawVariations,
-        }),
-      });
+      setFormDataRaw(hydrateExistingMobileProductFormData(product));
     } else {
       const initialFormData = {
         ...INITIAL_FORM,
@@ -486,48 +267,7 @@ export const ProductFormScreen: React.FC<Props> = ({
           setFormDataRaw((prev: any) => {
             const productCode = String(prev.code || nextCode);
             clientProductCodeRef.current = productCode;
-            const defaultVariation = {
-              id: createMobileProductVariationId(),
-              sku: `${productCode}-01`,
-              name: prev.name || '',
-              price: '',
-              costPrice: '',
-              stock: 0,
-              attributes: [],
-              images: [],
-              comboItems: [],
-              syncUnitPrice: true,
-              syncPromoPrice: true,
-              syncCostPrice: true,
-              syncFiscal: true,
-              syncCondition: true,
-              syncDescription: true,
-              syncIpi: true,
-              syncFreight: true,
-              syncWidth: true,
-              syncHeight: true,
-              syncDepth: true,
-              syncWeight: true,
-              active: false,
-              status: 'hidden',
-            };
-            const variationFallback =
-              prev.itemType === 'composition'
-                ? defaultVariation
-                : { ...defaultVariation, attributes: {} };
-            const nextFormData = initializeMobileProductCode(
-              prev,
-              productCode,
-              variationFallback
-            );
-            return {
-              ...nextFormData,
-              variations: syncMobileVariationsWithParent(
-                nextFormData.variations,
-                nextFormData,
-                prev
-              ),
-            };
+            return applyInitialMobileProductCode(prev, productCode);
           });
         })
         .catch((err) => {
@@ -553,386 +293,73 @@ export const ProductFormScreen: React.FC<Props> = ({
     requireInboundCostPrice: showInboundCostPrice,
   }), formData);
 
-  const canAutoSaveDraft = useCallback(
-    (snapshot: any) => {
-      const isNewProduct = !product?.id;
-      const isExistingDraft = Boolean(
-        snapshot.isDraft ||
-          product?.is_draft ||
-          product?.isDraft ||
-          product?.status === 'draft'
-      );
-      const enteredName = snapshot.name || snapshot.title || snapshot.marketplaceTitle;
-      return (
-        Boolean(onAutoSave) &&
-        enableDraftAutoSave &&
-        (isNewProduct || isExistingDraft) &&
-        hasRequiredProductName(enteredName)
-      );
-    },
-    [enableDraftAutoSave, onAutoSave, product]
-  );
+  const {
+    canAutoSaveDraft,
+    prepareSavePayload,
+    flushDraftAutoSave,
+    handleRequestClose,
+  } = useMobileProductDraftAutoSave({
+    visible,
+    saving,
+    product,
+    formData,
+    setFormDataRaw,
+    enableDraftAutoSave,
+    onAutoSave,
+    onClose,
+    autoSaveError,
+    setAutoSaveStatus,
+    setAutoSaveError,
+    draftFormEnqueueAndRun: draftForm.enqueueAndRun,
+    presentValidationErrors,
+    dirtyRef,
+    saveOperationIdRef,
+    saveRequestedAtRef,
+    clientProductIdRef,
+    clientProductCodeRef,
+    serverProductIdRef,
+    serverProductVersionRef,
+    formDataRef,
+    formRevisionRef,
+    persistedRevisionRef,
+    autoSaveTimerRef,
+    autoSavePausedRef,
+    autoSaveRunnerRef,
+    autoSaveQueueRef,
+    unconfirmedAutoSaveRef,
+  });
 
-  const getSaveOperation = useCallback(() => {
-    if (!saveOperationIdRef.current) {
-      saveOperationIdRef.current = createUuid();
-      saveRequestedAtRef.current = new Date().toISOString();
-    }
-    return {
-      operationId: saveOperationIdRef.current,
-      saveUpdatedAt: saveRequestedAtRef.current || new Date().toISOString(),
-    };
-  }, []);
-
-  const prepareSavePayload = useCallback(
-    async (validated: any, saveAsDraft: boolean) => {
-      const operation = getSaveOperation();
-      const productCode =
-        String(validated.code || clientProductCodeRef.current || '').trim() ||
-        (product?.id ? '' : await getNextSequentialProductCode());
-      clientProductCodeRef.current = productCode;
-      if (productCode && !validated.code) {
-        setFormDataRaw((previous: any) => ({ ...previous, code: productCode }));
-      }
-      const savedProductId = serverProductIdRef.current;
-      const savedProductVersion = serverProductVersionRef.current;
-
-      return buildMobileProductSavePayload({
-        validated,
-        product,
-        productCode,
-        operation,
-        savedProductId,
-        savedProductVersion,
-        clientProductId: clientProductIdRef.current,
-        saveAsDraft,
-      });
-    },
-    [getSaveOperation, product]
-  );
-
-  const runDraftAutoSave = useCallback(
-    async (entry: MobileProductDraftSaveEntry<any>): Promise<boolean> => {
-      setAutoSaveStatus('saving');
-      setAutoSaveError('');
-      const persistEntry = async (
-        saveEntry: MobileProductDraftSaveEntry<any>,
-        retryPayload?: any
-      ) => {
-        let attemptedPayload = retryPayload;
-        const result = await draftForm.enqueueAndRun(
-          {
-            ...saveEntry.snapshot,
-            isDraft: true,
-            active: false,
-            status: 'draft',
-          },
-          async (validated) => {
-            const savePayload = retryPayload || await prepareSavePayload(validated, true);
-            attemptedPayload = savePayload;
-            let response: MobileProductSaveAcknowledgement;
-            try {
-              response = await onAutoSave!(savePayload);
-              if (!isVersionedSaveAcknowledgement(response)) {
-                throw new Error('O salvamento não retornou uma versão confirmada do rascunho.');
-              }
-            } catch (error: any) {
-              if (
-                attemptedPayload &&
-                !isVersionedProductSaveRpcUnavailable(error) &&
-                !unconfirmedAutoSaveRef.current
-              ) {
-                unconfirmedAutoSaveRef.current = { entry: saveEntry, payload: attemptedPayload };
-              }
-              throw error;
-            }
-
-            clientProductIdRef.current = response.productId;
-            serverProductIdRef.current = response.productId;
-            serverProductVersionRef.current = response.updatedAt;
-            persistedRevisionRef.current = Math.max(
-              persistedRevisionRef.current,
-              saveEntry.revision
-            );
-            if (saveOperationIdRef.current === savePayload.operationId) {
-              saveOperationIdRef.current = null;
-              saveRequestedAtRef.current = null;
-            }
-            if (unconfirmedAutoSaveRef.current?.payload.operationId === savePayload.operationId) {
-              unconfirmedAutoSaveRef.current = null;
-            }
-            if (formRevisionRef.current <= saveEntry.revision) dirtyRef.current = false;
-            setFormDataRaw((previous: any) => ({
-              ...previous,
-              id: response.productId,
-              updated_at: response.updatedAt,
-              updatedAt: response.updatedAt,
-              isDraft: true,
-              active: false,
-              status: 'draft',
-            }));
-            return true;
-          },
-          (errors) => presentValidationErrors(errors, true, false)
-        );
-
-        return result !== false;
-      };
-
-      try {
-        const unresolved = unconfirmedAutoSaveRef.current;
-        if (unresolved) {
-          const recovered = await persistEntry(unresolved.entry, unresolved.payload);
-          if (!recovered) {
-            setAutoSaveStatus('error');
-            return false;
-          }
-          if (entry.revision <= unresolved.entry.revision) {
-            setAutoSaveStatus('saved');
-            return true;
-          }
-        }
-
-        if (!(await persistEntry(entry))) {
-          setAutoSaveStatus('error');
-          return false;
-        }
-        setAutoSaveStatus('saved');
-        return true;
-      } catch (error: any) {
-        setAutoSaveStatus('error');
-        setAutoSaveError(
-          error?.message || 'Não foi possível confirmar o salvamento automático do rascunho.'
-        );
-        return false;
-      }
-    },
-    [draftForm, onAutoSave, prepareSavePayload, presentValidationErrors]
-  );
-  autoSaveRunnerRef.current = runDraftAutoSave;
-  if (!autoSaveQueueRef.current) {
-    autoSaveQueueRef.current = createMobileProductDraftSaveQueue((entry) =>
-      autoSaveRunnerRef.current(entry)
-    );
-  }
-
-  useEffect(() => {
-    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
-    autoSaveTimerRef.current = null;
-    if (
-      !visible ||
-      saving ||
-      autoSavePausedRef.current ||
-      formRevisionRef.current <= persistedRevisionRef.current ||
-      !canAutoSaveDraft(formData)
-    ) {
-      return;
-    }
-
-    autoSaveTimerRef.current = setTimeout(() => {
-      autoSaveTimerRef.current = null;
-      const snapshot = formDataRef.current;
-      const revision = formRevisionRef.current;
-      if (
-        revision > persistedRevisionRef.current &&
-        canAutoSaveDraft(snapshot)
-      ) {
-        void autoSaveQueueRef.current
-          ?.enqueue({ snapshot, revision })
-          .catch((error: any) => {
-            setAutoSaveStatus('error');
-            setAutoSaveError(
-              error?.message || 'Não foi possível salvar o rascunho automaticamente.'
-            );
-          });
-      }
-    }, 500);
-
-    return () => {
-      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
-      autoSaveTimerRef.current = null;
-    };
-  }, [formData, visible, saving, canAutoSaveDraft]);
-
-  const flushDraftAutoSave = useCallback(async () => {
-    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
-    autoSaveTimerRef.current = null;
-
-    while (formRevisionRef.current > persistedRevisionRef.current) {
-      const snapshot = formDataRef.current;
-      const revision = formRevisionRef.current;
-      if (!canAutoSaveDraft(snapshot) || !autoSaveQueueRef.current) return false;
-      const saved = await autoSaveQueueRef.current.enqueue({ snapshot, revision });
-      if (!saved) return false;
-    }
-
-    return true;
-  }, [canAutoSaveDraft]);
-
-  const closeAfterDraftAutoSave = useCallback(async () => {
-    const saved = await flushDraftAutoSave();
-    if (saved && formRevisionRef.current <= persistedRevisionRef.current) {
-      dirtyRef.current = false;
-      onClose();
-      return;
-    }
-
-    Alert.alert(
-      'Rascunho não confirmado',
-      autoSaveError || 'Não foi possível confirmar o salvamento. Tente novamente ou descarte as alterações.',
-      [
-        { text: 'Continuar editando', style: 'cancel' },
-        { text: 'Tentar novamente', onPress: () => void closeAfterDraftAutoSave() },
-        { text: 'Descartar', style: 'destructive', onPress: onClose },
-      ]
-    );
-  }, [autoSaveError, flushDraftAutoSave, onClose]);
-
-  const handleRequestClose = useCallback(() => {
-    if (saving) return;
-    if (!dirtyRef.current) {
-      onClose();
-      return;
-    }
-    const snapshot = formDataRef.current;
-    if (
-      !product?.id &&
-      !serverProductIdRef.current &&
-      !unconfirmedAutoSaveRef.current &&
-      !hasRequiredProductName(snapshot.name || snapshot.title || snapshot.marketplaceTitle)
-    ) {
-      dirtyRef.current = false;
-      onClose();
-      return;
-    }
-    if (canAutoSaveDraft(snapshot)) {
-      void closeAfterDraftAutoSave();
-      return;
-    }
-    Alert.alert('Descartar alterações?', 'Existem alterações não salvas neste produto.', [
-      { text: 'Continuar editando', style: 'cancel' },
-      { text: 'Descartar', style: 'destructive', onPress: onClose },
-    ]);
-  }, [saving, product, canAutoSaveDraft, closeAfterDraftAutoSave, onClose]);
-
-  const handleSubmit = useCallback(
-    async (isDraft: boolean) => {
-      if (saving) return;
-      autoSavePausedRef.current = true;
-      setSaving(true);
-      try {
-        const currentFormData = formDataRef.current;
-        if (
-          canAutoSaveDraft(currentFormData) &&
-          formRevisionRef.current > persistedRevisionRef.current
-        ) {
-          const flushed = await flushDraftAutoSave();
-          if (!flushed) {
-            if (unconfirmedAutoSaveRef.current) {
-              Alert.alert(
-                'Rascunho ainda não confirmado',
-                'A resposta do servidor foi incerta. Tente confirmar o mesmo rascunho antes de enviar outra gravação, ou descarte as alterações.'
-              );
-              return;
-            }
-            // A RPC versionada ausente é uma falha definitiva sem gravação; nesse
-            // caso o botão manual ainda pode usar o contrato legado.
-            saveOperationIdRef.current = null;
-            saveRequestedAtRef.current = null;
-          }
-        }
-
-        if (
-          isDraft &&
-          canAutoSaveDraft(formDataRef.current) &&
-          serverProductIdRef.current &&
-          formRevisionRef.current <= persistedRevisionRef.current
-        ) {
-          dirtyRef.current = false;
-          onClose();
-          return;
-        }
-
-        const existingVariationCount = Array.isArray(product?.allVariations)
-          ? product.allVariations.length
-          : Array.isArray(product?.product_variations)
-            ? product.product_variations.length
-            : Array.isArray(product?.variations)
-              ? product.variations.length
-              : 0;
-        const currentData = formDataRef.current;
-        const formDataToValidate =
-          inboundVariationCostPrice !== undefined &&
-          Array.isArray(currentData.variations) &&
-          currentData.variations.length > existingVariationCount
-            ? {
-                ...currentData,
-                variations: currentData.variations.map((variation: any, index: number) =>
-                  index === currentData.variations.length - 1
-                    ? withOwnInboundVariationCost(variation, inboundVariationCostPrice)
-                    : variation
-                ),
-              }
-            : currentData;
-
-        setNameError(false);
-        setCategoryError(false);
-        setCostPriceError(false);
-        setUnitPriceError(false);
-        setSupplierError(false);
-        await (isDraft ? draftForm : finalForm).validateAndRun(
-          formDataToValidate,
-          async (validated) => {
-            setDescriptionTechnicalValidationError(false);
-            let hideFromCatalog = false;
-            const catalogCheck = await verifyAndConfirmMobilePublishedCatalogEdit(product, validated);
-            if (!catalogCheck.shouldContinue) return;
-            hideFromCatalog = catalogCheck.hideFromCatalog;
-
-            const payload = await prepareSavePayload(validated, isDraft);
-            if (hideFromCatalog && !isDraft) {
-              payload.status = 'hidden';
-              payload.variations = (payload.variations || []).map((variation: any) => ({
-                ...variation,
-                status: 'hidden',
-              }));
-            }
-            await onSave(payload);
-            saveOperationIdRef.current = null;
-            saveRequestedAtRef.current = null;
-            dirtyRef.current = false;
-            persistedRevisionRef.current = formRevisionRef.current;
-            setAutoSaveStatus(isDraft ? 'saved' : 'idle');
-            setAutoSaveError('');
-            onClose();
-          },
-          (errors) => presentValidationErrors(errors, isDraft, true)
-        );
-      } catch (error: any) {
-        Alert.alert(
-          'Erro ao Salvar',
-          error?.message || 'Falha ao salvar o produto. Tente novamente.'
-        );
-      } finally {
-        setSaving(false);
-        autoSavePausedRef.current = false;
-      }
-    },
-    [
-      saving,
-      canAutoSaveDraft,
-      flushDraftAutoSave,
-      autoSaveError,
-      onClose,
-      product,
-      inboundVariationCostPrice,
-      draftForm,
-      finalForm,
-      prepareSavePayload,
-      presentValidationErrors,
-      onSave,
-    ]
-  );
+  const { handleSubmit } = useMobileProductSubmitFlow({
+    saving,
+    setSaving,
+    product,
+    inboundVariationCostPrice,
+    draftFormValidateAndRun: draftForm.validateAndRun,
+    finalFormValidateAndRun: finalForm.validateAndRun,
+    canAutoSaveDraft,
+    flushDraftAutoSave,
+    prepareSavePayload,
+    presentValidationErrors,
+    onSave,
+    onClose,
+    setNameError,
+    setCategoryError,
+    setCostPriceError,
+    setUnitPriceError,
+    setSupplierError,
+    setDescriptionTechnicalValidationError,
+    setAutoSaveStatus,
+    setAutoSaveError,
+    saveOperationIdRef,
+    saveRequestedAtRef,
+    serverProductIdRef,
+    dirtyRef,
+    formDataRef,
+    formRevisionRef,
+    persistedRevisionRef,
+    autoSavePausedRef,
+    unconfirmedAutoSaveRef,
+  });
 
   const handleTabChange = (tabId: TabId) => {
     if (isTabDisabled(tabId)) return;
@@ -982,109 +409,6 @@ export const ProductFormScreen: React.FC<Props> = ({
         : null;
   const activeReadinessItems =
     activeReadiness === 'erp' ? erpReadinessItems : catalogReadinessItems;
-  const renderTab = () => {
-    switch (activeTab) {
-      case 'geral':
-        return (
-          <ProductFormBasicTab
-            formData={formData}
-            setFormData={setFormData}
-            dark={dark}
-            isExistingProduct={Boolean(product?.id)}
-            isStockistOnly={isStockistOnly}
-            canManageCategories={canManageCategories}
-            nameError={nameError}
-            onNameValidationCleared={() => setNameError(false)}
-            categoryError={categoryError}
-            onCategoryValidationCleared={() => setCategoryError(false)}
-            onCategoryNamesResolved={handleCategoryNamesResolved}
-            onFieldFocus={jev.onFieldFocus}
-            onFieldBlur={jev.onFieldBlur}
-          />
-        );
-      case 'fotos':
-        return isStockistOnly ? null : (
-          <ProductFormPhotosTab formData={formData} setFormData={setFormData} dark={dark} />
-        );
-      case 'technical':
-        return (
-          <ProductFormTechnicalTab
-            formData={formData}
-            setFormData={setFormData}
-            dark={dark}
-            requiredFieldsOnly={isStockistOnly}
-          />
-        );
-      case 'description':
-        return isStockistOnly ? null : (
-          <ProductFormDescriptionTab
-            formData={formData}
-            setFormData={setFormData}
-            dark={dark}
-            onFieldFocus={jev.onFieldFocus}
-            onFieldBlur={jev.onFieldBlur}
-          />
-        );
-      case 'estoque':
-        return (
-          <ProductFormPricesTab
-            formData={formData}
-            setFormData={setFormData}
-            dark={dark}
-            showInboundCostPrice={showInboundCostPrice}
-            costPriceError={costPriceError}
-            onCostPriceValidationCleared={() => setCostPriceError(false)}
-            unitPriceError={unitPriceError}
-            onUnitPriceValidationCleared={() => setUnitPriceError(false)}
-            supplierError={supplierError}
-            onSupplierValidationCleared={() => setSupplierError(false)}
-          />
-        );
-      case 'variacoes':
-        return (
-          <ProductFormVariationsTab
-            formData={formData}
-            setFormData={setFormData}
-            dark={dark}
-            isExistingProduct={Boolean(product?.id)}
-            isStockistOnly={isStockistOnly}
-            selectedVariationId={product?.selectedVariationId}
-            validationTarget={variationValidationTarget}
-            onValidationTargetHandled={clearVariationValidationTarget}
-          />
-        );
-      case 'composicao':
-        return (
-          <ProductFormCompositionTab
-            formData={formData}
-            setFormData={(update) => setFormData((previous: any) => {
-              const next = update(previous);
-              return synchronizeMobileProductFormCompositionItems(
-                next,
-                Array.isArray(next.comboItems) ? next.comboItems : []
-              );
-            })}
-            dark={dark}
-            supplierId={formData.mainSupplierId || formData.supplierId}
-          />
-        );
-      case 'fiscal':
-        return (
-          <ProductFormFiscalTab
-            formData={formData}
-            setFormData={setFormData}
-            dark={dark}
-            canConfigureProductTaxes={canConfigureProductTaxes}
-            isStockistOnly={isStockistOnly}
-            hasNcmError={ncmError}
-            ncmSuggestion={jev.suggestion}
-            isClassifyingNcm={jev.isClassifying}
-            onAcceptNcmSuggestion={jev.acceptSuggestion}
-            onRejectNcmSuggestion={jev.rejectSuggestion}
-          />
-        );
-    }
-  };
 
   return (
     <Modal
@@ -1163,7 +487,32 @@ export const ProductFormScreen: React.FC<Props> = ({
             onTouchStart={handleTouchStart}
             onTouchEnd={handleTouchEnd}
           >
-            {renderTab()}
+            <ProductFormTabContent
+              activeTab={activeTab}
+              formData={formData}
+              setFormData={setFormData}
+              product={product}
+              dark={dark}
+              isStockistOnly={isStockistOnly}
+              canManageCategories={canManageCategories}
+              canConfigureProductTaxes={canConfigureProductTaxes}
+              showInboundCostPrice={showInboundCostPrice}
+              nameError={nameError}
+              setNameError={setNameError}
+              categoryError={categoryError}
+              setCategoryError={setCategoryError}
+              costPriceError={costPriceError}
+              setCostPriceError={setCostPriceError}
+              unitPriceError={unitPriceError}
+              setUnitPriceError={setUnitPriceError}
+              supplierError={supplierError}
+              setSupplierError={setSupplierError}
+              ncmError={ncmError}
+              variationValidationTarget={variationValidationTarget}
+              clearVariationValidationTarget={clearVariationValidationTarget}
+              handleCategoryNamesResolved={handleCategoryNamesResolved}
+              jev={jev}
+            />
           </ScrollView>
 
           {autoSaveStatus !== 'idle' && (

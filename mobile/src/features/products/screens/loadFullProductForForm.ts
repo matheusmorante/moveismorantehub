@@ -1,5 +1,5 @@
-import { withTimeout } from '../../../../../shared-utils/withTimeout';
-import { fetchMobileProductsPage } from '../services/mobileProductFetchService';
+import { withTimeout } from '../../../../../shared-utils/core/withTimeout';
+import { fetchMobileProductsPage } from '../services/products/mobileProductFetchService';
 
 type ProductFormLoadPurpose = 'edicao' | 'duplicacao';
 

@@ -11,13 +11,13 @@ const mocks = vi.hoisted(() => ({ removeFolder: vi.fn(), error: vi.fn(), success
   } }));
 vi.mock('react-toastify', () => ({ toast: { error: mocks.error, success: mocks.success } }));
 vi.mock('@/context/AuthContext', () => ({ useAuth: () => ({ user: { id: mocks.userId }, profile: { role: 'administrator' } }) }));
-vi.mock('@/pages/utils/permissionService', () => ({ canPerform: () => true }));
-vi.mock('@/pages/utils/accessRoles', () => ({ getProfileRoles: () => ['administrator'] }));
+vi.mock('@/pages/utils/auth/permissionService', () => ({ canPerform: () => true }));
+vi.mock('@/pages/utils/auth/accessRoles', () => ({ getProfileRoles: () => ['administrator'] }));
 vi.mock('@/pages/utils/supabaseConfig', () => ({ supabase: {} }));
 vi.mock('../hooks/useWhatsAppAiAgentSwitch', () => ({
   useWhatsAppAiAgentSwitch: () => ({ isAiAgentEnabled: false, isAgentStatusKnown: false, isTogglingAiAgent: false, handleToggleAiAgent: vi.fn() }),
 }));
-vi.mock('@/pages/utils/customerSupport/customerSupportService', () => ({ fetchTeamProfiles: async () => [] }));
+vi.mock('@/pages/utils/customerSupport/query/customerSupportService', () => ({ fetchTeamProfiles: async () => [] }));
 vi.mock('../hooks', () => ({
   useCustomerSupportFolders: () => ({ folders: [mocks.folder], selectedFolder: null, removeFolder: mocks.removeFolder }),
   useCustomerSupportConversations: () => ({ conversations: [], selectedConversation: null, filter: 'all', search: '', isLoadingConversations: false }),

@@ -1,7 +1,7 @@
 import type Order from '@/pages/types/order.type';
-import type { useSalesOrderForm } from '../hooks/useSalesOrderForm';
-import { getTestArtifactContext } from '../../../../../../shared-utils/testArtifactContext';
-import { readTestArtifactIdentity } from '../../../../../../shared-utils/testArtifactPolicy';
+import type { useSalesOrderForm } from '../hooks/form-flow/useSalesOrderForm';
+import { getTestArtifactContext } from '../../../../../../shared-utils/testing/testArtifactContext';
+import { readTestArtifactIdentity } from '../../../../../../shared-utils/testing/testArtifactPolicy';
 
 type FormActions = ReturnType<typeof useSalesOrderForm>['actions'];
 

@@ -7,7 +7,7 @@ import type {
 import {
   getVariationErrorMessage,
   saveVariation,
-} from '../../../utils/variationService';
+} from '../../../utils/productService/variationService';
 import { sortAttributeValuesNaturally } from '../../../utils/attributeValueSorting';
 import {
   type CharacteristicFormData,

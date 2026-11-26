@@ -1,6 +1,6 @@
 import React from 'react';
 import type { InboundInvoiceItem } from '@/pages/utils/inboundNfe/inboundNfeTypes';
-import { formatCurrency } from '@/pages/utils/formatters';
+import { formatCurrency } from '@/pages/utils/shared/formatters';
 import { itemCostWithAdditionalCosts } from '@/pages/utils/inboundNfe/inboundItemCosts';
 
 interface InboundIndividualProductModalProps {

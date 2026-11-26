@@ -15,7 +15,7 @@ import type Order from '@/pages/types/order.type';
 import { subscribeToOrderChanges } from '@/pages/utils/orderHistoryService';
 import { formatOrderCode } from '@/pages/utils/orderCode';
 import { supabase } from '@/pages/utils/supabaseConfig';
-import { withAbortTimeout } from '../../../../../../../shared-utils/withAbortTimeout';
+import { withAbortTimeout } from '../../../../../../../shared-utils/core/withAbortTimeout';
 
 interface OrderCustomerLike extends Partial<Order> {
   readonly customerName?: string;

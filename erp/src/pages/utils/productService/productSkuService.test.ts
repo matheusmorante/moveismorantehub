@@ -6,9 +6,9 @@ const { supabaseMock, localProductsMock } = vi.hoisted(() => ({
 }));
 
 vi.mock('@/pages/utils/supabaseConfig', () => ({ supabase: supabaseMock }));
-vi.mock('./productLocalCache', () => ({ getLocalProducts: localProductsMock }));
+vi.mock('./drafts/productLocalCache', () => ({ getLocalProducts: localProductsMock }));
 
-import { getNextSequentialProductCode } from './productSkuService';
+import { getNextSequentialProductCode } from './mutations/productSkuService';
 
 const createQuery = (result: unknown) => {
   const query: any = {};

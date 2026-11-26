@@ -2,9 +2,9 @@ import { ApiUsageGuard } from '../apiMonitoring/apiUsageGuard';
 import { ApiUsageTracker } from '../apiMonitoring/apiUsageTracker';
 import { supabase } from '../../pages/utils/supabaseConfig';
 import { GeminiContent, GeminiTool, GeminiToolConfig } from './geminiAgentTypes';
-import { withTimeout } from '../../../../shared-utils/withTimeout';
-import { buildOpenAiAgentRequest, parseOpenAiAgentResponse } from '../../../../shared-utils/openAiAgentAdapter';
-import { createOpenAiHttpError } from '../../../../shared-utils/openAiProviderError';
+import { withTimeout } from '../../../../shared-utils/core/withTimeout';
+import { buildOpenAiAgentRequest, parseOpenAiAgentResponse } from '../../../../shared-utils/ai-agent/openAiAgentAdapter';
+import { createOpenAiHttpError } from '../../../../shared-utils/ai-agent/openAiProviderError';
 
 // Adaptador que mantém o contrato do agente e executa as chamadas pelo GPT-6 Luna.
 

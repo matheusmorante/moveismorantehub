@@ -5,14 +5,14 @@ import type Product from '@/pages/types/product.type';
 import type { Variation } from '@/pages/types/product.type';
 import type { InboundSuggestion } from '../hooks/useInboundInvoiceSuggestions';
 import type { QuickRegisterItem } from '../modals/QuickRegisterVariationModal';
-import { formatCurrency } from '@/pages/utils/formatters';
+import { formatCurrency } from '@/pages/utils/shared/formatters';
 import { itemCostWithAdditionalCosts } from '@/pages/utils/inboundNfe/inboundItemCosts';
 import {
   resolveLinkedProductDetails,
   isGenericOrEmptyProductName,
 } from '@/pages/utils/inboundNfe/inboundItemProductResolver';
-import ProductAutocomplete from '@/components/ProductAutocomplete';
-import type { ProductAutocompleteExcludedLink } from '@/components/productAutocompleteUtils';
+import ProductAutocomplete from '@/components/selectors/ProductAutocomplete';
+import type { ProductAutocompleteExcludedLink } from '@/components/selectors/productAutocompleteUtils';
 import { InboundItemLinkHeader } from './InboundItemLinkHeader';
 import { InboundItemSingleMode } from './InboundItemSingleMode';
 import { InboundItemCompositionMode } from './InboundItemCompositionMode';

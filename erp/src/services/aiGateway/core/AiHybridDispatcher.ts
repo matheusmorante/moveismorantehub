@@ -1,7 +1,7 @@
 import {
   processFinancialInput,
   validateParsedIntent,
-} from '../../../../../mobile/src/services/financial/financialIntentValidator';
+} from '../../../../../mobile/src/services/financial/extraction/financialIntentValidator';
 import { AiLatencyTracker } from './AiLatencyTracker';
 
 export interface HybridDispatchResult {

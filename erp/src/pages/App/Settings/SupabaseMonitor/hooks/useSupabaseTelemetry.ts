@@ -2,7 +2,7 @@ import { useState, useMemo, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { useAuth } from '@/context/AuthContext';
-import { withAbortTimeout } from '../../../../../../../shared-utils/withAbortTimeout';
+import { withAbortTimeout } from '../../../../../../../shared-utils/core/withAbortTimeout';
 import {
   TelemetryRow,
   InteractionTimingRow,

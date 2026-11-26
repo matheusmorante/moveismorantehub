@@ -3,7 +3,7 @@ import Order from '../../../types/order.type';
 import {
   stringifyFullAddressWithObservation,
   formatDate,
-} from '../../../utils/formatters';
+} from '../../../utils/shared/formatters';
 import { getSettings } from '@/pages/utils/settingsService';
 import { Drill } from '@/components/shared/DrillIcon';
 import { getOrderTypeClasses, resolveOrderColor } from '../../../utils/orderTypeColorUtils';

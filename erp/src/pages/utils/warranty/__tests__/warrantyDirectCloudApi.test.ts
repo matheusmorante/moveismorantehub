@@ -5,7 +5,7 @@ import {
   sendDirectWarrantyTermViaMetaApi,
   clearWarrantyRecentSendTimestamps,
 } from '../warrantyWhatsAppService';
-import { whatsappGraphService } from '@/pages/utils/whatsappGraphService';
+import { whatsappGraphService } from '@/pages/utils/whatsapp/whatsappGraphService';
 import { getSettings } from '@/pages/utils/settingsService';
 import { toast } from 'react-toastify';
 import { supabase } from '@/pages/utils/supabaseConfig';
@@ -26,7 +26,7 @@ vi.mock('@/pages/utils/settingsService', () => ({
   getSettings: vi.fn(),
 }));
 
-vi.mock('@/pages/utils/whatsappGraphService', () => ({
+vi.mock('@/pages/utils/whatsapp/whatsappGraphService', () => ({
   whatsappGraphService: {
     sendDocumentMessage: vi.fn(),
   },

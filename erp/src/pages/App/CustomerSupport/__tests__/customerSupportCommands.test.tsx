@@ -3,7 +3,7 @@ import React from 'react';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { CustomerNotesTab } from '../components/infoPanel/CustomerNotesTab';
-import { createInternalNoteMessage, updateConversationNotes, updateConversationTag } from '@/pages/utils/customerSupport/customerSupportService';
+import { createInternalNoteMessage, updateConversationNotes, updateConversationTag } from '@/pages/utils/customerSupport/query/customerSupportService';
 
 afterEach(() => cleanup());
 const props = {

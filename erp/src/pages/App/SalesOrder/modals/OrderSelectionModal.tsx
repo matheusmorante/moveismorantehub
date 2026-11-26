@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Order from '@/pages/types/order.type';
-import { formatCurrency, formatToBRDate } from '@/pages/utils/formatters';
+import { formatCurrency, formatToBRDate } from '@/pages/utils/shared/formatters';
 import { normalizeSearchTerm } from '@/pages/utils/textUtils';
 import { formatOrderCode } from '@/pages/utils/orderCode';
 import { getOrderStatusLabel } from '@/pages/utils/orderStatusPresentation';

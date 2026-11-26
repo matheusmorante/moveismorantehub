@@ -2,7 +2,7 @@
 import { act, fireEvent, render, screen, waitFor, cleanup } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import ManageAttributesModal from './ManageAttributesModal';
-import { saveCharacteristicOptions, saveVariation } from '../../../../../utils/variationService';
+import { saveCharacteristicOptions, saveVariation } from '../../../../../utils/productService/variationService';
 import { toast } from 'react-toastify';
 import type VariationType from '@/pages/types/variation.type';
 const fixtures = vi.hoisted(() => ({
@@ -18,7 +18,7 @@ vi.mock('../../../../Variations/useVariations', () => ({
     refresh: fixtures.refresh,
   }),
 }));
-vi.mock('../../../../../utils/variationService', () => ({
+vi.mock('../../../../../utils/productService/variationService', () => ({
   saveVariation: vi.fn().mockResolvedValue('new'),
   saveCharacteristicOptions: vi.fn().mockResolvedValue([]),
   getVariationErrorMessage: (_error: unknown, fallback: string) => fallback,

@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import Order from '../../../../types/order.type';
 import { formatOrderCode } from '../../../../utils/orderCode';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
-import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../../../shared-utils/core/withTimeout';
 import { returnCancellationFormSchema, getReturnCancellationFormValues, ReturnCancellationUnconfirmedError, type ReturnCancellationValues } from '../../../../../../../shared-utils/returnFormSchemas';
 
 interface CancelReturnModalProps {

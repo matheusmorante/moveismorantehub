@@ -1,7 +1,7 @@
 ﻿import { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { PurchaseItemsSection } from '../../components/PurchaseItemsSection';
-import { formatCurrency } from '@/pages/utils/formatters';
+import { formatCurrency } from '@/pages/utils/shared/formatters';
 import type { GoodsReceipt } from '@/pages/utils/goodsReceiptService';
 import type { InboundInvoice } from '@/pages/utils/inboundNfe/inboundNfeTypes';
 import type Purchase from '@/pages/types/purchase.type';

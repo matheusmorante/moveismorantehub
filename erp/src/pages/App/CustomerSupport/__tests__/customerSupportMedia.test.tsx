@@ -14,7 +14,7 @@ const mocks = vi.hoisted(() => ({
 }));
 vi.mock('@/pages/utils/supabaseConfig', () => ({ supabase: { auth: { getSession: mocks.getSession } } }));
 vi.mock('@/context/AuthContext', () => ({ useAuth: () => ({ user: mocks.user }) }));
-vi.mock('@/pages/utils/customerSupport/customerSupportService', () => ({ fetchConversationAttachmentPage: mocks.fetchAttachments }));
+vi.mock('@/pages/utils/customerSupport/query/customerSupportService', () => ({ fetchConversationAttachmentPage: mocks.fetchAttachments }));
 const BrowserURL = globalThis.URL;
 let createObjectURL: ReturnType<typeof vi.fn>;
 let revokeObjectURL: ReturnType<typeof vi.fn>;

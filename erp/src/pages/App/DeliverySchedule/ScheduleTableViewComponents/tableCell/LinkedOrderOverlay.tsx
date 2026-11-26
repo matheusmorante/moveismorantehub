@@ -1,7 +1,7 @@
 import React from 'react';
 import PickupIcon from '@/components/shared/PickupIcon';
 import Order from '../../../../types/order.type';
-import { stringifyFullAddressWithObservation } from '../../../../utils/formatters';
+import { stringifyFullAddressWithObservation } from '../../../../utils/shared/formatters';
 
 interface LinkedOrderOverlayProps {
   order: Order;

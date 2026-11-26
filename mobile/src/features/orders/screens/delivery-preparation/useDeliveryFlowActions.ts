@@ -4,7 +4,7 @@ import { formatOrderCode } from '../../../../utils/orderUtils';
 import {
   broadcastInitialDeliveryStatus,
   stopDeliveringBroadcast,
-} from '../../../../services/teamLocationService';
+} from '../../../../services/logistics/teamLocationService';
 import { buildDeliveryChecklist } from '../../utils/deliveryChecklist';
 import { flattenFormErrors, useZodForm } from '../../../../hooks/useZodForm';
 import {

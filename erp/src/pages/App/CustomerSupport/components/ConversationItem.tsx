@@ -1,7 +1,7 @@
 import React from 'react';
 import { CalendarDays, Hand } from 'lucide-react';
 import { WhatsAppConversation, type CustomerSupportChannel } from '../types';
-import { formatPhoneForDisplay } from '@/pages/utils/customerSupport/phoneUtils';
+import { formatPhoneForDisplay } from '@/pages/utils/customerSupport/query/phoneUtils';
 import { getOrderTypeClasses } from '@/pages/utils/orderTypeColorUtils';
 
 export interface ScheduledOrderBadgeColors {

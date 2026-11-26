@@ -12,7 +12,7 @@ vi.mock('./supabaseClient', () => ({
   supabase: { from: mocks.from },
 }));
 
-import { resolveMobileUserProfile } from './mobileAuthProfile';
+import { resolveMobileUserProfile } from './auth/mobileAuthProfile';
 
 describe('resolveMobileUserProfile', () => {
   beforeEach(() => {

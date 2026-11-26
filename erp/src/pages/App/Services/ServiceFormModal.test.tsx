@@ -4,9 +4,9 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import ServiceFormModal from './ServiceFormModal';
 const mocks = vi.hoisted(() => ({ save: vi.fn(), success: vi.fn(), error: vi.fn() }));
-vi.mock('../../utils/serviceService', () => ({ saveService: mocks.save }));
+vi.mock('../../utils/sales/serviceService', () => ({ saveService: mocks.save }));
 vi.mock('react-toastify', () => ({ toast: { success: mocks.success, error: mocks.error } }));
-vi.mock('@/components/CurrencyInput', () => ({ default: ({ value, onChangeValue }: { value: number; onChangeValue: (value: number) => void }) => <input type="number" value={value} onChange={(event) => onChangeValue(Number(event.target.value))} /> }));
+vi.mock('@/components/inputs/CurrencyInput', () => ({ default: ({ value, onChangeValue }: { value: number; onChangeValue: (value: number) => void }) => <input type="number" value={value} onChange={(event) => onChangeValue(Number(event.target.value))} /> }));
 beforeEach(() => { vi.resetAllMocks(); mocks.save.mockResolvedValue({ id: 'new-1' }); });
 afterEach(() => { cleanup(); vi.useRealTimers(); });
 const saved = { id: 'existing-1', description: 'Old', unitPrice: 10, costPrice: 5, active: false };

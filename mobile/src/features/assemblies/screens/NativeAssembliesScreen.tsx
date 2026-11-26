@@ -10,7 +10,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { withAbortTimeout } from '../../../../../shared-utils/withAbortTimeout';
+import { withAbortTimeout } from '../../../../../shared-utils/core/withAbortTimeout';
 import { connectivityService } from '../../../services/offline/connectivityService';
 import { offlineStorageService } from '../../../services/offline/offlineStorageService';
 import { supabase } from '../../../services/supabaseClient';

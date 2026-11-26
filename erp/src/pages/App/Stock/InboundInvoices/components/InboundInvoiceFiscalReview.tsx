@@ -1,5 +1,5 @@
 import type { InboundInvoice } from '@/pages/utils/inboundNfe/inboundNfeTypes';
-import { formatCurrency, formatToBRDate } from '@/pages/utils/formatters';
+import { formatCurrency, formatToBRDate } from '@/pages/utils/shared/formatters';
 
 interface InboundInvoiceFiscalReviewProps {
   readonly invoice: InboundInvoice;

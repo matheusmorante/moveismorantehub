@@ -17,19 +17,19 @@ const mocks = vi.hoisted(() => ({
 }));
 vi.mock('@/pages/utils/supabaseConfig', () => ({ supabase: {}, isTestEnvironment: false }));
 vi.mock('@/pages/utils/personService', () => ({ fetchPersons: vi.fn().mockResolvedValue([]) }));
-vi.mock('@/pages/utils/productService', () => ({ getFullProduct: mocks.full, saveProduct: mocks.save, saveVariation: mocks.variation, findProductByVariationBarcode: mocks.barcode, findInboundProductNameMatches: mocks.nameMatches }));
-vi.mock('@/pages/utils/productService/productMutationService', () => ({ updateProduct: mocks.updateParent }));
-vi.mock('@/pages/utils/productService/productSkuService', () => ({ getNextSequentialProductCode: mocks.code, generateVariationSku: (code: string, variations: unknown[]) => `${code}-${String(variations.length + 1).padStart(2, '0')}` }));
+vi.mock('@/pages/utils/productService/productService', () => ({ getFullProduct: mocks.full, saveProduct: mocks.save, saveVariation: mocks.variation, findProductByVariationBarcode: mocks.barcode, findInboundProductNameMatches: mocks.nameMatches }));
+vi.mock('@/pages/utils/productService/mutations/productMutationService', () => ({ updateProduct: mocks.updateParent }));
+vi.mock('@/pages/utils/productService/mutations/productSkuService', () => ({ getNextSequentialProductCode: mocks.code, generateVariationSku: (code: string, variations: unknown[]) => `${code}-${String(variations.length + 1).padStart(2, '0')}` }));
 vi.mock('@/pages/utils/categoryService', () => ({ fetchGroupsAndCategories: mocks.categories }));
 vi.mock('@/pages/utils/categoryResolutionService', () => ({ resolveAutoCategory: mocks.category }));
 vi.mock('@/pages/App/Products/services/technicalFieldService', () => ({ fetchTechnicalFieldDefinitions: vi.fn().mockResolvedValue([]) }));
-vi.mock('@/pages/utils/aiService', () => ({ aiService: {} }));
-vi.mock('@/pages/utils/productSupplierCodesService', () => ({ findProductSupplierCodes: mocks.find, saveProductSupplierCode: mocks.link, deleteProductSupplierCode: vi.fn() }));
+vi.mock('@/pages/utils/aiService/aiService', () => ({ aiService: {} }));
+vi.mock('@/pages/utils/productService/productSupplierCodesService', () => ({ findProductSupplierCodes: mocks.find, saveProductSupplierCode: mocks.link, deleteProductSupplierCode: vi.fn() }));
 vi.mock('@/pages/utils/inboundNfe/inboundSupplierProductContext', () => ({ fetchSupplierProductsForContext: vi.fn().mockResolvedValue([]), buildSupplierContextSummary: vi.fn() }));
 vi.mock('../hooks/useInboundInvoiceSuggestions', () => ({ useInboundInvoiceSuggestions: () => ({ suggestionFor: () => undefined, rejectSuggestion: vi.fn(), isProcessingSuggestions: false, isItemProcessing: () => false, retrySuggestions: vi.fn() }) }));
 vi.mock('react-toastify', () => ({ toast: mocks.toast }));
 vi.mock('@/pages/App/Products/modals/ProductFormModal', () => ({ default: (props: { isOpen: boolean }) => props.isOpen ? <output aria-label="Produto aberto" /> : null }));
-vi.mock('@/components/ProductAutocomplete', () => ({ default: (props: { disabled?: boolean; parentsOnly?: boolean; onSelect: (product: Partial<Product>) => void; onChange?: (value: string) => void }) => <>
+vi.mock('@/components/selectors/ProductAutocomplete', () => ({ default: (props: { disabled?: boolean; parentsOnly?: boolean; onSelect: (product: Partial<Product>) => void; onChange?: (value: string) => void }) => <>
   <input aria-label="Buscar produto pai" disabled={props.disabled} onChange={(event) => props.onChange?.(event.target.value)} />
   {props.parentsOnly
     ? <button type="button" disabled={props.disabled} onClick={() => props.onSelect({ id: ' parent-1 ', name: 'Pai' })}>Selecionar pai</button>

@@ -6,7 +6,7 @@ import type {
 } from '../../types/fiscalDocuments.types';
 import { formatFiscalDateTime } from '../../utils/fiscalPresentationHelpers';
 import { formatAccessKey } from '@/pages/utils/nfe/nfeAccessKey';
-import { formatCurrency } from '@/pages/utils/formatters';
+import { formatCurrency } from '@/pages/utils/shared/formatters';
 import { downloadXml, printDanfe } from '../../services/fiscalDanfeXmlService';
 import { FiscalXmlViewer } from '../FiscalXmlViewer';
 import { getFiscalDocumentStatusBadgeClass } from './fiscalDocumentStatusBadge';

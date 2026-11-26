@@ -6,7 +6,7 @@ import {
   fetchCustomerSupportWhatsAppUsageDetails,
   type CustomerSupportMetaMonthlyUsage,
   type CustomerSupportWhatsAppSendQuota,
-} from '@/pages/utils/customerSupport/customerSupportService';
+} from '@/pages/utils/customerSupport/query/customerSupportService';
 import { CUSTOMER_SUPPORT_WHATSAPP_SEND_QUOTA } from '../../../../../../../shared-utils/customerSupportWhatsAppSendQuota';
 import { WhatsAppQuotaModal } from './WhatsAppQuotaModal';
 

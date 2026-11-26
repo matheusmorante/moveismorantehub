@@ -96,7 +96,7 @@ vi.mock('../../../mobile/src/services/offline/connectivityService', () => ({
 vi.mock('../../../mobile/src/utils/orderUtils', () => ({
   getLocalDateString: () => '2026-10-30',
 }));
-vi.mock('../../../mobile/src/features/products/services/mobileSupplierService', () => ({
+vi.mock('../../../mobile/src/features/products/services/products/mobileSupplierService', () => ({
   fetchMobileProductSuppliersWithStatus: async () => ({
     ok: true,
     suppliers: [{ id: 'supplier', full_name: 'Fornecedor', stock_origins: ['normal'] }],

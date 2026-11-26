@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type Product from '../../types/product.type';
-import { getMaxParentProductImages, parseVariationImages, validateProductImageLimits } from './productImageHelpers';
+import { getMaxParentProductImages, parseVariationImages, validateProductImageLimits } from './mapping/productImageHelpers';
 
 const productWithImages = (
   parentImageCount: number,

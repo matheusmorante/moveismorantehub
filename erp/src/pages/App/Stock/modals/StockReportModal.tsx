@@ -1,4 +1,4 @@
-import { excludeTestOrders } from '../../../../../../shared-utils/testArtifactQueries';
+import { excludeTestOrders } from '../../../../../../shared-utils/testing/testArtifactQueries';
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/pages/utils/supabaseConfig';
 

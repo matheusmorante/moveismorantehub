@@ -5,7 +5,7 @@ import type Shipping from '@/pages/types/Shipping.type';
 import type Item from '@/pages/types/items.type';
 import type CustomerData from '@/pages/types/customerData.type';
 import type FullAddress from '@/pages/types/fullAddress.type';
-import type { ValidationErrors } from '@/pages/utils/validations';
+import type { ValidationErrors } from '@/pages/utils/sales/validations';
 import Agendamento, { type SchedulingSessionMemory } from './Agendamento';
 import { AppointmentItemsTable } from './AppointmentItemsTable';
 import FreteDistancia from './FreteDistancia';

@@ -2,8 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import CustomerData from '@/pages/types/customerData.type';
 import Person from '@/pages/types/person.type';
 import { fetchPersonById, getRecentPeople, searchPeople } from '@/pages/utils/personService';
-import { toTitleCase } from '@/pages/utils/formatters';
-import { getTestArtifactContext } from '../../../../../../../shared-utils/testArtifactContext';
+import { toTitleCase } from '@/pages/utils/shared/formatters';
+import { getTestArtifactContext } from '../../../../../../../shared-utils/testing/testArtifactContext';
 import { FINAL_CONSUMER_NAME, isFinalConsumerSelection } from './customerSelectionRules';
 import {
   canSearchCustomerAutocomplete,

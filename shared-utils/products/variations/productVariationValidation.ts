@@ -1,0 +1,102 @@
+import { z } from 'zod';
+import type { Product, Variation } from '../../../erp/src/pages/types/product.type';
+import { getVariationRegistrationIssue } from './productVariationRules';
+import { getProductDiscountValidationIssues } from '../pricing/productDiscountFields';
+import { getCompleteVariationName, normalizeCompleteVariationName } from './productVariationNameValidation';
+
+const nonnegative = z.number().nonnegative('Informe um valor finito maior ou igual a zero.');
+
+/** Drafts preserve incomplete fields while protecting the actual numeric payload. */
+export const productVariationDraftSchema = z.object({
+  id: z.string(),
+  sku: z.string(),
+  name: z.string(),
+  stock: nonnegative,
+  unitPrice: nonnegative,
+  active: z.boolean(),
+  promoPrice: nonnegative.optional(),
+  costPrice: nonnegative.optional(),
+  freightCost: nonnegative.optional(),
+  ipiPercent: nonnegative.optional(),
+  finalPurchasePrice: nonnegative.optional(),
+  minStock: nonnegative.optional(),
+  leadTime: nonnegative.optional(),
+  avgMonthlySales: nonnegative.optional(),
+  width: nonnegative.optional(),
+  height: nonnegative.optional(),
+  depth: nonnegative.optional(),
+  weight: nonnegative.optional(),
+  pkgWidth: nonnegative.optional(),
+  pkgHeight: nonnegative.optional(),
+  pkgDepth: nonnegative.optional(),
+  attributes: z.array(z.object({
+    name: z.string(),
+    value: z.union([z.string(), z.boolean(), z.null()]),
+    showName: z.boolean().optional(),
+  }).passthrough()),
+  comboItems: z.array(z.object({
+    productId: z.string(),
+    variationId: z.string().optional(),
+    quantity: nonnegative,
+    description: z.string(),
+    unitPrice: nonnegative,
+    stock: nonnegative,
+  }).passthrough()).optional(),
+}).passthrough();
+
+// The variation editor does not expose stock. Keep persisted negative balances
+// intact while still rejecting non-finite stock values in that form.
+const productVariationFormSchema = productVariationDraftSchema.extend({
+  stock: z.number().finite('Informe um valor finito.'),
+});
+
+/** Completion retains the existing dynamic characteristics and parent rules. */
+export const createProductVariationFormSchema = (parent: Partial<Product>, isSingleVariation = false) =>
+  productVariationFormSchema.superRefine((values, context) => {
+    const attributes = new Set<string>();
+    values.attributes.forEach((attribute, index) => {
+      if (!attribute.name.trim() || (typeof attribute.value === 'string' && !attribute.value.trim())) context.addIssue({ code: 'custom', path: ['attributes', index], message: 'Complete o nome e o valor de cada característica ou remova a linha.' });
+      const key = attribute.name.trim().toLocaleLowerCase('pt-BR');
+      if (attributes.has(key)) context.addIssue({ code: 'custom', path: ['attributes', index], message: 'Não repita a mesma característica na variação.' });
+      attributes.add(key);
+    });
+    values.comboItems?.forEach((item, index) => {
+      if (!item.productId.trim() || !item.description.trim() || (item.variationId !== undefined && !item.variationId.trim())) context.addIssue({ code: 'custom', path: ['comboItems', index], message: 'Selecione o produto de cada componente ou remova a linha.' });
+      if (item.quantity < 1) context.addIssue({ code: 'custom', path: ['comboItems', index, 'quantity'], message: 'Informe quantidade maior ou igual a um para o componente.' });
+    });
+    const variation = values as Variation;
+    const parentName = String(parent.name || parent.description || '').trim();
+    const normalizedName = normalizeCompleteVariationName(getCompleteVariationName(variation, parentName));
+    const duplicateName = (parent.variations || []).some((sibling) =>
+      String(sibling.id) !== String(variation.id) &&
+      normalizeCompleteVariationName(getCompleteVariationName(sibling as Variation, parentName)) === normalizedName
+    );
+    if (!normalizedName || duplicateName) {
+      context.addIssue({ code: 'custom', path: ['name'], message: duplicateName
+        ? 'O nome completo da variação já está cadastrado neste produto.'
+        : 'Informe o nome completo da variação.' });
+    }
+    if (isSingleVariation) {
+      // Quando é variação única, campos herdados do pai (preço, dimensões, características)
+      // são validados no formulário do produto pai, e não na variação onde esses campos estão desativados.
+      return;
+    }
+    const issue = getVariationRegistrationIssue(parent, values as Variation);
+    if (issue) context.addIssue({ code: 'custom', path: [issue.tab], message: issue.message });
+  });
+
+/** The displayed discount is part of the submit intent, even if preview math clamps it. */
+export const createProductVariationSubmissionSchema = (parent: Partial<Product>, isSingleVariation = false) => z.object({
+  variation: createProductVariationFormSchema(parent, isSingleVariation),
+  discountPercent: z.number().nullable(), discountFixed: z.number().nullable(),
+}).superRefine((values, context) => {
+  if (isSingleVariation || values.variation.syncUnitPrice) return;
+  getProductDiscountValidationIssues(
+    values.discountPercent,
+    values.discountFixed,
+    values.variation.unitPrice
+  ).forEach(({ field, message }) =>
+    context.addIssue({ code: 'custom', path: [field], message })
+  );
+});
+

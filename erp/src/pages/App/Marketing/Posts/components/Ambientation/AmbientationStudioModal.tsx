@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { withTimeout } from '../../../../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../../../../shared-utils/core/withTimeout';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { ambientationFormSchema, ambientationPromptFormSchema, ambientationRecordFormSchema, ambientationSelectionFormSchema } from '../../../../../../../../shared-utils/marketingFormSchemas';
 import { ambientationService } from '../../services/ambientationService';

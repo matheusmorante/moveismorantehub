@@ -1,7 +1,7 @@
 import type Product from '@/pages/types/product.type';
 import { syncProductWithVariations } from './variationSync';
 import { cleanupDependentCharacteristicsOnZero } from './dependentCleanup';
-import { normalizeTechnicalName } from '../technicalTabUtils';
+import { normalizeTechnicalName } from '../rules/technicalTabUtils';
 import { getProductTechnicalRootPatch } from '../../../../../../../../../shared-utils/productTechnicalRootPatch';
 import { getProductTechnicalValueCandidateKeys } from '../../../../../../../../../shared-utils/productTechnicalValueAliases';
 import {

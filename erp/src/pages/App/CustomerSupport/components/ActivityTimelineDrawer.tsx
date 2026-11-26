@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { fetchConversationActivityPage, type CustomerSupportHistoryCursor } from '@/pages/utils/customerSupport/customerSupportService';
+import { fetchConversationActivityPage, type CustomerSupportHistoryCursor } from '@/pages/utils/customerSupport/query/customerSupportService';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { WhatsAppMessage } from '../types';
 import { formatTimeAgo } from './ConversationItem';

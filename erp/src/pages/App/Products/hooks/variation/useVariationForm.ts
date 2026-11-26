@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { createProductVariationSubmissionSchema } from '../../../../../../../shared-utils/productVariationValidation';
-import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../../../shared-utils/core/withTimeout';
 import type { Product, Variation } from '@/pages/types/product.type';
-import { saveVariation } from '@/pages/utils/productService';
+import { saveVariation } from '@/pages/utils/productService/productService';
 import { toast } from 'react-toastify';
 import { useVariationPricing } from './useVariationPricing';
 import type { VariationTabId, VariationFormOperationGuard } from './variationForm.types';
-import { isProductDraft } from '@/pages/utils/productService/productDraftSnapshot';
+import { isProductDraft } from '@/pages/utils/productService/drafts/productDraftSnapshot';
 import {
   useVariationFormSession,
   UNCERTAIN_SAVE_MESSAGE,

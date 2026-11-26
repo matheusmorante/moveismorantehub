@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { z } from 'zod';
 import type { FieldValues } from 'react-hook-form';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
-import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../../../shared-utils/core/withTimeout';
 import type { ReconciliationConfirmation } from '../../../../../../../shared-utils/reconciliationFormSchemas';
 
 /** The four reconciliation dialogs share one submission lifecycle. */

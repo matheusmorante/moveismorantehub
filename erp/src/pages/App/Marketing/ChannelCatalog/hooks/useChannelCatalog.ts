@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { toast } from 'react-toastify';
 import { requestConfirmation } from '@/components/shared/confirmationService';
-import { whatsappGraphService } from '@/pages/utils/whatsappGraphService';
+import { whatsappGraphService } from '@/pages/utils/whatsapp/whatsappGraphService';
 import { getSettings } from '@/pages/utils/settingsService';
 import { buildChannelCatalogSyncPayload } from '../../channelCatalogRows';
 import {

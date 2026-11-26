@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createSalesOrderDuplicate } from '../duplicateOrder';
+import { createSalesOrderDuplicate } from '../sales/duplicateOrder';
 
 describe('createSalesOrderDuplicate', () => {
   it('remove todos os identificadores e estados que não podem ser copiados', () => {

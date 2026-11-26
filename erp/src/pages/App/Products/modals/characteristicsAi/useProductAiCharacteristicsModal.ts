@@ -5,7 +5,7 @@ import { toast } from 'react-toastify';
 import type { Product } from '../../../../../types/product.type';
 import { TechnicalFieldDefinition } from '@/pages/utils/technicalValuesService';
 import { fetchTechnicalFieldDefinitions } from '../../services/technicalFieldService';
-import { aiService } from '@/pages/utils/aiService';
+import { aiService } from '@/pages/utils/aiService/aiService';
 import {
   productAiCharacteristicsModalFormSchema,
   ProductAiCharacteristicsModalFormValues,

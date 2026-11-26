@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { describe, expect, it } from 'vitest';
-import { buildAccentInsensitiveWordsRegex, buildNormalizedWordsRegex, buildPostgrestAccentInsensitiveOrFilter, matchesSearchText } from '../../../../../shared-utils/searchText';
+import { buildAccentInsensitiveWordsRegex, buildNormalizedWordsRegex, buildPostgrestAccentInsensitiveOrFilter, matchesSearchText } from '../../../../../shared-utils/core/searchText';
 import { buildProductParentSearchFilter, buildProductSearchTerms, buildProductVariationSearchFilter } from '../../../../../shared-utils/productListSearch';
 
 describe.skipIf(process.env.MORANTE_REMOTE_SEARCH_VERIFY !== '1')('busca remota do catálogo autorizada', () => {

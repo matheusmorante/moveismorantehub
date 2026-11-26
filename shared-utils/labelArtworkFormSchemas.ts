@@ -1,1 +1,1 @@
-export * from './schemas/labelArtworkFormSchemas';
+export * from './schemas/stock/labelArtworkFormSchemas';

@@ -1,10 +1,10 @@
 import Order from '../../types/order.type';
 import { getSettings } from '@/pages/utils/settingsService';
-import { whatsappGraphService } from '../whatsappGraphService';
+import { whatsappGraphService } from './whatsappGraphService';
 import { toast } from 'react-toastify';
 import { isSamePhoneNumber } from '../textUtils';
 import { buildOrderMetaTemplateParams } from './metaOrderParams';
-import { buildCustomerOrderMessage } from '../whatsappTemplates';
+import { buildCustomerOrderMessage } from './whatsappTemplates';
 import { customerOrderWhatsappUrl } from './whatsappUrls';
 import {
   recordWhatsAppDispatch,

@@ -147,7 +147,7 @@ async function authorizeFiscalOperator(client, authorizationHeader) {
   }
 }
 
-// shared-utils/testArtifactPolicy.ts
+// shared-utils/testing/testArtifactPolicy.ts
 var record = (value) => value !== null && typeof value === "object" && !Array.isArray(value) ? value : {};
 function normalizeTestRunId(value) {
   if (typeof value !== "string") return null;

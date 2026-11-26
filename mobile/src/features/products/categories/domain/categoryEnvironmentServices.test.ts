@@ -4,7 +4,7 @@ import {
   deleteMobileCategory,
   fetchMobileCategoryProductCounts,
   fetchMobileCategoryAttributes,
-} from '../../services/mobileCategoryService';
+} from '../../services/categories/mobileCategoryService';
 import { supabase } from '../../../../services/supabaseClient';
 
 vi.mock('../../../../services/supabaseClient', () => {

@@ -1,1 +1,1 @@
-export * from './schemas/reconciliationFormSchemas';
+export * from './schemas/stock/reconciliationFormSchemas';

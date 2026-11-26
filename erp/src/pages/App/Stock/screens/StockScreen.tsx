@@ -11,7 +11,7 @@ import Product, { Variation } from '../../../types/product.type';
 import Purchase from '../../../types/purchase.type';
 import PurchaseStockEntryModal from '../Purchases/modals/PurchaseStockEntryModal';
 import { useAuth } from '@/context/AuthContext';
-import { canPerform } from '@/pages/utils/permissionService';
+import { canPerform } from '@/pages/utils/auth/permissionService';
 
 const STORAGE_KEY = 'morante_stock_selected_product_filter';
 

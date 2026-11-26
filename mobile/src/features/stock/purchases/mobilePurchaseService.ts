@@ -1,6 +1,6 @@
 import { supabase } from '../../../services/supabaseClient';
 import { formatPurchaseNumber } from '../../../../../shared-utils/purchaseNumber';
-import { buildPostgrestAccentInsensitiveWordsPattern } from '../../../../../shared-utils/searchText';
+import { buildPostgrestAccentInsensitiveWordsPattern } from '../../../../../shared-utils/core/searchText';
 
 export type PurchaseStatus = 'draft' | 'pending' | 'ordered' | 'fulfilled' | 'cancelled';
 

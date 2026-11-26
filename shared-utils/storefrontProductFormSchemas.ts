@@ -1,1 +1,1 @@
-export * from './schemas/storefrontProductFormSchemas';
+export * from './schemas/catalog/storefrontProductFormSchemas';

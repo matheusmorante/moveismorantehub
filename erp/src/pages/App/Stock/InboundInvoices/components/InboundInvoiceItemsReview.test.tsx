@@ -10,13 +10,13 @@ vi.mock('@/pages/utils/personService', () => ({ fetchPersons: vi.fn().mockResolv
 vi.mock('@/pages/App/Products/modals/ProductFormModal', () => ({ default: () => null }));
 vi.mock('../modals/QuickRegisterVariationModal', () => ({ QuickRegisterVariationModal: () => null }));
 vi.mock('@/components/shared/DropdownPortal', () => ({ default: () => null }));
-vi.mock('@/pages/utils/productSupplierCodesService', () => ({
+vi.mock('@/pages/utils/productService/productSupplierCodesService', () => ({
   findProductSupplierCodes: vi.fn().mockResolvedValue(new Map()),
   saveProductSupplierCode: vi.fn().mockResolvedValue(undefined),
   deleteProductSupplierCode: vi.fn().mockResolvedValue(undefined),
 }));
-import { getProductLinkConfirmation } from '@/pages/utils/productService';
-import { findProductSupplierCodes, saveProductSupplierCode, deleteProductSupplierCode } from '@/pages/utils/productSupplierCodesService';
+import { getProductLinkConfirmation } from '@/pages/utils/productService/productService';
+import { findProductSupplierCodes, saveProductSupplierCode, deleteProductSupplierCode } from '@/pages/utils/productService/productSupplierCodesService';
 
 vi.mock('react-toastify', () => ({
   toast: {
@@ -26,7 +26,7 @@ vi.mock('react-toastify', () => ({
     warning: vi.fn(),
   },
 }));
-vi.mock('@/pages/utils/productService', () => ({
+vi.mock('@/pages/utils/productService/productService', () => ({
   getProductLinkConfirmation: vi.fn(),
   saveProduct: vi.fn(),
   saveVariation: vi.fn(),
@@ -34,13 +34,13 @@ vi.mock('@/pages/utils/productService', () => ({
 vi.mock('@/pages/utils/categoryService', () => ({
   fetchGroupsAndCategories: vi.fn().mockResolvedValue([]),
 }));
-vi.mock('@/pages/utils/variationService', () => ({ ensureAttributeValue: vi.fn() }));
+vi.mock('@/pages/utils/productService/variationService', () => ({ ensureAttributeValue: vi.fn() }));
 vi.mock('@/pages/utils/inboundNfe/inboundSupplierProductContext', () => ({
   fetchSupplierProductsForContext: vi.fn().mockResolvedValue([]),
   buildSupplierContextSummary: vi.fn().mockReturnValue(''),
 }));
-vi.mock('@/pages/utils/aiService', () => ({ aiService: {} }));
-vi.mock('@/components/productAutocompleteUtils', () => ({
+vi.mock('@/pages/utils/aiService/aiService', () => ({ aiService: {} }));
+vi.mock('@/components/selectors/productAutocompleteUtils', () => ({
   fetchAllProductSearchResults: vi.fn().mockResolvedValue([]),
   getVariationDisplayName: vi.fn(),
   normalizeProductSearch: (t: string) => t,

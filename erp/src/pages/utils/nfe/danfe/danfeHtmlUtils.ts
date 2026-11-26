@@ -1,4 +1,4 @@
-import { formatCurrency } from '../../formatters';
+import { formatCurrency } from '../../shared/formatters';
 
 export function escapeDanfeHtml(value: unknown): string {
   return String(value ?? '')

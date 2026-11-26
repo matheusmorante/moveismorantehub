@@ -19,7 +19,7 @@ import {
   buildPublishedCatalogEditConfirmationMessage,
   getPublishedCatalogEditIssues,
   type PublishedCatalogEditIssue,
-} from '../../../../../../shared-utils/catalogPublicationValidation';
+} from '../../../../../../shared-utils/catalogPublication/catalogPublicationValidation';
 import { hasRequiredProductCategory } from '../../../../../../shared-utils/productCategoryRequirement';
 import { getActiveCompositionVariationRequirementIssue } from '../../../../../../shared-utils/productCompositionRequirements';
 

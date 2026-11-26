@@ -1,6 +1,6 @@
 import { supabase } from '../../../services/supabaseClient';
-import { MobileApiUsageTracker } from '../../../services/apiUsageTracker';
-import { withTimeout } from '../../../../../shared-utils/withTimeout';
+import { MobileApiUsageTracker } from '../../../services/platform/apiUsageTracker';
+import { withTimeout } from '../../../../../shared-utils/core/withTimeout';
 
 export interface RouteComputationResult {
   distanceMeters: number;

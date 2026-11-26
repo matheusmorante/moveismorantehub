@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Check, PackageMinus, PackagePlus, Scale } from 'lucide-react';
 import type InventoryMove from '@/pages/types/inventoryMove.type';
-import { formatDateTime } from '@/pages/utils/formatters';
+import { formatDateTime } from '@/pages/utils/shared/formatters';
 import { InventoryMovesTableRow } from './InventoryMovesTableRow';
 
 interface InventoryMovesTableProps {

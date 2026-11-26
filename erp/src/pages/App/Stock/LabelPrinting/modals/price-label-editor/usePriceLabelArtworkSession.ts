@@ -6,7 +6,7 @@ import {
   labelArtworkTitleFormSchema,
   labelArtworkExportFormSchema,
 } from '../../../../../../../../shared-utils/labelArtworkFormSchemas';
-import { withTimeout } from '../../../../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../../../../shared-utils/core/withTimeout';
 import { buildPriceLabelAutoSaveConfig } from '../../services/priceLabelAutoSaveConfig';
 import { usePriceLabelArtworkQueries } from './usePriceLabelArtworkQueries';
 import { createPriceLabelArtworkActionHandlers } from './priceLabelArtworkActions';

@@ -1,7 +1,7 @@
 import type Order from '@/pages/types/order.type';
 import type Shipping from '@/pages/types/Shipping.type';
 import type Item from '@/pages/types/items.type';
-import { formatDate, stringifyFullAddressWithObservation } from '@/pages/utils/formatters';
+import { formatDate, stringifyFullAddressWithObservation } from '@/pages/utils/shared/formatters';
 
 export type OrderAppointment = NonNullable<Shipping['scheduling']['appointments']>[number];
 
@@ -12,7 +12,8 @@ export interface OrderOperationEntry {
 }
 
 export const getOrderOperations = (order: Order): OrderOperationEntry[] => {
-  const appointments = order.shipping?.scheduling?.appointments || [];
+  const appointments =
+    order.orderType === 'assistance' ? [] : order.shipping?.scheduling?.appointments || [];
   if (appointments.length > 0) {
     return appointments.map((appointment, index) => ({
       id: appointment.id || `operation-${index + 1}`,
@@ -25,7 +26,7 @@ export const getOrderOperations = (order: Order): OrderOperationEntry[] => {
     .map((item) => item.orderItemId)
     .filter((id): id is string => Boolean(id));
   const appointment = {
-    id: 'legacy-operation',
+    id: order.orderType === 'assistance' ? 'assistance-operation' : 'legacy-operation',
     itemIds,
     itemQuantities: Object.fromEntries(
       (order.items || []).flatMap((item) =>

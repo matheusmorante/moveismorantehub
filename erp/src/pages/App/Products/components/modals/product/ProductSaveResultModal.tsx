@@ -1,17 +1,17 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ProductSaveResultChannels } from './ProductSaveResultChannels';
 import Product from '../../../../../types/product.type';
-import { saveProduct } from '@/pages/utils/productService';
+import { saveProduct } from '@/pages/utils/productService/productService';
 import { toast } from 'react-toastify';
-import { isNonConventionalProduct } from '@/pages/utils/productKindRules';
+import { isNonConventionalProduct } from '@/pages/utils/productService/productKindRules';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { savedProductFormSchema } from '../../../../../../../../shared-utils/productDomainValidation';
-import { withTimeout } from '../../../../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../../../../shared-utils/core/withTimeout';
 import {
   checkEcomLegibility,
   getProductCategoryIds,
   type EcomLegibilityResult,
-} from '../../../../../../../../shared-utils/catalogPublicationValidation';
+} from '../../../../../../../../shared-utils/catalogPublication/catalogPublicationValidation';
 import { fetchTechnicalFieldDefinitions } from '../../../services/technicalFieldService';
 import { fetchCharacteristicGroups } from '@/pages/utils/characteristicGroupService';
 

@@ -1,4 +1,4 @@
-import { formatCurrency, formatToBRDate } from '../../formatters';
+import { formatCurrency, formatToBRDate } from '../../shared/formatters';
 import type { ParsedFiscalDetails } from '@/pages/App/FiscalDocuments/types/fiscalDocuments.types';
 import { escapeDanfeHtml, formatDanfeMoney } from './danfeHtmlUtils';
 

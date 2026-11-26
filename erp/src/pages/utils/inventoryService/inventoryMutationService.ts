@@ -2,7 +2,7 @@ import { supabase } from '@/pages/utils/supabaseConfig';
 import InventoryMove from '../../types/inventoryMove.type';
 import { inventoryMoveCommandSchema, inventoryMoveUpdateCommandSchema, InventoryMoveUnconfirmedError } from '../../../../../shared-utils/inventoryMoveSchemas';
 import { inventoryBatchEditCommandFormSchema } from '../../../../../shared-utils/catalogFormSchemas';
-import { withTimeout } from '../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../shared-utils/core/withTimeout';
 import { INVENTORY_TABLE_NAME } from './inventoryTypeRules';
 import { mapInventoryMoveToDB, mapInventoryMoveFromDB } from './inventoryMapper';
 import {

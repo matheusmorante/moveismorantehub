@@ -38,7 +38,7 @@ vi.mock('../../../../../hooks/useZodForm', () => ({
   useZodForm: () => ({ validateValues: vi.fn() }),
 }));
 
-vi.mock('../../../services/mobileProductCompositionService', () => ({
+vi.mock('../../../services/compositions/mobileProductCompositionService', () => ({
   searchMobileProductCompositionCandidates: vi.fn(),
 }));
 

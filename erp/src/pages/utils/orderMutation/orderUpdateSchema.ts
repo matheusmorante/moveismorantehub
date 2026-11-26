@@ -3,8 +3,8 @@ import {
   assertOwnedByTestContext,
   getTestArtifactContext,
   stampTestOrder,
-} from '../../../../../shared-utils/testArtifactContext';
-import { isIdentifiedTestArtifact } from '../../../../../shared-utils/testArtifactPolicy';
+} from '../../../../../shared-utils/testing/testArtifactContext';
+import { isIdentifiedTestArtifact } from '../../../../../shared-utils/testing/testArtifactPolicy';
 import { validateShippingScheduling } from '../../../../../shared-utils/commercialShippingRules';
 import { hasSeparateFulfillments } from '../../../../../shared-utils/fulfillmentScheduleGuard';
 

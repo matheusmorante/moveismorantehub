@@ -1,6 +1,6 @@
 import { AiGateway } from '@/services/aiGateway/AiGateway';
 import { Layer } from '../../types';
-import { withTimeout } from '../../../../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../../../../shared-utils/core/withTimeout';
 import {
   CompositionFormat,
   CompositionPlan,

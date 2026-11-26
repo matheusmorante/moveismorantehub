@@ -8,12 +8,12 @@ import {
   canPrintProductIdentificationLabels,
   getProductIdentificationLabelActionAvailability,
   isProductIdentificationLabelOnlyProfile,
-} from '@/pages/utils/accessRoles';
+} from '@/pages/utils/auth/accessRoles';
 import {
   buildProductVariationName,
   getSelectedProductDisplayName,
   normalizeProductVariationName,
-} from '@/pages/utils/productVariationDefaults';
+} from '@/pages/utils/productService/productVariationDefaults';
 import type { CardVariationItem } from '../Variations/ProductCardVariationList';
 
 export interface ProductCardActionsProps {

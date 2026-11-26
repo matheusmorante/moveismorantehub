@@ -1,10 +1,10 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import { TransactionsTabContent } from '../components/TransactionsTabContent';
-import { TransactionFilterModal } from '../components/TransactionFilterModal';
-import { NewTransactionModal } from '../components/NewTransactionModal';
-import { TransactionActionsModal } from '../components/TransactionActionsModal';
-import { TransactionDetailsModal } from '../components/TransactionDetailsModal';
+import { TransactionsTabContent } from '../components/transactions/TransactionsTabContent';
+import { TransactionFilterModal } from '../components/modals/TransactionFilterModal';
+import { NewTransactionModal } from '../components/modals/NewTransactionModal';
+import { TransactionActionsModal } from '../components/modals/TransactionActionsModal';
+import { TransactionDetailsModal } from '../components/modals/TransactionDetailsModal';
 import { useFinanceHubData } from '../hooks/useFinanceHubData';
 
 interface Props {

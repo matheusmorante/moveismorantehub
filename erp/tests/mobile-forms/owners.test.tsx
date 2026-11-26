@@ -17,12 +17,12 @@ vi.mock('../../../mobile/src/services/sqlite/inventoryDrafts', () => ({ saveLoca
 vi.mock('../../../mobile/src/services/mobileFinanceService', () => ({ confirmFinancialDraft: mocks.confirmFinancial, createFinancialTransaction: vi.fn() }));
 vi.mock('../../../mobile/src/services/financialAiAssistantService', () => ({ extractLocalSemanticDelta: vi.fn(), PRE_ANALYSIS_DEBOUNCE_MS: 100, MAX_VOICE_INACTIVITY_MS: 1000 }));
 vi.mock('../../../mobile/src/services/aiAgent/mobileAgentService', () => ({ MobileAgentService: {} }));
-vi.mock('../../../mobile/src/services/geminiLiveService', () => ({ GeminiLiveSession: class {} }));
-vi.mock('../../../mobile/src/services/voiceRecorderService', () => ({ startVoiceRecording: vi.fn(), stopVoiceRecording: vi.fn() }));
-vi.mock('../../../mobile/src/features/products/services/mobileProductFetchService', () => ({ fetchMobileProductsPage: mocks.fetchProducts }));
+vi.mock('../../../mobile/src/services/voice/geminiLiveService', () => ({ GeminiLiveSession: class {} }));
+vi.mock('../../../mobile/src/services/voice/voiceRecorderService', () => ({ startVoiceRecording: vi.fn(), stopVoiceRecording: vi.fn() }));
+vi.mock('../../../mobile/src/features/products/services/products/mobileProductFetchService', () => ({ fetchMobileProductsPage: mocks.fetchProducts }));
 vi.mock('../../../mobile/src/features/compositions/services/mobileCompositionService', () => ({ saveComposition: mocks.saveComposition }));
 import { InvoiceImportModal } from '../../../mobile/src/features/stock/invoices/modals/InvoiceImportModal';
-import { TransactionEditModal } from '../../../mobile/src/features/finance/components/TransactionEditModal';
+import { TransactionEditModal } from '../../../mobile/src/features/finance/components/modals/TransactionEditModal';
 import { useInventoryPersistenceQueue } from '../../../mobile/src/features/stock/inventory/hooks/useInventoryPersistenceQueue';
 import { useInvoices } from '../../../mobile/src/features/stock/invoices/hooks/useInvoices';
 import { useFinancialAiChat } from '../../../mobile/src/features/finance/hooks/useFinancialAiChat';

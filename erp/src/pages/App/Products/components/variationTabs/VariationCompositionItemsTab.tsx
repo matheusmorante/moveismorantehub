@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import type { Variation, ComboItem, Product } from '../../../../types/product.type';
-import ProductAutocomplete from '../../../../../components/ProductAutocomplete';
+import ProductAutocomplete from '../../../../../components/selectors/ProductAutocomplete';
 
 interface VariationCompositionItemsTabProps {
   readonly formData: Variation;

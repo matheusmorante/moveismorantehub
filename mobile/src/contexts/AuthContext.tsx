@@ -2,11 +2,11 @@ import React, { createContext, useContext, useState, useEffect, useRef, ReactNod
 import { Platform } from 'react-native';
 import * as Linking from 'expo-linking';
 import { supabase } from '../services/supabaseClient';
-import { completeGoogleSignIn } from '../services/googleAuth';
-import { resolveMobileUserProfile } from '../services/mobileAuthProfile';
+import { completeGoogleSignIn } from '../services/auth/googleAuth';
+import { resolveMobileUserProfile } from '../services/auth/mobileAuthProfile';
 import { offlineSyncManager } from '../services/offline/offlineSyncManager';
-import { shouldRunAuthSessionMaintenance } from '../../../shared-utils/authSessionPolicy';
-import { withTimeout } from '../../../shared-utils/withTimeout';
+import { shouldRunAuthSessionMaintenance } from '../../../shared-utils/auth/authSessionPolicy';
+import { withTimeout } from '../../../shared-utils/core/withTimeout';
 import {
   deriveAuthRoleFlags,
   resolveWebDevOverrideProfile,

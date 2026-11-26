@@ -1,5 +1,5 @@
 import { supabase } from './supabase/client';
-import { withAbortTimeout } from '../../../shared-utils/withAbortTimeout';
+import { withAbortTimeout } from '../../../shared-utils/core/withAbortTimeout';
 
 export const catalogCategoriesQuery = {
   queryKey: ['catalog-categories'], staleTime: 10 * 60 * 1000, gcTime: 30 * 60 * 1000,

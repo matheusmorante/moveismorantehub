@@ -2,17 +2,17 @@ import { useState, useRef, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { createInboundCreatedProductLinkSchema, createInboundClassificationCommandSchema, createInboundProductLinkSchema, createInboundProductPreparationCommandSchema, inboundProductTitleSchema, type InboundProductPreparationCommand } from '../../../../../../../shared-utils/inboundProductLinkFormSchemas';
-import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../../../shared-utils/core/withTimeout';
 import type Product from '@/pages/types/product.type';
 import type { InboundInvoiceItem } from '@/pages/utils/inboundNfe/inboundNfeTypes';
 import {
   findProductSupplierCodes,
   saveProductSupplierCode,
-} from '@/pages/utils/productSupplierCodesService';
-import { getFullProduct, saveVariation } from '@/pages/utils/productService';
+} from '@/pages/utils/productService/productSupplierCodesService';
+import { getFullProduct, saveVariation } from '@/pages/utils/productService/productService';
 import { fetchGroupsAndCategories } from '@/pages/utils/categoryService';
 import { resolveAutoCategory } from '@/pages/utils/categoryResolutionService';
-import { aiService } from '@/pages/utils/aiService';
+import { aiService } from '@/pages/utils/aiService/aiService';
 import { itemCostWithAdditionalCosts } from '@/pages/utils/inboundNfe/inboundItemCosts';
 import { resolveLinkedProductDetails } from '@/pages/utils/inboundNfe/inboundItemProductResolver';
 import type { AiClassification } from './useInboundInvoiceClassification';

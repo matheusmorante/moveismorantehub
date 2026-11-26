@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { toast } from 'react-toastify';
 import type Product from '../../../../types/product.type';
-import { aiService } from '../../../../utils/aiService';
+import { aiService } from '../../../../utils/aiService/aiService';
 import { validateProductDescriptionPrerequisites } from './productDescriptionPrerequisites';
 import { ProductDescriptionInformativeModal } from '../../modals/descriptionAi/ProductDescriptionInformativeModal';
 export { validateProductDescriptionPrerequisites };

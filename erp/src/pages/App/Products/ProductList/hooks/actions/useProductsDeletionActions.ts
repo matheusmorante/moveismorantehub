@@ -1,7 +1,7 @@
 import { toast } from 'react-toastify';
 import { requestConfirmation } from '@/components/shared/confirmationService';
 import type Product from '@/pages/types/product.type';
-import { triggerProductMetaCatalogSync } from '@/pages/utils/productService/productMetaCatalogSync';
+import { triggerProductMetaCatalogSync } from '@/pages/utils/productService/catalog/productMetaCatalogSync';
 import {
   bulkMoveToTrash,
   bulkRestoreProducts,
@@ -10,7 +10,7 @@ import {
   moveProductToTrash,
   physicalDeleteProduct,
   restoreProductFromTrash,
-} from '@/pages/utils/productService';
+} from '@/pages/utils/productService/productService';
 
 /**
  * Move produto pai e todas as variações para a lixeira

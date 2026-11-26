@@ -1,5 +1,5 @@
 import React from 'react';
-import { formatCurrency, formatToBRDate } from '@/pages/utils/formatters';
+import { formatCurrency, formatToBRDate } from '@/pages/utils/shared/formatters';
 import { formatAccessKey } from '@/pages/utils/nfe/nfeAccessKey';
 import { getAuthorizedAt } from '@/pages/utils/nfe/nfeEventRules';
 import type { FiscalDocumentDetails, NfeDocumentRecord } from '../types/fiscalDocuments.types';

@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import type Order from '@/pages/types/order.type';
 import { fetchOrderById } from '@/pages/utils/orderHistoryService';
 import OrderDetailsModal from '@/pages/App/DeliverySchedule/OrderDetailsModal';
-import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../../../shared-utils/core/withTimeout';
 
 interface CustomerOrderDetailsModalProps {
   orderId: string;

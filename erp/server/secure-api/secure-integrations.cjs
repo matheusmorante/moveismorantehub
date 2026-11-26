@@ -30,9 +30,9 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 ));
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
-// node_modules/@supabase/supabase-js/dist/tracingRegistry.cjs
+// erp/node_modules/@supabase/supabase-js/dist/tracingRegistry.cjs
 var require_tracingRegistry = __commonJS({
-  "node_modules/@supabase/supabase-js/dist/tracingRegistry.cjs"(exports2) {
+  "erp/node_modules/@supabase/supabase-js/dist/tracingRegistry.cjs"(exports2) {
     var EXTRACTOR_KEY = Symbol.for("@supabase/supabase-js.traceContextExtractor");
     function registerTraceContextExtractor(extractor) {
       globalThis[EXTRACTOR_KEY] = extractor;
@@ -55,9 +55,9 @@ var require_tracingRegistry = __commonJS({
   }
 });
 
-// node_modules/@supabase/supabase-js/dist/index.cjs
+// erp/node_modules/@supabase/supabase-js/dist/index.cjs
 var require_dist = __commonJS({
-  "node_modules/@supabase/supabase-js/dist/index.cjs"(exports2) {
+  "erp/node_modules/@supabase/supabase-js/dist/index.cjs"(exports2) {
     var require_tracingRegistry2 = require_tracingRegistry();
     var _supabase_functions_js = require("@supabase/functions-js");
     var _supabase_postgrest_js = require("@supabase/postgrest-js");
@@ -867,7 +867,7 @@ var require_dist = __commonJS({
   }
 });
 
-// api/_lib/secureIntegrations/handler.ts
+// erp/api/_lib/secureIntegrations/handler.ts
 var handler_exports = {};
 __export(handler_exports, {
   checkAiQuotaOrReject: () => checkAiQuotaOrReject,
@@ -882,7 +882,7 @@ __export(handler_exports, {
 });
 module.exports = __toCommonJS(handler_exports);
 
-// api/_lib/secureIntegrations/types.ts
+// erp/api/_lib/secureIntegrations/types.ts
 var MAX_META_REQUEST_BYTES = 1e6;
 var MAX_OPENAI_REQUEST_BYTES = 4e6;
 var MAX_ROUTE_REQUEST_BYTES = 16e3;
@@ -898,7 +898,7 @@ function getOperation(req) {
   return Array.isArray(value) ? String(value[0] || "") : String(value || "");
 }
 
-// api/_lib/authenticatedErpRequest.ts
+// erp/api/_lib/authenticatedErpRequest.ts
 var import_supabase_js = __toESM(require_dist(), 1);
 var DEFAULT_PERMISSION_ROLES = {
   createEditOrders: ["manager"],
@@ -971,7 +971,7 @@ function hasErpPermission(context, permission) {
   return context.roles.some((role) => allowedRoles.includes(role));
 }
 
-// server/secure-api/verifyMetaAppCredentials.ts
+// erp/server/secure-api/verifyMetaAppCredentials.ts
 var import_node_crypto = require("node:crypto");
 function getGraphErrorDetails(body) {
   const graphError = body && typeof body === "object" && !Array.isArray(body) ? body.error : void 0;
@@ -1053,7 +1053,7 @@ async function verifyMetaAppCredentials({
   return { valid: true };
 }
 
-// server/secure-api/verifyWhatsAppWebhookSubscription.ts
+// erp/server/secure-api/verifyWhatsAppWebhookSubscription.ts
 var import_node_crypto2 = require("node:crypto");
 function isRecord(value) {
   return !!value && typeof value === "object" && !Array.isArray(value);
@@ -1123,7 +1123,7 @@ async function verifyWhatsAppWebhookSubscription({
   return { valid: false, reason: "pagination_limit_exceeded" };
 }
 
-// server/secure-api/ensureWhatsAppEchoWebhookSubscription.ts
+// erp/server/secure-api/ensureWhatsAppEchoWebhookSubscription.ts
 var import_node_crypto3 = require("node:crypto");
 function isRecord2(value) {
   return !!value && typeof value === "object" && !Array.isArray(value);
@@ -1238,11 +1238,11 @@ async function ensureWhatsAppEchoWebhookSubscription({
   return { valid: true, changed: true, fields: verifiedFields };
 }
 
-// ../shared-utils/metaCatalogIds.ts
+// shared-utils/meta/metaCatalogIds.ts
 var META_ADS_CREATIVE_CATALOG_ID = "3884846918337684";
 var META_WHATSAPP_CATALOG_ID = "949184464866249";
 
-// src/pages/utils/metaService/metaGraphProxyPolicy.ts
+// erp/src/pages/utils/metaService/metaGraphProxyPolicy.ts
 var numericId = (value) => {
   const normalized2 = typeof value === "string" ? value.trim() : "";
   if (!/^\d{1,32}$/.test(normalized2)) throw new Error("Identificador Meta inv\xE1lido.");
@@ -1437,14 +1437,14 @@ function planMetaGraphRequest(input, settings) {
   }
 }
 
-// api/_lib/metaCatalogReconciliation/handler.ts
+// erp/api/_lib/metaCatalogReconciliation/handler.ts
 var import_node_crypto6 = require("node:crypto");
 
-// api/_lib/metaCatalogReconciliation/run.ts
+// erp/api/_lib/metaCatalogReconciliation/run.ts
 var import_node_crypto5 = require("node:crypto");
 var import_supabase_js2 = __toESM(require_dist(), 1);
 
-// ../shared-utils/metaCatalogPayload.ts
+// shared-utils/meta/metaCatalogPayload.ts
 var META_CATALOG_GLOBAL_PREFIX = `\u{1F69A}\u{1F4E6} Entrega r\xE1pida (1 a 5 dias \xFAteis) para Curitiba e Regi\xE3o, consulte conosco a disponibilidade e o valor do frete
 
 \u{1F4B3} Pagamento parcelado nas bandeiras VISA, MASTER, MASTERCARD, MAESTRO, HIPERCARD, ELO, em at\xE9 10x sem juros no cart\xE3o de cr\xE9dito
@@ -1680,7 +1680,7 @@ function buildMetaCatalogItems(products, variations, opportunities) {
   return allItems;
 }
 
-// ../shared-utils/metaCatalogBatchPayload.ts
+// shared-utils/meta/metaCatalogBatchPayload.ts
 var META_CATALOG_BATCH_LIMIT = 50;
 var META_CATALOG_AVAILABILITY = {
   availability: "in stock",
@@ -1798,7 +1798,7 @@ var buildMetaCatalogBatchPayload = (products, whatsappBaseDescription) => {
   return { item_type: "PRODUCT_ITEM", requests };
 };
 
-// api/_lib/metaCatalogReconciliation/graph.ts
+// erp/api/_lib/metaCatalogReconciliation/graph.ts
 var PRODUCT_FIELDS = [
   "id",
   "retailer_id",
@@ -2029,10 +2029,10 @@ function failedItems(row, changes) {
   return failures;
 }
 
-// api/_lib/metaCatalogReconciliation/plan.ts
+// erp/api/_lib/metaCatalogReconciliation/plan.ts
 var import_node_crypto4 = require("node:crypto");
 
-// ../shared-utils/testArtifactPolicy.ts
+// shared-utils/testing/testArtifactPolicy.ts
 var record2 = (value) => value !== null && typeof value === "object" && !Array.isArray(value) ? value : {};
 function artifactData(value) {
   const row = record2(value);
@@ -2058,7 +2058,7 @@ function isIdentifiedTestArtifact(value) {
   return data.is_test === true || data.is_test === "true" || data.isTest === true || data.isTest === "true";
 }
 
-// ../shared-utils/isTestProduct.ts
+// shared-utils/products/core/isTestProduct.ts
 var asRecord = (value) => value !== null && typeof value === "object" && !Array.isArray(value) ? value : null;
 var hasExplicitTestIdentifier = (value) => typeof value === "string" && (/^\s*(?:TEST_AUT_|NFEHML26P\d*)/i.test(value) || /\[?\s*HML\s*NF\s*TEST\b/i.test(value));
 var isHmlFiscalTestProduct = (observations) => typeof observations === "string" && ["HMLNFTEST", "NFE_HML_MATRIX_2026_10"].some(
@@ -2084,7 +2084,7 @@ var isTestProduct = (value) => {
   return variations.some(isTestProduct);
 };
 
-// ../shared-utils/productMetaCatalogSyncItems.ts
+// shared-utils/products/catalog/productMetaCatalogSyncItems.ts
 var deletedItem = (id, code) => ({
   id,
   code,
@@ -2165,7 +2165,7 @@ function buildProductMetaCatalogSyncItems(product, variations, opportunities) {
   return [...built, ...legacyDeletes];
 }
 
-// api/_lib/metaCatalogReconciliation/source.ts
+// erp/api/_lib/metaCatalogReconciliation/source.ts
 var UUID = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
 var PAGE_SIZE = 200;
 var PRODUCT_FIELDS2 = "id,name,description,status,active,deleted,deleted_at,opportunity_id,unit_price,price,promo_price,images,brand,code,is_draft,slug,is_salvado,product_kind,material,condition,observations,testArtifact:technical_specs->testArtifact,product_categories(categories(name,type)),opportunities(id,name,observations)";
@@ -2349,7 +2349,7 @@ async function loadDesiredCatalog(db, description, productIds, candidateProductI
   return desired;
 }
 
-// api/_lib/metaCatalogReconciliation/plan.ts
+// erp/api/_lib/metaCatalogReconciliation/plan.ts
 var OWNER_PREFIX = "morantehub:v1:";
 var ownershipLabel = (productId) => OWNER_PREFIX + productId.toLowerCase();
 function ownerOf(product, verified) {
@@ -2476,7 +2476,7 @@ function planCatalogChanges(desired, remote, verified, { scope, completeSnapshot
   return result;
 }
 
-// api/_lib/metaCatalogReconciliation/deletionHistory.ts
+// erp/api/_lib/metaCatalogReconciliation/deletionHistory.ts
 async function recordDeletionAttempts(db, { runId, catalogId, retailerIds, trigger }) {
   const { error } = await db.from("meta_catalog_sync_deletions").insert(retailerIds.map((retailerId) => ({
     run_id: runId,
@@ -2493,7 +2493,7 @@ async function confirmDeletionHistory(db, { runId, catalogId, retailerIds }) {
   }
 }
 
-// api/_lib/metaCatalogReconciliation/run.ts
+// erp/api/_lib/metaCatalogReconciliation/run.ts
 var MAX_CATALOG_DELETIONS = 50;
 var MIN_DELETIONS_FOR_RATIO_GUARD = 10;
 var MAX_CATALOG_DELETION_SHARE = 0.25;
@@ -2811,7 +2811,7 @@ function safeReason(error) {
   return error.message;
 }
 
-// api/_lib/metaCatalogReconciliation/handler.ts
+// erp/api/_lib/metaCatalogReconciliation/handler.ts
 var CONFIRMED_LEGACY_HANDLE = "morantehub-reconciled";
 async function handleMetaCatalogCron(req, res) {
   if (req.method !== "GET") return res.status(405).end();
@@ -2874,7 +2874,7 @@ async function handleCatalogOperation(body, context, res) {
   }
 }
 
-// api/_lib/secureIntegrations/handlers/metaGraphHandler.ts
+// erp/api/_lib/secureIntegrations/handlers/metaGraphHandler.ts
 function getMetaGraphSettings(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};
   const config = value;
@@ -3137,7 +3137,7 @@ async function handleMetaGraph(req, res) {
   }
 }
 
-// api/_lib/secureIntegrations/aiQuotaBridge.ts
+// erp/api/_lib/secureIntegrations/aiQuotaBridge.ts
 var import_supabase_js3 = __toESM(require_dist(), 1);
 var quotaServiceDb = null;
 function getQuotaServiceDb() {
@@ -3220,7 +3220,7 @@ async function recordAiUsageTokensSafe(_userDb, params) {
   }
 }
 
-// ../shared-utils/openAiAgentAdapter.ts
+// shared-utils/ai-agent/openAiAgentAdapter.ts
 var schemaTypes = {
   OBJECT: "object",
   STRING: "string",
@@ -3349,7 +3349,7 @@ function parseOpenAiAgentResponse(response) {
   };
 }
 
-// api/_lib/secureIntegrations/handlers/openAiHandler.ts
+// erp/api/_lib/secureIntegrations/handlers/openAiHandler.ts
 async function handleOpenAi(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "M\xE9todo n\xE3o permitido." });
   const openAiApiKey = process.env.OPENAI_API_KEY?.trim();
@@ -3476,7 +3476,7 @@ async function handleOpenAi(req, res) {
   }
 }
 
-// api/_lib/secureIntegrations/handlers/geminiHandler.ts
+// erp/api/_lib/secureIntegrations/handlers/geminiHandler.ts
 async function handleGemini(req, res) {
   if (req.method === "OPTIONS") return res.status(200).end();
   if (req.method !== "POST") return res.status(405).json({ error: "M\xE9todo n\xE3o permitido." });
@@ -3492,7 +3492,7 @@ async function handleGemini(req, res) {
   return handleOpenAi(req, res);
 }
 
-// api/_lib/secureIntegrations/handlers/googleRoutesHandler.ts
+// erp/api/_lib/secureIntegrations/handlers/googleRoutesHandler.ts
 function validPoint(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const point = value;
@@ -3544,7 +3544,7 @@ async function handleGoogleRoutes(req, res) {
   }
 }
 
-// api/_lib/secureIntegrations/handler.ts
+// erp/api/_lib/secureIntegrations/handler.ts
 var operations = {
   "meta-graph": handleMetaGraph,
   "meta-catalog-cron": handleMetaCatalogCron,

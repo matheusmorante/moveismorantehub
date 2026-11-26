@@ -1,76 +1,50 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
-  Linking,
   Modal,
   Platform,
-  ScrollView,
-  Text,
-  TouchableOpacity,
-  View,
 } from 'react-native';
-import { FormTextInput } from '../../../../components/shared/FormTextInput';
-import { ReceiptRateioField, parseRateioInputValue } from './ReceiptRateioField';
+import { parseRateioInputValue } from './ReceiptRateioField';
 import type { RateioMode } from './ReceiptRateioField';
-import { ReceiptTotalSummary } from './ReceiptTotalSummary';
 import { ReceiptSubmissionFooter } from './ReceiptSubmissionFooter';
 import { styles } from './newGoodsReceiptModal.styles';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { CalendarDays } from 'lucide-react-native';
 import {
   mobileReceiptFormSchema,
   receiptDraftFormSchema,
 } from '../../../../../../shared-utils/receiptFormSchemas';
-import { validateNfeAccessKey } from '../../../../../../shared-utils/nfeAccessKeyValidation';
-import { withTimeout } from '../../../../../../shared-utils/withTimeout';
+import { matchesSearchText } from '../../../../../../shared-utils/core/searchText';
 import { supplierProvidesStockOrigin } from '../../../../../../shared-utils/productSupplierStockOrigin';
-import { matchesSearchText } from '../../../../../../shared-utils/searchText';
 import { flattenFormErrors, useZodForm } from '../../../../hooks/useZodForm';
 import { generateUUID } from '../../../../services/offline/offlineStorageService';
 import { getLocalDateString } from '../../../../utils/orderUtils';
-import { fetchMobileProductSuppliersWithStatus } from '../../../products/services/mobileSupplierService';
 import { searchInventoryScopeProducts } from '../../../../services/stockService';
 import { InventoryProductSearchModal } from '../../inventory/components/InventoryProductSearchModal';
 import type { SearchableProduct } from '../../inventory/components/InventoryProductSearchModal';
-import { PurchaseItemsSection } from '../../purchases/modals/purchase-form/PurchaseItemsSection';
-import { PurchaseAttachmentsSection } from '../../purchases/modals/purchase-form/PurchaseAttachmentsSection';
 import { useMobilePurchaseAttachments } from '../../purchases/hooks/useMobilePurchaseAttachments';
 import { PurchaseSupplierPickerModal } from '../../purchases/modals/purchase-form/PurchaseSupplierPickerModal';
 import { TransactionDatePickerModal } from '../../../finance/components/transaction-date/TransactionDatePickerModal';
-import type { MobilePurchase } from '../../purchases/mobilePurchaseService';
 import type { Invoice } from '../../types/stock.types';
 import {
   createMobileGoodsReceipt,
   editMobileGoodsReceipt,
-  assertInvoiceAvailableForReceipt,
-  fetchReceiptInvoiceIdByFiscalKey,
-  saveMobileGoodsReceiptDraft,
 } from '../../../../services/stock/stockReceiptsService';
 import { connectivityService } from '../../../../services/offline/connectivityService';
-import { fetchInboundInvoiceForMappings } from '../../../../services/stock/invoices/inboundInvoiceMappingsService';
 import { ReceiptSourceOptions, ReceiptSourcePicker } from './ReceiptSourcePicker';
 import { ReceiptHeader } from './ReceiptHeader';
-import { ReceiptSupplierField } from './ReceiptSupplierField';
 import {
   calculateMobileReceiptItems,
-  inboundReceiptOrigin,
-  normalizeReceiptDraftItem,
-  purchaseReceiptOrigin,
   receiptItemWithCosts,
   type MobileReceiptItem,
   type ReceiptOrigin,
 } from '../utils/receiptSource';
-
-interface SupplierOption {
-  id: string;
-  name: string;
-  full_name?: string;
-  nickname?: string;
-  social_name?: string;
-  stock_origins?: string[];
-}
+import { buildBaseGoodsReceiptPayload } from './goodsReceiptPayloadBuilder';
+import { NewGoodsReceiptFormBody } from './NewGoodsReceiptFormBody';
+import {
+  useNewGoodsReceiptSourcesAndDraft,
+  type GoodsReceiptSupplierOption,
+} from './useNewGoodsReceiptSourcesAndDraft';
 
 interface Props {
   visible: boolean;
@@ -110,7 +84,7 @@ export const NewGoodsReceiptModal: React.FC<Props> = ({
     addAttachments,
     removeAttachment,
   } = useMobilePurchaseAttachments({ storageFolder: 'receipts', recordLabel: 'recebimento' });
-  const [suppliers, setSuppliers] = useState<SupplierOption[]>([]);
+  const [suppliers, setSuppliers] = useState<GoodsReceiptSupplierOption[]>([]);
   const [suppliersLoaded, setSuppliersLoaded] = useState(false);
   const [loadingSuppliers, setLoadingSuppliers] = useState(false);
   const [supplierId, setSupplierId] = useState('');
@@ -232,87 +206,72 @@ export const NewGoodsReceiptModal: React.FC<Props> = ({
     if (!supplierLocked) setShowSupplierLockTooltip(false);
   }, [supplierLocked]);
 
-  const persistDraft = async (force = false): Promise<boolean> => {
-    if (
-      isEditingReceipt ||
-      !visible ||
-      stage !== 'form' ||
-      !hasDraftProgress ||
-      resumeSourceLoading
-    ) {
-      return !hasDraftProgress || !resumeSourceLoading;
-    }
-    if (savingRef.current && !force) return false;
-    let validationMessage = '';
-    const write = validateDraft(
-      formValues,
-      async (values) => {
-        if (!connectivityService.connected) {
-          throw new Error('Conecte-se à internet para salvar o rascunho do recebimento.');
-        }
-        const saved = await saveMobileGoodsReceiptDraft({
-          id: receiptIdRef.current || (receiptIdRef.current = generateUUID()),
-          receiptIndex: receiptIndexRef.current,
-          purchaseId: origin.purchaseId,
-          supplierId: values.supplierId || undefined,
-          supplierName: selectedSupplier?.name || origin.supplierName || 'Fornecedor',
-          receivedAt: new Date(`${values.receiptDate}T12:00:00`).toISOString(),
-          totalValue: values.totalValue,
-          observation: values.observations.join('\n'),
-          invoiceNumber: values.invoiceNumber,
-          invoiceDate: values.invoiceDate,
-          fiscalKey: values.fiscalKey,
-          attachments: values.attachments,
-          ipiPercent: values.ipiPercent,
-          freightPercent: values.freightPercent,
-          nonFiscalDiscountMode:
-            values.nonFiscalDiscountMode,
-          nonFiscalDiscountValue: values.nonFiscalDiscountValue,
-          nonFiscalFreightMode:
-            values.nonFiscalFreightMode,
-          nonFiscalFreightValue: values.nonFiscalFreightValue,
-          nonFiscalOtherExpensesMode: values.nonFiscalOtherExpensesMode,
-          nonFiscalOtherExpensesValue: values.nonFiscalOtherExpensesValue,
-          fiscalIpi: values.fiscalIpi,
-          fiscalFreight: values.fiscalFreight,
-          fiscalDiscount: values.fiscalDiscount,
-          fiscalOtherExpenses: values.fiscalOtherExpenses,
-          items: values.items,
-        });
-        receiptIndexRef.current = saved.receiptIndex ?? receiptIndexRef.current;
-        draftSavedRef.current = true;
-        return true;
-      },
-      (errors) => {
-        validationMessage =
-          Object.values(flattenFormErrors(errors))[0] || 'Confira os dados do recebimento.';
-      },
-    );
-    const completedWrite = write.then((result) => {
-      if (result === false) {
-        throw new Error(validationMessage || 'Não foi possível validar o rascunho.');
-      }
-      return result;
-    });
-    activeDraftWriteRef.current = completedWrite.catch(() => undefined);
-    try {
-      await completedWrite;
-      draftErrorShownRef.current = false;
-      return true;
-    } catch (error) {
-      if (!force && !draftErrorShownRef.current) {
-        Alert.alert(
-          'Rascunho não salvo',
-          error instanceof Error
-            ? error.message
-            : 'Não foi possível salvar o rascunho. Tente novamente.',
-        );
-        draftErrorShownRef.current = true;
-      }
-      return false;
-    }
-  };
-  persistDraftRef.current = persistDraft;
+  const {
+    loadSupplierOptions,
+    openSupplierPicker,
+    applyOrigin,
+    selectPurchase,
+    loadInvoiceOrigin,
+    selectInvoice,
+  } = useNewGoodsReceiptSourcesAndDraft({
+    visible,
+    stage,
+    setStage,
+    initialInvoice,
+    receiptToResume,
+    receiptToEdit,
+    isEditingReceipt,
+    hasDraftProgress,
+    resumeSourceLoading,
+    setResumeSourceLoading,
+    resumeSourceError,
+    setResumeSourceError,
+    origin,
+    setOrigin,
+    supplierId,
+    setSupplierId,
+    suppliers,
+    setSuppliers,
+    suppliersLoaded,
+    setSuppliersLoaded,
+    loadingSuppliers,
+    setLoadingSuppliers,
+    setSupplierSearch,
+    setSupplierPickerOpen,
+    setSupplierLoadError,
+    selectedSupplier,
+    receiptDate,
+    setReceiptDate,
+    setReceiptDatePickerOpen,
+    observation,
+    setObservation,
+    items,
+    setItems,
+    attachments,
+    setAttachments,
+    nonFiscalFreightMode,
+    setNonFiscalFreightMode,
+    nonFiscalFreightValue,
+    setNonFiscalFreightInput,
+    nonFiscalOtherExpensesMode,
+    setNonFiscalOtherExpensesMode,
+    nonFiscalOtherExpensesValue,
+    setNonFiscalOtherExpensesInput,
+    setProductPickerOpen,
+    saving,
+    formValues,
+    validateDraft,
+    defaultReceiptDateRef,
+    savingRef,
+    receiptIdRef,
+    receiptIndexRef,
+    activeDraftWriteRef,
+    draftTimerRef,
+    draftSavedRef,
+    draftErrorShownRef,
+    persistDraftRef,
+    supplierLoadRequestRef,
+  });
 
   const filteredSuppliers = useMemo(() => {
     const query = supplierSearch.trim().toLocaleLowerCase('pt-BR');
@@ -327,336 +286,6 @@ export const NewGoodsReceiptModal: React.FC<Props> = ({
     (query: string) => searchInventoryScopeProducts(query, supplierId || undefined),
     [supplierId],
   );
-
-  useEffect(() => {
-    supplierLoadRequestRef.current += 1;
-    if (!visible) return;
-    let active = true;
-    const draft = receiptToEdit || (
-      receiptToResume?.is_draft === true || receiptToResume?.status === 'draft'
-        ? receiptToResume
-        : null
-    );
-    const defaultDate = getLocalDateString(new Date());
-    defaultReceiptDateRef.current = defaultDate;
-    const draftReceiptIndex = Number(draft?.receipt_index ?? draft?.receiptIndex);
-    receiptIndexRef.current =
-      Number.isInteger(draftReceiptIndex) && draftReceiptIndex > 0
-        ? draftReceiptIndex
-        : undefined;
-    draftSavedRef.current = Boolean(draft && !isEditingReceipt);
-    draftErrorShownRef.current = false;
-    const normalizedDraftItems = Array.isArray(draft?.items)
-      ? draft.items.map(normalizeReceiptDraftItem)
-      : [];
-    const restoredItems = draft?.fiscal_key
-      ? normalizedDraftItems
-      : normalizedDraftItems.map((item) => {
-          const freightFiscalUnit = Number(
-            item.freightFiscalUnit ??
-              Math.max(0, Number(item.freightUnit || 0) - Number(item.freightNonFiscalUnit || 0)),
-          );
-          return {
-            ...item,
-            baseCost: item.baseCost,
-            discountUnit: Number(
-              item.discountFiscalUnit ??
-                Math.max(0, Number(item.discountUnit || 0) - Number(item.discountNonFiscalUnit || 0)),
-            ),
-            discountNonFiscalUnit: 0,
-            freightFiscalUnit,
-            freightNonFiscalUnit: 0,
-            freightUnit: freightFiscalUnit,
-          };
-        });
-    receiptIdRef.current = draft?.id || generateUUID();
-    setStage(draft ? 'form' : 'source');
-    setOrigin({
-      kind: draft?.fiscal_key ? 'invoice' : draft?.purchase_id ? 'purchase' : 'manual',
-      purchaseId: draft?.purchase_id || undefined,
-      supplierId: draft?.supplier_id || undefined,
-      supplierName: draft?.supplier_name || draft?.supplierName || undefined,
-      invoiceNumber: draft?.invoice_number || undefined,
-      invoiceDate: draft?.invoice_date ? String(draft.invoice_date).slice(0, 10) : undefined,
-      fiscalKey: draft?.fiscal_key || undefined,
-      ipiPercent: Number(draft?.ipi_percent || 0),
-      freightPercent: Number(draft?.freight_percent || 0),
-      fiscalIpi: Number(draft?.fiscal_ipi || 0),
-      fiscalFreight: Number(draft?.fiscal_freight || 0),
-      fiscalDiscount: Number(draft?.fiscal_discount || 0),
-      fiscalOtherExpenses: Number(draft?.fiscal_other_expenses || 0),
-      items: restoredItems,
-    });
-    setSupplierId(draft?.supplier_id || '');
-    setSuppliers([]);
-    setSupplierSearch('');
-    setSupplierPickerOpen(false);
-    setSupplierLoadError('');
-    setResumeSourceError('');
-    setSuppliersLoaded(false);
-    setLoadingSuppliers(false);
-    const selectedDate = draft?.received_at;
-    const receivedAt = String(selectedDate || '');
-    setReceiptDate(
-      /^\d{4}-\d{2}-\d{2}$/.test(receivedAt)
-        ? receivedAt
-        : selectedDate
-          ? getLocalDateString(new Date(selectedDate))
-          : defaultDate,
-    );
-    setReceiptDatePickerOpen(false);
-    setObservation(draft?.observation || '');
-    const freightMode = draft?.non_fiscal_freight_mode ?? draft?.nonFiscalFreightMode;
-    const otherExpensesMode = draft?.non_fiscal_other_expenses_mode ?? draft?.nonFiscalOtherExpensesMode;
-    setNonFiscalFreightMode(freightMode === 'fixed' ? 'fixed' : 'percent');
-    setNonFiscalFreightInput(String(Number(
-      draft?.non_fiscal_freight_value ?? draft?.nonFiscalFreightValue ?? 0,
-    )));
-    setNonFiscalOtherExpensesMode(otherExpensesMode === 'fixed' ? 'fixed' : 'percent');
-    setNonFiscalOtherExpensesInput(String(Number(
-      draft?.non_fiscal_other_expenses_value ?? draft?.nonFiscalOtherExpensesValue ?? 0,
-    )));
-    setAttachments(Array.isArray(draft?.attachments) ? draft.attachments : []);
-    setItems(restoredItems);
-    setProductPickerOpen(false);
-    setResumeSourceLoading(Boolean(draft?.fiscal_key && !isEditingReceipt));
-    if (draft?.fiscal_key && !isEditingReceipt) {
-      void (async () => {
-        try {
-          const normalizedKey = String(draft.fiscal_key).replace(/\D/g, '');
-          const invoiceId = await fetchReceiptInvoiceIdByFiscalKey(draft.fiscal_key);
-          if (!invoiceId) {
-            if (normalizedKey.length !== 44 || !validateNfeAccessKey(normalizedKey).valid) {
-              throw new Error('A chave da NF-e do rascunho é inválida.');
-            }
-            return;
-          }
-          const invoiceData = await withTimeout<any | null>(
-            fetchInboundInvoiceForMappings(invoiceId),
-            15_000,
-            null,
-            'mobile:receipt-resume-invoice-source',
-          );
-          if (!invoiceData) throw new Error('A busca da nota demorou para carregar.');
-          const completeOrigin = inboundReceiptOrigin(invoiceData);
-          if (draft.supplier_id && completeOrigin.supplierId !== draft.supplier_id) {
-            throw new Error('O fornecedor da nota não corresponde ao rascunho.');
-          }
-          await assertInvoiceAvailableForReceipt(draft.fiscal_key, draft.id);
-          const remainingOrigin = completeOrigin;
-          const usedSourceIndexes = new Set<number>();
-          const itemsWithSource = restoredItems.map((item) => {
-            const matches = remainingOrigin.items
-              .map((sourceItem, index) => ({ sourceItem, index }))
-              .filter(({ sourceItem, index }) =>
-                !usedSourceIndexes.has(index) &&
-                sourceItem.productId === item.productId &&
-                (sourceItem.variationId || '') === (item.variationId || ''),
-              );
-            if (matches.length !== 1) {
-              throw new Error('Não foi possível reconciliar os itens do rascunho com a nota.');
-            }
-            const { sourceItem, index } = matches[0];
-            usedSourceIndexes.add(index);
-            return {
-              ...sourceItem,
-              ...item,
-              expectedQuantity: sourceItem.expectedQuantity,
-            };
-          });
-          if (!itemsWithSource.length) {
-            throw new Error('O rascunho não tem itens vinculados à nota para retomar.');
-          }
-          if (!active) return;
-          setOrigin({
-            ...remainingOrigin,
-            purchaseId: draft.purchase_id || undefined,
-          });
-          setItems(itemsWithSource);
-        } catch (error) {
-          if (active) {
-            setResumeSourceError(
-              error instanceof Error
-                ? `${error.message} Reabra o recebimento para conferir a origem.`
-                : 'Não foi possível conferir a nota de origem. Reabra o recebimento.',
-            );
-          }
-        } finally {
-          if (active) setResumeSourceLoading(false);
-        }
-      })();
-    }
-    return () => {
-      active = false;
-    };
-  }, [visible, receiptToResume?.id, receiptToEdit?.id]);
-
-  useEffect(() => {
-    if (
-      !visible ||
-      stage !== 'form' ||
-      !hasDraftProgress ||
-      resumeSourceLoading ||
-      resumeSourceError ||
-      savingRef.current
-    ) {
-      return;
-    }
-    if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
-    draftTimerRef.current = setTimeout(() => {
-      void persistDraftRef.current();
-    }, 500);
-    return () => {
-      if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
-    };
-  }, [
-    visible,
-    stage,
-    hasDraftProgress,
-    supplierId,
-    receiptDate,
-    items,
-    origin,
-    observation,
-    attachments,
-    nonFiscalFreightMode,
-    nonFiscalFreightValue,
-    nonFiscalOtherExpensesMode,
-    nonFiscalOtherExpensesValue,
-    resumeSourceLoading,
-    resumeSourceError,
-    saving,
-  ]);
-
-  const loadSupplierOptions = async (): Promise<SupplierOption[] | null> => {
-    const requestId = ++supplierLoadRequestRef.current;
-    setLoadingSuppliers(true);
-    setSupplierLoadError('');
-    try {
-      const result = await fetchMobileProductSuppliersWithStatus();
-      if (requestId !== supplierLoadRequestRef.current) return null;
-      setSuppliersLoaded(result.ok);
-      if (result.ok === false) {
-        setSupplierLoadError(result.errorMessage);
-        return null;
-      }
-      const options = result.suppliers.map((supplier) => ({
-        ...supplier,
-        name: supplier.nickname || supplier.full_name || supplier.social_name || 'Fornecedor',
-      }));
-      setSuppliers(options);
-      setSupplierLoadError('');
-      return options;
-    } catch {
-      if (requestId === supplierLoadRequestRef.current) {
-        setSupplierLoadError('Não foi possível carregar os fornecedores. Tente novamente.');
-      }
-      return null;
-    } finally {
-      if (requestId === supplierLoadRequestRef.current) setLoadingSuppliers(false);
-    }
-  };
-
-  const openSupplierPicker = async () => {
-    if (loadingSuppliers) return;
-    if (!suppliersLoaded && (await loadSupplierOptions()) === null) return;
-    setSupplierPickerOpen(true);
-  };
-
-  const applyOrigin = (next: ReceiptOrigin) => {
-    setOrigin(next);
-    setSupplierId(next.supplierId || '');
-    setItems(next.items.map((item) => ({ ...item })));
-    if (next.kind === 'invoice') setSupplierLoadError('');
-    setStage('form');
-  };
-
-  const selectPurchase = async (purchase: MobilePurchase) => {
-    if (!purchase.supplierId) {
-      Alert.alert('Pedido sem fornecedor', 'Vincule um fornecedor ao pedido antes de receber.');
-      return;
-    }
-    let options: SupplierOption[];
-    if (suppliersLoaded) {
-      options = suppliers;
-    } else {
-      const result = await fetchMobileProductSuppliersWithStatus(purchase.supplierId);
-      if (result.ok === false) {
-        Alert.alert('Fornecedores indisponíveis', 'Não foi possível carregar os fornecedores. Tente novamente.');
-        return;
-      }
-      options = result.suppliers.map((supplier) => ({
-        ...supplier,
-        name: supplier.nickname || supplier.full_name || supplier.social_name || 'Fornecedor',
-      }));
-    }
-    const supplier = options.find((item) => item.id === purchase.supplierId);
-    if (!supplier) {
-      Alert.alert(
-        'Fornecedor indisponível',
-        'Não foi possível conferir o fornecedor deste pedido. Tente novamente.',
-      );
-      return;
-    }
-    if (!supplierProvidesStockOrigin(supplier.stock_origins, 'normal')) {
-      Alert.alert(
-        'Fornecedor sem estoque normal',
-        'Este fornecedor não gera recebimento de estoque normal.',
-      );
-      return;
-    }
-    applyOrigin(purchaseReceiptOrigin(purchase));
-  };
-
-  const loadInvoiceOrigin = async (invoiceId: string) => {
-    const data = await withTimeout<any | null>(
-      fetchInboundInvoiceForMappings(invoiceId),
-      15_000,
-      null,
-      'mobile:receipt-invoice-source',
-    );
-    if (!data) throw new Error('A busca da nota demorou. Tente novamente.');
-    const next = inboundReceiptOrigin(data);
-    await assertInvoiceAvailableForReceipt(next.fiscalKey || '', receiptIdRef.current);
-    return origin.purchaseId ? { ...next, purchaseId: origin.purchaseId } : next;
-  };
-
-  const selectInvoice = async (invoice: Invoice) => {
-    applyOrigin(await loadInvoiceOrigin(invoice.id));
-  };
-
-  useEffect(() => {
-    if (!visible || !initialInvoice?.id) return;
-    let active = true;
-    setStage('form');
-    setResumeSourceError('');
-    setResumeSourceLoading(true);
-    void (async () => {
-      try {
-        const data = await withTimeout<any | null>(
-          fetchInboundInvoiceForMappings(initialInvoice.id),
-          15_000,
-          null,
-          'mobile:receipt-start-from-inbound-mappings',
-        );
-        if (!data) throw new Error('A busca da nota demorou. Tente novamente.');
-        const next = inboundReceiptOrigin(data);
-        await assertInvoiceAvailableForReceipt(next.fiscalKey || '', receiptIdRef.current);
-        if (active) applyOrigin(next);
-      } catch (error) {
-        if (active) {
-          setResumeSourceError(
-            error instanceof Error ? error.message : 'Não foi possível abrir o recebimento. Tente novamente.',
-          );
-        }
-      } finally {
-        if (active) setResumeSourceLoading(false);
-      }
-    })();
-    return () => {
-      active = false;
-    };
-  }, [visible, initialInvoice?.id]);
 
   const addProduct = (product: SearchableProduct) => {
     setItems((current) => {
@@ -715,42 +344,19 @@ export const NewGoodsReceiptModal: React.FC<Props> = ({
               ? 'Conecte-se à internet para salvar a alteração do recebimento.'
               : 'Conecte-se à internet para confirmar o recebimento.');
           }
+          const supplierName = selectedSupplier?.name || origin.supplierName || 'Fornecedor';
           if (isEditingReceipt && receiptToEdit) {
             const editedStatus = 'received' as const;
             await editMobileGoodsReceipt({
-              id: receiptIdRef.current || receiptToEdit.id,
-              receiptIndex: receiptIndexRef.current ?? (Number(receiptToEdit.receipt_index || 0) || undefined),
-              purchaseId: origin.purchaseId,
-              supplierId: values.supplierId,
-              supplierName: selectedSupplier?.name || origin.supplierName || 'Fornecedor',
-              receivedAt: new Date(`${values.receiptDate}T12:00:00`).toISOString(),
-              totalValue: values.totalValue,
-              observation: values.observations.join('\n'),
-              invoiceNumber: values.invoiceNumber,
-              invoiceDate: values.invoiceDate,
-              fiscalKey: values.fiscalKey,
-              attachments: values.attachments,
-              ipiPercent: values.ipiPercent,
-              freightPercent: values.freightPercent,
-              nonFiscalDiscountMode: values.nonFiscalDiscountMode,
-              nonFiscalDiscountValue: values.nonFiscalDiscountValue,
-              nonFiscalFreightMode: isInvoiceLinkedReceipt
-                ? existingReceipt?.non_fiscal_freight_mode || values.nonFiscalFreightMode
-                : values.nonFiscalFreightMode,
-              nonFiscalFreightValue: isInvoiceLinkedReceipt
-                ? Number(existingReceipt?.non_fiscal_freight_value ?? values.nonFiscalFreightValue)
-                : values.nonFiscalFreightValue,
-              nonFiscalOtherExpensesMode: isInvoiceLinkedReceipt
-                ? existingReceipt?.non_fiscal_other_expenses_mode || values.nonFiscalOtherExpensesMode
-                : values.nonFiscalOtherExpensesMode,
-              nonFiscalOtherExpensesValue: isInvoiceLinkedReceipt
-                ? Number(existingReceipt?.non_fiscal_other_expenses_value ?? values.nonFiscalOtherExpensesValue)
-                : values.nonFiscalOtherExpensesValue,
-              fiscalIpi: values.fiscalIpi,
-              fiscalFreight: values.fiscalFreight,
-              fiscalDiscount: values.fiscalDiscount,
-              fiscalOtherExpenses: values.fiscalOtherExpenses,
-              items: values.items,
+              ...buildBaseGoodsReceiptPayload({
+                id: receiptIdRef.current || receiptToEdit.id,
+                receiptIndex: receiptIndexRef.current ?? (Number(receiptToEdit.receipt_index || 0) || undefined),
+                purchaseId: origin.purchaseId,
+                values,
+                supplierName,
+                existingReceipt,
+                isEditingInvoiceLinked: isInvoiceLinkedReceipt,
+              }),
               status: editedStatus,
             });
             return { invoiceUpdated: true, invoiceComplete: true, edited: true };
@@ -780,35 +386,17 @@ export const NewGoodsReceiptModal: React.FC<Props> = ({
               Number(item.expectedQuantity ?? origin.items[index]?.expectedQuantity ?? 0),
             );
           const result = await createMobileGoodsReceipt({
-            id: receiptIdRef.current || (receiptIdRef.current = generateUUID()),
-            receiptIndex: receiptIndexRef.current ?? (
-              receiptToResume?.receipt_index ? Number(receiptToResume.receipt_index) : undefined
-            ),
-            purchaseId: origin.purchaseId,
-            supplierId: values.supplierId,
-            supplierName: selectedSupplier?.name || origin.supplierName || 'Fornecedor',
-            receivedAt: new Date(`${values.receiptDate}T12:00:00`).toISOString(),
-            totalValue: values.totalValue,
-            observation: values.observations.join('\n'),
+            ...buildBaseGoodsReceiptPayload({
+              id: receiptIdRef.current || (receiptIdRef.current = generateUUID()),
+              receiptIndex: receiptIndexRef.current ?? (
+                receiptToResume?.receipt_index ? Number(receiptToResume.receipt_index) : undefined
+              ),
+              purchaseId: origin.purchaseId,
+              values,
+              supplierName,
+            }),
             invoiceId: origin.invoiceId,
             invoiceComplete,
-            invoiceNumber: values.invoiceNumber,
-            invoiceDate: values.invoiceDate,
-            fiscalKey: values.fiscalKey,
-            ipiPercent: values.ipiPercent,
-            freightPercent: values.freightPercent,
-            fiscalIpi: values.fiscalIpi,
-            fiscalFreight: values.fiscalFreight,
-            fiscalDiscount: values.fiscalDiscount,
-            fiscalOtherExpenses: values.fiscalOtherExpenses,
-            attachments: values.attachments,
-            nonFiscalDiscountMode: values.nonFiscalDiscountMode,
-            nonFiscalDiscountValue: values.nonFiscalDiscountValue,
-            nonFiscalFreightMode: values.nonFiscalFreightMode,
-            nonFiscalFreightValue: values.nonFiscalFreightValue,
-            nonFiscalOtherExpensesMode: values.nonFiscalOtherExpensesMode,
-            nonFiscalOtherExpensesValue: values.nonFiscalOtherExpensesValue,
-            items: values.items,
           });
           return { ...result, invoiceComplete };
         },
@@ -905,189 +493,57 @@ export const NewGoodsReceiptModal: React.FC<Props> = ({
           />
         ) : (
           <>
-            <ScrollView
-              pointerEvents={saving || resumeSourceLoading ? 'none' : 'auto'}
-              contentContainerStyle={styles.content}
-              keyboardShouldPersistTaps="handled"
-            >
-              {resumeSourceLoading ? (
-                <View style={styles.resumeNotice}>
-                  <ActivityIndicator size="small" color="#059669" />
-                  <Text style={[styles.hint, { color: colors.muted }]}>Conferindo a nota vinculada…</Text>
-                </View>
-              ) : null}
-              {resumeSourceError ? (
-                <View style={styles.resumeError}>
-                  <Text style={styles.errorText}>{resumeSourceError}</Text>
-                </View>
-              ) : null}
-              <View
-                style={[
-                  styles.section,
-                  {
-                    backgroundColor: colors.surface,
-                    borderColor: colors.border,
-                  },
-                ]}
-              >
-                <ReceiptSupplierField
-                  colors={colors}
-                  isInvoiceLinkedReceipt={isInvoiceLinkedReceipt}
-                  selectedSupplierName={selectedSupplier?.name}
-                  originSupplierName={origin.supplierName}
-                  supplierSelected={supplierSelected}
-                  supplierLocked={supplierLocked}
-                  showSupplierLockTooltip={showSupplierLockTooltip}
-                  supplierLoadError={origin.kind !== 'invoice' ? supplierLoadError : ''}
-                  buttonDisabled={
-                    loadingSuppliers ||
-                    (isEditingReceipt ? Boolean(origin.fiscalKey) : origin.kind !== 'manual')
-                  }
-                  showLockIcon={supplierLocked || (isEditingReceipt && Boolean(origin.fiscalKey))}
-                  showManualLoading={origin.kind === 'manual' && items.length === 0 && loadingSuppliers}
-                  showManualChoose={origin.kind === 'manual' && items.length === 0}
-                  onSupplierPress={() => {
-                    if (supplierLocked) {
-                      setShowSupplierLockTooltip((visible) => !visible);
-                    } else if (isEditingReceipt && !origin.fiscalKey) {
-                      void openSupplierPicker();
-                    } else if (!isEditingReceipt && origin.kind === 'manual') {
-                      void openSupplierPicker();
-                    }
-                  }}
-                />
-
-                <Text style={[styles.label, { color: colors.text }]}>
-                  Data de recebimento *
-                </Text>
-                <TouchableOpacity
-                  onPress={() => setReceiptDatePickerOpen(true)}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Data de recebimento ${formattedReceiptDate}. Abrir calendário.`}
-                  style={[
-                    styles.dateField,
-                    {
-                      backgroundColor: colors.bg,
-                      borderBottomColor: colors.border,
-                    },
-                  ]}
-                >
-                  <Text style={{ color: colors.text, fontSize: 14, fontWeight: '700' }}>
-                    {formattedReceiptDate}
-                  </Text>
-                  <CalendarDays size={18} color={colors.muted} />
-                </TouchableOpacity>
-              </View>
-
-              <PurchaseAttachmentsSection
-                attachments={attachments}
-                isUploading={isUploadingAttachments}
-                colors={colors}
-                recordLabel="recebimento"
-                onAdd={() => void addAttachments()}
-                onOpen={(url) => {
-                  void Linking.openURL(url).catch(() =>
-                    Alert.alert('Não foi possível abrir o anexo', 'Confira sua conexão e tente novamente.'),
-                  );
-                }}
-                onRemove={removeAttachment}
-              />
-
-              <View
-                style={[
-                  styles.section,
-                  {
-                    backgroundColor: colors.surface,
-                    borderColor: colors.border,
-                  },
-                ]}
-              >
-                <View style={styles.rateioSectionHeader}>
-                  <Text style={[styles.rateioSectionTitle, { color: colors.text }]}>
-                    {isInvoiceLinkedReceipt ? 'Despesas não fiscais' : 'Despesas'}
-                  </Text>
-                  <Text style={[styles.rateioHint, { color: colors.muted }]}>
-                    {isInvoiceLinkedReceipt
-                      ? isEditingReceipt
-                        ? 'Custos cobrados fora da nota fiscal, rateados entre os itens.'
-                        : 'Informe custos cobrados fora da nota fiscal; eles serão rateados entre os itens.'
-                      : 'Os valores serão rateados entre os itens.'}
-                  </Text>
-                </View>
-                <View style={styles.rateioGrid}>
-                  <ReceiptRateioField
-                    label="Frete"
-                    mode={nonFiscalFreightMode}
-                    value={nonFiscalFreightInput}
-                    baseTotal={rateioBaseTotal}
-                    readOnly={isInvoiceLinkedReceipt && isEditingReceipt}
-                    colors={colors}
-                    isDarkMode={isDarkMode}
-                    onModeChange={setNonFiscalFreightMode}
-                    onValueChange={setNonFiscalFreightInput}
-                  />
-                  <ReceiptRateioField
-                    label="Outras despesas"
-                    mode={nonFiscalOtherExpensesMode}
-                    value={nonFiscalOtherExpensesInput}
-                    baseTotal={rateioBaseTotal}
-                    readOnly={isInvoiceLinkedReceipt && isEditingReceipt}
-                    colors={colors}
-                    isDarkMode={isDarkMode}
-                    onModeChange={setNonFiscalOtherExpensesMode}
-                    onValueChange={setNonFiscalOtherExpensesInput}
-                  />
-                </View>
-              </View>
-
-              <PurchaseItemsSection
-                items={processedItems}
-                onOpenProductPicker={() => setProductPickerOpen(true)}
-                onAddItemRow={() => setProductPickerOpen(true)}
-                onUpdateItem={updateItem}
-                onRemoveItem={(index) =>
-                  setItems((current) => current.filter((_, itemIndex) => itemIndex !== index))
+            <NewGoodsReceiptFormBody
+              colors={colors}
+              isDarkMode={isDarkMode}
+              saving={saving}
+              resumeSourceLoading={resumeSourceLoading}
+              resumeSourceError={resumeSourceError}
+              isInvoiceLinkedReceipt={isInvoiceLinkedReceipt}
+              isEditingReceipt={isEditingReceipt}
+              origin={origin}
+              selectedSupplierName={selectedSupplier?.name}
+              supplierId={supplierId}
+              supplierSelected={supplierSelected}
+              supplierLocked={supplierLocked}
+              showSupplierLockTooltip={showSupplierLockTooltip}
+              supplierLoadError={supplierLoadError}
+              loadingSuppliers={loadingSuppliers}
+              itemsCount={items.length}
+              formattedReceiptDate={formattedReceiptDate}
+              attachments={attachments}
+              isUploadingAttachments={isUploadingAttachments}
+              nonFiscalFreightMode={nonFiscalFreightMode}
+              nonFiscalFreightInput={nonFiscalFreightInput}
+              nonFiscalOtherExpensesMode={nonFiscalOtherExpensesMode}
+              nonFiscalOtherExpensesInput={nonFiscalOtherExpensesInput}
+              rateioBaseTotal={rateioBaseTotal}
+              processedItems={processedItems}
+              observation={observation}
+              totalValue={totalValue}
+              onSupplierPress={() => {
+                if (supplierLocked) {
+                  setShowSupplierLockTooltip((current) => !current);
+                } else if (isEditingReceipt && !origin.fiscalKey) {
+                  void openSupplierPicker();
+                } else if (!isEditingReceipt && origin.kind === 'manual') {
+                  void openSupplierPicker();
                 }
-                colors={colors}
-                allowAdd={!isInvoiceLinkedReceipt && (isEditingReceipt || origin.kind !== 'invoice')}
-                showEmptyAddButton={false}
-                allowRemove={!isInvoiceLinkedReceipt && (isEditingReceipt || origin.kind !== 'invoice')}
-                addDisabled={!supplierId}
-                receiptMode
-                simplifiedReceiptMode={origin.kind !== 'invoice'}
-                showReceiptCostComposition={!isInvoiceLinkedReceipt}
-                readOnly={isInvoiceLinkedReceipt}
-              />
-
-              <View
-                style={[
-                  styles.section,
-                  {
-                    backgroundColor: colors.surface,
-                    borderColor: colors.border,
-                  },
-                ]}
-              >
-                <Text style={[styles.label, { color: colors.text }]}>Observações</Text>
-                <FormTextInput
-                  value={observation}
-                  onChangeText={setObservation}
-                  multiline
-                  placeholder="Anote divergências ou detalhes da entrega"
-                  placeholderTextColor={colors.muted}
-                  style={[
-                    styles.observationInput,
-                    {
-                      color: colors.text,
-                      backgroundColor: colors.bg,
-                      borderColor: colors.border,
-                    },
-                  ]}
-                />
-              </View>
-
-              <ReceiptTotalSummary totalValue={totalValue} isDarkMode={isDarkMode} />
-            </ScrollView>
+              }}
+              onOpenDatePicker={() => setReceiptDatePickerOpen(true)}
+              onAddAttachments={() => void addAttachments()}
+              onRemoveAttachment={removeAttachment}
+              onFreightModeChange={setNonFiscalFreightMode}
+              onFreightInputChange={setNonFiscalFreightInput}
+              onOtherExpensesModeChange={setNonFiscalOtherExpensesMode}
+              onOtherExpensesInputChange={setNonFiscalOtherExpensesInput}
+              onOpenProductPicker={() => setProductPickerOpen(true)}
+              onUpdateItem={updateItem}
+              onRemoveItem={(index) =>
+                setItems((current) => current.filter((_, itemIndex) => itemIndex !== index))
+              }
+              onObservationChange={setObservation}
+            />
 
             <ReceiptSubmissionFooter
               colors={colors}
@@ -1109,6 +565,10 @@ export const NewGoodsReceiptModal: React.FC<Props> = ({
         supplierSearch={supplierSearch}
         setSupplierSearch={setSupplierSearch}
         filteredSuppliers={filteredSuppliers}
+        loading={loadingSuppliers}
+        errorMessage={supplierLoadError}
+        offlineResults={false}
+        onRetry={() => void loadSupplierOptions()}
         onSelectSupplier={(supplier) => {
           if (isEditingReceipt && supplier.id !== supplierId) {
             setItems([]);

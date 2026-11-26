@@ -12,6 +12,16 @@ Um pedido do tipo `assistance` é composto por:
 3. **Custo de Mão de Obra / Custo Interno (`assistanceCost`)**: Valor gasto internamente pela empresa com o técnico ou montador (não é cobrado do cliente).
 4. **Valor de Serviço Cobrado (`assistanceServiceValue`)**: Valor efetivamente cobrado do cliente pelo atendimento/reparo.
 
+O formulário do ERP não oferece mais a seção **Peças e Materiais Utilizados** para incluir itens extras. Itens extras que já estejam gravados em assistências antigas são preservados ao editar os demais dados, sem controles para adicioná-los ou removê-los.
+
+O formulário apresenta os mesmos campos em três etapas: **Cliente** (incluindo os itens da venda vinculada, quando houver), **Serviço** e **Agendamento**.
+
+Cada assistência representa **uma única operação: a própria assistência**. O agendamento e os cartões identificam essa operação como Assistência, sem dividir a assistência conforme as entregas/retiradas da venda original vinculada.
+
+Após o cadastro, o menu chama-se **Ações necessárias**. Ele permite compartilhar os dados da assistência e imprimir ou enviar a Ordem de Serviço. Assistências não oferecem botão de recibo nem emissão de nota fiscal.
+
+Na Ordem de Serviço impressa, os itens selecionados como alvo aparecem na área **Logística da Assistência**, junto à data e ao horário. O papel não contém tabela de itens nem seção de peças ou materiais extras.
+
 ---
 
 ## 📦 Consumo de Estoque em Assistências

@@ -28,7 +28,7 @@ import { listReservedLocalInventoryCodes } from '../services/listReservedLocalIn
 import { getInventorySubmission } from '../services/inventoryOutbox';
 import { ensureOfflineInventoryCatalogSynced } from '../services/offlineInventoryCatalog';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
-import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../../../shared-utils/core/withTimeout';
 import {
   inventoryAuditDraftSchema,
   inventoryAuditScopeSchema,

@@ -7,7 +7,7 @@ import {
   hasFiscalItemSnapshot,
   hasPersistedAuthorizedInvoice,
 } from '../../../../shared-utils/orderItemFiscalSnapshot';
-import { withTimeout } from '../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../shared-utils/core/withTimeout';
 
 /**
  * Completes and persists legacy item snapshots for the selected fiscal environment.

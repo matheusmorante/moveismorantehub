@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type Order from '@/pages/types/order.type';
-import { prepareOrderForFormEditing } from '../hooks/orderFormSnapshot';
+import { prepareOrderForFormEditing } from '../hooks/drafts/orderFormSnapshot';
 import {
   getOperationsFreightTotal,
   getPrimaryOperationDistance,

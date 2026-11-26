@@ -6,7 +6,7 @@ import { normalizeSearchTerm } from '../../../utils/textUtils';
 import {
   fetchVariationOptionByValue,
   getVariationErrorMessage,
-} from '../../../utils/variationService';
+} from '../../../utils/productService/variationService';
 import {
   type CharacteristicFormData,
   type CharacteristicSaveStatus,

@@ -3,9 +3,9 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import * as userEvent from '@testing-library/user-event';
 import React from 'react';
-import { PercentInput } from './PercentInput';
-import { DistanceInput } from './DistanceInput';
-import { MeasurementInput } from './MeasurementInput';
+import { PercentInput } from './inputs/PercentInput';
+import { DistanceInput } from './inputs/DistanceInput';
+import { MeasurementInput } from './inputs/MeasurementInput';
 
 afterEach(() => {
   cleanup();

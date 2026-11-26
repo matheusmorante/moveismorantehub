@@ -1,7 +1,7 @@
 import { erpAgentTools } from './geminiToolDeclarations';
 import { GeminiToolDispatcher } from './geminiToolDispatcher';
 import { GeminiClient } from './geminiClient';
-import { withTimeout } from '../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../shared-utils/core/withTimeout';
 import { agentContentSchema } from '../../../../shared-utils/agentChatFormSchemas';
 import { createAgentToolCallGuard } from '../../../../shared-utils/agentToolCallGuard';
 import {

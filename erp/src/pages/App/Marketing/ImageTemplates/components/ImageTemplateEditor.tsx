@@ -5,34 +5,29 @@ import { useAuth } from '@/context/AuthContext';
 import { requestConfirmation } from '@/components/shared/confirmationService';
 import {
   FORMAT_DIMENSIONS,
-  IMAGE_FORMATS,
   imageTemplateFormSchema,
-  isTemplateLayerVisible,
-  LAYER_TYPES,
-  MAX_IMAGE_LAYERS,
   templateAssetIds,
   type ImageFormat,
-  type ImageLayerType,
   type ImageTemplateDesign,
   type ImageTemplateFormValues,
   type TemplatePreviewProduct,
 } from '../../../../../../../shared-utils/catalogImageTemplate';
-import { setTestArtifactMode } from '../../../../../../../shared-utils/testArtifactContext';
-import { findTemplateSelection, releaseTemplateLayer } from '../../../../../../../shared-utils/catalogImageTemplateGroups';
+import { setTestArtifactMode } from '../../../../../../../shared-utils/testing/testArtifactContext';
+import { findTemplateSelection } from '../../../../../../../shared-utils/catalogImageTemplateGroups';
 import { TemplateArtboard } from '../TemplateArtboard';
 import { TemplateLayerSettings } from '../TemplateLayerSettings';
-import { TemplateLayersList } from '../TemplateLayersList';
+import { TemplateLayersSidebar } from './TemplateLayersSidebar';
 import { TemplateGroupSettings, TemplateMultiSelectionSettings } from '../TemplateGroupSettings';
 import { TemplateCopyLayersDialog } from '../TemplateCopyLayersDialog';
 import { TemplateProductPreview, useTemplateProductPreview } from '../TemplateProductPreview';
 import { mapPreviewProduct } from '../productPreviewService';
-import { createTemplatePictureLoader, prepareTemplateProductPicture } from '../renderImageTemplate';
+import { createTemplatePictureLoader } from '../renderImageTemplate';
+import { preloadTemplateProductImages } from '../services/preloadTemplateProductImages';
 import { templateLayerPhotoUrls } from '../rendering/templateImageMask';
-import { getDerivedImageUrl } from '@/utils/imageUrlUtils';
 import { imageTemplateError, saveImageTemplate, type ImageTemplateSummary, type SavedImageTemplate, type TemplateAsset } from '../imageTemplateService';
 import { useTemplateAssets } from '../useTemplateAssets';
 import { imageTemplateTestContext } from '../imageTemplateTestContext';
-import { FIRST_TEMPLATE_FORMAT, TEMPLATE_FORMAT_LABELS, useImageTemplateHistory } from '../hooks/useImageTemplateHistory';
+import { FIRST_TEMPLATE_FORMAT, useImageTemplateHistory } from '../hooks/useImageTemplateHistory';
 import { useImageTemplateLayerActions } from '../hooks/useImageTemplateLayerActions';
 import { useImageTemplateFileLayers } from '../hooks/useImageTemplateFileLayers';
 import { useImageTemplateExport } from '../hooks/useImageTemplateExport';
@@ -76,39 +71,7 @@ export default function ImageTemplateEditor({ initial, original, userId, onBack,
   const layout = design.formats[currentFormat]!;
   const productImageCount = Math.max(1, ...layout.layers.flatMap((layer) => (layer.type === 'product' ? [layer.imageIndex + 1] : [])));
   const preloadPreviewProductImages = useCallback((candidate: TemplatePreviewProduct) => {
-    const imageIndexes = new Set<number>();
-    const cutoutIndexes = new Set<number>();
-    for (const layer of layout.layers) {
-      if (layer.type !== 'product' || !isTemplateLayerVisible(layout, layer, candidate)) continue;
-      imageIndexes.add(layer.imageIndex);
-      if (layer.imageIndex > 0 && layer.fallback === 'main') imageIndexes.add(0);
-      if (layer.removeBackground) {
-        cutoutIndexes.add(layer.imageIndex);
-        if (layer.imageIndex > 0 && layer.fallback === 'main') cutoutIndexes.add(0);
-      }
-    }
-    for (const index of imageIndexes) {
-      const image = candidate.images[index];
-      if (!image) continue;
-      const mediumImage = getDerivedImageUrl(image, 'medium');
-      const needsCutout = cutoutIndexes.has(index);
-      const preloadCutout = (url: string) => {
-        if (needsCutout) {
-          void getPicture(url, true, { preview: true, priority: 'low' }).then(prepareTemplateProductPicture).catch(() => {});
-        }
-      };
-      void getPicture(mediumImage, false).then((raw) => {
-        prepareTemplateProductPicture(raw);
-        preloadCutout(mediumImage);
-      }).catch(() => {
-        if (mediumImage !== image) {
-          void getPicture(image, false).then((raw) => {
-            prepareTemplateProductPicture(raw);
-            preloadCutout(image);
-          }).catch(() => {});
-        }
-      });
-    }
+    preloadTemplateProductImages(layout, candidate, getPicture);
   }, [getPicture, layout]);
 
   const preview = useTemplateProductPreview(userId, productImageCount, preloadPreviewProductImages);
@@ -384,105 +347,32 @@ export default function ImageTemplateEditor({ initial, original, userId, onBack,
       </header>
 
       <div className="ct-workspace">
-        <aside className="ct-layers" aria-label="Camadas">
-          <h2>Camadas</h2>
-          <p className="ct-muted">Adicione e personalize as camadas.</p>
-          <strong className="ct-format-label">Proporção do modelo</strong>
-          <div className="ct-format-tabs" role="tablist" aria-label="Proporção do modelo">
-            {IMAGE_FORMATS.map((ratio, index) => (
-              <button
-                type="button"
-                role="tab"
-                key={ratio}
-                data-ratio={ratio}
-                id={`ct-format-${ratio.replace(':', '-')}`}
-                aria-controls="ct-format-layers"
-                aria-selected={currentFormat === ratio}
-                tabIndex={currentFormat === ratio ? 0 : -1}
-                disabled={busy}
-                title={`${TEMPLATE_FORMAT_LABELS[ratio]}${design.formats[ratio] ? '' : ' · criar a partir do formato atual'}`}
-                onClick={() => history.chooseFormat(ratio)}
-                onKeyDown={(event) => {
-                  const next = event.key === 'ArrowRight'
-                    ? (index + 1) % IMAGE_FORMATS.length
-                    : event.key === 'ArrowLeft'
-                      ? (index + IMAGE_FORMATS.length - 1) % IMAGE_FORMATS.length
-                      : event.key === 'Home'
-                        ? 0
-                        : event.key === 'End'
-                          ? IMAGE_FORMATS.length - 1
-                          : -1;
-                  if (next < 0) return;
-                  event.preventDefault();
-                  history.chooseFormat(IMAGE_FORMATS[next]);
-                  event.currentTarget.parentElement?.querySelector<HTMLButtonElement>(`[data-ratio="${IMAGE_FORMATS[next]}"]`)?.focus();
-                }}
-              >
-                {ratio}
-              </button>
-            ))}
-          </div>
-          {currentFormat !== FIRST_TEMPLATE_FORMAT && (
-            <div className="ct-format-heading">
-              <button type="button" className="ct-link" disabled={busy} onClick={history.removeCurrentFormat}>
-                Remover formato
-              </button>
-            </div>
-          )}
-          <div
-            id="ct-format-layers"
-            role="tabpanel"
-            aria-labelledby={`ct-format-${currentFormat.replace(':', '-')}`}
-            className="ct-layer-panel"
-          >
-            <TemplateLayersList
-              key={currentFormat}
-              layout={layout}
-              activeId={activeId}
-              sources={assets.sources}
-              disabled={busy}
-              selection={layerActions.selectionMode}
-              onSelect={(selectedId) => {
-                setActiveId(selectedId);
-                artboardRef.current?.focus({ preventScroll: true });
-                fileLayers.setUploadError('');
-              }}
-              onToggleSelection={layerActions.toggleLayerSelection}
-              onBeginSelection={(selectedId) => layerActions.setSelectionMode({ layerIds: [selectedId] })}
-              onAddToGroup={(groupId) => {
-                setActiveId(groupId);
-                layerActions.setSelectionMode({ groupId, layerIds: [] });
-              }}
-              onRemoveGroup={layerActions.removeGrouping}
-              onDuplicateGroup={layerActions.duplicateGrouping}
-              onUngroup={(layerId) => {
-                history.changeLayout(releaseTemplateLayer(layout, layerId));
-                setActiveId(layerId);
-              }}
-              onRename={layerActions.renameLayer}
-              onRemove={layerActions.removeLayer}
-              onDuplicate={layerActions.duplicateLayer}
-              onCopyToFormat={layerActions.openCopyLayersDialog}
-              canRemove={layerActions.canRemove}
-              onReorder={layerActions.reorder}
-            />
-          </div>
-          <label className="ct-field">
-            <span className="sr-only">Adicionar camada</span>
-            <select
-              value=""
-              disabled={busy || !!layerActions.selectionMode || layout.layers.length >= MAX_IMAGE_LAYERS}
-              onChange={(event) => layerActions.addLayer(event.target.value as ImageLayerType)}
-            >
-              <option value="" disabled>＋ Adicionar camada</option>
-              {Object.entries(LAYER_TYPES)
-                .filter(([type]) => type !== 'background')
-                .map(([type, info]) => (
-                  <option key={type} value={type}>{info.label}</option>
-                ))}
-            </select>
-          </label>
-        </aside>
+        <TemplateLayersSidebar
+          design={design}
+          currentFormat={currentFormat}
+          layout={layout}
+          activeId={activeId}
+          busy={busy}
+          sources={assets.sources}
+          selectionMode={layerActions.selectionMode}
+          artboardRef={artboardRef}
+          setActiveId={setActiveId}
+          setUploadError={fileLayers.setUploadError}
+          chooseFormat={history.chooseFormat}
+          removeCurrentFormat={history.removeCurrentFormat}
+          changeLayout={history.changeLayout}
+          setSelectionMode={layerActions.setSelectionMode}
+          toggleLayerSelection={layerActions.toggleLayerSelection}
+          removeGrouping={layerActions.removeGrouping}
+          duplicateGrouping={layerActions.duplicateGrouping}
+          renameLayer={layerActions.renameLayer}
+          removeLayer={layerActions.removeLayer}
+          duplicateLayer={layerActions.duplicateLayer}
+          openCopyLayersDialog={layerActions.openCopyLayersDialog}
+          canRemove={layerActions.canRemove}
+          reorder={layerActions.reorder}
+          addLayer={layerActions.addLayer}
+        />
 
         {layerActions.selectionMode ? (
           <TemplateMultiSelectionSettings

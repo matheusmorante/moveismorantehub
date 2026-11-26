@@ -3,7 +3,7 @@ import type { InboundInvoice } from '../types/inboundNfeTypes';
 import { normalizeFiscalIdentifier } from '../../../../../../shared-utils/fiscalIdentifiers';
 import { isSalvadosOnlySupplier } from '../../../../../../shared-utils/productSupplierStockOrigin';
 import { markInboundInvoiceItemsNotApplicable } from '../../../../../../shared-utils/inboundInvoiceSupplierRules';
-import { withTimeout } from '../../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../../shared-utils/core/withTimeout';
 
 interface SupplierOriginLookupRow {
   id: string;

@@ -4,9 +4,9 @@ const { supabaseMock } = vi.hoisted(() => ({ supabaseMock: { from: vi.fn() } }))
 
 vi.mock('../../../services/supabaseClient', () => ({ supabase: supabaseMock }));
 
-import { fetchMobileProductsPage } from './mobileProductFetchService';
+import { fetchMobileProductsPage } from './products/mobileProductFetchService';
 import { PRODUCT_LIST_DRAFT_FILTER } from '../../../../../shared-utils/productListDraftFilters';
-import { NON_TEST_PRODUCT_ARTIFACT_FILTER } from '../../../../../shared-utils/testArtifactQueries';
+import { NON_TEST_PRODUCT_ARTIFACT_FILTER } from '../../../../../shared-utils/testing/testArtifactQueries';
 
 describe('fetchMobileProductsPage', () => {
   beforeEach(() => {

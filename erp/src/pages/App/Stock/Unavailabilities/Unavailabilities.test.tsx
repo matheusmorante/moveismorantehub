@@ -5,7 +5,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import type { Product, Variation } from '@/pages/types/product.type';
-import { canPerform } from '@/pages/utils/permissionService';
+import { canPerform } from '@/pages/utils/auth/permissionService';
 import {
   createStockUnavailability,
   fetchStockUnavailabilities,
@@ -54,11 +54,11 @@ vi.mock('@/context/AuthContext', () => ({
   useAuth: () => ({ profile: { role: 'manager', roles: ['manager'] } }),
 }));
 
-vi.mock('@/pages/utils/permissionService', () => ({ canPerform: vi.fn(() => true) }));
+vi.mock('@/pages/utils/auth/permissionService', () => ({ canPerform: vi.fn(() => true) }));
 
 vi.mock('react-toastify', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
-vi.mock('@/components/ProductAutocomplete', () => ({
+vi.mock('@/components/selectors/ProductAutocomplete', () => ({
   __esModule: true,
   default: ({
     onSelect,

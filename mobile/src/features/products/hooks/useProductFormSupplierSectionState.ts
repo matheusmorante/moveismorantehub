@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import {
   fetchMobileProductSuppliersWithStatus,
   type MobileProductSupplier,
-} from '../services/mobileSupplierService';
+} from '../services/products/mobileSupplierService';
 
 export const useProductFormSupplierSectionState = (enabled: boolean) => {
   const [suppliers, setSuppliers] = useState<MobileProductSupplier[]>([]);

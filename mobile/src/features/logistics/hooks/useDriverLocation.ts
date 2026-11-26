@@ -5,7 +5,7 @@ import {
   getLocationAccessStatus,
   watchDriverLocation,
   DriverCoordinates,
-} from '../../../services/locationService';
+} from '../../../services/logistics/locationService';
 
 export function useDriverLocation() {
   const [coords, setCoords] = useState<DriverCoordinates | null>(null);

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ReconciliationFilterState } from '../types/reconciliation.types';
-import CategoryAutocomplete from '../../../../../components/CategoryAutocomplete';
+import CategoryAutocomplete from '../../../../../components/selectors/CategoryAutocomplete';
 
 interface Props {
   filters: ReconciliationFilterState;

@@ -2,8 +2,8 @@ import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { labelCropFormSchema } from '../../../../../../../shared-utils/labelDesignFormSchemas';
-import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
-import { readImageFile } from '../../../../../../../shared-utils/readImageFile';
+import { withTimeout } from '../../../../../../../shared-utils/core/withTimeout';
+import { readImageFile } from '../../../../../../../shared-utils/core/readImageFile';
 import type { z } from 'zod';
 import { imageFilesFormSchema } from '../../../../../../../shared-utils/fileFormSchemas';
 

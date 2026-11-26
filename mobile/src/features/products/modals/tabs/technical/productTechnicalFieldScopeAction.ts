@@ -12,7 +12,7 @@ import {
 } from '../../../domain/productCharacteristics';
 import { getProductTechnicalDimensionField } from '../../../../../../../shared-utils/productTechnicalDimensions';
 import { getProductTechnicalRootPatch } from '../../../../../../../shared-utils/productTechnicalRootPatch';
-import type { MobileProductTechnicalField } from '../../../services/mobileProductTechnicalService';
+import type { MobileProductTechnicalField } from '../../../services/categories/mobileProductTechnicalService';
 import { normalizeSearchTerm } from './productTechnicalTabFieldVisibility';
 
 type ProductTechnicalFieldScope = 'not_inform' | 'global' | 'variation';

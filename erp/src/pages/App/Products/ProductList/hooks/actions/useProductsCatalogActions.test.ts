@@ -5,8 +5,8 @@ const supabaseFrom = vi.hoisted(() => vi.fn());
 const triggerProductMetaCatalogSync = vi.hoisted(() => vi.fn());
 
 vi.mock('@/pages/utils/supabaseConfig', () => ({ supabase: { from: supabaseFrom } }));
-vi.mock('@/pages/utils/productService', () => ({ updateProduct }));
-vi.mock('@/pages/utils/productService/productMetaCatalogSync', () => ({
+vi.mock('@/pages/utils/productService/productService', () => ({ updateProduct }));
+vi.mock('@/pages/utils/productService/catalog/productMetaCatalogSync', () => ({
   triggerProductMetaCatalogSync,
 }));
 

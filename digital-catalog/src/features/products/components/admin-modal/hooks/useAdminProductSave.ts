@@ -14,7 +14,7 @@ import { Product, ProductFormData, TempVariation } from '../types';
 import { formatMeasures } from '../utils/measuresUtils';
 import { generateSlug } from '../utils/slugAndSkuUtils';
 import { useAuth } from '@/hooks/use-auth';
-import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../../../shared-utils/core/withTimeout';
 
 const snapshotSignature = (value: unknown) => JSON.stringify(value, (_key, item) =>
   item && typeof item === 'object' && !Array.isArray(item) ? Object.fromEntries(Object.entries(item).sort(([left], [right]) => left.localeCompare(right))) : item);

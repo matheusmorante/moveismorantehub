@@ -6,12 +6,12 @@ import {
   duplicateProductMergeSearchSchema,
   DuplicateProductMergeUnconfirmedError,
 } from '../../../../../../../shared-utils/productDuplicateMergeFormSchemas';
-import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../../../shared-utils/core/withTimeout';
 import {
   mergeDuplicateProductIntoCanonical,
   searchDuplicateProductMergeTargets,
   type DuplicateProductMergeOption,
-} from '@/pages/utils/productService';
+} from '@/pages/utils/productService/productService';
 
 export interface MergeDuplicateProductModalProps {
   readonly product: { readonly id?: string; readonly code?: string | null; readonly name?: string | null } | null;

@@ -3,7 +3,7 @@ import type { GridModel, GridModelDraft } from '../types/LabelGridModelTypes';
 import type { LabelConfig } from '../utils/LabelConstants';
 import { mapDbToModel, mapModelToDb } from './labelLayoutMapper';
 import { labelLayoutDeleteFormSchema, labelRemoteLayoutDraftSchema, labelRemoteLayoutRecordSchema, LabelLayoutUnconfirmedError } from '../../../../../../../shared-utils/labelLayoutFormSchemas';
-import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../../../shared-utils/core/withTimeout';
 import { labelArtConfigInputSchema, labelLayoutArtworkCommandSchema, labelArtworkSaveFormSchema } from '../../../../../../../shared-utils/labelArtworkFormSchemas';
 import { DEFAULT_LAYOUT_MODELS } from '../utils/defaultLayoutModels';
 

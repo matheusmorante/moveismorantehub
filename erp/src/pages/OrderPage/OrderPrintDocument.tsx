@@ -9,13 +9,13 @@ import OrderOperationalNotices from './OrderOperationalNotices';
 import BudgetPaymentConditions from './BudgetPaymentConditions';
 import BudgetTermsAndConditions from './BudgetTermsAndConditions';
 import OrderPrintStyles from './OrderPrintStyles';
-import { splitNoticeTags } from '../utils/noticeTags';
+import { splitNoticeTags } from '../utils/shared/noticeTags';
 import Order from '@/pages/types/order.type';
 import {
   getEffectiveOrderDeliveryAddress,
   getEffectiveOrderDeliveryMapUrl,
 } from '@/pages/utils/orderDeliveryAddress';
-import { calcItemsSummary } from '@/pages/utils/calculations';
+import { calcItemsSummary } from '@/pages/utils/sales/calculations';
 
 interface OrderPrintDocumentProps {
   order: Order;

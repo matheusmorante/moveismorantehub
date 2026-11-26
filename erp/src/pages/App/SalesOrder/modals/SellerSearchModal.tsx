@@ -11,7 +11,7 @@ interface Props {
 }
 
 import { normalizeSearchTerm } from '@/pages/utils/textUtils';
-import { isValidEmployee } from '@/pages/utils/accessRoles';
+import { isValidEmployee } from '@/pages/utils/auth/accessRoles';
 import { matchesSearchText } from '@/pages/utils/textUtils';
 
 const SellerSearchModal = ({ onSelect, onClose, anchorRef, onAddNew }: Props) => {

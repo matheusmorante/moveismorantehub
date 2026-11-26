@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import type {
   CustomerSupportMetaMonthlyUsage,
   CustomerSupportWhatsAppSendQuota,
-} from '@/pages/utils/customerSupport/customerSupportService';
+} from '@/pages/utils/customerSupport/query/customerSupportService';
 
 interface WhatsAppQuotaModalProps {
   quota: CustomerSupportWhatsAppSendQuota | null;

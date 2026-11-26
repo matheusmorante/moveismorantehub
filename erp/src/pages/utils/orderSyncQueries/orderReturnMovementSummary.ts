@@ -2,7 +2,7 @@ import type Order from '../../types/order.type';
 import type Item from '../../types/items.type';
 import { supabase } from '../supabaseConfig';
 import { getReturnableQuantities } from '../returnQuantityRules';
-import { withTimeout } from '../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../shared-utils/core/withTimeout';
 
 export interface LinkedReturnRow {
   id: string;

@@ -14,7 +14,7 @@ vi.mock('@/pages/utils/supabaseConfig', () => ({ supabase: {
     single: table === 'products' ? transport.product : transport.confirm }),
 } }));
 vi.mock('react-toastify', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
-vi.mock('@/components/ProductAutocomplete', () => ({ default: ({ onSelect }: { onSelect: (product: Product, variation: Variation) => void }) =>
+vi.mock('@/components/selectors/ProductAutocomplete', () => ({ default: ({ onSelect }: { onSelect: (product: Product, variation: Variation) => void }) =>
   <button type="button" onClick={() => onSelect({ id: 'product' } as Product, { id: 'variation', name: 'Variação', sku: 'V1', stock: 10, unitPrice: 1, active: true, attributes: [] })}>Selecionar variação</button>,
 }));
 const row = { id: 'new', product_id: 'product', variation_id: 'variation', quantity: 1, reason: 'Avaria',

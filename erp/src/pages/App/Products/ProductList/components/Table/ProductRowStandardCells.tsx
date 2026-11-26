@@ -1,9 +1,9 @@
 import React from 'react';
 import Product, { ProductVisibilitySettings } from '@/pages/types/product.type';
-import { formatCurrency } from '@/pages/utils/formatters';
+import { formatCurrency } from '@/pages/utils/shared/formatters';
 import { getCategoryBreadcrumb } from '@/pages/utils/categoryService';
-import { normalizeVariationSku } from '@/pages/utils/productVariationDefaults';
-import { isNonConventionalProduct } from '@/pages/utils/productKindRules';
+import { normalizeVariationSku } from '@/pages/utils/productService/productVariationDefaults';
+import { isNonConventionalProduct } from '@/pages/utils/productService/productKindRules';
 import { isSalvadoStockOrigin } from '../../../../../../../../shared-utils/productStockOrigin';
 import { ChannelStatusBadges } from '../Shared/ChannelStatusBadges';
 import type { ProductListRow } from '../../types';

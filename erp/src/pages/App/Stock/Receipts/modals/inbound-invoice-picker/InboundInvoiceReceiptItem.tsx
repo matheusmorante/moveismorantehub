@@ -1,6 +1,6 @@
 import React from 'react';
 import type { InboundInvoice } from '@/pages/utils/inboundNfe/inboundNfeTypes';
-import { formatCurrency, formatToBRDate } from '@/pages/utils/formatters';
+import { formatCurrency, formatToBRDate } from '@/pages/utils/shared/formatters';
 import { statusLabel } from '../../utils/inboundInvoicePickerFilters';
 import { hasCompleteInboundInvoiceItems } from '@/pages/App/Stock/InboundInvoices/inboundReceiptEligibility';
 

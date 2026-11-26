@@ -3,7 +3,7 @@ import { supabase } from '../../../services/supabaseClient';
 import {
   fetchMobileProductSuppliers,
   fetchMobileProductSuppliersWithStatus,
-} from './mobileSupplierService';
+} from './products/mobileSupplierService';
 
 vi.mock('../../../services/supabaseClient', () => ({ supabase: { from: vi.fn() } }));
 

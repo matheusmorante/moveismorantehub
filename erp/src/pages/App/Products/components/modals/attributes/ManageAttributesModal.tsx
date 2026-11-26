@@ -6,7 +6,7 @@ import {
   saveVariation,
   saveCharacteristicOptions,
   getVariationErrorMessage,
-} from '../../../../../utils/variationService';
+} from '../../../../../utils/productService/variationService';
 import { toast } from 'react-toastify';
 import { normalizeSearchTerm } from '../../../../../utils/textUtils';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';

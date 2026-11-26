@@ -3,7 +3,7 @@ import React from 'react';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { AddCustomInboxModal } from '../components/inbox/AddCustomInboxModal';
-import { DEFAULT_SUPPORT_FOLDER_CRITERIA } from '@/pages/utils/customerSupport/customerSupportInboxService';
+import { DEFAULT_SUPPORT_FOLDER_CRITERIA } from '@/pages/utils/customerSupport/query/customerSupportInboxService';
 import type { CustomerSupportFolder } from '../types';
 
 afterEach(cleanup);

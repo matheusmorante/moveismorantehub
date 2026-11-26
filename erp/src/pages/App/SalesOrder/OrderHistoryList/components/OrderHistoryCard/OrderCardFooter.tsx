@@ -1,6 +1,6 @@
 import React from 'react';
 import Order from '../../../../../types/order.type';
-import { formatCurrency } from '../../../../../utils/formatters';
+import { formatCurrency } from '../../../../../utils/shared/formatters';
 import { OrderOptionsMenu } from '../OrderOptionsMenu';
 import { OrderHistoryCardProps } from './OrderHistoryCard.types';
 

@@ -1,1 +1,1 @@
-export * from './schemas/messagingFormSchemas';
+export * from './schemas/support/messagingFormSchemas';

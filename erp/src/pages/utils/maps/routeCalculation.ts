@@ -1,12 +1,12 @@
 import CustomerData from '../../types/customerData.type';
 import { ApiUsageGuard } from '@/services/apiMonitoring/apiUsageGuard';
 import { ApiUsageTracker } from '@/services/apiMonitoring/apiUsageTracker';
-import { stringifyMapAddress } from '../formatters';
+import { stringifyMapAddress } from '../shared/formatters';
 import { parseCoordinatesFromMapsUrl } from '../mapCoordinates';
 import { getSettings } from '../settingsService';
 import { geocodeAddress } from './addressGeocoding';
 import { loadGoogleMapsApi } from './googleMapsLoader';
-import { withTimeout } from '../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../shared-utils/core/withTimeout';
 
 export interface RouteResult {
   distanceKm: number;

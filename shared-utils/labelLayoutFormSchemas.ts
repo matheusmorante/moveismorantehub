@@ -1,1 +1,1 @@
-export * from './schemas/labelLayoutFormSchemas';
+export * from './schemas/stock/labelLayoutFormSchemas';

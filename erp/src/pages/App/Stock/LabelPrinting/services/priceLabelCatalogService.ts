@@ -1,9 +1,9 @@
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { normalizeSearchTerm, buildAccentInsensitiveRegex } from '@/pages/utils/textUtils';
-import { getLocalProducts } from '@/pages/utils/productService/productLocalCache';
-import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
+import { getLocalProducts } from '@/pages/utils/productService/drafts/productLocalCache';
+import { withTimeout } from '../../../../../../../shared-utils/core/withTimeout';
 import { labelCatalogProductSchema, labelCatalogSearchFormSchema } from '../../../../../../../shared-utils/labelDataFillFormSchemas';
-import { buildPostgrestAccentInsensitiveOrFilter, matchesSearchText } from '../../../../../../../shared-utils/searchText';
+import { buildPostgrestAccentInsensitiveOrFilter, matchesSearchText } from '../../../../../../../shared-utils/core/searchText';
 
 export interface PriceLabelCatalogProduct {
   id: string;

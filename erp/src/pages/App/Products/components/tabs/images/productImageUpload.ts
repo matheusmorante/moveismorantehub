@@ -1,7 +1,7 @@
 import { compressImageToFile } from '@/pages/utils/images/imageUtils';
-import { uploadFile } from '@/pages/utils/storageService';
+import { uploadFile } from '@/pages/utils/shared/storageService';
 import { imageFilesFormSchema } from '../../../../../../../../shared-utils/fileFormSchemas';
-import { withTimeout } from '../../../../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../../../../shared-utils/core/withTimeout';
 import { productImageReplacementFormSchema } from '../../../../../../../../shared-utils/productImageFormSchemas';
 import { PRODUCT_IMAGE_DERIVATIVES } from '../../../../../../../../shared-utils/productImageDerivatives';
 

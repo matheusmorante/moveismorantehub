@@ -2,12 +2,12 @@ import React from 'react';
 import Order from '../../../../types/order.type';
 import { getSettings } from '@/pages/utils/settingsService';
 import { getOrderStatusLabel } from '@/pages/utils/orderStatusPresentation';
-import { stringifyFullAddressWithObservation } from '../../../../utils/formatters';
+import { stringifyFullAddressWithObservation } from '../../../../utils/shared/formatters';
 import {
   getOrderTypeClasses,
   resolveOrderColor,
 } from '../../../../utils/orderTypeColorUtils';
-import { splitNoticeTags } from '../../../../utils/noticeTags';
+import { splitNoticeTags } from '../../../../utils/shared/noticeTags';
 import { resolveEffectiveSchedule } from '../../../../../../../shared-utils/commercialOrderRules';
 import { CardHeaderBadges } from './CardHeaderBadges';
 import { CardLinkedOrderOverlay } from './CardLinkedOrderOverlay';

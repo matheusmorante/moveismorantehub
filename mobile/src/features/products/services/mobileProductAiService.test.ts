@@ -13,7 +13,7 @@ import {
   getMobileProductCharacteristicsQuota,
   improveMobileProductDescription,
   sanitizeMobileProductDescription,
-} from './mobileProductAiService';
+} from './products/mobileProductAiService';
 
 describe('mobileProductAiService', () => {
   beforeEach(() => vi.clearAllMocks());

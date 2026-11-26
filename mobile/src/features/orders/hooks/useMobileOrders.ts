@@ -7,14 +7,14 @@ import { OrderRepository } from '../../../repositories/OrderRepository';
 import { offlineStorageService } from '../../../services/offline/offlineStorageService';
 import { offlineSyncManager } from '../../../services/offline/offlineSyncManager';
 import { connectivityService } from '../../../services/offline/connectivityService';
-import { isIdentifiedTestArtifact } from '../../../../../shared-utils/testArtifactPolicy';
+import { isIdentifiedTestArtifact } from '../../../../../shared-utils/testing/testArtifactPolicy';
 import {
   fetchMobileOrderFiscalBadgeStatuses,
   fetchMobileOrdersPage,
 } from '../services/mobileOrderListService';
 import type { MobileOrderListItem } from '../services/mobileOrderListService';
 import type { MobileOrderType } from '../domain/types';
-import { withAbortTimeout } from '../../../../../shared-utils/withAbortTimeout';
+import { withAbortTimeout } from '../../../../../shared-utils/core/withAbortTimeout';
 import { filterOfflineOrdersPage } from '../domain/offlineOrderSearch';
 
 const ITEMS_PER_PAGE = 15;

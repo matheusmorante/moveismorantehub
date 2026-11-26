@@ -1,4 +1,4 @@
-import { formatToBRDate } from '../formatters';
+import { formatToBRDate } from '../shared/formatters';
 import { formatAccessKey } from './nfeAccessKey';
 import bwipjs from 'bwip-js';
 import { toast } from 'react-toastify';

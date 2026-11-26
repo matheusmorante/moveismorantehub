@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { isValidUuid } from '../../uuidUtils';
+import { isValidUuid } from '../../shared/uuidUtils';
 import { checkInboundInvoiceKeyExists } from '../inboundInvoicesService';
-import { saveProductSupplierCode } from '../../productSupplierCodesService';
-import { resolveCanonicalVariationIds } from '../../variationCanonicalService';
+import { saveProductSupplierCode } from '../../productService/productSupplierCodesService';
+import { resolveCanonicalVariationIds } from '../../productService/variationCanonicalService';
 import { recordProductResolutionFeedback } from '../productResolutionFeedbackService';
 import { supabase } from '../../supabaseConfig';
 

@@ -11,7 +11,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { X, Calendar as CalendarIcon, Clock, Tag, FileText, Check } from 'lucide-react-native';
-import { createCalendarEvent, CalendarEvent } from '../../../services/scheduleEventsService';
+import { createCalendarEvent, CalendarEvent } from '../../../services/logistics/scheduleEventsService';
 import { flattenFormErrors, useZodForm } from '../../../hooks/useZodForm';
 import { calendarEventFormSchema } from '../../../../../shared-utils/scheduleFormSchemas';
 

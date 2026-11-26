@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import type Product from '@/pages/types/product.type';
-import ProductImage from '@/components/ProductImage';
-import { parseVariationImages } from '@/pages/utils/productService';
+import ProductImage from '@/components/display/ProductImage';
+import { parseVariationImages } from '@/pages/utils/productService/productService';
 import type { ProductListRow } from '../../types';
 import { StockOriginBadge } from '../Shared/StockOriginBadge';
 import { MergedBadge } from '../Shared/MergedBadge';

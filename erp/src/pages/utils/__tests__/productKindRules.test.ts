@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { normalizeProductForSave } from '../productKindRules';
-import { mapFromDB, mapToDB } from '../productService/productMapper';
+import { normalizeProductForSave } from '../productService/productKindRules';
+import { mapFromDB, mapToDB } from '../productService/mapping/productMapper';
 import type Product from '@/pages/types/product.type';
 import { getInitialProductFormData } from '../../App/Products/utils/form/productFormInitialData';
 

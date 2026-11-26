@@ -4,9 +4,9 @@ import { itemCostWithAdditionalCosts } from '@/pages/utils/inboundNfe/inboundIte
 import {
   generateVariationSku,
   getNextSequentialProductCode,
-} from '@/pages/utils/productService/productSkuService';
-import { ensureDefaultVariation } from '@/pages/utils/productVariationDefaults';
-import { aiService } from '@/pages/utils/aiService';
+} from '@/pages/utils/productService/mutations/productSkuService';
+import { ensureDefaultVariation } from '@/pages/utils/productService/productVariationDefaults';
+import { aiService } from '@/pages/utils/aiService/aiService';
 
 interface PrepareProductCreateParams {
   item: InboundInvoiceItem;

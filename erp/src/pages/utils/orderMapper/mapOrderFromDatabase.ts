@@ -1,5 +1,5 @@
 import Order, { OrderType } from '../../types/order.type';
-import { capitalizeOrder } from '../formatters';
+import { capitalizeOrder } from '../shared/formatters';
 import { OrderDatabaseRow } from './orderMapperTypes';
 import { setPersistedOrderDataSnapshot } from './orderSnapshots';
 import { mapPaymentsAndSummary } from './orderPaymentsMapper';

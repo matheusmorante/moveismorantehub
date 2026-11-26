@@ -3,7 +3,7 @@ import { ZodForm } from '@/components/forms/ZodForm';
 import { assemblyScheduleFormSchema } from '../../../../../shared-utils/operationsFormSchemas';
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/pages/utils/supabaseConfig';
-import { formatToBRDate } from '../../utils/formatters';
+import { formatToBRDate } from '../../utils/shared/formatters';
 import { Drill } from '@/components/shared/DrillIcon';
 import { toast } from 'react-toastify';
 import { requestConfirmation } from '@/components/shared/confirmationService';

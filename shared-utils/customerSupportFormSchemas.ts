@@ -1,1 +1,1 @@
-export * from './schemas/customerSupportFormSchemas';
+export * from './schemas/support/customerSupportFormSchemas';

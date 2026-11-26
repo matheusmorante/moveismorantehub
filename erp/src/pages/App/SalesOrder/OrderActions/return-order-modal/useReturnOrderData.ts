@@ -13,7 +13,7 @@ import {
   type ReturnQuantityRecord,
 } from '../../../../utils/returnQuantityRules';
 import { supabase } from '../../../../utils/supabaseConfig';
-import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../../../shared-utils/core/withTimeout';
 
 export const useReturnOrderData = (order: Order) => {
   const [returnableQuantities, setReturnableQuantities] = useState<Record<string, number>>({});

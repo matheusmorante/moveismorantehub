@@ -5,7 +5,7 @@ import {
   computeCustomerAutoUseCustomerAddress,
   resolveInitialUseCustomerAddress,
   detectCustomerLinkingChange,
-} from '../customerAddressRules';
+} from '../customer-shipping/customerAddressRules';
 import CustomerData from '@/pages/types/customerData.type';
 
 describe('customerAddressRules', () => {

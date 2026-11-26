@@ -7,13 +7,13 @@ import { toast } from 'react-toastify';
 const mocks = vi.hoisted(() => ({ fetchProductsPage: vi.fn() }));
 
 vi.mock('@/context/AuthContext', () => ({ useAuth: () => ({ profile: null }) }));
-vi.mock('@/pages/utils/productService', () => ({
+vi.mock('@/pages/utils/productService/productService', () => ({
   fetchProductsPage: mocks.fetchProductsPage,
   activateProduct: vi.fn(),
 }));
 vi.mock('react-toastify', () => ({ toast: { error: vi.fn(), success: vi.fn(), info: vi.fn() } }));
-vi.mock('@/pages/utils/permissionService', () => ({ canPerform: () => false }));
-vi.mock('@/pages/utils/accessRoles', () => ({ getProfileRoles: () => [] }));
+vi.mock('@/pages/utils/auth/permissionService', () => ({ canPerform: () => false }));
+vi.mock('@/pages/utils/auth/accessRoles', () => ({ getProfileRoles: () => [] }));
 vi.mock('@/pages/utils/hmlTestData', () => ({ isTestProduct: () => false }));
 vi.mock('../../utils/catalog/productListTransformers', () => ({
   flattenProductsForList: (products: unknown[]) => products,

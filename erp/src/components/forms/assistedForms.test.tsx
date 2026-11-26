@@ -2,13 +2,13 @@
 import { act, cleanup, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ReceiptAIFillModal } from '@/pages/App/Stock/Receipts/modals/ReceiptAIFillModal';
-import { SmartAIFillModal } from '@/pages/App/SalesOrder/components/SmartAIFillModal';
+import { SmartAIFillModal } from '@/pages/App/SalesOrder/components/smart-ai-fill/SmartAIFillModal';
 import { createPersonImportFormSchema } from '../../../../shared-utils/personDomainValidation';
 import { useZodForm } from '@/hooks/useZodForm';
 
 const mocks = vi.hoisted(() => ({ parse: vi.fn(), error: vi.fn() }));
 vi.mock('@/pages/utils/receiptAiService', () => ({ parseReceiptWithAI: mocks.parse }));
-vi.mock('@/pages/utils/aiService', () => ({ aiService: { parseOrderFromFreeText: vi.fn() } }));
+vi.mock('@/pages/utils/aiService/aiService', () => ({ aiService: { parseOrderFromFreeText: vi.fn() } }));
 vi.mock('react-toastify', () => ({ toast: { warn: mocks.error, error: mocks.error, success: vi.fn() } }));
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
 

@@ -4,8 +4,8 @@ import type { WhatsAppMessage } from '../types';
 import {
   fetchConversationMessageChanges,
   mapRowToMessage,
-} from '@/pages/utils/customerSupport/customerSupportService';
-import { mergeSupportMessageChanges } from '@/pages/utils/customerSupport/customerSupportMessageSync';
+} from '@/pages/utils/customerSupport/query/customerSupportService';
+import { mergeSupportMessageChanges } from '@/pages/utils/customerSupport/query/customerSupportMessageSync';
 
 interface UseCustomerSupportRealtimeSyncParams {
   supabase: SupabaseClient;

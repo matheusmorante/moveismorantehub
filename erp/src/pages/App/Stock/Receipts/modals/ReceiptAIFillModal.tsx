@@ -3,7 +3,7 @@ import { toast } from 'react-toastify';
 import { parseReceiptWithAI, ReceiptAIResult } from '@/pages/utils/receiptAiService';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { assistedReceiptFormSchema, textPromptFormSchema } from '../../../../../../../shared-utils/assistedFormSchemas';
-import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../../../shared-utils/core/withTimeout';
 
 export interface ReceiptAIFillModalProps {
   readonly isOpen: boolean;

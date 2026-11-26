@@ -1,6 +1,6 @@
 import Person from '@/pages/types/person.type';
 import { UserRole } from '@/context/AuthContext';
-import { getPrimaryRole } from '@/pages/utils/accessRoles';
+import { getPrimaryRole } from '@/pages/utils/auth/accessRoles';
 import { getShippingRouteUrl } from '@/pages/utils/maps';
 
 export const EMPTY_PERSON_ADDRESS = {

@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import type { VariationOption } from '../../../types/variation.type';
-import { getVariationErrorMessage } from '../../../utils/variationService';
+import { getVariationErrorMessage } from '../../../utils/productService/variationService';
 import { CharacteristicOptionsSection } from '../components/CharacteristicOptionsSection';
 import { normalizeCharacteristicText } from '../domain/characteristicFormRules';
 

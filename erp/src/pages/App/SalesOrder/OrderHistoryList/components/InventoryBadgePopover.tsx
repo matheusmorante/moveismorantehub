@@ -7,7 +7,7 @@ import {
   ItemMovementDisplay,
   getOrderItemsMovementList,
 } from '../utils/inventoryBadgeContent';
-import { getNonStockOrigin } from '../../../../utils/saleInventoryRules';
+import { getNonStockOrigin } from '../../../../utils/sales/saleInventoryRules';
 
 const MovementWarning = ({ tooltip }: { tooltip: string }) => (
   <span

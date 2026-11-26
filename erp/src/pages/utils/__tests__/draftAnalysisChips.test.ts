@@ -1,6 +1,6 @@
 import { describe, test, expect } from 'vitest';
-import { buildDraftAnalysisChips } from '../draftAnalysisChips';
-import { ParsedFinancialIntent } from '../draftAnalysisChips';
+import { buildDraftAnalysisChips } from '../aiService/draftAnalysisChips';
+import { ParsedFinancialIntent } from '../aiService/draftAnalysisChips';
 
 describe('Rótulos de Análise em Tempo Real do Assistente Financeiro (Realtime Draft Chips)', () => {
   test('1. Exemplo de Saída Parcelada: "Paguei 20 mil para a Bechara no Pix hoje, em quatro parcelas..."', () => {

@@ -1,4 +1,4 @@
-import { extractLabelIdentity, extractScannedCodes } from '@/pages/utils/barcodeScannerUtils';
+import { extractLabelIdentity, extractScannedCodes } from '@/pages/utils/shared/barcodeScannerUtils';
 import {
   OFFLINE_INVENTORY_CATALOG_FORMAT_VERSION,
   type OfflineInventoryCatalog,

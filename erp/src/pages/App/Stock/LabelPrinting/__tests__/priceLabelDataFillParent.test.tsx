@@ -19,7 +19,7 @@ vi.mock('../services/priceLabelPersistenceService', () => ({
   fetchOpportunitiesResult: vi.fn(async () => ({ data: [{ id: 'offer', name: 'Oferta' }], error: null })),
 }));
 vi.mock('react-toastify', () => ({ toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() } }));
-vi.mock('../hooks/usePriceLabelLayerSelection', () => ({ usePriceLabelLayerSelection: () => vi.fn() }));
+vi.mock('../hooks/price-label/usePriceLabelLayerSelection', () => ({ usePriceLabelLayerSelection: () => vi.fn() }));
 vi.mock('../components/PriceLabelArtRenderer', () => ({
   PriceLabelArtRenderer: ({ data, startDragging, startResizing, startRotating }: { data: Record<string, unknown>;
     startDragging: (layer: string, event: React.MouseEvent) => void; startResizing: (layer: string, event: React.MouseEvent) => void;

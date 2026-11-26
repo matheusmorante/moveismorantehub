@@ -1,7 +1,7 @@
 import React from 'react';
 import type Order from '@/pages/types/order.type';
 import type { AssistanceItem } from '@/pages/types/order.type';
-import { formatToBRDate } from '@/pages/utils/formatters';
+import { formatToBRDate } from '@/pages/utils/shared/formatters';
 import { formatOrderCode } from '@/pages/utils/orderCode';
 
 export interface AssistanceLinkedOrderSectionProps {

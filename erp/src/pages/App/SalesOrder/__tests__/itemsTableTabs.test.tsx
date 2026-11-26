@@ -37,7 +37,7 @@ vi.mock('@/pages/utils/settingsService', () => {
 import ItemsTable from '../ItemsTable';
 import BodyRow from '../ItemsTable/BodyRow';
 import { Item, ItemsSummary } from '@/pages/types/items.type';
-import { calcItemsSummary } from '@/pages/utils/calculations';
+import { calcItemsSummary } from '@/pages/utils/sales/calculations';
 
 describe('ItemsTable - Lista unificada de produtos e serviços', () => {
   afterEach(() => {

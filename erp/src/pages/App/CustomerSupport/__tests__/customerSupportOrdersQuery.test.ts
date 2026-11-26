@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { getCustomerOrders, mapOrderToSupportSummary } from '@/pages/utils/customerSupport/supportOrdersService';
+import { getCustomerOrders, mapOrderToSupportSummary } from '@/pages/utils/customerSupport/orders/supportOrdersService';
 
 afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); });
 const client = (response: unknown) => ({ rpc: vi.fn().mockReturnValue(response) }) as any;

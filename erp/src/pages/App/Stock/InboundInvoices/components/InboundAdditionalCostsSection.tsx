@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
-import { formatCurrency } from '@/pages/utils/formatters';
-import CurrencyOrPercentInput from '@/components/CurrencyOrPercentInput';
+import { formatCurrency } from '@/pages/utils/shared/formatters';
+import CurrencyOrPercentInput from '@/components/inputs/CurrencyOrPercentInput';
 import type { InboundInvoice } from '@/pages/utils/inboundNfe/inboundNfeTypes';
 import {
   type AdditionalCostInput,

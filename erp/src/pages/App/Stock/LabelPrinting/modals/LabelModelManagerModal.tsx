@@ -1,7 +1,7 @@
 import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
-import type { CategoryType } from '../hooks/useLabelCategory';
+import type { CategoryType } from '../hooks/label-printing/useLabelCategory';
 import type { GridModel } from '../types/LabelGridModelTypes';
 import type { LabelConfig } from '../utils/LabelConstants';
 import { calculateLabelDimensions } from '../utils/calculateLabelDimensions';

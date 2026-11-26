@@ -23,8 +23,8 @@ import {
   type MobileCropRect,
   type MobileSquareSelection,
 } from '../../domain/mobileProductImageCrop';
-import { uploadMobileProductPhoto } from '../../services/mobileProductPhotoService';
-import { withTimeout } from '../../../../../../shared-utils/withTimeout';
+import { uploadMobileProductPhoto } from '../../services/products/mobileProductPhotoService';
+import { withTimeout } from '../../../../../../shared-utils/core/withTimeout';
 import { squareImageCropFormSchema } from '../../../../../../shared-utils/fileFormSchemas';
 import {
   createProductImageCropSourceFormSchema,

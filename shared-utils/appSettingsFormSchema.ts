@@ -1,1 +1,1 @@
-export * from './schemas/appSettingsFormSchema';
+export * from './schemas/system/appSettingsFormSchema';

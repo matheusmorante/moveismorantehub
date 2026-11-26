@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import SectionCard from '../../../components/SectionCard';
+import SectionCard from '../../../components/display/SectionCard';
 import { systemDocumentation } from './systemDocumentation';
 import DocumentationFlow from './DocumentationFlow';
 import EngineeringImpactMap from './EngineeringImpactMap';

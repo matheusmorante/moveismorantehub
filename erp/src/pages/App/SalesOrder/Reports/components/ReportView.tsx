@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import ReportFiltersSidebar from './ReportFiltersSidebar';
-import { useParams, useNavigate, Link, useLocation, useSearchParams } from 'react-router-dom';
+import { useParams, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import ItemExclusionModal from '../modals/ItemExclusionModal';
 import ProductReferenceModal from '../modals/ProductReferenceModal';
-import { format } from 'date-fns';
 import { useSalesReport } from '../hooks/useSalesReport';
 import type { ABCResult, SaleItem } from '../utils/salesReportCalculations';
 import ReportConfigModal from '../modals/ReportConfigModal';
@@ -19,7 +18,8 @@ import SupplierPerformanceView from './SupplierPerformanceView';
 import { deriveReportAbcChartData } from './reportChartData';
 import { deriveReportRefinementMetrics } from './reportSupplierMetrics';
 import ReportProductDetailModal from './ReportProductDetailModal';
-import { REPORT_PRINT_STYLES } from './reportPrintStyles';
+import { ReportHeader } from './ReportHeader';
+import { ReportAbcResultsTable } from './ReportAbcResultsTable';
 import { ReportAbcChart } from './ReportAbcChart';
 import { ReportMatrixAnalysis } from './ReportMatrixAnalysis';
 
@@ -130,15 +130,6 @@ const ReportView = () => {
       key,
       direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc',
     }));
-  };
-
-  const SortIcon = ({ column }: { column: string }) => {
-    if (sortConfig.key !== column) return <i className="bi bi-arrow-down-up opacity-20 ml-2"></i>;
-    return (
-      <i
-        className={`bi bi-sort-${sortConfig.direction === 'asc' ? 'down' : 'up'} text-indigo-500 ml-2`}
-      ></i>
-    );
   };
 
   useEffect(() => {
@@ -341,195 +332,27 @@ const ReportView = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col">
-      <header className="sticky top-0 z-40 bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 shadow-sm print:hidden">
-        {/* Linha 1: Identidade e Métricas Rápidas */}
-        <div className="px-6 py-6 pb-2">
-          <div className="max-w-[1800px] mx-auto flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
-            <div className="flex items-center gap-4">
-              {!isPublicMode && (
-                <Link
-                  to="/sales-order/reports"
-                  className="w-10 h-10 rounded-full bg-slate-50 dark:bg-slate-950 flex items-center justify-center text-slate-400 hover:text-indigo-600 transition-all border border-slate-100 dark:border-slate-800"
-                >
-                  <i className="bi bi-arrow-left text-lg"></i>
-                </Link>
-              )}
-              <div>
-                <h1 className="text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight leading-tight uppercase">
-                  {isPublicMode && <i className="bi bi-shield-check text-emerald-500 mr-2"></i>}
-                  {reportName}
-                </h1>
-                <div className="flex items-center gap-3 mt-1.5">
-                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                    {reportSource === 'erp' ? 'VIA ERP' : 'VIA CSV'}:
-                  </span>
-                  <span className="text-sm font-black text-emerald-600">
-                    {totalProfit.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                  </span>
-                  <div className="w-1 h-1 bg-slate-300 rounded-full"></div>
-                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                    Amostragem:
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-black text-blue-600">
-                      {monthCount} {monthCount === 1 ? 'mês' : 'meses'}
-                    </span>
-                    {reportStartDate &&
-                      reportEndDate &&
-                      !isNaN(reportStartDate.getTime()) &&
-                      !isNaN(reportEndDate.getTime()) && (
-                        <span className="text-[9px] font-bold text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-lg">
-                          {format(reportStartDate, 'MM/yyyy')} — {format(reportEndDate, 'MM/yyyy')}
-                        </span>
-                      )}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Indicadores de Meta no Header */}
-            <div className="hidden lg:flex items-center gap-8">
-              <div className="flex flex-col items-end">
-                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">
-                  Giro Mensal Médio
-                </span>
-                <span className="text-sm font-black text-slate-700 dark:text-slate-300">
-                  {avgTurnoverPerItem.toFixed(1)}{' '}
-                  <span className="text-[10px] opacity-40 uppercase ml-1">un/mês</span>
-                </span>
-              </div>
-              <div className="h-8 w-px bg-slate-100 dark:bg-slate-800"></div>
-              <div className="flex flex-col items-end">
-                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">
-                  Lucro Mensal Médio
-                </span>
-                <span className="text-sm font-black text-slate-700 dark:text-slate-300">
-                  {avgProfitPerItem.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Linha 2: ABAS de Navegação Principal (NOVO) */}
-        <div className="px-6">
-          <div className="max-w-[1800px] mx-auto flex border-b border-transparent">
-            <div className="flex gap-2">
-              <button
-                onClick={() => setViewMode('product')}
-                className={`px-6 py-4 flex items-center gap-3 transition-all relative group ${viewMode === 'product' ? 'text-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}
-              >
-                <i
-                  className={`bi bi-box-seam ${viewMode === 'product' ? 'text-indigo-600' : 'text-slate-300 group-hover:text-indigo-400'} text-lg transition-colors`}
-                ></i>
-                <span className="text-[11px] font-black uppercase tracking-[0.2em]">
-                  Desempenho dos Produtos
-                </span>
-                {viewMode === 'product' && (
-                  <div className="absolute bottom-0 left-0 w-full h-1 bg-indigo-600 rounded-full animate-fade-in"></div>
-                )}
-              </button>
-              <button
-                onClick={() => setViewMode('supplier')}
-                className={`px-6 py-4 flex items-center gap-3 transition-all relative group ${viewMode === 'supplier' ? 'text-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}
-              >
-                <i
-                  className={`bi bi-truck ${viewMode === 'supplier' ? 'text-indigo-600' : 'text-slate-300 group-hover:text-indigo-400'} text-lg transition-colors`}
-                ></i>
-                <span className="text-[11px] font-black uppercase tracking-[0.2em]">
-                  Desempenho por Fornecedor
-                </span>
-                {viewMode === 'supplier' && (
-                  <div className="absolute bottom-0 left-0 w-full h-1 bg-indigo-600 rounded-full animate-fade-in"></div>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Linha 3: Controles de Refinamento e Ações */}
-        <div className="bg-slate-50/50 dark:bg-slate-950/20 border-t border-slate-100 dark:border-slate-800 px-6 py-3">
-          <div className="max-w-[1800px] mx-auto flex justify-between items-center">
-            <div className="flex items-center gap-4">
-              {viewMode === 'product' && (
-                <div className="flex p-1 bg-white dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
-                  <button
-                    onClick={() => setReportType('abc')}
-                    className={`px-6 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${reportType === 'abc' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20' : 'text-slate-500 hover:bg-slate-100'}`}
-                  >
-                    <i className="bi bi-graph-up-arrow mr-2 text-xs"></i>
-                    Curva ABC Matriz
-                  </button>
-                  <button
-                    onClick={() => setReportType('matrix')}
-                    className={`px-6 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${reportType === 'matrix' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20' : 'text-slate-500 hover:bg-slate-100'}`}
-                  >
-                    <i className="bi bi-grid-3x3-gap-fill mr-2 text-xs"></i>
-                    Matriz de Giro
-                  </button>
-                </div>
-              )}
-
-              {viewMode === 'product' && (
-                <div className="flex p-1 bg-slate-100 dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700">
-                  <button
-                    onClick={() => setAbcBasis('revenue')}
-                    className={`px-4 py-2 rounded-xl text-[8px] font-black uppercase tracking-widest transition-all ${abcBasis === 'revenue' ? 'bg-white dark:bg-slate-700 text-indigo-600 shadow-sm' : 'text-slate-400'}`}
-                  >
-                    Por Faturamento
-                  </button>
-                  <button
-                    onClick={() => setAbcBasis('profit')}
-                    className={`px-4 py-2 rounded-xl text-[8px] font-black uppercase tracking-widest transition-all ${abcBasis === 'profit' ? 'bg-white dark:bg-slate-700 text-indigo-600 shadow-sm' : 'text-slate-400'}`}
-                  >
-                    Por Lucratividade
-                  </button>
-                </div>
-              )}
-            </div>
-
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => window.print()}
-                className="h-10 px-5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 flex items-center gap-2 text-slate-500 hover:text-indigo-600 transition-all font-black text-[9px] uppercase tracking-widest hover:border-indigo-200 shadow-sm"
-                title="Imprimir / Exportar PDF"
-              >
-                <i className="bi bi-printer-fill text-sm"></i>
-                <span className="hidden sm:inline">Imprimir / PDF</span>
-              </button>
-
-              {!isPublicMode && (
-                <>
-                  <button
-                    onClick={handleShareWhatsApp}
-                    className="h-10 px-5 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-100 flex items-center gap-2 hover:bg-emerald-600 hover:text-white transition-all font-black text-[9px] uppercase tracking-widest shadow-sm"
-                    title="Compartilhar pelo WhatsApp"
-                  >
-                    <i className="bi bi-whatsapp text-sm"></i>
-                    <span className="hidden sm:inline">Compartilhar</span>
-                  </button>
-                  <button
-                    onClick={() => setIsConfigOpen(true)}
-                    className="h-10 px-5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 flex items-center gap-2 text-slate-500 hover:text-indigo-600 transition-all font-black text-[9px] uppercase tracking-widest hover:border-indigo-200 shadow-sm"
-                  >
-                    <i className="bi bi-gear-wide-connected text-sm"></i>
-                    <span className="hidden sm:inline">Configurar</span>
-                  </button>
-                  <button
-                    onClick={() => setShowFilters(!showFilters)}
-                    className={`h-10 px-5 rounded-xl border font-black text-[9px] uppercase tracking-widest transition-all shadow-sm flex items-center gap-2 ${showFilters ? 'bg-amber-600 border-amber-500 text-white' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-500 hover:text-indigo-600'}`}
-                  >
-                    <i className="bi bi-funnel-fill text-sm"></i>
-                    <span className="hidden sm:inline">Filtros</span>
-                  </button>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-
-        <style>{REPORT_PRINT_STYLES}</style>
-      </header>
+      <ReportHeader
+        isPublicMode={isPublicMode}
+        reportName={reportName}
+        reportSource={reportSource}
+        totalProfit={totalProfit}
+        monthCount={monthCount}
+        reportStartDate={reportStartDate}
+        reportEndDate={reportEndDate}
+        avgTurnoverPerItem={avgTurnoverPerItem}
+        avgProfitPerItem={avgProfitPerItem}
+        viewMode={viewMode}
+        setViewMode={setViewMode}
+        reportType={reportType}
+        setReportType={setReportType}
+        abcBasis={abcBasis}
+        setAbcBasis={setAbcBasis}
+        showFilters={showFilters}
+        onToggleFilters={() => setShowFilters(!showFilters)}
+        onShareWhatsApp={handleShareWhatsApp}
+        onOpenConfig={() => setIsConfigOpen(true)}
+      />
 
       {(validationError || filterSaveError || error) && <div role="alert" className="px-6 py-3 text-red-600">{validationError || filterSaveError || error} {filterSaveError ? <button disabled={updating} onClick={() => setFilterRetry(value => value + 1)}>Tentar salvar filtros</button> : <button disabled={loading || updating} onClick={() => id && loadReport(id)}>Carregar relatório</button>}</div>}
       {(loading || updating) && <p role="status" className="px-6 py-2 text-indigo-600">Consultando e confirmando o relatório...</p>}
@@ -544,99 +367,13 @@ const ReportView = () => {
                     analyzedItemCount={refinementMetrics.active}
                   />
 
-                  <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-premium border border-slate-100 dark:border-slate-800 overflow-hidden">
-                    <table className="w-full text-left">
-                      <thead>
-                        <tr className="bg-slate-50/50 dark:bg-slate-955/50 border-b border-slate-100 dark:border-slate-800">
-                          <th
-                            onClick={() => handleSort('classification')}
-                            className="px-8 py-6 text-[9px] font-black uppercase tracking-widest text-slate-400 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                          >
-                            Classe <SortIcon column="classification" />
-                          </th>
-                          <th
-                            onClick={() => handleSort('product')}
-                            className="px-6 py-6 text-[9px] font-black uppercase tracking-widest text-slate-400 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-left"
-                          >
-                            Produto <SortIcon column="product" />
-                          </th>
-                          <th
-                            onClick={() => handleSort('giroMensal')}
-                            className="px-6 py-6 text-[9px] font-black uppercase tracking-widest text-slate-400 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-right"
-                          >
-                            Giro Mensal <SortIcon column="giroMensal" />
-                          </th>
-                          <th
-                            onClick={() => handleSort('totalProfit')}
-                            className="px-6 py-6 text-[9px] font-black uppercase tracking-widest text-slate-400 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-right"
-                          >
-                            Lucro Total <SortIcon column="totalProfit" />
-                          </th>
-                          <th
-                            onClick={() => handleSort('lucroMensal')}
-                            className="px-6 py-6 text-[9px] font-black uppercase tracking-widest text-slate-400 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-right"
-                          >
-                            Lucro Mensal <SortIcon column="lucroMensal" />
-                          </th>
-                          <th
-                            onClick={() => handleSort('accumulatedPercentage')}
-                            className="px-8 py-6 text-[9px] font-black uppercase tracking-widest text-slate-400 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-right"
-                          >
-                            % Acum. <SortIcon column="accumulatedPercentage" />
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
-                        {sortedResults.map((res, i) => (
-                          <tr
-                            key={i}
-                            onClick={() => handleRowClick(res)}
-                            className="group hover:bg-slate-50/50 dark:hover:bg-slate-900/50 transition-all cursor-pointer active:scale-[0.99]"
-                          >
-                            <td className="px-8 py-5">
-                              <div
-                                className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-[12px] ${res.classification === 'A' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' : res.classification === 'B' ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400' : 'bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-500'}`}
-                              >
-                                {res.classification}
-                              </div>
-                            </td>
-                            <td className="px-6 py-5 max-w-[400px]">
-                              <p className="text-[12px] font-black text-slate-800 dark:text-slate-100 leading-tight whitespace-pre-wrap">
-                                {res.product}
-                              </p>
-                              <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
-                                {res.supplier}
-                              </p>
-                            </td>
-                            <td className="px-6 py-5 text-right">
-                              <span className="px-3 py-1 bg-slate-50 dark:bg-slate-950 rounded-lg text-[11px] font-black text-slate-800 dark:text-slate-200">
-                                {(res.totalQuantity / (monthCount || 1)).toFixed(1)}
-                              </span>
-                            </td>
-                            <td className="px-6 py-5 text-right">
-                              <span className="text-[12px] font-black text-emerald-600">
-                                {res.totalProfit.toLocaleString('pt-BR', {
-                                  style: 'currency',
-                                  currency: 'BRL',
-                                })}
-                              </span>
-                            </td>
-                            <td className="px-6 py-5 text-right">
-                              <span className="text-[12px] font-black text-indigo-600">
-                                {(res.totalProfit / (monthCount || 1)).toLocaleString('pt-BR', {
-                                  style: 'currency',
-                                  currency: 'BRL',
-                                })}
-                              </span>
-                            </td>
-                            <td className="px-8 py-5 text-right text-[11px] font-black text-slate-300">
-                              {res.accumulatedPercentage.toFixed(1)}%
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                  <ReportAbcResultsTable
+                    sortedResults={sortedResults}
+                    monthCount={monthCount}
+                    sortConfig={sortConfig}
+                    onSort={handleSort}
+                    onRowClick={handleRowClick}
+                  />
                 </>
               ) : (
                 <ReportMatrixAnalysis

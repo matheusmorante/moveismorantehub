@@ -8,7 +8,7 @@ import {
 import { fetchFromERP } from '../services/salesReportApiService';
 import { useSavedSalesReports } from './useSavedSalesReports';
 import { useZodForm } from '@/hooks/useZodForm';
-import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../../../shared-utils/core/withTimeout';
 import { salesReportLoadFormSchema, salesReportSaleItemsSchema, salesReportCsvImportFormSchema, salesReportExportFormSchema, salesReportLoadSnapshotFormSchema } from '../../../../../../../shared-utils/salesReportFormSchemas';
 import { exportResultsToCSV, importResultsFromCSV } from '../utils/csvUtils';
 

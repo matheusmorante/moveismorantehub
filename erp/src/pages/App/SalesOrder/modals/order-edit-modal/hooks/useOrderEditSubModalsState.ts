@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback } from 'react';
 import type Order from '@/pages/types/order.type';
-import type { useSalesOrderForm } from '../../../hooks/useSalesOrderForm';
+import type { useSalesOrderForm } from '../../../hooks/form-flow/useSalesOrderForm';
 
 interface UseOrderEditSubModalsStateParams {
   readonly formActions: ReturnType<typeof useSalesOrderForm>['actions'];

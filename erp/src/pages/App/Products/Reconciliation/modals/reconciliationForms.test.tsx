@@ -4,7 +4,7 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({ from: vi.fn(), response: vi.fn(), queries: [] as any[], confirm: vi.fn(), close: vi.fn() }));
 vi.mock('@/pages/utils/supabaseConfig', () => ({ supabase: { from: mocks.from } }));
-vi.mock('@/components/CategoryAutocomplete', () => ({ default: (props: any) => <><button onClick={() => props.onSelect({ id: ' categoria ', name: 'Categoria' })} data-filter={props.filter}>Escolher categoria</button><button onClick={() => props.onSelect({ id: 'outra', name: 'Outra' })}>Escolher outra categoria</button></> }));
+vi.mock('@/components/selectors/CategoryAutocomplete', () => ({ default: (props: any) => <><button onClick={() => props.onSelect({ id: ' categoria ', name: 'Categoria' })} data-filter={props.filter}>Escolher categoria</button><button onClick={() => props.onSelect({ id: 'outra', name: 'Outra' })}>Escolher outra categoria</button></> }));
 import { ApplyNcmModal } from './ApplyNcmModal';
 import { ApplyCategoryModal } from './ApplyCategoryModal';
 import { ApplyAttributeModal } from './ApplyAttributeModal';

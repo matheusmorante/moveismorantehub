@@ -1,21 +1,17 @@
 import React from 'react';
 import Item from '../../../types/items.type';
 import Product, { Variation } from '../../../types/product.type';
-import { calcItemTotalValue } from '../../../utils/calculations';
 import UnitInput from './UnitInput';
-import CurrencyInput from '../../../../components/CurrencyInput';
-import CurrencyDisplay from '../../../../components/CurrencyDisplay';
-import ProductAutocomplete from '../../../../components/ProductAutocomplete';
+import ProductAutocomplete from '../../../../components/selectors/ProductAutocomplete';
 import TemporaryProductWarning from './TemporaryProductWarning';
 import { BodyRowPricing } from './useBodyRowPricing';
 import { getSettings, AppSettings } from '@/pages/utils/settingsService';
-import DiscountInput from './DiscountInput';
 import { STOCK_ORIGIN_PRODUCT_KINDS } from './stockOriginProductKinds';
 import { BodyRowMobileCompact } from './BodyRowMobileCompact';
 import { HandlingSelect } from './HandlingSelect';
-
-const stockOriginLockedTitle =
-  'Bloqueado porque há um produto cadastrado vinculado ao item. Remova o produto selecionado no campo Produto para liberar e alterar a origem do estoque.';
+import { StockOriginSelect } from './StockOriginSelect';
+import { AssemblyResponsibleSelect } from './AssemblyResponsibleSelect';
+import { BodyRowMobilePricingSection } from './BodyRowMobilePricingSection';
 
 export interface BodyRowViewProps {
   item: Item;
@@ -119,24 +115,6 @@ export const BodyRowMobile: React.FC<BodyRowViewProps> = ({
   };
 
   const showQuantityBesideProduct = inItemDialog && !isService && !item.isComboItem;
-
-  const {
-    tempUnitPrice,
-    setTempUnitPrice,
-    commitUnitPrice,
-    tempDiscountValue,
-    setTempDiscountValue,
-    commitDiscountValue,
-    tempDiscountPercent,
-    setTempDiscountPercent,
-    commitDiscountPercent,
-    tempSubtotal,
-    setTempSubtotal,
-    commitSubtotal,
-    tempObservation,
-    setTempObservation,
-    commitObservation,
-  } = pricing;
 
   // MODO COMPACTO
   if (!isExpanded) {
@@ -354,31 +332,18 @@ export const BodyRowMobile: React.FC<BodyRowViewProps> = ({
 
           {!inItemDialog && assemblyResponsibleRequired && (
             <div className="min-w-[180px] flex-1 sm:flex-initial">
-              <label className="mb-1 ml-1 block text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">
-                Responsável pela montagem <span className="text-red-500">*</span>
-              </label>
-              <select
-                aria-label="Responsável pela montagem"
-                aria-required="true"
-                aria-invalid={Boolean(assemblyResponsibleError)}
-                required
-                className={`w-full border-x-0 border-t-0 border-b-2 rounded-none bg-slate-50/70 px-3 py-1.5 text-xs font-bold text-slate-700 outline-none transition-all dark:bg-slate-800/40 dark:text-slate-200 ${
+              <AssemblyResponsibleSelect
+                value={item.assemblyResponsible}
+                error={assemblyResponsibleError}
+                labelClassName="mb-1 ml-1 block text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500"
+                errorClassName="mt-1 block text-[10px] text-red-600 dark:text-red-400"
+                selectClassName={`w-full border-x-0 border-t-0 border-b-2 rounded-none bg-slate-50/70 px-3 py-1.5 text-xs font-bold text-slate-700 outline-none transition-all dark:bg-slate-800/40 dark:text-slate-200 ${
                   assemblyResponsibleError
                     ? 'border-b-red-500 focus:border-b-red-500'
                     : 'border-b-slate-200 focus:border-b-blue-500 dark:border-b-slate-700'
                 }`}
-                value={item.assemblyResponsible || ''}
-                onChange={(e) => onChange(idx, 'assemblyResponsible', e.target.value)}
-              >
-                <option value="">Selecione</option>
-                <option value="Nossa equipe">Nossa equipe</option>
-                <option value="Montador terceirizado">Montador terceirizado</option>
-              </select>
-              {assemblyResponsibleError && (
-                <span className="mt-1 block text-[10px] text-red-600 dark:text-red-400">
-                  {assemblyResponsibleError}
-                </span>
-              )}
+                onChange={(value) => onChange(idx, 'assemblyResponsible', value)}
+              />
             </div>
           )}
 
@@ -390,34 +355,20 @@ export const BodyRowMobile: React.FC<BodyRowViewProps> = ({
               >
                 Origem do estoque <span className="text-red-500" aria-hidden="true">*</span>
               </label>
-              <div className="relative" title={isLinkedProduct ? stockOriginLockedTitle : undefined}>
-                {isLinkedProduct && (
-                  <i
-                    className="bi bi-lock-fill pointer-events-none absolute right-8 top-1/2 z-10 -translate-y-1/2 text-[9px] text-amber-500"
-                    aria-hidden="true"
-                  />
-                )}
-                <select
-                  id={stockOriginId}
-                  className={`w-full bg-slate-50/70 dark:bg-slate-800/40 border-x-0 border-t-0 border-b-2 px-3 py-1.5 rounded-none text-xs font-bold text-slate-700 dark:text-slate-200 outline-none transition-all ${
-                    stockOriginError
-                      ? 'border-b-red-500 focus:border-b-red-500'
-                      : 'border-b-slate-200 dark:border-b-slate-700 focus:border-b-blue-500'
-                  } ${isLinkedProduct ? 'cursor-not-allowed opacity-60 !bg-slate-100 !pr-10 dark:!bg-slate-800' : ''}`}
-                  value={item.condition ?? ''}
-                  disabled={isLinkedProduct}
-                  onChange={(event) => handleStockOriginChange(event.target.value)}
-                  title={isLinkedProduct ? stockOriginLockedTitle : 'Origem do estoque'}
-                  aria-required="true"
-                  aria-invalid={Boolean(stockOriginError)}
-                  aria-describedby={stockOriginError ? stockOriginErrorId : undefined}
-                >
-                  <option value="">Selecione</option>
-                  <option value="novo">Convencional</option>
-                  <option value="salvado">Salvados</option>
-                  <option value="usado">Usados</option>
-                </select>
-              </div>
+              <StockOriginSelect
+                id={stockOriginId}
+                value={item.condition}
+                isLinkedProduct={isLinkedProduct}
+                error={stockOriginError}
+                errorId={stockOriginErrorId}
+                lockIconClassName="bi bi-lock-fill pointer-events-none absolute right-8 top-1/2 z-10 -translate-y-1/2 text-[9px] text-amber-500"
+                selectClassName={`w-full bg-slate-50/70 dark:bg-slate-800/40 border-x-0 border-t-0 border-b-2 px-3 py-1.5 rounded-none text-xs font-bold text-slate-700 dark:text-slate-200 outline-none transition-all ${
+                  stockOriginError
+                    ? 'border-b-red-500 focus:border-b-red-500'
+                    : 'border-b-slate-200 dark:border-b-slate-700 focus:border-b-blue-500'
+                } ${isLinkedProduct ? 'cursor-not-allowed opacity-60 !bg-slate-100 !pr-10 dark:!bg-slate-800' : ''}`}
+                onChange={handleStockOriginChange}
+              />
               {stockOriginError && (
                 <span id={stockOriginErrorId} className="mt-1 block text-[10px] text-red-600 dark:text-red-400">
                   {stockOriginError}
@@ -430,82 +381,17 @@ export const BodyRowMobile: React.FC<BodyRowViewProps> = ({
 
       {/* Linha 3: Grid de Valores */}
       {!item.isComboItem && (
-        <div className={inItemDialog ? 'space-y-4 border-t border-slate-200 pt-4 dark:border-slate-800' : 'space-y-2 pt-1'}>
-          <div className={`grid items-end ${priceGridClassName}`}>
-          {showQuantityBesideProduct && (
-            <div className="budget-item-editor-quantity-prices">
-              {quantityField}
-            </div>
-          )}
-          {!showQuantityBesideProduct && quantityField}
-
-          <div className="w-full">
-            <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1 block ml-1">
-              Preço un <span className="text-red-500">*</span>
-            </label>
-            <CurrencyInput
-              value={tempUnitPrice}
-              onChange={(val: number) => setTempUnitPrice(val)}
-              onBlur={commitUnitPrice}
-              className="max-[520px]:!min-w-0 max-[520px]:!px-1 max-[520px]:text-[10px]"
-            />
-          </div>
-
-          <div className="w-full min-w-0">
-            <label className="mb-1 ml-1 block text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">
-              Desconto UN
-            </label>
-            <DiscountInput
-              discountType={item.discountType}
-              fixedValue={tempDiscountValue}
-              percentageValue={tempDiscountPercent}
-              unitPrice={item.unitPrice}
-              onFixedValueChange={setTempDiscountValue}
-              onPercentageValueChange={setTempDiscountPercent}
-              onFixedBlur={commitDiscountValue}
-              onPercentageBlur={commitDiscountPercent}
-              onToggleType={onToggleDiscountType}
-              compactOnNarrow
-            />
-          </div>
-
-          <div className={`w-full min-w-0 ${!inItemDialog && !isNarrowMobile ? 'min-[460px]:col-start-2 min-[600px]:col-start-auto' : ''}`}>
-            <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1 block ml-1">
-              Preço final un
-            </label>
-            <CurrencyInput
-              value={tempSubtotal}
-              max={item.unitPrice || undefined}
-              onChange={(val: number) => setTempSubtotal(val)}
-              onBlur={commitSubtotal}
-              className="max-[520px]:!min-w-0 max-[520px]:!px-1 max-[520px]:text-[10px]"
-            />
-          </div>
-
-          {/* Total do Item */}
-          <div className={`min-w-0 flex flex-col items-end justify-center px-1 min-[700px]:px-3 py-1.5 bg-blue-50/70 dark:bg-blue-950/30 border border-blue-100/80 dark:border-blue-900/40 rounded-xl min-h-[44px] ${totalClassName}`}>
-            <span className="text-[8px] font-black uppercase text-blue-600/70 dark:text-blue-400/70 tracking-widest">
-              Total
-            </span>
-            <div className="whitespace-nowrap text-[10px] min-[700px]:text-xs font-black text-blue-600 dark:text-blue-400">
-              <CurrencyDisplay value={calcItemTotalValue(item)} />
-            </div>
-          </div>
-          </div>
-          <div className="w-full min-w-0">
-            <label className="mb-1 ml-1 block text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">
-              Observação
-            </label>
-            <textarea
-              rows={inItemDialog ? 2 : 1}
-              value={tempObservation}
-              onChange={(event) => setTempObservation(event.target.value)}
-              onBlur={commitObservation}
-              placeholder="Adicionar observação sobre o item..."
-              className="min-h-8 w-full resize-y border-x-0 border-t-0 border-b-2 border-b-slate-200 bg-slate-50/70 px-3 py-1.5 text-xs font-medium text-slate-700 outline-none transition-colors placeholder:text-slate-400 focus:border-b-blue-500 dark:border-b-slate-700 dark:bg-slate-800/40 dark:text-slate-200"
-            />
-          </div>
-        </div>
+        <BodyRowMobilePricingSection
+          item={item}
+          inItemDialog={inItemDialog}
+          isNarrowMobile={isNarrowMobile}
+          showQuantityBesideProduct={showQuantityBesideProduct}
+          priceGridClassName={priceGridClassName}
+          totalClassName={totalClassName}
+          quantityField={quantityField}
+          pricing={pricing}
+          onToggleDiscountType={onToggleDiscountType}
+        />
       )}
     </div>
   );

@@ -1,4 +1,4 @@
-import ProductAutocomplete from '@/components/ProductAutocomplete';
+import ProductAutocomplete from '@/components/selectors/ProductAutocomplete';
 import { useRef } from 'react';
 import type { StockUnavailabilityOperationGuard } from '../../../../../../../shared-utils/stockUnavailabilityFormSchemas';
 import { useUnavailabilityForm } from '../hooks/useUnavailabilityForm';

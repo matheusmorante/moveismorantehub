@@ -3,7 +3,7 @@ import Product, { Variation } from '../../../../../types/product.type';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { productConversionFormSchema } from '../../../../../../../../shared-utils/productVariationOperationFormSchemas';
 import { toast } from 'react-toastify';
-import { isProductDraft } from '@/pages/utils/productService/productDraftSnapshot';
+import { isProductDraft } from '@/pages/utils/productService/drafts/productDraftSnapshot';
 
 export interface ProductConversionModalProps {
   readonly isOpen: boolean;

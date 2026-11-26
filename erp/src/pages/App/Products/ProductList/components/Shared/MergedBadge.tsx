@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/pages/utils/supabaseConfig';
-import { normalizeVariationSku } from '@/pages/utils/productVariationDefaults';
+import { normalizeVariationSku } from '@/pages/utils/productService/productVariationDefaults';
 
 export const MergedVariationSku: React.FC<{ variationId: string }> = ({ variationId }) => {
   const [sku, setSku] = useState<string | null>(null);

@@ -309,7 +309,7 @@ import {
   createCalendarEvent,
   fetchCalendarEvents,
   getPendingLocalCalendarEvents,
-} from '../../scheduleEventsService';
+} from '../../logistics/scheduleEventsService';
 import {
   saveLocalInventoryDraft,
   getLocalInventoryDraft,
@@ -341,7 +341,7 @@ import {
   GOODS_RECEIPTS_CACHE_KEY,
   GOODS_RECEIPTS_PENDING_SYNC_KEY,
 } from '../../stock/stockReceiptsService';
-import { resolveMobileUserProfile } from '../../mobileAuthProfile';
+import { resolveMobileUserProfile } from '../../auth/mobileAuthProfile';
 import { registerOfflineProfileCacheCase } from './offlineProfileCacheCase';
 import { registerOfflineDeliveryFlowCase } from './offlineDeliveryFlowCase';
 import { deliveryFlowService } from '../../../features/orders/services/deliveryFlowService';

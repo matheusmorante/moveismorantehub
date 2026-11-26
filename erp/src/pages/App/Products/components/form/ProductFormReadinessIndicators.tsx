@@ -1,7 +1,7 @@
 import React from 'react';
 import Product from '../../../../types/product.type';
 import { checkERPLegibility } from '../../domain/productLegibilityRules';
-import { getProductKind } from '@/pages/utils/productKindRules';
+import { getProductKind } from '@/pages/utils/productService/productKindRules';
 import { hasProductVariationPhotos } from '../../../../../../../shared-utils/productErpLegibility';
 
 interface ProductFormReadinessIndicatorsProps {

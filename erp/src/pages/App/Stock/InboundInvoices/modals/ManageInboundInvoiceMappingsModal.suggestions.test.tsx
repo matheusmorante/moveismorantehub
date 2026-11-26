@@ -3,14 +3,14 @@ import React from 'react';
 import { act, cleanup, fireEvent, render, waitFor } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
 import { ManageInboundInvoiceMappingsModal } from './ManageInboundInvoiceMappingsModal';
-import { findProductSupplierCodes } from '@/pages/utils/productSupplierCodesService';
+import { findProductSupplierCodes } from '@/pages/utils/productService/productSupplierCodesService';
 import type { InboundInvoice } from '@/pages/utils/inboundNfe/inboundNfeTypes';
 const reviewSignals = vi.hoisted(() => ({ onProcessing: undefined as ((busy: boolean) => void) | undefined }));
 
 vi.mock('@/pages/App/Registrations/shared/modals/PersonFormModal', () => ({ default: () => null }));
-vi.mock('@/components/SupplierAutocomplete', () => ({ default: () => null }));
+vi.mock('@/components/selectors/SupplierAutocomplete', () => ({ default: () => null }));
 vi.mock('@/pages/utils/personService', () => ({ fetchPersons: async () => [] }));
-vi.mock('@/pages/utils/productSupplierCodesService', () => ({
+vi.mock('@/pages/utils/productService/productSupplierCodesService', () => ({
   findProductSupplierCodes: vi.fn(),
   saveProductSupplierCode: vi.fn(),
 }));

@@ -1,5 +1,5 @@
 import { supabase } from '../../supabaseClient';
-import { buildPostgrestAccentInsensitivePattern } from '../../../../../shared-utils/searchText';
+import { buildPostgrestAccentInsensitivePattern } from '../../../../../shared-utils/core/searchText';
 import { parseInboundNfeXml } from '../../../features/stock/invoices/utils/inboundXmlParser';
 import {
   buildInboundInvoiceItemRows,
@@ -24,7 +24,7 @@ import {
   isSalvadosOnlySupplier,
 } from '../../../../../shared-utils/productSupplierStockOrigin';
 import { markInboundInvoiceItemsNotApplicable } from '../../../../../shared-utils/inboundInvoiceSupplierRules';
-import { withTimeout } from '../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../shared-utils/core/withTimeout';
 
 const querySupplierRows = async <TRow>(query: PromiseLike<{ data: unknown[] | null; error: unknown }>) => {
   const result = await withTimeout(query, 10_000, null, 'entrada:localizar-fornecedor-nfe-mobile');

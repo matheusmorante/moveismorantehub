@@ -2,7 +2,7 @@ import React from 'react';
 import PersonRow from './PersonRow';
 import PersonCard from './PersonCard';
 import Person, { PersonVisibilitySettings } from '../../../../types/person.type';
-import { useAutoScroll } from '../../../../utils/useAutoScroll';
+import { useAutoScroll } from '../../../../utils/shared/useAutoScroll';
 import { getSettings } from '@/pages/utils/settingsService';
 import type { SupplierDeletionCounts } from '../../../../../../../shared-utils/supplierDeletion';
 

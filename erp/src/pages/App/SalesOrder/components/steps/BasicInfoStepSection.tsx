@@ -1,8 +1,8 @@
 import React from 'react';
-import SectionCard from '@/components/SectionCard';
-import FormHeader from '../FormHeader';
-import SellerInput from '../SellerInput';
-import { useSalesOrderForm } from '../../hooks/useSalesOrderForm';
+import SectionCard from '@/components/display/SectionCard';
+import FormHeader from '../form/FormHeader';
+import SellerInput from '../customer/SellerInput';
+import { useSalesOrderForm } from '../../hooks/form-flow/useSalesOrderForm';
 
 type FormInstance = ReturnType<typeof useSalesOrderForm>;
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createOpenAiHttpError } from '../../../../../shared-utils/openAiProviderError';
+import { createOpenAiHttpError } from '../../../../../shared-utils/ai-agent/openAiProviderError';
 
 describe('erros HTTP do transporte OpenAI', () => {
   it('mantém HTTP 502 para diagnóstico e mostra uma mensagem temporária sem detalhe técnico', () => {

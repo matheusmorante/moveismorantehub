@@ -1,5 +1,5 @@
-import { migrateOrderHandlings } from '@/pages/utils/handlingMigration';
-import { parseStorageDateToLocal } from '../hooks/useSalesOrderForm';
+import { migrateOrderHandlings } from '@/pages/utils/sales/handlingMigration';
+import { parseStorageDateToLocal } from '../hooks/form-flow/useSalesOrderForm';
 
 export function applyImportedOrderDataToForm(orderData: any, formActions: any): void {
   const migrated = migrateOrderHandlings(orderData);

@@ -1733,7 +1733,7 @@ function joinFiscalAdditionalInformation(...sections) {
   return value || void 0;
 }
 
-// shared-utils/orderPaymentState.ts
+// shared-utils/orders/orderPaymentState.ts
 var normalize2 = (value) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
 function classifyOrderPaymentSettlement(status) {
   if (status === void 0 || status === null) return "paid";

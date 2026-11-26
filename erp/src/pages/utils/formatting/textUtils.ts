@@ -2,7 +2,7 @@ import { normalizeSearchTerm, removeAccents, toTitleCase } from '../../../../../
 import {
   buildAccentInsensitiveRegex as buildSearchAccentRegex,
   matchesSearchText,
-} from '../../../../../shared-utils/searchText';
+} from '../../../../../shared-utils/core/searchText';
 
 export { normalizeSearchTerm, removeAccents, toTitleCase, matchesSearchText };
 

@@ -4,7 +4,7 @@ import { updateOrder } from '@/pages/utils/orderMutationService';
 import { processOrderCancellationFiscalEffects } from '@/pages/utils/nfe/nfeService';
 import type { NfeDocumentRecord } from '../types/fiscalDocuments.types';
 import { parseNfeApiResponse } from '@/pages/utils/nfe/parseNfeApiResponse';
-import { withTimeout } from '../../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../../shared-utils/core/withTimeout';
 
 export interface ExecuteCancellationParams {
   document: NfeDocumentRecord;

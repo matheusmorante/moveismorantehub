@@ -6,7 +6,7 @@ import { supportAttachmentSearchSchema } from '../../../../../../../../shared-ut
 import {
   fetchConversationAttachmentPage,
   type CustomerSupportHistoryCursor,
-} from '@/pages/utils/customerSupport/customerSupportService';
+} from '@/pages/utils/customerSupport/query/customerSupportService';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import type { WhatsAppMessage } from '../../../types';
 

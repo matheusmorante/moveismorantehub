@@ -3,7 +3,7 @@ import {
   allocateAmountProportionally,
   allocateParameterProportionally,
   calculateItemGrossValue,
-} from '../proportionalAllocation';
+} from '../shared/proportionalAllocation';
 
 describe('proportionalAllocation', () => {
   it('calcula valor bruto do item corretamente', () => {

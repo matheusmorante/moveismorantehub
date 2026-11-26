@@ -3,20 +3,20 @@ import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useAuth } from '@/context/AuthContext';
 import ConfirmModal from '@/components/shared/ConfirmModal';
-import { getTestArtifactContext } from '../../../../../../shared-utils/testArtifactContext';
+import { getTestArtifactContext } from '../../../../../../shared-utils/testing/testArtifactContext';
 import type Product from '../../../types/product.type';
 import './ProductFormModal.css';
-import { getProfileRoles, isStockistOnlyProfile } from '@/pages/utils/accessRoles';
-import { canPerform } from '@/pages/utils/permissionService';
-import { isProductDraft } from '@/pages/utils/productService/productDraftSnapshot';
-import { readTestArtifactIdentity } from '../../../../../../shared-utils/testArtifactPolicy';
+import { getProfileRoles, isStockistOnlyProfile } from '@/pages/utils/auth/accessRoles';
+import { canPerform } from '@/pages/utils/auth/permissionService';
+import { isProductDraft } from '@/pages/utils/productService/drafts/productDraftSnapshot';
+import { readTestArtifactIdentity } from '../../../../../../shared-utils/testing/testArtifactPolicy';
 import { ProductFormFooter } from '../components/form/ProductFormFooter';
 import { ProductFormHeader } from '../components/form/ProductFormHeader';
 import { ProductFormTabContent } from '../components/form/ProductFormTabContent';
 import { ProductFormSubModals } from '../components/form/ProductFormSubModals';
 import { ProductSaveResultModal } from '../components/modals/product/ProductSaveResultModal';
-import { useProductDraftCapture } from '../hooks/form/useProductDraftCapture';
-import { useProductFormModal } from '../hooks/form/useProductFormModal';
+import { useProductDraftCapture } from '../hooks/form/drafts/useProductDraftCapture';
+import { useProductFormModal } from '../hooks/form/drafts/useProductFormModal';
 
 export interface ProductFormModalProps {
   readonly isOpen: boolean;

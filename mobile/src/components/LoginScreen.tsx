@@ -1,4 +1,4 @@
-import { waitForAuthOperation } from '../../../shared-utils/authOperationTimeout';
+import { waitForAuthOperation } from '../../../shared-utils/auth/authOperationTimeout';
 import React, { useRef, useState } from 'react';
 import {
   View,
@@ -14,17 +14,17 @@ import { Lock, Mail, ShieldAlert } from 'lucide-react-native';
 import * as WebBrowser from 'expo-web-browser';
 import Svg, { Path } from 'react-native-svg';
 import { supabase } from '../services/supabaseClient';
-import { completeGoogleSignIn, getGoogleAuthRedirectUrl } from '../services/googleAuth';
+import { completeGoogleSignIn, getGoogleAuthRedirectUrl } from '../services/auth/googleAuth';
 import {
   signInWithEmailPassword,
   signInWithGoogle,
-} from '../services/authPasswordSetup';
+} from '../services/auth/authPasswordSetup';
 import {
   getPasswordAuthErrorMessage,
   requestPasswordRecoveryCode,
   updateAuthenticatedPassword,
   verifyPasswordRecoveryCode,
-} from '../services/authPasswordRecovery';
+} from '../services/auth/authPasswordRecovery';
 import { useAuth } from '../contexts/AuthContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { styles } from './LoginScreen.styles';

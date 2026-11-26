@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { toast } from 'react-toastify';
 import { QuickSnippet } from '../types';
-import { DEFAULT_QUICK_SNIPPETS } from '@/pages/utils/customerSupport/customerSupportService';
+import { DEFAULT_QUICK_SNIPPETS } from '@/pages/utils/customerSupport/query/customerSupportService';
 import { matchesSearchText } from '@/pages/utils/textUtils';
 
 interface QuickSnippetsModalProps {

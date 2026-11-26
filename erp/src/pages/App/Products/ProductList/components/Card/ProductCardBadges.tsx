@@ -1,6 +1,6 @@
 import React from 'react';
 import type Product from '../../../../../types/product.type';
-import { isNonConventionalProduct } from '../../../../../utils/productKindRules';
+import { isNonConventionalProduct } from '../../../../../utils/productService/productKindRules';
 import { isSalvadoStockOrigin } from '../../../../../../../../shared-utils/productStockOrigin';
 import { ChannelStatusBadges } from '../Shared/ChannelStatusBadges';
 import { MergedBadge } from '../Shared/MergedBadge';

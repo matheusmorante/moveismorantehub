@@ -4,7 +4,7 @@ import {
   computeConversationStatus,
   createInternalNoteMessage,
   updateConversationStatus,
-} from '@/pages/utils/customerSupport/customerSupportService';
+} from '@/pages/utils/customerSupport/query/customerSupportService';
 
 export function registerCustomerSupportInternalCommandCases(): void {
   // Internal commands: transport proof only; PostgreSQL transaction proof needs owned fixtures.

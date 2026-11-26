@@ -20,7 +20,7 @@ import {
   evaluateCharacteristicDependency,
   getCharacteristicDependencies,
 } from '../../../../../../../shared-utils/characteristicDependencyRules';
-import { resolveProductCharacteristicApplication } from '../tabs/technical/productCharacteristicGroupRules';
+import { resolveProductCharacteristicApplication } from '../tabs/technical/rules/productCharacteristicGroupRules';
 
 export const normalizeSearchTerm = (value: string): string =>
   value

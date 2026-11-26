@@ -2,7 +2,7 @@ import {
   isTestProduct,
   shouldValidatePublishedCatalogEdit,
 } from '../../../../shared-utils/isTestProduct';
-import { isIdentifiedTestArtifact } from '../../../../shared-utils/testArtifactPolicy';
+import { isIdentifiedTestArtifact } from '../../../../shared-utils/testing/testArtifactPolicy';
 
 export { isTestProduct, shouldValidatePublishedCatalogEdit };
 

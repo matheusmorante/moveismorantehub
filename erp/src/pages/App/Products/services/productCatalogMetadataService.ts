@@ -1,5 +1,5 @@
 import { supabase } from '@/pages/utils/supabaseConfig';
-import { withAbortTimeout } from '../../../../../../shared-utils/withAbortTimeout';
+import { withAbortTimeout } from '../../../../../../shared-utils/core/withAbortTimeout';
 export * from '../../../../../../shared-utils/productListMetadata';
 
 export interface ProductCatalogMetadataOption {

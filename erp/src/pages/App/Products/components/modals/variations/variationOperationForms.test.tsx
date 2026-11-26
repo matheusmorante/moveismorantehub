@@ -5,7 +5,7 @@ import CartesianVariationModal from './CartesianVariationModal';
 import ProductConversionModal from '../product/ProductConversionModal';
 import type Product from '@/pages/types/product.type';
 const mocks = vi.hoisted(() => ({ warning: vi.fn(), error: vi.fn() }));
-vi.mock('@/pages/utils/variationService', () => ({ subscribeToVariations: (callback: (values: unknown[]) => void) => { callback([{ id: 'cor', name: 'Cor', active: true, dataType: 'radio', options: [{ id: 'azul', value: 'Azul' }] }]); return () => {}; } }));
+vi.mock('@/pages/utils/productService/variationService', () => ({ subscribeToVariations: (callback: (values: unknown[]) => void) => { callback([{ id: 'cor', name: 'Cor', active: true, dataType: 'radio', options: [{ id: 'azul', value: 'Azul' }] }]); return () => {}; } }));
 vi.mock('@hello-pangea/dnd', () => ({
   DragDropContext: ({ children }: any) => <div>{children}</div>,
   Droppable: ({ children }: any) => children({ innerRef: () => {}, droppableProps: {}, placeholder: null }),

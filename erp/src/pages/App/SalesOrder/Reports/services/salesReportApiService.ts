@@ -1,8 +1,8 @@
-import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
-import { excludeTestOrders } from '../../../../../../../shared-utils/testArtifactQueries';
+import { withTimeout } from '../../../../../../../shared-utils/core/withTimeout';
+import { excludeTestOrders } from '../../../../../../../shared-utils/testing/testArtifactQueries';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { parse } from 'date-fns';
-import { resolveCanonicalVariationReportItems } from '@/pages/utils/variationCanonicalService';
+import { resolveCanonicalVariationReportItems } from '@/pages/utils/productService/variationCanonicalService';
 import { SaleItem } from '../utils/salesReportCalculations';
 
 export const fetchFromERP = async (options: { isCurrent?: () => boolean } = {}): Promise<SaleItem[]> => {

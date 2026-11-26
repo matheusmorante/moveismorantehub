@@ -6,7 +6,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock('../../supabaseClient', () => ({ supabase: { from: mocks.from } }));
-vi.mock('../../../features/products/services/mobileProductFetchService', () => ({
+vi.mock('../../../features/products/services/products/mobileProductFetchService', () => ({
   fetchMobileProductsPage: mocks.fetchMobileProductsPage,
 }));
 

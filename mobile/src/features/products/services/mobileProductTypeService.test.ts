@@ -6,7 +6,7 @@ vi.mock('../../../services/supabaseClient', () => ({
   supabase: { from: mocks.from },
 }));
 
-import { fetchMobileProductTypes } from './mobileProductTypeService';
+import { fetchMobileProductTypes } from './categories/mobileProductTypeService';
 
 describe('fetchMobileProductTypes', () => {
   beforeEach(() => {

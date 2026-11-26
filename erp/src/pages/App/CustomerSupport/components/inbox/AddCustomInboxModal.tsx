@@ -3,13 +3,13 @@ import { createPortal } from 'react-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { supportFolderFormSchema, type SupportFolderFormInput } from '../../../../../../../shared-utils/customerSupportFormSchemas';
-import { readTestArtifactIdentity, type TestArtifactIdentity } from '../../../../../../../shared-utils/testArtifactPolicy';
+import { readTestArtifactIdentity, type TestArtifactIdentity } from '../../../../../../../shared-utils/testing/testArtifactPolicy';
 import {
   AssignedProfileSummary,
   CustomerSupportFolder,
   CustomerSupportFolderCriteria,
 } from '../../types';
-import { DEFAULT_SUPPORT_FOLDER_CRITERIA } from '@/pages/utils/customerSupport/customerSupportInboxService';
+import { DEFAULT_SUPPORT_FOLDER_CRITERIA } from '@/pages/utils/customerSupport/query/customerSupportInboxService';
 
 type FolderFormData = SupportFolderFormInput;
 

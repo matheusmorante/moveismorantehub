@@ -4,7 +4,7 @@ import { deleteImageTemplate, readImageTemplate, renameImageTemplate, saveImageT
 
 const mocks = vi.hoisted(() => ({ from: vi.fn(), context: null as { runId: string; ownerId: string; scenarioKey: string } | null }));
 vi.mock('@/pages/utils/supabaseConfig', () => ({ supabase: { from: mocks.from } }));
-vi.mock('../../../../../../../shared-utils/testArtifactContext', () => ({ getTestArtifactContext: () => mocks.context }));
+vi.mock('../../../../../../../shared-utils/testing/testArtifactContext', () => ({ getTestArtifactContext: () => mocks.context }));
 
 const original = { id: '00000000-0000-4000-8000-000000000001', name: 'Oferta', description: '',
   created_at: '2026-11-06T10:00:00Z', updated_at: '2026-11-06T10:00:00Z' };

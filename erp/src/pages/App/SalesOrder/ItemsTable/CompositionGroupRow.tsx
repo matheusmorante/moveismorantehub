@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import type Item from '../../../types/items.type';
-import { calcItemTotalValue } from '../../../utils/calculations';
-import CurrencyDisplay from '../../../../components/CurrencyDisplay';
+import { calcItemTotalValue } from '../../../utils/sales/calculations';
+import CurrencyDisplay from '../../../../components/display/CurrencyDisplay';
 import UnitInput from './UnitInput';
 
 export interface IndexedCompositionItem {

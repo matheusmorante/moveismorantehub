@@ -1,6 +1,6 @@
 import React from 'react';
 import Order from '@/pages/types/order.type';
-import { formatCurrency } from '@/pages/utils/formatters';
+import { formatCurrency } from '@/pages/utils/shared/formatters';
 
 interface NfeOrderSummaryProps {
   order: Order;

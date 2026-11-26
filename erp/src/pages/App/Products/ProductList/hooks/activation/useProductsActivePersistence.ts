@@ -1,8 +1,8 @@
 import { supabase } from '@/pages/utils/supabaseConfig';
 import Product from '@/pages/types/product.type';
-import { updateProduct } from '@/pages/utils/productService';
-import { isNonConventionalProduct } from '@/pages/utils/productKindRules';
-import { triggerProductMetaCatalogSync } from '@/pages/utils/productService/productMetaCatalogSync';
+import { updateProduct } from '@/pages/utils/productService/productService';
+import { isNonConventionalProduct } from '@/pages/utils/productService/productKindRules';
+import { triggerProductMetaCatalogSync } from '@/pages/utils/productService/catalog/productMetaCatalogSync';
 
 interface SiblingVariationRow {
   readonly active?: boolean | null;

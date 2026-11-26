@@ -1,11 +1,11 @@
 import React from 'react';
 import { WhatsAppConversation, WhatsAppMessage } from '../types';
-import { formatPhoneForDisplay } from '@/pages/utils/customerSupport/phoneUtils';
-import { SupportOrderSummary } from '@/pages/utils/customerSupport/supportOrdersService';
+import { formatPhoneForDisplay } from '@/pages/utils/customerSupport/query/phoneUtils';
+import { SupportOrderSummary } from '@/pages/utils/customerSupport/orders/supportOrdersService';
 import { ManualLinkModal } from './ManualLinkModal';
 import { useAuth } from '@/context/AuthContext';
-import { canPerform } from '@/pages/utils/permissionService';
-import { getProfileRoles } from '@/pages/utils/accessRoles';
+import { canPerform } from '@/pages/utils/auth/permissionService';
+import { getProfileRoles } from '@/pages/utils/auth/accessRoles';
 import { CustomerDetailsTab } from './infoPanel/CustomerDetailsTab';
 import { CustomerOrdersTab } from './infoPanel/CustomerOrdersTab';
 import { CustomerMediaTab } from './infoPanel/CustomerMediaTab';

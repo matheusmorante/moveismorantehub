@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import Product from '@/pages/types/product.type';
 import Order from '@/pages/types/order.type';
 import { getOrdersByProductId } from '@/pages/utils/orderHistoryService';
-import { formatCurrency } from '@/pages/utils/formatters';
+import { formatCurrency } from '@/pages/utils/shared/formatters';
 
 interface ProductSalesTargetLike extends Partial<Product> {
   readonly variationId?: string;

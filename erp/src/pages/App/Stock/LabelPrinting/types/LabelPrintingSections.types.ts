@@ -1,6 +1,6 @@
 import type { ChangeEventHandler, Dispatch, RefObject, SetStateAction } from 'react';
 import type { Product, Variation } from '../../../../types/product.type';
-import type { CategoryType } from '../hooks/useLabelCategory';
+import type { CategoryType } from '../hooks/label-printing/useLabelCategory';
 import type { PriceLabelTemplateUpdate } from '../services/priceLabelTemplateSync';
 import type { CustomLabel, LabelConfig } from '../utils/LabelConstants';
 import type { LabelItemConfig, LabelLogoAsset, LogoItemConfig } from './LabelGridItem.types';

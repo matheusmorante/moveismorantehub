@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Text, TouchableOpacity, View } from 'react-native';
 import { RefreshCw, Sparkles } from 'lucide-react-native';
-import { subscribeSummaryQuota } from '../../../services/aiSummaryService';
+import { subscribeSummaryQuota } from '../../../services/summary/aiSummaryService';
 
 interface Props {
   isDarkMode: boolean;

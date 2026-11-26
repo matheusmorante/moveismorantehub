@@ -1,5 +1,5 @@
 import { UserRole } from '@/context/AuthContext';
-import { roleLabel } from '@/pages/utils/accessRoles';
+import { roleLabel } from '@/pages/utils/auth/accessRoles';
 
 interface ActiveRoleBannerProps {
   activeRoleMode: UserRole | null;

@@ -13,7 +13,7 @@ vi.mock('../../../services/supabaseClient', () => ({
   },
 }));
 
-vi.mock('./mobileProductMetaCatalogSyncService', () => ({
+vi.mock('./catalog/mobileProductMetaCatalogSyncService', () => ({
   triggerMobileProductMetaCatalogSync: mocks.triggerMetaCatalogSync,
 }));
 
@@ -30,7 +30,7 @@ vi.mock('../../../../../shared-utils/productCategoryRequiredAttributes', async (
 import {
   toggleMobileProductCatalog,
   toggleMobileProductActive,
-} from './mobileProductMutationService';
+} from './products/mobileProductMutationService';
 
 let query: any;
 const validProductActivationRow = (overrides: Record<string, unknown> = {}) => ({

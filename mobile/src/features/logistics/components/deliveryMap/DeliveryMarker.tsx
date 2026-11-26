@@ -5,7 +5,7 @@ import { Check, Truck, Wrench, Package, RotateCcw } from 'lucide-react-native';
 import Svg, { Path } from 'react-native-svg';
 import { DeliveryRouteItem } from '../../hooks/useDeliveryRoute';
 import { getOperationActivityType } from '../../../schedule/utils/operationActivity';
-import { TeamMemberLocation } from '../../../../services/teamLocationService';
+import { TeamMemberLocation } from '../../../../services/logistics/teamLocationService';
 
 interface Props {
   item?: DeliveryRouteItem;

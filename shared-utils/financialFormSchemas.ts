@@ -1,1 +1,1 @@
-export * from './schemas/financialFormSchemas';
+export * from './schemas/finance/financialFormSchemas';

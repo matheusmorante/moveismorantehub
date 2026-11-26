@@ -1,5 +1,11 @@
 # Métricas
 
+## 26/11/2026 — comparação SQL de SUP-PROP-008
+
+- No Supabase operacional, as projeções antiga e candidata devolveram JSON idêntico em uma comparação sob o mesmo snapshot, com a mesma data UTC. A comparação avaliou a projeção do SQL e não exercitou a sessão do ERP.
+- `EXPLAIN` sem `ANALYZE` para os dois SELECTs estimou custo de 10.010,78 na versão anterior e 1.552,41 na candidata. O plano candidato usou `product_analytics_event_type_created_at_idx` com os limites de data para os eventos recentes e leu o histórico para o agregado de visualizações. Custos do planejador são unidades estimadas, sem aferição de latência, CPU ou I/O.
+- As superfícies mantêm os contratos das RPCs. Volume real de chamadas, tamanho da resposta na rede, egress, Logs Query e Logs Ingest não foram medidos.
+
 ## Valores relatados pelo operador
 
 | Métrica | Valor relatado em 26/11/2026 | Fonte e limite |
@@ -196,3 +202,28 @@ Janela de 14:19:51,916 a 14:32:57,617 BRT (13 min 5,701 s). Fonte: uma leitura d
 Às 14:48:27 BRT, uma leitura do catálogo PostgreSQL no MoranteHub operacional confirmou o tratamento de `40001` no job, a exceção padrão `P0001` para versão obsoleta e o uso do vendedor no histórico de status. A leitura retornou apenas verificações booleanas e horário. As transições escritas pela função compartilhada não fornecem identificação do job ou do ciclo.
 
 Conflitos observados, ciclos vazios, pedidos processados por ciclo, eventos, latência, tempo SQL adicional, respostas, egress, CPU, RAM, Disk I/O e pico de conexões não medidos neste recorte. O resultado de processamento por ciclo seria a fonte para as três primeiras contagens. Reports é a fonte para séries de recursos do banco. Log Query e Log Ingestion não medidos neste ciclo. Para os valores oficiais, consultar Usage da organização com escopo do projeto e período. Última janela do Logs Explorer até 12h15 BRT.
+
+## 26/11/2026 — validação após a migration do autofinalizador
+
+Leitura remota às 14:59 BRT confirmou no catálogo a captura de `P0001`, a comparação exata da mensagem `ORDER_VERSION_CONFLICT`, a manutenção do tratamento `40001`, zero EXECUTE para anon/authenticated/service_role e um cron do autofinalizador com a agenda `*/2 * * * *`. Isso verifica definição, privilégios e agendamento. Não mede ocorrências, resultados comportamentais, tempo SQL, eventos, bytes, egress ou medidores oficiais de Log Query e Log Ingestion.
+
+## 26/11/2026 — retentativa após negativa no painel de Catálogo Digital
+
+- Revisão estática às 2026-11-26T15:35:06.9956823-03:00. O cliente ERP admite até uma retentativa automática após o erro `42501`, dependendo de a consulta permanecer ativa e de o Query Guard liberar a chamada. É um limite deduzido do código. Execuções, latência, tempo SQL, volume de eventos, bytes e egress reais ficaram sem medição.
+- Log Query e Log Ingestion oficiais continuam sem medição neste ciclo. A leitura requer Usage da organização com filtro por projeto e período. O checkpoint do Logs Explorer continua às 12h15 BRT.
+
+## 26/11/2026 — base dos contadores da RPC de métricas do catálogo
+
+Coleta às 15:47 BRT no projeto MoranteHub (`hkoxhourxwlddgsfdgws`), por leitura de `extensions.pg_stat_statements` e `extensions.pg_stat_statements_info`. A instrução principal `get_dashboard_digital_catalog_metrics` (`queryid=2070826686899725551`) tinha 235 chamadas, 214.318,24 ms de execução acumulada, média de 911,993 ms e máximo de 7.306,58 ms. Linhas retornadas: 235. `stats_reset` permaneceu em 18/10/2026 às 11:21:04,056 UTC e `dealloc=16`.
+
+Este retrato serve como ponto inicial para o próximo delta. Ele acumula chamadas anteriores e posteriores à migration de 26/11, portanto não mede o desempenho da versão alterada. O delta posterior pode medir novas execuções enquanto queryid, reset e desalocações permanecerem estáveis. Não identifica cancelamentos, cliente, CPU, I/O, latência de rede, bytes, egress, nem Log Query ou Log Ingestion. Nenhuma leitura do Logs Explorer nesta rodada.
+
+## 26/11/2026 — intervalo sem novas chamadas da RPC do catálogo
+
+No MoranteHub operacional, uma leitura de `pg_stat_statements` às 16:01:56 BRT comparou a instrução `queryid=2070826686899725551` com a base das 15:47 BRT. O contador permaneceu em 235 chamadas e 214.318,24 ms totais, sem alteração no máximo cumulativo, no reset global (18/10 às 11:21:04 UTC) ou em `dealloc=16`. Delta observado: zero chamadas e zero ms agregados no intervalo de aproximadamente 15 minutos. Isso indica que essa instrução não teve execuções concluídas registradas nesse período. Não permite avaliar o custo da versão otimizada nem inferir demanda total do painel. Erros/cancelamentos, bytes, latência, recursos e medidores oficiais de Log Query e Log Ingestion seguem sem medição.
+
+## 26/11/2026 — execuções do autofinalizador após a migration
+
+Fonte: leitura agregada de `cron.job_run_details` e `cron.job` no MoranteHub operacional, filtrada pelo comando de `auto_fulfill_scheduled_orders()` e `end_time` entre 16:00 inclusive e 17:00 exclusive (BRT). Foi identificado um job e 30 execuções concluídas. Todas 30 tiveram status `succeeded`; zero resultados diferentes de sucesso, zero assinaturas de timeout de partida e zero assinaturas de timeout SQL em `return_message`. Duração média dos sucessos: 620,35 ms; máximo no intervalo: 4.686,06 ms.
+
+A janela é posterior à migration de classificação de conflito, mas não mede ocorrências de `ORDER_VERSION_CONFLICT` nem prova o comportamento dessa classificação. A duração abrange a execução SQL do job, sem isolar CPU, número de pedidos processados, chamadas HTTP, latência de rede ou trabalho útil. Log Query, Log Ingestion, bytes e egress não medidos. Não houve consulta ao Logs Explorer.

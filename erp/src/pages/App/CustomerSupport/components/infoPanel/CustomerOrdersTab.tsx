@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { SupportOrderSummary, formatBRL, formatDate } from '@/pages/utils/customerSupport/supportOrdersService';
+import { SupportOrderSummary, formatBRL, formatDate } from '@/pages/utils/customerSupport/orders/supportOrdersService';
 
 interface CustomerOrdersTabProps {
   isLinked: boolean;

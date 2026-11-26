@@ -1,5 +1,5 @@
 import Purchase from '../../../../types/purchase.type';
-import { formatToBRDate } from '../../../../utils/formatters';
+import { formatToBRDate } from '../../../../utils/shared/formatters';
 
 /**
  * Abre janela de impressão formatada para o relatório de 3-Way Match de conferência de compra.

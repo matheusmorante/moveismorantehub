@@ -4,8 +4,8 @@ import type { WhatsAppConversation, WhatsAppMessage } from '../types';
 import {
   fetchInitialConversationMessagePage,
   fetchConversationReplyTarget,
-} from '@/pages/utils/customerSupport/customerSupportService';
-import { mergeSupportMessageChanges } from '@/pages/utils/customerSupport/customerSupportMessageSync';
+} from '@/pages/utils/customerSupport/query/customerSupportService';
+import { mergeSupportMessageChanges } from '@/pages/utils/customerSupport/query/customerSupportMessageSync';
 import { useCustomerSupportRealtimeSync } from './useCustomerSupportRealtimeSync';
 import { useCustomerSupportHistoryLoader } from './useCustomerSupportHistoryLoader';
 

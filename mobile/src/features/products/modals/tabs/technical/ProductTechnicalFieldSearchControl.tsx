@@ -3,7 +3,7 @@ import type React from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
 import { FormTextInput } from '../../../../../components/shared/FormTextInput';
 import { getProductTechnicalFieldDisplayName } from '../../../domain/productCharacteristics';
-import type { MobileProductTechnicalField } from '../../../services/mobileProductTechnicalService';
+import type { MobileProductTechnicalField } from '../../../services/categories/mobileProductTechnicalService';
 import { styles } from './productFormTechnicalTab.styles';
 
 interface Props {

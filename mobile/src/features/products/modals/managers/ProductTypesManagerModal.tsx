@@ -1,0 +1,221 @@
+import React, { useEffect, useState } from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import {
+  ActivityIndicator,
+  Alert,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { Plus, Tag, Trash2, X } from 'lucide-react-native';
+import { flattenFormErrors, useZodForm } from '../../../../hooks/useZodForm';
+import { catalogNameFormSchema } from '../../../../../../shared-utils/catalogFormSchemas';
+import {
+  deleteMobileProductType,
+  fetchMobileProductTypes,
+  MobileProductType,
+  saveMobileProductType,
+} from '../../services/categories/mobileProductTypeService';
+
+import { FormTextInput } from '../../../../components/shared/FormTextInput';
+interface Props {
+  visible: boolean;
+  dark: boolean;
+  onClose: () => void;
+}
+
+export const ProductTypesManagerModal: React.FC<Props> = ({ visible, dark, onClose }) => {
+  const insets = useSafeAreaInsets();
+  const [types, setTypes] = useState<MobileProductType[]>([]);
+  const [name, setName] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const form = useZodForm(catalogNameFormSchema, { name });
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      setTypes(await fetchMobileProductTypes());
+    } catch (error: any) {
+      Alert.alert('Não foi possível carregar', error?.message || 'Tente novamente.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (visible) void load();
+  }, [visible]);
+
+  const add = async () => {
+    return form.validateAndRun({ name }, async (values) => {
+      setSaving(true);
+      try {
+        await saveMobileProductType(values.name);
+        setName('');
+        await load();
+      } catch (error: any) {
+        Alert.alert('Não foi possível salvar', error?.message || 'Tente novamente.');
+      } finally {
+        setSaving(false);
+      }
+    }, (errors) => Alert.alert('Revise o tipo', Object.values(flattenFormErrors(errors))[0]));
+  };
+
+  const remove = (item: MobileProductType) =>
+    Alert.alert('Excluir tipo', `Deseja excluir "${item.name}"?`, [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Excluir',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await deleteMobileProductType(item.id);
+            await load();
+          } catch (error: any) {
+            Alert.alert('Não foi possível excluir', error?.message || 'Tente novamente.');
+          }
+        },
+      },
+    ]);
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <View
+        style={[
+          styles.backdrop,
+          { paddingTop: insets.top, paddingBottom: Math.max(insets.bottom, 16) },
+        ]}
+      >
+        <View style={[styles.content, dark && styles.darkContent]}>
+          <View style={styles.header}>
+            <View style={styles.titleRow}>
+              <Tag size={20} color="#2563eb" />
+              <Text style={[styles.title, dark && styles.light]}>Tipos de Produto</Text>
+            </View>
+            <TouchableOpacity
+              onPress={onClose}
+              style={styles.closeBtn}
+              accessibilityRole="button"
+              accessibilityLabel="Fechar tipos de produto"
+            >
+              <X size={20} color={dark ? '#cbd5e1' : '#64748b'} />
+            </TouchableOpacity>
+          </View>
+          <View style={styles.form}>
+            <FormTextInput
+              value={name}
+              onChangeText={setName}
+              placeholder="Ex.: BALCÃO DE PIA"
+              placeholderTextColor="#94a3b8"
+              style={[styles.input, dark && styles.darkInput, dark && styles.light]}
+              autoCapitalize="characters"
+            />
+            <TouchableOpacity
+              onPress={() => void add()}
+              style={[styles.add, saving && styles.disabled]}
+              disabled={saving}
+              accessibilityRole="button"
+              accessibilityLabel={saving ? 'Salvando tipo de produto' : 'Adicionar tipo de produto'}
+              accessibilityState={{ disabled: saving, busy: saving }}
+            >
+              {saving ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Plus size={17} color="#fff" />
+              )}
+            </TouchableOpacity>
+          </View>
+          {loading ? (
+            <ActivityIndicator color="#2563eb" />
+          ) : (
+            <ScrollView>
+              {types.length === 0 ? (
+                <Text style={styles.empty}>Nenhum tipo cadastrado.</Text>
+              ) : (
+                types.map((item) => (
+                  <View key={item.id} style={[styles.item, dark && styles.darkItem]}>
+                    <Text style={[styles.itemText, dark && styles.light]}>{item.name}</Text>
+                    <TouchableOpacity
+                      onPress={() => remove(item)}
+                      style={styles.actionBtn}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Excluir tipo ${item.name}`}
+                    >
+                      <Trash2 size={16} color="#ef4444" />
+                    </TouchableOpacity>
+                  </View>
+                ))
+              )}
+            </ScrollView>
+          )}
+        </View>
+      </View>
+    </Modal>
+  );
+};
+
+const styles = StyleSheet.create({
+  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,.5)', justifyContent: 'flex-end' },
+  content: {
+    maxHeight: '80%',
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    padding: 20,
+    gap: 14,
+  },
+  darkContent: { backgroundColor: '#0f172a' },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  title: { fontSize: 18, fontWeight: '900', color: '#0f172a' },
+  light: { color: '#f8fafc' },
+  closeBtn: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 12,
+  },
+  form: { flexDirection: 'row', gap: 8 },
+  input: {
+    flex: 1,
+    minHeight: 44,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+  },
+  darkInput: { backgroundColor: '#1e293b', borderColor: '#334155' },
+  add: {
+    width: 44,
+    minHeight: 44,
+    borderRadius: 12,
+    backgroundColor: '#2563eb',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  disabled: { opacity: 0.55 },
+  item: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 4,
+    paddingHorizontal: 14,
+    borderRadius: 14,
+    backgroundColor: '#f8fafc',
+    marginBottom: 8,
+  },
+  darkItem: { backgroundColor: '#1e293b' },
+  itemText: { flex: 1, fontWeight: '800', color: '#0f172a' },
+  actionBtn: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  empty: { color: '#94a3b8', textAlign: 'center', padding: 24 },
+});

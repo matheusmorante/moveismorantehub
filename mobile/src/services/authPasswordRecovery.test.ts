@@ -8,8 +8,8 @@ import {
   updateAuthenticatedPassword,
   verifyPasswordRecoveryCode,
   type PasswordRecoveryClient,
-} from './authPasswordRecovery';
-import { validatePasswordSetup } from './authPasswordSetup';
+} from './auth/authPasswordRecovery';
+import { validatePasswordSetup } from './auth/authPasswordSetup';
 
 const createClient = () => {
   const resetPasswordForEmail = vi.fn().mockResolvedValue({ error: null });

@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({ getSettings: vi.fn() }));
 
 vi.mock('../settingsService', () => ({ getSettings: mocks.getSettings }));
-vi.mock('../pushNotificationService', () => ({ dispatchAppNotification: vi.fn() }));
+vi.mock('../notifications/pushNotificationService', () => ({ dispatchAppNotification: vi.fn() }));
 
 import { getOrderAssemblyKinds } from '../orderEventNotificationService';
 

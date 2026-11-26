@@ -1,1 +1,1 @@
-export * from './schemas/stockUnavailabilityFormSchemas';
+export * from './schemas/stock/stockUnavailabilityFormSchemas';

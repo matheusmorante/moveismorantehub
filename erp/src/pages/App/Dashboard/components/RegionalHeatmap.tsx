@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState, useMemo } from 'react';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import Order from '../../../types/order.type';
-import { formatCurrency } from '../../../utils/formatters';
+import { formatCurrency } from '../../../utils/shared/formatters';
 import { parseAddressString } from '../../../utils/addressParser';
 
 interface RegionalHeatmapProps {

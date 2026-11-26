@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { CustomerOrdersTab } from '../components/infoPanel/CustomerOrdersTab';
-import type { SupportOrderSummary } from '@/pages/utils/customerSupport/supportOrdersService';
+import type { SupportOrderSummary } from '@/pages/utils/customerSupport/orders/supportOrdersService';
 
 const order: SupportOrderSummary = {
   id: 'f5531356-93d9-410a-991b-b444fd7152b7', orderNumber: '42', status: 'active',

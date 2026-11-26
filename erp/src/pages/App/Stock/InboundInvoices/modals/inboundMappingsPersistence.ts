@@ -7,7 +7,7 @@ import {
   findInboundSupplierItemMappings,
   saveInboundSupplierItemMapping,
 } from '@/pages/utils/inboundNfe/services/inboundSupplierItemMappingsService';
-import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../../../shared-utils/core/withTimeout';
 
 export interface MappingModalContextSnapshot {
   initialInvoice: InboundInvoice | null;

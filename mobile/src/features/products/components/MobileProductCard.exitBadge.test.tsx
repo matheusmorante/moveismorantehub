@@ -80,7 +80,7 @@ vi.mock('../domain/mobileProductCardRules', () => ({
   canShowMobileSingleVariationReorganizationActions: () => false,
   canToggleProductActivationFromCardMenu: () => false,
 }));
-vi.mock('../services/mobileProductVariationActionsService', () => ({
+vi.mock('../services/variations/mobileProductVariationActionsService', () => ({
   getMobileVariationActionRequirements: () => ({ hasSupplier: false, hasValidAttributes: true }),
 }));
 

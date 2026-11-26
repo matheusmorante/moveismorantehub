@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { getSettings, notifySettingsSubscribers, SETTINGS_KEY } from '@/pages/utils/settings';
 import type { WhatsAppAiAgentConfig } from '@/pages/utils/settings/types';
-import { withTimeout } from '../../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../../shared-utils/core/withTimeout';
 
 const resultSchema = z.object({
   confirmed: z.boolean(),

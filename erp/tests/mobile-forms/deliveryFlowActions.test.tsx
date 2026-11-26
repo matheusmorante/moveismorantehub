@@ -36,7 +36,7 @@ vi.mock('../../../mobile/src/features/orders/components/delivery/DeliveryPayment
   DeliveryPaymentSection: () => null,
 }));
 
-vi.mock('../../../mobile/src/services/teamLocationService', () => ({
+vi.mock('../../../mobile/src/services/logistics/teamLocationService', () => ({
   broadcastMyLocation: mocks.broadcastMyLocation,
   stopDeliveringBroadcast: mocks.stopDeliveringBroadcast,
 }));

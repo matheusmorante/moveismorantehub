@@ -4,7 +4,7 @@ const { supabaseMock } = vi.hoisted(() => ({ supabaseMock: { from: vi.fn() } }))
 
 vi.mock('../../../services/supabaseClient', () => ({ supabase: supabaseMock }));
 
-import { fetchMobileProductsPage } from './mobileProductFetchService';
+import { fetchMobileProductsPage } from './products/mobileProductFetchService';
 import { resolveMobileProductStatusFilter } from '../domain/mobileProductListFilters';
 import {
   PRODUCT_LIST_PRODUCT_AND_LEGACY_ITEM_TYPE_FILTER,

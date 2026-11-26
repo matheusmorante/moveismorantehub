@@ -2,7 +2,7 @@ import React from 'react';
 import { Check } from 'lucide-react';
 import type Item from '@/pages/types/items.type';
 import type Shipping from '@/pages/types/Shipping.type';
-import type { ValidationErrors } from '@/pages/utils/validations';
+import type { ValidationErrors } from '@/pages/utils/sales/validations';
 import { AppointmentHandling, type AppointmentHandlingValue } from './AppointmentHandling';
 
 type Appointment = NonNullable<Shipping['scheduling']['appointments']>[number];

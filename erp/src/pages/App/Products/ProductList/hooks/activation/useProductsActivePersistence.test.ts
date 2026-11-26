@@ -1,10 +1,10 @@
 import { beforeEach, expect, it, vi } from 'vitest';
 import { persistProductActiveState, syncParentActiveInDb } from './useProductsActivePersistence';
-import { mapFromDB } from '@/pages/utils/productService/productMapper';
+import { mapFromDB } from '@/pages/utils/productService/mapping/productMapper';
 
 const db = vi.hoisted(() => ({ from: vi.fn() }));
 vi.mock('@/pages/utils/supabaseConfig', () => ({ supabase: db }));
-vi.mock('@/pages/utils/productService', () => ({ updateProduct: vi.fn() }));
+vi.mock('@/pages/utils/productService/productService', () => ({ updateProduct: vi.fn() }));
 
 const parentId = '12c8a584-66ce-47b3-af0b-c9dd78aecbaa';
 const product = () =>
@@ -54,7 +54,7 @@ it('desativa o produto real quando a linha representa a variação virtual', asy
 });
 
 it('adia a invalidação interna para o wrapper da lista em atualizações legadas', async () => {
-  const { updateProduct } = await import('@/pages/utils/productService');
+  const { updateProduct } = await import('@/pages/utils/productService/productService');
   const legacyProduct = { id: 'legacy-product', active: true } as ReturnType<typeof product>;
 
   await persistProductActiveState('legacy-product', false, [legacyProduct], [legacyProduct]);

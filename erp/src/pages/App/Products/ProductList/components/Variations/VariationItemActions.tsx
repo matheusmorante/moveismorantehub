@@ -6,12 +6,12 @@ import { useAuth } from '@/context/AuthContext';
 import {
   canPrintProductIdentificationLabels,
   isProductIdentificationLabelOnlyProfile,
-} from '@/pages/utils/accessRoles';
+} from '@/pages/utils/auth/accessRoles';
 import {
   buildProductVariationName,
   getSelectedProductDisplayName,
   normalizeProductVariationName,
-} from '@/pages/utils/productVariationDefaults';
+} from '@/pages/utils/productService/productVariationDefaults';
 import type { CardVariationItem } from './ProductCardVariationList';
 
 interface VariationItemActionsProps {

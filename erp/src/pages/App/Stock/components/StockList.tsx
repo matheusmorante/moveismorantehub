@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import type Product from '@/pages/types/product.type';
 import type { Variation } from '@/pages/types/product.type';
-import { subscribeToProducts } from '@/pages/utils/productService';
+import { subscribeToProducts } from '@/pages/utils/productService/productService';
 import QRScannerModal from '@/components/shared/QRScannerModal';
 import ErrorBoundary from '@/components/shared/ErrorBoundary';
 import { normalizeSearchTerm } from '@/pages/utils/textUtils';

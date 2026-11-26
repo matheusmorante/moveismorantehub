@@ -1,6 +1,6 @@
 import type Order from '../../types/order.type';
 import { supabase } from '../supabaseConfig';
-import { readTestArtifactIdentity } from '../../../../../shared-utils/testArtifactPolicy';
+import { readTestArtifactIdentity } from '../../../../../shared-utils/testing/testArtifactPolicy';
 
 // Faixa reservada para testes automatizados (800000 a 999999). Nunca computada na sequência de pedidos reais.
 export const TEST_ORDER_CODE_THRESHOLD = 800000;

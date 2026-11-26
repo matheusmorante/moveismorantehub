@@ -1,5 +1,5 @@
 import { supabase } from '@/pages/utils/supabaseConfig';
-import { withTimeout } from '../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../shared-utils/core/withTimeout';
 import type { AggregatedMetric } from './types';
 
 const TABLE_NAME = 'supabase_mass_load_history';

@@ -1,13 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
 import Product, { ProductKind } from '../../pages/types/product.type';
-import { getProductKind } from '../../pages/utils/productKindRules';
+import { getProductKind } from '../../pages/utils/productService/productKindRules';
 import { useZodForm, flattenFormErrors } from '@/hooks/useZodForm';
 import {
   PRODUCT_AUTOCOMPLETE_DEBOUNCE_MS,
   PRODUCT_AUTOCOMPLETE_MAX_SUGGESTIONS,
   productAutocompleteFormSchema,
 } from '../../../../shared-utils/productAutocompleteFormSchema';
-import { withTimeout } from '../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../shared-utils/core/withTimeout';
 import {
   fetchAllProductSearchResults,
   fetchCompositionAutocompleteResults,
@@ -16,7 +16,7 @@ import {
   normalizeProductSearchSeparators,
   type ProductAutocompleteExcludedLink,
   type SuggestionItem,
-} from '../productAutocompleteUtils';
+} from '../selectors/productAutocompleteUtils';
 
 interface UseProductAutocompleteProps {
   value?: string;

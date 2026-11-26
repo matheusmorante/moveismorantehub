@@ -1,6 +1,6 @@
 import { connectivityService } from '../offline/connectivityService';
 import { supabase } from '../supabaseClient';
-import { withTimeout } from '../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../shared-utils/core/withTimeout';
 import { receiptInvoiceConflictError } from '../../../../shared-utils/receiptInvoiceAvailability';
 import type { MobileGoodsReceiptDraft } from './goodsReceiptTypes';
 

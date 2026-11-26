@@ -1,12 +1,12 @@
 import React from 'react';
 import { PatternFormat as PatternFormatBase } from 'react-number-format';
 import { AddressAutocompleteInput } from '@/components/shared/AddressAutocompleteInput';
-import SmartInput from '@/components/SmartInput';
+import SmartInput from '@/components/inputs/SmartInput';
 import Shipping from '@/pages/types/Shipping.type';
-import { ValidationErrors } from '@/pages/utils/validations';
+import { ValidationErrors } from '@/pages/utils/sales/validations';
 import { getAddressByCep } from '@/pages/utils/maps';
 import { mergeAddressSelection, changeAddressField } from '../../../../../../../shared-utils/addressSelection';
-import AddressVerificationMap from '../AddressVerificationMap';
+import AddressVerificationMap from '../maps/AddressVerificationMap';
 
 const PatternFormat = PatternFormatBase as any;
 

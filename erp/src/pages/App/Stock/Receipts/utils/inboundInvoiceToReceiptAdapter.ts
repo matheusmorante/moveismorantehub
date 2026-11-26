@@ -6,7 +6,7 @@ import {
   ensureInboundInvoiceAttachment,
 } from '@/pages/utils/inboundNfe/inboundInvoicesService';
 import { findInboundSupplierItemMappings } from '@/pages/utils/inboundNfe/services/inboundSupplierItemMappingsService';
-import { getProductsByIds } from '@/pages/utils/productService';
+import { getProductsByIds } from '@/pages/utils/productService/productService';
 import {
   calculateAdditionalCosts,
   getLegacyCompatibleCosts,

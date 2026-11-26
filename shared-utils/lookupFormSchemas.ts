@@ -1,1 +1,1 @@
-export * from './schemas/lookupFormSchemas';
+export * from './schemas/system/lookupFormSchemas';

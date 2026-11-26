@@ -3,7 +3,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { SendWhatsAppModal } from '@/components/shared/SendWhatsAppModal';
 const mocks = vi.hoisted(() => ({ send: vi.fn(), warning: vi.fn() }));
-vi.mock('@/pages/utils/whatsappGraphService', () => ({ whatsappGraphService: { sendTextMessage: mocks.send } }));
+vi.mock('@/pages/utils/whatsapp/whatsappGraphService', () => ({ whatsappGraphService: { sendTextMessage: mocks.send } }));
 vi.mock('react-toastify', () => ({ toast: { warning: mocks.warning, error: vi.fn(), success: vi.fn() } }));
 afterEach(() => { cleanup(); vi.clearAllMocks(); vi.useRealTimers(); vi.restoreAllMocks(); });
 function deferred<T>() { let resolve!: (value: T) => void; const promise = new Promise<T>((done) => { resolve = done; }); return { promise, resolve }; }

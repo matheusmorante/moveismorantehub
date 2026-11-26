@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import type { FormEventHandler } from 'react';
-import { withTimeout } from '../../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../../shared-utils/core/withTimeout';
 import { ApiConfiguration } from '@/services/apiMonitoring/apiMonitoringTypes';
 import { ApiConfigService } from '@/services/apiMonitoring/apiConfigService';
 import { ApiUsageGuard } from '@/services/apiMonitoring/apiUsageGuard';

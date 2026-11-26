@@ -1,5 +1,5 @@
 import type { ScopeSupplier } from '../hooks/useInventoryScopeBuilder';
-import { matchesSearchText } from '../../../../../../shared-utils/searchText';
+import { matchesSearchText } from '../../../../../../shared-utils/core/searchText';
 
 const normalize = (value: string) =>
   value

@@ -15,7 +15,7 @@ import { formatOrderCode } from '../../../../utils/orderCode';
 import { saveOrder } from '../../../../utils/orderHistoryService';
 import { getReturnLineKey, type ReturnQuantityRecord } from '../../../../utils/returnQuantityRules';
 import { type ReturnFormTab } from '../components/ReturnFormTabs';
-import { isIdentifiedTestArtifact } from '../../../../../../../shared-utils/testArtifactPolicy';
+import { isIdentifiedTestArtifact } from '../../../../../../../shared-utils/testing/testArtifactPolicy';
 import { createLinkedReturnFormSchema } from '../../../../../../../shared-utils/returnFormSchemas';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { EMPTY_SCHEDULING } from './types';

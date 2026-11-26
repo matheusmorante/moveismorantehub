@@ -1,15 +1,15 @@
 import React, { useCallback, useState, useRef } from 'react';
 import { toast } from 'react-toastify';
 import type { z } from 'zod';
-import { useSalesOrderForm } from '../hooks/useSalesOrderForm';
+import { useSalesOrderForm } from '../hooks/form-flow/useSalesOrderForm';
 import { useZodForm } from '@/hooks/useZodForm';
 import {
   createOrderDomainSchema,
   orderReconciliationFormSchema,
 } from '../../../../../../shared-utils/orderDomainValidation';
 import { getSettings } from '@/pages/utils/settingsService';
-import OrderSavingOverlay from '../components/OrderSavingOverlay';
-import OrderFormLoadingOverlay from '../components/OrderFormLoadingOverlay';
+import OrderSavingOverlay from '../components/form/OrderSavingOverlay';
+import OrderFormLoadingOverlay from '../components/form/OrderFormLoadingOverlay';
 import {
   useOrderEditLoader,
   useOrderEditPersistence,

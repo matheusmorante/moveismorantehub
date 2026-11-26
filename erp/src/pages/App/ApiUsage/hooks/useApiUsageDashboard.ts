@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { ApiUsageTracker } from '@/services/apiMonitoring/apiUsageTracker';
-import { withTimeout } from '../../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../../shared-utils/core/withTimeout';
 import {
   ApiConfiguration,
   ApiDashboardMetrics,

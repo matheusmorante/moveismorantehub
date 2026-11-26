@@ -1,8 +1,8 @@
 import React from "react";
 import type { Variation } from "../../../types/product.type";
-import { formatCurrency } from "@/pages/utils/formatters";
-import { normalizeVariationSku } from "@/pages/utils/productVariationDefaults";
-import ProductImage from "@/components/ProductImage";
+import { formatCurrency } from "@/pages/utils/shared/formatters";
+import { normalizeVariationSku } from "@/pages/utils/productService/productVariationDefaults";
+import ProductImage from "@/components/display/ProductImage";
 
 export interface VariationRowProps {
 	readonly v: Variation;

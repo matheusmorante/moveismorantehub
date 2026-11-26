@@ -1,0 +1,185 @@
+import { supabase } from '../../supabaseClient';
+import {
+  MonthlySummary,
+  CashFlowReport,
+  IncomeStatementReport,
+  MonthlyEvolutionItem,
+} from './mobileFinanceTypes';
+import { fetchFinancialCategories, determineResultNature } from './mobileCategoryService';
+
+const fetchReportTransactions = (startDate?: string, endDate?: string, endExclusive = false) =>
+  supabase.rpc('get_report_financial_transactions', {
+    p_start_date: startDate || null,
+    p_end_date: endDate || null,
+    p_end_exclusive: endExclusive,
+  });
+
+export const fetchMonthlySummary = async (year: number, month: number): Promise<MonthlySummary> => {
+  const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
+  const nextMonth = month === 12 ? 1 : month + 1;
+  const nextYear = month === 12 ? year + 1 : year;
+  const endDate = `${nextYear}-${String(nextMonth).padStart(2, '0')}-01`;
+
+  const { data, error } = await supabase.rpc('get_mobile_financial_monthly_summary', {
+    p_start_date: startDate,
+    p_end_date_exclusive: endDate,
+  });
+
+  if (error) {
+    console.warn('Erro ao consultar resumo mensal:', error.message);
+    return { income: 0, expense: 0, balance: 0 };
+  }
+
+  const summary = data as any;
+  const income = Number(summary?.income) || 0;
+  const expense = Number(summary?.expense) || 0;
+
+  return {
+    income,
+    expense,
+    balance: income - expense,
+  };
+};
+
+export const fetchCashFlowReport = async (year: number, month: number): Promise<CashFlowReport> => {
+  const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
+  const nextMonth = month === 12 ? 1 : month + 1;
+  const nextYear = month === 12 ? year + 1 : year;
+  const endDate = `${nextYear}-${String(nextMonth).padStart(2, '0')}-01`;
+
+  const [priorRes, currentRes]: any[] = await Promise.all([
+    fetchReportTransactions(undefined, startDate, true),
+    fetchReportTransactions(startDate, endDate, true),
+  ]);
+
+  const priorData = priorRes.data || [];
+  const currentData = currentRes.data || [];
+
+  let initialBalance = 0;
+  priorData.forEach((row: any) => {
+    if (row.status === 'REVERSED' || row.status === 'CANCELLED' || row.status === 'PENDING') return;
+    const val = Number(row.amount) || 0;
+    if (row.type === 'income') initialBalance += val;
+    else if (row.type === 'expense') initialBalance -= val;
+  });
+
+  let totalInflow = 0;
+  let totalOutflow = 0;
+  currentData.forEach((row: any) => {
+    if (row.status === 'REVERSED' || row.status === 'CANCELLED' || row.status === 'PENDING') return;
+    const val = Number(row.amount) || 0;
+    if (row.type === 'income') totalInflow += val;
+    else if (row.type === 'expense') totalOutflow += val;
+  });
+
+  const netCashFlow = totalInflow - totalOutflow;
+  const finalBalance = initialBalance + netCashFlow;
+
+  return {
+    initialBalance,
+    totalInflow,
+    totalOutflow,
+    netCashFlow,
+    finalBalance,
+  };
+};
+
+export const fetchIncomeStatementReport = async (
+  year: number,
+  month: number
+): Promise<IncomeStatementReport> => {
+  const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
+  const nextMonth = month === 12 ? 1 : month + 1;
+  const nextYear = month === 12 ? year + 1 : year;
+  const endDate = `${nextYear}-${String(nextMonth).padStart(2, '0')}-01`;
+
+  const [categories, { data }] = await Promise.all([
+    fetchFinancialCategories(),
+    fetchReportTransactions(startDate, endDate, true),
+  ]);
+
+  const catMap = new Map(
+    categories.map((c) => [
+      c.name.toLowerCase(),
+      c.result_nature || determineResultNature(c.name, c.type),
+    ])
+  );
+
+  let grossRevenue = 0;
+  let operatingExpenses = 0;
+  let cmv = 0;
+
+  (data || []).forEach((row: any) => {
+    if (row.status === 'REVERSED' || row.status === 'CANCELLED' || row.status === 'PENDING') return;
+
+    const nature =
+      row.result_nature ||
+      catMap.get((row.category_name || '').toLowerCase()) ||
+      determineResultNature(row.category_name, row.type);
+    if (nature === 'NAO_AFETA_RESULTADO') return;
+
+    const val = Number(row.amount) || 0;
+    if (row.type === 'income' || nature === 'RECEITA') {
+      grossRevenue += val;
+    } else if (
+      nature === 'CUSTO' ||
+      nature === 'CMV' ||
+      (row.category_name || '').toLowerCase().includes('custo da mercadoria') ||
+      (row.category_name || '').toLowerCase().includes('cmv')
+    ) {
+      cmv += val;
+    } else if (row.type === 'expense' || nature === 'DESPESA') {
+      operatingExpenses += val;
+    }
+  });
+
+  const grossMargin = grossRevenue - cmv;
+  const netResult = grossMargin - operatingExpenses;
+  const marginPercent =
+    grossRevenue > 0 ? Number(((netResult / grossRevenue) * 100).toFixed(1)) : 0;
+
+  return {
+    grossRevenue,
+    cmv,
+    grossMargin,
+    operatingExpenses,
+    netResult,
+    marginPercent,
+  };
+};
+
+export const fetchMonthlyEvolutionReport = async (
+  year: number
+): Promise<MonthlyEvolutionItem[]> => {
+  const monthNames = [
+    'Jan',
+    'Fev',
+    'Mar',
+    'Abr',
+    'Mai',
+    'Jun',
+    'Jul',
+    'Ago',
+    'Set',
+    'Out',
+    'Nov',
+    'Dez',
+  ];
+  const items: MonthlyEvolutionItem[] = [];
+
+  for (let m = 1; m <= 12; m++) {
+    const dre = await fetchIncomeStatementReport(year, m);
+    items.push({
+      monthName: monthNames[m - 1],
+      monthIndex: m,
+      revenue: dre.grossRevenue,
+      cmv: dre.cmv,
+      grossMargin: dre.grossMargin,
+      expenses: dre.operatingExpenses,
+      result: dre.netResult,
+      marginPercent: dre.marginPercent,
+    });
+  }
+
+  return items;
+};

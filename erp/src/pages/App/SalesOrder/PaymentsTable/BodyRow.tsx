@@ -1,14 +1,14 @@
 import { requestConfirmation } from '@/components/shared/confirmationService';
 import { PaymentsSummary, Payment } from '../../../types/payments.type';
-import CurrencyInput from '../../../../components/CurrencyInput';
-import CurrencyOrPercentInput from '../../../../components/CurrencyOrPercentInput';
-import CurrencyDisplay from '../../../../components/CurrencyDisplay';
-import { calcPaymentTotalValue } from '../../../utils/calculations';
+import CurrencyInput from '../../../../components/inputs/CurrencyInput';
+import CurrencyOrPercentInput from '../../../../components/inputs/CurrencyOrPercentInput';
+import CurrencyDisplay from '../../../../components/display/CurrencyDisplay';
+import { calcPaymentTotalValue } from '../../../utils/sales/calculations';
 import React, { useState, useRef, useEffect } from 'react';
 import { PixPaymentModal } from './PixPaymentModal';
 import PaymentMethodSelector from './PaymentMethodSelector';
-import { formatCurrency } from '../../../utils/formatters';
-import { ValidationErrors } from '../../../utils/validations';
+import { formatCurrency } from '../../../utils/shared/formatters';
+import { ValidationErrors } from '../../../utils/sales/validations';
 import {
   getOrderPaymentDueDate,
   isPromissoryPaymentMethod,

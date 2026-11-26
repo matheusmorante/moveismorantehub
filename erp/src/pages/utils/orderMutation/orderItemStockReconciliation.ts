@@ -7,8 +7,8 @@ import {
   isTemporarySaleItemReconciliation,
   reverseSaleItemMoves,
   syncLinkedReturnProductReferences,
-} from '../saleItemInventorySync';
-import { isPartialSaleStockMovement, isStockEligibleSaleItem } from '../saleInventoryRules';
+} from '../sales/saleItemInventorySync';
+import { isPartialSaleStockMovement, isStockEligibleSaleItem } from '../sales/saleInventoryRules';
 import { isEffectiveInventoryMove } from '../movingAverageCostRules';
 import { handleStockAndBusinessRules } from '../orderStockOperations';
 

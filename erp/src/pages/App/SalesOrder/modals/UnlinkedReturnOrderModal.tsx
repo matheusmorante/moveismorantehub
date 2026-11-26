@@ -5,7 +5,7 @@ import CustomerData from '@/pages/types/customerData.type';
 import Item from '@/pages/types/items.type';
 import Order from '@/pages/types/order.type';
 import Shipping from '@/pages/types/Shipping.type';
-import { calcItemsSummary } from '@/pages/utils/calculations';
+import { calcItemsSummary } from '@/pages/utils/sales/calculations';
 import { saveOrder } from '@/pages/utils/orderHistoryService';
 import CustomerSearchModal from './CustomerSearchModal';
 import ReturnCollectionSection from '../OrderActions/ReturnCollectionSection';

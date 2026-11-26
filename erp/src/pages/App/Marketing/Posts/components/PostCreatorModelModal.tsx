@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { toast } from 'react-toastify';
-import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../../../shared-utils/core/withTimeout';
 import { postElementModelEditorFormSchema, postElementReferenceUploadFormSchema } from '../../../../../../../shared-utils/marketingFormSchemas';
 import {
   defaultContentKind,

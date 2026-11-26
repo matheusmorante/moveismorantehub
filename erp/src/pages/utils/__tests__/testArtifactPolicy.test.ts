@@ -3,8 +3,8 @@ import {
   assertTestArtifactLinks, isIdentifiedTestArtifact, isTestArtifactVisibleAt,
   normalizeTestArtifactScenarioKey, normalizeTestRunId, readTestArtifactIdentity,
   testArtifactMetadata, TEST_ARTIFACT_EXCLUDED_DESTINATIONS,
-} from '../../../../../shared-utils/testArtifactPolicy';
-import { testArtifactIdentityForAuthenticatedUser } from '../../../../../shared-utils/testArtifactContext';
+} from '../../../../../shared-utils/testing/testArtifactPolicy';
+import { testArtifactIdentityForAuthenticatedUser } from '../../../../../shared-utils/testing/testArtifactContext';
 
 const runId = '550e8400-e29b-41d4-a716-446655440000';
 const ownerId = '550e8400-e29b-41d4-a716-446655440001';

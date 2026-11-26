@@ -1,5 +1,5 @@
-import { CustomerSummary, CustomerLinkStatus } from '@/pages/utils/customerSupport/customerMatchingService';
-import { SupportOrderSummary } from '@/pages/utils/customerSupport/supportOrdersService';
+import { CustomerSummary, CustomerLinkStatus } from '@/pages/utils/customerSupport/query/customerMatchingService';
+import { SupportOrderSummary } from '@/pages/utils/customerSupport/orders/supportOrdersService';
 
 export type ConversationStatus = 'open' | 'closed' | 'snoozed';
 

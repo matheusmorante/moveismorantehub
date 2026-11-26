@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { UserRole } from '@/context/AuthContext';
-import { roleLabel, SYSTEM_ROLES } from '@/pages/utils/accessRoles';
+import { roleLabel, SYSTEM_ROLES } from '@/pages/utils/auth/accessRoles';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { createUserRolesFormSchema } from '../../../../../shared-utils/userRolesFormSchema';
 import { toast } from 'react-toastify';

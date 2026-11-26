@@ -1,6 +1,6 @@
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { TABLE_NAME } from './personMapper';
-import { getPrimaryRole } from '../accessRoles';
+import { getPrimaryRole } from '../auth/accessRoles';
 
 export const syncMissingEmployeesFromProfiles = async (): Promise<void> => {
   try {

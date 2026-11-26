@@ -1,9 +1,9 @@
-import type { ParsedFinancialIntent } from '../financialTypes';
-import { validateParsedIntent } from '../financialIntentValidator';
+import type { ParsedFinancialIntent } from '../extraction/financialTypes';
+import { validateParsedIntent } from '../extraction/financialIntentValidator';
 import {
   extractUnknownFieldsFromText,
   hasUnknownFinancialAnswerPhrase,
-} from '../financialUnknownFieldExtractor';
+} from '../extraction/financialUnknownFieldExtractor';
 
 export const tryPatchUnknownFinancialAnswer = (
   text: string,

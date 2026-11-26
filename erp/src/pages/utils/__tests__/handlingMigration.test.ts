@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { migrateOrderHandlings, resolveHandlingLabel } from '../handlingMigration';
+import { migrateOrderHandlings, resolveHandlingLabel } from '../sales/handlingMigration';
 
 describe('handlingMigration - Preservação e Consistência de Manuseios', () => {
   it('deve preservar o manuseio individual de cada item sem sobrescrever com o shipping.orderType', () => {

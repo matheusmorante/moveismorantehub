@@ -3,9 +3,9 @@ import { toast } from 'react-toastify';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { variationMergeCommandSchema, variationMergeSearchSchema, variationMergeAckSchema, VariationMergeUnconfirmedError,
   type VariationMergeOperationGuard } from '../../../../../../../../shared-utils/variationMergeFormSchemas';
-import { withTimeout } from '../../../../../../../../shared-utils/withTimeout';
-import { mergeVariationIntoCanonical } from '@/pages/utils/productService';
-import { searchCanonicalVariations } from '@/pages/utils/productService/productVariationMergeQueries';
+import { withTimeout } from '../../../../../../../../shared-utils/core/withTimeout';
+import { mergeVariationIntoCanonical } from '@/pages/utils/productService/productService';
+import { searchCanonicalVariations } from '@/pages/utils/productService/queries/productVariationMergeQueries';
 import type { VariationOption, MergeVariationModalProps } from '../MergeVariationModal';
 
 export const useMergeVariation = (variation: MergeVariationModalProps['variation'], onMerged: () => void, onClose: () => void, operationGuard?: VariationMergeOperationGuard) => {

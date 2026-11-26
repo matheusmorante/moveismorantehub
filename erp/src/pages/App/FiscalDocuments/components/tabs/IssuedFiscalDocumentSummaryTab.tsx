@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { formatCurrency } from '@/pages/utils/formatters';
+import { formatCurrency } from '@/pages/utils/shared/formatters';
 import type { NfeEmissionResult } from '@/pages/utils/nfe/nfeService';
 import { formatAccessKey } from '@/pages/utils/nfe/nfeAccessKey';
 import { parseSefazAuthorization } from '@/pages/utils/nfe/sefazResponseParser';

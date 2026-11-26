@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import type { WhatsAppMessage } from '../../../types';
-import type { CustomerSupportSendResult } from '@/pages/utils/customerSupport/customerSupportService';
+import type { CustomerSupportSendResult } from '@/pages/utils/customerSupport/query/customerSupportService';
 
 interface MessageBubbleAiSuggestionActionsProps {
   message: WhatsAppMessage;

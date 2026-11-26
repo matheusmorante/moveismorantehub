@@ -17,7 +17,7 @@ vi.mock('../../../../../shared-utils/productText', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../../../../shared-utils/productText')>()),
   toTitleCase: (value: string) => value,
 }));
-vi.mock('./mobileProductMetaCatalogSyncService', () => ({ triggerMobileProductMetaCatalogSync: mocks.sync }));
+vi.mock('./catalog/mobileProductMetaCatalogSyncService', () => ({ triggerMobileProductMetaCatalogSync: mocks.sync }));
 
 import {
   checkMobileVariationAttributeConflict,
@@ -29,7 +29,7 @@ import {
   mobileVariationAttributesConflict,
   moveMobileVariationToFamily,
   toMobileVariationAttributes,
-} from './mobileProductVariationActionsService';
+} from './variations/mobileProductVariationActionsService';
 import { canAddVariationFamilyAttribute } from '../../../../../shared-utils/variationFamilyFormSchemas';
 
 const sourceVariationId = '123e4567-e89b-42d3-a456-426614174000';

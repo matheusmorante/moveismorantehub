@@ -5,7 +5,7 @@ import {
   searchInventoryAuditEmployees,
   syncMissingEmployeesFromProfiles,
 } from '@/pages/utils/personService';
-import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../../../shared-utils/core/withTimeout';
 import {
   ensureOfflineInventoryCatalogSynced,
   getOfflineInventoryCatalogProducts,

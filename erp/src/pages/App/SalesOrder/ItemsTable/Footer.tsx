@@ -1,6 +1,6 @@
 import React from 'react';
 import { Item, ItemsSummary } from '../../../types/items.type';
-import CurrencyDisplay from '../../../../components/CurrencyDisplay';
+import CurrencyDisplay from '../../../../components/display/CurrencyDisplay';
 
 interface Props {
   summary: ItemsSummary;

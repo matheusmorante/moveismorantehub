@@ -1,0 +1,327 @@
+import React, { useEffect, useRef, useState } from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import {
+  ActivityIndicator,
+  Alert,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { Check, Edit2, Layers, Plus, Trash2, X } from 'lucide-react-native';
+import { z } from 'zod';
+import { flattenFormErrors, useZodForm } from '../../../../hooks/useZodForm';
+import { catalogNameFormSchema } from '../../../../../../shared-utils/catalogFormSchemas';
+import { FormTextInput } from '../../../../components/shared/FormTextInput';
+import {
+  fetchMobileEnvironmentManagerData,
+  saveMobileEnvironment,
+  deleteMobileEnvironment,
+  MobileCategory,
+  MobileEnvironment,
+} from '../../services/categories/mobileCategoryService';
+
+const environmentFormSchema = catalogNameFormSchema.extend({ linkedIds: z.array(z.string().min(1)), id: z.string().optional() });
+
+const areIdsEqual = (left: readonly string[], right: readonly string[]) => {
+  if (left.length !== right.length) return false;
+  const sortedLeft = [...left].sort();
+  const sortedRight = [...right].sort();
+  return sortedLeft.every((id, index) => id === sortedRight[index]);
+};
+
+interface Props {
+  visible: boolean;
+  dark: boolean;
+  onClose: () => void;
+}
+
+export const EnvironmentsManagerModal: React.FC<Props> = ({ visible, dark, onClose }) => {
+  const insets = useSafeAreaInsets();
+  const [items, setItems] = useState<MobileEnvironment[]>([]);
+  const [categories, setCategories] = useState<MobileCategory[]>([]);
+  const [name, setName] = useState('');
+  const [selected, setSelected] = useState<string[]>([]);
+  const [editingId, setEditingId] = useState<string | undefined>();
+  const [loading, setLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const isSavingRef = useRef(false);
+  const initialSelectedRef = useRef<string[]>([]);
+  const form = useZodForm(environmentFormSchema, { name, linkedIds: selected, id: editingId });
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const { environments, categories: cats } = await fetchMobileEnvironmentManagerData();
+      setItems(environments);
+      setCategories(cats);
+    } catch (error) {
+      console.warn('[EnvironmentsManagerModal] Erro ao carregar ambientes:', error);
+      Alert.alert('Erro ao carregar', 'Não foi possível carregar os ambientes e categorias. Tente novamente.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (visible) void load();
+  }, [visible]);
+
+  const reset = () => {
+    setName('');
+    setSelected([]);
+    setEditingId(undefined);
+    initialSelectedRef.current = [];
+  };
+
+  const save = async () => {
+    if (isSavingRef.current) return;
+    isSavingRef.current = true;
+    setIsSaving(true);
+
+    try {
+      return await form.validateAndRun(
+        { name, linkedIds: selected, id: editingId },
+        async (values) => {
+          try {
+            const linksUnchanged = Boolean(values.id) && areIdsEqual(
+              values.linkedIds,
+              initialSelectedRef.current,
+            );
+            await saveMobileEnvironment(
+              values.name,
+              linksUnchanged ? undefined : values.linkedIds,
+              values.id,
+            );
+            reset();
+            await load();
+          } catch (error: any) {
+            Alert.alert('Não foi possível salvar', error?.message || 'Tente novamente.');
+          }
+        },
+        (errors) => Alert.alert('Revise o ambiente', Object.values(flattenFormErrors(errors))[0])
+      );
+    } finally {
+      isSavingRef.current = false;
+      setIsSaving(false);
+    }
+  };
+
+  const remove = (item: MobileEnvironment) =>
+    Alert.alert('Excluir ambiente', `Deseja excluir "${item.name}"?`, [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Excluir',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await deleteMobileEnvironment(item.id);
+            await load();
+          } catch (error: any) {
+            Alert.alert(
+              'Exclusão bloqueada',
+              error?.message || 'Desvincule as categorias antes de excluir.'
+            );
+          }
+        },
+      },
+    ]);
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <View
+        style={[
+          styles.backdrop,
+          { paddingTop: insets.top, paddingBottom: Math.max(insets.bottom, 16) },
+        ]}
+      >
+        <View style={[styles.content, dark && styles.darkContent]}>
+          <View style={styles.header}>
+            <View style={styles.titleRow}>
+              <Layers size={20} color="#2563eb" />
+              <Text style={[styles.title, dark && styles.light]}>Ambientes</Text>
+            </View>
+            <TouchableOpacity
+              onPress={onClose}
+              style={styles.closeBtn}
+              accessibilityRole="button"
+              accessibilityLabel="Fechar gestão de ambientes"
+            >
+              <X size={20} color={dark ? '#cbd5e1' : '#64748b'} />
+            </TouchableOpacity>
+          </View>
+          <View style={styles.form}>
+            <FormTextInput
+              value={name}
+              onChangeText={setName}
+              editable={!isSaving}
+              placeholder="Nome do ambiente..."
+              placeholderTextColor="#94a3b8"
+              style={[styles.input, dark && styles.darkInput, dark && styles.light]}
+            />
+            <TouchableOpacity
+              onPress={() => void save()}
+              disabled={isSaving}
+              style={[styles.add, isSaving && styles.disabledAction]}
+              accessibilityRole="button"
+              accessibilityLabel={isSaving ? 'Salvando ambiente' : 'Adicionar ou salvar ambiente'}
+              accessibilityState={{ disabled: isSaving, busy: isSaving }}
+            >
+              {isSaving ? <ActivityIndicator size="small" color="#fff" /> : <Plus size={17} color="#fff" />}
+            </TouchableOpacity>
+          </View>
+          {isSaving && (
+            <View style={styles.savingStatus}>
+              <ActivityIndicator size="small" color="#2563eb" />
+              <Text style={[styles.savingText, dark && styles.light]} accessibilityLiveRegion="polite">
+                Salvando...
+              </Text>
+            </View>
+          )}
+          <Text style={[styles.label, dark && styles.light]}>Categorias vinculadas</Text>
+          <ScrollView style={styles.categoryList}>
+            {categories
+              .filter((c) => c.type !== 'environment')
+              .map((category) => (
+                <TouchableOpacity
+                  key={category.id}
+                  disabled={isSaving}
+                  onPress={() =>
+                    setSelected((prev) =>
+                      prev.includes(category.id)
+                        ? prev.filter((id) => id !== category.id)
+                        : [...prev, category.id]
+                    )
+                  }
+                  style={styles.categoryRow}
+                  accessibilityRole="checkbox"
+                  accessibilityState={{ checked: selected.includes(category.id), disabled: isSaving }}
+                >
+                  <View style={[styles.checkbox, selected.includes(category.id) && styles.checked]}>
+                    {selected.includes(category.id) && <Check size={12} color="#fff" />}
+                  </View>
+                  <Text style={[styles.categoryText, dark && styles.light]}>{category.name}</Text>
+                </TouchableOpacity>
+              ))}
+          </ScrollView>
+          {loading ? (
+            <ActivityIndicator color="#2563eb" />
+          ) : (
+            items.map((item) => (
+              <View key={item.id} style={[styles.item, dark && styles.darkItem]}>
+                <View style={styles.flex}>
+                  <Text style={[styles.itemName, dark && styles.light]}>{item.name}</Text>
+                  <Text style={styles.itemMeta}>
+                    {item.categoryIds.length} categoria(s) vinculada(s)
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  disabled={isSaving}
+                  onPress={() => {
+                    setEditingId(item.id);
+                    setName(item.name);
+                    setSelected(item.categoryIds);
+                    initialSelectedRef.current = [...item.categoryIds];
+                  }}
+                  style={[styles.actionBtn, isSaving && styles.disabledAction]}
+                  accessibilityState={{ disabled: isSaving }}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Editar ambiente ${item.name}`}
+                >
+                  <Edit2 size={16} color="#2563eb" />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  disabled={isSaving}
+                  onPress={() => remove(item)}
+                  style={[styles.actionBtn, isSaving && styles.disabledAction]}
+                  accessibilityState={{ disabled: isSaving }}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Excluir ambiente ${item.name}`}
+                >
+                  <Trash2 size={16} color="#ef4444" />
+                </TouchableOpacity>
+              </View>
+            ))
+          )}
+        </View>
+      </View>
+    </Modal>
+  );
+};
+
+const styles = StyleSheet.create({
+  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,.5)', justifyContent: 'flex-end' },
+  content: {
+    maxHeight: '90%',
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    padding: 20,
+    gap: 12,
+  },
+  darkContent: { backgroundColor: '#0f172a' },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  title: { fontSize: 18, fontWeight: '900', color: '#0f172a' },
+  light: { color: '#f8fafc' },
+  closeBtn: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 12,
+  },
+  form: { flexDirection: 'row', gap: 8 },
+  input: {
+    flex: 1,
+    minHeight: 44,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+  },
+  darkInput: { backgroundColor: '#1e293b', borderColor: '#334155' },
+  add: {
+    width: 44,
+    minHeight: 44,
+    borderRadius: 12,
+    backgroundColor: '#2563eb',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  disabledAction: { opacity: 0.55 },
+  savingStatus: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  savingText: { fontSize: 12, fontWeight: '700', color: '#475569' },
+  label: { fontSize: 11, fontWeight: '800', textTransform: 'uppercase', color: '#475569' },
+  categoryList: { maxHeight: 190 },
+  categoryRow: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 4 },
+  checkbox: { width: 20, height: 20, borderRadius: 6, borderWidth: 1, borderColor: '#cbd5e1' },
+  checked: {
+    backgroundColor: '#2563eb',
+    borderColor: '#2563eb',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  categoryText: { color: '#334155', fontWeight: '700' },
+  item: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 14,
+    backgroundColor: '#f8fafc',
+  },
+  darkItem: { backgroundColor: '#1e293b' },
+  flex: { flex: 1 },
+  itemName: { fontWeight: '800', color: '#0f172a' },
+  itemMeta: { fontSize: 11, color: '#64748b' },
+  actionBtn: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+});

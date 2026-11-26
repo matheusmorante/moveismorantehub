@@ -1,6 +1,6 @@
 import React, { useId, useRef, useState } from 'react';
 import type Shipping from '../../../../types/Shipping.type';
-import type { ValidationErrors } from '../../../../utils/validations';
+import type { ValidationErrors } from '../../../../utils/sales/validations';
 import {
   AFTERNOON_SHIFT,
   MORNING_SHIFT,

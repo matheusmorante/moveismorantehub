@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { extractScannedCodes, matchScannedProductItem } from '../barcodeScannerUtils';
+import { extractScannedCodes, matchScannedProductItem } from '../shared/barcodeScannerUtils';
 
 describe('barcodeScannerUtils', () => {
   describe('extractScannedCodes', () => {

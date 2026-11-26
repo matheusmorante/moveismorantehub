@@ -5,7 +5,7 @@ import {
   fetchVariations,
   getVariationErrorMessage,
   moveToTrash,
-} from '../../../utils/variationService';
+} from '../../../utils/productService/variationService';
 import { isFactoryDefaultCharacteristicName } from '../../../../../../shared-utils/characteristicFormRules';
 
 export const VARIATIONS_QUERY_KEY = ['variations'] as const;

@@ -4,7 +4,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import {
   getFixedPageSlots,
   normalizePageNumber,
-} from '../../../../shared-utils/fixedPagination';
+} from '../../../../shared-utils/core/fixedPagination';
 
 interface FixedPageSlotsProps {
   readonly currentPage: number;

@@ -16,9 +16,9 @@ import {
   isProLaboreCat,
   normalizeCategoryName,
   buildIncomeCategories,
-} from '../components/transactionModalUtils';
-import { sortCategoriesWithOthersAtEnd } from '../../../services/financial/mobileCategoryService';
-import { withTimeout } from '../../../../../shared-utils/withTimeout';
+} from '../components/modals/transactionModalUtils';
+import { sortCategoriesWithOthersAtEnd } from '../../../services/financial/crud/mobileCategoryService';
+import { withTimeout } from '../../../../../shared-utils/core/withTimeout';
 
 // This owner completes manual transactions; incomplete AI drafts use another contract.
 const manualTransactionFormSchema = financialTransactionFormSchema.extend({

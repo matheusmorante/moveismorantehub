@@ -1,6 +1,6 @@
 import React from 'react';
-import type { CustomerSummary } from '@/pages/utils/customerSupport/customerMatchingService';
-import { formatPhoneForDisplay } from '@/pages/utils/customerSupport/phoneUtils';
+import type { CustomerSummary } from '@/pages/utils/customerSupport/query/customerMatchingService';
+import { formatPhoneForDisplay } from '@/pages/utils/customerSupport/query/phoneUtils';
 
 interface ManualLinkSearchResultsProps {
   results: CustomerSummary[];

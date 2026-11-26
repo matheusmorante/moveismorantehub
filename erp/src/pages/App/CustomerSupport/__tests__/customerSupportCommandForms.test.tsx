@@ -3,7 +3,7 @@ import React from 'react';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { toast } from 'react-toastify';
-import { ChatHeader } from '../components/chat/ChatHeader';
+import { ChatHeader } from '../components/chat/header/ChatHeader';
 import type { WhatsAppConversation } from '../types';
 
 const conversationId = '00000000-0000-4000-8000-000000000001';

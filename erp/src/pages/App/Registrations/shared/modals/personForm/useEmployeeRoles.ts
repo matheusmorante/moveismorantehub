@@ -2,10 +2,10 @@ import React, { useRef, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import Person from '@/pages/types/person.type';
 import { UserRole } from '@/context/AuthContext';
-import { getPrimaryRole } from '@/pages/utils/accessRoles';
+import { getPrimaryRole } from '@/pages/utils/auth/accessRoles';
 import {
   getUserProfileByEmail,
-} from '@/pages/utils/employeeProfileService';
+} from '@/pages/utils/auth/employeeProfileService';
 import { isEmployeeEmailTaken } from '@/pages/utils/personService';
 import { emailLookupFormSchema } from '../../../../../../../../shared-utils/lookupFormSchemas';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';

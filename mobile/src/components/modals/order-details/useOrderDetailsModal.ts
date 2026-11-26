@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Platform, StatusBar } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../../contexts/AuthContext';
-import { loadMobileOrderDetails } from '../../../services/orderDetailsReadService';
+import { loadMobileOrderDetails } from '../../../services/logistics/orderDetailsReadService';
 import { prepareIndependentDelivery } from '../../../features/orders/services/deliveryOperationService';
 import { getIndependentOperationId } from '../../../features/orders/services/deliveryOperationState';
 import { hasSeparateFulfillments } from '../../../../../shared-utils/fulfillmentScheduleGuard';

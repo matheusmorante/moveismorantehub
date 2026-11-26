@@ -22,7 +22,7 @@ vi.mock('lucide-react-native', () => ({
 
 vi.mock('../../../../../services/stockService', () => ({ saveSupplier: vi.fn() }));
 vi.mock('../../../../stock/suppliers/SupplierFormModal', () => ({ SupplierFormModal: () => null }));
-vi.mock('../../../services/mobileSupplierService', () => ({
+vi.mock('../../../services/products/mobileSupplierService', () => ({
   fetchMobileProductSuppliersWithStatus: vi.fn(),
 }));
 

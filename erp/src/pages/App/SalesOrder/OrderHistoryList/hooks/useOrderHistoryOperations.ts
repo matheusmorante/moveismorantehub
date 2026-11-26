@@ -10,7 +10,7 @@ import { toast } from 'react-toastify';
 import { getFulfillmentLabels } from '@/pages/utils/orderStatusPresentation';
 import { processOrderCancellationFiscalEffects } from '@/pages/utils/nfe/nfeService';
 import { canUndoFulfillment } from '@/pages/utils/orderStatusTransitionRules';
-import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../../../shared-utils/core/withTimeout';
 import { requestConfirmation } from '@/components/shared/confirmationService';
 import { loadCompleteOrder } from '@/pages/utils/orderDetailsLoader';
 import { isOrderSummary } from '../../../../../../../shared-utils/orderSummaryQuery';

@@ -1,5 +1,5 @@
-import ProductAutocomplete from '@/components/ProductAutocomplete';
-import CurrencyInput from '@/components/CurrencyInput';
+import ProductAutocomplete from '@/components/selectors/ProductAutocomplete';
+import CurrencyInput from '@/components/inputs/CurrencyInput';
 import type { PurchaseItem } from '@/pages/types/purchase.type';
 import { InboundCompositionManager } from './InboundCompositionManager';
 import type { InboundReceiptItem } from './InboundNfeItemsSection';

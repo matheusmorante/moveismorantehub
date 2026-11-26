@@ -1,8 +1,8 @@
 import { supabase } from '../../../services/supabaseClient';
 import { OrderRepository } from '../../../repositories/OrderRepository';
-import { isIdentifiedTestArtifact } from '../../../../../shared-utils/testArtifactPolicy';
+import { isIdentifiedTestArtifact } from '../../../../../shared-utils/testing/testArtifactPolicy';
 import { fetchServerOrderPage } from '../../../../../shared-utils/orderListServerQuery';
-import { withAbortTimeout } from '../../../../../shared-utils/withAbortTimeout';
+import { withAbortTimeout } from '../../../../../shared-utils/core/withAbortTimeout';
 import { fetchOrderSummaries } from '../../../../../shared-utils/orderSummaryQuery';
 import { offlineStorageService } from '../../../services/offline/offlineStorageService';
 import { refreshOfflineOrderSnapshots } from '../../../services/offline/orderSnapshotCache';

@@ -6,7 +6,7 @@ import type { WhatsAppConversation, WhatsAppMessage } from '../types';
 
 const mocks = vi.hoisted(() => ({ assignConversation: vi.fn(), updateConversationStatus: vi.fn(),
   createInternalNoteMessage: vi.fn(), toggleArchiveConversation: vi.fn() }));
-vi.mock('@/pages/utils/customerSupport/customerSupportService', () => mocks);
+vi.mock('@/pages/utils/customerSupport/query/customerSupportService', () => mocks);
 vi.mock('@/pages/utils/supabaseConfig', () => ({ supabase: {} }));
 afterEach(() => { cleanup(); vi.resetAllMocks(); });
 

@@ -6,10 +6,10 @@ import {
   assertOwnedByTestContext,
   getTestArtifactContext,
   stampTestArtifact,
-} from '../../../../../shared-utils/testArtifactContext';
+} from '../../../../../shared-utils/testing/testArtifactContext';
 import {
   isIdentifiedTestArtifact,
-} from '../../../../../shared-utils/testArtifactPolicy';
+} from '../../../../../shared-utils/testing/testArtifactPolicy';
 import { getRecipientTaxIdValidationMessage } from '../../../../../shared-utils/recipientTaxId';
 
 

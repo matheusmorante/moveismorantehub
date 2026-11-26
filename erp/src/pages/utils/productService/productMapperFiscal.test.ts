@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { mapFromDB, mapToDB } from './productMapper';
+import { mapFromDB, mapToDB } from './mapping/productMapper';
 
 describe('fiscal data from product catalog', () => {
   it('preserves explicit CSOSN, origin and other fiscal fields during mapping', () => {

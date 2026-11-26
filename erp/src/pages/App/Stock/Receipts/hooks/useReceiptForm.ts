@@ -3,7 +3,7 @@ import { toast } from 'react-toastify';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { receiptDraftFormSchema, receiptFormSchema } from '../../../../../../../shared-utils/receiptFormSchemas';
 import { IN_USE_INVOICE_MESSAGE } from '../../../../../../../shared-utils/receiptInvoiceAvailability';
-import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../../../shared-utils/core/withTimeout';
 import {
   type GoodsReceipt,
   editGoodsReceipt,

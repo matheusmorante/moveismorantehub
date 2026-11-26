@@ -7,11 +7,11 @@ import {
   findProductSupplierCodes,
   saveProductSupplierCode,
   deleteProductSupplierCode,
-} from '@/pages/utils/productSupplierCodesService';
-import { getProductLinkConfirmation, saveVariation } from '@/pages/utils/productService';
+} from '@/pages/utils/productService/productSupplierCodesService';
+import { getProductLinkConfirmation, saveVariation } from '@/pages/utils/productService/productService';
 import { fetchGroupsAndCategories } from '@/pages/utils/categoryService';
 import { resolveAutoCategory } from '@/pages/utils/categoryResolutionService';
-import { aiService } from '@/pages/utils/aiService';
+import { aiService } from '@/pages/utils/aiService/aiService';
 import {
   fetchSupplierProductsForContext,
   buildSupplierContextSummary,
@@ -32,7 +32,7 @@ import { useInboundInvoiceQuickRegister } from './useInboundInvoiceQuickRegister
 import { toast } from 'react-toastify';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { createInboundProductPreparationSchema, createInboundCreatedProductLinkSchema } from '../../../../../../../shared-utils/inboundProductLinkFormSchemas';
-import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../../../shared-utils/core/withTimeout';
 import {
   useInboundInvoiceClassification,
   type AiClassification,

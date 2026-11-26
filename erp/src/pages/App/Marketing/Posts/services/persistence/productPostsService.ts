@@ -9,7 +9,7 @@
  * - Validação de proporção: 4:5 (Feed) ou 9:16 (Story/Status), com tolerância de 3%.
  */
 
-import { withTimeout } from '../../../../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../../../../shared-utils/core/withTimeout';
 import { postDeleteFormSchema, postUploadFormSchema } from '../../../../../../../../shared-utils/marketingFormSchemas';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import {

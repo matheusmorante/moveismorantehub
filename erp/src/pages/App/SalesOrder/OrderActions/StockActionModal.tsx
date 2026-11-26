@@ -4,9 +4,9 @@ import { saveInventoryMove } from '@/pages/utils/inventoryService';
 import { toast } from 'react-toastify';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { orderInventoryActionFormSchema } from '../../../../../../shared-utils/inventoryMoveSchemas';
-import { withTimeout } from '../../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../../shared-utils/core/withTimeout';
 import { formatOrderCode } from '@/pages/utils/orderCode';
-import { isStockEligibleSaleItem } from '@/pages/utils/saleInventoryRules';
+import { isStockEligibleSaleItem } from '@/pages/utils/sales/saleInventoryRules';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 
 interface Props {

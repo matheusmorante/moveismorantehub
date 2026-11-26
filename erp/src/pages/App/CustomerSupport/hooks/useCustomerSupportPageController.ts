@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { canPerform } from '@/pages/utils/permissionService';
-import { getProfileRoles } from '@/pages/utils/accessRoles';
+import { canPerform } from '@/pages/utils/auth/permissionService';
+import { getProfileRoles } from '@/pages/utils/auth/accessRoles';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { useWhatsAppAiAgentSwitch } from './useWhatsAppAiAgentSwitch';
 import {

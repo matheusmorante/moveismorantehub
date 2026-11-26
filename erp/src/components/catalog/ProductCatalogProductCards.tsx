@@ -1,5 +1,5 @@
 import React from 'react';
-import ProductImage from '@/components/ProductImage';
+import ProductImage from '@/components/display/ProductImage';
 import { formatPrice, type CatalogItem } from './productCatalogPresentation';
 import { priceOf, productImageOf } from './productCatalogItems';
 import type { SupportCatalogProduct, SupportCatalogVariation } from './supportCatalogService';

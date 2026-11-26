@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { generateDeliveryAISummary } from '../../../services/aiSummaryService';
+import { generateDeliveryAISummary } from '../../../services/summary/aiSummaryService';
 
 import { getOperationalScheduleDate } from '../../../utils/operationalSchedule';
 import { isDateInPeriod } from '../../../utils/orderUtils';

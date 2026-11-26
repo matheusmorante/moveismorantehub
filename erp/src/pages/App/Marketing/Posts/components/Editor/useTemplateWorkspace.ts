@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, SetStateAction } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { withTimeout } from '../../../../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../../../../shared-utils/core/withTimeout';
 import {
   Layer,
   MarketingCampaign,

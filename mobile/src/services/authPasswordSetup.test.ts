@@ -6,7 +6,7 @@ import {
   signInWithGoogle,
   validatePasswordSetup,
   type PasswordSetupClient,
-} from './authPasswordSetup';
+} from './auth/authPasswordSetup';
 
 const createAuthClient = () => {
   const updateUser = vi.fn().mockResolvedValue({

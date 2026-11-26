@@ -2,7 +2,7 @@
 import React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/react';
-import { ChatComposer } from '../components/chat/ChatComposer';
+import { ChatComposer } from '../components/chat/composer/ChatComposer';
 import { EmptyChatState } from '../components/EmptyChatState';
 import { UsageConsumptionModal } from '../components/UsageConsumptionModal';
 

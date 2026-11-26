@@ -10,7 +10,7 @@ import {
 import type Order from '@/pages/types/order.type';
 import type Item from '@/pages/types/items.type';
 import type { NfeItemWithFiscal } from '../NfeItemsSection';
-import { withTimeout } from '../../../../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../../../../shared-utils/core/withTimeout';
 
 export interface SefazConsultOutcome {
   state: 'authorized' | 'rejected' | 'not_found' | 'error' | 'pending';

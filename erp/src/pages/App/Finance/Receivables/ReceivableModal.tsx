@@ -7,7 +7,7 @@ import { receivableFormSchema, receivableSettlementFormSchema, financialToday } 
 import type { FieldErrors } from 'react-hook-form';
 import type { z } from 'zod';
 import { useFinancialOperation } from '../useFinancialOperation';
-import { withTimeout } from '../../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../../shared-utils/core/withTimeout';
 
 interface ReceivableModalProps {
   onClose: () => void;

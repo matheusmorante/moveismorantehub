@@ -10,7 +10,7 @@ const purchases = vi.hoisted(() => Array.from({ length: 32 }, (_, index) => ({
   id: `purchase-${index + 1}`, supplierId: index < 20 ? 'supplier-1' : 'supplier-2',
 })));
 vi.mock('@/context/AuthContext', () => ({ useAuth: () => ({ profile: { id: 'operator', role: 'admin' } }) }));
-vi.mock('@/pages/utils/permissionService', () => ({ canPerform: () => true }));
+vi.mock('@/pages/utils/auth/permissionService', () => ({ canPerform: () => true }));
 vi.mock('react-toastify', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 vi.mock('../../../utils/purchaseService', () => ({
   cancelPurchase: vi.fn(), updatePurchase: vi.fn(), deleteCancelledPurchase: vi.fn(), discardPurchaseDraft: vi.fn(),

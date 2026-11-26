@@ -1,1 +1,1 @@
-export * from './schemas/apiConfigFormSchema';
+export * from './schemas/system/apiConfigFormSchema';

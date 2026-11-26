@@ -1,7 +1,7 @@
 import React from 'react';
 import DropdownPortal from '@/components/shared/DropdownPortal';
 import Person from '@/pages/types/person.type';
-import { toTitleCase } from '@/pages/utils/formatters';
+import { toTitleCase } from '@/pages/utils/shared/formatters';
 
 interface CustomerSearchDropdownProps {
   anchorRef: React.RefObject<HTMLDivElement>;

@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getSupabaseAnonKey, getSupabaseUrl } from './supabaseSecretKey.js';
-import { handleWhatsAppMedia } from '../erp/src/pages/utils/customerSupport/whatsappMediaProxy.js';
+import { handleWhatsAppMedia } from '../erp/src/pages/utils/customerSupport/messageContent/whatsappMediaProxy.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*');

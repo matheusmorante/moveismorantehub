@@ -3,7 +3,7 @@ import React from 'react';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('@/components/ProductAutocomplete', () => ({
+vi.mock('@/components/selectors/ProductAutocomplete', () => ({
   default: ({ onSelect }: any) => <button onClick={() => onSelect({ id: 'parent' }, { id: 'variation' })}>Escolher variação</button>,
 }));
 vi.mock('../components/ProductSearchInput', () => ({

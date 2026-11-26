@@ -14,9 +14,9 @@ vi.mock('expo-web-browser', () => ({ openAuthSessionAsync: vi.fn() }));
 vi.mock('react-native-svg', () => ({ default: ({ children }: any) => <div>{children}</div>, Path: () => null }));
 vi.mock('../../../mobile/src/services/supabaseClient', () => ({ supabase: {} }));
 vi.mock('../../../mobile/src/contexts/AuthContext', () => ({ useAuth: () => ({ beginPasswordRecovery: mocks.begin, endPasswordRecovery: mocks.end, handleLogout: mocks.logout }) }));
-vi.mock('../../../mobile/src/services/googleAuth', () => ({ completeGoogleSignIn: vi.fn(), getGoogleAuthRedirectUrl: () => 'https://example.test/auth' }));
-vi.mock('../../../mobile/src/services/authPasswordSetup', () => ({ signInWithEmailPassword: mocks.login, signInWithGoogle: mocks.google }));
-vi.mock('../../../mobile/src/services/authPasswordRecovery', () => ({
+vi.mock('../../../mobile/src/services/auth/googleAuth', () => ({ completeGoogleSignIn: vi.fn(), getGoogleAuthRedirectUrl: () => 'https://example.test/auth' }));
+vi.mock('../../../mobile/src/services/auth/authPasswordSetup', () => ({ signInWithEmailPassword: mocks.login, signInWithGoogle: mocks.google }));
+vi.mock('../../../mobile/src/services/auth/authPasswordRecovery', () => ({
   requestPasswordRecoveryCode: mocks.send, verifyPasswordRecoveryCode: mocks.verify,
   updateAuthenticatedPassword: mocks.update, requestPasswordChangeReauthentication: mocks.reauth,
   isCurrentPasswordRequired: (error: any) => error.code === 'current', isPasswordReauthenticationRequired: (error: any) => error.code === 'reauth',

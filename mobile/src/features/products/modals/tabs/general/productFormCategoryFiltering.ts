@@ -1,4 +1,4 @@
-import type { MobileCategory } from '../../../services/mobileCategoryService';
+import type { MobileCategory } from '../../../services/categories/mobileCategoryService';
 
 const FIXED_ENVIRONMENTS = [
   'SALA DE JANTAR',

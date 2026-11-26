@@ -1,14 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import type Purchase from '@/pages/types/purchase.type';
 import type Product from '@/pages/types/product.type';
-import { subscribeToProducts } from '@/pages/utils/productService';
+import { subscribeToProducts } from '@/pages/utils/productService/productService';
 import { saveInventoryMove } from '@/pages/utils/inventoryService';
 import { updatePurchase } from '@/pages/utils/purchaseService';
 import { toast } from 'react-toastify';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { purchaseInventoryEntryFormSchema } from '../../../../../../../shared-utils/inventoryMoveSchemas';
 import { formatPurchaseNumber } from '../../../../../../../shared-utils/purchaseNumber';
-import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../../../shared-utils/core/withTimeout';
 
 interface PurchaseStockEntryModalProps {
   readonly purchase: Purchase | null;

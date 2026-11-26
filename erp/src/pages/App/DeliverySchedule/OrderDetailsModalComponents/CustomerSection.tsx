@@ -1,5 +1,5 @@
 import React from 'react';
-import { toTitleCase } from '../../../utils/formatters';
+import { toTitleCase } from '../../../utils/shared/formatters';
 
 export type AdditionalContact = { name?: string; phone?: string };
 

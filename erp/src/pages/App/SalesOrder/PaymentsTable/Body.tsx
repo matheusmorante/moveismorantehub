@@ -2,7 +2,7 @@ import React from 'react';
 import { Payment, PaymentsSummary } from '../../../types/payments.type';
 import { sanitizePayment } from '../../../utils/sanitization';
 import BodyRow from './BodyRow';
-import { ValidationErrors } from '../../../utils/validations';
+import { ValidationErrors } from '../../../utils/sales/validations';
 
 interface Props {
   payments: Payment[];

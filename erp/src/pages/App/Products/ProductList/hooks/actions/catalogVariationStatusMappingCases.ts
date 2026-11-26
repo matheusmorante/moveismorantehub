@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   mapDbVariations,
   createDefaultVariation,
-} from '@/pages/utils/productService/productVariationMapper';
+} from '@/pages/utils/productService/mapping/productVariationMapper';
 
 export function registerCatalogVariationStatusMappingCases(): void {
   describe('Mapeamento seguro de status de variações (Anti-publicação indevida)', () => {

@@ -1,6 +1,6 @@
 import { buildMobileProductDuplicationDraft } from '../domain/mobileProductDuplication';
-import { copyMobileProductImages } from '../services/mobileProductPhotoService';
-import { getNextSequentialProductCode } from '../services/mobileProductCodeService';
+import { copyMobileProductImages } from '../services/products/mobileProductPhotoService';
+import { getNextSequentialProductCode } from '../services/products/mobileProductCodeService';
 import { loadFullProductForForm } from './loadFullProductForForm';
 
 export const prepareMobileProductDuplicationDraft = async (

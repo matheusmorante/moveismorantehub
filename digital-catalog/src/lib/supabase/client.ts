@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { createMeasuredSupabaseFetch } from '../../../../shared-utils/supabaseReadMetrics';
+import { createMeasuredSupabaseFetch } from '../../../../shared-utils/core/supabaseReadMetrics';
 
 const DEFAULT_SUPABASE_URL = 'https://hkoxhourxwlddgsfdgws.supabase.co';
 const DEFAULT_SUPABASE_ANON_KEY =

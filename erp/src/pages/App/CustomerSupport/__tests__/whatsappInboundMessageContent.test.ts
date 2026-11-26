@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { extractMessageContent } from '@/pages/utils/customerSupport/whatsappWebhookProcessor';
+import { extractMessageContent } from '@/pages/utils/customerSupport/webhook/whatsappWebhookProcessor';
 
 describe('Central de Atendimento WhatsApp — Suíte Completa de Testes', () => {
   beforeEach(() => {

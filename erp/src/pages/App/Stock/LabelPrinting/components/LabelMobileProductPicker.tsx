@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import ProductAutocomplete from '@/components/ProductAutocomplete';
+import ProductAutocomplete from '@/components/selectors/ProductAutocomplete';
 import type { Product, Variation } from '@/pages/types/product.type';
 import ProductSearchInput from './ProductSearchInput';
 

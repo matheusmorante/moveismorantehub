@@ -1,4 +1,4 @@
-import { normalizePageNumber } from '../../../../../../shared-utils/fixedPagination';
+import { normalizePageNumber } from '../../../../../../shared-utils/core/fixedPagination';
 
 export const resolveMobileProductListRequestPage = (
   currentPage: number,

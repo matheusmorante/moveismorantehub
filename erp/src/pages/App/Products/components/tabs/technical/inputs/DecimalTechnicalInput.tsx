@@ -1,5 +1,5 @@
 import React from 'react';
-import { MaskedNumericInput } from '@/components/MaskedNumericInput';
+import { MaskedNumericInput } from '@/components/inputs/MaskedNumericInput';
 
 export function formatDecimal(value: any, decimalPlaces: 1 | 2 | 3): string {
   if (value === '' || value === null || value === undefined) return '';

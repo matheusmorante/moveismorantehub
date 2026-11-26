@@ -1,1 +1,1 @@
-export * from './schemas/receiptFormSchemas';
+export * from './schemas/stock/receiptFormSchemas';

@@ -1,4 +1,4 @@
-import { allocateAmountProportionally, fromCents, toCents } from '../../proportionalAllocation';
+import { allocateAmountProportionally, fromCents, toCents } from '../../shared/proportionalAllocation';
 
 export type AdditionalCostCalculationType = 'percentage' | 'fixed';
 

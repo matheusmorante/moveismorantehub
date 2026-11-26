@@ -2,7 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { SafeToolContext } from './types.js';
 import { resolveProductUnitPrice } from '../../../../../../../shared-utils/productUnitPrice';
 import { parseVariationImages } from '../../../../../../../shared-utils/productVariationImages';
-import { NON_TEST_PRODUCT_ARTIFACT_FILTER } from '../../../../../../../shared-utils/testArtifactQueries';
+import { NON_TEST_PRODUCT_ARTIFACT_FILTER } from '../../../../../../../shared-utils/testing/testArtifactQueries';
 
 const PRODUCT_DETAILS_SELECT =
   'id, code, sku:code, name, title:marketplace_title, description, category, brand, line, condition, unit_price, price, promo_price, stock, unit, height, width, depth, images, colors, material, main_differential, not_included, product_variations(id, sku, name, price, promo_price, use_parent_price, use_parent_promo_price, stock, active, merged_to_variation_id, attributes, image_url)';

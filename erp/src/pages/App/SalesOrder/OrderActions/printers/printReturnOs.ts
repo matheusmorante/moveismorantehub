@@ -1,6 +1,6 @@
 import type Order from '@/pages/types/order.type';
 import { formatOrderCode } from '@/pages/utils/orderCode';
-import { stringifyFullAddressWithObservation } from '@/pages/utils/formatters';
+import { stringifyFullAddressWithObservation } from '@/pages/utils/shared/formatters';
 
 /**
  * Renderiza e imprime o documento oficial de Ordem de Coleta / Comprovante de Devolução.

@@ -7,7 +7,7 @@ import {
   getLocationAccessStatus,
   requestLocationAccess,
   type LocationAccessStatus,
-} from '../../../services/locationService';
+} from '../../../services/logistics/locationService';
 import {
   DeliveryHeader,
   DeliveryStepActionFooter,

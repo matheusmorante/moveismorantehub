@@ -46,7 +46,7 @@ vi.mock('@/pages/utils/supabaseConfig', () => ({
   },
 }));
 
-vi.mock('../../../../../../shared-utils/testArtifactContext', () => ({
+vi.mock('../../../../../../shared-utils/testing/testArtifactContext', () => ({
   getTestArtifactContext: testArtifactContextMocks.getTestArtifactContext,
 }));
 

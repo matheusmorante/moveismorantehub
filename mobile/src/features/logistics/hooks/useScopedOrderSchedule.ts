@@ -4,7 +4,7 @@ import { offlineStorageService } from '../../../services/offline/offlineStorageS
 import { offlineSyncManager } from '../../../services/offline/offlineSyncManager';
 import { connectivityService } from '../../../services/offline/connectivityService';
 import { OrderRepository } from '../../../repositories/OrderRepository';
-import { subscribeToLogisticsChanges } from '../../../services/logisticsRealtimeService';
+import { subscribeToLogisticsChanges } from '../../../services/logistics/logisticsRealtimeService';
 import { fetchOrderScheduleRows, type OrderScheduleScope } from '../../../../../shared-utils/orderScheduleServerQuery';
 import { ORDER_SUMMARY_COLUMNS } from '../../../../../shared-utils/orderSummaryQuery';
 import { refreshOfflineOrderSnapshots } from '../../../services/offline/orderSnapshotCache';

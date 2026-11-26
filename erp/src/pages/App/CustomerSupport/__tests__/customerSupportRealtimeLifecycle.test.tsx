@@ -19,7 +19,7 @@ const mocks = vi.hoisted(() => ({ channel: vi.fn(), removeChannel: vi.fn(),
 vi.mock('@/pages/utils/supabaseConfig', () => ({ supabase: {
   channel: mocks.channel, removeChannel: mocks.removeChannel,
 } }));
-vi.mock('@/pages/utils/customerSupport/customerSupportService', () => ({
+vi.mock('@/pages/utils/customerSupport/query/customerSupportService', () => ({
   fetchInitialConversationMessagePage: async (...args: any[]) => ({ messages: await mocks.fetchConversationMessages(...args), watermark: '2026-11-04T12:00:00Z' }),
   fetchConversationMessageChanges: mocks.fetchChanges,
   fetchConversations: mocks.fetchConversations, fetchConversationCounts: mocks.fetchConversationCounts,

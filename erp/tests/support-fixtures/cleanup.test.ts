@@ -2,7 +2,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import { updateConversationStatus } from '../../src/pages/utils/customerSupport/customerSupportService';
+import { updateConversationStatus } from '../../src/pages/utils/customerSupport/query/customerSupportService';
 import { supportConversationCommandSchema } from '../../../shared-utils/customerSupportFormSchemas';
 
 const execute = process.env.RUN_SUPPORT_FIXTURE_CLEANUP === '1';

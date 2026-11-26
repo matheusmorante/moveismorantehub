@@ -1,5 +1,5 @@
 import { toast } from 'react-toastify';
-import ProductAutocomplete from '@/components/ProductAutocomplete';
+import ProductAutocomplete from '@/components/selectors/ProductAutocomplete';
 import type Product from '@/pages/types/product.type';
 import type { Variation } from '@/pages/types/product.type';
 

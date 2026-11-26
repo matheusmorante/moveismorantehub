@@ -1,10 +1,10 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
-import { bindTestArtifactContext, clearTestArtifactContext } from '../../../../../../shared-utils/testArtifactContext';
-import { useSalesOrderForm } from '../hooks/useSalesOrderForm';
+import { bindTestArtifactContext, clearTestArtifactContext } from '../../../../../../shared-utils/testing/testArtifactContext';
+import { useSalesOrderForm } from '../hooks/form-flow/useSalesOrderForm';
 import Order from '@/pages/types/order.type';
-import { createSalesOrderDuplicate } from '@/pages/utils/duplicateOrder';
+import { createSalesOrderDuplicate } from '@/pages/utils/sales/duplicateOrder';
 import { resolveOrderFiscalModel } from '../../../../../../shared-utils/fiscalDocumentModel';
 
 it.each([false, true])('preserva o contexto fiscal ao carregar edição/cópia (cópia=%s)', async (duplicate) => {
@@ -37,7 +37,7 @@ vi.mock('@/pages/utils/orderHistoryService', () => ({
   ),
 }));
 
-vi.mock('@/pages/utils/validations', () => ({
+vi.mock('@/pages/utils/sales/validations', () => ({
   validateBase: vi.fn(() => true),
   validateOrder: vi.fn(() => ({})),
 }));

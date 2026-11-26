@@ -3,7 +3,7 @@ import { imageTemplateFormSchema, startImageTemplate } from '../../../../../../.
 import { applyImageTemplateTestScope, assertImageTemplateTestWrite } from '../imageTemplateTestContext';
 
 const mocks = vi.hoisted(() => ({ context: null as { runId: string; ownerId: string; scenarioKey: string } | null }));
-vi.mock('../../../../../../../shared-utils/testArtifactContext', () => ({ getTestArtifactContext: () => mocks.context }));
+vi.mock('../../../../../../../shared-utils/testing/testArtifactContext', () => ({ getTestArtifactContext: () => mocks.context }));
 const identity = { runId: '00000000-0000-4000-8000-000000000011', ownerId: '00000000-0000-4000-8000-000000000012',
   scenarioKey: 'image_template_crud' as const };
 const metadata = { is_test: true as const, ...identity };

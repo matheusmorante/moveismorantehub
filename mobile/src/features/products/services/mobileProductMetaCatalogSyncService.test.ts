@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { syncMobileMetaCatalog } from './mobileMetaCatalogSyncService';
+import { syncMobileMetaCatalog } from './catalog/mobileMetaCatalogSyncService';
 import {
   syncMobileProductToMetaCatalog,
   triggerMobileProductMetaCatalogSync,
-} from './mobileProductMetaCatalogSyncService';
+} from './catalog/mobileProductMetaCatalogSyncService';
 
 const session = vi.hoisted(() => vi.fn());
 vi.mock('../../../services/supabaseClient', () => ({ supabase: { auth: { getSession: session } } }));

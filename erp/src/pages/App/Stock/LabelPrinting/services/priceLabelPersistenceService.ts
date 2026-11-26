@@ -2,7 +2,7 @@ import { supabase } from '@/pages/utils/supabaseConfig';
 import type { Opportunity } from '../types/PriceLabelArtEditorTypes';
 import type { LabelConfig } from '../utils/LabelConstants';
 import { upsertRemoteLabelArtConfig } from './labelLayoutService';
-import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../../../shared-utils/core/withTimeout';
 import { labelArtLayoutSelectionSchema, labelArtConfigSchema, labelOpportunitiesSchema } from '../../../../../../../shared-utils/labelArtworkFormSchemas';
 
 type LabelArtConfig = NonNullable<LabelConfig['artConfig']>;

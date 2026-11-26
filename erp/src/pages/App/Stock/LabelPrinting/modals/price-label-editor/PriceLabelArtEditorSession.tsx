@@ -1,22 +1,16 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { toast } from 'react-toastify';
+import React, { useEffect, useRef, useMemo } from 'react';
 import { calculateLabelPhysicalSize } from '../../utils/LabelPhysicalGeometry';
-import { usePriceLabelState } from '../../hooks/usePriceLabelState';
-import { usePriceLabelTestValues } from '../../hooks/usePriceLabelTestValues';
-import { usePriceLabelEditorKeyboardShortcuts } from '../../hooks/usePriceLabelEditorKeyboardShortcuts';
-import { usePriceLabelLayerSelection } from '../../hooks/usePriceLabelLayerSelection';
-import { usePriceLabelLayerModalSelection } from '../../hooks/usePriceLabelLayerModalSelection';
-import { PriceLabelLayersModal } from '../PriceLabelLayersModal';
-import { PriceLabelOpportunityModal } from '../PriceLabelOpportunityModal';
-import { PriceLabelDataFillModal } from '../PriceLabelDataFillModal';
-import { PriceLabelTestValuesModal } from '../PriceLabelTestValuesModal';
-import { PriceLabelColorPickerPopup } from './PriceLabelColorPickerPopup';
-import { PriceLabelSelectedElementToolbar } from './PriceLabelSelectedElementToolbar';
+import { usePriceLabelState } from '../../hooks/price-label/usePriceLabelState';
+import { usePriceLabelTestValues } from '../../hooks/price-label/usePriceLabelTestValues';
+import { usePriceLabelEditorKeyboardShortcuts } from '../../hooks/price-label/usePriceLabelEditorKeyboardShortcuts';
+import { usePriceLabelLayerSelection } from '../../hooks/price-label/usePriceLabelLayerSelection';
+import { usePriceLabelLayerModalSelection } from '../../hooks/price-label/usePriceLabelLayerModalSelection';
 import { PriceLabelEditorHeader } from './PriceLabelEditorHeader';
 import { PriceLabelEditorFooter } from './PriceLabelEditorFooter';
 import { PriceLabelEditorStatusMessages } from './PriceLabelEditorStatusMessages';
 import { PriceLabelMenuBar } from './PriceLabelMenuBar';
-import { PriceLabelArtEditorPreview } from './PriceLabelArtEditorPreview';
+import { PriceLabelArtEditorWorkspace } from './PriceLabelArtEditorWorkspace';
+import { PriceLabelEditorModals } from './PriceLabelEditorModals';
 import { buildPriceLabelLayers } from './priceLabelLayersConfig';
 import { buildPriceLabelOpportunityOptions } from './priceLabelOpportunityOptions';
 import { usePriceLabelCanvasInteractions } from './usePriceLabelCanvasInteractions';
@@ -50,209 +44,7 @@ export const PriceLabelArtEditorSession: React.FC<
       ? rawArtworkSize
       : { widthMm: 100, heightMm: 56 };
 
-  const {
-    getDefaultBg,
-    showSafetyMargin,
-    setShowSafetyMargin,
-    oppColorsMap,
-    setOppColorsMap,
-    title,
-    setTitle,
-    showTitle,
-    setShowTitle,
-    titleFontSizeTens,
-    setTitleFontSizeTens,
-    titleFontSizeHundreds,
-    setTitleFontSizeHundreds,
-    titleFontSizeThousands,
-    setTitleFontSizeThousands,
-    titleColor,
-    setTitleColor,
-    titleFontFamily,
-    setTitleFontFamily,
-    titlePos,
-    setTitlePos,
-    titleRotation,
-    setTitleRotation,
-    titleWidth,
-    setTitleWidth,
-    deText,
-    showDe,
-    setShowDe,
-    deFontSizeTens,
-    setDeFontSizeTens,
-    deFontSizeHundreds,
-    setDeFontSizeHundreds,
-    deFontSizeThousands,
-    setDeFontSizeThousands,
-    deColor,
-    setDeColor,
-    deFontFamily,
-    setDeFontFamily,
-    dePos,
-    setDePos,
-    deRotation,
-    setDeRotation,
-    normalPrice,
-    setNormalPrice,
-    showNormalPrice,
-    setShowNormalPrice,
-    normalPriceFontSizeTens,
-    setNormalPriceFontSizeTens,
-    normalPriceFontSizeHundreds,
-    setNormalPriceFontSizeHundreds,
-    normalPriceFontSizeThousands,
-    setNormalPriceFontSizeThousands,
-    normalPriceColor,
-    setNormalPriceColor,
-    normalPriceFontFamily,
-    setNormalPriceFontFamily,
-    normalPricePos,
-    setNormalPricePos,
-    normalPriceRotation,
-    setNormalPriceRotation,
-    porText,
-    showPor,
-    setShowPor,
-    porFontSizeTens,
-    setPorFontSizeTens,
-    porFontSizeHundreds,
-    setPorFontSizeHundreds,
-    porFontSizeThousands,
-    setPorFontSizeThousands,
-    porColor,
-    setPorColor,
-    porFontFamily,
-    setPorFontFamily,
-    porPos,
-    setPorPos,
-    porRotation,
-    setPorRotation,
-    currencySymbol,
-    setCurrencySymbol,
-    showCurrency,
-    setShowCurrency,
-    currencyFontSizeTens,
-    setCurrencyFontSizeTens,
-    currencyFontSizeHundreds,
-    setCurrencyFontSizeHundreds,
-    currencyFontSizeThousands,
-    setCurrencyFontSizeThousands,
-    currencyColor,
-    setCurrencyColor,
-    currencyFontFamily,
-    setCurrencyFontFamily,
-    currencyPos,
-    setCurrencyPos,
-    currencyRotation,
-    setCurrencyRotation,
-    promoPrice,
-    setPromoPrice,
-    showPromoPrice,
-    setShowPromoPrice,
-    showPromoPriceTens,
-    setShowPromoPriceTens,
-    showPromoPriceHundreds,
-    setShowPromoPriceHundreds,
-    showPromoPriceThousands,
-    setShowPromoPriceThousands,
-    showSizeDropdown,
-    setShowSizeDropdown,
-    priceColor,
-    setPriceColor,
-    promoPriceFontFamily,
-    setPromoPriceFontFamily,
-    promoPricePos,
-    setPromoPricePos,
-    promoPriceRotation,
-    setPromoPriceRotation,
-    scaleTens,
-    setScaleTens,
-    scaleHundreds,
-    setScaleHundreds,
-    scaleThousands,
-    setScaleThousands,
-    scaleTenThousands,
-    setScaleTenThousands,
-    centsText,
-    setCentsText,
-    showCents,
-    setShowCents,
-    centsFontSizeTens,
-    setCentsFontSizeTens,
-    centsFontSizeHundreds,
-    setCentsFontSizeHundreds,
-    centsFontSizeThousands,
-    setCentsFontSizeThousands,
-    centsColor,
-    setCentsColor,
-    centsFontFamily,
-    setCentsFontFamily,
-    centsPos,
-    setCentsPos,
-    centsRotation,
-    setCentsRotation,
-    selectedMagnitude,
-    activeGuideX,
-    setActiveGuideX,
-    activeGuideY,
-    setActiveGuideY,
-    dbOpportunities,
-    setDbOpportunities,
-    selectedOppId,
-    setSelectedOppId,
-    showInstallments,
-    setShowInstallments,
-    installments,
-    setInstallments,
-    installmentsFontSizeTens,
-    setInstallmentsFontSizeTens,
-    installmentsFontSizeHundreds,
-    setInstallmentsFontSizeHundreds,
-    installmentsFontSizeThousands,
-    setInstallmentsFontSizeThousands,
-    installmentsColor,
-    setInstallmentsColor,
-    installmentsFontFamily,
-    setInstallmentsFontFamily,
-    installmentsPos,
-    setInstallmentsPos,
-    installmentsRotation,
-    setInstallmentsRotation,
-    dePricePorGroupPos,
-    setDePricePorGroupPos,
-    dePricePorGroupRotation,
-    setDePricePorGroupRotation,
-    dePricePorGroupGap,
-    setDePricePorGroupGap,
-    defaultBgColor,
-    bgColor,
-    setBgColor,
-    selectedElement,
-    setSelectedElement,
-    selectedElements,
-    setSelectedElements,
-    isArtConfigLoading,
-    setIsArtConfigLoading,
-    autoSaveStatus,
-    setAutoSaveStatus,
-    lastQueuedSnapshotRef,
-    latestRequestedSnapshotRef,
-    saveQueueRef,
-    isOppSelectModalOpen,
-    setIsOppSelectModalOpen,
-    isLayersModalOpen,
-    setIsLayersModalOpen,
-    showColorPickerDropdown,
-    setShowColorPickerDropdown,
-    pendingGradientColorRef,
-    applySnapshot,
-    getSnapshot,
-    handleUndo,
-    handleRedo,
-    canUndo,
-    canRedo,
-  } = usePriceLabelState(
+  const labelState = usePriceLabelState(
     initialProduct,
     config,
     isOpen,
@@ -261,36 +53,7 @@ export const PriceLabelArtEditorSession: React.FC<
 
   const previewRef = useRef<HTMLDivElement>(null);
   const prevSelectedRef = useRef<PriceLabelLayerKey>(null);
-
-  const {
-    isTestValuesModalOpen,
-    openTestValuesModal,
-    closeTestValuesModal,
-    testDezenaD1,
-    setTestDezenaD1,
-    testDezenaD2,
-    setTestDezenaD2,
-    testCentenaD1,
-    setTestCentenaD1,
-    testCentenaD2,
-    setTestCentenaD2,
-    testCentenaD3,
-    setTestCentenaD3,
-    testMilharD1,
-    setTestMilharD1,
-    testMilharD2,
-    setTestMilharD2,
-    testMilharD3,
-    setTestMilharD3,
-    testMilharD4,
-    setTestMilharD4,
-    testNormalD1,
-    setTestNormalD1,
-    testNormalD2,
-    setTestNormalD2,
-    testNormalD3,
-    setTestNormalD3,
-  } = usePriceLabelTestValues();
+  const testValuesState = usePriceLabelTestValues();
 
   const session = usePriceLabelArtworkSession({
     isOpen,
@@ -300,421 +63,362 @@ export const PriceLabelArtEditorSession: React.FC<
     onArtConfigLoaded,
     initialProduct,
     saveGuard,
-    getSnapshot,
-    applySnapshot,
-    lastQueuedSnapshotRef,
-    latestRequestedSnapshotRef,
-    saveQueueRef,
-    isArtConfigLoading,
-    setIsArtConfigLoading,
-    autoSaveStatus,
-    setAutoSaveStatus,
-    oppColorsMap,
-    setOppColorsMap,
-    selectedOppId,
-    setSelectedOppId,
-    dbOpportunities,
-    setDbOpportunities,
-    setBgColor,
-    title,
-    setTitle,
-    showTitle,
-    normalPrice,
-    promoPrice,
-    showPromoPrice,
-    priceColor,
-    scaleTens,
-    scaleHundreds,
-    scaleThousands,
-    scaleTenThousands,
-    titlePos,
-    titleWidth,
-    promoPricePos,
-    dePricePorGroupPos,
-    dePricePorGroupRotation,
-    dePricePorGroupGap,
-    setSelectedElement,
-    setSelectedElements,
+    getSnapshot: labelState.getSnapshot,
+    applySnapshot: labelState.applySnapshot,
+    lastQueuedSnapshotRef: labelState.lastQueuedSnapshotRef,
+    latestRequestedSnapshotRef: labelState.latestRequestedSnapshotRef,
+    saveQueueRef: labelState.saveQueueRef,
+    isArtConfigLoading: labelState.isArtConfigLoading,
+    setIsArtConfigLoading: labelState.setIsArtConfigLoading,
+    autoSaveStatus: labelState.autoSaveStatus,
+    setAutoSaveStatus: labelState.setAutoSaveStatus,
+    oppColorsMap: labelState.oppColorsMap,
+    setOppColorsMap: labelState.setOppColorsMap,
+    selectedOppId: labelState.selectedOppId,
+    setSelectedOppId: labelState.setSelectedOppId,
+    dbOpportunities: labelState.dbOpportunities,
+    setDbOpportunities: labelState.setDbOpportunities,
+    setBgColor: labelState.setBgColor,
+    title: labelState.title,
+    setTitle: labelState.setTitle,
+    showTitle: labelState.showTitle,
+    normalPrice: labelState.normalPrice,
+    promoPrice: labelState.promoPrice,
+    showPromoPrice: labelState.showPromoPrice,
+    priceColor: labelState.priceColor,
+    scaleTens: labelState.scaleTens,
+    scaleHundreds: labelState.scaleHundreds,
+    scaleThousands: labelState.scaleThousands,
+    scaleTenThousands: labelState.scaleTenThousands,
+    titlePos: labelState.titlePos,
+    titleWidth: labelState.titleWidth,
+    promoPricePos: labelState.promoPricePos,
+    dePricePorGroupPos: labelState.dePricePorGroupPos,
+    dePricePorGroupRotation: labelState.dePricePorGroupRotation,
+    dePricePorGroupGap: labelState.dePricePorGroupGap,
+    setSelectedElement: labelState.setSelectedElement,
+    setSelectedElements: labelState.setSelectedElements,
     previewRef,
-    isTestValuesModalOpen,
+    isTestValuesModalOpen: testValuesState.isTestValuesModalOpen,
   });
 
-  // Body scroll lock
   useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = '';
-    }
+    document.body.style.overflow = isOpen ? 'hidden' : '';
     return () => {
       document.body.style.overflow = '';
     };
   }, [isOpen]);
 
-  // Options memo
   const allOppOptions = useMemo(
-    () => buildPriceLabelOpportunityOptions(dbOpportunities),
-    [dbOpportunities]
+    () => buildPriceLabelOpportunityOptions(labelState.dbOpportunities),
+    [labelState.dbOpportunities]
   );
 
   usePriceLabelOpportunityColorSync({
-    selectedOppId,
-    oppColorsMap,
-    defaultBgColor,
-    setTitleColor,
-    setDeColor,
-    setNormalPriceColor,
-    setPorColor,
-    setCurrencyColor,
-    setPriceColor,
-    setCentsColor,
-    setInstallmentsColor,
-    setBgColor,
+    selectedOppId: labelState.selectedOppId,
+    oppColorsMap: labelState.oppColorsMap,
+    defaultBgColor: labelState.defaultBgColor,
+    setTitleColor: labelState.setTitleColor,
+    setDeColor: labelState.setDeColor,
+    setNormalPriceColor: labelState.setNormalPriceColor,
+    setPorColor: labelState.setPorColor,
+    setCurrencyColor: labelState.setCurrencyColor,
+    setPriceColor: labelState.setPriceColor,
+    setCentsColor: labelState.setCentsColor,
+    setInstallmentsColor: labelState.setInstallmentsColor,
+    setBgColor: labelState.setBgColor,
   });
 
-  const activeTitleFontSize = titleFontSizeHundreds;
-  const activeDeFontSize = deFontSizeHundreds;
-  const activeNormalPriceFontSize = normalPriceFontSizeHundreds;
-  const activePorFontSize = porFontSizeHundreds;
-  const activeInstallmentsFontSize = installmentsFontSizeHundreds;
-  const activeCurrencyFontSize = currencyFontSizeHundreds;
-  const activeCentsFontSize = centsFontSizeHundreds;
-
   const activeScale =
-    selectedMagnitude === 'tens'
-      ? scaleTens
-      : selectedMagnitude === 'hundreds'
-        ? scaleHundreds
-        : selectedMagnitude === 'thousands'
-          ? scaleThousands
-          : scaleTenThousands;
+    labelState.selectedMagnitude === 'tens'
+      ? labelState.scaleTens
+      : labelState.selectedMagnitude === 'hundreds'
+        ? labelState.scaleHundreds
+        : labelState.selectedMagnitude === 'thousands'
+          ? labelState.scaleThousands
+          : labelState.scaleTenThousands;
 
-  const { startDragging, startResizing, startRotating } = usePriceLabelCanvasInteractions({
+  const canvasInteractions = usePriceLabelCanvasInteractions({
     active: session.active,
     closing: session.closing,
     actionInFlight: session.actionInFlight,
     historyEditingAllowed: session.historyEditingAllowed,
     previewRef,
-    selectedElement,
-    setSelectedElement,
-    selectedElements,
-    setSelectedElements,
+    selectedElement: labelState.selectedElement,
+    setSelectedElement: labelState.setSelectedElement,
+    selectedElements: labelState.selectedElements,
+    setSelectedElements: labelState.setSelectedElements,
     prevSelectedRef,
-    setActiveGuideX,
-    setActiveGuideY,
-    titlePos,
-    setTitlePos,
-    dePricePorGroupPos,
-    setDePricePorGroupPos,
-    dePos,
-    setDePos,
-    normalPricePos,
-    setNormalPricePos,
-    porPos,
-    setPorPos,
-    currencyPos,
-    setCurrencyPos,
-    promoPricePos,
-    setPromoPricePos,
-    centsPos,
-    setCentsPos,
-    installmentsPos,
-    setInstallmentsPos,
-    showTitle,
-    showDe,
-    showNormalPrice,
-    showPor,
-    showCurrency,
-    showPromoPrice,
-    showCents,
-    showInstallments,
-    titleRotation,
-    setTitleRotation,
-    dePricePorGroupRotation,
-    setDePricePorGroupRotation,
-    deRotation,
-    setDeRotation,
-    normalPriceRotation,
-    setNormalPriceRotation,
-    porRotation,
-    setPorRotation,
-    currencyRotation,
-    setCurrencyRotation,
-    promoPriceRotation,
-    setPromoPriceRotation,
-    centsRotation,
-    setCentsRotation,
-    installmentsRotation,
-    setInstallmentsRotation,
-    activeTitleFontSize,
-    setTitleFontSizeTens,
-    setTitleFontSizeHundreds,
-    setTitleFontSizeThousands,
-    activeDeFontSize,
-    setDeFontSizeTens,
-    setDeFontSizeHundreds,
-    setDeFontSizeThousands,
-    activeNormalPriceFontSize,
-    setNormalPriceFontSizeTens,
-    setNormalPriceFontSizeHundreds,
-    setNormalPriceFontSizeThousands,
-    activePorFontSize,
-    setPorFontSizeTens,
-    setPorFontSizeHundreds,
-    setPorFontSizeThousands,
-    activeCurrencyFontSize,
-    setCurrencyFontSizeTens,
-    setCurrencyFontSizeHundreds,
-    setCurrencyFontSizeThousands,
-    activeCentsFontSize,
-    setCentsFontSizeTens,
-    setCentsFontSizeHundreds,
-    setCentsFontSizeThousands,
-    activeInstallmentsFontSize,
-    setInstallmentsFontSizeTens,
-    setInstallmentsFontSizeHundreds,
-    setInstallmentsFontSizeThousands,
+    setActiveGuideX: labelState.setActiveGuideX,
+    setActiveGuideY: labelState.setActiveGuideY,
+    titlePos: labelState.titlePos,
+    setTitlePos: labelState.setTitlePos,
+    dePricePorGroupPos: labelState.dePricePorGroupPos,
+    setDePricePorGroupPos: labelState.setDePricePorGroupPos,
+    dePos: labelState.dePos,
+    setDePos: labelState.setDePos,
+    normalPricePos: labelState.normalPricePos,
+    setNormalPricePos: labelState.setNormalPricePos,
+    porPos: labelState.porPos,
+    setPorPos: labelState.setPorPos,
+    currencyPos: labelState.currencyPos,
+    setCurrencyPos: labelState.setCurrencyPos,
+    promoPricePos: labelState.promoPricePos,
+    setPromoPricePos: labelState.setPromoPricePos,
+    centsPos: labelState.centsPos,
+    setCentsPos: labelState.setCentsPos,
+    installmentsPos: labelState.installmentsPos,
+    setInstallmentsPos: labelState.setInstallmentsPos,
+    showTitle: labelState.showTitle,
+    showDe: labelState.showDe,
+    showNormalPrice: labelState.showNormalPrice,
+    showPor: labelState.showPor,
+    showCurrency: labelState.showCurrency,
+    showPromoPrice: labelState.showPromoPrice,
+    showCents: labelState.showCents,
+    showInstallments: labelState.showInstallments,
+    titleRotation: labelState.titleRotation,
+    setTitleRotation: labelState.setTitleRotation,
+    dePricePorGroupRotation: labelState.dePricePorGroupRotation,
+    setDePricePorGroupRotation: labelState.setDePricePorGroupRotation,
+    deRotation: labelState.deRotation,
+    setDeRotation: labelState.setDeRotation,
+    normalPriceRotation: labelState.normalPriceRotation,
+    setNormalPriceRotation: labelState.setNormalPriceRotation,
+    porRotation: labelState.porRotation,
+    setPorRotation: labelState.setPorRotation,
+    currencyRotation: labelState.currencyRotation,
+    setCurrencyRotation: labelState.setCurrencyRotation,
+    promoPriceRotation: labelState.promoPriceRotation,
+    setPromoPriceRotation: labelState.setPromoPriceRotation,
+    centsRotation: labelState.centsRotation,
+    setCentsRotation: labelState.setCentsRotation,
+    installmentsRotation: labelState.installmentsRotation,
+    setInstallmentsRotation: labelState.setInstallmentsRotation,
+    activeTitleFontSize: labelState.titleFontSizeHundreds,
+    setTitleFontSizeTens: labelState.setTitleFontSizeTens,
+    setTitleFontSizeHundreds: labelState.setTitleFontSizeHundreds,
+    setTitleFontSizeThousands: labelState.setTitleFontSizeThousands,
+    activeDeFontSize: labelState.deFontSizeHundreds,
+    setDeFontSizeTens: labelState.setDeFontSizeTens,
+    setDeFontSizeHundreds: labelState.setDeFontSizeHundreds,
+    setDeFontSizeThousands: labelState.setDeFontSizeThousands,
+    activeNormalPriceFontSize: labelState.normalPriceFontSizeHundreds,
+    setNormalPriceFontSizeTens: labelState.setNormalPriceFontSizeTens,
+    setNormalPriceFontSizeHundreds: labelState.setNormalPriceFontSizeHundreds,
+    setNormalPriceFontSizeThousands: labelState.setNormalPriceFontSizeThousands,
+    activePorFontSize: labelState.porFontSizeHundreds,
+    setPorFontSizeTens: labelState.setPorFontSizeTens,
+    setPorFontSizeHundreds: labelState.setPorFontSizeHundreds,
+    setPorFontSizeThousands: labelState.setPorFontSizeThousands,
+    activeCurrencyFontSize: labelState.currencyFontSizeHundreds,
+    setCurrencyFontSizeTens: labelState.setCurrencyFontSizeTens,
+    setCurrencyFontSizeHundreds: labelState.setCurrencyFontSizeHundreds,
+    setCurrencyFontSizeThousands: labelState.setCurrencyFontSizeThousands,
+    activeCentsFontSize: labelState.centsFontSizeHundreds,
+    setCentsFontSizeTens: labelState.setCentsFontSizeTens,
+    setCentsFontSizeHundreds: labelState.setCentsFontSizeHundreds,
+    setCentsFontSizeThousands: labelState.setCentsFontSizeThousands,
+    activeInstallmentsFontSize: labelState.installmentsFontSizeHundreds,
+    setInstallmentsFontSizeTens: labelState.setInstallmentsFontSizeTens,
+    setInstallmentsFontSizeHundreds: labelState.setInstallmentsFontSizeHundreds,
+    setInstallmentsFontSizeThousands: labelState.setInstallmentsFontSizeThousands,
     activeScale,
-    scaleTens,
-    setScaleTens,
-    scaleHundreds,
-    setScaleHundreds,
-    scaleThousands,
-    setScaleThousands,
-    scaleTenThousands,
-    setScaleTenThousands,
+    scaleTens: labelState.scaleTens,
+    setScaleTens: labelState.setScaleTens,
+    scaleHundreds: labelState.scaleHundreds,
+    setScaleHundreds: labelState.setScaleHundreds,
+    scaleThousands: labelState.scaleThousands,
+    setScaleThousands: labelState.setScaleThousands,
+    scaleTenThousands: labelState.scaleTenThousands,
+    setScaleTenThousands: labelState.setScaleTenThousands,
   });
 
   usePriceLabelEditorKeyboardShortcuts({
     isOpen:
       isOpen &&
-      !isArtConfigLoading &&
+      !labelState.isArtConfigLoading &&
       !session.artQueryError &&
       !saveGuard.error &&
       !session.isClosing &&
       !session.actionBusy,
-    selectedElement,
-    setTitlePos,
-    setDePricePorGroupPos,
-    setDePos,
-    setNormalPricePos,
-    setPorPos,
-    setCurrencyPos,
-    setPromoPricePos,
-    setCentsPos,
-    setInstallmentsPos,
+    selectedElement: labelState.selectedElement,
+    setTitlePos: labelState.setTitlePos,
+    setDePricePorGroupPos: labelState.setDePricePorGroupPos,
+    setDePos: labelState.setDePos,
+    setNormalPricePos: labelState.setNormalPricePos,
+    setPorPos: labelState.setPorPos,
+    setCurrencyPos: labelState.setCurrencyPos,
+    setPromoPricePos: labelState.setPromoPricePos,
+    setCentsPos: labelState.setCentsPos,
+    setInstallmentsPos: labelState.setInstallmentsPos,
   });
 
   const handleElementClick = usePriceLabelLayerSelection({
     previousSelectedRef: prevSelectedRef,
-    setSelectedElement,
-    setSelectedElements,
-    showTitle,
-    showDe,
-    showNormalPrice,
-    showPor,
-    showCurrency,
-    showPromoPrice,
-    showCents,
-    showInstallments,
+    setSelectedElement: labelState.setSelectedElement,
+    setSelectedElements: labelState.setSelectedElements,
+    showTitle: labelState.showTitle,
+    showDe: labelState.showDe,
+    showNormalPrice: labelState.showNormalPrice,
+    showPor: labelState.showPor,
+    showCurrency: labelState.showCurrency,
+    showPromoPrice: labelState.showPromoPrice,
+    showCents: labelState.showCents,
+    showInstallments: labelState.showInstallments,
   });
 
   const handleLayerModalSelect = usePriceLabelLayerModalSelection({
     previousSelectedRef: prevSelectedRef,
-    setSelectedElement,
-    setSelectedElements,
-    setIsLayersModalOpen,
+    setSelectedElement: labelState.setSelectedElement,
+    setSelectedElements: labelState.setSelectedElements,
+    setIsLayersModalOpen: labelState.setIsLayersModalOpen,
   });
 
   const priceLabelLayers = useMemo(
     () =>
       buildPriceLabelLayers({
-        showTitle,
-        setShowTitle,
-        titlePos,
-        setTitlePos,
-        setTitleRotation,
-        showDe,
-        setShowDe,
-        dePos,
-        setDePos,
-        setDeRotation,
-        showNormalPrice,
-        setShowNormalPrice,
-        normalPricePos,
-        setNormalPricePos,
-        setNormalPriceRotation,
-        showPor,
-        setShowPor,
-        porPos,
-        setPorPos,
-        setPorRotation,
-        showCurrency,
-        setShowCurrency,
-        currencyPos,
-        setCurrencyPos,
-        setCurrencyRotation,
-        showPromoPrice,
-        setShowPromoPrice,
-        promoPricePos,
-        setPromoPricePos,
-        setPromoPriceRotation,
-        showCents,
-        setShowCents,
-        centsPos,
-        setCentsPos,
-        setCentsRotation,
-        showInstallments,
-        setShowInstallments,
-        installmentsPos,
-        setInstallmentsPos,
-        setInstallmentsRotation,
+        showTitle: labelState.showTitle,
+        setShowTitle: labelState.setShowTitle,
+        titlePos: labelState.titlePos,
+        setTitlePos: labelState.setTitlePos,
+        setTitleRotation: labelState.setTitleRotation,
+        showDe: labelState.showDe,
+        setShowDe: labelState.setShowDe,
+        dePos: labelState.dePos,
+        setDePos: labelState.setDePos,
+        setDeRotation: labelState.setDeRotation,
+        showNormalPrice: labelState.showNormalPrice,
+        setShowNormalPrice: labelState.setShowNormalPrice,
+        normalPricePos: labelState.normalPricePos,
+        setNormalPricePos: labelState.setNormalPricePos,
+        setNormalPriceRotation: labelState.setNormalPriceRotation,
+        showPor: labelState.showPor,
+        setShowPor: labelState.setShowPor,
+        porPos: labelState.porPos,
+        setPorPos: labelState.setPorPos,
+        setPorRotation: labelState.setPorRotation,
+        showCurrency: labelState.showCurrency,
+        setShowCurrency: labelState.setShowCurrency,
+        currencyPos: labelState.currencyPos,
+        setCurrencyPos: labelState.setCurrencyPos,
+        setCurrencyRotation: labelState.setCurrencyRotation,
+        showPromoPrice: labelState.showPromoPrice,
+        setShowPromoPrice: labelState.setShowPromoPrice,
+        promoPricePos: labelState.promoPricePos,
+        setPromoPricePos: labelState.setPromoPricePos,
+        setPromoPriceRotation: labelState.setPromoPriceRotation,
+        showCents: labelState.showCents,
+        setShowCents: labelState.setShowCents,
+        centsPos: labelState.centsPos,
+        setCentsPos: labelState.setCentsPos,
+        setCentsRotation: labelState.setCentsRotation,
+        showInstallments: labelState.showInstallments,
+        setShowInstallments: labelState.setShowInstallments,
+        installmentsPos: labelState.installmentsPos,
+        setInstallmentsPos: labelState.setInstallmentsPos,
+        setInstallmentsRotation: labelState.setInstallmentsRotation,
       }),
     [
-      showTitle,
-      setShowTitle,
-      titlePos,
-      setTitlePos,
-      setTitleRotation,
-      showDe,
-      setShowDe,
-      dePos,
-      setDePos,
-      setDeRotation,
-      showNormalPrice,
-      setShowNormalPrice,
-      normalPricePos,
-      setNormalPricePos,
-      setNormalPriceRotation,
-      showPor,
-      setShowPor,
-      porPos,
-      setPorPos,
-      setPorRotation,
-      showCurrency,
-      setShowCurrency,
-      currencyPos,
-      setCurrencyPos,
-      setCurrencyRotation,
-      showPromoPrice,
-      setShowPromoPrice,
-      promoPricePos,
-      setPromoPricePos,
-      setPromoPriceRotation,
-      showCents,
-      setShowCents,
-      centsPos,
-      setCentsPos,
-      setCentsRotation,
-      showInstallments,
-      setShowInstallments,
-      installmentsPos,
-      setInstallmentsPos,
-      setInstallmentsRotation,
+      labelState.showTitle, labelState.setShowTitle, labelState.titlePos, labelState.setTitlePos, labelState.setTitleRotation,
+      labelState.showDe, labelState.setShowDe, labelState.dePos, labelState.setDePos, labelState.setDeRotation,
+      labelState.showNormalPrice, labelState.setShowNormalPrice, labelState.normalPricePos, labelState.setNormalPricePos, labelState.setNormalPriceRotation,
+      labelState.showPor, labelState.setShowPor, labelState.porPos, labelState.setPorPos, labelState.setPorRotation,
+      labelState.showCurrency, labelState.setShowCurrency, labelState.currencyPos, labelState.setCurrencyPos, labelState.setCurrencyRotation,
+      labelState.showPromoPrice, labelState.setShowPromoPrice, labelState.promoPricePos, labelState.setPromoPricePos, labelState.setPromoPriceRotation,
+      labelState.showCents, labelState.setShowCents, labelState.centsPos, labelState.setCentsPos, labelState.setCentsRotation,
+      labelState.showInstallments, labelState.setShowInstallments, labelState.installmentsPos, labelState.setInstallmentsPos, labelState.setInstallmentsRotation,
     ]
   );
 
-  const {
-    colorHistory,
-    setColorHistory,
-    handleCenterElement,
-    closeColorPicker,
-    handleSelectOpportunityContext,
-    handleColorSelect,
-    handleOpportunityColorChange,
-    handleFontChange,
-    handleBatchFontSize,
-    handleBatchFontFamily,
-    activeFontFamily,
-    activeColor,
-  } = usePriceLabelElementFormatting({
-    selectedElement,
-    selectedElements,
-    setSelectedElement,
-    setSelectedElements,
-    selectedOppId,
-    setSelectedOppId,
-    oppColorsMap,
-    setOppColorsMap,
-    defaultBgColor,
-    bgColor,
-    setBgColor,
+  const formatting = usePriceLabelElementFormatting({
+    selectedElement: labelState.selectedElement,
+    selectedElements: labelState.selectedElements,
+    setSelectedElement: labelState.setSelectedElement,
+    setSelectedElements: labelState.setSelectedElements,
+    selectedOppId: labelState.selectedOppId,
+    setSelectedOppId: labelState.setSelectedOppId,
+    oppColorsMap: labelState.oppColorsMap,
+    setOppColorsMap: labelState.setOppColorsMap,
+    defaultBgColor: labelState.defaultBgColor,
+    bgColor: labelState.bgColor,
+    setBgColor: labelState.setBgColor,
     priceLabelLayers,
-    pendingGradientColorRef,
-    setShowColorPickerDropdown,
+    pendingGradientColorRef: labelState.pendingGradientColorRef,
+    setShowColorPickerDropdown: labelState.setShowColorPickerDropdown,
     opportunitySelectionRevision: session.opportunitySelectionRevision,
-    setTitlePos,
-    setDePricePorGroupPos,
-    setDePos,
-    setNormalPricePos,
-    setPorPos,
-    setCurrencyPos,
-    setPromoPricePos,
-    setCentsPos,
-    setInstallmentsPos,
-    titleColor,
-    setTitleColor,
-    deColor,
-    setDeColor,
-    normalPriceColor,
-    setNormalPriceColor,
-    porColor,
-    setPorColor,
-    currencyColor,
-    setCurrencyColor,
-    priceColor,
-    setPriceColor,
-    centsColor,
-    setCentsColor,
-    installmentsColor,
-    setInstallmentsColor,
-    titleFontFamily,
-    setTitleFontFamily,
-    deFontFamily,
-    setDeFontFamily,
-    normalPriceFontFamily,
-    setNormalPriceFontFamily,
-    porFontFamily,
-    setPorFontFamily,
-    currencyFontFamily,
-    setCurrencyFontFamily,
-    promoPriceFontFamily,
-    setPromoPriceFontFamily,
-    centsFontFamily,
-    setCentsFontFamily,
-    installmentsFontFamily,
-    setInstallmentsFontFamily,
-    setTitleFontSizeTens,
-    setTitleFontSizeHundreds,
-    setTitleFontSizeThousands,
-    setDeFontSizeTens,
-    setDeFontSizeHundreds,
-    setDeFontSizeThousands,
-    setNormalPriceFontSizeTens,
-    setNormalPriceFontSizeHundreds,
-    setNormalPriceFontSizeThousands,
-    setPorFontSizeTens,
-    setPorFontSizeHundreds,
-    setPorFontSizeThousands,
-    setCurrencyFontSizeTens,
-    setCurrencyFontSizeHundreds,
-    setCurrencyFontSizeThousands,
-    setCentsFontSizeTens,
-    setCentsFontSizeHundreds,
-    setCentsFontSizeThousands,
-    setInstallmentsFontSizeTens,
-    setInstallmentsFontSizeHundreds,
-    setInstallmentsFontSizeThousands,
-    selectedMagnitude,
-    setScaleTens,
-    setScaleHundreds,
-    setScaleThousands,
+    setTitlePos: labelState.setTitlePos,
+    setDePricePorGroupPos: labelState.setDePricePorGroupPos,
+    setDePos: labelState.setDePos,
+    setNormalPricePos: labelState.setNormalPricePos,
+    setPorPos: labelState.setPorPos,
+    setCurrencyPos: labelState.setCurrencyPos,
+    setPromoPricePos: labelState.setPromoPricePos,
+    setCentsPos: labelState.setCentsPos,
+    setInstallmentsPos: labelState.setInstallmentsPos,
+    titleColor: labelState.titleColor,
+    setTitleColor: labelState.setTitleColor,
+    deColor: labelState.deColor,
+    setDeColor: labelState.setDeColor,
+    normalPriceColor: labelState.normalPriceColor,
+    setNormalPriceColor: labelState.setNormalPriceColor,
+    porColor: labelState.porColor,
+    setPorColor: labelState.setPorColor,
+    currencyColor: labelState.currencyColor,
+    setCurrencyColor: labelState.setCurrencyColor,
+    priceColor: labelState.priceColor,
+    setPriceColor: labelState.setPriceColor,
+    centsColor: labelState.centsColor,
+    setCentsColor: labelState.setCentsColor,
+    installmentsColor: labelState.installmentsColor,
+    setInstallmentsColor: labelState.setInstallmentsColor,
+    titleFontFamily: labelState.titleFontFamily,
+    setTitleFontFamily: labelState.setTitleFontFamily,
+    deFontFamily: labelState.deFontFamily,
+    setDeFontFamily: labelState.setDeFontFamily,
+    normalPriceFontFamily: labelState.normalPriceFontFamily,
+    setNormalPriceFontFamily: labelState.setNormalPriceFontFamily,
+    porFontFamily: labelState.porFontFamily,
+    setPorFontFamily: labelState.setPorFontFamily,
+    currencyFontFamily: labelState.currencyFontFamily,
+    setCurrencyFontFamily: labelState.setCurrencyFontFamily,
+    promoPriceFontFamily: labelState.promoPriceFontFamily,
+    setPromoPriceFontFamily: labelState.setPromoPriceFontFamily,
+    centsFontFamily: labelState.centsFontFamily,
+    setCentsFontFamily: labelState.setCentsFontFamily,
+    installmentsFontFamily: labelState.installmentsFontFamily,
+    setInstallmentsFontFamily: labelState.setInstallmentsFontFamily,
+    setTitleFontSizeTens: labelState.setTitleFontSizeTens,
+    setTitleFontSizeHundreds: labelState.setTitleFontSizeHundreds,
+    setTitleFontSizeThousands: labelState.setTitleFontSizeThousands,
+    setDeFontSizeTens: labelState.setDeFontSizeTens,
+    setDeFontSizeHundreds: labelState.setDeFontSizeHundreds,
+    setDeFontSizeThousands: labelState.setDeFontSizeThousands,
+    setNormalPriceFontSizeTens: labelState.setNormalPriceFontSizeTens,
+    setNormalPriceFontSizeHundreds: labelState.setNormalPriceFontSizeHundreds,
+    setNormalPriceFontSizeThousands: labelState.setNormalPriceFontSizeThousands,
+    setPorFontSizeTens: labelState.setPorFontSizeTens,
+    setPorFontSizeHundreds: labelState.setPorFontSizeHundreds,
+    setPorFontSizeThousands: labelState.setPorFontSizeThousands,
+    setCurrencyFontSizeTens: labelState.setCurrencyFontSizeTens,
+    setCurrencyFontSizeHundreds: labelState.setCurrencyFontSizeHundreds,
+    setCurrencyFontSizeThousands: labelState.setCurrencyFontSizeThousands,
+    setCentsFontSizeTens: labelState.setCentsFontSizeTens,
+    setCentsFontSizeHundreds: labelState.setCentsFontSizeHundreds,
+    setCentsFontSizeThousands: labelState.setCentsFontSizeThousands,
+    setInstallmentsFontSizeTens: labelState.setInstallmentsFontSizeTens,
+    setInstallmentsFontSizeHundreds: labelState.setInstallmentsFontSizeHundreds,
+    setInstallmentsFontSizeThousands: labelState.setInstallmentsFontSizeThousands,
+    selectedMagnitude: labelState.selectedMagnitude,
+    setScaleTens: labelState.setScaleTens,
+    setScaleHundreds: labelState.setScaleHundreds,
+    setScaleThousands: labelState.setScaleThousands,
   });
 
   if (!isOpen) return null;
 
   const editingDisabled =
-    isArtConfigLoading ||
+    labelState.isArtConfigLoading ||
     Boolean(session.artQueryError || saveGuard.error) ||
     session.isClosing ||
     session.actionBusy;
@@ -735,7 +439,7 @@ export const PriceLabelArtEditorSession: React.FC<
         saveError={session.saveError}
         opportunityQueryError={session.opportunityQueryError}
         canRetrySave={!saveGuard.error}
-        isArtConfigLoading={isArtConfigLoading}
+        isArtConfigLoading={labelState.isArtConfigLoading}
         actionBusy={session.actionBusy}
         onRetryArtQuery={() => session.setQueryRevision((value) => value + 1)}
         onRetrySave={() => void session.retrySave()}
@@ -750,10 +454,10 @@ export const PriceLabelArtEditorSession: React.FC<
         onKeyDownCapture={stopDisabledEditing}
       >
         <PriceLabelEditorHeader
-          canUndo={canUndo}
-          canRedo={canRedo}
-          onUndo={handleUndo}
-          onRedo={handleRedo}
+          canUndo={labelState.canUndo}
+          canRedo={labelState.canRedo}
+          onUndo={labelState.handleUndo}
+          onRedo={labelState.handleRedo}
           onBackToErp={session.handleBackToErp}
         />
 
@@ -761,287 +465,42 @@ export const PriceLabelArtEditorSession: React.FC<
           onDownloadPng={() => void session.handleExport('download')}
           onCopyImage={() => void session.handleExport('copy')}
           onRenameTitle={() => void session.handleRenameTitle()}
-          onOpenLayersModal={() => setIsLayersModalOpen(true)}
-          showSafetyMargin={showSafetyMargin}
-          onToggleSafetyMargin={() => setShowSafetyMargin(!showSafetyMargin)}
-          selectedOppId={selectedOppId}
-          onSelectOpportunityContext={handleSelectOpportunityContext}
+          onOpenLayersModal={() => labelState.setIsLayersModalOpen(true)}
+          showSafetyMargin={labelState.showSafetyMargin}
+          onToggleSafetyMargin={() => labelState.setShowSafetyMargin(!labelState.showSafetyMargin)}
+          selectedOppId={labelState.selectedOppId}
+          onSelectOpportunityContext={formatting.handleSelectOpportunityContext}
           allOppOptions={allOppOptions}
           onOpenDataFillModal={() => setIsDataFillModalOpen(true)}
-          onOpenTestValuesModal={openTestValuesModal}
+          onOpenTestValuesModal={testValuesState.openTestValuesModal}
         />
 
-        <PriceLabelSelectedElementToolbar
-          selectedElement={selectedElement}
-          selectedElements={selectedElements}
-          onClearSelection={() => {
-            setSelectedElement(null);
-            setSelectedElements(new Set());
-          }}
+        <PriceLabelArtEditorWorkspace
+          labelState={labelState}
+          testValuesState={testValuesState}
+          formatting={formatting}
+          canvasInteractions={canvasInteractions}
           priceLabelLayers={priceLabelLayers}
-          activeFontFamily={activeFontFamily}
-          onFontChange={handleFontChange}
-          onBatchFontFamily={handleBatchFontFamily}
-          onBatchFontSize={handleBatchFontSize}
-          dePricePorGroupGap={dePricePorGroupGap}
-          setDePricePorGroupGap={setDePricePorGroupGap}
-          scaleTens={scaleTens}
-          setScaleTens={setScaleTens}
-          showPromoPriceTens={showPromoPriceTens}
-          setShowPromoPriceTens={setShowPromoPriceTens}
-          scaleHundreds={scaleHundreds}
-          setScaleHundreds={setScaleHundreds}
-          showPromoPriceHundreds={showPromoPriceHundreds}
-          setShowPromoPriceHundreds={setShowPromoPriceHundreds}
-          scaleThousands={scaleThousands}
-          setScaleThousands={setScaleThousands}
-          showPromoPriceThousands={showPromoPriceThousands}
-          setShowPromoPriceThousands={setShowPromoPriceThousands}
-          titleFontSizeTens={titleFontSizeTens}
-          setTitleFontSizeTens={setTitleFontSizeTens}
-          setTitleFontSizeHundreds={setTitleFontSizeHundreds}
-          setTitleFontSizeThousands={setTitleFontSizeThousands}
-          deFontSizeTens={deFontSizeTens}
-          setDeFontSizeTens={setDeFontSizeTens}
-          setDeFontSizeHundreds={setDeFontSizeHundreds}
-          setDeFontSizeThousands={setDeFontSizeThousands}
-          normalPriceFontSizeTens={normalPriceFontSizeTens}
-          setNormalPriceFontSizeTens={setNormalPriceFontSizeTens}
-          normalPriceFontSizeHundreds={normalPriceFontSizeHundreds}
-          setNormalPriceFontSizeHundreds={setNormalPriceFontSizeHundreds}
-          normalPriceFontSizeThousands={normalPriceFontSizeThousands}
-          setNormalPriceFontSizeThousands={setNormalPriceFontSizeThousands}
-          porFontSizeTens={porFontSizeTens}
-          setPorFontSizeTens={setPorFontSizeTens}
-          porFontSizeHundreds={porFontSizeHundreds}
-          setPorFontSizeHundreds={setPorFontSizeHundreds}
-          porFontSizeThousands={porFontSizeThousands}
-          setPorFontSizeThousands={setPorFontSizeThousands}
-          currencyFontSizeTens={currencyFontSizeTens}
-          setCurrencyFontSizeTens={setCurrencyFontSizeTens}
-          currencyFontSizeHundreds={currencyFontSizeHundreds}
-          setCurrencyFontSizeHundreds={setCurrencyFontSizeHundreds}
-          currencyFontSizeThousands={currencyFontSizeThousands}
-          setCurrencyFontSizeThousands={setCurrencyFontSizeThousands}
-          centsFontSizeTens={centsFontSizeTens}
-          setCentsFontSizeTens={setCentsFontSizeTens}
-          setCentsFontSizeHundreds={setCentsFontSizeHundreds}
-          setCentsFontSizeThousands={setCentsFontSizeThousands}
-          installmentsFontSizeTens={installmentsFontSizeTens}
-          setInstallmentsFontSizeTens={setInstallmentsFontSizeTens}
-          installmentsFontSizeHundreds={installmentsFontSizeHundreds}
-          setInstallmentsFontSizeHundreds={setInstallmentsFontSizeHundreds}
-          installmentsFontSizeThousands={installmentsFontSizeThousands}
-          setInstallmentsFontSizeThousands={setInstallmentsFontSizeThousands}
-          activeColor={activeColor}
-          onToggleColorPicker={(event) => {
-            event.stopPropagation();
-            setShowColorPickerDropdown(!showColorPickerDropdown);
-          }}
-          showSizeDropdown={showSizeDropdown}
-          setShowSizeDropdown={setShowSizeDropdown}
-        />
-
-        <PriceLabelColorPickerPopup
-          isOpen={showColorPickerDropdown}
-          onClose={closeColorPicker}
           allOppOptions={allOppOptions}
-          selectedOppId={selectedOppId}
-          selectedElement={selectedElement}
-          oppColorsMap={oppColorsMap}
-          getDefaultBg={getDefaultBg}
-          colorHistory={colorHistory}
-          onOppColorChange={handleOpportunityColorChange}
-        />
-
-        <PriceLabelArtEditorPreview
-          isArtConfigLoading={isArtConfigLoading}
-          previewRef={previewRef}
           artworkSizeMm={artworkSizeMm}
-          selectedMagnitude={selectedMagnitude}
-          selectedElement={selectedElement}
-          setSelectedElement={setSelectedElement}
-          selectedElements={selectedElements}
-          setSelectedElements={setSelectedElements}
-          title={title}
-          showTitle={showTitle}
-          titleFontSizeTens={titleFontSizeTens}
-          titleFontSizeHundreds={titleFontSizeHundreds}
-          titleFontSizeThousands={titleFontSizeThousands}
-          titleColor={titleColor}
-          titleFontFamily={titleFontFamily}
-          titlePos={titlePos}
-          titleRotation={titleRotation}
-          titleWidth={titleWidth}
-          setTitleWidth={setTitleWidth}
-          deText={deText}
-          showDe={showDe}
-          deFontSizeTens={deFontSizeTens}
-          deFontSizeHundreds={deFontSizeHundreds}
-          deFontSizeThousands={deFontSizeThousands}
-          deColor={deColor}
-          deFontFamily={deFontFamily}
-          deRotation={deRotation}
-          normalPrice={normalPrice}
-          showNormalPrice={showNormalPrice}
-          normalPriceFontSizeTens={normalPriceFontSizeTens}
-          normalPriceFontSizeHundreds={normalPriceFontSizeHundreds}
-          normalPriceFontSizeThousands={normalPriceFontSizeThousands}
-          normalPriceColor={normalPriceColor}
-          normalPriceFontFamily={normalPriceFontFamily}
-          normalPriceRotation={normalPriceRotation}
-          porText={porText}
-          showPor={showPor}
-          porFontSizeTens={porFontSizeTens}
-          porFontSizeHundreds={porFontSizeHundreds}
-          porFontSizeThousands={porFontSizeThousands}
-          porColor={porColor}
-          porFontFamily={porFontFamily}
-          porRotation={porRotation}
-          dePricePorGroupPos={dePricePorGroupPos}
-          dePricePorGroupRotation={dePricePorGroupRotation}
-          dePricePorGroupGap={dePricePorGroupGap}
-          currencySymbol={currencySymbol}
-          showCurrency={showCurrency}
-          currencyFontSizeTens={currencyFontSizeTens}
-          currencyFontSizeHundreds={currencyFontSizeHundreds}
-          currencyFontSizeThousands={currencyFontSizeThousands}
-          currencyColor={currencyColor}
-          currencyFontFamily={currencyFontFamily}
-          currencyPos={currencyPos}
-          currencyRotation={currencyRotation}
-          promoPrice={promoPrice}
-          showPromoPrice={showPromoPrice}
-          priceColor={priceColor}
-          promoPriceFontFamily={promoPriceFontFamily}
-          promoPricePos={promoPricePos}
-          promoPriceRotation={promoPriceRotation}
-          scaleTens={scaleTens}
-          scaleHundreds={scaleHundreds}
-          scaleThousands={scaleThousands}
-          showPromoPriceTens={showPromoPriceTens}
-          showPromoPriceHundreds={showPromoPriceHundreds}
-          showPromoPriceThousands={showPromoPriceThousands}
-          centsText={centsText}
-          showCents={showCents}
-          centsFontSizeTens={centsFontSizeTens}
-          centsFontSizeHundreds={centsFontSizeHundreds}
-          centsFontSizeThousands={centsFontSizeThousands}
-          centsColor={centsColor}
-          centsFontFamily={centsFontFamily}
-          centsPos={centsPos}
-          centsRotation={centsRotation}
-          installments={installments}
-          showInstallments={showInstallments}
-          installmentsFontSizeTens={installmentsFontSizeTens}
-          installmentsFontSizeHundreds={installmentsFontSizeHundreds}
-          installmentsFontSizeThousands={installmentsFontSizeThousands}
-          installmentsColor={installmentsColor}
-          installmentsFontFamily={installmentsFontFamily}
-          installmentsPos={installmentsPos}
-          installmentsRotation={installmentsRotation}
-          bgColor={bgColor}
-          oppColorsMap={oppColorsMap}
-          selectedOppId={selectedOppId}
-          defaultBgColor={defaultBgColor}
-          isTestValuesModalOpen={isTestValuesModalOpen}
-          testDezenaD1={testDezenaD1}
-          testDezenaD2={testDezenaD2}
-          testCentenaD1={testCentenaD1}
-          testCentenaD2={testCentenaD2}
-          testCentenaD3={testCentenaD3}
-          testMilharD1={testMilharD1}
-          testMilharD2={testMilharD2}
-          testMilharD3={testMilharD3}
-          testMilharD4={testMilharD4}
-          testNormalD1={testNormalD1}
-          testNormalD2={testNormalD2}
-          testNormalD3={testNormalD3}
+          previewRef={previewRef}
           handleElementClick={handleElementClick}
-          startDragging={startDragging}
-          startResizing={startResizing}
-          startRotating={startRotating}
-          showSafetyMargin={showSafetyMargin}
-          activeGuideX={activeGuideX}
-          activeGuideY={activeGuideY}
         />
 
-        <PriceLabelLayersModal
-          isOpen={isLayersModalOpen}
-          onClose={() => setIsLayersModalOpen(false)}
-          layers={priceLabelLayers}
-          selectedElements={selectedElements}
-          selectedElement={selectedElement}
-          onSelectLayer={handleLayerModalSelect}
-          onCenterElement={handleCenterElement}
-        />
-
-        <PriceLabelOpportunityModal
-          isOpen={isOppSelectModalOpen}
-          onClose={() => setIsOppSelectModalOpen(false)}
+        <PriceLabelEditorModals
+          config={config}
+          labelState={labelState}
+          testValuesState={testValuesState}
+          priceLabelLayers={priceLabelLayers}
           allOppOptions={allOppOptions}
-          selectedOppId={selectedOppId}
-          onSelectOpportunityView={handleSelectOpportunityContext}
+          isDataFillModalOpen={isDataFillModalOpen}
+          setIsDataFillModalOpen={setIsDataFillModalOpen}
+          onLayerModalSelect={handleLayerModalSelect}
+          onCenterElement={formatting.handleCenterElement}
+          onSelectOpportunityContext={formatting.handleSelectOpportunityContext}
         />
 
-        <PriceLabelDataFillModal
-          isOpen={isDataFillModalOpen}
-          ownerKey={JSON.stringify([config.layoutId, selectedOppId, selectedMagnitude])}
-          onClose={() => setIsDataFillModalOpen(false)}
-          onApplyProductTitle={(prodName, stillCurrent) => {
-            if (stillCurrent && !stillCurrent()) return false;
-            setTitle(prodName);
-            setShowTitle(true);
-            return true;
-          }}
-          onApplyData={(values, stillCurrent) => {
-            if (stillCurrent && !stillCurrent()) return false;
-            setTitle(values.title);
-            setNormalPrice(values.normalPrice);
-            setPromoPrice(values.promoPrice);
-            setCentsText(values.centsText);
-            setCurrencySymbol(values.currencySymbol);
-            setInstallments(values.installments);
-            return true;
-          }}
-          title={title}
-          normalPrice={normalPrice}
-          promoPrice={promoPrice}
-          centsText={centsText}
-          currencySymbol={currencySymbol}
-          installments={installments}
-        />
-
-        <PriceLabelEditorFooter autoSaveStatus={autoSaveStatus} />
-
-        <PriceLabelTestValuesModal
-          isOpen={isTestValuesModalOpen}
-          onClose={closeTestValuesModal}
-          testDezenaD1={testDezenaD1}
-          setTestDezenaD1={setTestDezenaD1}
-          testDezenaD2={testDezenaD2}
-          setTestDezenaD2={setTestDezenaD2}
-          testCentenaD1={testCentenaD1}
-          setTestCentenaD1={setTestCentenaD1}
-          testCentenaD2={testCentenaD2}
-          setTestCentenaD2={setTestCentenaD2}
-          testCentenaD3={testCentenaD3}
-          setTestCentenaD3={setTestCentenaD3}
-          testMilharD1={testMilharD1}
-          setTestMilharD1={setTestMilharD1}
-          testMilharD2={testMilharD2}
-          setTestMilharD2={setTestMilharD2}
-          testMilharD3={testMilharD3}
-          setTestMilharD3={setTestMilharD3}
-          testMilharD4={testMilharD4}
-          setTestMilharD4={setTestMilharD4}
-          testNormalD1={testNormalD1}
-          setTestNormalD1={setTestNormalD1}
-          testNormalD2={testNormalD2}
-          setTestNormalD2={setTestNormalD2}
-          testNormalD3={testNormalD3}
-          setTestNormalD3={setTestNormalD3}
-        />
+        <PriceLabelEditorFooter autoSaveStatus={labelState.autoSaveStatus} />
       </fieldset>
     </div>
   );

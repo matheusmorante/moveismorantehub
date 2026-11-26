@@ -1,1 +1,1 @@
-export * from './schemas/productAutocompleteFormSchema';
+export * from './schemas/products/productAutocompleteFormSchema';

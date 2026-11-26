@@ -10,7 +10,7 @@ import {
 import {
   generateDeliveryAISummary,
   subscribeSummaryQuota,
-} from '../../../../services/aiSummaryService';
+} from '../../../../services/summary/aiSummaryService';
 import {
   addDaysToLocalDateString,
   getLocalDateString,
@@ -24,7 +24,7 @@ import { supabase } from '../../../../services/supabaseClient';
 import {
   getLatestSavedSummaryRecord,
   type DeliverySummaryReadRecord,
-} from '../../../../services/deliverySummaryService';
+} from '../../../../services/logistics/deliverySummaryService';
 import { offlineStorageService } from '../../../../services/offline/offlineStorageService';
 import { DeliveryShiftMetricsGrid } from './DeliveryShiftMetricsGrid';
 import { styles } from './todaySummaryCard.styles';

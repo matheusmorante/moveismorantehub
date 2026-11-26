@@ -16,14 +16,14 @@ const { state } = vi.hoisted(() => ({
 }));
 
 vi.mock('@/pages/utils/supabaseConfig', () => ({ supabase: { from: state.from, rpc: state.rpc } }));
-vi.mock('./productMapper', () => ({ mapToDB: state.mapToDB }));
-vi.mock('../uniqueSlug', () => ({ resolveUniqueSlug: async () => 'mesa-aurora' }));
-vi.mock('../productKindRules', () => ({ isNonConventionalProduct: () => false }));
-vi.mock('../productVariationDefaults', () => ({ normalizeVariationSku: (sku: string) => sku }));
-vi.mock('./productSkuService', () => ({ TABLE_NAME: 'products', generateUniqueCode: () => 'P-1' }));
-vi.mock('./productImageHelpers', () => ({ MAX_VARIATION_IMAGES: 15 }));
+vi.mock('./mapping/productMapper', () => ({ mapToDB: state.mapToDB }));
+vi.mock('../shared/uniqueSlug', () => ({ resolveUniqueSlug: async () => 'mesa-aurora' }));
+vi.mock('./productKindRules', () => ({ isNonConventionalProduct: () => false }));
+vi.mock('./productVariationDefaults', () => ({ normalizeVariationSku: (sku: string) => sku }));
+vi.mock('./mutations/productSkuService', () => ({ TABLE_NAME: 'products', generateUniqueCode: () => 'P-1' }));
+vi.mock('./mapping/productImageHelpers', () => ({ MAX_VARIATION_IMAGES: 15 }));
 
-import { syncProductToSupabase } from './productPersistenceService';
+import { syncProductToSupabase } from './mutations/productPersistenceService';
 
 describe('syncProductToSupabase', () => {
   beforeEach(() => {

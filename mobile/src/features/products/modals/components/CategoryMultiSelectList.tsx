@@ -7,7 +7,7 @@ import {
   PRODUCT_CATEGORY_SEARCH_MIN_LENGTH,
   searchProductCategories,
 } from '../../../../../../shared-utils/productCategorySearch';
-import { MobileCategory } from '../../services/mobileCategoryService';
+import { MobileCategory } from '../../services/categories/mobileCategoryService';
 
 const MIN_CATEGORY_SEARCH_LENGTH = PRODUCT_CATEGORY_SEARCH_MIN_LENGTH;
 

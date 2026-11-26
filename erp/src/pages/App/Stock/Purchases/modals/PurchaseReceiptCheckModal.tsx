@@ -3,7 +3,7 @@ import Purchase from '../../../../types/purchase.type';
 import { formatPurchaseNumber } from '../../../../../../../shared-utils/purchaseNumber';
 import QRScannerModal from '@/components/shared/QRScannerModal';
 import ErrorBoundary from '@/components/shared/ErrorBoundary';
-import { formatToBRDate } from '../../../../utils/formatters';
+import { formatToBRDate } from '../../../../utils/shared/formatters';
 import { usePurchaseReceiptCheckForm } from '../hooks/usePurchaseReceiptCheckForm';
 import { PurchaseReceiptItemRow } from '../components/PurchaseReceiptItemRow';
 

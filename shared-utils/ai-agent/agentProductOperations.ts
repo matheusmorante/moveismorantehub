@@ -1,4 +1,4 @@
-import { buildPostgrestAccentInsensitivePattern } from '../searchText';
+import { buildPostgrestAccentInsensitivePattern } from '../core/searchText';
 import {
   AgentVariationInput,
   AgentCreateProductInput,

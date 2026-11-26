@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type Product from '../../types/product.type';
-import { persistProductDraft } from './productDraftPersistence';
+import { persistProductDraft } from './drafts/productDraftPersistence';
 
 const db = vi.hoisted(() => ({
   from: vi.fn(), existing: null as any,
@@ -8,7 +8,7 @@ const db = vi.hoisted(() => ({
   payload: null as any, filters: [] as any[],
 }));
 vi.mock('@/pages/utils/supabaseConfig', () => ({ supabase: db }));
-vi.mock('../uniqueSlug', () => ({ resolveUniqueSlug: vi.fn(async () => 'test-aut-draft'), normalizeSlug: (value: string) => value }));
+vi.mock('../shared/uniqueSlug', () => ({ resolveUniqueSlug: vi.fn(async () => 'test-aut-draft'), normalizeSlug: (value: string) => value }));
 
 const product = (): Product => ({
   id: '9b2ec3b1-8629-4514-b38b-3894fb33719f', name: 'TEST_AUT_DRAFT', code: 'TEST_AUT_DRAFT',

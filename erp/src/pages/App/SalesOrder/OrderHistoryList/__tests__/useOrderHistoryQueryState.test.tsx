@@ -3,6 +3,7 @@ import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { CircuitBreakerError } from '@/services/monitoring';
+import { OrderReadContractError } from '../../../../../../../shared-utils/orders/orderReadContractError';
 
 const mocks = vi.hoisted(() => ({
   fetchOrdersPage: vi.fn(),
@@ -77,6 +78,37 @@ describe('useOrderHistory query state', () => {
       <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
     );
   };
+
+  it('começa na página 1 ao mudar o filtro e preserva a página para filtros equivalentes', async () => {
+    const before = { generalSearch: 'mesa', isDraft: false };
+    const after = { generalSearch: 'cadeira', isDraft: false };
+    mocks.fetchOrdersPage.mockResolvedValue({ orders: [], total: 45 });
+    mocks.subscribeToOrderChanges.mockReturnValue(vi.fn());
+    const { result, rerender } = renderHook(({ filters }) => useOrderHistory(filters), {
+      initialProps: { filters: before }, wrapper: createWrapper(),
+    });
+    await waitFor(() => expect(result.current.totalPages).toBe(3));
+    act(() => result.current.setCurrentPage(2));
+    await waitFor(() => expect(mocks.fetchOrdersPage).toHaveBeenCalledTimes(2));
+    rerender({ filters: { isDraft: false, generalSearch: 'mesa' } });
+    expect(result.current.currentPage).toBe(2);
+    expect(mocks.fetchOrdersPage).toHaveBeenCalledTimes(2);
+
+    rerender({ filters: after });
+    expect(result.current.currentPage).toBe(1);
+    await waitFor(() => expect(mocks.fetchOrdersPage).toHaveBeenCalledTimes(3));
+    expect(mocks.fetchOrdersPage).toHaveBeenLastCalledWith(1, 15, after, expect.any(Object));
+    expect(mocks.fetchOrdersPage).not.toHaveBeenCalledWith(2, 15, after, expect.any(Object));
+  });
+
+  it('apresenta uma resposta inválida sem refazer a leitura automaticamente', async () => {
+    const failure = new OrderReadContractError('Resposta inválida');
+    mocks.fetchOrdersPage.mockRejectedValue(failure);
+    mocks.subscribeToOrderChanges.mockReturnValue(vi.fn());
+    const { result } = renderHook(() => useOrderHistory(), { wrapper: createWrapper() });
+    await waitFor(() => expect(result.current.error).toBe(failure));
+    expect(mocks.fetchOrdersPage).toHaveBeenCalledOnce();
+  });
 
   it.each(['duplicateOrder', 'generateSaleFromBudget'] as const)('abre %s sem gravar no pedido fonte', async (action) => {
     const order = { id: 'own-source', status: 'scheduled', orderType: 'sale', items: [] };

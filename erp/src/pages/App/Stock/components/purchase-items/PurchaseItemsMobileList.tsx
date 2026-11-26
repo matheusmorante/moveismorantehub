@@ -1,6 +1,6 @@
 import React from 'react';
-import ProductAutocomplete from '@/components/ProductAutocomplete';
-import CurrencyInput from '@/components/CurrencyInput';
+import ProductAutocomplete from '@/components/selectors/ProductAutocomplete';
+import CurrencyInput from '@/components/inputs/CurrencyInput';
 import { calculatePurchaseItemCostBreakdown } from '@/pages/App/Stock/Purchases/utils/purchaseCalculationUtils';
 import type { PurchaseItemsViewProps } from './PurchaseItemsViewProps';
 

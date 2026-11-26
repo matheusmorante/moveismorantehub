@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useState, useEffect, useMemo, useRef, useCallback, type SetStateAction } from 'react';
+import { hashKey, useQuery, useQueryClient } from '@tanstack/react-query';
 import Order from '../../../../types/order.type';
 import {
   subscribeToOrderChanges,
@@ -16,10 +16,10 @@ import { fetchOrderFiscalBadgeStatuses } from '@/pages/utils/nfe/orderFiscalBadg
 import { loadCompleteOrder } from '@/pages/utils/orderDetailsLoader';
 import type { OrderFiscalBadgeStatuses } from '@/pages/utils/nfe/orderFiscalBadgeRules';
 import { canCancelOrderDirectly } from '@/pages/utils/orderStatusTransitionRules';
-import { shouldClearQueryListSnapshot } from '@/pages/utils/queryListSnapshot';
-import { isIdentifiedTestArtifact } from '../../../../../../../shared-utils/testArtifactPolicy';
+import { shouldClearQueryListSnapshot } from '@/pages/utils/shared/queryListSnapshot';
+import { isIdentifiedTestArtifact } from '../../../../../../../shared-utils/testing/testArtifactPolicy';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
-import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../../../shared-utils/core/withTimeout';
 import { returnFulfillmentFormSchema, getReturnFulfillmentFormValues, ReturnFulfillmentUnconfirmedError, type ReturnFulfillmentValues,
   returnCancellationFormSchema, getReturnCancellationFormValues, ReturnCancellationUnconfirmedError, type ReturnCancellationValues } from '../../../../../../../shared-utils/returnFormSchemas';
 import { confirmReturnOrderFulfillment, confirmReturnOrderCancellation } from '../../../../utils/orderMutation/orderUpdateService';
@@ -34,8 +34,20 @@ const EMPTY_ORDERS: Order[] = [];
 export const useOrderHistory = (filters?: any) => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+  const filterKey = hashKey([filters]);
+  const [pagination, setPagination] = useState({ filterKey, page: 1 });
+  const currentPage = pagination.filterKey === filterKey ? pagination.page : 1;
+  if (pagination.filterKey !== filterKey) {
+    setPagination({ filterKey, page: 1 });
+  }
+  const setCurrentPage = useCallback((update: SetStateAction<number>) => {
+    setPagination((previous) => {
+      if (previous.filterKey !== filterKey) return previous;
+      const page = typeof update === 'function' ? update(previous.page) : update;
+      return page === previous.page ? previous : { filterKey, page };
+    });
+  }, [filterKey]);
+  const itemsPerPage = 15;
   const {
     selectedOrders,
     setSelectedOrders,
@@ -46,7 +58,7 @@ export const useOrderHistory = (filters?: any) => {
   const setItemsPerPage = useCallback((_size: number) => {
     setCurrentPage(1);
     setSelectedOrders([]);
-  }, []);
+  }, [setCurrentPage, setSelectedOrders]);
   const [ordersSnapshotQueryKey, setOrdersSnapshotQueryKey] = useState<string | null>(null);
   const [totalDatabaseItems, setTotalDatabaseItems] = useState(0);
   const [pendingReturnFulfillment, setPendingReturnFulfillment] = useState<Order | null>(null);
@@ -147,7 +159,7 @@ export const useOrderHistory = (filters?: any) => {
     staleTime: 30 * 1000, // 30 segundos em memória
     gcTime: 5 * 60 * 1000,
   });
-  const currentOrdersQueryKey = JSON.stringify([filters ?? null, currentPage, itemsPerPage]);
+  const currentOrdersQueryKey = hashKey([filters, currentPage, itemsPerPage]);
   const failedWithoutCurrentData = shouldClearQueryListSnapshot(pageOrdersData, queryError);
   const snapshotMatchesCurrentQuery = ordersSnapshotQueryKey === currentOrdersQueryKey;
   const loadingCurrentQuery =
@@ -189,9 +201,8 @@ export const useOrderHistory = (filters?: any) => {
   }, [refresh]);
 
   useEffect(() => {
-    setCurrentPage(1);
     setSelectedOrders([]);
-  }, [filters]);
+  }, [filterKey, setSelectedOrders]);
 
   const filteredOrders = ordersForCurrentQuery;
 
@@ -230,7 +241,7 @@ export const useOrderHistory = (filters?: any) => {
   useEffect(() => {
     if (queryError) return;
     setCurrentPage((page) => Math.min(page, totalPages));
-  }, [queryError, totalPages]);
+  }, [queryError, setCurrentPage, totalPages]);
 
   const operations = useMemo(() => {
     return createOrderHistoryOperations({

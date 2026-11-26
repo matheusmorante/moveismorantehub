@@ -2,21 +2,21 @@
 import React from 'react';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { useLabelPrintingState } from '../hooks/useLabelPrintingState';
+import { useLabelPrintingState } from '../hooks/label-printing/useLabelPrintingState';
 import { ModalsSection } from '../sections/ModalsSection';
 import { createInitialLabelConfig } from '../services/labelModelMapper';
-import { useLabelCategory } from '../hooks/useLabelCategory';
+import { useLabelCategory } from '../hooks/label-printing/useLabelCategory';
 import { fetchLabelImages } from '../services/labelImageService';
 vi.mock('react-toastify', () => ({ toast: { success: vi.fn(), info: vi.fn(), error: vi.fn() } }));
 vi.mock('react-router-dom', () => ({ useLocation: () => ({ pathname: '/stock/labels' }), useSearchParams: () => [new URLSearchParams()] }));
-vi.mock('../hooks/useLabelCategory', () => ({ useLabelCategory: vi.fn() }));
-vi.mock('../hooks/useLabelLayouts', () => ({ useLabelLayouts: () => ({ config: createInitialLabelConfig(), customLayouts: [], savedArtConfigs: {}, layoutModels: [] }) }));
-vi.mock('../hooks/useLabelProducts', () => ({ useLabelProducts: () => ({ products: [], selectedProductToAdd: null }) }));
-vi.mock('../hooks/useLabelQueue', () => ({ useLabelQueue: () => {
+vi.mock('../hooks/label-printing/useLabelCategory', () => ({ useLabelCategory: vi.fn() }));
+vi.mock('../hooks/label-printing/useLabelLayouts', () => ({ useLabelLayouts: () => ({ config: createInitialLabelConfig(), customLayouts: [], savedArtConfigs: {}, layoutModels: [] }) }));
+vi.mock('../hooks/label-printing/useLabelProducts', () => ({ useLabelProducts: () => ({ products: [], selectedProductToAdd: null }) }));
+vi.mock('../hooks/label-printing/useLabelQueue', () => ({ useLabelQueue: () => {
   const [logoItems, setLogoItems] = React.useState([]);
   return { logoItems, setLogoItems, setLabelItems: vi.fn() };
 } }));
-vi.mock('../hooks/useLabelPreview', () => ({ useLabelPreview: () => ({}) }));
+vi.mock('../hooks/label-printing/useLabelPreview', () => ({ useLabelPreview: () => ({}) }));
 vi.mock('../services/labelGridModelPersistence', () => ({ findIdenticalGridModel: vi.fn(), saveGridModelWithFallback: vi.fn() }));
 vi.mock('../services/labelLayoutService', () => ({ persistPriceLabelArtwork: vi.fn() }));
 vi.mock('../services/labelImageService', () => ({ fetchLabelImages: vi.fn(), createLabelImage: vi.fn(), deleteLabelImage: vi.fn() }));

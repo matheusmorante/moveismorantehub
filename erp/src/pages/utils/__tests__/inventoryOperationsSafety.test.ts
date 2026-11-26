@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { shouldProcessSaleStock } from '../saleInventoryRules';
+import { shouldProcessSaleStock } from '../sales/saleInventoryRules';
 import { canCancelOrderDirectly } from '../orderStatusTransitionRules';
 import { replayMovingAverageMoves } from '../movingAverageCostRules';
 import Order from '../../types/order.type';

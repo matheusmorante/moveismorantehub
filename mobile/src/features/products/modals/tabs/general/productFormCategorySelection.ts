@@ -1,4 +1,4 @@
-import type { MobileCategory } from '../../../services/mobileCategoryService';
+import type { MobileCategory } from '../../../services/categories/mobileCategoryService';
 import { getProductCategoryRootNames } from '../../../../../../../shared-utils/productCategoryResolution';
 
 interface BuildProductFormCategorySelectionParams {

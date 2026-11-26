@@ -1,5 +1,5 @@
 import React from 'react';
-import OrderStepper from '../components/OrderStepper';
+import OrderStepper from '../components/stepper/OrderStepper';
 import { getNewOrderHeaderTheme } from './newSaleOrderHelpers';
 import ReturnIcon from '@/components/shared/ReturnIcon';
 import PickupIcon from '@/components/shared/PickupIcon';

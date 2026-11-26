@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { InitialStockEntry } from '../../../types/product.type';
-import CurrencyInput from '@/components/CurrencyInput';
+import CurrencyInput from '@/components/inputs/CurrencyInput';
 
 interface InitialStockListProps {
   readonly entries?: readonly InitialStockEntry[];

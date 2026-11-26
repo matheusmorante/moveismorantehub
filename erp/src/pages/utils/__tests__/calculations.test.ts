@@ -7,7 +7,7 @@ import {
   calcPaymentsSummary,
   getFixedDiscount,
   getFixedFee,
-} from '../calculations';
+} from '../sales/calculations';
 import { Item } from '../../types/items.type';
 import { Payment } from '../../types/payments.type';
 

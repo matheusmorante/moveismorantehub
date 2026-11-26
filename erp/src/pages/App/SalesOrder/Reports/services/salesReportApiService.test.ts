@@ -4,7 +4,7 @@ vi.mock('@/pages/utils/supabaseConfig', () => ({ supabase: { from: (table: strin
   const chain: any = { select: () => chain, eq: () => chain, neq: () => chain, is: () => chain, not: () => chain, or: () => chain,
     then: (yes: any, no: any) => Promise.resolve(mocks.query(table)).then(yes, no) }; return chain;
 } } }));
-vi.mock('@/pages/utils/variationCanonicalService', () => ({ resolveCanonicalVariationReportItems: mocks.canonical }));
+vi.mock('@/pages/utils/productService/variationCanonicalService', () => ({ resolveCanonicalVariationReportItems: mocks.canonical }));
 import { fetchFromERP } from './salesReportApiService';
 beforeEach(() => { vi.resetAllMocks(); mocks.canonical.mockImplementation(async items => items); });
 afterEach(() => { vi.useRealTimers(); });

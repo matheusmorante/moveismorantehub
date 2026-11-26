@@ -7,8 +7,8 @@ import {
 } from '../orderSnapshotResolution';
 import { ensureCustomerInCrm, syncCustomerToCrmBackground } from './orderCrmSyncService';
 import { dispatchOrderCreationNotifications } from './orderNotificationDispatcher';
-import { removeNonStockItemLinks } from '../saleInventoryRules';
-import { isIdentifiedTestArtifact } from '../../../../../shared-utils/testArtifactPolicy';
+import { removeNonStockItemLinks } from '../sales/saleInventoryRules';
+import { isIdentifiedTestArtifact } from '../../../../../shared-utils/testing/testArtifactPolicy';
 import { queryClient } from '@/lib/queryClient';
 import { ensureOrderItemsHaveFiscalSnapshots } from '../orderFiscalSnapshotService';
 import { assertOrderHasNoCompositionLines } from './orderCompositionRules';

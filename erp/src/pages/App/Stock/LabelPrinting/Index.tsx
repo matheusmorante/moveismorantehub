@@ -1,6 +1,6 @@
 import React from 'react';
 import { LabelPrintingCategoryTabs } from './components/LabelPrintingCategoryTabs';
-import { useLabelPrintingState } from './hooks/useLabelPrintingState';
+import { useLabelPrintingState } from './hooks/label-printing/useLabelPrintingState';
 import { HeaderSection } from './sections/HeaderSection';
 import { QueueSection } from './sections/QueueSection';
 import { PreviewSection } from './sections/PreviewSection';

@@ -3,8 +3,8 @@ import Purchase from '@/pages/types/purchase.type';
 import Person from '@/pages/types/person.type';
 import { subscribeToPurchases } from '@/pages/utils/purchaseService';
 import { subscribeToPeople } from '@/pages/utils/personService';
-import { formatCurrency, formatToBRDate } from '@/pages/utils/formatters';
-import SupplierAutocomplete from '@/components/SupplierAutocomplete';
+import { formatCurrency, formatToBRDate } from '@/pages/utils/shared/formatters';
+import SupplierAutocomplete from '@/components/selectors/SupplierAutocomplete';
 import { ERPListPagination } from '@/components/shared/ERPListPagination';
 import { formatPurchaseNumber } from '../../../../../../../shared-utils/purchaseNumber';
 

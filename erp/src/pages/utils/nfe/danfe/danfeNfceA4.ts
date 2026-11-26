@@ -1,4 +1,4 @@
-import { formatToBRDate } from '../../formatters';
+import { formatToBRDate } from '../../shared/formatters';
 import { DANFE_NFCE_A4_STYLES } from './danfeNfceA4Styles';
 import { formatAccessKey } from '../nfeAccessKey';
 import { escapeDanfeHtml } from './danfeHtmlUtils';

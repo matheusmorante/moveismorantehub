@@ -4,9 +4,9 @@
  * mantendo 100% de compatibilidade com todos os componentes existentes.
  */
 
-export * from './financial/mobileFinanceTypes';
-export * from './financial/mobileCategoryService';
-export * from './financial/mobileFinanceReports';
-export * from './financial/mobilePayablesService';
-export * from './financial/mobileTransactionCrudService';
-export * from './financial/mobileDraftConfirmationService';
+export * from './financial/crud/mobileFinanceTypes';
+export * from './financial/crud/mobileCategoryService';
+export * from './financial/crud/mobileFinanceReports';
+export * from './financial/crud/mobilePayablesService';
+export * from './financial/crud/mobileTransactionCrudService';
+export * from './financial/crud/mobileDraftConfirmationService';

@@ -1,7 +1,7 @@
 import React from 'react';
 import { Check, PackageMinus, PackagePlus, RotateCcw, Scale } from 'lucide-react';
 import type InventoryMove from '@/pages/types/inventoryMove.type';
-import { formatDateTime } from '@/pages/utils/formatters';
+import { formatDateTime } from '@/pages/utils/shared/formatters';
 
 interface InventoryMoveCardProps {
   readonly move: InventoryMove;

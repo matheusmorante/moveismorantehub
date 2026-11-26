@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import type { AuditItem } from './useInventoryAuditWorkflow';
-import { matchesSearchText } from '../../../../../../shared-utils/searchText';
+import { matchesSearchText } from '../../../../../../shared-utils/core/searchText';
 
 export type InventoryFilter = 'all' | 'uncounted' | 'counted' | 'divergent';
 export type OperationFilter = InventoryFilter;

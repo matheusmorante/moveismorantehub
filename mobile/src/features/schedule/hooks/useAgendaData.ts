@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   fetchCalendarEvents,
   type CalendarEventSummary,
-} from '../../../services/scheduleEventsService';
+} from '../../../services/logistics/scheduleEventsService';
 import { useScopedOrderSchedule } from '../../logistics/hooks/useScopedOrderSchedule';
 
 export function useAgendaData(kind = 'all') {
