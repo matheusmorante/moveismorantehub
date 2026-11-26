@@ -41,12 +41,12 @@ export const buildAssistanceMessage = (order: Order) => {
       ? `de ${formatDate(sched.date)} até ${formatDate(sched.endDate)}`
       : sched?.date
         ? formatDate(sched.date)
-        : 'data a confirmar';
+        : 'A confirmar';
 
   let scheduledTime = '';
   if (sched) {
     if (sched.notInformed) {
-      scheduledTime = '(horário a combinar)';
+      scheduledTime = 'A combinar';
     } else if (sched.type === 'range' && sched.startTime && sched.endTime) {
       scheduledTime = `das ${sched.startTime} às ${sched.endTime}`;
     } else if (sched.startTime) {
@@ -58,22 +58,30 @@ export const buildAssistanceMessage = (order: Order) => {
 
   const itemsToUse =
     order.assistanceItems && order.assistanceItems.length > 0 ? order.assistanceItems : order.items;
-  const produtos =
+  const products =
     itemsToUse && itemsToUse.length > 0
-      ? itemsToUse.map((i) => i.description || 'Produto').join(', ')
-      : 'produto';
+      ? itemsToUse.map((item) => `• ${item.description || 'Produto'}`).join('\n')
+      : '• Produto';
 
   const firstName = customer.fullName?.split(' ')[0] || 'Cliente';
 
-  return (
-    `Olá ${firstName}, a assistência do(s) ${produtos} foi agendada para dia ${formattedDate} ${scheduledTime}`.trim() +
-    '.'
-  );
+  return [
+    '🛠️ *AGENDAMENTO DE ASSISTÊNCIA TÉCNICA*',
+    '',
+    `Olá, ${firstName}! Sua assistência está agendada para estes itens:`,
+    products,
+    '',
+    `📅 *Data:* ${formattedDate}`,
+    `🕒 *Horário:* ${scheduledTime || 'A combinar'}`,
+    '',
+    'Se precisar de ajuda, estamos à disposição.',
+  ].join('\n');
 };
 
 export const buildAssistanceOrderDetailsMessage = (order: Order) => {
   const customer = order.customerData;
   const sched = order.shipping?.scheduling;
+  const firstName = customer.fullName?.split(' ')[0] || 'Cliente';
   const date =
     sched?.dateType === 'range' && sched?.endDate
       ? `de ${formatDate(sched.date)} até ${formatDate(sched.endDate)}`
@@ -84,7 +92,7 @@ export const buildAssistanceOrderDetailsMessage = (order: Order) => {
   let time = '';
   if (sched) {
     if (sched.notInformed) {
-      time = 'Não informado';
+      time = 'A combinar';
     } else if (sched.type === 'range' && sched.startTime && sched.endTime) {
       time = `${sched.startTime} às ${sched.endTime}`;
     } else if (sched.startTime) {
@@ -94,34 +102,36 @@ export const buildAssistanceOrderDetailsMessage = (order: Order) => {
     }
   }
 
-  let message = `*PEDIDO DE ASSISTÊNCIA TÉCNICA*\n\n`;
-  message += `*Cliente:* ${customer.fullName || 'Não informado'}\n`;
+  let message = `🛠️ *ASSISTÊNCIA TÉCNICA — MÓVEIS MORANTE*\n\n`;
+  message += `Olá, ${firstName}! Seguem os dados do seu atendimento:\n\n`;
   const address = order.shipping?.noAddress
     ? order.shipping?.deliveryMethod === 'pickup'
       ? 'Retirada em loja'
       : 'Não informado'
     : stringifyFullAddressWithObservation(customer.fullAddress);
-  message += `*Endereço:* ${address}\n\n`;
+  message += `🏠 *Endereço:* ${address || 'Não informado'}\n\n`;
 
-  message += `*Data Agendada:* ${date}\n`;
-  message += `*Horário:* ${time || 'Não informado'}\n\n`;
+  message += `📅 *Agendamento*\n`;
+  message += `• *Data:* ${date}\n`;
+  message += `• *Horário:* ${time || 'A combinar'}\n\n`;
 
-  message += `*Itens da Assistência:*\n`;
+  message += `📦 *Itens da assistência*\n`;
   const itemsToUse: ItemWithOptionalObservation[] =
     order.assistanceItems && order.assistanceItems.length > 0 ? order.assistanceItems : order.items;
   if (itemsToUse && itemsToUse.length > 0) {
     itemsToUse.forEach((item) => {
-      message += `• ${item.quantity}x ${item.description}${getItemObservationSuffix(item)}\n`;
+      message += `• ${item.quantity}x ${item.description || 'Produto'}${getItemObservationSuffix(item)}\n`;
     });
   } else {
     message += `• Nenhum item especificado\n`;
   }
 
-  if (order.observation) {
-    message += `\n*Observações:*\n${order.observation}\n`;
+  if (order.observation?.trim()) {
+    message += `\n📝 *Observações:*\n${order.observation.trim()}\n`;
   }
 
-  message += `\n*Vendedor:* ${order.seller || 'Não informado'}`;
+  message += `\nSe precisar de ajuda, estamos à disposição.\n`;
+  message += `*Atendente:* ${order.seller || 'Não informado'}`;
 
   return message;
 };
@@ -155,7 +165,8 @@ export const buildAssistanceServiceOrderMessage = (order: Order) => {
     }
   }
 
-  let message = `🛠️ *ORDEM DE SERVIÇO - ASSISTÊNCIA*\n____________________\n\n`;
+  let message = `🛠️ *ORDEM DE SERVIÇO — ASSISTÊNCIA TÉCNICA*\n\n`;
+  message += `📋 *Dados do atendimento*\n`;
   message += `👤 *Cliente:* ${customer.fullName || 'Não informado'}\n`;
   message += `📞 *Fone:* ${customer.phone || 'Não informado'}\n`;
   const address = order.shipping?.noAddress
@@ -163,22 +174,33 @@ export const buildAssistanceServiceOrderMessage = (order: Order) => {
       ? 'Retirada em loja'
       : 'Não informado'
     : stringifyFullAddressWithObservation(customer.fullAddress);
-  message += `🏠 *Endereço:* ${address}\n\n`;
+  message += `🏠 *Endereço:* ${address || 'Não informado'}\n\n`;
 
-  message += `🗓️ *Agendamento:* ${date}\n`;
-  message += `🕒 *Janela:* ${time || 'A combinar'}\n`;
+  message += `🗓️ *Agendamento*\n`;
+  message += `• *Data:* ${date}\n`;
+  message += `• *Horário:* ${time || 'A combinar'}\n`;
   if (Array.isArray(order.shipping?.scheduling?.alternatives) && order.shipping.scheduling.alternatives.length > 0) {
     const altText = (order.shipping.scheduling.alternatives as OperationScheduleOption[])
       .filter((a) => Boolean(a?.date))
-      .map((a) => `${a.date}${a.startTime || a.time ? ` (${a.startTime || a.time})` : ''}`)
+      .map((a) => {
+        const alternativeDate =
+          a.dateType === 'range' && a.endDate
+            ? `de ${formatDate(a.date!)} até ${formatDate(a.endDate)}`
+            : formatDate(a.date!);
+        const alternativeTime =
+          a.type === 'range' && a.startTime && a.endTime
+            ? `${a.startTime} às ${a.endTime}`
+            : a.startTime || a.time;
+        return `${alternativeDate}${alternativeTime ? ` (${alternativeTime})` : ''}`;
+      })
       .join(' • ');
     if (altText) {
-      message += `🗓️ *Datas Alternativas:* ${altText}\n`;
+      message += `• *Datas alternativas:* ${altText}\n`;
     }
   }
   message += `\n`;
 
-  message += `📦 *Itens do Chamado:*\n`;
+  message += `📦 *Itens do chamado*\n`;
   const hasAssistanceItems = order.assistanceItems && order.assistanceItems.length > 0;
   const hasItems = order.items && order.items.length > 0;
 
@@ -195,14 +217,14 @@ export const buildAssistanceServiceOrderMessage = (order: Order) => {
   }
 
   if (order.assistanceDescription) {
-    message += `\n📝 *Defeito Relatado:*\n${order.assistanceDescription}\n`;
+    message += `\n📝 *Problema relatado*\n${order.assistanceDescription}\n`;
   }
 
-  if (order.observation) {
-    message += `\n💡 *Obs Interna:*\n${order.observation}\n`;
+  if (order.observation?.trim()) {
+    message += `\n💡 *Observações internas*\n${order.observation.trim()}\n`;
   }
 
-  message += `\n👤 *Vendedor:* ${order.seller || 'Não informado'}`;
+  message += `\n👤 *Atendente responsável:* ${order.seller || 'Não informado'}`;
 
   return message;
 };
