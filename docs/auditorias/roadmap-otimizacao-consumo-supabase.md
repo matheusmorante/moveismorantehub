@@ -1,3 +1,9 @@
+## Ciclo — 26/11/2026 — agenda, pedidos, alertas e dispatcher fiscal
+
+O operador aprovou SUP-PROP-001 a SUP-PROP-004. As migrations 20261126152432, 20261126152451 e 20261126152514 foram aplicadas ao projeto MoranteHub. Elas usam pré-filtros na agenda, pulam buscas textuais vazias nos pedidos, consolidam a leitura de variações nos alertas e evitam enfileirar HTTP quando a fila fiscal está sem trabalho elegível.
+
+As cinco respostas do ERP, do app e dos alertas comparadas no banco permaneceram idênticas. A consulta conjunta passou de 2,27 s para 1,56 s nessa amostra. A contagem de requisições dos clientes permaneceu igual. O dispatcher elimina um POST por ciclo sem item elegível. A auditoria não mediu egress faturado nem a economia do período. A amostra do `auto_explain` foi registrada e o medidor oficial ficou pendente. As decisões, os riscos e as opções de reversão estão no [registro SUP-PROP](../auditoria-supabase/propostas.md) e nas [métricas](../auditoria-supabase/metricas.md).
+
 ## Ciclo — 24/11/2026, 15:14 BRT — histórico e arquivos de garantia
 
 **Reconciliação e decisão.** O ciclo anterior apontou os arquivos de garantia e pediu para reconciliar a SCE-200. Ela continuava pendente no registro de 12/11 e tratava da leitura da tabela `warranty_terms`, não do Storage. O operador autorizou aplicar as pendências; apliquei a opção A da SCE-200. A SCE-199 também fica aceita pela autorização geral e será o próximo trabalho, sem ser alterada neste ciclo. SCE-369/370 seguem aplicadas, SCE-368 continua bloqueada por falta da confirmação da regra única publicada e SCE-165 permanece negada.
