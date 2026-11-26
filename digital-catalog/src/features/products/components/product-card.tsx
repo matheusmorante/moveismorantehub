@@ -2,13 +2,11 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import { CatalogProductImage } from '@/components/ui/CatalogProductImage';
 import { ShoppingCart, Pencil } from 'lucide-react';
 import { WhatsAppIcon } from '@/components/icons/whatsapp-icon';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { useCart } from '@/hooks/use-cart';
 import { useAuth } from '@/hooks/use-auth';
 import { useAdminMode } from '@/hooks/use-admin-mode';
@@ -171,11 +169,7 @@ export function ProductCard({ product, style = defaultProductCardStyle }: Produc
               onClick={handleEditClick}
               className={cn(
                 'absolute right-2 bg-amber-500 text-white p-2 rounded-full shadow-lg hover:bg-amber-600 transition-all z-20 hover:scale-110 opacity-0 group-hover:opacity-100',
-                isSalvados || isUltimaUnidade || isMegaLiquidacao
-                  ? 'top-20'
-                  : product.opportunity
-                    ? 'top-9'
-                    : 'top-2'
+                product.opportunity ? 'top-9' : 'top-2'
               )}
               title="Editar Produto"
             >
@@ -185,49 +179,38 @@ export function ProductCard({ product, style = defaultProductCardStyle }: Produc
         </div>
       </Link>
 
-      {product.opportunity &&
-        (isSalvados || isUltimaUnidade || isMegaLiquidacao ? (
-          <Image
-            src={
-              isSalvados
-                ? '/images/queima-salvados-badge.png'
-                : isUltimaUnidade
-                  ? '/images/ultima-unidade-badge.png'
-                  : '/images/mega-liquidacao-badge.png'
-            }
-            alt={
-              isSalvados
-                ? 'Queima dos Salvados'
-                : isUltimaUnidade
-                  ? 'Última Unidade'
-                  : 'Mega Liquidação'
-            }
-            width={isSalvados ? 1956 : isUltimaUnidade ? 2172 : 2164}
-            height={isSalvados ? 804 : isUltimaUnidade ? 724 : 727}
-            sizes="160px"
-            className="pointer-events-none absolute right-2 top-2 z-10 h-auto w-[44%] max-w-[160px]"
-          />
-        ) : (
-          <Badge
-            className={cn(
-              'pointer-events-none absolute top-0 inset-x-0 w-full font-black px-3 py-2 h-auto min-h-[30px] rounded-none shadow-xs z-10 text-[11px] uppercase tracking-normal border-0 border-b flex items-center justify-center gap-1.5 [&>svg]:size-3.5! [&>svg]:shrink-0',
-              'text-white border-white/20',
+      {product.opportunity && (
+        <span
+          className={cn(
+            'pointer-events-none absolute right-0 top-0 z-10 max-w-full px-2 py-1 text-right text-[10px] font-black uppercase leading-tight tracking-normal',
+            isSalvados
+              ? 'bg-red-600 text-white'
+              : isUltimaUnidade
+                ? 'bg-orange-500 text-black'
+                : isMegaLiquidacao
+                  ? 'bg-amber-400 text-black'
+                  : 'bg-primary text-white',
+            !(isSalvados || isUltimaUnidade || isMegaLiquidacao) &&
               getAnimationClass(product.opportunity.badge_animation || style.opportunity_emphasis)
-            )}
-            style={
-              opportunityBadgeBackground === 'inherit'
-                ? undefined
-                : { backgroundColor: opportunityBadgeBackground }
-            }
-          >
-            <span
-              className="inline-flex items-center leading-none tracking-normal [text-box:trim-both_cap_alphabetic]"
-              style={{ textBox: 'trim-both cap alphabetic' }}
-            >
-              {product.opportunity.name}
-            </span>
-          </Badge>
-        ))}
+          )}
+          style={
+            isSalvados ||
+            isUltimaUnidade ||
+            isMegaLiquidacao ||
+            opportunityBadgeBackground === 'inherit'
+              ? undefined
+              : { backgroundColor: opportunityBadgeBackground }
+          }
+        >
+          {isSalvados
+            ? 'Queima dos Salvados'
+            : isUltimaUnidade
+              ? 'Última Unidade'
+              : isMegaLiquidacao
+                ? 'Mega Liquidação'
+                : product.opportunity.name}
+        </span>
+      )}
 
       {isAdmin && isAdminMode && (
         <AdminProductModal
