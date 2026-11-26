@@ -2,8 +2,9 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { CatalogProductImage } from '@/components/ui/CatalogProductImage';
-import { ShoppingCart, Pencil, Flame, Zap } from 'lucide-react';
+import { ShoppingCart, Pencil } from 'lucide-react';
 import { WhatsAppIcon } from '@/components/icons/whatsapp-icon';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
@@ -124,13 +125,13 @@ export function ProductCard({ product, style = defaultProductCardStyle }: Produc
   const isSalvados =
     product.opportunity?.slug === 'salvado' ||
     product.opportunity?.name?.toLowerCase()?.includes('salvado');
-  const isMegaLiquidacaoLastUnit =
-    /últimas?\s+unidades?/i.test(product.opportunity?.name || '') &&
+  const isUltimaUnidade =
+    /últimas?\s+(?:unidades?|peças?)/i.test(product.opportunity?.name || '') &&
     !/mostru[aá]rio/i.test(product.opportunity?.name || '');
   const isMegaLiquidacao =
-    isMegaLiquidacaoLastUnit ||
-    product.opportunity?.slug === 'liquidacao' ||
-    product.opportunity?.name?.toLowerCase()?.includes('liquida');
+    !isUltimaUnidade &&
+    (product.opportunity?.slug === 'liquidacao' ||
+      product.opportunity?.name?.toLowerCase()?.includes('liquida'));
   const opportunityBadgeBackground = product.opportunity
     ? getOpportunityTitleColor({
         name: product.opportunity.name,
@@ -170,7 +171,11 @@ export function ProductCard({ product, style = defaultProductCardStyle }: Produc
               onClick={handleEditClick}
               className={cn(
                 'absolute right-2 bg-amber-500 text-white p-2 rounded-full shadow-lg hover:bg-amber-600 transition-all z-20 hover:scale-110 opacity-0 group-hover:opacity-100',
-                product.opportunity ? 'top-9' : 'top-2'
+                isSalvados || isUltimaUnidade || isMegaLiquidacao
+                  ? 'top-20'
+                  : product.opportunity
+                    ? 'top-9'
+                    : 'top-2'
               )}
               title="Editar Produto"
             >
@@ -180,52 +185,49 @@ export function ProductCard({ product, style = defaultProductCardStyle }: Produc
         </div>
       </Link>
 
-      {product.opportunity && (
-        <Badge
-          className={cn(
-            'pointer-events-none absolute top-0 inset-x-0 w-full font-black px-3 py-2 h-auto min-h-[30px] rounded-none shadow-xs z-10 text-[11px] uppercase tracking-normal border-0 border-b flex items-center justify-center gap-1.5 [&>svg]:size-3.5! [&>svg]:shrink-0',
-            isSalvados
-              ? 'bg-orange-500 text-white border-orange-600/30'
-              : isMegaLiquidacao
-                ? isMegaLiquidacaoLastUnit
-                  ? 'bg-amber-400 text-black border-red-600'
-                  : 'bg-amber-400 text-black border-amber-500/30'
-                : 'text-white border-white/20',
-            getAnimationClass(product.opportunity.badge_animation || style.opportunity_emphasis)
-          )}
-          style={
-            isSalvados || isMegaLiquidacao || opportunityBadgeBackground === 'inherit'
-              ? undefined
-              : { backgroundColor: opportunityBadgeBackground }
-          }
-        >
-          {isSalvados && <Flame className="size-3.5 shrink-0 text-white fill-white" />}
-          {isMegaLiquidacao && <Zap className="size-3.5 shrink-0 fill-current text-black" />}
-          {isMegaLiquidacaoLastUnit ? (
-            <span className="flex flex-col items-center justify-center text-center normal-case tracking-normal leading-[1.05]">
-              <span
-                className="text-black font-black uppercase text-[11px] leading-none [text-box:trim-both_cap_alphabetic]"
-                style={{ textBox: 'trim-both cap alphabetic' }}
-              >
-                Mega Liquidação
-              </span>
-              <span
-                className="text-red-600 font-black uppercase text-[10px] leading-none mt-0.5 [text-box:trim-both_cap_alphabetic]"
-                style={{ textBox: 'trim-both cap alphabetic' }}
-              >
-                Última Unidade
-              </span>
-            </span>
-          ) : (
+      {product.opportunity &&
+        (isSalvados || isUltimaUnidade || isMegaLiquidacao ? (
+          <Image
+            src={
+              isSalvados
+                ? '/images/queima-salvados-badge.png'
+                : isUltimaUnidade
+                  ? '/images/ultima-unidade-badge.png'
+                  : '/images/mega-liquidacao-badge.png'
+            }
+            alt={
+              isSalvados
+                ? 'Queima dos Salvados'
+                : isUltimaUnidade
+                  ? 'Última Unidade'
+                  : 'Mega Liquidação'
+            }
+            width={isSalvados ? 1956 : isUltimaUnidade ? 2172 : 2164}
+            height={isSalvados ? 804 : isUltimaUnidade ? 724 : 727}
+            sizes="160px"
+            className="pointer-events-none absolute right-2 top-2 z-10 h-auto w-[44%] max-w-[160px]"
+          />
+        ) : (
+          <Badge
+            className={cn(
+              'pointer-events-none absolute top-0 inset-x-0 w-full font-black px-3 py-2 h-auto min-h-[30px] rounded-none shadow-xs z-10 text-[11px] uppercase tracking-normal border-0 border-b flex items-center justify-center gap-1.5 [&>svg]:size-3.5! [&>svg]:shrink-0',
+              'text-white border-white/20',
+              getAnimationClass(product.opportunity.badge_animation || style.opportunity_emphasis)
+            )}
+            style={
+              opportunityBadgeBackground === 'inherit'
+                ? undefined
+                : { backgroundColor: opportunityBadgeBackground }
+            }
+          >
             <span
               className="inline-flex items-center leading-none tracking-normal [text-box:trim-both_cap_alphabetic]"
               style={{ textBox: 'trim-both cap alphabetic' }}
             >
               {product.opportunity.name}
             </span>
-          )}
-        </Badge>
-      )}
+          </Badge>
+        ))}
 
       {isAdmin && isAdminMode && (
         <AdminProductModal

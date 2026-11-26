@@ -137,9 +137,7 @@ export const ProductOpportunityField: React.FC<ProductOpportunityFieldProps> = (
           <option value="" />
           {filteredOpportunities.map((opp) => (
             <option key={opp.id} value={opp.id}>
-              {/últimas?\s+unidades?/i.test(opp.name) && !/mostru[aá]rio/i.test(opp.name)
-                ? 'Mega Liquidação - Última Unidade'
-                : opp.name}
+              {opp.name}
             </option>
           ))}
         </select>
