@@ -52,6 +52,7 @@
 - **Evidências:** auto_explain está carregado, log_min_duration=10000 ms e sample_rate=1. O log_nested_statements está desligado; log_min_duration_statement está desligado e log_statement está restrito a DDL. A chamada de agenda de 11.644 ms gerou um plano do invólucro PostgREST, sem mostrar o trabalho interno da função.
 - **Causa provável:** cada instrução acima de 10 segundos pode gerar um plano de log. Como os planos aninhados estão desligados, esses registros podem ter volume sem explicar qual trecho dentro da RPC consumiu o tempo. Ainda não há comparação de bytes antes/depois ou percentagem atribuível ao auto_explain.
 - **Impacto:** possível contribuição à Log Ingestion e visibilidade incompleta do custo interno; não é evidência de que auto_explain causou os timeouts nem o consumo de Log Query.
+- **Amostra relacionada a ingestão (27/11):** a consulta documentada de 26/11, 12:00–12:15 BRT encontrou 5 planos auto_explain com 21.406 bytes de texto event_message e 60 outros eventos PostgreSQL com 4.783 bytes. Os planos foram 81,7% do texto desse recorte. Volume oficial ingerido, repetição do padrão e contribuição mensal permanecem sem medição; consultar [causa raiz de Log Ingestion](causa-raiz-log-ingestion.md).
 
 ## SUP-005 — Execuções periódicas dos workers a cada dois minutos
 
@@ -111,3 +112,87 @@
 - **Causa confirmada no código.** O painel ERP é montado na rota administrativa, que usa o perfil em memória. O hook habilita a consulta pela identidade do perfil e propaga o erro da RPC. O banco confere o perfil vigente e retorna `42501` se o acesso for negado. Como o hook herda `retry: 1` sem classificar o erro, uma consulta ativa fica elegível para mais uma chamada mesmo após essa negativa. Uma hipótese de ocorrência é a permissão mudar no servidor antes de o perfil local ser atualizado.
 - **Impacto e limites.** Até uma tentativa automática evitável e espera adicional antes de mostrar o erro se a consulta continuar ativa e o Query Guard permitir o envio. A negativa ocorre antes das agregações. Frequência real, trabalho SQL, latência, bytes, egress e os medidores de logs ficaram sem medição. O `57014` de SUP-002 tem outro código e sua origem permanece em investigação.
 - **Caminhos conferidos.** [Rota ERP](../../erp/src/Router.tsx#L79), [papéis efetivos](../../erp/src/context/auth/useRoleSimulation.ts#L58), [painel](../../erp/src/pages/App/Dashboard/components/DigitalCatalogPanel.tsx#L110), [hook](../../erp/src/pages/App/Dashboard/hooks/useDashboardDigitalCatalog.ts#L30), [cliente de consultas](../../erp/src/lib/queryClient.ts#L3), [checagem SQL](../../supabase/migrations/20261126181712_bound_dashboard_catalog_recent_analytics.sql#L8) e [Query Guard](../../erp/src/services/monitoring/queryGuard.ts#L232). A busca dirigida pelos chamadores encontrou somente esse consumidor operacional no ERP e nenhum no app, catálogo público ou bibliotecas compartilhadas.
+
+## SUP-012 — Pico diário de Log Query de 144,317 GB em 05/11/2026
+
+- **Data, prioridade, gravidade e confiança.** 27/11/2026. P1, alta pelo volume observado; confiança alta no valor mostrado pelo tooltip e baixa na atribuição por falta de escopo visível.
+- **Observação.** A captura do painel oficial Usage enviada pelo operador mostra `144.317 GB` de Log Query no dia 05/11/2026. O operador informou que a média esperada é 10 GB/dia. O pico é aproximadamente 14,4× essa referência; uma captura anterior mostra `2.711 GB` em 25/11 (aproximadamente 0,27×). Ambos são valores diários, não o acumulado do período. A mesma página mostra 100 GB incluídos no plano, uma medida distinta da média esperada.
+- **Causa e atribuição.** A causa operacional do MoranteHub não está confirmada. A falha de medição reconhecida pelo Supabase em 04–05/11 é a principal hipótese para o ponto isolado, com chamadas de logs sobrepostas e atualização recorrente do Studio como mecanismos concorrentes. O gráfico não permite atribuir o valor ao ERP, app, usuário ou ferramenta.
+- **Impacto e risco.** O valor de 05/11 é 14,4× a média esperada informada pelo operador e é relevante para investigação. Média esperada não é teto diário rígido; isso não determina cobrança, faturamento, retenção nem consumo agregado. Atribuição errada poderia levar a mudanças que prejudiquem logging de auditoria ou segurança.
+- **Métricas afetadas e pendências.** Log Query diário; total do período, origem, número de consultas, eventos, SQL, egress e bytes não medidos. Conferir Usage com escopo identificável e correlacionar uma fonte de telemetria adequada antes de propor alteração. Nenhuma proposta é aberta neste estágio.
+- **Fonte.** Capturas do painel Supabase Usage fornecidas pelo operador em 27/11/2026; não houve consulta ao Logs Explorer ou ao banco nesta investigação.
+- **Investigação da origem.** A atribuição permanece desconhecida. A revisão incremental de ferramentas, histórico e código está em [causa raiz de Log Query](causa-raiz-log-query.md) e [causa raiz de Log Ingestion](causa-raiz-log-ingestion.md); a [linha do tempo](linha-do-tempo-consumo.md) distingue uma consulta confirmada de uma janela histórica cujo recibo de ferramenta não está acessível.
+- **Novas evidências:** a equipe Supabase reconheceu, em 04–05/11, falhas de medição capazes de inflar Log Query; outro projeto Free reportou um pico de 138,2 GB em 02/11 na mesma discussão. Também foi confirmado um mecanismo de consulta repetida na prévia de Logs do Studio. Vercel não mostra deployments do projeto morantehub em 05/11 ou 25/11. Esses fatos favorecem uma anomalia de medição como hipótese para o outlier, sem confirmar impacto na conta nem excluir outras fontes. Ver SUP-018 a SUP-020 e [causa raiz](causa-raiz-log-query.md).
+
+## SUP-013 — Consultas históricas a logs coincidem com o pico de 05/11
+
+- **Data, gravidade e estado.** 27/11/2026. P1 para investigação; em investigação.
+- **Origem e métrica suspeitas.** Auditorias de diagnóstico Codex/MCP que usaram supabase.query_logs; Log Query.
+- **Evidências favoráveis.** O roadmap registra uma chamada em 05/11, 08:30–11:30 UTC, e duas agregações adicionais com janelas 04/11 15:00–05/11 15:00 UTC (24 h) e 05/11 14:00–14:59 UTC (1 h). As janelas de 3 h e 1 h estão contidas na de 24 h. Um relatório de auditoria de Egress registra recorrência ativa de três horas em outro período e dezenas de referências a query_logs entre 25/10 e 06/11.
+- **Evidências contrárias e limites.** A captura de 144.317 GB não mostra projeto/organização. Não há volume escaneado por chamada, recibo completo para todas as janelas, nem prova de que a sobreposição produziu o pico. No relatório Egress, 70 ocorrências textuais de query_logs não equivalem a 70 chamadas: há resumos e mais de uma chamada por registro. O estado atual da automação Egress não está acessível nesta revisão.
+- **Frequência e volume.** Três chamadas documentadas em janelas que cobrem 05/11; consumo por chamada e sua variação no Usage não medidos. A série histórica contém outras janelas; o total exato permanece desconhecido.
+- **Confiança e próximo teste.** Confiança alta de que as janelas foram documentadas, baixa de que expliquem o pico. O histórico Codex de 05/11 e o estado da recorrência Egress não estão acessíveis; não repetir janelas antigas. A autorização atual permite uma agregação somente leitura se surgir uma hipótese para uma janela nova de até 15 minutos.
+
+## SUP-014 — Consumidores externos de Log Query não identificados
+
+- **Data e estado.** 27/11/2026; fontes acessíveis parcialmente investigadas, sem atribuição de consumidor.
+- **Origem e métrica suspeitas.** Dashboard, CLI, Management API, MCP adicional, monitoramento ou serviço externo; Log Query.
+- **Evidências favoráveis.** Essas interfaces podem ler logs. O changelog Supabase informa que o CLI v3 recebeu um explorador de logs em 10/11, disponível antes de 25/11. A Management API tem endpoint de configuração PostgREST; a ferramenta MCP conectada não o expõe.
+- **Evidências contrárias e limites.** Busca local não encontrou script `supabase logs`; o executável `supabase` não está no PATH. O histórico Platform Audit Logs está disponível apenas em Team/Enterprise; MoranteHub é Free. Nenhuma sessão Dashboard/CLI/Management API externa ou execução da automação Egress foi atribuída.
+- **Frequência e volume.** Desconhecidos e não medidos.
+- **Confiança e próximo passo.** A lacuna do Platform Audit Logs é confirmada pelo plano. O endpoint de configuração PostgREST é documentado, mas não está disponível no conector atual. Não repetir pedidos de acesso. Usar uma consulta de logs inédita e estreita apenas se outra hipótese concreta depender dela, nos limites autorizados pelo operador.
+
+## SUP-015 — Logs de Edge Functions podem contribuir para Log Ingestion
+
+- **Data e estado.** 27/11/2026; em investigação.
+- **Origem e métrica suspeitas.** Chamadas console.* em funções serverless Supabase; Log Ingestion.
+- **Evidências favoráveis.** Busca estática encontrou logging explícito em 6 de 18 arquivos TypeScript sob supabase/functions. analyze-inbound-invoice e sefaz-inbound-sync registram mensagens de início/conclusão por invocação.
+- **Evidências contrárias e limites.** Nenhuma contagem de invocações, bytes por função ou correlação com Usage está disponível. Presença de console.* não prova execução ou volume dominante.
+- **Frequência e volume.** Não medidos.
+- **Confiança e próximo passo.** Baixa. O histórico de sessões e frequência de invocações ainda não está disponível. Se uma hipótese concreta depender de uma agregação por fonte, usar a autorização vigente: uma consulta inédita de até 15 minutos por execução, com limites explícitos. Não reduzir logging.
+
+## SUP-016 — Logs de outros serviços Supabase sem bytes por fonte
+
+- **Data e estado.** 27/11/2026; parcialmente investigado para o erro PostgREST relacionado a Data API desativada; demais fontes sem projeção por bytes.
+- **Origem e métrica suspeitas.** API gateway, Auth, Storage, Realtime, logs de conexão e outras fontes do projeto; Log Ingestion.
+- **Evidências favoráveis.** Esses serviços fazem parte das fontes agregadas no medidor oficial. O primeiro recorte de 26/11 tem contagens Postgres/PostgREST, sem projeção comparável em bytes para cada serviço. A documentação Supabase descreve mensagens PostgREST adicionais se a Data API estiver desativada sem encerrar PostgREST.
+- **Evidências contrárias.** A amostra de 15 minutos não encontrou o erro `pg_pgrst_no_exposed_schemas`. Não há no material disponível uma divisão oficial de bytes por serviço nem acesso a configuração externa.
+- **Frequência e volume.** Não medidos; contagens históricas de eventos não são bytes.
+- **Confiança e próximo passo.** Baixa. A role `authenticator` do MoranteHub não tem o override `pgrst.db_schemas` da correção, mas isso não comprova que a Data API esteja desativada ou que erros ocorram. Atribuir bytes por fonte exige um recorte de logs e uma medida Usage do mesmo escopo; a autorização vigente cobre uma consulta inédita e estreita se ela for indispensável. Não usar contagem de eventos como proxy de volume.
+
+## SUP-017 — Chamadas SQL e migrations da auditoria podem gerar logs PostgreSQL
+
+- **Data e estado.** 27/11/2026; em investigação.
+- **Origem e métrica suspeitas.** Chamadas remotas supabase.execute_sql e supabase.apply_migration feitas em tarefas da auditoria; Log Ingestion.
+- **Evidências favoráveis.** Quatro chats relacionados contêm 33 registros de execute_sql e 5 chamadas de apply_migration. A configuração histórica de log_statement inclui DDL, e auto_explain pode registrar consultas acima do limiar de 10 s.
+- **Evidências contrárias.** Os registros misturam ciclos, aprovações, implementação e verificação; não representam somente a automação. Não há correlação entre essas chamadas e eventos/bytes ingeridos.
+- **Frequência e volume.** Contagem de chamadas documentada; eventos e bytes atribuíveis não medidos.
+- **Confiança e próximo teste.** Baixa. Comparar Usage com escopo e janela identificáveis; não repetir SQL nem alterar logging para testar esta hipótese.
+
+## SUP-018 — Falha de medição do Log Query reconhecida pelo Supabase
+
+- **Data, gravidade e estado.** Evidência pública de 04–05/11/2026, revisada em 27/11. P1 para interpretar o pico; anomalia geral confirmada, impacto específico no MoranteHub não confirmado.
+- **Evidências favoráveis.** Em 04/11, a equipe Supabase informou que havia condições que inflavam os valores de Log Query, que correções estavam sendo implantadas e que os clientes não seriam responsabilizados pelos valores atualmente inflados. Em 05/11, confirmou novamente que a falha era conhecida e que a aplicação da métrica não começaria naquele momento. Na mesma discussão, um projeto Free reportou 138,2 GB em um único dia em 02/11, padrão próximo do ponto de 144,317 GB do MoranteHub em 05/11. O tópico recebeu relatos adicionais de 13 e 16/11; não encontrei anúncio de resolução nele até essa atualização. [Discussão oficial sobre uso de logs](https://github.com/orgs/supabase/discussions/50925).
+- **Limites e evidências contrárias.** A discussão não identifica o MoranteHub e não prova que os 144,317 GB foram inflados pelo mesmo defeito. Não há série corrigida ou recibo de metering por cliente. A captura do operador continua sendo o valor exibido pelo painel no momento.
+- **Confiança e próximo passo.** Alta confiança de que a medição tinha defeitos públicos na mesma semana; confiança moderada de que isso explica o pico do MoranteHub. Acompanhar o comportamento do medidor oficial e não inferir cobrança ou culpa a partir do ponto isolado.
+
+## SUP-019 — A prévia de Logs do Studio pode repetir leituras de contagem
+
+- **Data e estado.** Código público presente no snapshot de 28/10/2026, localizado em 27/11. Mecanismo confirmado; atividade histórica no MoranteHub desconhecida.
+- **Mecanismo.** `useLogsPreview.tsx` define atualização periódica da consulta de contagem a cada 60 segundos, usando a hora em que a página abriu como início e o horário atual como fim. A equipe Supabase disse que leituras repetidas sem cache podem elevar Log Query. A janela crescente torna a tela aberta por tempo prolongado uma possível fonte de reexame dos mesmos dados. [Código do Studio no snapshot de 28/10](https://github.com/supabase/supabase/blob/da4a40e308/apps/studio/hooks/analytics/useLogsPreview.tsx) · [confirmação da equipe Supabase](https://github.com/orgs/supabase/discussions/50925).
+- **Limites e próximo passo.** Não há histórico de navegador ou sessão Dashboard para confirmar que a tela ficou aberta em 05/11 ou 25/11. O mecanismo não deve ser atribuído à conta sem essa evidência.
+
+## SUP-020 — Diferença histórica sem evidência de deployment Vercel nos dias comparados
+
+- **Data e estado.** Verificação somente leitura em 27/11/2026; nenhuma implantação registrada nos intervalos consultados.
+- **Evidências.** A lista autenticada de deployments do projeto Vercel `morantehub` retorna zero resultados para os dias locais 05/11 e 25/11. O histórico local acessível do Codex também não contém sessões em 05/11; em 25/11 há somente a tarefa de `git pull`/`npm run dev`, sem chamada `query_logs`. O inventário Supabase listou uma organização Free e um projeto MoranteHub.
+- **Limites.** Histórico local indisponível não prova ausência de sessão Codex. Deployments por Supabase Dashboard/CLI e outros canais não aparecem na lista Vercel. As capturas ainda não identificam se Usage estava filtrado para projeto ou organização.
+- **Conclusão.** Não há evidência de uma mudança publicada via Vercel ou de uma chamada MCP Codex local em 25/11 que explique o consumo menor. Não foi identificado evento comparativo que explique causalmente a diferença.
+
+## SUP-021 — Erros PostgREST podem aumentar logs se Data API estiver desativada
+
+- **Data e estado.** Documentação Supabase atualizada em 04/11/2026, relato comunitário em 16/11, leitura do catálogo e amostra inédita de logs em 27/11. Mecanismo documentado; aplicabilidade ao MoranteHub não confirmada.
+- **Mecanismo e impacto potencial.** O artigo oficial diz que desligar Data API não encerra PostgREST e pode gerar erros repetidos de schema ausente em logs. Um usuário relatou redução significativa de Log Query após aplicar o workaround oficial num projeto com Data API desativada. As mensagens de erro também podem contribuir para Log Ingest, mas não há bytes atribuídos ao MoranteHub.
+- **Evidência específica do MoranteHub.** `pg_roles.rolconfig` para `authenticator` lista `session_preload_libraries`, os três timeouts e nenhum `pgrst.db_schemas`; o workaround não está aplicado. Uma agregação em `postgrest_logs` para 27/11 20:09–20:24 UTC encontrou zero eventos com `pg_pgrst_no_exposed_schemas`. Isso cobre uma janela e um texto específico, não o estado da Data API nem outros erros/horários.
+- **Configuração remota não acessível.** A Supabase documenta `GET /v1/projects/{ref}/postgrest`, que retorna `db_schema` e exige `data_api_config_read`. O MCP atual não expõe esse endpoint e `get_project` omite o campo; não acessei tokens/credenciais para fazer uma chamada direta. [Management API — GET PostgREST config](https://supabase.com/docs/reference/api/v1-get-postgrest-service-config).
+- **Limite e decisão.** Não aplicar o workaround: ele muda a configuração de schemas expostos e pode alterar o comportamento da API. A amostra de 15 min não encontrou o erro específico; estado da Data API e histórico de outras janelas continuam desconhecidos. [Artigo oficial](https://supabase.com/kb/troubleshooting/schema-pg_pgrst_no_exposed_schemas-does-not-exist) · [relato público](https://github.com/orgs/supabase/discussions/50925).

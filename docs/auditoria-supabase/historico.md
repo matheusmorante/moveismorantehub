@@ -184,3 +184,178 @@ Ler este histórico e os diagnósticos antes de escolher o próximo recorte. Par
 - A pedido do operador, executei fetch e pull fast-forward em main. origin/main e HEAD estavam sincronizados, com zero commits para integrar. O pull informou que a branch ja estava atualizada.
 - As alteracoes locais existentes permaneceram no checkout. Nenhum arquivo funcional foi alterado pela operacao Git. Sem nova medicao, diagnostico ou proposta nesta execucao.
 - Proximo recorte da auditoria segue condicionado a diff logico novo, regressao ou validacao pendente acionavel.
+
+## 2026-11-27T09:10:56-03:00 — revisão dos quatro commits remotos de vitrine
+
+- `fetch` confirmou `origin/main` quatro commits à frente do checkout `main` (`9b0fcd2d`); o checkout está limpo. O diff desses commits contém somente o componente visual `digital-catalog/src/features/products/components/product-card.tsx` e duas imagens públicas de selo. A revisão do componente encontrou apenas mudanças na apresentação dos selos recebidos junto ao produto; não altera consultas, RPCs, escrita de dados, filtros ou projeções Supabase. Não fiz pull nem alterações de código nesta execução.
+- Sem novo achado, proposta ou medição de banco, egress ou logs. Log Query e Log Ingestion não medidos. SUP-PROP-004 aguarda comparação com Usage; SUP-PROP-005 a 007 dependem da publicação do ERP; SUP-PROP-008/009 aplicadas; SUP-PROP-010 aguarda aprovação. Sem consulta remota, Logs Explorer ou testes.
+- Próximo recorte: examinar uma mudança nova em acesso a dados/SQL ou evidência operacional com intervalo definido. Preservar o checkout enquanto estiver quatro commits atrás e fora do escopo autorizado de atualização funcional.
+
+## 2026-11-27T09:25:57-03:00 — rechecagem após avanço do checkout
+
+- A primeira verificação desta rodada mostrava `main` quatro commits atrás; numa rechecagem sequencial, `main` e `origin/main` já coincidiam em `d89ead94`. Esta auditoria não executou pull. O status local também mostra `erp/server/testing/test-artifact-operator.cjs` modificado; o arquivo foi preservado. O histórico dos quatro commits contém somente ativos visuais e ajustes de rótulos em `ProductCard` e `ProductOpportunityField`; a inspeção não encontrou caminho de acesso Supabase alterado. A anotação de 09:10 cobria o subconjunto da vitrine e este registro completa o diff.
+- Sem novo diagnóstico, proposta ou medição; sem consulta remota, Logs Explorer ou testes. Log Query, Log Ingestion, egress e trabalho/latência do banco não medidos. Pendências: SUP-PROP-004 aguarda Usage; 005–007 dependem de publicação ERP; 008/009 aplicadas; 010 aguarda aprovação.
+- Próximo recorte: mudança nova em acesso a dados/SQL ou evidência operacional com intervalo identificável. Manter as alterações locais sem relação com a auditoria intactas.
+
+### Checkpoint 09:40 BRT
+
+`fetch` não trouxe commits novos; `main` continua alinhada com `origin/main` em `d89ead94`. O status local permanece igual ao registrado às 09:25. Sem diff de acesso Supabase, nova evidência ou métrica; sem consulta remota, Logs Explorer ou testes. Próximo recorte permanece condicionado a alteração em acesso a dados/SQL ou telemetria nova identificável.
+
+### Checkpoint 09:55 BRT
+
+`fetch` e revisão do estado repetiram o mesmo checkout (`d89ead94`, alinhado ao remoto); os únicos itens modificados seguem sendo este histórico e o arquivo local já anotado. Nenhum diff novo de dados/SQL ou evidência operacional; sem consultas ou medições repetidas. Próximo recorte inalterado.
+
+### Checkpoint 10:10 BRT
+
+`main` e `origin/main` seguem alinhadas em `d89ead94`; status local sem mudança. Sem novo diff relevante, achado ou métrica. Propostas e próximo recorte permanecem como registrados acima; sem consulta remota, Logs Explorer ou testes.
+
+### Checkpoint 10:25 BRT
+
+Sem alteração desde 10:10: `main` permanece em `d89ead94`, alinhada ao remoto; o status local segue igual. Nenhum diff novo de acesso a dados, evidência ou métrica; sem consulta remota, Logs Explorer ou testes. Pendências e próximo recorte permanecem inalterados.
+
+### Checkpoint 10:40 BRT
+
+`fetch` confirmou o mesmo commit (`d89ead94`) em `main` e `origin/main`; status e diffs relevantes seguem iguais. Sem nova evidência, achado ou métrica, e sem consulta remota, Logs Explorer ou teste. Propostas pendentes e próximo recorte continuam inalterados.
+
+### Checkpoint 10:55 BRT
+
+`main` segue alinhada a `origin/main` em `d89ead94`; alterações locais e diffs sem relação com o Supabase não mudaram. Sem achado, métrica ou telemetria nova. Pendências e próximo recorte inalterados; nenhuma consulta remota ou teste executado.
+
+### Checkpoint 11:10 BRT
+
+`fetch` não encontrou novos commits; `main` continua em `d89ead94`, alinhada ao remoto. Status local sem mudança. Nenhum novo diff, achado ou métrica de Supabase; sem consulta remota, Logs Explorer ou testes. Próximo recorte e pendências inalterados.
+
+### Checkpoint 11:25 BRT
+
+Sem mudança desde 11:10: checkout e diffs relevantes iguais, sem nova evidência operacional ou código de dados/SQL. Não consultei banco ou Logs Explorer e não executei testes; métricas e pendências permanecem inalteradas.
+
+### Checkpoint 11:40 BRT
+
+`fetch` confirmou `main` e `origin/main` em `d89ead94`, sem novos commits ou diffs relevantes. Status local inalterado. Sem nova evidência ou métrica; não consultei banco/Logs Explorer nem executei testes. Pendências e próximo recorte sem alteração.
+
+### Checkpoint 11:55 BRT
+
+Sem alteração desde 11:40: `main` e `origin/main` continuam em `d89ead94`, com status local igual. Nenhum diff de acesso Supabase ou evidência nova; métricas e propostas sem mudança. Sem consulta remota, Logs Explorer ou testes.
+
+### Checkpoint 12:10 BRT
+
+Checkout, remoto e status seguem iguais ao checkpoint anterior. A consulta ao inventário de ferramentas não encontrou endpoint oficial de Usage do Supabase; a comparação de SUP-PROP-004 continua pendente. Sem novos dados ou alterações de acesso Supabase; sem consultas remotas, Logs Explorer ou testes.
+
+### Checkpoint 12:25 BRT
+
+`fetch` confirmou o estado inalterado: `main` e `origin/main` em `d89ead94`, sem diff remoto ou mudança no status local. Nenhuma evidência ou métrica nova; SUP-PROP-004 segue aguardando Usage, SUP-PROP-005 a 007 dependem da publicação do ERP, e SUP-PROP-010 aguarda aprovação. Sem consulta remota, Logs Explorer ou testes.
+
+### Checkpoint 12:40 BRT
+
+`main` e `origin/main` permanecem alinhadas em `d89ead94`; status e diffs relevantes sem alteração. Nenhuma evidência ou métrica nova. Propostas e próximo recorte inalterados; sem consulta remota, Logs Explorer ou testes.
+
+### Checkpoint 12:55 BRT
+
+Sem mudanças desde 12:40: `main` permanece alinhada ao remoto e o status local não mudou. Nenhuma alteração de código relevante, evidência ou métrica nova; sem consultas remotas, Logs Explorer ou testes.
+
+### Checkpoint 13:10 BRT
+
+`fetch` confirmou `main` e `origin/main` em `d89ead94`; status e diffs relevantes iguais ao checkpoint anterior. Sem achado, evidência ou métrica nova; sem consulta remota, Logs Explorer ou testes. Pendências e próximo recorte inalterados.
+
+### Checkpoint 13:25 BRT
+
+Fetch e revisão confirmaram o mesmo estado de `main`, remoto e arquivos locais. Sem diff novo de Supabase, evidência ou métrica; sem consultas remotas, Logs Explorer ou testes. Pendências e próximo recorte inalterados.
+
+### Checkpoint 13:40 BRT
+
+`main` e `origin/main` seguem em `d89ead94`; status e diffs relevantes não mudaram. Sem evidência, achado ou métrica nova. Pendências e próximo recorte inalterados; nenhuma consulta remota, Logs Explorer ou teste.
+
+### Checkpoint 13:55 BRT
+
+`fetch` confirmou o mesmo commit e status local. Sem novos diffs de acesso a dados, evidência operacional, achados ou métricas; sem consulta remota, Logs Explorer ou testes. Propostas pendentes e próximo recorte sem alteração.
+
+### Checkpoint 14:10 BRT
+
+`main` permanece alinhada com `origin/main` em `d89ead94`; status e diffs iguais ao checkpoint anterior. Sem alteração de acesso Supabase, evidência ou métrica nova. Pendências e próximo recorte inalterados; sem consulta remota, Logs Explorer ou testes.
+
+### Checkpoint 14:25 BRT
+
+`fetch` não encontrou novos commits; branch, status local e diffs relevantes permanecem iguais. Sem evidência ou métricas novas do Supabase. Pendências e próximo recorte sem alteração; sem consultas remotas, Logs Explorer ou testes.
+
+### Checkpoint 14:40 BRT
+
+`main` e `origin/main` seguem em `d89ead94`, com status local igual e sem diff remoto. Sem nova evidência de Supabase ou métrica; não consultei banco/Logs Explorer nem executei testes. Pendências e próximo recorte inalterados.
+
+### Checkpoint 14:55 BRT
+
+Revisão incremental sem mudanças: `main` e `origin/main` continuam em `d89ead94`; status e diff remoto sem alteração. Sem evidência ou métrica nova, consulta remota, Logs Explorer ou testes. Pendências e próximo recorte inalterados.
+
+### Checkpoint 15:10 BRT
+
+`fetch` confirmou novamente `main` e `origin/main` em `d89ead94`, sem diffs relevantes novos. Status local preservado. Nenhuma evidência ou métrica Supabase nova; sem consulta remota, Logs Explorer ou testes.
+
+## 2026-11-27 — leitura de Usage compartilhada pelo operador
+
+- **Observação:** a captura do painel oficial Supabase Usage mostra Log Query diário de `2.711 GB` em 25/11/2026. O gráfico de Log Ingestion cobre 28/10–27/11 e tem um pico visual próximo de 88 MB em 21/11, mas não mostra tooltip com o valor exato. Escopo de projeto/organização não aparece.
+- **Limite de interpretação:** 2.711 GB é uma observação diária, não o acumulado de cobrança. Não confirma nem contradiz os totais relatados de 430,268 GB e 0,942 GB, pois janela e escopo não estão correspondidos. Não foram medidos contagem de chamadas, trabalho do banco, resposta/egress ou eventos.
+- **Validação e próximo passo:** registro baseado somente na captura enviada; sem consultas ao banco ou Logs Explorer, sem testes e sem alteração funcional. SUP-PROP-004 segue aguardando comparação do período com o medidor oficial em escopo identificável. Os demais status de propostas permanecem inalterados.
+
+## 2026-11-27 — pico diário de Log Query na captura adicional de Usage
+
+- **Observação (SUP-012):** uma captura adicional do painel Usage mostra `144.317 GB` de Log Query em 05/11/2026, em comparação com 100 GB incluídos exibidos na página. É um valor diário; a comparação é apenas de magnitude e não confirma cobrança adicional. As imagens não identificam o escopo de projeto/organização.
+- **Interpretação e limite:** o pico medido não identifica origem, cliente, ferramenta ou processo que gerou as consultas. Não se atribui a captura anterior do Logs Explorer, ao tráfego do ERP/app nem a um sistema específico. O total do período e a contribuição por origem continuam indeterminados.
+- **Validação e próximos dados:** tooltip oficial fornecido pelo operador; sem consulta ao banco, Logs Explorer, teste ou mudança funcional. SUP-012 não gera proposta de implementação enquanto escopo e origem não estiverem identificados. Próximo passo é comparar a série e o acumulado de Usage no mesmo escopo visível; SUP-PROP-004 continua aguardando comparação oficial.
+
+## 2026-11-27 — média diária esperada de Log Query informada pelo operador
+
+O operador esclareceu que espera uma média de 10 GB/dia. Registrado como referência operacional fornecida pelo usuário, separada do limite incluído de 100 GB mostrado no painel. O ponto de 05/11 (144,317 GB) corresponde a aproximadamente 14,4× essa média; 25/11 (2,711 GB), aproximadamente 0,27×. A referência diária não é um teto por dia, e não identifica a origem nem o total do período. SUP-012 permanece em investigação; sem nova proposta ou alteração funcional.
+
+### Checkpoint 15:27 BRT
+
+`main` segue alinhada com `origin/main` em `d89ead94`; alterações locais de auditoria e o arquivo de outra tarefa permanecem preservados. As duas capturas e a referência de 10 GB/dia foram registradas; sem nova evidência, consulta remota, Logs Explorer ou teste nesta verificação.
+
+## 27/11/2026 — revisão da causa raiz de Log Query e Log Ingestion
+
+- **Escopo e fontes:** leitura das instruções e documentos de auditoria, memória acessível da automação, inventário de ferramentas, históricos Codex relacionados e busca estática no código/configuração. Documentação oficial Supabase Usage consultada para distinguir Log Query de Log Ingest e confirmar como escopo/período aparecem no medidor.
+- **Histórico de consultas a logs:** uma chamada supabase.query_logs confirmada em 26/11, 15:00–15:15 UTC (12:00–12:15 BRT), filtrou postgres_logs e agregou event_message. A janela de 10:55–11:20 BRT continua registrada com contagens de eventos, mas o recibo não está no histórico acessível. Total anterior exato desconhecido. Nenhuma consulta a logs foi feita nesta execução.
+- **Candidatos:** auto_explain dominou em bytes do campo event_message na amostra PostgreSQL de 15 minutos; seis de 18 arquivos TypeScript em supabase/functions contêm chamadas console.*; faltam frequência e bytes por serviço. Nenhuma fonte foi confirmada como causa dos medidores agregados.
+- **Automação e consultas PostgreSQL:** o histórico acessível mostra 33 chamadas supabase.execute_sql e cinco chamadas supabase.apply_migration em quatro chats relacionados, misturando tarefas de auditoria, aprovação, implementação e validação. Esse inventário não representa somente ciclos automáticos e não mede eventos ou bytes de Log Ingest. Não houve nova atividade remota de banco nesta execução.
+- **Usage:** as capturas mantêm escopo de projeto/organização invisível. Log Query tem pontos diários de 144.317 GB (05/11) e 2.711 GB (25/11); a média esperada de 10 GB/dia é referência do operador. Log Ingestion não tem tooltip numérico novo. Sem delta oficial comparável.
+- **Registro e próximo passo:** criados os documentos de causa raiz, linha do tempo e experimentos; atualizados README, SUP-012, métricas e histórico. A causa permanece desconhecida. Solicitar captura de Usage com MoranteHub e período visíveis; para E2, solicitar autorização explícita para uma consulta agregada de até 15 minutos. Sem alterações funcionais, de configuração, banco, migration, integração, commit, push, deploy ou OTA. Nenhum teste foi executado.
+
+## 27/11/2026, 16:01 BRT — verificação estática de integrações de logs
+
+- **Nova evidência:** busca estreita nos arquivos de código e configuração não encontrou configuração de Log Drain ou integração com Datadog, Axiom, Better Stack, Logtail, New Relic ou Sentry. A string sentryHint encontrada no bundle de secure-integrations.cjs pertence a uma mensagem do supabase-js sobre trace propagation. O repositório não contém .github nem vercel.json na raiz. Configurações externas permanecem invisíveis.
+- **Uso e consultas:** nenhuma nova captura oficial, consulta de logs ou consulta ao banco. A janela proposta para E2 (27/11, 18:30–18:45 UTC) passou sem autorização e não foi executada. O próximo pedido de autorização precisará de limites temporais novos; não reutilizar a janela.
+- **Estado e próximo passo:** causa raiz continua desconhecida. E1 permanece proposta para decisão do operador e não houve solicitação para desativar ferramentas. A próxima ação continua sendo obter Usage com projeto/período visíveis; aguardar autorização explícita antes de qualquer leitura de logs. Nenhuma configuração foi alterada; nenhum teste foi executado.
+
+## 27/11/2026, 16:16 BRT — histórico de consultas em 05/11
+
+- **Nova evidência:** busca nas auditorias locais encontrou três chamadas query_logs documentadas em janelas que cruzam 05/11: uma janela de três horas (08:30–11:30 UTC) e duas agregações, uma janela de 24 horas (04/11 15:00–05/11 15:00 UTC) e um detalhe de uma hora (05/11 14:00–14:59 UTC) contido nela. Isso coincide com o dia do pico de 144.317 GB, mas não mede os bytes escaneados nem prova que as chamadas causaram o valor.
+- **Histórico adicional:** relatório de Egress registra uma recorrência de três horas como ativa em checkpoint passado e 70 linhas com menções a query_logs entre 25/10 e 06/11; muitas entradas descrevem duas agregações por janela, mas a contagem exata não pode ser recuperada das menções. A lista acessível não mostra o ID ou estado atual dessa automação. Uma tarefa Codex de 09/10 contém nove chamadas query_logs sem limites temporais ISO nos argumentos registrados; fica fora do gráfico de 28/10–27/11 e não é atribuída ao pico.
+- **Classificação:** SUP-013 prioriza consultas históricas Codex/MCP em 05/11; SUP-014 registra consumidores externos sem histórico; SUP-004 continua candidato a Log Ingestion no recorte auto_explain; SUP-015–017 registram Edge Functions, outros serviços e SQL/migrations da auditoria. Causa raiz e consumo oficial por chamada permanecem desconhecidos.
+- **Uso desta execução:** nenhuma consulta a Logs Explorer, query_logs ou banco; nenhuma variação de Usage disponível. Foram atualizados diagnósticos, linha do tempo, métricas, causa raiz e experimentos. Aguardar captura do Usage com projeto/período visíveis e, se disponível, status/histórico da recorrência Egress. A janela antiga de 27/11 18:30–18:45 UTC não foi executada e não deve ser repetida. Nenhum código, configuração, dado, integração ou logging foi alterado; nenhum teste foi executado.
+
+## 27/11/2026 — comparação histórica e investigação do erro de medição
+
+- **Nova evidência externa:** a equipe Supabase reconheceu em 04–05/11 condições que inflavam Log Query e informou que correções estavam em andamento. Outro projeto Free relatou 138,2 GB em 02/11. O tópico recebeu novos relatos de valores anormais em 13 e 16/11 e não tinha anúncio de resolução até essa atualização. A semelhança temporal com os 144,317 GB do MoranteHub torna falha de medição a hipótese principal, sem provar que esta conta foi afetada. A equipe informou que os valores inflados não seriam cobrados/exigidos durante o lançamento gradual. [Discussão pública](https://github.com/orgs/supabase/discussions/50925).
+- **Comparação dos consumidores:** a inspeção do Studio encontrou a prévia legada de Logs consultando contagem a cada 60 segundos, mecanismo compatível com repetição de Log Query se a tela permanecer aberta; o estado da tela nos dias comparados não é recuperável. A busca Vercel para o projeto `morantehub` encontrou zero deployments em 05/11 e 25/11. Históricos Codex locais não disponibilizam 05/11; em 25/11 há apenas a tarefa de `git pull`/`npm run dev`, sem chamada de logs. Isso não cobre sessões externas nem deploys fora de Vercel.
+- **Escopo e acesso:** a integração Supabase listou uma organização Free com um único projeto MoranteHub. O recurso Platform Audit Logs não está incluído no plano Free, limitando a atribuição administrativa por essa via. O conector de ferramentas não expõe o medidor oficial Usage; não foram usadas credenciais de terceiros nem consultado o serviço de logs.
+- **Log Ingestion:** a comparação de commits encontrou seis novas chamadas warning/error em clientes ERP/app em 05/11, sem encaminhador local conhecido para o Log Ingest Supabase; nenhuma foi adicionada a Edge Functions. As oito mensagens da função `sefaz-inbound-sync` foram movidas de módulo, permanecendo oito. O commit local de 25/11 não mudou loggers/configuração. Sem evidência de aumento versionado de emissão no backend; frequência executada e bytes por serviço continuam sem medida.
+- **Conclusão e autorização:** SUP-018 a SUP-020 registram a falha pública de medição, mecanismo Studio e evidência da comparação histórica. Codex não é responsabilizado sem atribuição de bytes. A autorização permanente permite no máximo uma consulta read-only a logs por execução, em intervalo ISO inédito de até 15 minutos, sem payload sensível nem repetição, quando indispensável a hipótese concreta. Nenhuma consulta a logs, banco, teste ou alteração funcional/configuracional ocorreu nesta execução; somente documentos desta auditoria foram atualizados. Arquivos não relacionados do checkout foram preservados.
+- **Evidência adicional de Log Ingest:** o artigo Supabase sobre Data API desativada diz que PostgREST pode continuar emitindo erros de schema ausente. Um usuário relatou redução significativa de Log Query após workaround em 16/11. A leitura remota de `pg_roles.rolconfig` mostrou que `authenticator` no MoranteHub não tem `pgrst.db_schemas`; o estado da Data API e a presença de erros continuam desconhecidos. Nenhuma alteração foi aplicada, pois o workaround modifica o schema configurado para a API. SUP-021 registra o mecanismo e os limites. [Artigo oficial](https://supabase.com/kb/troubleshooting/schema-pg_pgrst_no_exposed_schemas-does-not-exist) · [relato público](https://github.com/orgs/supabase/discussions/50925).
+
+## 27/11/2026, 17:08–17:13 BRT — orientação da automação persistida e metadados do projeto
+
+- **Estado Supabase:** uma leitura read-only de `pg_roles.rolconfig` confirmou que `authenticator` tem apenas configurações de preload/timeouts e não tem `pgrst.db_schemas`; uma leitura de metadados confirmou o projeto ativo/saudável. A ferramenta de metadados não expõe estado da Data API. Isso mantém SUP-021 como hipótese sem confirmar erros PostgREST. Nenhum Logs Explorer ou query_logs foi usado; nenhum valor novo de Usage foi consultado.
+- **Orientação persistida:** atualizei o prompt da automação existente a pedido do operador para registrar a autorização permanente de leituras, o limite de no máximo uma consulta de logs indispensável por execução em intervalo inédito de até 15 minutos e a exigência de avanço concreto por ciclo. Cadência de 15 minutos, estado ACTIVE, thread e política de notificação foram preservados.
+- **Checkout:** branch `main`; modificações em `docs/auditoria-supabase` e o arquivo preexistente `erp/server/testing/test-artifact-operator.cjs` foram preservados. Nenhum código, dado ou configuração do Supabase foi alterado; sem testes, migration, commit, push ou deploy. Próximo recorte: procurar uma fonte não invasiva de metadados que informe se a Data API do projeto está habilitada; se não existir, registrar esse bloqueio e seguir outra hipótese de Log Ingestion.
+
+## 27/11/2026, 17:09–17:24 BRT — amostra limitada de erro PostgREST
+
+- **Hipótese e fonte:** após a documentação Supabase identificar erros PostgREST quando Data API está desativada e a role local não mostrar o override da correção, usei uma chamada de logs para testar somente o erro `pg_pgrst_no_exposed_schemas` em `postgrest_logs`.
+- **Consulta:** uma única chamada sequencial e somente leitura, com limites explícitos 2026-11-27T20:09:00Z–2026-11-27T20:24:00Z (15 min), em intervalo inédito. Agregou fonte, quantidade e comprimento de mensagem; não selecionou texto de log nem payload.
+- **Resultado e limite:** zero linhas/eventos correspondentes ao filtro. Isso enfraquece a hipótese apenas nessa janela e não informa se Data API está desativada, se o erro ocorreu em outros horários ou se outras fontes geram Ingestion. Bytes escaneados e delta do Usage oficial indisponíveis; a própria consulta pode acrescentar Log Query. Nenhuma consulta de logs foi feita em paralelo ou repetida.
+- **Outras verificações:** não há ferramenta Supabase MCP que exponha settings/configuração da Data API; `get_project` retorna estado e metadados sem essa opção. A busca local estreita não encontrou configuração `pgrst.db_schemas` ou código referente ao schema de erro nos caminhos de aplicação/configuração examinados.
+- **Estado e próximo passo:** SUP-021 fica sem confirmação; não repetir a janela nem fazer polling. Próximo, buscar somente outra fonte não invasiva que esclareça o estado da API ou avançar para outra origem de Log Ingestion. Sem leitura do Usage oficial, mudança no Supabase/código, teste, migration, commit, push ou deploy.
+
+## 27/11/2026, 17:38 BRT — Management API e leitor de logs do CLI
+
+- **Fonte de configuração:** a documentação oficial revela `GET /v1/projects/{ref}/postgrest`, que retorna configuração como `db_schema` e requer `data_api_config_read`. O MCP conectado não contém ferramenta para esse endpoint; `get_project` omite essa seção. Não usei acesso direto por token/credencial. Portanto, a configuração que distinguiria o caso SUP-021 não está disponível neste fluxo.
+- **Fonte potencial de Log Query:** o changelog Supabase anuncia o terminal log explorer no CLI v3 em 10/11/2026, entre os dois dias comparados. A busca local não encontrou `supabase logs` em scripts e `Get-Command supabase` não encontrou CLI no PATH. Isso reduz suporte a uso local rastreável, mas não exclui uso noutro computador/terminal.
+- **Uso desta execução:** nenhuma consulta a logs ou banco; nenhuma leitura de Usage; sem teste, DML, configuração do Supabase, commit ou deploy. Próximo passo: seguir outra hipótese de ingestão usando código e amostras já disponíveis, sem sondar repetidamente o mesmo erro.

@@ -2,6 +2,8 @@
 
 Este diretório guarda os diagnósticos incrementais, propostas, decisões e métricas da auditoria do MoranteHub. A automação está ativa e executa a cada 15 minutos no projeto local do Codex. Avisos automáticos são limitados a falhas de execução para evitar alertas repetidos; achados e pedidos de aprovação ficam nos arquivos e no resultado de cada execução.
 
+Desde 27/11/2026, o foco da automação é exclusivamente identificar as origens de Log Query e Log Ingestion. Otimizações gerais ficam suspensas enquanto a causa raiz permanecer desconhecida. Consulte os registros [Log Query](causa-raiz-log-query.md), [Log Ingestion](causa-raiz-log-ingestion.md), [linha do tempo](linha-do-tempo-consumo.md) e [experimentos propostos](experimentos-isolamento.md).
+
 ## Estado inicial — 26/11/2026
 
 - Projeto Supabase operacional consultado: MoranteHub, referência hkoxhourxwlddgsfdgws, região sa-east-1.
@@ -19,6 +21,10 @@ As otimizações da agenda, da listagem de pedidos, dos alertas e do dispatcher 
 - [Propostas](propostas.md): opções de correção e decisões por identificador.
 - [Histórico](historico.md): execuções, decisões e validações.
 - [Métricas](metricas.md): valores medidos e limitações de cada fonte.
+- [Causa raiz de Log Query](causa-raiz-log-query.md): histórico acessível de consultas, suspeitas e limites de atribuição.
+- [Causa raiz de Log Ingestion](causa-raiz-log-ingestion.md): fontes candidatas e evidências de volume de logs.
+- [Linha do tempo do consumo](linha-do-tempo-consumo.md): medições, janelas consultadas e lacunas de histórico.
+- [Experimentos de isolamento](experimentos-isolamento.md): próximos passos propostos; nenhum teste de isolamento foi iniciado.
 
 ## Histórico existente
 
@@ -28,4 +34,4 @@ Antes de iniciar novos recortes, consulte também o [roadmap anterior de otimiza
 
 As execuções da automação podem ler o repositório, consultar o Supabase operacional com consultas de leitura e atualizar apenas estes documentos de auditoria. O operador aprova cada implementação explicitamente no chat.
 
-Registrar Log Query, Log Ingestion, custo SQL, chamadas e egress com a fonte e a janela de cada medida. A rotina começa pelo código e pelos contadores SQL. Reservar o Logs Explorer para consultas ad hoc indispensáveis, com uma janela de até 15 minutos e filtro por origem.
+Registrar Log Query, Log Ingestion, custo SQL, chamadas e egress com a fonte e a janela de cada medida. Para identificar a origem, começar por análise estática, histórico de ferramentas e Usage oficial. A autorização permanente do operador permite consultas de leitura a logs quando indispensáveis para uma hipótese concreta: no máximo uma por execução, em janela inédita de até 15 minutos, com limites inicial e final explícitos e filtro na consulta, sem payload sensível e sem polling. Não repetir intervalos anteriores. A ferramenta supabase.query_logs pode assumir as últimas 24 horas se a janela não for informada. A autorização não permite alterações no projeto ou em logging.

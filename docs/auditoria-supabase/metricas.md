@@ -227,3 +227,21 @@ No MoranteHub operacional, uma leitura de `pg_stat_statements` às 16:01:56 BRT 
 Fonte: leitura agregada de `cron.job_run_details` e `cron.job` no MoranteHub operacional, filtrada pelo comando de `auto_fulfill_scheduled_orders()` e `end_time` entre 16:00 inclusive e 17:00 exclusive (BRT). Foi identificado um job e 30 execuções concluídas. Todas 30 tiveram status `succeeded`; zero resultados diferentes de sucesso, zero assinaturas de timeout de partida e zero assinaturas de timeout SQL em `return_message`. Duração média dos sucessos: 620,35 ms; máximo no intervalo: 4.686,06 ms.
 
 A janela é posterior à migration de classificação de conflito, mas não mede ocorrências de `ORDER_VERSION_CONFLICT` nem prova o comportamento dessa classificação. A duração abrange a execução SQL do job, sem isolar CPU, número de pedidos processados, chamadas HTTP, latência de rede ou trabalho útil. Log Query, Log Ingestion, bytes e egress não medidos. Não houve consulta ao Logs Explorer.
+
+## 27/11/2026 — leitura do painel Usage enviada pelo operador
+
+Fonte: captura do painel oficial Supabase Usage compartilhada pelo operador em 27/11/2026. O painel indica atualização horária e exibe gráficos diários entre 28/10 e 27/11; o projeto ou escopo organizacional não está visível na imagem.
+
+- **Log Query por dia:** o tooltip mostra `2.711 GB` em 25/11/2026. É o valor diário daquela data, não o acumulado do período de cobrança. A página indica 100 GB incluídos no plano.
+- **Log Query por dia (captura adicional):** outro tooltip do mesmo painel mostra `144.317 GB` em 05/11/2026. Esse valor diário supera em magnitude os 100 GB incluídos exibidos na página; a captura não permite concluir tratamento de cobrança nem atribuir o escopo a projeto ou organização.
+- **Referência operacional do operador:** em 27/11/2026, o operador informou que a média esperada é 10 GB/dia. Assim, 05/11 equivale a cerca de 14,4× a média esperada e 25/11 a cerca de 0,27×. Essa média é uma referência informada, não um limite ou medidor oficial.
+- **Log Ingestion por dia:** a página indica 1 GB incluído e mostra barras diárias. A imagem não contém tooltip com valor exato; a barra de 21/11 parece próxima de 88 MB pela escala, apenas estimativa visual, não leitura numérica.
+- **Limites:** não é possível derivar o total mensal nem comparar estas amostras diárias com os valores relatados anteriormente (430,268 GB de Log Query e 0,942 GB de Log Ingestion) sem o mesmo escopo e janela. Contagem de consultas, trabalho/latência SQL, bytes de resposta, egress e eventos permanecem não medidos.
+
+## 27/11/2026 — histórico de chamadas a logs
+
+Uma revisão do histórico acessível confirmou uma chamada supabase.query_logs em 26/11, 15:00–15:15 UTC, filtrada em postgres_logs. Uma busca adicional nos relatórios históricos encontrou três chamadas documentadas em janelas que cruzam 05/11 e nove chamadas num turno Codex de 09/10, cujos limites de tempo não constam nos argumentos acessíveis. O relatório de Egress tem 70 menções a query_logs, não equivalentes a uma contagem de chamadas. O recibo da janela 26/11, 10:55–11:20 BRT, continua indisponível. Nesta revisão não houve consulta ao Logs Explorer, ao conector de logs ou ao banco. A análise de escopo e atribuição está em [causa raiz de Log Query](causa-raiz-log-query.md) e [linha do tempo](linha-do-tempo-consumo.md).
+
+## 27/11/2026 — amostra de erro PostgREST em intervalo inédito
+
+Uma única chamada somente leitura a `supabase.query_logs` cobriu 2026-11-27 20:09:00–20:24:00 UTC (17:09–17:24 BRT), janela inédita de 15 minutos. A agregação filtrou `postgrest_logs` por `pg_pgrst_no_exposed_schemas` e retornou zero grupos/linhas correspondentes. Isso significa zero eventos correspondentes ao texto de erro no recorte; não significa que não houve outros eventos PostgREST. Não foram retornados payloads. O contador oficial de Log Query/Log Ingestion e os bytes escaneados por essa chamada não estavam disponíveis; a leitura pode ter contribuído para Log Query.
