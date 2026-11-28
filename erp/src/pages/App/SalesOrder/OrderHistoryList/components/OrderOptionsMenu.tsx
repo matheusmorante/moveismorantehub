@@ -14,7 +14,7 @@ interface OrderOptionsMenuProps {
     highlightTemporary?: boolean,
     reconciliationMode?: boolean
   ) => void;
-  onDelete: (id: string) => void;
+  onDelete: (id: string, order?: Order) => void;
   onRestore: (id: string) => void;
   onPermanentDelete: (id: string) => void;
   onAction: (actionKey: string, order: Order) => void;
@@ -166,6 +166,21 @@ export const OrderOptionsMenu = ({
                   onShowPostSaleActions={onShowPostSaleActions}
                   onCloseMenu={() => setShowMenu(false)}
                 />
+              )}
+              {!showTrash && !isDraft && orderType === 'assistance' && order.id && (
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onDelete(order.id!, order);
+                    setShowMenu(false);
+                  }}
+                  className="flex w-full items-center gap-3 rounded-xl p-2.5 text-left text-red-600 transition-all hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
+                  title="Excluir assistência"
+                >
+                  <i className="bi bi-trash3-fill text-lg" />
+                  <span className="text-xs font-black uppercase tracking-widest">Excluir Assistência</span>
+                </button>
               )}
             </div>
           </div>,

@@ -38,7 +38,7 @@ export const reconciliationSupplierSearchSchema = z.object({
 });
 export const reconciliationSupplierResultsSchema = z.array(z.object({
   id, full_name: z.string().nullable().optional(), social_name: z.string().nullable().optional(),
-  nickname: z.string().nullable().optional(), cpf_cnpj: z.string().nullable().optional(),
+  nickname: z.string().nullable().optional(),
 }));
 
 export type ReconciliationAvailableAttribute = { name: string; dataType?: 'list' | 'integer' | 'decimal' | 'text' | 'boolean' | 'measure' };

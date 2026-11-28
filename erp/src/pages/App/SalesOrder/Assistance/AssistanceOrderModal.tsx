@@ -235,7 +235,6 @@ const AssistanceOrderContent: React.FC<AssistanceOrderModalProps> = (props) => {
           <AssistanceActions
             onClose={handleClose}
             isLoading={loading}
-            isEditing={isEditing}
             currentStep={currentStep}
             totalSteps={ASSISTANCE_STEPS.length}
             onPrevious={goToPreviousStep}

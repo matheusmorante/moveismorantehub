@@ -91,6 +91,17 @@ describe('commercialAssistanceRules - Vínculo opcional de pedido', () => {
     expect(errors['assistanceDescription']).toBe('Descrição do serviço é obrigatória.');
   });
 
+  it('respeita a opção sem telefone mesmo quando telefone é obrigatório nas configurações', () => {
+    const orderWithoutPhone = {
+      ...baseAssistanceOrder,
+      customerData: { ...baseAssistanceOrder.customerData!, phone: '', noPhone: true },
+    } as unknown as Order;
+
+    const errors = validateAssistanceOrder(orderWithoutPhone, { customer: { phone: true } });
+
+    expect(errors['customer_phone']).toBeUndefined();
+  });
+
   it('quando o operador opta por vincular um pedido, exige que ao menos um item seja selecionado ou adicionado', () => {
     const linkedOrderWithoutItems = {
       ...baseAssistanceOrder,

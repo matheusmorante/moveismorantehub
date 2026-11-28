@@ -125,7 +125,7 @@ export const OrderScheduleSummary: React.FC<OrderScheduleSummaryProps> = ({
             },
           };
           const appointmentStatusLabel = getOrderStatusLabel(statusOrder, statusFallback);
-          const statusBadge = order.orderType === 'sale' ? (
+          const statusBadge = order.orderType === 'sale' || (isTable && isAssistanceOrder) ? (
             <span
               className={`inline-flex h-4 shrink-0 items-center gap-1 rounded px-1.5 text-[9px] font-bold leading-4 ${statusColor}`}
               title={`Status: ${appointmentStatusLabel}`}
@@ -135,6 +135,33 @@ export const OrderScheduleSummary: React.FC<OrderScheduleSummaryProps> = ({
               {appointmentStatusLabel}
             </span>
           ) : null;
+
+          if (isTable && isAssistanceOrder) {
+            return (
+              <div
+                key={entry.id}
+                className="flex w-full items-center justify-between gap-2 whitespace-nowrap py-1 text-[11px]"
+              >
+                <div className="flex min-w-0 flex-col">
+                  {pending || !dateText ? (
+                    <span className="inline-flex h-4 items-center font-medium leading-4 text-amber-700 dark:text-amber-300">
+                      Falta definir
+                    </span>
+                  ) : (
+                    <span className="inline-flex h-4 items-center gap-1.5 font-medium leading-4 text-slate-700 dark:text-slate-300">
+                      {dateText}
+                    </span>
+                  )}
+                  {appointmentTime && !pending && (
+                    <span className="inline-flex h-4 items-center gap-1.5 font-medium leading-4 text-slate-700 dark:text-slate-300">
+                      {appointmentTime}
+                    </span>
+                  )}
+                </div>
+                {statusBadge}
+              </div>
+            );
+          }
 
           if (isTable) {
             return (

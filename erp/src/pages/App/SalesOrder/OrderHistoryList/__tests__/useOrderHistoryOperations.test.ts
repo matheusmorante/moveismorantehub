@@ -3,6 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({
   updateOrder: vi.fn(),
   processFiscalEffects: vi.fn(),
+  moveToTrash: vi.fn(),
+  permanentDeleteDraftOrder: vi.fn(),
   toast: {
     warning: vi.fn(),
     success: vi.fn(),
@@ -12,7 +14,8 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('../../../../utils/orderHistoryService', () => ({
   restoreOrder: vi.fn(),
-  permanentDeleteDraftOrder: vi.fn(),
+  moveToTrash: mocks.moveToTrash,
+  permanentDeleteDraftOrder: mocks.permanentDeleteDraftOrder,
   permanentDeleteOrder: vi.fn(),
   updateOrder: mocks.updateOrder,
 }));
@@ -35,6 +38,28 @@ describe('transação comercial antes dos efeitos fiscais do cancelamento', () =
   afterEach(() => vi.useRealTimers());
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  it('move assistência atendida para a lixeira sem excluir permanentemente', async () => {
+    mocks.moveToTrash.mockResolvedValue(undefined);
+    const { createOrderHistoryOperations } = await import('../hooks/useOrderHistoryOperations');
+    const order = { id: 'assistance-test-1', orderType: 'assistance', status: 'fulfilled' } as any;
+    const refresh = vi.fn().mockResolvedValue(undefined);
+    const operations = createOrderHistoryOperations({
+      orders: [order],
+      setOrders: vi.fn(),
+      selectedOrders: [],
+      setSelectedOrders: vi.fn(),
+      setLoading: vi.fn(),
+      refresh,
+    });
+
+    await operations.handleDelete(order.id, order);
+
+    expect(mocks.moveToTrash).toHaveBeenCalledWith(order.id);
+    expect(mocks.permanentDeleteDraftOrder).not.toHaveBeenCalled();
+    expect(mocks.toast.success).toHaveBeenCalledWith('Assistência movida para a lixeira.');
+    expect(refresh).toHaveBeenCalledTimes(1);
   });
 
   it('corrige um clique equivocado em Atendido sem mexer em estoque ou acionar o fiscal', async () => {

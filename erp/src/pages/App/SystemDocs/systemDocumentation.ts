@@ -36,7 +36,7 @@ export const systemDocumentation: DocumentationSection[] = [
       'O backend recalcula a decisão fiscal e salva seu motivo junto ao contexto e à numeração. A emissão fiscal não cria outra saída de estoque nem altera o financeiro do pedido.',
       'Rascunho é criado durante o preenchimento e não pode voltar a ser escolhido depois do cadastro.',
       'Ao cadastrar um pedido válido, ele passa para Agendado; isso habilita os gatilhos da agenda e de estoque configurados.',
-      'A venda Agendada pode ser concluída por confirmação manual ou automaticamente à meia-noite do dia seguinte à data agendada. A confirmação automática grava fulfilled e atualiza o estoque pela transação do pedido; o sistema passa a tratar o pedido como atendido, embora a automação não seja uma confirmação física individual. A interface exibe Entregue para entrega e Retirado para retirada. Corrigir para Agendado não altera o estoque; se houver evidência física de entrega, retirada ou trânsito, não desfaça o atendimento. Se a mercadoria circulou e retornou, registre uma devolução vinculada. Consulte o status fiscal para o bloqueio conhecido.',
+      'A venda Agendada pode ser concluída manualmente ou automaticamente. A retirada imediata é concluída no horário atual registrado; as operações agendadas são concluídas à meia-noite do dia seguinte à última data agendada, mesmo quando têm horário definido. A confirmação automática grava fulfilled e atualiza o estoque pela transação do pedido; o sistema passa a tratar o pedido como atendido, embora a automação não seja uma confirmação física individual. A interface exibe Entregue para entrega e Retirado para retirada. Corrigir para Agendado não altera o estoque; se houver evidência física de entrega, retirada ou trânsito, não desfaça o atendimento. Se a mercadoria circulou e retornou, registre uma devolução vinculada. Consulte o status fiscal para o bloqueio conhecido.',
       'Pedido cancelado tem status definitivo; para refazer, usa-se Duplicar pedido.',
       'Pedido de devolução pode nascer de venda atendida, mantendo o vínculo, ou ser criado sem venda vinculada com cliente e itens próprios. Em ambos os casos não movimenta estoque ao ser gerado; com coleta agendada, o status é Coleta agendada.',
       'Ao concluir a devolução como Devolvido, uma confirmação de cinco segundos informa que a entrada será criada apenas para os itens e quantidades devolvidos.',
@@ -79,6 +79,7 @@ export const systemDocumentation: DocumentationSection[] = [
       'Assistências mantêm dados de serviço, itens associados e agendamento próprio, separados do fluxo de venda.',
     rules: [
       'A agenda pode exibir assistências agendadas conforme tipo e período selecionados.',
+      'Assistências agendadas passam para Atendido depois que termina a data agendada, na virada para o dia seguinte, mesmo quando há horário definido; isso atualiza o status sem confirmar fisicamente o serviço nem executar a baixa automática de estoque da venda.',
       'A baixa automática de estoque da venda não é aplicada a uma assistência; qualquer movimentação deve seguir o fluxo específico do serviço.',
     ],
     flow: [

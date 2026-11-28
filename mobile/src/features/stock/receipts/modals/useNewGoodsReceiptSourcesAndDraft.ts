@@ -468,9 +468,10 @@ export function useNewGoodsReceiptSourcesAndDraft(
     }
   };
 
-  const openSupplierPicker = async () => {
+  const openSupplierPicker = () => {
     if (loadingSuppliers) return;
-    if (!suppliersLoaded && (await loadSupplierOptions()) === null) return;
+    setSupplierSearch('');
+    setSupplierLoadError('');
     setSupplierPickerOpen(true);
   };
 

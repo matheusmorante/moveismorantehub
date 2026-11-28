@@ -121,7 +121,7 @@ describe('AssistanceOrderModal', () => {
     const order = { id: 'ast-1', status: 'draft', customerData: { fullName: 'Cliente', phone: '', noPhone: true }, items: [], assistanceDescription: 'Consertar sofá' } as any;
     const onClose = vi.fn(); render(<AssistanceOrderModal order={order} onClose={onClose} onSaveSuccess={vi.fn()} />);
     advanceAssistanceSteps(2);
-    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Atualizar Assistência' })); });
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Finalizar' })); });
     expect(saveOrder).toHaveBeenCalledTimes(1);
     expect(document.querySelector('fieldset')).toHaveProperty('disabled', true);
     expect(screen.getByRole('button', { name: 'Cancelar' })).toBeDisabled(); expect(screen.getByRole('button', { name: 'Fechar formulário de assistência' })).toBeDisabled();
@@ -134,9 +134,9 @@ describe('AssistanceOrderModal', () => {
     const order = { id: 'ast-1', status: 'draft', customerData: { fullName: 'Cliente', phone: '', noPhone: true }, items: [], assistanceDescription: 'Consertar sofá' } as any;
     render(<AssistanceOrderModal order={order} onClose={onClose} onSaveSuccess={onSaveSuccess} />);
     advanceAssistanceSteps(2);
-    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Atualizar Assistência' })); });
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Finalizar' })); });
     expect(screen.getByRole('alert').textContent).toContain('Assistência já gravada'); expect(document.querySelector('fieldset')).toHaveProperty('disabled', true);
-    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Atualizar Assistência' })); });
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Finalizar' })); });
     expect(saveOrder).toHaveBeenCalledTimes(1); expect(onSaveSuccess).toHaveBeenCalledTimes(2); expect(onClose).toHaveBeenCalledTimes(1);
   });
 
@@ -145,12 +145,12 @@ describe('AssistanceOrderModal', () => {
     const common = { status: 'draft', customerData: { fullName: 'Cliente', phone: '', noPhone: true }, items: [] } as any; const onClose = vi.fn(); const onSaveSuccess = vi.fn();
     const view = render(<AssistanceOrderModal order={{ ...common, id: 'ast-a', assistanceDescription: 'Serviço A' }} onClose={onClose} onSaveSuccess={onSaveSuccess} />);
     advanceAssistanceSteps(2);
-    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Atualizar Assistência' })); });
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Finalizar' })); });
     view.rerender(<AssistanceOrderModal order={{ ...common, id: 'ast-b', assistanceDescription: 'Serviço B' }} onClose={onClose} onSaveSuccess={onSaveSuccess} />);
     advanceAssistanceSteps(1);
     await act(async () => { resolve('ast-a'); }); expect(onClose).not.toHaveBeenCalled(); expect(onSaveSuccess).not.toHaveBeenCalled(); expect(screen.getByDisplayValue('Serviço B')).toBeInTheDocument();
     advanceAssistanceSteps(1);
-    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Atualizar Assistência' })); });
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Finalizar' })); });
     expect(vi.mocked(saveOrder).mock.calls[1][0]).toMatchObject({ id: 'ast-b', assistanceDescription: 'Serviço B' }); expect(onClose).toHaveBeenCalledTimes(1);
   });
 
@@ -161,7 +161,7 @@ describe('AssistanceOrderModal', () => {
     fireEvent.change(screen.getByTestId('Buscar Endereço / CEP'), { target: { value: 'Rua Nova' } });
     expect(screen.getByTestId('Logradouro')).toHaveValue('Rua Nova');
     advanceAssistanceSteps(2);
-    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Atualizar Assistência' })); });
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Finalizar' })); });
     const address = vi.mocked(saveOrder).mock.calls[0][0].customerData.fullAddress;
     expect(address.street).toBe('Rua Nova'); expect(address.coords).toBeUndefined(); expect(address.placeId).toBe('');
   });
@@ -205,7 +205,7 @@ describe('AssistanceOrderModal', () => {
 
     // Botões de ação
     expect(screen.getByRole('button', { name: /Cancelar/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Finalizar Assistência/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Finalizar' })).toBeInTheDocument();
   });
 
   it('permite fechar o modal clicando em Cancelar', () => {

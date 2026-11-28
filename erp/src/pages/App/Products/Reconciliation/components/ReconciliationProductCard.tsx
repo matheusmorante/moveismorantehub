@@ -27,6 +27,9 @@ interface Props {
   ) => Promise<boolean | ReconciliationResult>;
 }
 
+type ProductEditField = Exclude<keyof ReconciliationProductValues['productUpdates'], 'id'>;
+type VariationEditField = Exclude<keyof ReconciliationProductValues['variationUpdates'][number], 'id'>;
+
 export const ReconciliationProductCard: React.FC<Props> = ({
   product,
   isSelected,
@@ -66,10 +69,27 @@ export const ReconciliationProductCard: React.FC<Props> = ({
     })),
   };
   const form = useZodForm(createReconciliationProductFormSchema(product.pendencies.flatMap((pendency) => pendency.attributeName ? [{ name: pendency.attributeName, dataType: pendency.attributeDataType }] : [])), formValues);
-  const latestValuesKey = useRef(JSON.stringify(formValues)); latestValuesKey.current = JSON.stringify(formValues);
 
   // Rastreia se houve alterações
   const [hasChanges, setHasChanges] = useState(false);
+  const editedProductFields = useRef(new Set<ProductEditField>());
+  const editedVariationFields = useRef(new Map<string, Set<VariationEditField>>());
+  const productFieldRevisions = useRef(new Map<ProductEditField, number>());
+  const variationFieldRevisions = useRef(new Map<string, Map<VariationEditField, number>>());
+  const editRevision = useRef(0);
+
+  const markProductFieldChanged = (field: ProductEditField) => {
+    editedProductFields.current.add(field);
+    productFieldRevisions.current.set(field, ++editRevision.current);
+  };
+  const markVariationFieldChanged = (variationId: string, field: VariationEditField) => {
+    const fields = editedVariationFields.current.get(variationId) || new Set<VariationEditField>();
+    fields.add(field);
+    editedVariationFields.current.set(variationId, fields);
+    const revisions = variationFieldRevisions.current.get(variationId) || new Map<VariationEditField, number>();
+    revisions.set(field, ++editRevision.current);
+    variationFieldRevisions.current.set(variationId, revisions);
+  };
 
   // Calcular pendências ativas locais em tempo real
   const { parent: activeParentPendencies, variations: activeVariationPendencies } = useMemo(
@@ -97,6 +117,7 @@ export const ReconciliationProductCard: React.FC<Props> = ({
     setVariations((previous) =>
       updateReconciliationVariationAttribute(previous, variationId, attrName, newValue)
     );
+    markVariationFieldChanged(variationId, 'attributes');
     setHasChanges(true);
   };
 
@@ -104,29 +125,99 @@ export const ReconciliationProductCard: React.FC<Props> = ({
   const handleApplySharedAttribute = (attrName: string, value: string) => {
     if (!value.trim()) return;
     setVariations((previous) => applyReconciliationAttributeToVariations(previous, attrName, value));
+    variations.forEach((variation) => markVariationFieldChanged(variation.id, 'attributes'));
     setHasChanges(true);
     toast.info(`Característica "${attrName}" aplicada a todas as ${variations.length} variações.`);
   };
 
   const handleSave = async () => {
     if (uncertain) return;
-    const submittedKey = JSON.stringify(formValues);
+    const submittedProductFields = new Set(editedProductFields.current);
+    const submittedVariationFields = new Map<string, Set<VariationEditField>>();
+    editedVariationFields.current.forEach((fields, variationId) => {
+      submittedVariationFields.set(variationId, new Set(fields));
+    });
+    const submittedProductFieldRevisions = new Map<ProductEditField, number>();
+    submittedProductFields.forEach((field) => {
+      submittedProductFieldRevisions.set(field, productFieldRevisions.current.get(field) ?? -1);
+    });
+    const submittedVariationFieldRevisions = new Map<string, Map<VariationEditField, number>>();
+    submittedVariationFields.forEach((fields, variationId) => {
+      const revisions = new Map<VariationEditField, number>();
+      fields.forEach((field) => {
+        revisions.set(field, variationFieldRevisions.current.get(variationId)?.get(field) ?? -1);
+      });
+      submittedVariationFieldRevisions.set(variationId, revisions);
+    });
     setSaveError('');
-    await form.validateAndRun(formValues, async (validated) => {
-      setIsSaving(true);
-      try {
-        const success = await onSaveProduct(validated.productUpdates.id, validated.productUpdates, validated.variationUpdates);
-        if (typeof success === 'object' && success.uncertain) setUncertain(true);
-        if (success === true || (typeof success === 'object' && success.success)) {
-          if (latestValuesKey.current === submittedKey) setHasChanges(false);
-          toast.success(`Alterações salvas para "${product.name}"!`);
-        } else setSaveError(typeof success === 'object' && success.error || 'Não foi possível confirmar a gravação. Confira o produto antes de repetir.');
-      } catch (cause) {
-        setSaveError(cause instanceof Error ? cause.message : 'Não foi possível salvar as alterações.');
-      } finally {
-        setIsSaving(false);
-      }
-    }, (errors) => setSaveError(Object.values(flattenFormErrors(errors))[0] || 'Revise os dados informados.'));
+    setIsSaving(true);
+    try {
+      await form.validateAndRun(formValues, async (validated) => {
+        try {
+          const productUpdates: ReconciliationProductValues['productUpdates'] = { id: validated.productUpdates.id };
+          if (submittedProductFields.has('mainSupplierId') && validated.productUpdates.mainSupplierId !== undefined) {
+            productUpdates.mainSupplierId = validated.productUpdates.mainSupplierId;
+          }
+          if (submittedProductFields.has('categoryId') && validated.productUpdates.categoryId !== undefined) {
+            productUpdates.categoryId = validated.productUpdates.categoryId;
+          }
+          if (submittedProductFields.has('ncm') && validated.productUpdates.ncm !== undefined) {
+            productUpdates.ncm = validated.productUpdates.ncm;
+          }
+          if (submittedProductFields.has('price') && validated.productUpdates.price !== undefined) {
+            productUpdates.price = validated.productUpdates.price;
+          }
+
+          const variationUpdates = validated.variationUpdates.flatMap((variation) => {
+            const editedFields = submittedVariationFields.get(variation.id);
+            if (!editedFields) return [];
+
+            const update: ReconciliationProductValues['variationUpdates'][number] = { id: variation.id };
+            if (editedFields.has('price') && variation.price !== undefined) update.price = variation.price;
+            if (editedFields.has('attributes') && variation.attributes !== undefined) update.attributes = variation.attributes;
+            return Object.keys(update).length > 1 ? [update] : [];
+          });
+
+          if (Object.keys(productUpdates).length === 1 && variationUpdates.length === 0) {
+            setSaveError('Nenhuma correção preenchida pode ser salva. Informe um valor antes de tentar novamente.');
+            return;
+          }
+
+          const success = await onSaveProduct(validated.productUpdates.id, productUpdates, variationUpdates);
+          if (typeof success === 'object' && success.uncertain) setUncertain(true);
+          if (success === true || (typeof success === 'object' && success.success)) {
+            submittedProductFieldRevisions.forEach((revision, field) => {
+              if (productFieldRevisions.current.get(field) !== revision) return;
+              editedProductFields.current.delete(field);
+              productFieldRevisions.current.delete(field);
+            });
+            submittedVariationFieldRevisions.forEach((revisions, variationId) => {
+              const editedFields = editedVariationFields.current.get(variationId);
+              const currentRevisions = variationFieldRevisions.current.get(variationId);
+              if (!editedFields || !currentRevisions) return;
+              revisions.forEach((revision, field) => {
+                if (currentRevisions.get(field) !== revision) return;
+                editedFields.delete(field);
+                currentRevisions.delete(field);
+              });
+              if (editedFields.size === 0) {
+                editedVariationFields.current.delete(variationId);
+                variationFieldRevisions.current.delete(variationId);
+              }
+            });
+            setHasChanges(
+              editedProductFields.current.size > 0 ||
+              Array.from(editedVariationFields.current.values()).some((fields) => fields.size > 0)
+            );
+            toast.success(`Alterações salvas para "${product.name}"!`);
+          } else setSaveError(typeof success === 'object' && success.error || 'Não foi possível confirmar a gravação. Confira o produto antes de repetir.');
+        } catch (cause) {
+          setSaveError(cause instanceof Error ? cause.message : 'Não foi possível salvar as alterações.');
+        }
+      }, (errors) => setSaveError(Object.values(flattenFormErrors(errors))[0] || 'Revise os dados informados.'));
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   // Identificar pendências de herança no pai
@@ -204,11 +295,16 @@ export const ReconciliationProductCard: React.FC<Props> = ({
               className="px-3.5 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-black uppercase tracking-wider shadow-sm transition-all flex items-center gap-1.5 disabled:opacity-50"
             >
               {isSaving ? (
-                <i className="bi bi-arrow-repeat animate-spin"></i>
+                <>
+                  <i className="bi bi-arrow-repeat animate-spin" aria-hidden="true"></i>
+                  <span aria-live="polite">Salvando...</span>
+                </>
               ) : (
-                <i className="bi bi-check2"></i>
+                <>
+                  <i className="bi bi-check2" aria-hidden="true"></i>
+                  Salvar
+                </>
               )}
-              Salvar
             </button>
           )}
 
@@ -249,7 +345,7 @@ export const ReconciliationProductCard: React.FC<Props> = ({
                   <SupplierSearchField
                     suppliers={supplierSearch.suppliers} selectedSupplierId={supplierId} isSearching={supplierSearch.isSearching}
                     disabled={isSaving || uncertain} onQueryChange={supplierSearch.handleQueryChange}
-                    onSelect={(id) => { if (id) supplierSearch.clearSearch(); setSupplierId(id); setHasChanges(true); }}
+                    onSelect={(id) => { if (id) supplierSearch.clearSearch(); setSupplierId(id); markProductFieldChanged('mainSupplierId'); setHasChanges(true); }}
                   />
                 </div>
               )}
@@ -266,11 +362,13 @@ export const ReconciliationProductCard: React.FC<Props> = ({
                     onSelect={(cat) => {
                       setCategoryId(cat.id);
                       setCategoryName(cat.name);
+                      markProductFieldChanged('categoryId');
                       setHasChanges(true);
                     }}
                     onRemove={() => {
                       setCategoryId('');
                       setCategoryName('');
+                      markProductFieldChanged('categoryId');
                       setHasChanges(true);
                     }}
                     placeholder="Selecionar categoria..."
@@ -290,6 +388,7 @@ export const ReconciliationProductCard: React.FC<Props> = ({
                     value={ncm}
                     onChange={(e) => {
                       setNcm(e.target.value);
+                      markProductFieldChanged('ncm');
                       setHasChanges(true);
                     }}
                     placeholder="Ex: 9403.50.00"
@@ -314,6 +413,7 @@ export const ReconciliationProductCard: React.FC<Props> = ({
                       value={price}
                       onChange={(e) => {
                         setPrice(e.target.value);
+                        markProductFieldChanged('price');
                         setHasChanges(true);
                       }}
                       placeholder="0,00"
@@ -471,6 +571,7 @@ export const ReconciliationProductCard: React.FC<Props> = ({
                                           item.id === v.id ? { ...item, price: val } : item
                                         )
                                       );
+                                      markVariationFieldChanged(v.id, 'price');
                                       setHasChanges(true);
                                     }}
                                     placeholder="0,00"

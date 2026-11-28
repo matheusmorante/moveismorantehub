@@ -16,6 +16,7 @@ export const validateAssistanceOrder = (
 
   if (
     requiredFields.customer?.phone &&
+    !order.customerData?.noPhone &&
     (!order.customerData?.phone || !order.customerData.phone.trim())
   ) {
     errors['customer_phone'] = 'Telefone é obrigatório.';

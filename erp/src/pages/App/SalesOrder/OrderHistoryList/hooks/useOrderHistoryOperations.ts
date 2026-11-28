@@ -2,6 +2,7 @@ import Order, { type AssistanceItem } from '../../../../types/order.type';
 import type { Item } from '../../../../types/items.type';
 import {
   restoreOrder,
+  moveToTrash,
   permanentDeleteDraftOrder,
   permanentDeleteOrder,
   updateOrder,
@@ -32,8 +33,14 @@ export const createOrderHistoryOperations = ({
   setLoading,
   refresh,
 }: OrderHistoryOperationsParams) => {
-  const handleDelete = async (id: string) => {
-    const order = orders.find((item) => item.id === id);
+  const handleDelete = async (id: string, orderOverride?: Order) => {
+    const order = orders.find((item) => item.id === id) || orderOverride;
+    if (order?.orderType === 'assistance' && order.status !== 'draft') {
+      await moveToTrash(id);
+      toast.success('Assistência movida para a lixeira.');
+      refresh();
+      return;
+    }
     if (order?.status !== 'draft') {
       toast.warning('Somente pedidos em rascunho podem ser excluídos.');
       return;

@@ -54,6 +54,7 @@ export const ProductReconciliation: React.FC = () => {
   const [isSelectingFiltered, setIsSelectingFiltered] = useState(false);
   const [selectionError, setSelectionError] = useState('');
   const selectionRevision = useRef(0);
+  const selectionController = useRef<AbortController | null>(null);
 
   // Modais de lote
   const [isSupplierModalOpen, setIsSupplierModalOpen] = useState(false);
@@ -66,7 +67,16 @@ export const ProductReconciliation: React.FC = () => {
   const mounted = useRef(true);
   const { validateValues: validateQuery } = useZodForm(reconciliationQueryFormSchema, { page, pageSize, filters });
   const batchForm = useZodForm(reconciliationBatchFormSchema, { operation: 'ncm', productIds: [], ncm: '' });
-  useEffect(() => { mounted.current = true; return () => { mounted.current = false; queryRevision.current += 1; }; }, []);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+      queryRevision.current += 1;
+      selectionRevision.current += 1;
+      selectionController.current?.abort();
+      selectionController.current = null;
+    };
+  }, []);
   const loadData = useCallback(async () => {
     const revision = ++queryRevision.current;
     const current = () => mounted.current && revision === queryRevision.current;
@@ -84,6 +94,8 @@ export const ProductReconciliation: React.FC = () => {
   const reload = useRef(loadData); reload.current = loadData;
 
   useEffect(() => {
+    selectionController.current?.abort();
+    selectionController.current = null;
     setPage(1);
     setIsAllFilteredSelected(false);
     setIsSelectingFiltered(false);
@@ -131,25 +143,41 @@ export const ProductReconciliation: React.FC = () => {
   };
 
   const handleSelectAllFiltered = async () => {
+    selectionController.current?.abort();
     const revision = ++selectionRevision.current;
+    const controller = new AbortController();
+    selectionController.current = controller;
+    let didTimeout = false;
     setIsSelectingFiltered(true);
     setSelectionError('');
     try {
-      const result = await withTimeout(fetchProductReconciliationSelection(filters), 30_000, null, 'reconciliacao:selecionar-filtro');
+      const result = await withTimeout(
+        fetchProductReconciliationSelection(filters, controller.signal),
+        30_000,
+        null,
+        'reconciliacao:selecionar-filtro'
+      );
       if (!mounted.current || revision !== selectionRevision.current) return;
-      if (!result) throw new Error('A seleção do filtro demorou demais. Tente novamente.');
+      if (!result) {
+        didTimeout = true;
+        controller.abort();
+        throw new Error('A seleção do filtro demorou demais. Tente novamente.');
+      }
       setSelectedIds(new Set(result.map((product) => product.id)));
       setSelectedProductDetails(new Map(result.map((product) => [product.id, product])));
       setIsAllFilteredSelected(result.length > 0);
       if (result.length > 0) toast.success(`Todos os ${result.length} produtos pendentes do filtro foram selecionados.`);
       else setSelectionError('Nenhum produto pendente corresponde aos filtros atuais.');
     } catch (cause) {
-      if (mounted.current && revision === selectionRevision.current) {
+      const isAbortError = cause instanceof Error && cause.name === 'AbortError';
+      const wasCancelled = !didTimeout && (controller.signal.aborted || isAbortError);
+      if (!wasCancelled && mounted.current && revision === selectionRevision.current) {
         const message = cause instanceof Error ? cause.message : 'Não foi possível selecionar os produtos do filtro.';
         setSelectionError(message);
         toast.error(message);
       }
     } finally {
+      if (selectionController.current === controller) selectionController.current = null;
       if (mounted.current && revision === selectionRevision.current) setIsSelectingFiltered(false);
     }
   };

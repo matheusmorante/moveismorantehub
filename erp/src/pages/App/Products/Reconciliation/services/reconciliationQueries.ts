@@ -23,5 +23,7 @@ export const fetchProductsForReconciliation = (
     filters
   );
 
-export const fetchProductReconciliationSelection = (filters: ReconciliationFilterState = {}) =>
-  fetchProductReconciliationSelectionWithClient(supabase, isWeightCharacteristicName, filters);
+export const fetchProductReconciliationSelection = (
+  filters: ReconciliationFilterState = {},
+  signal?: AbortSignal
+) => fetchProductReconciliationSelectionWithClient(supabase, isWeightCharacteristicName, filters, signal);

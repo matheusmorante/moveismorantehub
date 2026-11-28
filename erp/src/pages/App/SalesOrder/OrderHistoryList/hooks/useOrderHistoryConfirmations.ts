@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import type Order from '../../../../types/order.type';
 
 export interface OrderHistoryConfirmModalState {
   isOpen: boolean;
@@ -9,7 +10,7 @@ export interface OrderHistoryConfirmModalState {
 }
 
 interface UseOrderHistoryConfirmationsParams {
-  onDelete: (id: string) => void;
+  onDelete: (id: string, order?: Order) => void;
   onPermanentDelete: (id: string) => void;
   onBulkTrash: () => void;
   onBulkPermanentDelete: () => void;
@@ -37,7 +38,18 @@ export function useOrderHistoryConfirmations({
       isOpen: false,
     }));
 
-  const handleDelete = (id: string) => {
+  const handleDelete = (id: string, order?: Order) => {
+    if (order?.orderType === 'assistance') {
+      setConfirmModal({
+        isOpen: true,
+        title: 'Excluir assistência?',
+        message: 'A assistência será movida para a Lixeira e poderá ser restaurada.',
+        confirmLabel: 'Excluir assistência',
+        onConfirm: () => onDelete(id, order),
+        type: 'warning',
+      });
+      return;
+    }
     setConfirmModal({
       isOpen: true,
       title: 'Excluir rascunho?',

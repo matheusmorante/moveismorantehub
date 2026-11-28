@@ -17,6 +17,16 @@ import {
   buildAccentInsensitiveWordsRegex,
 } from '../core/searchText';
 
+const throwIfAborted = (signal?: AbortSignal) => {
+  if (!signal?.aborted) return;
+  const error = new Error('A seleção foi cancelada.');
+  error.name = 'AbortError';
+  throw error;
+};
+
+const withAbortSignal = (query: any, signal?: AbortSignal) =>
+  signal && typeof query?.abortSignal === 'function' ? query.abortSignal(signal) : query;
+
 const applyProductReconciliationSqlFilters = (
   query: any,
   filters: ReconciliationFilterState,
@@ -44,15 +54,18 @@ const applyProductReconciliationSqlFilters = (
   return query.order('name', { ascending: true });
 };
 
-const fetchVariationSkuParentIds = async (client: any, search?: string): Promise<string[]> => {
+const fetchVariationSkuParentIds = async (client: any, search?: string, signal?: AbortSignal): Promise<string[]> => {
+  throwIfAborted(signal);
   const safeSearch = search?.replace(/"/g, '').trim();
   if (!safeSearch) return [];
 
-  const { data, error } = await client
+  const query = client
     .from('product_variations')
     .select('product_id')
     .filter('sku', 'imatch', buildAccentInsensitiveWordsRegex(safeSearch))
     .limit(PRODUCT_VARIATION_SEARCH_MATCH_LIMIT + 1);
+  const { data, error } = await withAbortSignal(query, signal);
+  throwIfAborted(signal);
 
   if (error) throw error;
   if (!Array.isArray(data)) return [];
@@ -107,8 +120,17 @@ const mapReconciliationVariation = (variation: any): ReconciliationProductItem['
 /**
  * Busca todas as características que foram configuradas como obrigatórias por categoria
  */
-export async function fetchRequiredCategoryAttributesWithClient(client: any, isWeightCharacteristicName: (name: string) => boolean): Promise<RequiredCategoryAttribute[]> {
-  const { data, error } = await client.from('category_attributes').select('category_id, attribute_id, is_required, attributes (id, name, data_type, unit)').eq('is_required', true);
+export async function fetchRequiredCategoryAttributesWithClient(
+  client: any,
+  isWeightCharacteristicName: (name: string) => boolean,
+  signal?: AbortSignal
+): Promise<RequiredCategoryAttribute[]> {
+  throwIfAborted(signal);
+  const query = client.from('category_attributes')
+    .select('category_id, attribute_id, is_required, attributes (id, name, data_type, unit)')
+    .eq('is_required', true);
+  const { data, error } = await withAbortSignal(query, signal);
+  throwIfAborted(signal);
   if (error) throw error;
   return (data || []).flatMap((row: any) => {
     const attribute = Array.isArray(row.attributes) ? row.attributes[0] : row.attributes;
@@ -284,12 +306,15 @@ export async function fetchProductsForReconciliationWithClient(
 export async function fetchProductReconciliationSelectionWithClient(
   client: any,
   isWeightCharacteristicName: (name: string) => boolean,
-  filters: ReconciliationFilterState = {}
+  filters: ReconciliationFilterState = {},
+  signal?: AbortSignal
 ): Promise<ReconciliationBatchSelectionItem[]> {
+  throwIfAborted(signal);
   const values = reconciliationQueryFormSchema.parse({ page: 1, pageSize: 15, filters });
   const selectedFilters = values.filters;
-  const requiredCategoryAttrs = await fetchRequiredCategoryAttributesWithClient(client, isWeightCharacteristicName);
-  const variationSkuParentIds = await fetchVariationSkuParentIds(client, selectedFilters.search);
+  const requiredCategoryAttrs = await fetchRequiredCategoryAttributesWithClient(client, isWeightCharacteristicName, signal);
+  throwIfAborted(signal);
+  const variationSkuParentIds = await fetchVariationSkuParentIds(client, selectedFilters.search, signal);
   const chunkSize = 500;
   const selectedProducts: ReconciliationBatchSelectionItem[] = [];
   const select = `
@@ -306,14 +331,17 @@ export async function fetchProductReconciliationSelectionWithClient(
   `;
 
   for (let offset = 0; ; offset += chunkSize) {
+    throwIfAborted(signal);
     const query = applyProductReconciliationSqlFilters(
-      client.from('products').select(select, { count: 'exact' }),
+      client.from('products').select(select),
       selectedFilters,
       variationSkuParentIds
     );
-    const { data, error } = await query
+    const paginatedQuery = query
       .order('id', { ascending: true })
       .range(offset, offset + chunkSize - 1);
+    const { data, error } = await withAbortSignal(paginatedQuery, signal);
+    throwIfAborted(signal);
     if (error) throw error;
     if (!Array.isArray(data) || data.length === 0) break;
 

@@ -14,8 +14,6 @@ import {
   mobileReceiptFormSchema,
   receiptDraftFormSchema,
 } from '../../../../../../shared-utils/receiptFormSchemas';
-import { matchesSearchText } from '../../../../../../shared-utils/core/searchText';
-import { supplierProvidesStockOrigin } from '../../../../../../shared-utils/productSupplierStockOrigin';
 import { flattenFormErrors, useZodForm } from '../../../../hooks/useZodForm';
 import { generateUUID } from '../../../../services/offline/offlineStorageService';
 import { getLocalDateString } from '../../../../utils/orderUtils';
@@ -24,6 +22,7 @@ import { InventoryProductSearchModal } from '../../inventory/components/Inventor
 import type { SearchableProduct } from '../../inventory/components/InventoryProductSearchModal';
 import { useMobilePurchaseAttachments } from '../../purchases/hooks/useMobilePurchaseAttachments';
 import { PurchaseSupplierPickerModal } from '../../purchases/modals/purchase-form/PurchaseSupplierPickerModal';
+import { fetchMobileReceiptSupplierPickerPage } from '../../../products/services/products/mobileSupplierService';
 import { TransactionDatePickerModal } from '../../../finance/components/transaction-date/TransactionDatePickerModal';
 import type { Invoice } from '../../types/stock.types';
 import {
@@ -87,6 +86,14 @@ export const NewGoodsReceiptModal: React.FC<Props> = ({
   const [suppliers, setSuppliers] = useState<GoodsReceiptSupplierOption[]>([]);
   const [suppliersLoaded, setSuppliersLoaded] = useState(false);
   const [loadingSuppliers, setLoadingSuppliers] = useState(false);
+  const [receiptSupplierResults, setReceiptSupplierResults] = useState<GoodsReceiptSupplierOption[]>([]);
+  const [receiptSupplierPickerLoading, setReceiptSupplierPickerLoading] = useState(false);
+  const [receiptSupplierPickerLoadingMore, setReceiptSupplierPickerLoadingMore] = useState(false);
+  const [receiptSupplierError, setReceiptSupplierError] = useState('');
+  const [receiptSupplierResultsOffline, setReceiptSupplierResultsOffline] = useState(false);
+  const [receiptSupplierHasMore, setReceiptSupplierHasMore] = useState(false);
+  const [receiptSupplierPage, setReceiptSupplierPage] = useState(0);
+  const [receiptSupplierRetry, setReceiptSupplierRetry] = useState(0);
   const [supplierId, setSupplierId] = useState('');
   const [supplierSearch, setSupplierSearch] = useState('');
   const [supplierPickerOpen, setSupplierPickerOpen] = useState(false);
@@ -120,6 +127,9 @@ export const NewGoodsReceiptModal: React.FC<Props> = ({
   const draftErrorShownRef = useRef(false);
   const persistDraftRef = useRef<(force?: boolean) => Promise<boolean>>(async () => true);
   const supplierLoadRequestRef = useRef(0);
+  const supplierSearchRevisionRef = useRef(0);
+  const supplierSearchControllerRef = useRef<AbortController | null>(null);
+  const supplierPickerLoadingMoreRef = useRef(false);
   const nonFiscalFreightValue = parseRateioInputValue(nonFiscalFreightInput);
   const nonFiscalOtherExpensesValue = parseRateioInputValue(nonFiscalOtherExpensesInput);
   const isInvoiceLinkedReceipt = origin.kind === 'invoice' || Boolean(origin.fiscalKey);
@@ -207,7 +217,6 @@ export const NewGoodsReceiptModal: React.FC<Props> = ({
   }, [supplierLocked]);
 
   const {
-    loadSupplierOptions,
     openSupplierPicker,
     applyOrigin,
     selectPurchase,
@@ -273,14 +282,142 @@ export const NewGoodsReceiptModal: React.FC<Props> = ({
     supplierLoadRequestRef,
   });
 
-  const filteredSuppliers = useMemo(() => {
-    const query = supplierSearch.trim().toLocaleLowerCase('pt-BR');
-    return suppliers.filter(
-      (supplier) =>
-        supplierProvidesStockOrigin(supplier.stock_origins, 'normal') &&
-        matchesSearchText(supplier.name, query),
-    );
-  }, [supplierSearch, suppliers]);
+  useEffect(() => {
+    if (!supplierPickerOpen) {
+      supplierSearchRevisionRef.current += 1;
+      supplierPickerLoadingMoreRef.current = false;
+      supplierSearchControllerRef.current?.abort();
+      setReceiptSupplierPickerLoading(false);
+      setReceiptSupplierPickerLoadingMore(false);
+      return;
+    }
+
+    supplierSearchControllerRef.current?.abort();
+    const controller = new AbortController();
+    supplierSearchControllerRef.current = controller;
+    const requestId = ++supplierSearchRevisionRef.current;
+    let active = true;
+    supplierPickerLoadingMoreRef.current = false;
+
+    setReceiptSupplierPickerLoading(true);
+    setReceiptSupplierPickerLoadingMore(false);
+    setReceiptSupplierResults([]);
+    setReceiptSupplierResultsOffline(false);
+    setReceiptSupplierHasMore(false);
+    setReceiptSupplierPage(0);
+    setReceiptSupplierError('');
+
+    const search = supplierSearch.trim();
+    const timer = setTimeout(() => {
+      void (async () => {
+        try {
+          const result = await fetchMobileReceiptSupplierPickerPage(search, 0, {
+            signal: controller.signal,
+          });
+          if (!active || requestId !== supplierSearchRevisionRef.current) return;
+          if (result.ok) {
+            setReceiptSupplierResults(result.suppliers);
+            setReceiptSupplierResultsOffline(result.source === 'offline');
+            setReceiptSupplierHasMore(result.hasMore);
+            setReceiptSupplierPage(0);
+            setReceiptSupplierError('');
+          } else {
+            setReceiptSupplierResults([]);
+            setReceiptSupplierError(result.errorMessage);
+          }
+        } catch {
+          if (active && requestId === supplierSearchRevisionRef.current) {
+            setReceiptSupplierResults([]);
+            setReceiptSupplierError('Não foi possível carregar os fornecedores. Tente novamente.');
+          }
+        } finally {
+          if (active && requestId === supplierSearchRevisionRef.current) {
+            setReceiptSupplierPickerLoading(false);
+          }
+        }
+      })();
+    }, search ? 300 : 0);
+
+    return () => {
+      active = false;
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [supplierPickerOpen, supplierSearch, receiptSupplierRetry]);
+
+  useEffect(() => {
+    if (!supplierPickerOpen) return;
+    let wasConnected = connectivityService.connected;
+    return connectivityService.subscribe((connected) => {
+      if (!wasConnected && connected) {
+        setReceiptSupplierRetry((current) => current + 1);
+      }
+      wasConnected = connected;
+    });
+  }, [supplierPickerOpen]);
+
+  const loadMoreReceiptSupplierResults = useCallback(async () => {
+    if (
+      !supplierPickerOpen ||
+      !receiptSupplierHasMore ||
+      receiptSupplierPickerLoading ||
+      receiptSupplierPickerLoadingMore ||
+      supplierPickerLoadingMoreRef.current
+    ) {
+      return;
+    }
+
+    const requestId = supplierSearchRevisionRef.current;
+    const nextPage = receiptSupplierPage + 1;
+    const controller = new AbortController();
+    supplierSearchControllerRef.current?.abort();
+    supplierSearchControllerRef.current = controller;
+    supplierPickerLoadingMoreRef.current = true;
+    setReceiptSupplierPickerLoadingMore(true);
+
+    try {
+      const result = await fetchMobileReceiptSupplierPickerPage(
+        supplierSearch.trim(),
+        nextPage,
+        { signal: controller.signal },
+      );
+      if (requestId !== supplierSearchRevisionRef.current || !supplierPickerOpen) return;
+      if (!result.ok) {
+        setReceiptSupplierError(result.errorMessage);
+        return;
+      }
+
+      setReceiptSupplierResults((current) => {
+        const seen = new Set(current.map((supplier) => supplier.id));
+        return [
+          ...current,
+          ...result.suppliers.filter((supplier) => !seen.has(supplier.id)),
+        ];
+      });
+      setReceiptSupplierResultsOffline(result.source === 'offline');
+      setReceiptSupplierHasMore(result.hasMore);
+      setReceiptSupplierPage(nextPage);
+      setReceiptSupplierError('');
+    } catch {
+      if (requestId === supplierSearchRevisionRef.current && supplierPickerOpen) {
+        setReceiptSupplierError('Não foi possível carregar os fornecedores. Tente novamente.');
+      }
+    } finally {
+      if (requestId === supplierSearchRevisionRef.current) {
+        supplierPickerLoadingMoreRef.current = false;
+        setReceiptSupplierPickerLoadingMore(false);
+      }
+    }
+  }, [
+    receiptSupplierHasMore,
+    receiptSupplierPage,
+    receiptSupplierPickerLoading,
+    receiptSupplierPickerLoadingMore,
+    supplierPickerOpen,
+    supplierSearch,
+  ]);
+
+  const filteredSuppliers = receiptSupplierResults;
 
   const searchReceiptProducts = useCallback(
     (query: string) => searchInventoryScopeProducts(query, supplierId || undefined),
@@ -565,11 +702,33 @@ export const NewGoodsReceiptModal: React.FC<Props> = ({
         supplierSearch={supplierSearch}
         setSupplierSearch={setSupplierSearch}
         filteredSuppliers={filteredSuppliers}
-        loading={loadingSuppliers}
-        errorMessage={supplierLoadError}
-        offlineResults={false}
-        onRetry={() => void loadSupplierOptions()}
+        loading={receiptSupplierPickerLoading}
+        errorMessage={receiptSupplierError}
+        offlineResults={receiptSupplierResultsOffline}
+        hasMore={receiptSupplierHasMore}
+        loadingMore={receiptSupplierPickerLoadingMore}
+        onLoadMore={() => void loadMoreReceiptSupplierResults()}
+        preserveResultsOnError
+        onRetry={() => {
+          if (receiptSupplierResults.length) {
+            void loadMoreReceiptSupplierResults();
+          } else {
+            setReceiptSupplierRetry((current) => current + 1);
+          }
+        }}
         onSelectSupplier={(supplier) => {
+          setSuppliers((current) => {
+            const selected = {
+              id: supplier.id,
+              name: supplier.name,
+              full_name: supplier.full_name,
+              nickname: supplier.nickname,
+              social_name: supplier.social_name,
+            };
+            const existingIndex = current.findIndex((item) => item.id === supplier.id);
+            if (existingIndex < 0) return [...current, selected];
+            return current.map((item, index) => index === existingIndex ? { ...item, ...selected } : item);
+          });
           if (isEditingReceipt && supplier.id !== supplierId) {
             setItems([]);
             setOrigin((current) => ({

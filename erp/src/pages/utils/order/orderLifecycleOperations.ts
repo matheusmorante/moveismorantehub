@@ -13,7 +13,7 @@ export const moveToTrash = async (
   try {
     await updateOrderFn(id, {
       deleted: true,
-      deletedAt: new Date().toLocaleString('pt-BR'),
+      deletedAt: new Date().toISOString(),
     } as any);
   } catch (error) {
     console.error('Erro ao mover para lixeira: ', error);

@@ -8,6 +8,8 @@ import {
   ScrollView,
   StyleSheet,
   ActivityIndicator,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
 } from 'react-native';
 import { X } from 'lucide-react-native';
 import type { Supplier } from '../../hooks/usePurchaseForm';
@@ -29,6 +31,10 @@ interface PurchaseSupplierPickerModalProps {
   loading: boolean;
   errorMessage: string;
   offlineResults: boolean;
+  hasMore?: boolean;
+  loadingMore?: boolean;
+  onLoadMore?: () => void;
+  preserveResultsOnError?: boolean;
   onRetry: () => void;
   onSelectSupplier: (supplier: Supplier) => void;
   colors: ThemeColors;
@@ -46,10 +52,22 @@ export const PurchaseSupplierPickerModal: React.FC<PurchaseSupplierPickerModalPr
   loading,
   errorMessage,
   offlineResults,
+  hasMore = false,
+  loadingMore = false,
+  onLoadMore,
+  preserveResultsOnError = false,
   onRetry,
   onSelectSupplier,
   colors,
 }) => {
+  const handleMomentumScrollEnd = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    if (!hasMore || !onLoadMore) return;
+    const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+    if (contentOffset.y + layoutMeasurement.height >= contentSize.height - 72) {
+      onLoadMore();
+    }
+  };
+
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
       <View style={[styles.flex, { backgroundColor: colors.bg }]}>
@@ -75,7 +93,11 @@ export const PurchaseSupplierPickerModal: React.FC<PurchaseSupplierPickerModalPr
             },
           ]}
         />
-        <ScrollView contentContainerStyle={{ padding: 16, gap: 8 }}>
+        <ScrollView
+          contentContainerStyle={{ padding: 16, gap: 8 }}
+          onScrollEndDrag={handleMomentumScrollEnd}
+          onMomentumScrollEnd={handleMomentumScrollEnd}
+        >
           {offlineResults ? (
             <Text style={[styles.offlineNotice, { color: colors.muted }]}>
               Resultados salvos neste aparelho. Podem estar desatualizados; serão conferidos ao reconectar.
@@ -86,7 +108,7 @@ export const PurchaseSupplierPickerModal: React.FC<PurchaseSupplierPickerModalPr
               <ActivityIndicator color={colors.muted} />
               <Text style={{ color: colors.muted }}>Carregando fornecedores...</Text>
             </View>
-          ) : errorMessage ? (
+          ) : errorMessage && (!preserveResultsOnError || !filteredSuppliers.length) ? (
             <View style={styles.statusContainer}>
               <Text style={{ color: colors.muted, textAlign: 'center' }}>{errorMessage}</Text>
               <TouchableOpacity accessibilityRole="button" onPress={onRetry}>
@@ -109,6 +131,20 @@ export const PurchaseSupplierPickerModal: React.FC<PurchaseSupplierPickerModalPr
           ) : (
             <Text style={[styles.statusText, { color: colors.muted }]}>Nenhum fornecedor encontrado.</Text>
           )}
+          {preserveResultsOnError && errorMessage && filteredSuppliers.length ? (
+            <View style={styles.statusContainer}>
+              <Text style={{ color: colors.muted, textAlign: 'center' }}>{errorMessage}</Text>
+              <TouchableOpacity accessibilityRole="button" onPress={onRetry}>
+                <Text style={{ color: colors.text, fontWeight: '800' }}>Tentar novamente</Text>
+              </TouchableOpacity>
+            </View>
+          ) : null}
+          {loadingMore ? (
+            <View style={styles.statusContainer}>
+              <ActivityIndicator color={colors.muted} />
+              <Text style={{ color: colors.muted }}>Carregando mais fornecedores...</Text>
+            </View>
+          ) : null}
         </ScrollView>
       </View>
     </Modal>

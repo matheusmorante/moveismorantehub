@@ -99,6 +99,18 @@ describe('OrderCardAndMenuActions', () => {
     expect(screen.getByText('Editar Venda')).toBeTruthy();
   });
 
+  it('oferece excluir assistência atendida no menu de três pontinhos', () => {
+    const order = { ...baseOrder, orderType: 'assistance', status: 'fulfilled' } as any;
+    const props = { order, onEdit: vi.fn(), onDelete: vi.fn(), onRestore: vi.fn(), onPermanentDelete: vi.fn(), onAction: vi.fn(), onStatusUpdate: vi.fn() };
+    render(<OrderOptionsMenu {...props} />);
+
+    fireEvent.click(screen.getByTitle('Mais ações e opções de envio'));
+    fireEvent.click(screen.getByRole('button', { name: 'Excluir Assistência', exact: true }));
+
+    expect(props.onDelete).toHaveBeenCalledWith(order.id, order);
+    expect(document.querySelector('.portal-menu-container')).toBeNull();
+  });
+
   it('abre o menu sem enviar o formulário que contém o card', () => {
     const onSubmit = vi.fn((event: React.FormEvent) => event.preventDefault());
     render(

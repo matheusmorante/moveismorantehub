@@ -9,12 +9,11 @@ export type ReconciliationSupplierOption = {
   id: string;
   fullName: string;
   tradeName?: string;
-  cpfCnpj?: string;
 };
 
 type SupplierSearchResponse = { data: unknown; error: unknown } | null;
 
-/** Shared supplier lookup used by the ERP card and the mobile reconciliation editor. */
+/** Supplier lookup shared by the ERP product reconciliation card and modal. */
 export async function searchReconciliationSuppliersWithClient(
   client: any,
   search: string
@@ -23,7 +22,7 @@ export async function searchReconciliationSuppliersWithClient(
   const result = await withTimeout<SupplierSearchResponse>(
     client
       .from('people')
-      .select('id, full_name, social_name, nickname, cpf_cnpj')
+      .select('id, full_name, social_name, nickname')
       .or(buildPostgrestAccentInsensitiveOrFilter(['full_name', 'social_name'], values.search))
       .or('person_type.ilike.suppliers,person_type.ilike.supplier')
       .eq('deleted', false)
@@ -46,6 +45,5 @@ export async function searchReconciliationSuppliersWithClient(
     id: person.id,
     fullName: person.full_name || '',
     tradeName: person.social_name || person.nickname || '',
-    cpfCnpj: person.cpf_cnpj || '',
   }));
 }

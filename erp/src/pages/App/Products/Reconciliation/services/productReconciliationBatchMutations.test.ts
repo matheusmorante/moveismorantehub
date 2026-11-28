@@ -9,6 +9,9 @@ const ids = {
 const createClient = (responses: Array<{ data: unknown; error: unknown }>) => {
   const queries: Array<{ table: string; calls: unknown[][] }> = [];
   const client = {
+    rpc: vi.fn((_name: string, _args: Record<string, unknown>) =>
+      Promise.resolve(responses.shift() ?? { data: null, error: null })
+    ),
     from: vi.fn((table: string) => {
       const query = { table, calls: [] as unknown[][] };
       queries.push(query);
@@ -34,50 +37,50 @@ describe('mutações em lote da conciliação de produtos', () => {
   beforeEach(() => vi.clearAllMocks());
 
   it('preserva os outros campos fiscais ao aplicar NCM em lote', async () => {
-    const { client, queries } = createClient([
-      { data: { fiscal: { csosn: '102', cest: '1234567' } }, error: null },
-      { data: [{ id: ids.product }], error: null },
-    ]);
+    const { client, queries } = createClient([{ data: 1, error: null }]);
 
     await expect(applyProductReconciliationBatchWithClient(client, {
       operation: 'ncm', productIds: [ids.product], ncm: '9403.50.00',
     })).resolves.toEqual({ success: true, updated: 1 });
 
-    expect(queries[0].calls).toContainEqual(['select', 'fiscal']);
-    expect(queries[1].calls).toContainEqual(['update', {
-      fiscal: { csosn: '102', cest: '1234567', ncm: '94035000' },
-    }]);
+    expect(client.rpc).toHaveBeenCalledWith('apply_product_reconciliation_ncm_batch', {
+      p_product_ids: [ids.product],
+      p_ncm: '94035000',
+    });
+    expect(client.from).not.toHaveBeenCalled();
+    expect(queries).toEqual([]);
   });
 
   it('confirma os produtos e recria os vínculos ao aplicar categoria em lote', async () => {
     const categoryId = '33333333-3333-4333-8333-333333333333';
-    const { client, queries } = createClient([
-      { data: [{ id: ids.product }], error: null },
-      { data: null, error: null },
-      { data: null, error: null },
-    ]);
+    const { client, queries } = createClient([{ data: 1, error: null }]);
 
     await expect(applyProductReconciliationBatchWithClient(client, {
       operation: 'category', productIds: [ids.product], categoryId,
     })).resolves.toEqual({ success: true, updated: 1 });
 
-    expect(queries.map(({ table }) => table)).toEqual(['products', 'product_categories', 'product_categories']);
-    expect(queries[2].calls).toContainEqual(['insert', [{ product_id: ids.product, category_id: categoryId }]]);
+    expect(client.rpc).toHaveBeenCalledWith('apply_product_reconciliation_category_batch', {
+      p_product_ids: [ids.product],
+      p_category_id: categoryId,
+    });
+    expect(client.from).not.toHaveBeenCalled();
+    expect(queries).toEqual([]);
   });
 
-  it('preserva metadados existentes ao atualizar atributos de todas as variações do lote', async () => {
-    const { client, queries } = createClient([
-      { data: [{ id: ids.variation, product_id: ids.product, attributes: [{ name: 'Cor', value: 'Azul', showName: false, legacyOrigin: 'ERP' }] }], error: null },
-      { data: [{ id: ids.variation }], error: null },
-    ]);
+  it('encaminha a atualização de atributos para a operação transacional do banco', async () => {
+    const { client, queries } = createClient([{ data: 1, error: null }]);
 
     await expect(applyProductReconciliationBatchWithClient(client, {
-      operation: 'attribute', productIds: [ids.product], name: 'Cor', value: 'Verde',
+      operation: 'attribute', productIds: [ids.product], name: ' Cor ', value: ' Verde ',
     })).resolves.toEqual({ success: true, updated: 1 });
 
-    expect(queries[1].calls).toContainEqual(['update', {
-      attributes: [{ name: 'Cor', value: 'Verde', showName: false, legacyOrigin: 'ERP' }],
-    }]);
+    expect(client.rpc).toHaveBeenCalledWith('apply_product_reconciliation_attribute_batch', {
+      p_product_ids: [ids.product],
+      p_name: 'Cor',
+      p_value: 'Verde',
+    });
+    expect(client.from).not.toHaveBeenCalled();
+    expect(queries).toEqual([]);
   });
 
   it('impede a mutação quando a seleção contém produtos repetidos', async () => {

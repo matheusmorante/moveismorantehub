@@ -3,7 +3,6 @@ import React from 'react';
 interface AssistanceActionsProps {
   onClose: () => void;
   isLoading: boolean;
-  isEditing: boolean;
   currentStep: number;
   totalSteps: number;
   onPrevious: () => void;
@@ -16,7 +15,6 @@ interface AssistanceActionsProps {
 const AssistanceActions: React.FC<AssistanceActionsProps> = ({
   onClose,
   isLoading,
-  isEditing,
   currentStep,
   totalSteps,
   onPrevious,
@@ -52,7 +50,10 @@ const AssistanceActions: React.FC<AssistanceActionsProps> = ({
     {!isLastStep ? (
       <button
         type="button"
-        onClick={onNext}
+        onClick={(event) => {
+          event.preventDefault();
+          onNext();
+        }}
         disabled={navigationDisabled}
         className="flex-1 py-3 rounded-xl bg-blue-600 text-[10px] font-black uppercase tracking-widest text-white shadow-lg shadow-blue-500/20 transition-all hover:bg-blue-700 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 sm:flex-none sm:px-7"
       >
@@ -62,14 +63,14 @@ const AssistanceActions: React.FC<AssistanceActionsProps> = ({
       <button
         type="submit"
         disabled={isLoading || saveBlocked}
-        className="flex-1 py-3 rounded-xl bg-amber-500 text-[10px] font-black uppercase tracking-widest text-white shadow-lg shadow-amber-200 transition-all hover:bg-amber-600 active:scale-95 disabled:opacity-50 dark:shadow-amber-900/30 sm:flex-none sm:px-7"
+        className="flex-1 py-3 rounded-xl bg-emerald-600 text-[10px] font-black uppercase tracking-widest text-white shadow-lg shadow-emerald-500/20 transition-all hover:bg-emerald-700 active:scale-95 disabled:opacity-50 dark:shadow-emerald-900/30 sm:flex-none sm:px-7"
       >
         {isLoading ? (
           <i className="bi bi-hourglass-split animate-spin mr-2" />
         ) : (
           <i className="bi bi-check-lg mr-2" />
         )}
-        {isLoading ? 'Salvando...' : isEditing ? 'Atualizar Assistência' : 'Finalizar Assistência'}
+        {isLoading ? 'Salvando...' : 'Finalizar'}
       </button>
     )}
     </div>

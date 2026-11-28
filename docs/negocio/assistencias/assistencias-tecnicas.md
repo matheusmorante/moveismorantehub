@@ -18,6 +18,8 @@ O formulário apresenta os mesmos campos em três etapas: **Cliente** (incluindo
 
 Cada assistência representa **uma única operação: a própria assistência**. O agendamento e os cartões identificam essa operação como Assistência, sem dividir a assistência conforme as entregas/retiradas da venda original vinculada.
 
+Assistências com status **Agendado** passam automaticamente para **Atendido** depois que termina a data agendada, na virada para o dia seguinte, mesmo quando há horário definido. Em uma faixa de datas, vale o último dia. Essa mudança atualiza o status, mas não confirma fisicamente a execução do serviço nem aplica a baixa automática de estoque da venda; movimentações seguem o fluxo próprio da assistência.
+
 Após o cadastro, o menu chama-se **Ações necessárias**. Ele permite compartilhar os dados da assistência e imprimir ou enviar a Ordem de Serviço. Assistências não oferecem botão de recibo nem emissão de nota fiscal.
 
 Na Ordem de Serviço impressa, os itens selecionados como alvo aparecem na área **Logística da Assistência**, junto à data e ao horário. O papel não contém tabela de itens nem seção de peças ou materiais extras.

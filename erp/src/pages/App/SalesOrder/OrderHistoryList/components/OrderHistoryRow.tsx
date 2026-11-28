@@ -230,15 +230,6 @@ const OrderHistoryRow = ({
                     <i className="bi bi-link-45deg" />
                     Pedido #{order.linkedOrderCode || formatOrderCode(order)}
                   </button>
-                  {order.orderType === 'assistance' && (
-                    <span
-                      className="inline-flex items-center gap-1 rounded border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wider text-amber-700 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-300"
-                      title="Operação: assistência"
-                    >
-                      <i className="bi bi-tools" aria-hidden="true" />
-                      Assistência
-                    </span>
-                  )}
                 </div>
               )}
             </div>
@@ -271,6 +262,15 @@ const OrderHistoryRow = ({
             <div className="relative flex min-w-0 flex-col items-start gap-1.5">
               {order.orderType === 'sale' ? (
                 <OrderScheduleSummary order={order} showLabel={false} layout="table" className="w-full" statusConfig={statusConfig} />
+              ) : order.orderType === 'assistance' ? (
+                <OrderScheduleSummary
+                  order={order}
+                  showLabel={false}
+                  layout="table"
+                  className="w-full"
+                  legacyTimeDisplay={timeDisplay}
+                  statusConfig={statusConfig}
+                />
               ) : (
                 <div className="flex min-w-0 flex-col gap-0.5">
                   <span

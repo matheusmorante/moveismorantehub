@@ -9,6 +9,7 @@ export const userDocumentation: DocumentationSection[] = [
     rules: [
       'Use Rascunho apenas enquanto preenche. Ao cadastrar um pedido válido, ele passa a Agendado.',
       'Pedido Agendado, Entregue ou Retirado pode ser editado. Se item ou quantidade mudar, confirme o resumo antes de salvar para ajustar somente a movimentação daquele item.',
+      'A retirada imediata é concluída no horário atual registrado. Nas demais operações, se não houver confirmação manual, o pedido é concluído à meia-noite do dia seguinte à última data agendada, mesmo que exista horário definido; a lista mostra Entregue ou Retirado conforme a forma da operação.',
       'Cancelamento é definitivo: estorna as saídas e exige a criação de outro pedido caso a venda precise ser refeita.',
       'Devolução vinculada nasce de venda Entregue ou Retirada. Na tela Devoluções, use Nova Devolução avulsa para registrar cliente e itens sem relacionar uma venda.',
     ],
@@ -93,6 +94,7 @@ export const userDocumentation: DocumentationSection[] = [
       'Pedidos agendados cancelados estornam automaticamente os movimentos de estoque e exibem destaque visual escurecido na listagem.',
       'Utilize a Conciliação Comercial para associar produtos cadastrados a vendas que continham itens temporários para efeito de métricas analíticas.',
       'Pedidos agendados para entrega ou retirada passam automaticamente para atendido à meia-noite do dia seguinte à data agendada, com atualização transacional do estoque.',
+      'Assistências agendadas passam para Atendido depois que termina a data marcada, na virada para o dia seguinte, mesmo quando há horário definido; isso altera o status, sem confirmar fisicamente a execução do serviço.',
     ],
     flow: [
       { title: 'Auditar Pedidos', detail: 'Confira vendas agendadas, canceladas e atendidas.' },
