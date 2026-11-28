@@ -93,6 +93,10 @@ export const OrderCardScheduleSection: React.FC<OrderCardScheduleSectionProps> =
   const statusKey = STATUS_KEY_MAP[orderStatus] || orderStatus;
   const appointmentStatusConfig = getStatusConfig(statusKey);
   const statusFallback = STATUS_FALLBACK_LABELS[statusKey] || statusKey;
+  const appointmentStatusLabel = getOrderStatusLabel(
+    { ...order, ...data, status: statusKey },
+    statusFallback
+  );
 
   const fallbackSchedule = {
     date: scheduleDate,
@@ -261,6 +265,21 @@ export const OrderCardScheduleSection: React.FC<OrderCardScheduleSectionProps> =
             <Text style={styles.label}>
               {isReturn ? 'COLETA' : isAssistance ? 'ASSISTÊNCIA' : pickup ? 'RETIRADA' : 'ENTREGA'}
             </Text>
+            {isAssistance && (
+              <View
+                style={[
+                  styles.appointmentStatusBadge,
+                  {
+                    backgroundColor: appointmentStatusConfig.bg,
+                    borderColor: appointmentStatusConfig.border,
+                  },
+                ]}
+                accessibilityLabel={`Status: ${appointmentStatusLabel}`}
+              >
+                {renderAppointmentStatusIcon(appointmentStatusConfig.icon)}
+                <Text style={styles.appointmentStatusText}>{appointmentStatusLabel}</Text>
+              </View>
+            )}
             <Text
               style={[
                 styles.date,

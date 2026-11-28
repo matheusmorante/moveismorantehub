@@ -1,6 +1,6 @@
 # Auditoria contínua de consumo e desempenho do Supabase
 
-Este diretório guarda os diagnósticos incrementais, propostas, decisões e métricas da auditoria do MoranteHub. A automação está ativa e executa a cada 15 minutos no projeto local do Codex. Avisos automáticos são limitados a falhas de execução para evitar alertas repetidos; achados e pedidos de aprovação ficam nos arquivos e no resultado de cada execução.
+Este diretório guarda os diagnósticos incrementais, propostas, decisões e métricas da auditoria do MoranteHub. A automação está ativa e executa a cada hora no projeto local do Codex desde 28/11/2026. Avisos automáticos são limitados a falhas de execução para evitar alertas repetidos; achados e pedidos de aprovação ficam nos arquivos e no resultado de cada execução.
 
 Desde 27/11/2026, o foco da automação é exclusivamente identificar as origens de Log Query e Log Ingestion. Otimizações gerais ficam suspensas enquanto a causa raiz permanecer desconhecida. Consulte os registros [Log Query](causa-raiz-log-query.md), [Log Ingestion](causa-raiz-log-ingestion.md), [linha do tempo](linha-do-tempo-consumo.md) e [experimentos propostos](experimentos-isolamento.md).
 

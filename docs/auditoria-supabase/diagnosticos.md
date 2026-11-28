@@ -137,28 +137,28 @@
 
 - **Data e estado.** 27/11/2026; fontes acessíveis parcialmente investigadas, sem atribuição de consumidor.
 - **Origem e métrica suspeitas.** Dashboard, CLI, Management API, MCP adicional, monitoramento ou serviço externo; Log Query.
-- **Evidências favoráveis.** Essas interfaces podem ler logs. O changelog Supabase informa que o CLI v3 recebeu um explorador de logs em 10/11, disponível antes de 25/11. A Management API tem endpoint de configuração PostgREST; a ferramenta MCP conectada não o expõe.
-- **Evidências contrárias e limites.** Busca local não encontrou script `supabase logs`; o executável `supabase` não está no PATH. O histórico Platform Audit Logs está disponível apenas em Team/Enterprise; MoranteHub é Free. Nenhuma sessão Dashboard/CLI/Management API externa ou execução da automação Egress foi atribuída.
+- **Evidências favoráveis.** Essas interfaces podem ler logs. O changelog Supabase informa que o CLI v3 recebeu um explorador de logs em 10/11, disponível antes de 25/11. A Management API tem endpoint de configuração PostgREST; a ferramenta MCP conectada não o expõe. Em 28/11, o schema Vercel expôs `vercel.external_api_request.count`, com dimensões de hostname e rota de origem.
+- **Evidências contrárias e limites.** Busca local não encontrou script `supabase logs`; o executável `supabase` não está no PATH. Platform Audit Logs só está disponível em Team/Enterprise; MoranteHub é Free. As consultas Vercel para 05/11 e 25/11 foram rejeitadas porque a equipe está no plano Hobby e não tem Observability Plus. Nenhuma sessão Dashboard/CLI/Management API externa ou execução da automação Egress foi atribuída.
 - **Frequência e volume.** Desconhecidos e não medidos.
-- **Confiança e próximo passo.** A lacuna do Platform Audit Logs é confirmada pelo plano. O endpoint de configuração PostgREST é documentado, mas não está disponível no conector atual. Não repetir pedidos de acesso. Usar uma consulta de logs inédita e estreita apenas se outra hipótese concreta depender dela, nos limites autorizados pelo operador.
+- **Confiança e próximo passo.** A lacuna de telemetria Vercel e Platform Audit Logs está confirmada pelos planos atuais. O endpoint de configuração PostgREST é documentado, mas não está disponível no conector atual. Não repetir pedidos de acesso nem mudar de plano. Usar uma consulta de logs inédita e estreita apenas se outra hipótese concreta depender dela, nos limites autorizados pelo operador.
 
 ## SUP-015 — Logs de Edge Functions podem contribuir para Log Ingestion
 
-- **Data e estado.** 27/11/2026; em investigação.
+- **Data e estado.** Atualizado em 28/11/2026; em investigação.
 - **Origem e métrica suspeitas.** Chamadas console.* em funções serverless Supabase; Log Ingestion.
 - **Evidências favoráveis.** Busca estática encontrou logging explícito em 6 de 18 arquivos TypeScript sob supabase/functions. analyze-inbound-invoice e sefaz-inbound-sync registram mensagens de início/conclusão por invocação.
-- **Evidências contrárias e limites.** Nenhuma contagem de invocações, bytes por função ou correlação com Usage está disponível. Presença de console.* não prova execução ou volume dominante.
+- **Evidências contrárias e limites.** A amostra de 28/11 09:02–09:17 BRT não retornou `function_edge_logs` nem `function_logs`; essa janela não informa a frequência histórica de invocações nem exclui logs em outros intervalos. Nenhuma correlação com Usage oficial está disponível. Presença de console.* não prova execução ou volume dominante.
 - **Frequência e volume.** Não medidos.
-- **Confiança e próximo passo.** Baixa. O histórico de sessões e frequência de invocações ainda não está disponível. Se uma hipótese concreta depender de uma agregação por fonte, usar a autorização vigente: uma consulta inédita de até 15 minutos por execução, com limites explícitos. Não reduzir logging.
+- **Confiança e próximo passo.** Baixa. Frequência de invocações e bytes por função continuam desconhecidos. Não reduzir logging com base nesta amostra.
 
-## SUP-016 — Logs de outros serviços Supabase sem bytes por fonte
+## SUP-016 — Logs do API Gateway lideraram texto de eventos numa janela recente
 
-- **Data e estado.** 27/11/2026; parcialmente investigado para o erro PostgREST relacionado a Data API desativada; demais fontes sem projeção por bytes.
-- **Origem e métrica suspeitas.** API gateway, Auth, Storage, Realtime, logs de conexão e outras fontes do projeto; Log Ingestion.
-- **Evidências favoráveis.** Esses serviços fazem parte das fontes agregadas no medidor oficial. O primeiro recorte de 26/11 tem contagens Postgres/PostgREST, sem projeção comparável em bytes para cada serviço. A documentação Supabase descreve mensagens PostgREST adicionais se a Data API estiver desativada sem encerrar PostgREST.
-- **Evidências contrárias.** A amostra de 15 minutos não encontrou o erro `pg_pgrst_no_exposed_schemas`. Não há no material disponível uma divisão oficial de bytes por serviço nem acesso a configuração externa.
-- **Frequência e volume.** Não medidos; contagens históricas de eventos não são bytes.
-- **Confiança e próximo passo.** Baixa. A role `authenticator` do MoranteHub não tem o override `pgrst.db_schemas` da correção, mas isso não comprova que a Data API esteja desativada ou que erros ocorram. Atribuir bytes por fonte exige um recorte de logs e uma medida Usage do mesmo escopo; a autorização vigente cobre uma consulta inédita e estreita se ela for indispensável. Não usar contagem de eventos como proxy de volume.
+- **Data e estado.** Atualizado em 28/11/2026; uma agregação recente separou texto de eventos por `source`, mas não mediu o contador oficial.
+- **Origem e métrica suspeitas.** API Gateway (`edge_logs`), Auth, PostgREST, Realtime, Storage e serviços de banco; Log Ingestion.
+- **Evidências favoráveis.** Na janela inédita de 28/11 09:02–09:17 BRT, `edge_logs` teve 217 eventos e 70.072 bytes de texto `event_message`, cerca de 85,0% dos 82.404 bytes retornados. O catálogo oficial define `edge_logs` como requisições HTTP pelo API Gateway, inclusive REST e GraphQL. A mesma agregação retornou Postgres, Auth, Auth Audit, PostgREST e Realtime.
+- **Evidências contrárias e limites.** Comprimento de `event_message` não equivale a bytes faturáveis; não inclui os demais campos/overhead e não prova recorrência. Não vieram `storage_logs`, `function_edge_logs`, `function_logs` ou fontes de pooler. A amostra de 27/11 não encontrou o erro `pg_pgrst_no_exposed_schemas`; não há evidência de que Data API esteja desativada.
+- **Frequência e volume.** Foram observados 217 eventos `edge_logs` e 61 `postgres_logs` em 15 minutos; a frequência em outros períodos e a contribuição ao Usage não foram medidas.
+- **Confiança e próximo passo.** Alta confiança de que `edge_logs` foi a maior fonte de texto de eventos nessa janela; baixa confiança de que isso represente o ciclo. Se necessário, o próximo recorte deve agrupar somente método e rota normalizada do API Gateway, removendo query string e identificadores, em janela inédita de até 15 minutos.
 
 ## SUP-017 — Chamadas SQL e migrations da auditoria podem gerar logs PostgreSQL
 
@@ -180,7 +180,8 @@
 
 - **Data e estado.** Código público presente no snapshot de 28/10/2026, localizado em 27/11. Mecanismo confirmado; atividade histórica no MoranteHub desconhecida.
 - **Mecanismo.** `useLogsPreview.tsx` define atualização periódica da consulta de contagem a cada 60 segundos, usando a hora em que a página abriu como início e o horário atual como fim. A equipe Supabase disse que leituras repetidas sem cache podem elevar Log Query. A janela crescente torna a tela aberta por tempo prolongado uma possível fonte de reexame dos mesmos dados. [Código do Studio no snapshot de 28/10](https://github.com/supabase/supabase/blob/da4a40e308/apps/studio/hooks/analytics/useLogsPreview.tsx) · [confirmação da equipe Supabase](https://github.com/orgs/supabase/discussions/50925).
-- **Limites e próximo passo.** Não há histórico de navegador ou sessão Dashboard para confirmar que a tela ficou aberta em 05/11 ou 25/11. O mecanismo não deve ser atribuído à conta sem essa evidência.
+- **Evidência de navegação local.** Em 28/11, a leitura somente de metadados de 6/7 bases History legíveis do Chrome e da única base History encontrada do Edge não achou visitas a URLs Supabase com `/logs` ou `/usage` entre 28/10 e 27/11 (BRT), incluindo 05/11 e 25/11. Uma base Chrome não pôde ser lida. Isso enfraquece a hipótese de navegação iniciada nos dias dos picos, mas não exclui aba aberta antes, outro perfil/navegador, webview do Codex, Management API ou CLI.
+- **Limites e próximo passo.** A abertura persistente da tela não está confirmada nem descartada; não atribuir esse mecanismo ao MoranteHub sem histórico que cubra a sessão ativa.
 
 ## SUP-020 — Diferença histórica sem evidência de deployment Vercel nos dias comparados
 

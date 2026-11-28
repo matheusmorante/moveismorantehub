@@ -194,7 +194,8 @@ const OrderHistoryRow = ({
     'totalValue',
     'actions',
   ];
-  const hasSaleScheduleRow = order.orderType === 'sale' &&
+  const hasScheduleStatusRow =
+    (order.orderType === 'sale' || order.orderType === 'assistance') &&
     rowColumnKeys.includes('deliveryDate') &&
     visibilitySettings.deliveryDate !== false &&
     Boolean(order.shipping?.scheduling);
@@ -348,7 +349,7 @@ const OrderHistoryRow = ({
                   order={order}
                   showTrash={showTrash}
                   showMethodBadge={order.orderType !== 'sale'}
-                  showStatusBadge={!hasSaleScheduleRow}
+                  showStatusBadge={!hasScheduleStatusRow}
                   isPaidTraffic={isPaidTraffic}
                   statusConfig={statusConfig}
                   onStatusUpdate={onStatusUpdate}

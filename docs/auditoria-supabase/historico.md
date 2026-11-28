@@ -1,5 +1,24 @@
 # Histórico
 
+## 28/11/2026 09:53 BRT — redução da cadência da auditoria
+
+- **Mudança e motivo:** a automação de investigação foi alterada de uma execução a cada 15 minutos para uma execução por hora. O painel Usage mostrado pelo operador informa atualização horária dos dados; a frequência anterior podia produzir até 96 execuções locais por dia sem tornar os medidores mais atuais. A nova frequência permite até 24 execuções por dia.
+- **Escopo e limite:** alteração somente na recorrência da automação local do Codex. Nenhum código do ERP/app, dado, configuração Supabase/Vercel, cron ou serviço foi alterado. A redução de execuções não equivale a uma redução comprovada de bytes de Log Query ou Log Ingestion; as consultas de logs recentes têm janelas registradas, mas não há medição dos bytes escaneados.
+- **Próxima verificação:** observar a próxima atualização do Usage e comparar janelas equivalentes. A mudança não atribui nem corrige retroativamente o pico de 05/11.
+
+## 28/11/2026 09:32 BRT — bloqueio de histórico de chamadas externas da Vercel
+
+- **Fonte e resultado:** o schema Vercel expõe `vercel.external_api_request.count` e dimensões de hostname/rota. Consultas somente leitura à janela BRT de 05/11 e à de 25/11 foram rejeitadas por exigir Observability Plus; a equipe está no plano Hobby. Não houve acesso a contagens e nenhum plano foi alterado.
+- **Consulta de logs:** uma tentativa única em `query_logs`, 28/11/2026 12:17–12:32 UTC (09:17–09:32 BRT), para agrupar rotas normalizadas em `edge_logs` foi rejeitada pelo parser SQL e não retornou dados. Não repetir essa janela; a próxima consulta, se indispensável, deve usar intervalo novo e expressão compatível com ClickHouse.
+- **Limites e próximo passo:** o histórico Vercel de chamadas externas permanece indisponível sem mudança paga. Não se fez novo pedido nem alteração. Continuar por uma fonte de leitura já acessível; a falha do `query_logs` não esclarece o tráfego ou o metering.
+
+## 28/11/2026 09:17 BRT — verificação de históricos locais e amostra de Log Ingestion
+
+- **Fontes e resultado:** metadados das bases History padrão do Chrome e Edge; Agendador do Windows; uma agregação Supabase `query_logs` na janela inédita 28/11/2026 12:02–12:17 UTC (09:02–09:17 BRT). Não houve visita local a URLs Supabase `/logs` ou `/usage` entre 28/10 e 27/11 nas bases legíveis (6/7 Chrome, 1/1 Edge). O log operacional do Agendador estava desativado e a lista atual não tinha tarefas nomeadas Codex/Supabase/Morante/Auditoria/Log Query/Log Ingestion. Isso não exclui uma aba previamente aberta, webview do Codex ou agendadores externos.
+- **Log Ingestion amostrado:** `edge_logs` (API Gateway REST/GraphQL) somou 217 eventos e 70.072 bytes de texto `event_message` (~85% do texto de todas as fontes retornadas); `postgres_logs` somou 61 eventos e 4.991 bytes, sem ocorrência da string `auto_explain`. A janela retornou também auth, PostgREST e Realtime; não retornou fontes de Edge Function. Esses comprimentos não são bytes oficiais de Log Ingest e não explicam o acumulado ou os picos históricos. Uma consulta de logs executada; sem payload bruto.
+- **Limites e preservação:** uma das sete bases Chrome não pôde ser lida; ausência de visita não prova ausência de aba ativa nem cobre outros navegadores/perfis, APIs, CLI, webviews ou automações externas. Não houve mudança de código, configuração, dados, cron, serviço, implantação, migration ou teste. Os resultados foram registrados em [causa raiz de Log Query](causa-raiz-log-query.md) e [causa raiz de Log Ingestion](causa-raiz-log-ingestion.md).
+- **Próximo recorte:** se uma leitura nova for necessária, agregar apenas rotas API Gateway normalizadas em janela inédita de até 15 minutos, removendo query strings e IDs; comparar apenas como amostra recente, sem inferir os dias 05/11 ou 25/11.
+
 ## 26/11/2026 — implementação de SUP-PROP-005 a SUP-PROP-008
 
 - O operador aprovou expressamente as quatro propostas. No ERP, `notificationService.ts` evita selecionar rascunhos se o resumo de produtos falhar. `useOrderHistory.ts` vincula a página à identidade do filtro e usa 15 pedidos por página. `orderHistoryQueryRetry.ts` encerra a tentativa automática para os erros dos validadores compartilhados de página e resumos, preservando as mensagens.

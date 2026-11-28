@@ -142,7 +142,7 @@ export const SalesOrderTopToolbar: React.FC<SalesOrderTopToolbarProps> = ({
           )}
 
           {/* Visualização Dropdown */}
-          {!isBudgetRoute && !isReturnRoute && !isSalesOrderRoute && (
+          {!isBudgetRoute && !isReturnRoute && !isSalesOrderRoute && !isAssistanceRoute && (
             <div className="relative hidden lg:block">
               <button
                 onClick={onToggleShowSettings}
@@ -205,7 +205,7 @@ export const SalesOrderTopToolbar: React.FC<SalesOrderTopToolbarProps> = ({
           )}
 
           {/* Filtros: exibidos antes da criação e alinhados à direita em telas menores */}
-          {showOrderFilters && !isBudgetRoute && (
+          {showOrderFilters && !isBudgetRoute && !isAssistanceRoute && (
             <button
               onClick={onToggleSidebar}
               className={`min-[1701px]:hidden flex items-center gap-1.5 px-3 py-2 rounded-xl transition-all shadow-sm font-bold text-[10px] uppercase tracking-widest border ${
